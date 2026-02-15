@@ -81,7 +81,7 @@ const ScriptUpload = () => {
     );
   }
 
-  const inputCls = "w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition";
+  const inputCls = "w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent transition";
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -98,7 +98,7 @@ const ScriptUpload = () => {
         <div className="flex gap-2 mb-5">
           {[1, 2, 3].map(s => (
             <button key={s} onClick={() => setStep(s)}
-              className={`flex-1 h-2 rounded-full transition ${step >= s ? "bg-indigo-600" : "bg-gray-200"}`} />
+              className={`flex-1 h-2 rounded-full transition ${step >= s ? "bg-[#0f2544]" : "bg-gray-200"}`} />
           ))}
         </div>
         <p className="text-xs text-gray-500 mb-4">Step {step} of 3 — {step === 1 ? "Basic Info" : step === 2 ? "Details & Roles" : "Pricing & Upload"}</p>
@@ -143,7 +143,7 @@ const ScriptUpload = () => {
                   </div>
                   <div className="flex justify-end pt-2">
                     <button type="button" onClick={() => setStep(2)}
-                      className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition">
+                      className="px-6 py-2.5 bg-[#0f2544] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition">
                       Next →
                     </button>
                   </div>
@@ -172,10 +172,10 @@ const ScriptUpload = () => {
                     {roles.length > 0 && (
                       <div className="space-y-2 mb-3">
                         {roles.map((r, idx) => (
-                          <div key={idx} className="flex items-center gap-2 bg-indigo-50 rounded-xl p-3">
+                          <div key={idx} className="flex items-center gap-2 bg-[#edf2f7] rounded-xl p-3">
                             <div className="flex-1 min-w-0">
                               <span className="text-sm font-semibold text-gray-800">🎭 {r.characterName}</span>
-                              <span className="text-xs text-indigo-600 ml-2">{r.type}</span>
+                              <span className="text-xs text-[#0f2544] ml-2">{r.type}</span>
                               {r.gender && <span className="text-xs text-gray-500 ml-2">({r.gender})</span>}
                             </div>
                             <button type="button" onClick={() => removeRole(idx)} className="text-red-400 hover:text-red-600 text-lg">×</button>
@@ -205,7 +205,7 @@ const ScriptUpload = () => {
                         </select>
                       </div>
                       <button type="button" onClick={addRole} disabled={!newRole.characterName || !newRole.type}
-                        className="w-full py-2 bg-indigo-100 text-indigo-700 rounded-lg text-sm font-medium hover:bg-indigo-200 transition disabled:opacity-40">
+                        className="w-full py-2 bg-[#edf2f7] text-[#0f2544] rounded-lg text-sm font-medium hover:bg-[#c3d5e8] transition disabled:opacity-40">
                         + Add Role
                       </button>
                     </div>
@@ -215,7 +215,7 @@ const ScriptUpload = () => {
                     <button type="button" onClick={() => setStep(1)}
                       className="px-6 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm hover:bg-gray-50 transition">← Back</button>
                     <button type="button" onClick={() => setStep(3)}
-                      className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition">Next →</button>
+                      className="px-6 py-2.5 bg-[#0f2544] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition">Next →</button>
                   </div>
                 </motion.div>
               )}
@@ -249,8 +249,8 @@ const ScriptUpload = () => {
                     <p className="text-xs text-gray-400 mt-1">Upload to cloud storage and paste the public link</p>
                   </div>
 
-                  <div className="flex items-center gap-3 p-3 sm:p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
-                    <input type="checkbox" name="isPremium" checked={formData.isPremium} onChange={handleChange} id="isPremium" className="w-5 h-5 text-indigo-600 rounded" />
+                  <div className="flex items-center gap-3 p-3 sm:p-4 bg-gradient-to-r from-[#edf2f7] to-[#f0f4f8] rounded-xl">
+                    <input type="checkbox" name="isPremium" checked={formData.isPremium} onChange={handleChange} id="isPremium" className="w-5 h-5 text-[#0f2544] rounded" />
                     <label htmlFor="isPremium">
                       <span className="text-sm font-semibold text-gray-800">Mark as Premium Content</span>
                       <p className="text-xs text-gray-500">Featured placement and exclusive exposure</p>
@@ -274,7 +274,7 @@ const ScriptUpload = () => {
                     <button type="button" onClick={() => setStep(2)}
                       className="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm hover:bg-gray-50 transition">← Back</button>
                     <button type="submit" disabled={loading}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50 shadow-md">
+                      className="flex-1 py-2.5 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-xl text-sm font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition disabled:opacity-50 shadow-md">
                       {loading ? "Uploading..." : "🚀 Upload Script"}
                     </button>
                     <button type="button" onClick={() => navigate("/dashboard")}

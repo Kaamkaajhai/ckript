@@ -130,12 +130,12 @@ const Auditions = () => {
           <div className="flex flex-wrap gap-2 mb-5">
             <button onClick={() => setSelectedGenre("")}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                !selectedGenre ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                !selectedGenre ? "bg-[#0f2544] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}>All</button>
             {genres.map(g => (
               <button key={g} onClick={() => setSelectedGenre(g)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                  selectedGenre === g ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  selectedGenre === g ? "bg-[#0f2544] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}>{g}</button>
             ))}
           </div>
@@ -144,7 +144,7 @@ const Auditions = () => {
         {/* Loading */}
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <div className="w-10 h-10 border-3 border-[#c3d5e8] border-t-[#0f2544] rounded-full animate-spin"></div>
           </div>
         )}
 
@@ -165,14 +165,14 @@ const Auditions = () => {
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg text-xs font-medium">{item.script.genre}</span>
-                        <Link to={`/script/${item.script._id}`} className="text-xs text-gray-500 hover:text-indigo-600 transition">
+                        <span className="bg-[#edf2f7] text-[#0f2544] px-2.5 py-1 rounded-lg text-xs font-medium">{item.script.genre}</span>
+                        <Link to={`/script/${item.script._id}`} className="text-xs text-gray-500 hover:text-[#0f2544] transition">
                           {item.script.title}
                         </Link>
                         <span className="text-xs text-gray-400">by {item.script.creator?.name}</span>
                       </div>
                       <h3 className="text-lg font-bold text-gray-900 mb-1">{item.role.characterName}</h3>
-                      <p className="text-sm text-indigo-600 font-medium mb-1">Type: {item.role.type}</p>
+                      <p className="text-sm text-[#0f2544] font-medium mb-1">Type: {item.role.type}</p>
                       <p className="text-sm text-gray-600 mb-2">{item.role.description}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         {item.role.ageRange && <span>Age: {item.role.ageRange.min}–{item.role.ageRange.max}</span>}
@@ -183,7 +183,7 @@ const Auditions = () => {
                     <div className="flex sm:flex-col items-center gap-2">
                       {user?.role === "actor" && (
                         <button onClick={() => setShowAuditionModal(item)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-indigo-700 hover:to-purple-700 transition shadow-md">
+                          className="px-5 py-2.5 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-xl text-sm font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition shadow-md">
                           🎬 Audition
                         </button>
                       )}
@@ -241,17 +241,17 @@ const Auditions = () => {
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Submit Audition</h2>
                 <p className="text-sm text-gray-500">
-                  For: <span className="font-semibold text-indigo-600">{showAuditionModal.role.characterName}</span> 
+                  For: <span className="font-semibold text-[#0f2544]">{showAuditionModal.role.characterName}</span> 
                   {" "}in {showAuditionModal.script.title}
                 </p>
               </div>
               <button onClick={() => setShowAuditionModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
             </div>
 
-            <div className="bg-indigo-50 rounded-xl p-4 mb-5">
-              <p className="text-sm font-semibold text-indigo-800 mb-1">Role Requirements:</p>
-              <p className="text-sm text-indigo-700">{showAuditionModal.role.type}</p>
-              <p className="text-xs text-indigo-600 mt-1">{showAuditionModal.role.description}</p>
+            <div className="bg-[#edf2f7] rounded-xl p-4 mb-5">
+              <p className="text-sm font-semibold text-[#0a1628] mb-1">Role Requirements:</p>
+              <p className="text-sm text-[#0f2544]">{showAuditionModal.role.type}</p>
+              <p className="text-xs text-[#0f2544] mt-1">{showAuditionModal.role.description}</p>
             </div>
 
             <div className="space-y-4">
@@ -259,20 +259,20 @@ const Auditions = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Audition Video URL *</label>
                 <input type="url" value={auditionForm.videoUrl} onChange={e => setAuditionForm({...auditionForm, videoUrl: e.target.value})}
                   placeholder="https://youtube.com/your-1-min-audition" 
-                  className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                  className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent" />
                 <p className="text-xs text-gray-400 mt-1">Upload a 1-minute video acting out a scene from this script</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes (optional)</label>
                 <textarea value={auditionForm.notes} onChange={e => setAuditionForm({...auditionForm, notes: e.target.value})}
                   placeholder="Tell the creator why you're perfect for this role..."
-                  rows={3} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                  rows={3} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent" />
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowAuditionModal(null)}
                   className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition">Cancel</button>
                 <button onClick={handleSubmitAudition} disabled={submitting || !auditionForm.videoUrl}
-                  className="flex-1 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50">
+                  className="flex-1 px-5 py-2.5 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-xl text-sm font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition disabled:opacity-50">
                   {submitting ? "Submitting..." : "🎬 Submit Audition"}
                 </button>
               </div>

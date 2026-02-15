@@ -70,7 +70,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
               onChange={(e) =>
                 setFormData({ ...formData, name: e.target.value })
               }
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
               required
             />
           </div>
@@ -84,7 +84,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
               onChange={(e) =>
                 setFormData({ ...formData, bio: e.target.value })
               }
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
               rows="4"
               placeholder="Tell us about yourself..."
             />
@@ -100,7 +100,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
               onChange={(e) =>
                 setFormData({ ...formData, skills: e.target.value })
               }
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
               placeholder="e.g. Writing, Directing, Acting"
             />
           </div>
@@ -115,7 +115,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
               onChange={(e) =>
                 setFormData({ ...formData, profileImage: e.target.value })
               }
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
               placeholder="https://..."
             />
           </div>
@@ -131,7 +131,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              className="flex-1 px-6 py-3 bg-[#0f2544] text-white rounded-lg hover:bg-[#1a365d] transition disabled:opacity-50"
             >
               {loading ? "Saving..." : "Save Changes"}
             </button>

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { SlidersHorizontal, Play, X, Info, Heart } from "lucide-react";
 
 const SmartMatch = () => {
   const { user } = useContext(AuthContext);
@@ -117,7 +118,7 @@ const SmartMatch = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[60vh]">
-        <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-[#c3d5e8] border-t-[#0f2544] rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -136,9 +137,7 @@ const SmartMatch = () => {
         </div>
         <button onClick={() => setShowPrefs(!showPrefs)}
           className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-          </svg>
+          <SlidersHorizontal size={16} />
           Preferences
         </button>
       </div>
@@ -153,7 +152,7 @@ const SmartMatch = () => {
               {genres.map(g => (
                 <button key={g} onClick={() => toggleGenre(g)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                    preferences.genres.includes(g) ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    preferences.genres.includes(g) ? "bg-[#0f2544] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}>{g}</button>
               ))}
             </div>
@@ -162,12 +161,12 @@ const SmartMatch = () => {
               {contentTypes.map(t => (
                 <button key={t} onClick={() => toggleContentType(t)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition capitalize ${
-                    preferences.contentTypes.includes(t) ? "bg-teal-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    preferences.contentTypes.includes(t) ? "bg-[#1a365d] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}>{t.replace("_", " ")}</button>
               ))}
             </div>
             <button onClick={handleUpdatePreferences}
-              className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition">
+              className="w-full py-2.5 bg-[#0f2544] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition">
               Apply Preferences & Reload Matches
             </button>
           </motion.div>
@@ -194,7 +193,7 @@ const SmartMatch = () => {
               {currentMatch.script.trailerThumbnail ? (
                 <img src={currentMatch.script.trailerThumbnail} alt="" className="w-full h-full object-cover opacity-80" />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-indigo-900 to-purple-900 flex items-center justify-center">
+                <div className="w-full h-full bg-gradient-to-br from-[#060e1a] to-[#0a1628] flex items-center justify-center">
                   <span className="text-6xl">🎬</span>
                 </div>
               )}
@@ -204,9 +203,7 @@ const SmartMatch = () => {
               </div>
               {currentMatch.script.trailerStatus === "ready" && (
                 <div className="absolute top-4 left-4 bg-black/60 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                  </svg>
+                  <Play size={16} fill="currentColor" />
                   AI Trailer Available
                 </div>
               )}
@@ -227,7 +224,7 @@ const SmartMatch = () => {
             <div className="p-5">
               {/* Creator info */}
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0f2544] to-[#1a365d] flex items-center justify-center text-white font-bold text-sm">
                   {currentMatch.script.creator?.name?.charAt(0) || "?"}
                 </div>
                 <div>
@@ -235,7 +232,7 @@ const SmartMatch = () => {
                   <p className="text-xs text-gray-500 capitalize">{currentMatch.script.creator?.role}</p>
                 </div>
                 <div className="ml-auto text-right">
-                  <p className="text-lg font-bold text-indigo-600">${currentMatch.script.price}</p>
+                  <p className="text-lg font-bold text-[#0f2544]">${currentMatch.script.price}</p>
                   <p className="text-[10px] text-gray-400 uppercase tracking-wider">to unlock</p>
                 </div>
               </div>
@@ -245,10 +242,10 @@ const SmartMatch = () => {
 
               {/* Script Score */}
               {currentMatch.script.scriptScore?.overall && (
-                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 mb-4">
+                <div className="bg-gradient-to-r from-[#edf2f7] to-[#f0f4f8] rounded-xl p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Script Score</span>
-                    <span className="text-2xl font-extrabold text-indigo-600">{currentMatch.script.scriptScore.overall}/100</span>
+                    <span className="text-2xl font-extrabold text-[#0f2544]">{currentMatch.script.scriptScore.overall}/100</span>
                   </div>
                   <div className="grid grid-cols-5 gap-2">
                     {["plot", "characters", "dialogue", "pacing", "marketability"].map(key => (
@@ -269,7 +266,7 @@ const SmartMatch = () => {
                   </p>
                   {currentMatch.script.roles.slice(0, 3).map((role, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                      <span className="text-indigo-600 font-semibold">{role.characterName}</span>
+                      <span className="text-[#0f2544] font-semibold">{role.characterName}</span>
                       <span className="text-gray-400">—</span>
                       <span className="text-gray-500">{role.type || role.description}</span>
                     </div>
@@ -291,21 +288,15 @@ const SmartMatch = () => {
               <div className="flex items-center justify-center gap-6">
                 <button onClick={() => handleSwipe("pass")}
                   className="w-16 h-16 flex items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:scale-110 transition-all shadow-md">
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X size={32} strokeWidth={2.5} />
                 </button>
                 <Link to={`/script/${currentMatch.script._id}`}
                   className="w-12 h-12 flex items-center justify-center rounded-full bg-blue-50 text-blue-500 hover:bg-blue-100 hover:scale-110 transition-all shadow-md">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <Info size={24} />
                 </Link>
                 <button onClick={() => handleSwipe("like")}
                   className="w-16 h-16 flex items-center justify-center rounded-full bg-green-50 text-green-500 hover:bg-green-100 hover:scale-110 transition-all shadow-md">
-                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
-                  </svg>
+                  <Heart size={32} fill="currentColor" />
                 </button>
               </div>
             </div>
@@ -317,7 +308,7 @@ const SmartMatch = () => {
           <h2 className="text-xl font-bold text-gray-800 mb-2">No more matches right now</h2>
           <p className="text-sm text-gray-500 mb-6">Update your preferences or check back later for new scripts.</p>
           <button onClick={() => { setCurrentIndex(0); fetchMatches(); }}
-            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition">
+            className="px-6 py-2.5 bg-[#0f2544] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition">
             Refresh Matches
           </button>
         </div>
@@ -330,7 +321,7 @@ const SmartMatch = () => {
           <div className="flex gap-1">
             {matches.map((_, i) => (
               <div key={i} className={`w-2 h-2 rounded-full transition ${
-                i < currentIndex ? "bg-green-400" : i === currentIndex ? "bg-indigo-600" : "bg-gray-200"
+                i < currentIndex ? "bg-green-400" : i === currentIndex ? "bg-[#0f2544]" : "bg-gray-200"
               }`} />
             ))}
           </div>

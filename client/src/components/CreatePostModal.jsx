@@ -81,7 +81,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
               rows="5"
               placeholder="Share your thoughts, scripts, or updates..."
             />
@@ -95,7 +95,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
               type="url"
               value={image}
               onChange={(e) => setImage(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
               placeholder="https://..."
             />
           </div>
@@ -108,7 +108,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
               type="url"
               value={video}
               onChange={(e) => setVideo(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
               placeholder="https://..."
             />
           </div>
@@ -152,7 +152,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              className="flex-1 px-6 py-3 bg-[#0f2544] text-white rounded-lg hover:bg-[#1a365d] transition disabled:opacity-50"
             >
               {loading ? "Posting..." : "Post"}
             </button>

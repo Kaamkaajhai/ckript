@@ -101,7 +101,7 @@ const Settings = () => {
                     className={[
                       "flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition whitespace-nowrap flex-shrink-0 text-sm",
                       activeTab === tab.id
-                        ? "bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 font-semibold"
+                        ? "bg-gradient-to-r from-[#edf2f7] to-[#f0f4f8] text-[#0f2544] font-semibold"
                         : "text-gray-600 hover:bg-gray-50",
                     ].join(" ")}
                   >
@@ -133,7 +133,7 @@ const Settings = () => {
                     <div>
                       <label className="block text-sm text-gray-700 font-medium mb-1.5">Name</label>
                       <input type="text" value={profileData.name} onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                        className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 font-medium mb-1.5">Email</label>
@@ -144,16 +144,16 @@ const Settings = () => {
                     <div>
                       <label className="block text-sm text-gray-700 font-medium mb-1.5">Bio</label>
                       <textarea value={profileData.bio} onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                        rows={3} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                        rows={3} className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent" />
                     </div>
                     <div>
                       <label className="block text-sm text-gray-700 font-medium mb-1.5">Skills (comma-separated)</label>
                       <input type="text" value={profileData.skills} onChange={(e) => setProfileData({ ...profileData, skills: e.target.value })}
                         placeholder="JavaScript, React, Node.js"
-                        className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                        className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent" />
                     </div>
                     <button type="submit" disabled={loading}
-                      className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50">
+                      className="px-5 py-2.5 bg-[#0f2544] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition disabled:opacity-50">
                       {loading ? "Saving..." : "Save Changes"}
                     </button>
                   </form>
@@ -174,11 +174,11 @@ const Settings = () => {
                         <label className="block text-sm text-gray-700 font-medium mb-1.5">{label}</label>
                         <input type="password" value={passwordData[key]}
                           onChange={(e) => setPasswordData({ ...passwordData, [key]: e.target.value })} required
-                          className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                          className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent" />
                       </div>
                     ))}
                     <button type="submit" disabled={loading}
-                      className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50">
+                      className="px-5 py-2.5 bg-[#0f2544] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition disabled:opacity-50">
                       {loading ? "Changing..." : "Change Password"}
                     </button>
                   </form>
@@ -202,7 +202,7 @@ const Settings = () => {
                           <input type="checkbox" checked={value}
                             onChange={(e) => setNotificationSettings({ ...notificationSettings, [key]: e.target.checked })}
                             className="sr-only peer" />
-                          <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-indigo-600 transition">
+                          <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-[#0f2544] transition">
                             <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition peer-checked:translate-x-5"></div>
                           </div>
                         </label>
@@ -210,7 +210,7 @@ const Settings = () => {
                     ))}
                   </div>
                   <button onClick={handleNotificationUpdate} disabled={loading}
-                    className="mt-5 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50">
+                    className="mt-5 px-5 py-2.5 bg-[#0f2544] text-white rounded-xl text-sm font-medium hover:bg-[#1a365d] transition disabled:opacity-50">
                     {loading ? "Saving..." : "Save Preferences"}
                   </button>
                 </div>

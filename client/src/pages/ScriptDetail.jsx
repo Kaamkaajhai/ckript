@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { ChevronLeft, Play } from "lucide-react";
 
 const ScriptDetail = () => {
   const { id } = useParams();
@@ -119,7 +120,7 @@ const ScriptDetail = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[60vh]">
-        <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-[#c3d5e8] border-t-[#0f2544] rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -129,7 +130,7 @@ const ScriptDetail = () => {
       <div className="text-center py-20">
         <span className="text-5xl block mb-4">📄</span>
         <h2 className="text-xl font-bold text-gray-700">Script not found</h2>
-        <Link to="/search" className="text-indigo-600 hover:underline text-sm mt-2 block">Browse scripts</Link>
+        <Link to="/search" className="text-[#0f2544] hover:underline text-sm mt-2 block">Browse scripts</Link>
       </div>
     );
   }
@@ -142,16 +143,14 @@ const ScriptDetail = () => {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         {/* Back button */}
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4 transition">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft size={16} />
           Back
         </button>
 
         {/* Hero section */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-5">
           {/* Cover / Trailer */}
-          <div className="relative h-48 sm:h-64 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500">
+          <div className="relative h-48 sm:h-64 bg-gradient-to-br from-[#0f2544] via-[#1a365d] to-[#0a1628]">
             {script.coverImage && (
               <img src={script.coverImage} alt={script.title} className="w-full h-full object-cover absolute inset-0" />
             )}
@@ -159,9 +158,7 @@ const ScriptDetail = () => {
               <button onClick={() => setShowTrailer(true)}
                 className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition group">
                 <div className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center group-hover:scale-110 transition">
-                  <svg className="w-8 h-8 text-indigo-600 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+                  <Play size={32} className="text-[#0f2544] ml-1" fill="currentColor" />
                 </div>
                 <span className="absolute bottom-3 left-3 px-3 py-1 bg-black/60 text-white text-xs rounded-full font-medium">
                   🎬 AI-Generated Trailer
@@ -170,7 +167,7 @@ const ScriptDetail = () => {
             )}
             {/* Badges */}
             <div className="absolute top-3 right-3 flex gap-2">
-              {script.premium && <span className="px-3 py-1 bg-amber-500 text-white rounded-full text-xs font-semibold">⭐ Premium</span>}
+              {script.premium && <span className="px-3 py-1 bg-[#0f2544] text-white rounded-full text-xs font-semibold">⭐ Premium</span>}
               <span className="px-3 py-1 bg-black/40 text-white rounded-full text-xs font-medium">{script.genre}</span>
             </div>
             <div className="absolute bottom-3 right-3 flex gap-2">
@@ -188,7 +185,7 @@ const ScriptDetail = () => {
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mb-2">{script.title}</h1>
-                <Link to={`/profile/${script.creator?._id}`} className="text-sm text-indigo-600 hover:underline font-medium">
+                <Link to={`/profile/${script.creator?._id}`} className="text-sm text-[#0f2544] hover:underline font-medium">
                   by {script.creator?.name}
                 </Link>
                 <p className="text-sm text-gray-600 mt-3">{script.description}</p>
@@ -212,7 +209,7 @@ const ScriptDetail = () => {
             <div className="flex flex-wrap gap-3 mt-5">
               {!isOwner && isPro && script.holdStatus === "available" && (
                 <button onClick={() => setShowHoldModal(true)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-semibold hover:from-amber-600 hover:to-orange-600 transition shadow-md">
+                  className="px-5 py-2.5 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-xl text-sm font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition shadow-md">
                   🔒 Hold Script — ${script.holdFee || 200}
                 </button>
               )}
@@ -222,17 +219,17 @@ const ScriptDetail = () => {
 
               {isOwner && !script.trailerUrl && script.trailerStatus !== "processing" && (
                 <button onClick={handleGenerateTrailer} disabled={trailerLoading}
-                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl text-sm font-semibold hover:from-purple-700 hover:to-pink-700 transition shadow-md disabled:opacity-50">
+                  className="px-5 py-2.5 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-xl text-sm font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition shadow-md disabled:opacity-50">
                   {trailerLoading ? "Generating..." : "🎬 Generate AI Trailer"}
                 </button>
               )}
               {script.trailerStatus === "processing" && (
-                <span className="px-5 py-2.5 bg-purple-100 text-purple-700 rounded-xl text-sm font-semibold animate-pulse">⏳ Trailer Processing...</span>
+                <span className="px-5 py-2.5 bg-[#edf2f7] text-[#0f2544] rounded-xl text-sm font-semibold animate-pulse">⏳ Trailer Processing...</span>
               )}
 
               {isOwner && !script.scriptScore?.overall && (
                 <button onClick={handleGenerateScore} disabled={scoreLoading}
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-cyan-700 transition shadow-md disabled:opacity-50">
+                  className="px-5 py-2.5 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-xl text-sm font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition shadow-md disabled:opacity-50">
                   {scoreLoading ? "Scoring..." : "📊 Get Script Score — $10"}
                 </button>
               )}
@@ -349,7 +346,7 @@ const ScriptDetail = () => {
                         <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
                           🎭 {role.characterName}
                         </h3>
-                        <p className="text-sm text-indigo-600 font-medium mt-0.5">{role.type}</p>
+                        <p className="text-sm text-[#0f2544] font-medium mt-0.5">{role.type}</p>
                         <p className="text-sm text-gray-600 mt-1">{role.description}</p>
                         <div className="flex gap-3 mt-2 text-xs text-gray-500">
                           {role.ageRange && <span>Age: {role.ageRange.min}–{role.ageRange.max}</span>}
@@ -358,7 +355,7 @@ const ScriptDetail = () => {
                       </div>
                       {user?.role === "actor" && (
                         <Link to="/auditions"
-                          className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg text-xs font-semibold hover:from-indigo-700 hover:to-purple-700 transition shrink-0">
+                          className="px-4 py-2 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-lg text-xs font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition shrink-0">
                           Audition
                         </Link>
                       )}
@@ -417,7 +414,7 @@ const ScriptDetail = () => {
             <p className="text-sm text-gray-600 mb-4">
               Place a 30-day hold on "<span className="font-semibold">{script.title}</span>" to reserve exclusive access while you evaluate.
             </p>
-            <div className="bg-amber-50 rounded-xl p-4 mb-5">
+            <div className="bg-[#edf2f7] rounded-xl p-4 mb-5">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm text-gray-700">Hold Fee</span>
                 <span className="text-lg font-bold text-gray-900">${script.holdFee || 200}</span>
@@ -426,7 +423,7 @@ const ScriptDetail = () => {
                 <span className="text-sm text-gray-700">Platform Fee (10%)</span>
                 <span className="text-sm font-medium text-gray-600">${((script.holdFee || 200) * 0.1).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center border-t border-amber-200 pt-2">
+              <div className="flex justify-between items-center border-t border-[#c3d5e8] pt-2">
                 <span className="text-sm text-gray-700">Creator Receives</span>
                 <span className="text-sm font-bold text-green-700">${((script.holdFee || 200) * 0.9).toFixed(2)}</span>
               </div>
@@ -435,7 +432,7 @@ const ScriptDetail = () => {
               <button onClick={() => setShowHoldModal(false)}
                 className="flex-1 px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition">Cancel</button>
               <button onClick={handleHold} disabled={holdLoading}
-                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-semibold hover:from-amber-600 hover:to-orange-600 transition disabled:opacity-50">
+                className="flex-1 px-5 py-2.5 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white rounded-xl text-sm font-semibold hover:from-[#0a1628] hover:to-[#0f2544] transition disabled:opacity-50">
                 {holdLoading ? "Processing..." : "Confirm Hold"}
               </button>
             </div>
