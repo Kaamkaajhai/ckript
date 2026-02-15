@@ -17,7 +17,7 @@ const PostCard = ({ post }) => {
       <div className="flex items-center justify-between p-4">
         <Link to={`/profile/${post.user._id}`} className="flex items-center gap-3 hover:opacity-80 transition">
           <img 
-            src={post.user.profileImage || "https://via.placeholder.com/40"} 
+            src={post.user.profileImage || "https://placehold.co/40x40/e2e8f0/64748b?text=U"} 
             alt={post.user.name} 
             className="w-10 h-10 rounded-full object-cover border-2 border-gray-200" 
           />

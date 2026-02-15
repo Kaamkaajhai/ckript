@@ -37,8 +37,8 @@ const Messages = () => {
   const loadConversations = async () => {
     try {
       setConversations([
-        { _id: "1", chatId: "chat-1", user: { _id: "user1", name: "John Doe", profileImage: "https://via.placeholder.com/50", role: "investor" }, lastMessage: "Hey, interested in your script!", timestamp: new Date().toISOString() },
-        { _id: "2", chatId: "chat-2", user: { _id: "user2", name: "Jane Smith", profileImage: "https://via.placeholder.com/50", role: "producer" }, lastMessage: "Can we discuss the project?", timestamp: new Date().toISOString() },
+        { _id: "1", chatId: "chat-1", user: { _id: "user1", name: "John Doe", profileImage: "https://placehold.co/50x50/e2e8f0/64748b?text=JD", role: "investor" }, lastMessage: "Hey, interested in your script!", timestamp: new Date().toISOString() },
+        { _id: "2", chatId: "chat-2", user: { _id: "user2", name: "Jane Smith", profileImage: "https://placehold.co/50x50/e2e8f0/64748b?text=JS", role: "producer" }, lastMessage: "Can we discuss the project?", timestamp: new Date().toISOString() },
       ]);
     } catch (error) {
       console.error("Error loading conversations:", error);

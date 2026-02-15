@@ -98,7 +98,7 @@ const ScriptUpload = () => {
               <input type="url" name="coverImage" value={formData.coverImage} onChange={handleChange} placeholder="https://example.com/cover.jpg" className={inputCls} />
               {formData.coverImage && (
                 <div className="mt-3">
-                  <img src={formData.coverImage} alt="Preview" className="w-full h-36 sm:h-44 object-cover rounded-xl" onError={(e) => { e.target.src = "https://via.placeholder.com/400x300?text=Invalid+URL"; }} />
+                  <img src={formData.coverImage} alt="Preview" className="w-full h-36 sm:h-44 object-cover rounded-xl" onError={(e) => { e.target.src = "https://placehold.co/400x300/e2e8f0/64748b?text=Invalid+URL"; }} />
                 </div>
               )}
             </div>

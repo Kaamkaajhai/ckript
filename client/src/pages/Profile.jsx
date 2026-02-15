@@ -74,7 +74,7 @@ const Profile = () => {
           <div className="flex flex-col sm:flex-row items-start gap-4 -mt-12 sm:-mt-10">
             {/* Avatar */}
             <img
-              src={profile.profileImage || "https://via.placeholder.com/150"}
+              src={profile.profileImage || "https://placehold.co/150x150/e2e8f0/64748b?text=User"}
               alt={profile.name}
               className="w-24 h-24 sm:w-28 sm:h-28 rounded-full object-cover border-4 border-white shadow-lg flex-shrink-0"
             />

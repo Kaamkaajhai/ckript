@@ -20,14 +20,14 @@ const Search = () => {
       if (activeTab === "users") {
         setResults({
           users: [
-            { _id: "1", name: "John Doe", role: "creator", bio: "Passionate screenwriter with 10+ years experience", profileImage: "https://via.placeholder.com/100", followers: [1, 2, 3] },
-            { _id: "2", name: "Jane Smith", role: "investor", bio: "Looking for promising scripts to fund", profileImage: "https://via.placeholder.com/100", followers: [1, 2] },
+            { _id: "1", name: "John Doe", role: "creator", bio: "Passionate screenwriter with 10+ years experience", profileImage: "https://placehold.co/100x100/e2e8f0/64748b?text=JD", followers: [1, 2, 3] },
+            { _id: "2", name: "Jane Smith", role: "investor", bio: "Looking for promising scripts to fund", profileImage: "https://placehold.co/100x100/e2e8f0/64748b?text=JS", followers: [1, 2] },
           ], posts: [], scripts: [],
         });
       } else if (activeTab === "scripts") {
         setResults({
           users: [], posts: [],
-          scripts: [{ _id: "1", title: "The Last Dawn", description: "A post-apocalyptic thriller about survival", genre: "Thriller", price: 99.99, isPremium: true, coverImage: "https://via.placeholder.com/300x400", creator: { name: "John Doe" } }],
+          scripts: [{ _id: "1", title: "The Last Dawn", description: "A post-apocalyptic thriller about survival", genre: "Thriller", price: 99.99, isPremium: true, coverImage: "https://placehold.co/300x400/e2e8f0/64748b?text=Script", creator: { name: "John Doe" } }],
         });
       }
     } finally { setLoading(false); }
