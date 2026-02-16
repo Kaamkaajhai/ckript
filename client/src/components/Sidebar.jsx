@@ -1,11 +1,52 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useContext } from "react";
+import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
+import api from "../services/api";
+import {
+  LayoutDashboard,
+  User,
+  TrendingUp,
+  Star,
+  CalendarDays,
+  FileSearch,
+  UserPlus,
+  MapPin,
+  Rocket,
+  Bell,
+  PlusCircle,
+  ShoppingCart,
+  ChevronRight,
+  Flame,
+  LogOut,
+  Menu,
+  X,
+  Search,
+  FileText,
+} from "lucide-react";
 
 const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
+  const [projectsOpen, setProjectsOpen] = useState(true);
+  const [myScripts, setMyScripts] = useState([]);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    fetchMyScripts();
+  }, []);
+
+  const fetchMyScripts = async () => {
+    try {
+      const { data } = await api.get("/scripts");
+      const mine = data.filter(
+        (s) => s.creator?._id === user?._id || s.creator === user?._id
+      );
+      setMyScripts(mine);
+    } catch {
+      setMyScripts([]);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -15,185 +56,237 @@ const Sidebar = () => {
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
 
-  const navItems = [
-    {
-      path: "/feed",
-      label: "Home",
-      icon: (a) => (
-        <svg className="w-6 h-6" fill={a ? "currentColor" : "none"} stroke="currentColor" strokeWidth={a ? 0 : 1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
-      ),
-    },
-    {
-      path: "/search",
-      label: "Explore",
-      icon: (a) => (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={a ? 2.5 : 1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      ),
-    },
-    {
-      path: "/messages",
-      label: "Messages",
-      icon: (a) => (
-        <svg className="w-6 h-6" fill={a ? "currentColor" : "none"} stroke="currentColor" strokeWidth={a ? 0 : 1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-        </svg>
-      ),
-    },
-    {
-      path: "/upload",
-      label: "Create",
-      icon: (a) => (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={a ? 2.5 : 1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ),
-    },
-    {
-      path: "/dashboard",
-      label: "Dashboard",
-      icon: (a) => (
-        <svg className="w-6 h-6" fill={a ? "currentColor" : "none"} stroke="currentColor" strokeWidth={a ? 0 : 1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-      ),
-    },
-    {
-      path: "/profile/" + (user?._id || ""),
-      label: "Profile",
-      icon: (a) => (
-        <svg className="w-6 h-6" fill={a ? "currentColor" : "none"} stroke="currentColor" strokeWidth={a ? 0 : 1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-      ),
-    },
-    {
-      path: "/settings",
-      label: "Settings",
-      icon: (a) => (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={a ? 2.5 : 1.8} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      ),
-    },
+  /* ── Navigation items ── */
+  const mainNavItems = [
+    { path: "/dashboard", label: "MY DASHBOARD", icon: <LayoutDashboard size={18} strokeWidth={1.8} /> },
+    { path: `/profile/${user?._id || ""}`, label: "MY PROFILE", icon: <User size={18} strokeWidth={1.8} /> },
+    { path: "/feed", label: "TOP LISTS", icon: <TrendingUp size={18} strokeWidth={1.8} /> },
+    { path: "/featured", label: "FEATURED PROJECTS", icon: <Star size={18} strokeWidth={1.8} /> },
+    { path: "/messages", label: "MY PROGRAMS", icon: <CalendarDays size={18} strokeWidth={1.8} /> },
+    { path: "/search", label: "SEARCH PROJECTS", icon: <FileSearch size={18} strokeWidth={1.8} /> },
+    { path: "/search?type=writers", label: "SEARCH WRITERS", icon: <UserPlus size={18} strokeWidth={1.8} /> },
+    { path: "/smart-match", label: "SMART MATCH", icon: <MapPin size={18} strokeWidth={1.8} /> },
+    { path: "/auditions", label: "AUDITIONS", icon: <Rocket size={18} strokeWidth={1.8} /> },
+    { path: "/notifications", label: "NOTIFICATIONS", icon: <Bell size={18} strokeWidth={1.8} /> },
   ];
 
-  /* Only show top-5 items on the mobile bottom bar to avoid crowding */
-  const mobileItems = navItems.slice(0, 5);
+  const actionItems = [
+    { path: "/upload", label: "ADD PROJECT", icon: <PlusCircle size={18} strokeWidth={1.8} /> },
+    { path: "/settings", label: "BUY EVALUATIONS", icon: <ShoppingCart size={18} strokeWidth={1.8} /> },
+  ];
 
-  const NavLink = ({ item, showLabel = true }) => {
+  /* ─── Mobile bottom items ─── */
+  const mobileItems = [
+    { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
+    { path: "/feed", label: "Feed", icon: <TrendingUp size={20} /> },
+    { path: "/upload", label: "Create", icon: <PlusCircle size={20} /> },
+    { path: "/search", label: "Search", icon: <Search size={20} /> },
+    { path: `/profile/${user?._id || ""}`, label: "Profile", icon: <User size={20} /> },
+  ];
+
+  const NavItem = ({ item }) => {
     const active = isActive(item.path);
     return (
       <Link
         to={item.path}
-        title={item.label}
-        className={[
-          "group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
+        onClick={() => setMobileOpen(false)}
+        className={`group flex items-center gap-3.5 px-5 py-2.5 text-[13px] font-semibold tracking-wider transition-all duration-200 ${
           active
-            ? "bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 font-semibold shadow-sm"
-            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-        ].join(" ")}
+            ? "bg-white/15 text-white border-r-2 border-white"
+            : "text-white/60 hover:bg-white/5 hover:text-white"
+        }`}
       >
-        <span className={["shrink-0 transition-transform duration-200 group-hover:scale-110", active ? "text-indigo-600" : ""].join(" ")}>
-          {item.icon(active)}
+        <span className={`shrink-0 ${active ? "text-white" : "text-white/50 group-hover:text-white"}`}>
+          {item.icon}
         </span>
-        {showLabel && <span className="truncate text-[15px]">{item.label}</span>}
-        {active && showLabel && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-600"></span>}
+        <span>{item.label}</span>
       </Link>
     );
   };
 
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      {/* ── Logo ── */}
+      <div className="px-5 py-5 flex items-center gap-3">
+        <div className="w-8 h-8 flex items-center justify-center">
+          <FileText size={26} className="text-white" strokeWidth={1.5} />
+        </div>
+        <span className="text-white font-bold text-lg tracking-wide">SCRIPT BRIDGE</span>
+      </div>
+
+      {/* ── Separator ── */}
+      <div className="mx-4 border-t border-white/10"></div>
+
+      {/* ── Main navigation ── */}
+      <nav className="flex-1 py-3 overflow-y-auto sidebar-scroll">
+        {mainNavItems.map((item) => (
+          <NavItem key={item.label} item={item} />
+        ))}
+
+        {/* ── Separator ── */}
+        <div className="mx-4 my-3 border-t border-white/10"></div>
+
+        {actionItems.map((item) => (
+          <NavItem key={item.label} item={item} />
+        ))}
+
+        {/* ── MY PROJECTS collapsible ── */}
+        <div className="mx-4 my-3 border-t border-white/10"></div>
+
+        <button
+          onClick={() => setProjectsOpen(!projectsOpen)}
+          className="flex items-center gap-2 px-5 py-2.5 w-full text-left text-white/60 hover:text-white transition-colors"
+        >
+          <ChevronRight
+            size={16}
+            className={`transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
+          />
+          <span className="text-[13px] font-semibold tracking-wider">MY PROJECTS</span>
+        </button>
+
+        {projectsOpen && (
+          <div className="pl-5">
+            {myScripts.length > 0 ? (
+              myScripts.map((script) => (
+                <Link
+                  key={script._id}
+                  to="/dashboard"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 px-5 py-2 text-white/50 hover:text-white transition-colors"
+                >
+                  <Flame size={18} className="text-white/70" strokeWidth={1.5} />
+                  <div className="min-w-0">
+                    <span className="block text-[12px] font-semibold tracking-wider truncate">
+                      {script.title?.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] text-gray-500">Listed</span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <p className="px-5 py-2 text-[11px] text-gray-600 italic">No projects yet</p>
+            )}
+          </div>
+        )}
+      </nav>
+
+      {/* ── User section at bottom ── */}
+      <div className="border-t border-white/10 p-4">
+        <button
+          onClick={handleLogout}
+          className="w-full px-4 py-2 text-[12px] font-semibold tracking-wider text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all flex items-center gap-2 justify-center"
+        >
+          <LogOut size={16} />
+          LOG OUT
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <>
-      {/* ══ DESKTOP (lg+) — Full left sidebar with icon + title ══ */}
-      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[250px] bg-white border-r border-gray-200/80 flex-col z-30">
-        <div className="px-5 py-5 border-b border-gray-100">
-          <Link to="/feed" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-linear-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200">
-              <span className="text-white font-bold text-lg">S</span>
-            </div>
-            <span className="text-[19px] font-bold bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              ScriptBridge
-            </span>
-          </Link>
-        </div>
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink key={item.path} item={item} showLabel={true} />
-          ))}
-        </nav>
-        <div className="p-3 border-t border-gray-100">
-          <div className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition cursor-pointer" onClick={() => navigate("/profile/" + (user?._id || ""))}>
-            <img src={user?.profileImage || "https://placehold.co/40x40/e2e8f0/64748b?text=U"} alt={user?.name} className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-100" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">{user?.name}</p>
-              <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
-            </div>
-          </div>
-          <button onClick={handleLogout} className="w-full mt-2 px-3 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition flex items-center gap-2 font-medium">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-            Log out
-          </button>
-        </div>
+      {/* ══ DESKTOP (lg+) — Full dark sidebar ══ */}
+      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[380px] bg-[#0a1628] flex-col z-30">
+        <SidebarContent />
       </aside>
 
-      {/* ══ TABLET (md–lg) — Icon-only left sidebar ══ */}
-      <aside className="hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[72px] bg-white border-r border-gray-200/80 flex-col items-center z-30">
+      {/* ══ TABLET (md–lg) — Icon-only dark sidebar ══ */}
+      <aside className="hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[72px] bg-[#0a1628] flex-col items-center z-30">
         <div className="py-5">
-          <Link to="/feed">
-            <div className="w-9 h-9 bg-linear-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-200">
-              <span className="text-white font-bold text-lg">S</span>
+          <Link to="/dashboard">
+            <div className="w-10 h-10 flex items-center justify-center">
+              <FileText size={26} className="text-white" strokeWidth={1.5} />
             </div>
           </Link>
         </div>
         <nav className="flex-1 flex flex-col items-center gap-1 px-2 py-2 overflow-y-auto">
-          {navItems.map((item) => {
+          {mainNavItems.map((item) => {
             const active = isActive(item.path);
             return (
-              <Link key={item.path} to={item.path} title={item.label}
-                className={[
-                  "w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200",
-                  active ? "bg-linear-to-r from-indigo-50 to-purple-50 text-indigo-600 shadow-sm" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900",
-                ].join(" ")}
+              <Link
+                key={item.label}
+                to={item.path}
+                title={item.label}
+                className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                  active
+                    ? "bg-white/15 text-white"
+                    : "text-white/50 hover:bg-white/5 hover:text-white"
+                }`}
               >
-                {item.icon(active)}
+                {item.icon}
+              </Link>
+            );
+          })}
+          <div className="w-8 my-2 border-t border-white/10"></div>
+          {actionItems.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <Link
+                key={item.label}
+                to={item.path}
+                title={item.label}
+                className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                  active
+                    ? "bg-white/15 text-white"
+                    : "text-white/50 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {item.icon}
               </Link>
             );
           })}
         </nav>
         <div className="py-4 flex flex-col items-center gap-2">
-          <button onClick={() => navigate("/profile/" + (user?._id || ""))}>
-            <img src={user?.profileImage || "https://placehold.co/40x40/e2e8f0/64748b?text=U"} alt={user?.name} className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-200" />
+          <button onClick={() => navigate(`/profile/${user?._id || ""}`)}>
+            {user?.profileImage ? (
+              <img src={user.profileImage} alt={user.name} className="w-9 h-9 rounded-full object-cover ring-2 ring-gray-700" />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold text-white">
+                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+              </div>
+            )}
           </button>
-          <button onClick={handleLogout} title="Log out" className="w-10 h-10 flex items-center justify-center rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+          <button onClick={handleLogout} title="Log out" className="w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 hover:text-red-400 hover:bg-red-900/20 transition">
+            <LogOut size={18} />
           </button>
         </div>
       </aside>
 
-      {/* ══ MOBILE (<md) — Fixed bottom icon bar ══ */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-md border-t border-gray-200/60 flex items-center justify-around px-1 z-50">
+      {/* ══ MOBILE (<md) — Hamburger + slide-out sidebar + bottom bar ══ */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 bg-[#0a1628] rounded-lg flex items-center justify-center text-white shadow-lg"
+      >
+        <Menu size={22} />
+      </button>
+
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)}></div>
+          <aside className="absolute left-0 top-0 h-full w-[300px] bg-[#0a1628] shadow-2xl">
+            <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white">
+              <X size={22} />
+            </button>
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0a1628]/95 backdrop-blur-md border-t border-[#1a365d] flex items-center justify-around px-1 z-40">
         {mobileItems.map((item) => {
           const active = isActive(item.path);
           return (
             <Link
               key={item.path}
               to={item.path}
-              className={[
-                "flex flex-col items-center justify-center gap-0.5 w-14 h-14 rounded-2xl transition-all duration-200",
-                active ? "text-indigo-600" : "text-gray-400",
-              ].join(" ")}
+              className={`flex flex-col items-center justify-center gap-0.5 w-14 h-14 rounded-2xl transition-all duration-200 ${
+                active ? "text-white" : "text-white/40"
+              }`}
             >
-              <span className={active ? "scale-110" : ""}>{item.icon(active)}</span>
-              <span className={[
-                "text-[10px] leading-tight",
-                active ? "font-bold text-indigo-600" : "font-medium text-gray-400",
-              ].join(" ")}>{item.label}</span>
-              {active && <span className="absolute bottom-1.5 w-1 h-1 rounded-full bg-indigo-600"></span>}
+              <span className={active ? "scale-110" : ""}>{item.icon}</span>
+              <span className={`text-[10px] leading-tight ${active ? "font-bold text-white" : "font-medium text-white/40"}`}>
+                {item.label}
+              </span>
             </Link>
           );
         })}

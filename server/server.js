@@ -12,6 +12,9 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import searchRoutes from "./routes/search.js";
+import aiRoutes from "./routes/aiRoutes.js";
+import matchRoutes from "./routes/matchRoutes.js";
+import auditionRoutes from "./routes/auditionRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -37,6 +40,12 @@ io.on('connection', (socket) => {
     console.log(`User ${socket.id} joined chat: ${chatId}`);
   });
 
+  // Join user's personal notification room
+  socket.on('join-notifications', (userId) => {
+    socket.join(`notifications-${userId}`);
+    console.log(`User ${socket.id} joined notifications for: ${userId}`);
+  });
+
   // Send message
   socket.on('send-message', (data) => {
     io.to(data.chatId).emit('receive-message', data);
@@ -45,6 +54,11 @@ io.on('connection', (socket) => {
   // Typing indicator
   socket.on('typing', (data) => {
     socket.to(data.chatId).emit('user-typing', data);
+  });
+
+  // Smart Match real-time notifications
+  socket.on('smart-match-alert', (data) => {
+    io.to(`notifications-${data.userId}`).emit('new-match', data);
   });
 
   socket.on('disconnect', () => {
@@ -80,6 +94,9 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/search", searchRoutes);
+app.use("/api/ai", aiRoutes);
+app.use("/api/match", matchRoutes);
+app.use("/api/auditions", auditionRoutes);
 
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

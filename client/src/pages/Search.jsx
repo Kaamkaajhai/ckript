@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import PostCard from "../components/PostCard";
+import { Search as SearchIcon } from "lucide-react";
 
 const Search = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -51,15 +52,13 @@ const Search = () => {
         <div className="mb-5 sm:mb-6">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">Explore</h1>
           <div className="relative">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+            <SearchIcon size={20} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search people, posts, or scripts..."
-              className="w-full py-2.5 sm:py-3 pl-11 pr-4 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              className="w-full py-2.5 sm:py-3 pl-11 pr-4 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-[#1a365d] focus:border-transparent transition"
             />
           </div>
         </div>
@@ -84,7 +83,7 @@ const Search = () => {
         {/* Loading */}
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+            <div className="w-10 h-10 border-3 border-[#c3d5e8] border-t-[#0f2544] rounded-full animate-spin"></div>
           </div>
         )}
 
@@ -92,9 +91,7 @@ const Search = () => {
         {!loading && !searchTerm && (
           <div className="text-center py-16">
             <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+              <SearchIcon size={32} className="text-gray-400" strokeWidth={1.5} />
             </div>
             <p className="text-base font-semibold text-gray-700 mb-1">Start your search</p>
             <p className="text-sm text-gray-500">Find people, posts, and scripts</p>
@@ -112,7 +109,7 @@ const Search = () => {
                   <img src={u.profileImage} alt={u.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm sm:text-base font-semibold text-gray-900">{u.name}</h3>
-                    <p className="text-xs text-indigo-600 capitalize mb-0.5">{u.role}</p>
+                    <p className="text-xs text-[#0f2544] capitalize mb-0.5">{u.role}</p>
                     <p className="text-xs sm:text-sm text-gray-500 line-clamp-1">{u.bio}</p>
                   </div>
                   <span className="text-xs text-gray-400 flex-shrink-0">{u.followers?.length || 0} followers</span>
@@ -140,8 +137,8 @@ const Search = () => {
                     </div>
                     <p className="text-sm text-gray-600 line-clamp-2 mb-3">{script.description}</p>
                     <div className="flex items-center gap-3">
-                      <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg text-xs font-medium">{script.genre}</span>
-                      <span className="text-sm font-bold text-indigo-600">${script.price}</span>
+                      <span className="bg-[#edf2f7] text-[#0f2544] px-2.5 py-1 rounded-lg text-xs font-medium">{script.genre}</span>
+                      <span className="text-sm font-bold text-[#0f2544]">${script.price}</span>
                     </div>
                   </div>
                 </div>

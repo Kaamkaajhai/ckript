@@ -10,6 +10,10 @@ import Messages from "./pages/Messages";
 import ScriptUpload from "./pages/ScriptUpload";
 import Search from "./pages/Search";
 import Settings from "./pages/Settings";
+import SmartMatch from "./pages/SmartMatch";
+import ScriptDetail from "./pages/ScriptDetail";
+import Auditions from "./pages/Auditions";
+import Notifications from "./pages/Notifications";
 import MainLayout from "./layouts/MainLayout";
 import PrivateRoute from "./utils/PrivateRoute";
 
@@ -87,6 +91,56 @@ function App() {
               <PrivateRoute>
                 <MainLayout>
                   <Settings />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/featured"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <Feed />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/smart-match"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <SmartMatch />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/script/:id"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ScriptDetail />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/auditions"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <Auditions />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <Notifications />
                 </MainLayout>
               </PrivateRoute>
             }

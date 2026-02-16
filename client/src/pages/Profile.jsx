@@ -5,6 +5,7 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import PostCard from "../components/PostCard";
 import EditProfileModal from "../components/EditProfileModal";
+import { Pencil, MessageCircle, Briefcase, LayoutGrid } from "lucide-react";
 
 const Profile = () => {
   const { id } = useParams();
@@ -52,7 +53,7 @@ const Profile = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[60vh]">
-        <div className="w-10 h-10 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-[#c3d5e8] border-t-[#0f2544] rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -68,7 +69,7 @@ const Profile = () => {
         className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6"
       >
         {/* Cover */}
-        <div className="h-28 sm:h-36 lg:h-44 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"></div>
+        <div className="h-28 sm:h-36 lg:h-44 bg-gradient-to-r from-[#0f2544] via-[#1a365d] to-[#0a1628]"></div>
 
         <div className="px-4 sm:px-6 lg:px-8 pb-6">
           <div className="flex flex-col sm:flex-row items-start gap-4 -mt-12 sm:-mt-10">
@@ -91,9 +92,7 @@ const Profile = () => {
                     <button onClick={() => setShowEditModal(true)}
                       className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition text-sm font-medium flex items-center gap-1.5"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
+                      <Pencil size={16} />
                       Edit
                     </button>
                   ) : (
@@ -101,15 +100,13 @@ const Profile = () => {
                       <button onClick={handleFollow}
                         className={[
                           "px-5 py-2 rounded-xl transition text-sm font-medium",
-                          isFollowing ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-indigo-600 text-white hover:bg-indigo-700",
+                          isFollowing ? "bg-gray-100 text-gray-700 hover:bg-gray-200" : "bg-[#0f2544] text-white hover:bg-[#1a365d]",
                         ].join(" ")}
                       >
                         {isFollowing ? "Following" : "Follow"}
                       </button>
                       <button className="px-3 py-2 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
+                        <MessageCircle size={20} />
                       </button>
                     </>
                   )}
@@ -117,11 +114,8 @@ const Profile = () => {
               </div>
 
               {/* Role */}
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-100 mb-3">
-                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
-                  <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z" />
-                </svg>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-[#edf2f7] to-[#f0f4f8] text-[#0f2544] rounded-full text-xs font-semibold border border-[#c3d5e8] mb-3">
+                <Briefcase size={14} />
                 {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
               </span>
 
@@ -148,9 +142,7 @@ const Profile = () => {
 
       {/* Posts */}
       <h2 className="text-base sm:text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
+        <LayoutGrid size={20} className="text-gray-600" />
         Posts
       </h2>
 
