@@ -3,8 +3,8 @@ import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { FileText, UserCircle, Mail, Lock, Users, ArrowLeft } from "lucide-react";
 
-const Signup = () => {
-  const { signup } = useContext(AuthContext);
+const Join = () => {
+  const { join } = useContext(AuthContext);
   const navigate = useNavigate();
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -18,10 +18,10 @@ const Signup = () => {
     e.preventDefault();
     setError("");
     try {
-      await signup(formData);
+      await join(formData);
       navigate("/feed");
     } catch (err) {
-      setError(err.response?.data?.message || "Signup failed");
+      setError(err.response?.data?.message || "Join failed");
     }
   };
 
@@ -96,4 +96,4 @@ const Signup = () => {
   );
 };
 
-export default Signup;
+export default Join;

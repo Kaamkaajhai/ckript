@@ -31,8 +31,8 @@ const Landing = () => {
         <Link to="/login" className="px-7 py-2.5 bg-white text-[#0a1628] rounded-lg shadow-lg hover:scale-105 transition font-semibold flex items-center gap-2">
           Login <ArrowRight size={16} />
         </Link>
-        <Link to="/signup" className="px-7 py-2.5 bg-white/10 border border-white/30 rounded-lg shadow hover:bg-white/20 hover:scale-105 transition font-medium">
-          Create Account
+        <Link to="/join" className="px-7 py-2.5 bg-white/10 border border-white/30 rounded-lg shadow hover:bg-white/20 hover:scale-105 transition font-medium">
+          Get Started
         </Link>
       </motion.div>
     </div>

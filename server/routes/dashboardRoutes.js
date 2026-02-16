@@ -4,6 +4,7 @@ import { getDashboardStats } from "../controllers/dashboardController.js";
 
 const router = express.Router();
 
+router.get("/", protect, getDashboardStats);
 router.get("/stats", protect, getDashboardStats);
 
 export default router;

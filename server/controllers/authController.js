@@ -5,8 +5,8 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "365d" });
 };
 
-export const signup = async (req, res) => {
-  console.log('Signup request received:', req.body);
+export const join = async (req, res) => {
+  console.log('Join request received:', req.body);
   const { name, email, password, role } = req.body;
   try {
     const userExists = await User.findOne({ email });
@@ -22,7 +22,7 @@ export const signup = async (req, res) => {
       token: generateToken(user._id),
     });
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error('Join error:', error);
     res.status(500).json({ message: error.message });
   }
 };

@@ -22,19 +22,36 @@ import {
   X,
   Search,
   FileText,
+  Briefcase,     // New Icon for Mandates
+  Bookmark,      // New Icon for Watchlist
+  Glasses,       // New Icon for Scouting
+  Telescope      // New Icon for Discovery
 } from "lucide-react";
 
 const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // State for collapsible sections
   const [projectsOpen, setProjectsOpen] = useState(true);
+  const [watchlistOpen, setWatchlistOpen] = useState(true); // NEW for Producers
+  
   const [myScripts, setMyScripts] = useState([]);
+  const [watchlist, setWatchlist] = useState([]); // NEW for Producers
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const isIndustry = user?.role === 'professional' || user?.role === 'producer' || user?.role === 'investor';
+
   useEffect(() => {
-    fetchMyScripts();
-  }, []);
+    if (user) {
+      if (isIndustry) {
+        fetchWatchlist();
+      } else {
+        fetchMyScripts();
+      }
+    }
+  }, [user]);
 
   const fetchMyScripts = async () => {
     try {
@@ -48,6 +65,16 @@ const Sidebar = () => {
     }
   };
 
+  const fetchWatchlist = async () => {
+    try {
+      // You need an endpoint for this: /users/watchlist
+      const { data } = await api.get("/users/watchlist"); 
+      setWatchlist(data);
+    } catch { 
+      setWatchlist([]); 
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -56,31 +83,47 @@ const Sidebar = () => {
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
 
-  /* ── Navigation items ── */
-  const mainNavItems = [
-    { path: "/dashboard", label: "MY DASHBOARD", icon: <LayoutDashboard size={18} strokeWidth={1.8} /> },
-    { path: `/profile/${user?._id || ""}`, label: "MY PROFILE", icon: <User size={18} strokeWidth={1.8} /> },
-    { path: "/feed", label: "TOP LISTS", icon: <TrendingUp size={18} strokeWidth={1.8} /> },
-    { path: "/featured", label: "FEATURED PROJECTS", icon: <Star size={18} strokeWidth={1.8} /> },
-    { path: "/messages", label: "MY PROGRAMS", icon: <CalendarDays size={18} strokeWidth={1.8} /> },
-    { path: "/search", label: "SEARCH PROJECTS", icon: <FileSearch size={18} strokeWidth={1.8} /> },
-    { path: "/search?type=writers", label: "SEARCH WRITERS", icon: <UserPlus size={18} strokeWidth={1.8} /> },
-    { path: "/smart-match", label: "SMART MATCH", icon: <MapPin size={18} strokeWidth={1.8} /> },
-    { path: "/auditions", label: "AUDITIONS", icon: <Rocket size={18} strokeWidth={1.8} /> },
-    { path: "/notifications", label: "NOTIFICATIONS", icon: <Bell size={18} strokeWidth={1.8} /> },
+  // ─── 1. WRITER NAVIGATION ───
+  const writerNavItems = [
+    { path: "/dashboard", label: "MY DASHBOARD", icon: <LayoutDashboard size={18} /> },
+    { path: `/profile/${user?._id}`, label: "MY PROFILE", icon: <User size={18} /> },
+    { path: "/feed", label: "TOP LISTS", icon: <TrendingUp size={18} /> },
+    { path: "/featured", label: "FEATURED PROJECTS", icon: <Star size={18} /> },
+    { path: "/programs", label: "MY PROGRAMS", icon: <CalendarDays size={18} /> },
+    { path: "/search", label: "SEARCH PROJECTS", icon: <FileSearch size={18} /> },
+    { path: "/writers", label: "SEARCH WRITERS", icon: <UserPlus size={18} /> },
+    { path: "/smart-match", label: "SMART MATCH", icon: <MapPin size={18} /> },
+    { path: "/notifications", label: "NOTIFICATIONS", icon: <Bell size={18} /> },
   ];
 
-  const actionItems = [
-    { path: "/upload", label: "ADD PROJECT", icon: <PlusCircle size={18} strokeWidth={1.8} /> },
-    { path: "/settings", label: "BUY EVALUATIONS", icon: <ShoppingCart size={18} strokeWidth={1.8} /> },
+  const writerActions = [
+    { path: "/upload", label: "ADD PROJECT", icon: <PlusCircle size={18} /> },
+    { path: "/settings", label: "BUY EVALUATIONS", icon: <ShoppingCart size={18} /> },
+  ];
+
+  // ─── 2. PRODUCER / INVESTOR NAVIGATION ───
+  const industryNavItems = [
+    { path: "/dashboard", label: "SCOUTING DASHBOARD", icon: <Glasses size={18} /> }, // Custom Dashboard
+    { path: `/profile/${user?._id}`, label: "COMPANY PROFILE", icon: <Briefcase size={18} /> },
+    { path: "/feed", label: "THE BLACK LIST", icon: <TrendingUp size={18} /> }, // "Top Lists"
+    { path: "/featured", label: "CURATED PICKS", icon: <Star size={18} /> },
+    { path: "/mandates", label: "MY MANDATES", icon: <FileText size={18} /> }, // "What I'm looking for"
+    { path: "/search", label: "ADVANCED SEARCH", icon: <FileSearch size={18} /> },
+    { path: "/writers", label: "FIND WRITERS", icon: <Telescope size={18} /> },
+    { path: "/smart-match", label: "ALGO RECOMMENDATIONS", icon: <MapPin size={18} /> },
+    { path: "/notifications", label: "ALERTS", icon: <Bell size={18} /> },
+  ];
+
+  // Producers don't "Add Projects", they "Manage Settings" or "Invite"
+  const industryActions = [
+    { path: "/settings", label: "SETTINGS", icon: <User size={18} /> },
   ];
 
   /* ─── Mobile bottom items ─── */
   const mobileItems = [
     { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} /> },
     { path: "/feed", label: "Feed", icon: <TrendingUp size={20} /> },
-    { path: "/upload", label: "Create", icon: <PlusCircle size={20} /> },
-    { path: "/search", label: "Search", icon: <Search size={20} /> },
+    { path: isIndustry ? "/search" : "/upload", label: isIndustry ? "Search" : "Create", icon: isIndustry ? <Search size={20} /> : <PlusCircle size={20} /> },
     { path: `/profile/${user?._id || ""}`, label: "Profile", icon: <User size={20} /> },
   ];
 
@@ -111,63 +154,98 @@ const Sidebar = () => {
         <div className="w-8 h-8 flex items-center justify-center">
           <FileText size={26} className="text-white" strokeWidth={1.5} />
         </div>
-        <span className="text-white font-bold text-lg tracking-wide">SCRIPT BRIDGE</span>
+        <span className="text-white font-bold text-lg tracking-wide">
+          {isIndustry ? "SCRIPT SCOUT" : "SCRIPT BRIDGE"}
+        </span>
       </div>
 
       {/* ── Separator ── */}
       <div className="mx-4 border-t border-white/10"></div>
 
-      {/* ── Main navigation ── */}
+      {/* ── DYNAMIC NAVIGATION ── */}
       <nav className="flex-1 py-3 overflow-y-auto sidebar-scroll">
-        {mainNavItems.map((item) => (
+        
+        {/* Primary Items */}
+        {(isIndustry ? industryNavItems : writerNavItems).map((item) => (
           <NavItem key={item.label} item={item} />
         ))}
 
-        {/* ── Separator ── */}
         <div className="mx-4 my-3 border-t border-white/10"></div>
 
-        {actionItems.map((item) => (
+        {/* Action Items */}
+        {(isIndustry ? industryActions : writerActions).map((item) => (
           <NavItem key={item.label} item={item} />
         ))}
 
-        {/* ── MY PROJECTS collapsible ── */}
         <div className="mx-4 my-3 border-t border-white/10"></div>
 
-        <button
-          onClick={() => setProjectsOpen(!projectsOpen)}
-          className="flex items-center gap-2 px-5 py-2.5 w-full text-left text-white/60 hover:text-white transition-colors"
-        >
-          <ChevronRight
-            size={16}
-            className={`transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
-          />
-          <span className="text-[13px] font-semibold tracking-wider">MY PROJECTS</span>
-        </button>
-
-        {projectsOpen && (
-          <div className="pl-5">
-            {myScripts.length > 0 ? (
-              myScripts.map((script) => (
-                <Link
-                  key={script._id}
-                  to="/dashboard"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex items-center gap-3 px-5 py-2 text-white/50 hover:text-white transition-colors"
-                >
-                  <Flame size={18} className="text-white/70" strokeWidth={1.5} />
-                  <div className="min-w-0">
-                    <span className="block text-[12px] font-semibold tracking-wider truncate">
-                      {script.title?.toUpperCase()}
-                    </span>
-                    <span className="text-[10px] text-gray-500">Listed</span>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <p className="px-5 py-2 text-[11px] text-gray-600 italic">No projects yet</p>
+        {/* ─── DYNAMIC COLLAPSIBLE SECTION ─── */}
+        
+        {isIndustry ? (
+          // ─── PRODUCER VIEW: WATCHLIST ───
+          <>
+            <button
+              onClick={() => setWatchlistOpen(!watchlistOpen)}
+              className="flex items-center gap-2 px-5 py-2.5 w-full text-left text-white/60 hover:text-white transition-colors"
+            >
+              <ChevronRight size={16} className={`transition-transform ${watchlistOpen ? "rotate-90" : ""}`} />
+              <span className="text-[13px] font-semibold tracking-wider">WATCHLIST</span>
+            </button>
+            {watchlistOpen && (
+              <div className="pl-5">
+                {watchlist.length > 0 ? (
+                  watchlist.map((script) => (
+                    <Link key={script._id} to={`/script/${script._id}`} onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-5 py-2 text-white/50 hover:text-white transition-colors">
+                      <Bookmark size={16} />
+                      <span className="text-[12px] truncate">{script.title}</span>
+                    </Link>
+                  ))
+                ) : (
+                  <p className="px-5 py-2 text-[11px] text-gray-500 italic">No tracked scripts</p>
+                )}
+              </div>
             )}
-          </div>
+          </>
+        ) : (
+          // ─── WRITER VIEW: MY PROJECTS ───
+          <>
+            <button
+              onClick={() => setProjectsOpen(!projectsOpen)}
+              className="flex items-center gap-2 px-5 py-2.5 w-full text-left text-white/60 hover:text-white transition-colors"
+            >
+              <ChevronRight
+                size={16}
+                className={`transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
+              />
+              <span className="text-[13px] font-semibold tracking-wider">MY PROJECTS</span>
+            </button>
+            {projectsOpen && (
+              <div className="pl-5">
+                {myScripts.length > 0 ? (
+                  myScripts.map((script) => (
+                    <Link
+                      key={script._id}
+                      to="/dashboard"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 px-5 py-2 text-white/50 hover:text-white transition-colors"
+                    >
+                      <Flame size={18} className="text-white/70" strokeWidth={1.5} />
+                      <div className="min-w-0">
+                        <span className="block text-[12px] font-semibold tracking-wider truncate">
+                          {script.title?.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-gray-500">Listed</span>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <p className="px-5 py-2 text-[11px] text-gray-600 italic">No projects yet</p>
+                )}
+              </div>
+            )}
+          </>
         )}
+
       </nav>
 
       {/* ── User section at bottom ── */}
@@ -200,7 +278,7 @@ const Sidebar = () => {
           </Link>
         </div>
         <nav className="flex-1 flex flex-col items-center gap-1 px-2 py-2 overflow-y-auto">
-          {mainNavItems.map((item) => {
+          {(isIndustry ? industryNavItems : writerNavItems).map((item) => {
             const active = isActive(item.path);
             return (
               <Link
@@ -218,7 +296,7 @@ const Sidebar = () => {
             );
           })}
           <div className="w-8 my-2 border-t border-white/10"></div>
-          {actionItems.map((item) => {
+          {(isIndustry ? industryActions : writerActions).map((item) => {
             const active = isActive(item.path);
             return (
               <Link
