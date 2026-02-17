@@ -22,7 +22,7 @@ const Landing = () => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
             </svg>
           </Link>
-          <Link to="/signup" className="px-8 py-3 bg-white text-gray-600 border border-gray-200 rounded-lg text-base font-semibold hover:bg-gray-50 transition-colors">
+          <Link to="/join" className="px-8 py-3 bg-white text-gray-600 border border-gray-200 rounded-lg text-base font-semibold hover:bg-gray-50 transition-colors">
             Create account
           </Link>
         </div>
