@@ -11,13 +11,36 @@ const roleSchema = new mongoose.Schema({
 const scriptSchema = new mongoose.Schema({
   creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
+  logline: { type: String }, // Max 300 chars hook for search cards
   description: { type: String },
   synopsis: { type: String }, // Short visible teaser
   fullContent: { type: String }, // Locked full content
   fileUrl: { type: String, required: true },
+  pageCount: { type: Number }, // Auto-calculated on upload
   coverImage: { type: String },
   genre: { type: String },
   contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup"], default: "movie" },
+  
+  // Enhanced metadata for writer onboarding
+  format: { 
+    type: String, 
+    enum: ["feature_film", "tv_pilot_1hour", "tv_pilot_halfhour", "play", "short_film", "web_series"],
+    default: "feature_film"
+  },
+  primaryGenre: { type: String },
+  subGenres: [{ type: String }],
+  
+  // Content indicators
+  contentIndicators: {
+    bechdelTest: { type: Boolean },
+    basedOnTrueStory: { type: Boolean, default: false },
+    adaptation: { type: Boolean, default: false },
+    adaptationSource: { type: String }, // What it's adapted from
+  },
+  
+  // Tag references (Many-to-Many)
+  tagIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }],
+  
   premium: { type: Boolean, default: false },
   price: { type: Number, default: 0 },
   unlockedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

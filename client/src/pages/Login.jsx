@@ -39,7 +39,7 @@ const Login = () => {
         </div>
         <button type="submit" className="w-full bg-[#0f2544] text-white py-2.5 rounded-lg hover:bg-[#1a365d] transition font-semibold text-sm">Sign In</button>
         <p className="mt-5 text-center text-sm text-gray-500">
-          Don't have an account? <Link to="/signup" className="text-[#1a365d] font-semibold hover:underline">Create one</Link>
+          Don't have an account? <Link to="/join" className="text-[#1a365d] font-semibold hover:underline">Create one</Link>
         </p>
         <p className="mt-2 text-center text-sm">
           <Link to="/" className="text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1"><ArrowLeft size={14} /> Back to Home</Link>

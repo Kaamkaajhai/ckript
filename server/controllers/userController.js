@@ -1,5 +1,20 @@
 import User from "../models/User.js";
 import Post from "../models/Post.js";
+import Script from "../models/Script.js";
+
+export const getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 export const getUserProfile = async (req, res) => {
   try {
@@ -97,6 +112,83 @@ export const unfollowUser = async (req, res) => {
     await userToUnfollow.save();
 
     res.json({ message: "User unfollowed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getWatchlist = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get the savedScripts from industryProfile
+    const savedScriptIds = user.industryProfile?.savedScripts || [];
+
+    // Populate the script details
+    const scripts = await Script.find({ _id: { $in: savedScriptIds } })
+      .populate("creator", "name profileImage")
+      .sort({ createdAt: -1 });
+
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const addToWatchlist = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Initialize savedScripts if it doesn't exist
+    if (!user.industryProfile) {
+      user.industryProfile = {};
+    }
+    if (!user.industryProfile.savedScripts) {
+      user.industryProfile.savedScripts = [];
+    }
+
+    // Check if already in watchlist
+    if (user.industryProfile.savedScripts.includes(scriptId)) {
+      return res.status(400).json({ message: "Script already in watchlist" });
+    }
+
+    user.industryProfile.savedScripts.push(scriptId);
+    await user.save();
+
+    res.json({ message: "Script added to watchlist" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const removeFromWatchlist = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!user.industryProfile?.savedScripts) {
+      return res.status(400).json({ message: "Watchlist is empty" });
+    }
+
+    user.industryProfile.savedScripts = user.industryProfile.savedScripts.filter(
+      (id) => id.toString() !== scriptId
+    );
+    await user.save();
+
+    res.json({ message: "Script removed from watchlist" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
