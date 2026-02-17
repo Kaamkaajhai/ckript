@@ -17,8 +17,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("user", JSON.stringify(data));
   };
 
-  const signup = async (formData) => {
-    const { data } = await axios.post("http://localhost:5001/api/auth/signup", formData);
+  const join = async (formData) => {
+    const { data } = await axios.post("http://localhost:5001/api/auth/join", formData);
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
   };
@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, login, join, logout }}>
       {children}
     </AuthContext.Provider>
   );

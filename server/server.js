@@ -20,6 +20,8 @@ import searchRoutes from "./routes/search.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import matchRoutes from "./routes/matchRoutes.js";
 import auditionRoutes from "./routes/auditionRoutes.js";
+import tagRoutes from "./routes/tagRoutes.js";
+import onboardingRoutes from "./routes/onboardingRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 
 dotenv.config();
@@ -106,6 +108,8 @@ app.use("/api/search", searchRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/match", matchRoutes);
 app.use("/api/auditions", auditionRoutes);
+app.use("/api/tags", tagRoutes);
+app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/notifications", notificationRoutes);
 
 const PORT = process.env.PORT || 5001;

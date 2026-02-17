@@ -7,11 +7,26 @@ const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
+  
+  // State for collapsible sections
   const [projectsOpen, setProjectsOpen] = useState(true);
+  const [watchlistOpen, setWatchlistOpen] = useState(true); // NEW for Producers
+  
   const [myScripts, setMyScripts] = useState([]);
+  const [watchlist, setWatchlist] = useState([]); // NEW for Producers
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => { fetchMyScripts(); }, []);
+  const isIndustry = user?.role === 'professional' || user?.role === 'producer' || user?.role === 'investor';
+
+  useEffect(() => {
+    if (user) {
+      if (isIndustry) {
+        fetchWatchlist();
+      } else {
+        fetchMyScripts();
+      }
+    }
+  }, [user]);
 
   const fetchMyScripts = async () => {
     try {
@@ -19,6 +34,16 @@ const Sidebar = () => {
       const mine = data.filter((s) => s.creator?._id === user?._id || s.creator === user?._id);
       setMyScripts(mine);
     } catch { setMyScripts([]); }
+  };
+
+  const fetchWatchlist = async () => {
+    try {
+      // You need an endpoint for this: /users/watchlist
+      const { data } = await api.get("/users/watchlist"); 
+      setWatchlist(data);
+    } catch { 
+      setWatchlist([]); 
+    }
   };
 
   const handleLogout = () => { logout(); navigate("/login"); };

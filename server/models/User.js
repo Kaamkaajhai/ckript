@@ -5,10 +5,69 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader"], required: true },
+  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional"], required: true },
   bio: { type: String },
   skills: [String],
   profileImage: { type: String },
+  
+  // Email verification
+  emailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String },
+  emailVerificationExpires: { type: Date },
+  
+  // Writer-specific profile fields
+  writerProfile: {
+    legalName: { type: String },
+    representationStatus: { 
+      type: String, 
+      enum: ["unrepresented", "manager", "agent", "manager_and_agent"],
+      default: "unrepresented"
+    },
+    agencyName: { type: String },
+    wgaMember: { type: Boolean, default: false },
+    // Writer's primary genres
+    genres: [String],
+    // Specialized tags (themes, tones, settings)
+    specializedTags: [String],
+    // Plan selection
+    plan: { type: String, enum: ["free", "paid"], default: "free" },
+    // Diversity data (optional)
+    diversity: {
+      gender: { type: String },
+      ethnicity: { type: String },
+      lgbtqStatus: { type: String },
+      disabilityStatus: { type: String },
+    },
+    // Onboarding completion tracking
+    onboardingComplete: { type: Boolean, default: false },
+    onboardingStep: { type: Number, default: 0 }, // Track which step they're on
+  },
+  
+  // Industry Professional Profile
+  industryProfile: {
+    subRole: { 
+      type: String, 
+      enum: ["producer", "agent", "director", "actor"],
+    },
+    company: { type: String },
+    jobTitle: { type: String },
+    imdbUrl: { type: String },
+    linkedInUrl: { type: String },
+    previousCredits: { type: String },
+    isVerified: { type: Boolean, default: false },
+    // Mandates (what they're looking for)
+    mandates: {
+      formats: [String], // Feature Film, TV Pilot, etc.
+      budgetTiers: [String], // micro, low, medium, high, blockbuster
+      genres: [String], // Genres they want
+      excludeGenres: [String], // Genres they don't want
+      specificHooks: [String] // Diverse Voices, Female-Led, etc.
+    },
+    savedScripts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Script' }],
+    onboardingComplete: { type: Boolean, default: false },
+    onboardingStep: { type: Number, default: 0 },
+  },
+  
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   // Smart Match preferences
