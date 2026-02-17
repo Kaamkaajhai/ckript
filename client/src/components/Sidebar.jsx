@@ -8,10 +8,7 @@ const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   
-<<<<<<< Updated upstream
   // State for collapsible sections
-=======
->>>>>>> Stashed changes
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [watchlistOpen, setWatchlistOpen] = useState(true); // NEW for Producers
   
