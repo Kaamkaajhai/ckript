@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import Post from "../models/Post.js";
+import Script from "../models/Script.js";
 import Notification from "../models/Notification.js";
 import multer from "multer";
 import path from "path";
@@ -45,7 +46,11 @@ export const getUserProfile = async (req, res) => {
       .populate("user", "name profileImage role")
       .sort({ createdAt: -1 });
 
-    res.json({ user, posts });
+    const scripts = await Script.find({ creator: req.params.id })
+      .populate("creator", "name profileImage role")
+      .sort({ createdAt: -1 });
+
+    res.json({ user, posts, scripts });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
