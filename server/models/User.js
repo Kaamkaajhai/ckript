@@ -97,6 +97,9 @@ const userSchema = new mongoose.Schema({
     typeCast: { type: String }, // e.g. "Rough, older, like Liam Neeson"
     availableForAuditions: { type: Boolean, default: true },
   },
+  // Reader system
+  scriptsRead: [{ type: mongoose.Schema.Types.ObjectId, ref: "Script" }],
+  favoriteScripts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Script" }],
   // Domain Packages purchased
   domainPackages: [{
     category: { type: String },

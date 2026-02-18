@@ -316,3 +316,108 @@ export const addRoles = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// ─── Reader Endpoints ───
+
+export const getFeaturedScripts = async (req, res) => {
+  try {
+    const scripts = await Script.find({ $or: [{ isFeatured: true }, { rating: { $gte: 4 } }] })
+      .populate("creator", "name profileImage role")
+      .sort({ rating: -1 })
+      .limit(12);
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTopScripts = async (req, res) => {
+  try {
+    const sortBy = req.query.sort || "rating";
+    let sortObj = { rating: -1 };
+    if (sortBy === "reads") sortObj = { readsCount: -1 };
+    if (sortBy === "purchases") sortObj = { "unlockedBy": -1 };
+    const scripts = await Script.find()
+      .populate("creator", "name profileImage role")
+      .sort(sortObj)
+      .limit(20);
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const searchScriptsReader = async (req, res) => {
+  try {
+    const { q, category, genre, page = 1, limit = 20 } = req.query;
+    const query = {};
+    if (q) {
+      const regex = new RegExp(q, "i");
+      query.$or = [{ title: regex }, { description: regex }, { logline: regex }, { tags: regex }];
+    }
+    if (category) query.contentType = category;
+    if (genre) query.genre = genre;
+    const total = await Script.countDocuments(query);
+    const scripts = await Script.find(query)
+      .populate("creator", "name profileImage role")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+    res.json({ scripts, totalPages: Math.ceil(total / limit), page: parseInt(page), total });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getLatestScripts = async (req, res) => {
+  try {
+    const scripts = await Script.find()
+      .populate("creator", "name profileImage role")
+      .sort({ createdAt: -1 })
+      .limit(18);
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const recordRead = async (req, res) => {
+  try {
+    const script = await Script.findById(req.params.id);
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    script.readsCount = (script.readsCount || 0) + 1;
+    await script.save();
+    await User.findByIdAndUpdate(req.user._id, { $addToSet: { scriptsRead: script._id } });
+    res.json({ message: "Read recorded" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const toggleFavorite = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const idx = user.favoriteScripts.indexOf(req.params.id);
+    if (idx > -1) {
+      user.favoriteScripts.splice(idx, 1);
+      await user.save();
+      res.json({ favorited: false });
+    } else {
+      user.favoriteScripts.push(req.params.id);
+      await user.save();
+      res.json({ favorited: true });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getCategories = async (req, res) => {
+  try {
+    const contentTypes = await Script.distinct("contentType");
+    const genres = await Script.distinct("genre");
+    res.json({ contentTypes: contentTypes.filter(Boolean), genres: genres.filter(Boolean) });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
