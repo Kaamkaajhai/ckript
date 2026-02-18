@@ -1,0 +1,21 @@
+{
+  "name": "scriptbridge",
+  "version": "1.0.0",
+  "description": "A full-stack social platform connecting **creators, actors, investors, producers, and readers** in the entertainment industry. Share scripts, discover talent, fund projects, and collaborate — all in one place.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kaamkaajhai/scriptbridge.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Kaamkaajhai/scriptbridge/issues"
+  },
+  "homepage": "https://github.com/Kaamkaajhai/scriptbridge#readme"
+}
