@@ -16,6 +16,12 @@ import TopList from "./pages/TopList";
 import FeaturedProjects from "./pages/FeaturedProjects";
 import Messages from "./pages/Messages";
 import Writers from "./pages/Writers";
+<<<<<<< Updated upstream
+=======
+import ReaderHome from "./pages/ReaderHome";
+import ScriptReader from "./pages/ScriptReader";
+import ReaderProfile from "./pages/ReaderProfile";
+>>>>>>> Stashed changes
 import MainLayout from "./layouts/MainLayout";
 import PrivateRoute from "./utils/PrivateRoute";
 
