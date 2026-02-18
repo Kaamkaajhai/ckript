@@ -32,7 +32,13 @@ function App() {
           <Route path="/join" element={<RoleSelection />} />
           <Route path="/signup" element={<Join />} />
           <Route path="/writer-onboarding" element={<WriterOnboarding />} />
-          <Route path="/industry-onboarding" element={<IndustryOnboarding />} />
+          <Route path="/industry-onboarding" element={
+            <PrivateRoute>
+              <MainLayout>
+                <IndustryOnboarding />
+              </MainLayout>
+            </PrivateRoute>
+          } />
           <Route
             path="/top-list"
             element={
