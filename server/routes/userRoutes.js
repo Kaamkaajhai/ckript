@@ -1,8 +1,11 @@
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
-import { getCurrentUser, getUserProfile, updateUserProfile, followUser, unfollowUser, getWatchlist, addToWatchlist, removeFromWatchlist, uploadProfileImage, upload } from "../controllers/userController.js";
+import { getWriters, getCurrentUser, getUserProfile, updateUserProfile, followUser, unfollowUser, getWatchlist, addToWatchlist, removeFromWatchlist, uploadProfileImage, upload } from "../controllers/userController.js";
 
 const router = express.Router();
+
+// Writers listing (must come before /:id)
+router.get("/writers", protect, getWriters);
 
 // Current user route must come before /:id to avoid conflict
 router.get("/me", protect, getCurrentUser);

@@ -1,6 +1,12 @@
+import { useNavigate } from "react-router-dom";
+
 const ProjectCard = ({ project, userName }) => {
+  const navigate = useNavigate();
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-gray-100 transition-all duration-300 overflow-hidden max-w-sm w-full">
+    <div
+      onClick={() => navigate(`/script/${project._id}`)}
+      className="bg-white rounded-2xl shadow-sm hover:shadow-lg border border-gray-100 transition-all duration-300 overflow-hidden max-w-sm w-full cursor-pointer">
       {/* Card body */}
       <div className="flex flex-col items-center px-6 pt-10 pb-6">
         {/* Project icon */}

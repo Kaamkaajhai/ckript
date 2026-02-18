@@ -44,6 +44,68 @@ export const getScripts = async (req, res) => {
       ];
     }
 
+    // Use aggregation pipeline for computed sort fields (engagement, platform)
+    if (sort === "engagement" || sort === "platform") {
+      const pipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            unlockCount: { $size: { $ifNull: ["$unlockedBy", []] } },
+            engagementScore: {
+              $min: [
+                100,
+                {
+                  $add: [
+                    { $multiply: [{ $divide: [{ $ifNull: ["$views", 0] }, 500] }, 40] },
+                    { $multiply: [{ $divide: [{ $size: { $ifNull: ["$unlockedBy", []] } }, 50] }, 40] },
+                    {
+                      $cond: [
+                        { $gt: [{ $ifNull: ["$views", 0] }, 0] },
+                        { $multiply: [{ $divide: [{ $size: { $ifNull: ["$unlockedBy", []] } }, { $ifNull: ["$views", 1] }] }, 100] },
+                        0,
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ];
+
+      if (sort === "platform") {
+        // Platform score = weighted combo of AI score (60%) + engagement (40%)
+        pipeline.push({
+          $addFields: {
+            platformScore: {
+              $add: [
+                { $multiply: [{ $ifNull: ["$scriptScore.overall", 0] }, 0.6] },
+                { $multiply: ["$engagementScore", 0.4] },
+              ],
+            },
+          },
+        });
+        pipeline.push({ $sort: { platformScore: -1 } });
+      } else {
+        pipeline.push({ $sort: { engagementScore: -1 } });
+      }
+
+      // Populate creator
+      pipeline.push({
+        $lookup: {
+          from: "users",
+          localField: "creator",
+          foreignField: "_id",
+          as: "creator",
+          pipeline: [{ $project: { name: 1, profileImage: 1, role: 1 } }],
+        },
+      });
+      pipeline.push({ $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } });
+
+      const scripts = await Script.aggregate(pipeline);
+      return res.json(scripts);
+    }
+
     let sortObj = { createdAt: -1 };
     if (sort === "views") sortObj = { views: -1 };
     if (sort === "score") sortObj = { "scriptScore.overall": -1 };
