@@ -144,7 +144,7 @@ const Mandates = () => {
           </div>
 
           {message && (
-            <div className={`mb-6 p-4 rounded-lg ${message.includes("Error") ? "bg-red-50 text-red-700" : "bg-green-50 text-green-700"} flex items-center gap-2`}>
+            <div className={`mb-6 p-4 rounded-lg ${message.includes("Error") ? "bg-red-50 text-red-700" : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]"} flex items-center gap-2`}>
               <CheckCircle className="w-5 h-5" />
               <p className="font-medium">{message}</p>
             </div>
@@ -210,7 +210,7 @@ const Mandates = () => {
                     onClick={() => toggleGenre(genre)}
                     className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                       mandates.genres.includes(genre)
-                        ? "bg-green-600 text-white shadow-md"
+                        ? "bg-[#1e3a5f] text-white shadow-md"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -289,8 +289,8 @@ const Mandates = () => {
           </form>
         </div>
 
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
+        <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <p className="text-sm text-gray-700">
             <strong>💡 How it works:</strong> Based on these mandates, our AI will automatically recommend scripts that match your criteria. 
             You'll receive notifications when new matching scripts are uploaded.
           </p>

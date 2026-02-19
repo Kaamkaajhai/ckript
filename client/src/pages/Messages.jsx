@@ -121,7 +121,7 @@ const Messages = () => {
                   <div className="flex items-center gap-3">
                     <div className="relative flex-shrink-0">
                       <img src={conv.user.profileImage} alt={conv.user.name} className="w-12 h-12 rounded-full object-cover" />
-                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></div>
+                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-[#1e3a5f] border-2 border-white rounded-full"></div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-0.5">

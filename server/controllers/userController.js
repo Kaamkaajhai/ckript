@@ -31,6 +31,74 @@ const fileFilter = (req, file, cb) => {
 
 export const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
+export const getWriters = async (req, res) => {
+  try {
+    const { sort } = req.query;
+
+    // Aggregation to get writers with their script stats
+    const pipeline = [
+      { $match: { role: "writer" } },
+      { $project: { password: 0, emailVerificationToken: 0, emailVerificationExpires: 0 } },
+      {
+        $lookup: {
+          from: "scripts",
+          localField: "_id",
+          foreignField: "creator",
+          as: "scripts",
+        },
+      },
+      {
+        $addFields: {
+          scriptCount: { $size: "$scripts" },
+          totalViews: { $sum: "$scripts.views" },
+          avgScore: {
+            $cond: [
+              { $gt: [{ $size: { $filter: { input: "$scripts", as: "s", cond: { $gt: ["$$s.scriptScore.overall", 0] } } } }, 0] },
+              { $avg: { $map: { input: { $filter: { input: "$scripts", as: "s", cond: { $gt: ["$$s.scriptScore.overall", 0] } } }, as: "s", in: "$$s.scriptScore.overall" } } },
+              0,
+            ],
+          },
+          totalUnlocks: {
+            $sum: { $map: { input: "$scripts", as: "s", in: { $size: { $ifNull: ["$$s.unlockedBy", []] } } } },
+          },
+          followerCount: { $size: { $ifNull: ["$followers", []] } },
+        },
+      },
+      { $project: { scripts: 0 } },
+    ];
+
+    // Sort options
+    if (sort === "score") {
+      pipeline.push({ $sort: { avgScore: -1 } });
+    } else if (sort === "views") {
+      pipeline.push({ $sort: { totalViews: -1 } });
+    } else if (sort === "followers") {
+      pipeline.push({ $sort: { followerCount: -1 } });
+    } else if (sort === "scripts") {
+      pipeline.push({ $sort: { scriptCount: -1 } });
+    } else {
+      // Default: combined reputation (avgScore * 0.5 + totalViews/100 * 0.3 + followerCount * 0.2)
+      pipeline.push({
+        $addFields: {
+          reputation: {
+            $add: [
+              { $multiply: [{ $ifNull: ["$avgScore", 0] }, 0.5] },
+              { $multiply: [{ $divide: [{ $ifNull: ["$totalViews", 0] }, 100] }, 0.3] },
+              { $multiply: [{ $ifNull: ["$followerCount", 0] }, 0.2] },
+            ],
+          },
+        },
+      });
+      pipeline.push({ $sort: { reputation: -1 } });
+    }
+
+    const writers = await User.aggregate(pipeline);
+    res.json(writers);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");

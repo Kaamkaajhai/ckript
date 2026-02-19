@@ -16,6 +16,7 @@ const ScriptDetail = () => {
   const [scoreLoading, setScoreLoading] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [unlockLoading, setUnlockLoading] = useState(false);
 
   useEffect(() => {
     fetchScript();
@@ -104,16 +105,28 @@ const ScriptDetail = () => {
     }
   };
 
+  const handleUnlockSynopsis = async () => {
+    setUnlockLoading(true);
+    try {
+      await api.post("/scripts/unlock", { scriptId: script._id });
+      await fetchScript();
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to unlock synopsis");
+    } finally {
+      setUnlockLoading(false);
+    }
+  };
+
   const scoreColor = (val) => {
-    if (val >= 85) return "text-green-600";
-    if (val >= 70) return "text-yellow-600";
-    return "text-red-600";
+    if (val >= 85) return "text-[#1e3a5f]";
+    if (val >= 70) return "text-gray-600";
+    return "text-gray-400";
   };
 
   const scoreBg = (val) => {
-    if (val >= 85) return "bg-green-100";
-    if (val >= 70) return "bg-yellow-100";
-    return "bg-red-100";
+    if (val >= 85) return "bg-[#1e3a5f]/[0.08]";
+    if (val >= 70) return "bg-gray-100";
+    return "bg-gray-50";
   };
 
   if (loading) {
@@ -170,7 +183,7 @@ const ScriptDetail = () => {
             )}
             {/* Badges */}
             <div className="absolute top-3 right-3 flex gap-2">
-              {script.premium && <span className="px-3 py-1.5 bg-amber-500 text-white rounded-full text-sm font-bold">Premium</span>}
+              {script.premium && <span className="px-3 py-1.5 bg-[#1e3a5f] text-white rounded-full text-sm font-bold">Premium</span>}
               <span className="px-3 py-1.5 bg-black/40 text-white rounded-full text-sm font-semibold">{script.genre}</span>
             </div>
             <div className="absolute bottom-3 right-3 flex gap-2">
@@ -212,7 +225,7 @@ const ScriptDetail = () => {
             <div className="flex flex-wrap gap-3 mt-5">
               {!isOwner && isPro && script.holdStatus === "available" && (
                 <button onClick={() => setShowHoldModal(true)}
-                  className="px-6 py-3 bg-amber-500 text-white rounded-xl text-base font-bold hover:bg-amber-600 transition shadow-sm">
+                  className="px-6 py-3 bg-[#1e3a5f] text-white rounded-xl text-base font-bold hover:bg-[#162d4a] transition shadow-sm">
                   Hold Script — ${script.holdFee || 200}
                 </button>
               )}
@@ -227,7 +240,7 @@ const ScriptDetail = () => {
                 </button>
               )}
               {script.trailerStatus === "processing" && (
-                <span className="px-6 py-3 bg-purple-100 text-purple-700 rounded-xl text-base font-bold animate-pulse">Trailer Processing...</span>
+                <span className="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl text-base font-bold animate-pulse">Trailer Processing...</span>
               )}
 
               {isOwner && !script.scriptScore?.overall && (
@@ -304,7 +317,7 @@ const ScriptDetail = () => {
                         <span className="text-base font-semibold text-gray-700">{item.label}</span>
                         <div className="flex items-center gap-2">
                           <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full ${item.val >= 85 ? "bg-green-500" : item.val >= 70 ? "bg-yellow-500" : "bg-red-500"}`}
+                            <div className={`h-full rounded-full ${item.val >= 85 ? "bg-[#1e3a5f]" : item.val >= 70 ? "bg-gray-400" : "bg-gray-300"}`}
                               style={{ width: `${item.val}%` }} />
                           </div>
                           <span className={`text-sm font-bold ${scoreColor(item.val)}`}>{item.val}</span>
@@ -314,9 +327,9 @@ const ScriptDetail = () => {
                   </div>
 
                   {script.scriptScore.feedback && (
-                    <div className="bg-blue-50 rounded-xl p-4">
-                      <p className="text-base font-bold text-blue-800 mb-1">AI Feedback</p>
-                      <p className="text-base text-blue-700">{script.scriptScore.feedback}</p>
+                    <div className="bg-gray-50 rounded-xl p-4">
+                      <p className="text-base font-bold text-gray-800 mb-1">AI Feedback</p>
+                      <p className="text-base text-gray-600">{script.scriptScore.feedback}</p>
                     </div>
                   )}
                 </div>
@@ -373,6 +386,59 @@ const ScriptDetail = () => {
                 <>
                   <h3 className="text-xl font-bold text-gray-900 mb-3">Synopsis</h3>
                   <p className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap">{script.synopsis}</p>
+
+                  {/* Locked state: show paywall overlay */}
+                  {script.isSynopsisLocked && (
+                    <div className="mt-4 border-t border-gray-100 pt-5">
+                      <div className="bg-gradient-to-b from-transparent to-gray-50 rounded-xl p-6 text-center">
+                        <div className="text-5xl mb-3">🔒</div>
+                        <h4 className="text-lg font-bold text-gray-800 mb-1">Full Synopsis Locked</h4>
+
+                        {script.isWriter ? (
+                          // Writers cannot purchase
+                          <div>
+                            <p className="text-base text-gray-500 mb-3">
+                              Writers cannot purchase synopsis access. Only investors, producers, and directors can unlock full scripts.
+                            </p>
+                            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-xl text-sm font-semibold">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                              Not available for writers
+                            </div>
+                          </div>
+                        ) : script.canPurchase ? (
+                          // Investors/Producers/Directors can pay to unlock
+                          <div>
+                            <p className="text-base text-gray-500 mb-4">
+                              Pay to unlock the full synopsis and script content.
+                            </p>
+                            <button
+                              onClick={handleUnlockSynopsis}
+                              disabled={unlockLoading}
+                              className="px-6 py-3 bg-[#1e3a5f] text-white rounded-xl text-base font-bold hover:bg-[#162d4a] transition shadow-sm disabled:opacity-50"
+                            >
+                              {unlockLoading ? "Processing..." : `Unlock Full Synopsis — $${script.price || 0}`}
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-base text-gray-500">
+                            Sign in as an investor, producer, or director to unlock.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Show unlocked badge if user paid */}
+                  {!script.isSynopsisLocked && !script.isCreator && (
+                    <div className="mt-4 flex items-center gap-2 text-[#1e3a5f]">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm font-semibold">Full synopsis unlocked</span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-8">
@@ -406,7 +472,7 @@ const ScriptDetail = () => {
             <p className="text-base text-gray-600 mb-4">
               Place a 30-day hold on "<span className="font-semibold">{script.title}</span>" to reserve exclusive access while you evaluate.
             </p>
-            <div className="bg-amber-50 rounded-xl p-4 mb-5">
+            <div className="bg-gray-50 rounded-xl p-4 mb-5">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-base text-gray-700 font-medium">Hold Fee</span>
                 <span className="text-xl font-bold text-gray-900">${script.holdFee || 200}</span>
@@ -415,16 +481,16 @@ const ScriptDetail = () => {
                 <span className="text-base text-gray-700 font-medium">Platform Fee (10%)</span>
                 <span className="text-base font-semibold text-gray-600">${((script.holdFee || 200) * 0.1).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center border-t border-amber-200 pt-2">
+              <div className="flex justify-between items-center border-t border-gray-200 pt-2">
                 <span className="text-base text-gray-700 font-medium">Creator Receives</span>
-                <span className="text-base font-bold text-green-700">${((script.holdFee || 200) * 0.9).toFixed(2)}</span>
+                <span className="text-base font-bold text-[#1e3a5f]">${((script.holdFee || 200) * 0.9).toFixed(2)}</span>
               </div>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowHoldModal(false)}
                 className="flex-1 px-5 py-3 bg-gray-100 text-gray-700 rounded-xl text-base font-semibold hover:bg-gray-200 transition">Cancel</button>
               <button onClick={handleHold} disabled={holdLoading}
-                className="flex-1 px-5 py-3 bg-amber-500 text-white rounded-xl text-base font-bold hover:bg-amber-600 transition disabled:opacity-50">
+                className="flex-1 px-5 py-3 bg-[#1e3a5f] text-white rounded-xl text-base font-bold hover:bg-[#162d4a] transition disabled:opacity-50">
                 {holdLoading ? "Processing..." : "Confirm Hold"}
               </button>
             </div>

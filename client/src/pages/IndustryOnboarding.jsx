@@ -348,7 +348,7 @@ const IndustryOnboarding = () => {
                   />
                 </div>
                 {accountData.email && !isWorkEmail(accountData.email) && (
-                  <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                  <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                     <AlertCircle size={12} />
                     Please use your work email for faster verification
                   </p>
@@ -437,7 +437,7 @@ const IndustryOnboarding = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-[#1e3a5f] text-white py-3 rounded-lg font-semibold hover:bg-[#162d4a] transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? "Verifying..." : "Verify Email"}
                 <ArrowRight size={20} />
@@ -541,8 +541,8 @@ const IndustryOnboarding = () => {
               />
             </div>
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-blue-800">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-700">
                 <strong>Note:</strong> Your account will show as "Unverified" until our team reviews your credentials. 
                 Verified accounts get priority access to new scripts.
               </p>
@@ -815,7 +815,7 @@ const IndustryOnboarding = () => {
               <button
                 type="submit"
                 disabled={loading || !agreementAccepted}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 bg-[#1e3a5f] text-white py-3 rounded-lg font-semibold hover:bg-[#162d4a] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? "Processing..." : "Complete Setup & Browse Scripts"}
                 <CheckCircle size={20} />
@@ -852,7 +852,7 @@ const IndustryOnboarding = () => {
                 <div key={step.num} className="flex items-center flex-1">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition text-xs font-semibold ${
                     isComplete 
-                      ? 'bg-green-500 border-green-500 text-white' 
+                      ? 'bg-[#1e3a5f] border-[#1e3a5f] text-white' 
                       : isActive 
                         ? 'bg-[#0f2544] border-[#0f2544] text-white' 
                         : 'bg-white border-gray-300 text-gray-400'
@@ -868,7 +868,7 @@ const IndustryOnboarding = () => {
                   </div>
                   {index < steps.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-4 ${
-                      isComplete ? 'bg-green-500' : 'bg-gray-300'
+                      isComplete ? 'bg-[#1e3a5f]' : 'bg-gray-300'
                     }`} />
                   )}
                 </div>

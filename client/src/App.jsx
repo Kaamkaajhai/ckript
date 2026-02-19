@@ -15,6 +15,10 @@ import Mandates from "./pages/Mandates";
 import TopList from "./pages/TopList";
 import FeaturedProjects from "./pages/FeaturedProjects";
 import Messages from "./pages/Messages";
+import Writers from "./pages/Writers";
+import ReaderHome from "./pages/ReaderHome";
+import ScriptReader from "./pages/ScriptReader";
+import ReaderProfile from "./pages/ReaderProfile";
 import MainLayout from "./layouts/MainLayout";
 import PrivateRoute from "./utils/PrivateRoute";
 
@@ -28,7 +32,13 @@ function App() {
           <Route path="/join" element={<RoleSelection />} />
           <Route path="/signup" element={<Join />} />
           <Route path="/writer-onboarding" element={<WriterOnboarding />} />
-          <Route path="/industry-onboarding" element={<IndustryOnboarding />} />
+          <Route path="/industry-onboarding" element={
+            <PrivateRoute>
+              <MainLayout>
+                <IndustryOnboarding />
+              </MainLayout>
+            </PrivateRoute>
+          } />
           <Route
             path="/top-list"
             element={
@@ -125,6 +135,56 @@ function App() {
               <PrivateRoute>
                 <MainLayout>
                   <Messages />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reader"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ReaderHome />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reader/script/:id"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ScriptReader />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reader/profile/:id?"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ReaderProfile />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reader/search"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ReaderHome />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reader/featured"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <ReaderHome />
                 </MainLayout>
               </PrivateRoute>
             }

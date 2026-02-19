@@ -13,8 +13,15 @@ const Login = () => {
     e.preventDefault();
     setError("");
     try {
-      await login(email, password);
-      navigate("/dashboard");
+      const userData = await login(email, password);
+      const storedUser = JSON.parse(localStorage.getItem("user"));
+      if (storedUser?.role === "reader") {
+        navigate("/reader");
+      } else if (storedUser?.role === "professional" || storedUser?.role === "producer" || storedUser?.role === "investor") {
+        navigate("/dashboard");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");
     }

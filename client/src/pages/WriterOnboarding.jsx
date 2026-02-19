@@ -363,7 +363,7 @@ const WriterOnboarding = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-[#1e3a5f] text-white py-3 rounded-lg font-semibold hover:bg-[#162d4a] transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? "Verifying..." : "Verify Email"}
                 <ArrowRight size={20} />
@@ -650,15 +650,15 @@ const WriterOnboarding = () => {
                 <div className="text-3xl font-bold text-gray-900 mb-4">$0</div>
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-start gap-2">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={16} className="text-[#1e3a5f] flex-shrink-0 mt-0.5" />
                     Browse script snippets
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={16} className="text-[#1e3a5f] flex-shrink-0 mt-0.5" />
                     Basic profile
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={16} className="text-[#1e3a5f] flex-shrink-0 mt-0.5" />
                     Community access
                   </li>
                 </ul>
@@ -687,19 +687,19 @@ const WriterOnboarding = () => {
                 <div className="text-3xl font-bold text-gray-900 mb-4">$130<span className="text-base text-gray-500">/mo</span></div>
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-start gap-2">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={16} className="text-[#1e3a5f] flex-shrink-0 mt-0.5" />
                     Full script hosting
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={16} className="text-[#1e3a5f] flex-shrink-0 mt-0.5" />
                     Professional evaluation
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={16} className="text-[#1e3a5f] flex-shrink-0 mt-0.5" />
                     Priority visibility
                   </li>
                   <li className="flex items-start gap-2">
-                    <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                    <CheckCircle size={16} className="text-[#1e3a5f] flex-shrink-0 mt-0.5" />
                     Advanced analytics
                   </li>
                 </ul>
@@ -802,7 +802,7 @@ const WriterOnboarding = () => {
               <button
                 type="submit"
                 disabled={loading || !agreementAccepted}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 bg-[#1e3a5f] text-white py-3 rounded-lg font-semibold hover:bg-[#162d4a] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {loading ? "Processing..." : selectedPlan === "paid" ? "Pay & Publish" : "Complete Setup"}
                 <CheckCircle size={20} />
@@ -841,7 +841,7 @@ const WriterOnboarding = () => {
                 <div key={step.num} className="flex items-center flex-1">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition text-xs font-semibold ${
                     isComplete 
-                      ? 'bg-green-500 border-green-500 text-white' 
+                      ? 'bg-[#1e3a5f] border-[#1e3a5f] text-white' 
                       : isActive 
                         ? 'bg-[#0f2544] border-[#0f2544] text-white' 
                         : 'bg-white border-gray-300 text-gray-400'
@@ -857,7 +857,7 @@ const WriterOnboarding = () => {
                   </div>
                   {index < steps.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-4 ${
-                      isComplete ? 'bg-green-500' : 'bg-gray-300'
+                      isComplete ? 'bg-[#1e3a5f]' : 'bg-gray-300'
                     }`} />
                   )}
                 </div>

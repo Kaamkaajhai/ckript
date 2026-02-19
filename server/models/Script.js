@@ -90,6 +90,11 @@ const scriptSchema = new mongoose.Schema({
   holdEndDate: { type: Date },
   holdFee: { type: Number, default: 200 },
   holdStatus: { type: String, enum: ["available", "held", "sold"], default: "available" },
+  // Reader system
+  rating: { type: Number, default: 0, min: 0, max: 5 },
+  reviewCount: { type: Number, default: 0 },
+  readsCount: { type: Number, default: 0 },
+  isFeatured: { type: Boolean, default: false },
   // Analytics
   views: { type: Number, default: 0 },
   viewedBy: [{ 

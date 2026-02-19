@@ -150,6 +150,74 @@ export const getScripts = async (req, res) => {
       ];
     }
 
+    // Use aggregation pipeline for computed sort fields (engagement, platform)
+    if (sort === "engagement" || sort === "platform") {
+      const pipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            unlockCount: { $size: { $ifNull: ["$unlockedBy", []] } },
+            engagementScore: {
+              $min: [
+                100,
+                {
+                  $add: [
+                    { $multiply: [{ $divide: [{ $ifNull: ["$views", 0] }, 500] }, 40] },
+                    { $multiply: [{ $divide: [{ $size: { $ifNull: ["$unlockedBy", []] } }, 50] }, 40] },
+                    {
+                      $cond: [
+                        { $gt: [{ $ifNull: ["$views", 0] }, 0] },
+                        { $multiply: [{ $divide: [{ $size: { $ifNull: ["$unlockedBy", []] } }, { $ifNull: ["$views", 1] }] }, 100] },
+                        0,
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ];
+
+      if (sort === "platform") {
+        // Platform score = weighted combo of AI score (60%) + engagement (40%)
+        pipeline.push({
+          $addFields: {
+            platformScore: {
+              $add: [
+                { $multiply: [{ $ifNull: ["$scriptScore.overall", 0] }, 0.6] },
+                { $multiply: ["$engagementScore", 0.4] },
+              ],
+            },
+          },
+        });
+        pipeline.push({ $sort: { platformScore: -1 } });
+      } else {
+        pipeline.push({ $sort: { engagementScore: -1 } });
+      }
+
+      // Populate creator
+      pipeline.push({
+        $lookup: {
+          from: "users",
+          localField: "creator",
+          foreignField: "_id",
+          as: "creator",
+          pipeline: [{ $project: { name: 1, profileImage: 1, role: 1 } }],
+        },
+      });
+      pipeline.push({ $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } });
+
+      const scripts = await Script.aggregate(pipeline);
+      // Strip full synopsis and fullContent from list view
+      const sanitized = scripts.map(s => ({
+        ...s,
+        synopsis: s.synopsis ? s.synopsis.substring(0, 120) + (s.synopsis.length > 120 ? '...' : '') : null,
+        fullContent: undefined,
+      }));
+      return res.json(sanitized);
+    }
+
     let sortObj = { createdAt: -1 };
     if (sort === "views") sortObj = { views: -1 };
     if (sort === "score") sortObj = { "scriptScore.overall": -1 };
@@ -159,7 +227,16 @@ export const getScripts = async (req, res) => {
     const scripts = await Script.find(query)
       .populate("creator", "name profileImage role")
       .sort(sortObj);
-    res.json(scripts);
+    // Strip full synopsis and fullContent from list view
+    const sanitized = scripts.map(s => {
+      const obj = s.toObject();
+      return {
+        ...obj,
+        synopsis: obj.synopsis ? obj.synopsis.substring(0, 120) + (obj.synopsis.length > 120 ? '...' : '') : null,
+        fullContent: undefined,
+      };
+    });
+    res.json(sanitized);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -184,16 +261,28 @@ export const getScriptById = async (req, res) => {
     // Check if user has unlocked this script
     const isUnlocked = script.unlockedBy.includes(req.user._id);
     const isCreator = script.creator._id.toString() === req.user._id.toString();
+    const userRole = req.user.role;
+    const isWriter = userRole === 'writer' || userRole === 'creator';
+    const canPurchase = ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);
 
     // Get audition count
     const Audition = (await import("../models/Audition.js")).default;
     const auditionCount = await Audition.countDocuments({ script: script._id });
 
+    // Synopsis visibility: only show full synopsis if creator or unlocked by a paying user
+    const synopsisTeaser = script.synopsis ? script.synopsis.substring(0, 120) + (script.synopsis.length > 120 ? '...' : '') : null;
+    const isSynopsisLocked = !isCreator && !isUnlocked;
+
     const response = {
       ...script.toObject(),
       isUnlocked,
       isCreator,
+      isSynopsisLocked,
+      canPurchase,
+      isWriter: isWriter && !isCreator,
       auditionCount,
+      // Hide full synopsis unless unlocked or creator
+      synopsis: (isUnlocked || isCreator) ? script.synopsis : synopsisTeaser,
       // Hide full content unless unlocked or creator
       fullContent: (isUnlocked || isCreator) ? script.fullContent : null,
     };
@@ -208,6 +297,19 @@ export const unlockScript = async (req, res) => {
   try {
     const script = await Script.findById(req.body.scriptId);
     if (!script) return res.status(404).json({ message: "Script not found" });
+
+    // Only investors, producers, directors, and industry professionals can unlock
+    const allowedRoles = ['investor', 'producer', 'director', 'industry', 'professional'];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        message: "Only investors, producers, and directors can unlock scripts. Writers cannot purchase synopsis access." 
+      });
+    }
+
+    // Cannot unlock own script
+    if (script.creator.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: "You already have access to your own script" });
+    }
 
     if (!script.unlockedBy.includes(req.user._id)) {
       script.unlockedBy.push(req.user._id);
@@ -356,6 +458,111 @@ export const addRoles = async (req, res) => {
     await script.save();
 
     res.json({ message: "Roles added", roles: script.roles });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ─── Reader Endpoints ───
+
+export const getFeaturedScripts = async (req, res) => {
+  try {
+    const scripts = await Script.find({ $or: [{ isFeatured: true }, { rating: { $gte: 4 } }] })
+      .populate("creator", "name profileImage role")
+      .sort({ rating: -1 })
+      .limit(12);
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getTopScripts = async (req, res) => {
+  try {
+    const sortBy = req.query.sort || "rating";
+    let sortObj = { rating: -1 };
+    if (sortBy === "reads") sortObj = { readsCount: -1 };
+    if (sortBy === "purchases") sortObj = { "unlockedBy": -1 };
+    const scripts = await Script.find()
+      .populate("creator", "name profileImage role")
+      .sort(sortObj)
+      .limit(20);
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const searchScriptsReader = async (req, res) => {
+  try {
+    const { q, category, genre, page = 1, limit = 20 } = req.query;
+    const query = {};
+    if (q) {
+      const regex = new RegExp(q, "i");
+      query.$or = [{ title: regex }, { description: regex }, { logline: regex }, { tags: regex }];
+    }
+    if (category) query.contentType = category;
+    if (genre) query.genre = genre;
+    const total = await Script.countDocuments(query);
+    const scripts = await Script.find(query)
+      .populate("creator", "name profileImage role")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+    res.json({ scripts, totalPages: Math.ceil(total / limit), page: parseInt(page), total });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getLatestScripts = async (req, res) => {
+  try {
+    const scripts = await Script.find()
+      .populate("creator", "name profileImage role")
+      .sort({ createdAt: -1 })
+      .limit(18);
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const recordRead = async (req, res) => {
+  try {
+    const script = await Script.findById(req.params.id);
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    script.readsCount = (script.readsCount || 0) + 1;
+    await script.save();
+    await User.findByIdAndUpdate(req.user._id, { $addToSet: { scriptsRead: script._id } });
+    res.json({ message: "Read recorded" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const toggleFavorite = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const idx = user.favoriteScripts.indexOf(req.params.id);
+    if (idx > -1) {
+      user.favoriteScripts.splice(idx, 1);
+      await user.save();
+      res.json({ favorited: false });
+    } else {
+      user.favoriteScripts.push(req.params.id);
+      await user.save();
+      res.json({ favorited: true });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getCategories = async (req, res) => {
+  try {
+    const contentTypes = await Script.distinct("contentType");
+    const genres = await Script.distinct("genre");
+    res.json({ contentTypes: contentTypes.filter(Boolean), genres: genres.filter(Boolean) });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
