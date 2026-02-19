@@ -124,7 +124,7 @@ function App() {
             element={
               <PrivateRoute>
                 <MainLayout>
-                  <Search />
+                  <Writers />
                 </MainLayout>
               </PrivateRoute>
             }
