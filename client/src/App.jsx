@@ -16,6 +16,7 @@ import TopList from "./pages/TopList";
 import FeaturedProjects from "./pages/FeaturedProjects";
 import Messages from "./pages/Messages";
 import Writers from "./pages/Writers";
+
 import ReaderHome from "./pages/ReaderHome";
 import ScriptReader from "./pages/ScriptReader";
 import ReaderProfile from "./pages/ReaderProfile";
@@ -124,7 +125,7 @@ function App() {
             element={
               <PrivateRoute>
                 <MainLayout>
-                  <Writers />
+                  <Search />
                 </MainLayout>
               </PrivateRoute>
             }
