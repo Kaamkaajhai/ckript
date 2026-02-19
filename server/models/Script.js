@@ -24,11 +24,20 @@ const scriptSchema = new mongoose.Schema({
   // Enhanced metadata for writer onboarding
   format: { 
     type: String, 
-    enum: ["feature_film", "tv_pilot_1hour", "tv_pilot_halfhour", "play", "short_film", "web_series"],
+    enum: ["feature", "feature_film", "tv_1hour", "tv_pilot_1hour", "tv_halfhour", "tv_pilot_halfhour", "play", "short", "short_film", "web_series"],
     default: "feature_film"
   },
   primaryGenre: { type: String },
   subGenres: [{ type: String }],
+  
+  // Deep Classification System (Smart Match Algorithm)
+  classification: {
+    primaryGenre: { type: String },
+    secondaryGenre: { type: String },
+    tones: [{ type: String }], // Max 3
+    themes: [{ type: String }], // Max 3
+    settings: [{ type: String }] // Max 3
+  },
   
   // Content indicators
   contentIndicators: {
@@ -40,6 +49,20 @@ const scriptSchema = new mongoose.Schema({
   
   // Tag references (Many-to-Many)
   tagIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }],
+  
+  // Services & Revenue Tracking
+  services: {
+    hosting: { type: Boolean, default: true },
+    evaluation: { type: Boolean, default: false },
+    aiTrailer: { type: Boolean, default: false }
+  },
+  
+  // Legal & Compliance
+  legal: {
+    agreedToTerms: { type: Boolean, default: false },
+    timestamp: { type: Date },
+    ipAddress: { type: String }
+  },
   
   premium: { type: Boolean, default: false },
   price: { type: Number, default: 0 },

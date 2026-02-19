@@ -5,26 +5,132 @@ import Notification from "../models/Notification.js";
 
 export const uploadScript = async (req, res) => {
   try {
+    const {
+      title,
+      logline,
+      format,
+      pageCount,
+      classification,
+      scriptUrl,
+      services,
+      legal,
+      // Legacy fields for backward compatibility
+      description,
+      synopsis,
+      fullContent,
+      fileUrl,
+      coverImage,
+      genre,
+      contentType,
+      isPremium,
+      premium,
+      price,
+      roles,
+      tags,
+      budget,
+      holdFee
+    } = req.body;
+
+    // Validate required fields
+    if (!title) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+    if (!scriptUrl && !fileUrl) {
+      return res.status(400).json({ message: "Script file is required" });
+    }
+
+    // Build the script document
     const scriptData = {
       creator: req.user._id,
-      title: req.body.title,
-      description: req.body.description,
-      synopsis: req.body.synopsis || req.body.description?.substring(0, 200),
-      fullContent: req.body.fullContent,
-      fileUrl: req.body.fileUrl || req.body.scriptUrl,
-      coverImage: req.body.coverImage,
-      genre: req.body.genre,
-      contentType: req.body.contentType || "movie",
-      premium: req.body.isPremium || req.body.premium || false,
-      price: req.body.price || 0,
-      roles: req.body.roles || [],
-      tags: req.body.tags || [],
-      budget: req.body.budget,
-      holdFee: req.body.holdFee || 200,
+      title,
+      logline: logline || description?.substring(0, 300),
+      description: description || synopsis || logline,
+      synopsis: synopsis || description,
+      fullContent,
+      fileUrl: scriptUrl || fileUrl,
+      pageCount,
+      coverImage,
+      genre: genre || classification?.primaryGenre,
+      contentType: contentType || "movie",
+      premium: isPremium || premium || false,
+      price: price || 0,
+      roles: roles || [],
+      tags: tags || [],
+      budget,
+      holdFee: holdFee || 200,
+      
+      // New fields from the 5-step wizard
+      format: format || "feature_film",
+      primaryGenre: classification?.primaryGenre || genre,
+      classification: classification ? {
+        primaryGenre: classification.primaryGenre,
+        secondaryGenre: classification.secondaryGenre,
+        tones: classification.tones || [],
+        themes: classification.themes || [],
+        settings: classification.settings || []
+      } : undefined,
+      
+      // Services tracking
+      services: services ? {
+        hosting: services.hosting !== undefined ? services.hosting : true,
+        evaluation: services.evaluation || false,
+        aiTrailer: services.aiTrailer || false
+      } : { hosting: true, evaluation: false, aiTrailer: false },
+      
+      // Legal compliance
+      legal: legal ? {
+        agreedToTerms: legal.agreedToTerms || false,
+        timestamp: legal.timestamp || new Date(),
+        ipAddress: req.ip || req.connection.remoteAddress
+      } : undefined,
+      
+      // AI Trailer status initialization
+      trailerStatus: services?.aiTrailer ? "generating" : "none"
     };
+
+    // Create the script in database
     const script = await Script.create(scriptData);
+
+    // --- Async Service Processing ---
+    // TODO: Implement these async workflows:
+    
+    // 1. If hosting: Start subscription timer (30 days)
+    if (services?.hosting) {
+      // TODO: Create/Update Subscription document
+      console.log(`[SERVICE] Hosting activated for script ${script._id}`);
+    }
+    
+    // 2. If evaluation: Create job ticket for Reader Portal
+    if (services?.evaluation) {
+      // TODO: Create evaluation job in a Queue or Job collection
+      console.log(`[SERVICE] Evaluation requested for script ${script._id}`);
+      // Example: await createEvaluationJob(script._id, req.user._id);
+    }
+    
+    // 3. If aiTrailer: Trigger AI video generation
+    if (services?.aiTrailer) {
+      // TODO: Send request to AI Video API (Runway/HeyGen/OpenAI)
+      console.log(`[SERVICE] AI Trailer generation started for script ${script._id}`);
+      console.log(`Logline: ${logline}`);
+      console.log(`Genre: ${classification?.primaryGenre}`);
+      console.log(`Tones: ${classification?.tones?.join(', ')}`);
+      
+      // Example async call:
+      // generateAITrailer({
+      //   scriptId: script._id,
+      //   logline,
+      //   genre: classification.primaryGenre,
+      //   tones: classification.tones
+      // }).catch(err => {
+      //   // Update script.trailerStatus = 'failed'
+      //   console.error('AI Trailer generation failed:', err);
+      // });
+    }
+
+    // Return the created script
     res.status(201).json(script);
   } catch (error) {
+    console.error("Script upload error:", error);
     res.status(500).json({ message: error.message });
   }
 };
