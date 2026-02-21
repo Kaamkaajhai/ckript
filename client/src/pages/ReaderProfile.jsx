@@ -20,6 +20,12 @@ const ReaderProfile = () => {
   const profileId = id || user?._id;
   const isOwnProfile = !id || id === user?._id;
 
+  const resolveImage = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("data:")) return url;
+    return `http://localhost:5001${url}`;
+  };
+
   useEffect(() => { fetchProfile(); }, [profileId]);
   useEffect(() => { if (profileId) fetchTabData(); }, [activeTab, profileId]);
 
@@ -107,7 +113,7 @@ const ReaderProfile = () => {
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
             {profile.profileImage ? (
-              <img src={profile.profileImage} alt={profile.name} className="w-28 h-28 rounded-3xl object-cover ring-4 ring-white/20 shadow-2xl" />
+              <img src={resolveImage(profile.profileImage)} alt={profile.name} className="w-28 h-28 rounded-3xl object-cover ring-4 ring-white/20 shadow-2xl" />
             ) : (
               <div className="w-28 h-28 rounded-3xl bg-white/10 backdrop-blur flex items-center justify-center text-4xl font-black text-white/80 ring-4 ring-white/20 shadow-2xl">
                 {profile.name?.charAt(0)?.toUpperCase() || "U"}

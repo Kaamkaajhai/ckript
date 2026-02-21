@@ -27,16 +27,17 @@ const TopProjects = () => {
 
   return (
     <section>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Top Projects</h2>
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+        <h2 className="text-xl font-semibold text-gray-800 tracking-tight">Top Projects</h2>
+        <div className="flex gap-0.5 border border-gray-100 rounded-lg p-0.5">
           {tabs.map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveSort(t.key)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                activeSort === t.key ? "bg-white text-[#1e3a5f] shadow-sm" : "text-gray-400 hover:text-gray-600"
-              }`}
+              className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${activeSort === t.key
+                  ? "bg-gray-800 text-white"
+                  : "text-gray-400 hover:text-gray-600"
+                }`}
             >
               {t.label}
             </button>
@@ -46,14 +47,14 @@ const TopProjects = () => {
 
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {[...Array(8)].map((_, i) => <div key={i} className="h-64 bg-gray-100 rounded-2xl animate-pulse" />)}
+          {[...Array(8)].map((_, i) => <div key={i} className="h-64 bg-gray-50 rounded-xl animate-pulse" />)}
         </div>
       ) : scripts.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {scripts.map((s, i) => <ScriptCard key={s._id} script={s} index={i} />)}
         </div>
       ) : (
-        <p className="text-center text-gray-400 font-bold py-8">No projects found</p>
+        <p className="text-center text-gray-400 font-normal py-8">No projects found</p>
       )}
     </section>
   );
