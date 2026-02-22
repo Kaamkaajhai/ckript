@@ -7,6 +7,7 @@ import ProjectCard from "../components/ProjectCard";
 import EditProfileModal from "../components/EditProfileModal";
 
 const Profile = () => {
+  const isWriter = (role) => role === "creator" || role === "writer";
   const { id } = useParams();
   const { user: currentUser } = useContext(AuthContext);
   const [profile, setProfile] = useState(null);
@@ -143,6 +144,11 @@ const Profile = () => {
               <span className="px-2.5 py-0.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold uppercase tracking-wide">
                 {profile.role}
               </span>
+              {isWriter(profile.role) && profile.writerProfile?.wgaMember && (
+                <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-lg text-[11px] font-bold uppercase tracking-wide border border-amber-200">
+                  WGA
+                </span>
+              )}
             </div>
             {isOwnProfile && <p className="text-[13px] text-gray-400 font-medium">{profile.email}</p>}
           </div>
@@ -315,6 +321,118 @@ const Profile = () => {
               <p className="text-[13px] text-gray-400 italic">No skills added yet</p>
             )}
           </div>
+
+          {/* Writer-Specific Sections */}
+          {isWriter(profile.role) && profile.writerProfile && (
+            <>
+              {/* Writer Info Card */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#1e3a5f]/[0.06] flex items-center justify-center">
+                    <svg className="w-4 h-4 text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-[13px] font-bold text-gray-900">Writer Info</h3>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-gray-500 font-medium">Representation</span>
+                    <span className="text-[13px] font-bold text-gray-800 capitalize">
+                      {(profile.writerProfile.representationStatus || "unrepresented").replace(/_/g, " & ").replace("and &", "&")}
+                    </span>
+                  </div>
+                  {profile.writerProfile.agencyName && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-gray-500 font-medium">Agency</span>
+                      <span className="text-[13px] font-bold text-gray-800">{profile.writerProfile.agencyName}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-gray-500 font-medium">WGA Member</span>
+                    <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${profile.writerProfile.wgaMember
+                        ? "bg-amber-50 text-amber-700 border border-amber-200"
+                        : "bg-gray-50 text-gray-400"
+                      }`}>
+                      {profile.writerProfile.wgaMember ? "Yes" : "No"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Genres Card */}
+              {profile.writerProfile.genres?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#1e3a5f]/[0.06] flex items-center justify-center">
+                      <svg className="w-4 h-4 text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 016 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 3.75c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125" />
+                      </svg>
+                    </div>
+                    <h3 className="text-[13px] font-bold text-gray-900">Genres</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.writerProfile.genres.map((genre, i) => (
+                      <span key={i} className="px-3 py-1.5 bg-[#0f2544]/[0.06] text-[#0f2544] rounded-lg text-[12px] font-bold">
+                        {genre}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Specialized Tags Card */}
+              {profile.writerProfile.specializedTags?.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#1e3a5f]/[0.06] flex items-center justify-center">
+                      <svg className="w-4 h-4 text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-[13px] font-bold text-gray-900">Specialized Tags</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {profile.writerProfile.specializedTags.map((tag, i) => (
+                      <span key={i} className="px-3 py-1.5 bg-gray-50 text-gray-700 rounded-lg text-[12px] font-semibold ring-1 ring-gray-100">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Diversity Card (own profile only) */}
+              {isOwnProfile && (profile.writerProfile.diversity?.gender || profile.writerProfile.diversity?.ethnicity) && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-[#1e3a5f]/[0.06] flex items-center justify-center">
+                      <svg className="w-4 h-4 text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-[13px] font-bold text-gray-900">Diversity Information</h3>
+                    <span className="text-[10px] text-gray-400 font-medium ml-auto">Only visible to you</span>
+                  </div>
+                  <div className="space-y-2">
+                    {profile.writerProfile.diversity.gender && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] text-gray-500 font-medium">Gender</span>
+                        <span className="text-[13px] font-bold text-gray-800">{profile.writerProfile.diversity.gender}</span>
+                      </div>
+                    )}
+                    {profile.writerProfile.diversity.ethnicity && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] text-gray-500 font-medium">Ethnicity</span>
+                        <span className="text-[13px] font-bold text-gray-800">{profile.writerProfile.diversity.ethnicity}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </motion.div>
       )}
 

@@ -3,6 +3,65 @@ import ScriptOption from "../models/ScriptOption.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 
+export const extractPdfText = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No PDF file provided" });
+    }
+
+    // Use dynamic import to handle CJS library in ESM correctly
+    const pdfParsePkg = await import("pdf-parse");
+    const pdfParse = pdfParsePkg.default || pdfParsePkg;
+
+    const data = await pdfParse(req.file.buffer);
+
+    // Quick sanitization: replace weird null bytes or excessive whitespace
+    let text = data.text || "";
+    // Standardize newlines
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    res.json({ text, numItems: data.numpages });
+  } catch (error) {
+    console.error("PDF Extraction Error:", error);
+    res.status(500).json({ message: "Failed to extract text from PDF", error: error.message });
+  }
+};
+
+export const saveDraft = async (req, res) => {
+  try {
+    const { scriptId, title, textContent, ...otherData } = req.body;
+
+    // If we have an ID, update the existing draft
+    if (scriptId) {
+      const script = await Script.findById(scriptId);
+      if (!script) return res.status(404).json({ message: "Script not found" });
+      if (script.creator.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      script.title = title || script.title;
+      script.textContent = textContent !== undefined ? textContent : script.textContent;
+      // Allow updating other work-in-progress metadata here if needed
+
+      await script.save();
+      return res.json(script);
+    }
+
+    // Otherwise create a new draft
+    const newDraft = await Script.create({
+      creator: req.user._id,
+      title: title || "Untitled Draft",
+      textContent: textContent || "",
+      status: "draft",
+      ...otherData
+    });
+
+    res.status(201).json(newDraft);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const uploadScript = async (req, res) => {
   try {
     const {
@@ -18,6 +77,7 @@ export const uploadScript = async (req, res) => {
       description,
       synopsis,
       fullContent,
+      textContent,
       fileUrl,
       coverImage,
       genre,
@@ -35,8 +95,8 @@ export const uploadScript = async (req, res) => {
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
-    if (!scriptUrl && !fileUrl) {
-      return res.status(400).json({ message: "Script file is required" });
+    if (!scriptUrl && !fileUrl && !textContent) {
+      return res.status(400).json({ message: "Script file or text content is required" });
     }
 
     // Build the script document
@@ -47,6 +107,7 @@ export const uploadScript = async (req, res) => {
       description: description || synopsis || logline,
       synopsis: synopsis || description,
       fullContent,
+      textContent,
       fileUrl: scriptUrl || fileUrl,
       pageCount,
       coverImage,
@@ -85,10 +146,13 @@ export const uploadScript = async (req, res) => {
       } : undefined,
 
       // AI Trailer status initialization
-      trailerStatus: services?.aiTrailer ? "generating" : "none"
+      trailerStatus: services?.aiTrailer ? "generating" : "none",
+
+      status: "published" // Force publish on final upload
     };
 
-    // Create the script in database
+    // If updating from a draft (if we pass draftId in the future), we could update instead of create.
+    // For now, assume it's a new or finalized creation.
     const script = await Script.create(scriptData);
 
     // --- Async Service Processing ---

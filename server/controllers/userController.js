@@ -140,7 +140,7 @@ export const getUserProfile = async (req, res) => {
 
 export const updateUserProfile = async (req, res) => {
   try {
-    const { name, bio, skills, profileImage } = req.body;
+    const { name, bio, skills, profileImage, writerProfile } = req.body;
     
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -152,6 +152,35 @@ export const updateUserProfile = async (req, res) => {
     user.skills = skills || user.skills;
     user.profileImage = profileImage || user.profileImage;
 
+    // Writer-specific fields
+    if (writerProfile) {
+      if (!user.writerProfile) user.writerProfile = {};
+      if (writerProfile.representationStatus !== undefined) {
+        user.writerProfile.representationStatus = writerProfile.representationStatus;
+      }
+      if (writerProfile.agencyName !== undefined) {
+        user.writerProfile.agencyName = writerProfile.agencyName;
+      }
+      if (writerProfile.wgaMember !== undefined) {
+        user.writerProfile.wgaMember = writerProfile.wgaMember;
+      }
+      if (writerProfile.genres !== undefined) {
+        user.writerProfile.genres = writerProfile.genres;
+      }
+      if (writerProfile.specializedTags !== undefined) {
+        user.writerProfile.specializedTags = writerProfile.specializedTags;
+      }
+      if (writerProfile.diversity !== undefined) {
+        if (!user.writerProfile.diversity) user.writerProfile.diversity = {};
+        if (writerProfile.diversity.gender !== undefined) {
+          user.writerProfile.diversity.gender = writerProfile.diversity.gender;
+        }
+        if (writerProfile.diversity.ethnicity !== undefined) {
+          user.writerProfile.diversity.ethnicity = writerProfile.diversity.ethnicity;
+        }
+      }
+    }
+
     await user.save();
 
     res.json({
@@ -162,6 +191,7 @@ export const updateUserProfile = async (req, res) => {
       bio: user.bio,
       skills: user.skills,
       profileImage: user.profileImage,
+      writerProfile: user.writerProfile,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

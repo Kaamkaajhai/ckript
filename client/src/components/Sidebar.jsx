@@ -154,7 +154,7 @@ const Sidebar = () => {
           <div className="pl-3">
             {myScripts.length > 0 ? (
               myScripts.map((script) => (
-                <Link key={script._id} to="/dashboard" onClick={() => setMobileOpen(false)}
+                <Link key={script._id} to={`/script/${script._id}`} onClick={() => setMobileOpen(false)}
                   className="flex items-center gap-2.5 px-5 py-2 text-gray-500 hover:text-gray-700 transition-colors">
                   <div className="w-2 h-2 rounded-full bg-gray-300 shrink-0"></div>
                   <span className="text-[15px] font-semibold truncate">{script.title}</span>

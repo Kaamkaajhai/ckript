@@ -15,21 +15,23 @@ const scriptSchema = new mongoose.Schema({
   description: { type: String },
   synopsis: { type: String }, // Short visible teaser
   fullContent: { type: String }, // Locked full content
-  fileUrl: { type: String, required: true },
+  textContent: { type: String }, // Extracted text from PDF or raw input from editor
+  fileUrl: { type: String }, // Made optional since users can write text directly
   pageCount: { type: Number }, // Auto-calculated on upload
   coverImage: { type: String },
   genre: { type: String },
   contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup"], default: "movie" },
-  
+  status: { type: String, enum: ["draft", "published"], default: "published" },
+
   // Enhanced metadata for writer onboarding
-  format: { 
-    type: String, 
+  format: {
+    type: String,
     enum: ["feature", "feature_film", "tv_1hour", "tv_pilot_1hour", "tv_halfhour", "tv_pilot_halfhour", "play", "short", "short_film", "web_series"],
     default: "feature_film"
   },
   primaryGenre: { type: String },
   subGenres: [{ type: String }],
-  
+
   // Deep Classification System (Smart Match Algorithm)
   classification: {
     primaryGenre: { type: String },
@@ -38,7 +40,7 @@ const scriptSchema = new mongoose.Schema({
     themes: [{ type: String }], // Max 3
     settings: [{ type: String }] // Max 3
   },
-  
+
   // Content indicators
   contentIndicators: {
     bechdelTest: { type: Boolean },
@@ -46,24 +48,24 @@ const scriptSchema = new mongoose.Schema({
     adaptation: { type: Boolean, default: false },
     adaptationSource: { type: String }, // What it's adapted from
   },
-  
+
   // Tag references (Many-to-Many)
   tagIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }],
-  
+
   // Services & Revenue Tracking
   services: {
     hosting: { type: Boolean, default: true },
     evaluation: { type: Boolean, default: false },
     aiTrailer: { type: Boolean, default: false }
   },
-  
+
   // Legal & Compliance
   legal: {
     agreedToTerms: { type: Boolean, default: false },
     timestamp: { type: Date },
     ipAddress: { type: String }
   },
-  
+
   premium: { type: Boolean, default: false },
   price: { type: Number, default: 0 },
   unlockedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
@@ -97,7 +99,7 @@ const scriptSchema = new mongoose.Schema({
   isFeatured: { type: Boolean, default: false },
   // Analytics
   views: { type: Number, default: 0 },
-  viewedBy: [{ 
+  viewedBy: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     viewedAt: { type: Date, default: Date.now }
   }],

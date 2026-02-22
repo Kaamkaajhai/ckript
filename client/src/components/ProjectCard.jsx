@@ -27,9 +27,9 @@ const ProjectCard = ({ project, userName }) => {
           {project?.title?.toUpperCase() || "UNTITLED"}
         </h3>
 
-        {/* Description */}
-        <p className="text-base text-gray-500 text-center leading-relaxed line-clamp-3 mb-8">
-          {project?.description || "No description provided."}
+        {/* Logline */}
+        <p className="text-base text-gray-500 text-center leading-relaxed line-clamp-3 mb-8 italic">
+          {project?.logline || project?.description || "No description provided."}
         </p>
       </div>
 

@@ -1,14 +1,19 @@
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
-import { 
-  uploadScript, getScripts, getScriptById, unlockScript, 
+import {
+  uploadScript, getScripts, getScriptById, unlockScript,
   holdScript, releaseHold, getMyHolds, addRoles,
   getFeaturedScripts, getTopScripts, searchScriptsReader,
-  getLatestScripts, recordRead, toggleFavorite, getCategories
+  getLatestScripts, recordRead, toggleFavorite, getCategories,
+  extractPdfText, saveDraft
 } from "../controllers/scriptController.js";
+import multer from "multer";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
+router.post("/extract-pdf", protect, upload.single("pdf"), extractPdfText);
+router.post("/draft", protect, saveDraft);
 router.post("/upload", protect, uploadScript);
 router.get("/", protect, getScripts);
 router.get("/holds", protect, getMyHolds);
