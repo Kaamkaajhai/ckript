@@ -1,11 +1,272 @@
-import { useState, useEffect, useContext } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { BookOpen, Heart, MessageSquare, Pencil, ArrowLeft, X, Camera, Save, Loader2 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import ScriptCard from "../components/ScriptCard";
 import ReviewCard from "../components/ReviewCard";
 
+/* ── Edit Profile Modal ─────────────────────────────── */
+const EditProfileModal = ({ profile, onClose, onSaved }) => {
+  const { setUser, user } = useContext(AuthContext);
+  const [name, setName] = useState(profile.name || "");
+  const [bio, setBio] = useState(profile.bio || "");
+  const [skills, setSkills] = useState(profile.skills?.join(", ") || "");
+  const [previewImage, setPreviewImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const resolveImage = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("data:") || url.startsWith("blob:")) return url;
+    return `http://localhost:5001${url}`;
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Image must be under 5MB");
+      return;
+    }
+    setImageFile(file);
+    setPreviewImage(URL.createObjectURL(file));
+    setError("");
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) { setError("Name is required"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      let profileImageUrl = profile.profileImage;
+
+      // Upload image first if changed
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append("profileImage", imageFile);
+        const { data: imgData } = await api.post("/users/upload-image", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        profileImageUrl = imgData.profileImage;
+      }
+
+      // Update profile
+      const skillsArr = skills
+        .split(",")
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      const { data } = await api.put("/users/update", {
+        name: name.trim(),
+        bio: bio.trim(),
+        skills: skillsArr,
+        profileImage: profileImageUrl,
+      });
+
+      // Update AuthContext
+      const updatedUser = { ...user, ...data };
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+
+      setSuccess(true);
+      setTimeout(() => {
+        onSaved(data);
+        onClose();
+      }, 600);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to update profile");
+    }
+    setSaving(false);
+  };
+
+  const currentImage = previewImage || resolveImage(profile.profileImage);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+
+      {/* Modal */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-lg font-extrabold text-gray-900">Edit Profile</h2>
+            <p className="text-[12px] text-gray-400 font-medium mt-0.5">Update your profile information</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+          >
+            <X size={16} strokeWidth={2.5} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-5 max-h-[60vh] overflow-y-auto">
+
+          {/* Avatar Upload */}
+          <div className="flex items-center gap-5">
+            <div className="relative group">
+              {currentImage ? (
+                <img
+                  src={currentImage}
+                  alt="Profile"
+                  className="w-20 h-20 rounded-2xl object-cover ring-2 ring-gray-100"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center ring-2 ring-gray-100 border border-gray-200">
+                  <span className="text-2xl font-black text-gray-400">
+                    {name?.charAt(0)?.toUpperCase() || "U"}
+                  </span>
+                </div>
+              )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1.5 -right-1.5 w-8 h-8 bg-[#1e3a5f] rounded-xl flex items-center justify-center shadow-lg shadow-[#1e3a5f]/25 hover:bg-[#162d4a] transition-colors group-hover:scale-110"
+              >
+                <Camera size={14} className="text-white" />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-gray-700">Profile Photo</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">JPG, PNG or GIF. Max 5MB.</p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-2 text-[12px] font-bold text-[#1e3a5f] hover:text-[#162d4a] transition-colors"
+              >
+                Change photo
+              </button>
+            </div>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+              Display Name <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              maxLength={50}
+              className="w-full h-11 px-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-900 font-medium placeholder:text-gray-400 focus:outline-none focus:border-[#1e3a5f]/30 focus:bg-white focus:ring-2 focus:ring-[#1e3a5f]/5 transition-all"
+            />
+          </div>
+
+          {/* Bio */}
+          <div>
+            <label className="flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+              <span>Bio</span>
+              <span className="text-gray-300 normal-case tracking-normal font-semibold">{bio.length}/300</span>
+            </label>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value.slice(0, 300))}
+              placeholder="Tell others a bit about yourself..."
+              rows={3}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-900 font-medium placeholder:text-gray-400 focus:outline-none focus:border-[#1e3a5f]/30 focus:bg-white focus:ring-2 focus:ring-[#1e3a5f]/5 transition-all resize-none leading-relaxed"
+            />
+          </div>
+
+          {/* Skills / Interests */}
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+              Interests & Skills
+            </label>
+            <input
+              type="text"
+              value={skills}
+              onChange={(e) => setSkills(e.target.value)}
+              placeholder="e.g. Screenwriting, Drama, Sci-Fi, Film Analysis"
+              className="w-full h-11 px-4 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-900 font-medium placeholder:text-gray-400 focus:outline-none focus:border-[#1e3a5f]/30 focus:bg-white focus:ring-2 focus:ring-[#1e3a5f]/5 transition-all"
+            />
+            <p className="text-[11px] text-gray-400 mt-1.5 ml-0.5">Separate with commas</p>
+          </div>
+
+          {/* Error / Success */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-100 rounded-xl"
+              >
+                <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
+                </svg>
+                <p className="text-[12px] font-semibold text-red-600">{error}</p>
+              </motion.div>
+            )}
+            {success && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-100 rounded-xl"
+              >
+                <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <p className="text-[12px] font-semibold text-green-700">Profile updated successfully!</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="px-5 py-2.5 text-sm font-bold text-gray-600 hover:text-gray-800 bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !name.trim()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-[#1e3a5f] rounded-xl hover:bg-[#162d4a] transition-all shadow-sm shadow-[#1e3a5f]/15 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+          >
+            {saving ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Save size={16} />
+            )}
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+/* ── Main Component ─────────────────────────────────── */
 const ReaderProfile = () => {
   const { id } = useParams();
   const { user } = useContext(AuthContext);
@@ -16,9 +277,16 @@ const ReaderProfile = () => {
   const [favorites, setFavorites] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const profileId = id || user?._id;
   const isOwnProfile = !id || id === user?._id;
+
+  const resolveImage = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("data:")) return url;
+    return `http://localhost:5001${url}`;
+  };
 
   useEffect(() => { fetchProfile(); }, [profileId]);
   useEffect(() => { if (profileId) fetchTabData(); }, [activeTab, profileId]);
@@ -26,8 +294,12 @@ const ReaderProfile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get(`/users/${profileId}`);
-      setProfile(data);
+      const [userRes, reviewsRes] = await Promise.all([
+        api.get(`/users/${profileId}`),
+        api.get(`/reviews/user/${profileId}?limit=1`) // Fetch total review count
+      ]);
+      const userObj = userRes.data.user || userRes.data;
+      setProfile({ ...userObj, reviewsCount: reviewsRes.data.total || 0 });
     } catch { setProfile(null); }
     finally { setLoading(false); }
   };
@@ -37,7 +309,9 @@ const ReaderProfile = () => {
       setDataLoading(true);
       if (activeTab === "read" || activeTab === "favorites") {
         const { data } = await api.get(`/users/${profileId}`);
-        const arr = activeTab === "read" ? data.scriptsRead : data.favoriteScripts;
+        const userObj = data.user || data;
+        const arr = activeTab === "read" ? userObj.scriptsRead : userObj.favoriteScripts;
+
         if (arr?.length) {
           const scripts = await Promise.all(
             arr.slice(0, 20).map(async (sId) => {
@@ -54,165 +328,268 @@ const ReaderProfile = () => {
           else setFavorites([]);
         }
       } else if (activeTab === "reviews") {
-        const { data } = await api.get(`/users/${profileId}`);
-        if (data.scriptsRead?.length) {
-          const allReviews = [];
-          for (const sId of data.scriptsRead.slice(0, 20)) {
-            try {
-              const scriptId = typeof sId === "object" ? sId._id : sId;
-              const res = await api.get(`/reviews/${scriptId}`);
-              const userRevs = (res.data.reviews || res.data).filter((r) => r.user?._id === profileId);
-              allReviews.push(...userRevs);
-            } catch { /* skip */ }
-          }
-          setReviews(allReviews);
-        } else { setReviews([]); }
+        const { data } = await api.get(`/reviews/user/${profileId}`);
+        setReviews(data.reviews || []);
       }
     } catch { /* silent */ }
     finally { setDataLoading(false); }
   };
 
+  const handleProfileSaved = (updatedData) => {
+    setProfile((prev) => ({ ...prev, ...updatedData }));
+  };
+
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-[80vh] flex items-center justify-center">
       <div className="w-10 h-10 border-3 border-gray-200 border-t-[#1e3a5f] rounded-full animate-spin" />
     </div>
   );
 
   if (!profile) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-      <p className="text-gray-400 font-bold text-lg">Profile not found</p>
-      <Link to="/reader" className="text-sm font-bold text-[#1e3a5f] hover:underline">← Back to Reader</Link>
+    <div className="min-h-[80vh] flex flex-col items-center justify-center gap-4 bg-gray-50 rounded-2xl m-6">
+      <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-2">
+        <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+      </div>
+      <p className="text-gray-900 font-extrabold text-xl">Profile not found</p>
+      <p className="text-gray-500 font-medium text-sm mb-2">This user might have been removed or deleted.</p>
+      <Link to="/reader" className="text-sm font-bold text-white bg-[#1e3a5f] hover:bg-[#162d4a] px-6 py-2.5 rounded-xl transition-colors">
+        Back to Reader
+      </Link>
     </div>
   );
 
-  const stats = [
-    { label: "Scripts Read", value: profile.scriptsRead?.length || 0 },
-    { label: "Favorites", value: profile.favoriteScripts?.length || 0 },
-    { label: "Reviews", value: reviews?.length || 0 },
+  const memberSince = profile.createdAt
+    ? new Date(profile.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long" })
+    : null;
+
+  const tabs = [
+    { key: "read", label: "Scripts Read", icon: BookOpen, count: profile.scriptsRead?.length || 0 },
+    { key: "favorites", label: "Favorites", icon: Heart, count: profile.favoriteScripts?.length || 0 },
+    { key: "reviews", label: "Reviews", icon: MessageSquare, count: profile.reviewsCount || 0 },
   ];
 
   return (
-    <div className="min-h-screen pb-16">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#0f2337] via-[#1e3a5f] to-[#2d5a8e]">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 right-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-20 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl" />
-        </div>
-        <div className="relative max-w-5xl mx-auto px-4 py-12 md:py-16">
-          <Link to="/reader" className="inline-flex items-center gap-1.5 text-white/50 hover:text-white/80 text-sm font-bold mb-8 transition-colors">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            Back to Reader
-          </Link>
+    <div className="max-w-5xl mx-auto pb-16 px-4 pt-6">
+      {/* Back Button */}
+      <Link to="/reader" className="inline-flex items-center gap-2 text-gray-500 hover:text-[#1e3a5f] text-sm font-bold mb-6 transition-colors group">
+        <span className="p-1.5 rounded-lg bg-gray-100 group-hover:bg-[#1e3a5f]/10 transition-colors">
+          <ArrowLeft size={16} />
+        </span>
+        Back to Reader
+      </Link>
 
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            {profile.profileImage ? (
-              <img src={profile.profileImage} alt={profile.name} className="w-28 h-28 rounded-3xl object-cover ring-4 ring-white/20 shadow-2xl" />
-            ) : (
-              <div className="w-28 h-28 rounded-3xl bg-white/10 backdrop-blur flex items-center justify-center text-4xl font-black text-white/80 ring-4 ring-white/20 shadow-2xl">
-                {profile.name?.charAt(0)?.toUpperCase() || "U"}
+      {/* Main Profile Header Card */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-8">
+        {/* Decorative Gradient Banner */}
+        <div className="h-32 bg-gradient-to-tr from-[#0f1c2e] via-[#1e3a5f] to-[#3a6ea5] relative overflow-hidden">
+          <div className="absolute inset-0 opacity-20">
+            <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/20 blur-3xl" />
+            <div className="absolute -bottom-16 left-1/4 w-64 h-64 rounded-full bg-[#60a5fa]/20 blur-3xl" />
+          </div>
+        </div>
+
+        {/* Profile Content */}
+        <div className="px-6 sm:px-10 pb-8 -mt-16 relative">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-6">
+            <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5">
+              {/* Avatar */}
+              <div className="relative">
+                {profile.profileImage ? (
+                  <img
+                    src={resolveImage(profile.profileImage)}
+                    alt={profile.name}
+                    className="w-32 h-32 rounded-2xl object-cover ring-4 ring-white shadow-xl bg-white"
+                  />
+                ) : (
+                  <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center ring-4 ring-white shadow-xl border border-gray-200">
+                    <span className="text-4xl font-black text-gray-400">
+                      {profile.name?.charAt(0)?.toUpperCase() || "U"}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Title & Role */}
+              <div className="text-center sm:text-left pb-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-1.5">
+                  <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+                    {profile.name || "User Profile"}
+                  </h1>
+                  <span className="px-2.5 py-1 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-xs font-bold uppercase tracking-widest border border-[#1e3a5f]/10 shadow-sm w-max mx-auto sm:mx-0">
+                    {profile.role || "Reader"}
+                  </span>
+                </div>
+                {memberSince && (
+                  <p className="text-sm text-gray-400 font-semibold">Member since {memberSince}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            {isOwnProfile && (
+              <div className="flex shrink-0 justify-center sm:justify-start">
+                <button
+                  onClick={() => setEditOpen(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl text-sm font-bold shadow-sm transition-all hover:shadow hover:border-gray-300 active:scale-95"
+                >
+                  <Pencil size={16} strokeWidth={2.5} />
+                  Edit Profile
+                </button>
               </div>
             )}
-            <div className="text-center sm:text-left flex-1">
-              <h1 className="text-3xl md:text-4xl font-black text-white mb-1">{profile.name}</h1>
-              <p className="text-white/50 font-bold text-sm mb-3 capitalize">{profile.role || "Reader"}</p>
-              {profile.bio && <p className="text-white/60 font-medium max-w-lg mb-4">{profile.bio}</p>}
-              <div className="flex flex-wrap gap-6 justify-center sm:justify-start">
-                {stats.map((s) => (
-                  <div key={s.label} className="text-center">
-                    <p className="text-2xl font-black text-white">{s.value}</p>
-                    <p className="text-xs text-white/40 font-bold">{s.label}</p>
-                  </div>
+          </div>
+
+          {/* Bio */}
+          {profile.bio && (
+            <div className="bg-gray-50 rounded-2xl p-5 mb-8 border border-gray-100">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">About Me</h3>
+              <p className="text-sm text-gray-600 leading-relaxed font-medium">{profile.bio}</p>
+            </div>
+          )}
+
+          {/* Skills */}
+          {profile.skills?.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Interests & Skills</h3>
+              <div className="flex flex-wrap gap-2">
+                {profile.skills.map((skill, i) => (
+                  <span key={i} className="px-3 py-1.5 bg-[#1e3a5f]/[0.04] text-[#1e3a5f] rounded-lg text-[12px] font-bold border border-[#1e3a5f]/8">
+                    {skill}
+                  </span>
                 ))}
               </div>
-              {isOwnProfile && (
-                <Link to="/settings" className="inline-flex items-center gap-2 mt-6 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-bold transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
-                  Edit Profile
-                </Link>
-              )}
             </div>
+          )}
+
+          {/* Interactive Stat Tabs */}
+          <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-100">
+            {tabs.map((t) => {
+              const Icon = t.icon;
+              const isActive = activeTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className={`relative flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${isActive
+                    ? "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20 scale-105"
+                    : "bg-gray-50 text-gray-500 hover:bg-gray-100 hover:scale-105 border border-transparent hover:border-gray-200"
+                    }`}
+                >
+                  <Icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? "text-blue-200" : "text-gray-400"} />
+                  <span>{t.label}</span>
+                  <div className={`ml-1.5 px-2 py-0.5 rounded-md text-[11px] font-black ${isActive ? "bg-white/20 text-white" : "bg-white border border-gray-200 text-gray-600 shadow-sm"
+                    }`}>
+                    {t.count}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Main Tab Content */}
+      <AnimatePresence mode="wait">
+        {dataLoading ? (
+          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-100 h-[280px] animate-pulse shadow-sm" />
+            ))}
           </motion.div>
-        </div>
-      </div>
+        ) : (
+          <div className="min-h-[400px]">
+            {activeTab === "read" && (
+              <motion.div key="read" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                {readScripts.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {readScripts.map((s) => <ScriptCard key={s._id} script={s} />)}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={BookOpen}
+                    title="No scripts read yet"
+                    subtitle={isOwnProfile ? "Discover new scripts and dive into a reading adventure!" : "This user hasn't made their reading list public."}
+                    action={isOwnProfile ? <Link to="/reader" className="mt-4 inline-block px-6 py-2.5 bg-[#1e3a5f] text-white rounded-xl text-sm font-bold hover:bg-[#162d4a] transition-colors shadow-sm">Explore Scripts</Link> : null}
+                  />
+                )}
+              </motion.div>
+            )}
 
-      {/* Tabs */}
-      <div className="max-w-5xl mx-auto px-4 mt-8">
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 max-w-md">
-          {[{ key: "read", label: "Scripts Read" }, { key: "favorites", label: "Favorites" }, { key: "reviews", label: "Reviews" }].map((tab) => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-bold transition-all ${activeTab === tab.key ? "bg-white text-[#1e3a5f] shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+            {activeTab === "favorites" && (
+              <motion.div key="favorites" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                {favorites.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {favorites.map((s) => <ScriptCard key={s._id} script={s} />)}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={Heart}
+                    title="No favorites saved"
+                    subtitle={isOwnProfile ? "Save your favorite scripts by tapping the heart icon!" : "This user hasn't saved any favorites."}
+                  />
+                )}
+              </motion.div>
+            )}
 
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 mt-8">
-        <AnimatePresence mode="wait">
-          {dataLoading ? (
-            <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => <div key={i} className="bg-gray-100 rounded-2xl h-72 animate-pulse" />)}
-            </motion.div>
-          ) : (
-            <>
-              {activeTab === "read" && (
-                <motion.div key="read" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                  {readScripts.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {readScripts.map((s) => <ScriptCard key={s._id} script={s} />)}
-                    </div>
-                  ) : (
-                    <EmptyState title="No scripts read yet" subtitle={isOwnProfile ? "Start exploring and reading scripts!" : "No scripts read yet."} />
-                  )}
-                </motion.div>
-              )}
-              {activeTab === "favorites" && (
-                <motion.div key="favorites" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                  {favorites.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {favorites.map((s) => <ScriptCard key={s._id} script={s} />)}
-                    </div>
-                  ) : (
-                    <EmptyState title="No favorites yet" subtitle={isOwnProfile ? "Favorite scripts to save them here!" : "No favorites yet."} />
-                  )}
-                </motion.div>
-              )}
-              {activeTab === "reviews" && (
-                <motion.div key="reviews" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-                  {reviews.length > 0 ? (
-                    <div className="space-y-4 max-w-2xl">
-                      {reviews.map((r) => (
-                        <div key={r._id}>
+            {activeTab === "reviews" && (
+              <motion.div key="reviews" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                {reviews.length > 0 ? (
+                  <div className="columns-1 md:columns-2 gap-6 space-y-6 max-w-5xl">
+                    {reviews.map((r) => (
+                      <div key={r._id} className="break-inside-avoid">
+                        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
                           {r.script && (
-                            <Link to={`/reader/script/${r.script._id || r.script}`} className="text-xs font-bold text-[#1e3a5f] hover:underline mb-1 block">
-                              {r.script.title || "View Script"}
+                            <Link to={`/reader/script/${r.script._id || r.script}`} className="flex items-center justify-between mb-4 pb-4 border-b border-gray-50 group">
+                              <span className="text-sm font-black text-gray-900 group-hover:text-[#1e3a5f] transition-colors truncate pr-4">
+                                {r.script.title || "View Script"}
+                              </span>
+                              <span className="text-gray-300 group-hover:text-[#1e3a5f] transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                              </span>
                             </Link>
                           )}
                           <ReviewCard review={r} currentUserId={user?._id} />
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyState title="No reviews yet" subtitle={isOwnProfile ? "Start reviewing scripts you've read!" : "No reviews yet."} />
-                  )}
-                </motion.div>
-              )}
-            </>
-          )}
-        </AnimatePresence>
-      </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={MessageSquare}
+                    title="No reviews left"
+                    subtitle={isOwnProfile ? "Help writers by sharing your thoughtful feedback!" : "This user hasn't reviewed any scripts."}
+                  />
+                )}
+              </motion.div>
+            )}
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Profile Modal */}
+      <AnimatePresence>
+        {editOpen && (
+          <EditProfileModal
+            profile={profile}
+            onClose={() => setEditOpen(false)}
+            onSaved={handleProfileSaved}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
-const EmptyState = ({ title, subtitle }) => (
-  <div className="text-center py-16">
-    <svg className="w-16 h-16 text-gray-200 mx-auto mb-4" fill="none" stroke="currentColor" strokeWidth={1.2} viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-    </svg>
-    <p className="text-gray-400 font-bold text-lg">{title}</p>
-    <p className="text-gray-300 text-sm font-medium mt-1">{subtitle}</p>
+const EmptyState = ({ icon: Icon, title, subtitle, action }) => (
+  <div className="bg-white/50 backdrop-blur-xl rounded-3xl border border-gray-100/50 shadow-sm p-12 lg:p-16 text-center max-w-2xl mx-auto flex flex-col items-center">
+    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-white shadow-sm flex items-center justify-center mb-6">
+      <Icon size={32} strokeWidth={1.5} className="text-gray-400" />
+    </div>
+    <h3 className="text-xl font-black text-gray-900 mb-2">{title}</h3>
+    <p className="text-sm text-gray-500 font-medium max-w-md mx-auto leading-relaxed mb-2">{subtitle}</p>
+    {action}
   </div>
 );
 

@@ -1,32 +1,118 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 
-const sortTabs = [
-  { key: "trending", label: "Trending", icon: "flame", sort: "engagement" },
-  { key: "highest_paid", label: "Highest Paid", icon: "dollar", sort: "price_high" },
+/* ── Filter Options ────────────────────────────────── */
+const GENRES = [
+  "Thriller", "Drama", "Comedy", "Sci-Fi", "Horror", "Romance",
+  "Action", "Mystery", "Fantasy", "Animation", "Crime", "Adventure",
+];
+
+const CONTENT_TYPES = [
+  { key: "movie", label: "Movie" },
+  { key: "tv_series", label: "TV Series" },
+  { key: "short_film", label: "Short Film" },
+  { key: "web_series", label: "Web Series" },
+  { key: "documentary", label: "Documentary" },
+  { key: "anime", label: "Anime" },
+  { key: "book", label: "Book" },
+  { key: "startup", label: "Startup" },
+];
+
+const BUDGETS = [
+  { key: "micro", label: "Micro" },
+  { key: "low", label: "Low" },
+  { key: "medium", label: "Medium" },
+  { key: "high", label: "High" },
+  { key: "blockbuster", label: "Blockbuster" },
+];
+
+const SORT_OPTIONS = [
+  { key: "engagement", label: "Trending", icon: "flame" },
+  { key: "price_high", label: "Highest Paid", icon: "dollar" },
+  { key: "views", label: "Most Viewed", icon: "eye" },
+  { key: "score", label: "Top Rated", icon: "star" },
+  { key: "createdAt", label: "Newest", icon: "clock" },
+  { key: "price_low", label: "Price: Low → High", icon: "arrowUp" },
+];
+
+const PREMIUM_OPTIONS = [
+  { key: "all", label: "All" },
+  { key: "free", label: "Free Only" },
+  { key: "premium", label: "Premium Only" },
 ];
 
 const budgetLabel = {
   micro: "Micro", low: "Low", medium: "Medium", high: "High", blockbuster: "Blockbuster",
 };
 
+/* ── Icons ─────────────────────────────────────────── */
+const FilterIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+  </svg>
+);
+
+const ChevronDown = ({ open }) => (
+  <svg className={`w-4 h-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+  </svg>
+);
+
+const XIcon = () => (
+  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+/* ── Main Component ────────────────────────────────── */
 const FeaturedProjects = () => {
   const [scripts, setScripts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeSort, setActiveSort] = useState("trending");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  /* Filter state */
+  const [selectedGenre, setSelectedGenre] = useState("");
+  const [selectedContentType, setSelectedContentType] = useState("");
+  const [selectedBudget, setSelectedBudget] = useState("");
+  const [selectedSort, setSelectedSort] = useState("engagement");
+  const [selectedPremium, setSelectedPremium] = useState("all");
+
+  const filterRef = useRef(null);
+
+  const activeFilterCount = [
+    selectedGenre,
+    selectedContentType,
+    selectedBudget,
+    selectedPremium !== "all" ? selectedPremium : "",
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setSelectedGenre("");
+    setSelectedContentType("");
+    setSelectedBudget("");
+    setSelectedSort("engagement");
+    setSelectedPremium("all");
+  };
 
   useEffect(() => {
     fetchFeatured();
-  }, [activeSort]);
+  }, [selectedSort, selectedGenre, selectedContentType, selectedBudget, selectedPremium]);
 
   const fetchFeatured = async () => {
     setLoading(true);
     try {
-      const sortParam = sortTabs.find((t) => t.key === activeSort)?.sort || "engagement";
-      const { data } = await api.get(`/scripts?sort=${sortParam}`);
-      setScripts(data.slice(0, 18));
+      const params = new URLSearchParams();
+      params.append("sort", selectedSort);
+      if (selectedGenre) params.append("genre", selectedGenre);
+      if (selectedContentType) params.append("contentType", selectedContentType);
+      if (selectedBudget) params.append("budget", selectedBudget);
+      if (selectedPremium === "premium") params.append("premium", "true");
+      else if (selectedPremium === "free") params.append("premium", "false");
+
+      const { data } = await api.get(`/scripts?${params.toString()}`);
+      setScripts(Array.isArray(data) ? data.slice(0, 24) : []);
     } catch {
       setScripts([]);
     }
@@ -47,67 +133,234 @@ const FeaturedProjects = () => {
 
   const ease = [0.25, 0.46, 0.45, 0.94];
 
+  /* ── Pill Button Helper ──────────────────────────── */
+  const Pill = ({ active, onClick, children, variant = "default" }) => {
+    const base = "px-3.5 py-[7px] rounded-xl text-[12px] font-semibold transition-all duration-200 whitespace-nowrap border cursor-pointer select-none";
+    const styles = active
+      ? "bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-sm shadow-[#1e3a5f]/15"
+      : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700 hover:shadow-sm";
+    return (
+      <button onClick={onClick} className={`${base} ${styles}`}>
+        {children}
+      </button>
+    );
+  };
+
+  /* ── Filter Section Header ───────────────────────── */
+  const FilterSection = ({ label, children }) => (
+    <div className="space-y-2.5">
+      <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest pl-0.5">{label}</h4>
+      <div className="flex flex-wrap gap-2">
+        {children}
+      </div>
+    </div>
+  );
+
   return (
     <div className="max-w-6xl mx-auto">
-      {/* ── Hero header ── */}
+      {/* ── Header ── */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, ease }}
-        className="relative mb-8"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease }}
+        className="mb-6"
       >
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f2439] via-[#1e3a5f] to-[#2d5a8e] px-6 sm:px-10 pt-10 pb-12">
-          {/* Ambient shapes */}
-          <div className="absolute top-0 right-0 w-80 h-80 bg-white/[0.02] rounded-full -translate-y-1/2 translate-x-1/3" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/[0.015] rounded-full translate-y-1/3 -translate-x-1/4" />
-          <div className="absolute top-1/4 right-[12%] w-1.5 h-1.5 bg-white/20 rounded-full" />
-          <div className="absolute bottom-1/3 left-[18%] w-1 h-1 bg-white/15 rounded-full" />
-
-          <div className="relative text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/[0.08] rounded-full mb-4">
-              <span className="w-1.5 h-1.5 bg-white/60 rounded-full animate-pulse"></span>
-              <span className="text-[11px] text-white/60 font-semibold tracking-widest uppercase">Featured Collection</span>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="w-1 h-6 rounded-full bg-gradient-to-b from-[#1e3a5f] to-[#3a7bd5]" />
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Featured Projects</h1>
+              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
             </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-2">
-              Featured Projects
-            </h1>
-            <p className="text-sm text-white/50 font-medium max-w-lg mx-auto leading-relaxed">
-              Discover the most talked-about scripts and highest-value projects on the platform
+            <p className="text-[13px] text-gray-400 font-medium ml-[18px]">
+              Most talked-about scripts and highest-value projects
             </p>
           </div>
+          <p className="text-sm text-gray-400 font-medium tabular-nums hidden sm:block">
+            {scripts.length} project{scripts.length !== 1 ? "s" : ""}
+          </p>
         </div>
       </motion.div>
 
-      {/* ── Sort toggle ── */}
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <div className="flex bg-gray-100 rounded-xl p-1 gap-0.5">
-          {sortTabs.map((tab) => (
+      {/* ── Filter bar ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.08, ease }}
+        className="mb-6"
+      >
+        {/* Top row — filter toggle + sort + results count */}
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <div className="flex items-center gap-3">
+            {/* Filter toggle button */}
             <button
-              key={tab.key}
-              onClick={() => setActiveSort(tab.key)}
-              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${activeSort === tab.key
-                  ? "bg-white text-[#1e3a5f] shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className={`relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 border ${filtersOpen || activeFilterCount > 0
+                ? "bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-sm"
+                : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm"
                 }`}
             >
-              {tab.icon === "flame" && (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
-                </svg>
+              <FilterIcon />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-md text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
               )}
-              {tab.icon === "dollar" && (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-              {tab.label}
+              <ChevronDown open={filtersOpen} />
             </button>
-          ))}
+
+            {/* Active filter tags */}
+            {activeFilterCount > 0 && (
+              <div className="hidden sm:flex items-center gap-2">
+                {selectedGenre && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                    {selectedGenre}
+                    <button onClick={() => setSelectedGenre("")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                  </span>
+                )}
+                {selectedContentType && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                    {CONTENT_TYPES.find(c => c.key === selectedContentType)?.label || selectedContentType}
+                    <button onClick={() => setSelectedContentType("")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                  </span>
+                )}
+                {selectedBudget && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                    {budgetLabel[selectedBudget]} Budget
+                    <button onClick={() => setSelectedBudget("")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                  </span>
+                )}
+                {selectedPremium !== "all" && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                    {selectedPremium === "premium" ? "Premium" : "Free"}
+                    <button onClick={() => setSelectedPremium("all")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                  </span>
+                )}
+                <button
+                  onClick={clearAllFilters}
+                  className="text-[11px] font-semibold text-gray-400 hover:text-red-500 transition-colors px-2 py-1"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+          </div>
+
+
         </div>
-        <p className="text-sm text-gray-400 font-medium">
-          {scripts.length} project{scripts.length !== 1 ? "s" : ""}
-        </p>
-      </div>
+
+        {/* ── Collapsible filter panel ── */}
+        <AnimatePresence>
+          {filtersOpen && (
+            <motion.div
+              ref={filterRef}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
+                {/* Sort By */}
+                <FilterSection label="Sort By">
+                  {SORT_OPTIONS.map((opt) => (
+                    <Pill
+                      key={opt.key}
+                      active={selectedSort === opt.key}
+                      onClick={() => setSelectedSort(opt.key)}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        {opt.icon === "flame" && <span>🔥</span>}
+                        {opt.icon === "dollar" && <span>💰</span>}
+                        {opt.icon === "eye" && <span>👁</span>}
+                        {opt.icon === "star" && <span>⭐</span>}
+                        {opt.icon === "clock" && <span>🕐</span>}
+                        {opt.icon === "arrowUp" && <span>📈</span>}
+                        {opt.label}
+                      </span>
+                    </Pill>
+                  ))}
+                </FilterSection>
+
+                <div className="border-t border-gray-100" />
+
+                {/* Genre */}
+                <FilterSection label="Genre">
+                  <Pill active={!selectedGenre} onClick={() => setSelectedGenre("")}>All Genres</Pill>
+                  {GENRES.map((g) => (
+                    <Pill
+                      key={g}
+                      active={selectedGenre === g}
+                      onClick={() => setSelectedGenre(selectedGenre === g ? "" : g)}
+                    >
+                      {g}
+                    </Pill>
+                  ))}
+                </FilterSection>
+
+                <div className="border-t border-gray-100" />
+
+                {/* Content Type */}
+                <FilterSection label="Content Type">
+                  <Pill active={!selectedContentType} onClick={() => setSelectedContentType("")}>All Types</Pill>
+                  {CONTENT_TYPES.map((ct) => (
+                    <Pill
+                      key={ct.key}
+                      active={selectedContentType === ct.key}
+                      onClick={() => setSelectedContentType(selectedContentType === ct.key ? "" : ct.key)}
+                    >
+                      {ct.label}
+                    </Pill>
+                  ))}
+                </FilterSection>
+
+                <div className="border-t border-gray-100" />
+
+                {/* Budget + Premium row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <FilterSection label="Budget Range">
+                    <Pill active={!selectedBudget} onClick={() => setSelectedBudget("")}>Any</Pill>
+                    {BUDGETS.map((b) => (
+                      <Pill
+                        key={b.key}
+                        active={selectedBudget === b.key}
+                        onClick={() => setSelectedBudget(selectedBudget === b.key ? "" : b.key)}
+                      >
+                        {b.label}
+                      </Pill>
+                    ))}
+                  </FilterSection>
+
+                  <FilterSection label="Pricing">
+                    {PREMIUM_OPTIONS.map((p) => (
+                      <Pill
+                        key={p.key}
+                        active={selectedPremium === p.key}
+                        onClick={() => setSelectedPremium(p.key)}
+                      >
+                        {p.label}
+                      </Pill>
+                    ))}
+                  </FilterSection>
+                </div>
+
+                {/* Clear All (mobile) */}
+                {activeFilterCount > 0 && (
+                  <div className="flex sm:hidden justify-end pt-2">
+                    <button
+                      onClick={clearAllFilters}
+                      className="text-[12px] font-semibold text-red-500 hover:text-red-600 transition-colors px-3 py-1.5 border border-red-200 rounded-xl bg-red-50"
+                    >
+                      Clear all filters
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       {/* ── Loading ── */}
       {loading && (
@@ -132,7 +385,15 @@ const FeaturedProjects = () => {
             </svg>
           </div>
           <p className="text-lg font-bold text-gray-700 mb-1">No projects found</p>
-          <p className="text-sm text-gray-400">Check back later for featured projects</p>
+          <p className="text-sm text-gray-400 mb-4">Try adjusting your filters or check back later</p>
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearAllFilters}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1e3a5f] text-white rounded-xl text-sm font-semibold hover:bg-[#162d4a] transition-colors shadow-sm"
+            >
+              Clear all filters
+            </button>
+          )}
         </motion.div>
       )}
 
@@ -140,7 +401,7 @@ const FeaturedProjects = () => {
       {!loading && scripts.length > 0 && (
         <AnimatePresence mode="wait">
           <motion.div
-            key={activeSort}
+            key={`${selectedSort}-${selectedGenre}-${selectedContentType}-${selectedBudget}-${selectedPremium}`}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}

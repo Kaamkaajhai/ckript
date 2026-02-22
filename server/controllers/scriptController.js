@@ -201,11 +201,18 @@ export const uploadScript = async (req, res) => {
 
 export const getScripts = async (req, res) => {
   try {
-    const { genre, contentType, budget, sort, search } = req.query;
+    const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
     const query = {};
     if (genre) query.genre = genre;
     if (contentType) query.contentType = contentType;
     if (budget) query.budget = budget;
+    if (premium === "true") query.premium = true;
+    else if (premium === "false") query.premium = { $ne: true };
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
     if (search) {
       query.$or = [
         { title: new RegExp(search, "i") },

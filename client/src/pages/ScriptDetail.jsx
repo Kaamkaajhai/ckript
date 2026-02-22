@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { Film } from "lucide-react";
 
 const ScriptDetail = () => {
   const { id } = useParams();
@@ -10,6 +11,7 @@ const ScriptDetail = () => {
   const navigate = useNavigate();
   const [script, setScript] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [coverError, setCoverError] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [holdLoading, setHoldLoading] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
@@ -18,7 +20,16 @@ const ScriptDetail = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [unlockLoading, setUnlockLoading] = useState(false);
 
-  useEffect(() => { fetchScript(); }, [id]);
+  const resolveImage = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("data:")) return url;
+    return `http://localhost:5001${url}`;
+  };
+
+  useEffect(() => {
+    fetchScript();
+    setCoverError(false);
+  }, [id]);
 
   const fetchScript = async () => {
     try {
@@ -88,28 +99,8 @@ const ScriptDetail = () => {
   if (!script) return <div className="text-center py-20"><div className="w-16 h-16 mx-auto rounded-2xl bg-gray-50 flex items-center justify-center mb-4"><svg className="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg></div><h2 className="text-lg font-bold text-gray-700 mb-1">Script not found</h2><Link to="/search" className="text-[#1e3a5f] hover:underline text-sm font-semibold">Browse scripts</Link></div>;
 
   const isOwner = script.creator?._id === user?._id;
-  const isPro = ["investor", "producer", "director", "industry"].includes(user?.role);
-  const cl = script.classification || {};
-  const ci = script.contentIndicators || {};
-  const score = script.scriptScore;
-
-  const resolveImg = (url) => {
-    if (!url) return "";
-    if (url.startsWith("http") || url.startsWith("data:")) return url;
-    return `http://localhost:5001${url}`;
-  };
-
-  // Score color helper
-  const scoreColor = (v) => v >= 80 ? "text-emerald-600" : v >= 60 ? "text-amber-600" : "text-red-500";
-  const scoreBg = (v) => v >= 80 ? "bg-emerald-500" : v >= 60 ? "bg-amber-500" : "bg-red-500";
-
-  const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "classification", label: "Classification" },
-    { id: "score", label: "Script Score" },
-    { id: "roles", label: `Roles (${script.roles?.length || 0})` },
-    { id: "synopsis", label: "Synopsis" },
-  ];
+  const isPro = ["investor", "producer", "director"].includes(user?.role);
+  const showCoverPlaceholder = !script.coverImage || coverError;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -122,13 +113,26 @@ const ScriptDetail = () => {
 
         {/* ── Hero Section ── */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-5">
-          {/* Cover */}
-          <div className="relative h-52 sm:h-64 bg-gradient-to-br from-[#0a1628] via-[#1e3a5f] to-[#2d5a8e]">
-            {script.coverImage && <img src={resolveImg(script.coverImage)} alt="" className="w-full h-full object-cover" />}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.05),transparent_60%)]" />
-
-            {/* Trailer play */}
+          {/* Cover / Trailer */}
+          <div className="relative h-48 sm:h-64 bg-gradient-to-br from-[#0f1c2e] to-[#1a2d45]">
+            {showCoverPlaceholder ? (
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.05] mb-4">
+                  <Film size={28} strokeWidth={1.5} className="text-white/40" />
+                </div>
+                <p className="text-white/70 text-lg font-semibold">{script.title}</p>
+                {script.genre && (
+                  <p className="text-white/25 text-xs font-medium mt-1 uppercase tracking-[0.15em]">{script.genre}</p>
+                )}
+              </div>
+            ) : (
+              <img
+                src={resolveImage(script.coverImage)}
+                alt={script.title}
+                onError={() => setCoverError(true)}
+                className="w-full h-full object-cover absolute inset-0"
+              />
+            )}
             {script.trailerUrl && (
               <button onClick={() => setShowTrailer(true)} className="absolute inset-0 flex items-center justify-center group">
                 <div className="w-16 h-16 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition shadow-lg">
@@ -158,21 +162,21 @@ const ScriptDetail = () => {
             </div>
           </div>
 
-          {/* Content area */}
-          <div className="p-5 sm:p-7">
-            <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-              {/* Left column */}
-              <div className="flex-1 min-w-0">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-2">{script.title}</h1>
-
-                {/* Creator */}
-                <Link to={`/profile/${script.creator?._id}`} className="inline-flex items-center gap-2.5 mb-4 group">
-                  {script.creator?.profileImage ? (
-                    <img src={resolveImg(script.creator.profileImage)} alt="" className="w-8 h-8 rounded-full object-cover border-2 border-gray-100" />
+          {/* Script info */}
+          <div className="p-5 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{script.title}</h1>
+                <Link to={`/profile/${script.creator?._id}`} className="inline-flex items-center gap-2 text-base text-[#1e3a5f] hover:underline font-semibold">
+                  {script.creator?.profileImage && !coverError ? (
+                    <img src={resolveImage(script.creator.profileImage)} alt="" className="w-6 h-6 rounded-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }} />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-[#1e3a5f]/10 flex items-center justify-center"><span className="text-xs font-bold text-[#1e3a5f]">{script.creator?.name?.charAt(0)}</span></div>
+                    <div className="w-6 h-6 rounded-full bg-[#1e3a5f]/10 flex items-center justify-center text-[10px] font-bold text-[#1e3a5f]">
+                      {script.creator?.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
                   )}
-                  <span className="text-sm text-gray-500 group-hover:text-[#1e3a5f] transition font-medium">by <span className="font-semibold text-gray-700 group-hover:text-[#1e3a5f]">{script.creator?.name}</span></span>
+                  {script.creator?.name}
                 </Link>
 
                 {/* Logline */}
@@ -274,9 +278,8 @@ const ScriptDetail = () => {
         <div className="flex gap-1 mb-5 bg-gray-100/60 rounded-xl p-1 overflow-x-auto">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2.5 text-[13px] font-bold rounded-lg transition-all whitespace-nowrap px-4 ${activeTab === tab.id ? "bg-white text-[#1e3a5f] shadow-sm" : "text-gray-400 hover:text-gray-600"}`}>
-              {tab.label}
-            </button>
+              className={`flex-1 py-3 text-base font-bold rounded-lg transition-all whitespace-nowrap px-4 ${activeTab === tab.id ? "bg-white text-[#1e3a5f] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}>{tab.label}</button>
           ))}
         </div>
 

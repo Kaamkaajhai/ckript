@@ -3,17 +3,121 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import api from "../services/api";
 
+/* ── Filter Constants ───────────────────────────────── */
+const GENRES = [
+  "Thriller", "Drama", "Comedy", "Sci-Fi", "Horror", "Romance",
+  "Action", "Mystery", "Fantasy", "Animation", "Crime", "Adventure",
+];
+
+const CONTENT_TYPES = [
+  { key: "movie", label: "Movie" },
+  { key: "tv_series", label: "TV Series" },
+  { key: "short_film", label: "Short Film" },
+  { key: "web_series", label: "Web Series" },
+  { key: "documentary", label: "Documentary" },
+  { key: "anime", label: "Anime" },
+  { key: "book", label: "Book" },
+  { key: "startup", label: "Startup" },
+];
+
+const BUDGETS = [
+  { key: "micro", label: "Micro" },
+  { key: "low", label: "Low" },
+  { key: "medium", label: "Medium" },
+  { key: "high", label: "High" },
+  { key: "blockbuster", label: "Blockbuster" },
+];
+
+const PREMIUM_OPTIONS = [
+  { key: "all", label: "All" },
+  { key: "free", label: "Free Only" },
+  { key: "premium", label: "Premium Only" },
+];
+
+const budgetLabel = { micro: "Micro", low: "Low", medium: "Medium", high: "High", blockbuster: "Blockbuster" };
+
+/* ── Icons ──────────────────────────────────────────── */
+const FilterIcon = () => (
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+  </svg>
+);
+
+const ChevronDown = ({ open }) => (
+  <svg className={`w-4 h-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+  </svg>
+);
+
+const XIcon = () => (
+  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+/* ── Reusable Components ────────────────────────────── */
+const Pill = ({ active, onClick, children }) => {
+  const base = "px-3.5 py-[7px] rounded-xl text-[12px] font-semibold transition-all duration-200 whitespace-nowrap border cursor-pointer select-none";
+  const styles = active
+    ? "bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-sm shadow-[#1e3a5f]/15"
+    : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700 hover:shadow-sm";
+  return <button onClick={onClick} className={`${base} ${styles}`}>{children}</button>;
+};
+
+const FilterSection = ({ label, children }) => (
+  <div className="space-y-2.5">
+    <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest pl-0.5">{label}</h4>
+    <div className="flex flex-wrap gap-2">{children}</div>
+  </div>
+);
+
+/* ── Main Component ─────────────────────────────────── */
 const TopList = () => {
   const [scripts, setScripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("platform");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  useEffect(() => { fetchScripts(); }, [sortBy]);
+  /* Filter state */
+  const [selectedGenre, setSelectedGenre] = useState("");
+  const [selectedContentType, setSelectedContentType] = useState("");
+  const [selectedBudget, setSelectedBudget] = useState("");
+  const [selectedPremium, setSelectedPremium] = useState("all");
+
+  const activeFilterCount = [
+    selectedGenre,
+    selectedContentType,
+    selectedBudget,
+    selectedPremium !== "all" ? selectedPremium : "",
+  ].filter(Boolean).length;
+
+  const clearAllFilters = () => {
+    setSelectedGenre("");
+    setSelectedContentType("");
+    setSelectedBudget("");
+    setSelectedPremium("all");
+  };
+
+  useEffect(() => {
+    fetchScripts();
+  }, [sortBy, selectedGenre, selectedContentType, selectedBudget, selectedPremium]);
 
   const fetchScripts = async () => {
     setLoading(true);
-    try { const { data } = await api.get(`/scripts?sort=${sortBy}`); setScripts(data); }
-    catch { setScripts([]); }
+    try {
+      const params = new URLSearchParams();
+      params.append("sort", sortBy);
+      if (selectedGenre) params.append("genre", selectedGenre);
+      if (selectedContentType) params.append("contentType", selectedContentType);
+      if (selectedBudget) params.append("budget", selectedBudget);
+      if (selectedPremium === "premium") params.append("premium", "true");
+      else if (selectedPremium === "free") params.append("premium", "false");
+
+      const { data } = await api.get(`/scripts?${params.toString()}`);
+      setScripts(Array.isArray(data) ? data : []);
+    } catch {
+      setScripts([]);
+    }
     setLoading(false);
   };
 
@@ -46,27 +150,39 @@ const TopList = () => {
     </div>
   );
 
-  const top3 = scripts.slice(0, 3);
-  const rest = scripts.slice(3);
-
-  // Rank badge styles
-  const rankStyle = (i) => {
-    if (i === 0) return { bg: "bg-gradient-to-br from-amber-400 to-amber-500", text: "text-white", ring: "ring-amber-200", shadow: "shadow-amber-200/40" };
-    if (i === 1) return { bg: "bg-gradient-to-br from-gray-300 to-gray-400", text: "text-white", ring: "ring-gray-200", shadow: "shadow-gray-200/40" };
-    return { bg: "bg-gradient-to-br from-orange-300 to-orange-400", text: "text-white", ring: "ring-orange-200", shadow: "shadow-orange-200/40" };
-  };
-
   return (
-    <div className="max-w-5xl mx-auto">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+    <div className="max-w-6xl mx-auto">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="mb-6"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="w-1 h-6 rounded-full bg-gradient-to-b from-[#1e3a5f] to-[#3a7bd5]" />
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Top List</h1>
+            </div>
+            <p className="text-[13px] text-gray-400 font-medium ml-[18px]">
+              {sortTabs.find(t => t.key === sortBy)?.desc}
+            </p>
+          </div>
 
-        {/* ── Header ── */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-8 h-8 rounded-xl bg-[#1e3a5f] flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
+          {/* Summary stats — compact inline badges */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e3a5f]/[0.05] rounded-lg">
+              <span className="text-[11px] font-semibold text-gray-400">Scripts</span>
+              <span className="text-[14px] font-extrabold text-[#1e3a5f] tabular-nums">{totalScripts}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e3a5f]/[0.05] rounded-lg">
+              <span className="text-[11px] font-semibold text-gray-400">Top</span>
+              <span className="text-[14px] font-extrabold text-[#1e3a5f] tabular-nums">{topScore.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg">
+              <span className="text-[11px] font-semibold text-gray-400">Avg</span>
+              <span className="text-[14px] font-extrabold text-gray-500 tabular-nums">{avgMetric.toLocaleString()}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Top List</h1>
             <span className="text-[11px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md tabular-nums">{totalScripts}</span>
@@ -74,21 +190,144 @@ const TopList = () => {
           <p className="text-sm text-gray-400 font-medium ml-[42px]">Ranked by performance, quality, and engagement</p>
         </div>
 
-        {/* ── Sort Tabs ── */}
-        <div className="flex items-center gap-1.5 mb-8 overflow-x-auto pb-1">
-          {sortTabs.map((tab) => (
-            <button key={tab.key} onClick={() => setSortBy(tab.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all whitespace-nowrap ${sortBy === tab.key
-                  ? "bg-[#1e3a5f] text-white shadow-lg shadow-[#1e3a5f]/15"
-                  : "bg-white text-gray-400 border border-gray-100 hover:border-gray-200 hover:text-gray-600"
-                }`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
-              </svg>
-              {tab.label}
+      {/* Sort tabs + Filter toggle */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className="mb-6"
+      >
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <div className="flex items-center gap-3">
+            {/* Sort tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+              {sortTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSortBy(tab.key)}
+                  className={`relative px-5 py-2.5 rounded-full text-[13px] font-semibold transition-all duration-250 whitespace-nowrap ${sortBy === tab.key
+                    ? "bg-[#1e3a5f] text-white shadow-lg shadow-[#1e3a5f]/20"
+                    : "bg-white text-gray-500 border border-gray-200/80 hover:border-gray-300 hover:text-gray-700 hover:shadow-sm"
+                    }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Filter toggle */}
+            <button
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className={`relative inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-200 border ${filtersOpen || activeFilterCount > 0
+                ? "bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-sm"
+                : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm"
+                }`}
+            >
+              <FilterIcon />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="ml-0.5 px-1.5 py-0.5 bg-white/20 rounded-md text-[10px] font-bold">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown open={filtersOpen} />
             </button>
-          ))}
+          </div>
+
+          {/* Active filter tags */}
+          {activeFilterCount > 0 && (
+            <div className="hidden sm:flex items-center gap-2 flex-wrap">
+              {selectedGenre && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                  {selectedGenre}
+                  <button onClick={() => setSelectedGenre("")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                </span>
+              )}
+              {selectedContentType && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                  {CONTENT_TYPES.find(c => c.key === selectedContentType)?.label || selectedContentType}
+                  <button onClick={() => setSelectedContentType("")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                </span>
+              )}
+              {selectedBudget && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                  {budgetLabel[selectedBudget]} Budget
+                  <button onClick={() => setSelectedBudget("")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                </span>
+              )}
+              {selectedPremium !== "all" && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1e3a5f]/[0.06] text-[#1e3a5f] rounded-lg text-[11px] font-bold">
+                  {selectedPremium === "premium" ? "Premium" : "Free"}
+                  <button onClick={() => setSelectedPremium("all")} className="hover:bg-[#1e3a5f]/10 rounded p-0.5 transition-colors"><XIcon /></button>
+                </span>
+              )}
+              <button onClick={clearAllFilters} className="text-[11px] font-semibold text-gray-400 hover:text-red-500 transition-colors px-2 py-1">
+                Clear all
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* ── Collapsible filter panel ── */}
+        <AnimatePresence>
+          {filtersOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 shadow-sm space-y-5 mb-4">
+                {/* Genre */}
+                <FilterSection label="Genre">
+                  <Pill active={!selectedGenre} onClick={() => setSelectedGenre("")}>All Genres</Pill>
+                  {GENRES.map((g) => (
+                    <Pill key={g} active={selectedGenre === g} onClick={() => setSelectedGenre(selectedGenre === g ? "" : g)}>{g}</Pill>
+                  ))}
+                </FilterSection>
+
+                <div className="border-t border-gray-100" />
+
+                {/* Content Type */}
+                <FilterSection label="Content Type">
+                  <Pill active={!selectedContentType} onClick={() => setSelectedContentType("")}>All Types</Pill>
+                  {CONTENT_TYPES.map((ct) => (
+                    <Pill key={ct.key} active={selectedContentType === ct.key} onClick={() => setSelectedContentType(selectedContentType === ct.key ? "" : ct.key)}>{ct.label}</Pill>
+                  ))}
+                </FilterSection>
+
+                <div className="border-t border-gray-100" />
+
+                {/* Budget + Premium row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <FilterSection label="Budget Range">
+                    <Pill active={!selectedBudget} onClick={() => setSelectedBudget("")}>Any</Pill>
+                    {BUDGETS.map((b) => (
+                      <Pill key={b.key} active={selectedBudget === b.key} onClick={() => setSelectedBudget(selectedBudget === b.key ? "" : b.key)}>{b.label}</Pill>
+                    ))}
+                  </FilterSection>
+
+                  <FilterSection label="Pricing">
+                    {PREMIUM_OPTIONS.map((p) => (
+                      <Pill key={p.key} active={selectedPremium === p.key} onClick={() => setSelectedPremium(p.key)}>{p.label}</Pill>
+                    ))}
+                  </FilterSection>
+                </div>
+
+                {/* Clear All (mobile) */}
+                {activeFilterCount > 0 && (
+                  <div className="flex sm:hidden justify-end pt-2">
+                    <button onClick={clearAllFilters} className="text-[12px] font-semibold text-red-500 hover:text-red-600 transition-colors px-3 py-1.5 border border-red-200 rounded-xl bg-red-50">
+                      Clear all filters
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
         {scripts.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 py-24 text-center">
@@ -100,34 +339,18 @@ const TopList = () => {
             <p className="text-base font-bold text-gray-800 mb-1">No projects found</p>
             <p className="text-sm text-gray-400">Check back later for top-ranked projects</p>
           </div>
-        ) : (
-          <>
-            {/* ── Top 3 Podium ── */}
-            {top3.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                {top3.map((script, i) => {
-                  const metric = getMetric(script);
-                  const rs = rankStyle(i);
-                  return (
-                    <motion.div key={script._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.08, duration: 0.4 }}>
-                      <Link to={`/script/${script._id}`}
-                        className={`block bg-white rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300 group hover:shadow-xl hover:-translate-y-1 ${i === 0 ? "sm:row-span-1" : ""}`}>
-                        {/* Cover */}
-                        <div className="relative h-44 overflow-hidden">
-                          {script.coverImage ? (
-                            <img src={resolveImg(script.coverImage)} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-[#0a1628] via-[#1e3a5f] to-[#2d5a8e]">
-                              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,255,255,0.08),transparent_60%)]"></div>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
-
-                          {/* Rank badge */}
-                          <div className={`absolute top-3 left-3 w-9 h-9 rounded-xl ${rs.bg} flex items-center justify-center shadow-lg ${rs.shadow} ring-2 ${rs.ring}`}>
-                            <span className={`text-sm font-extrabold ${rs.text}`}>{i + 1}</span>
-                          </div>
+          <p className="text-[16px] font-bold text-gray-800 mb-1">No projects found</p>
+          <p className="text-[13px] text-gray-400 mb-4">Try adjusting your filters or check back later</p>
+          {activeFilterCount > 0 && (
+            <button onClick={clearAllFilters} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1e3a5f] text-white rounded-xl text-sm font-semibold hover:bg-[#162d4a] transition-colors shadow-sm">
+              Clear all filters
+            </button>
+          )}
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {scripts.map((script, index) => {
+            const metric = getMetric(script);
 
                           {/* Genre */}
                           {(script.genre || script.primaryGenre) && (
