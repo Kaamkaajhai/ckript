@@ -30,6 +30,23 @@ export const getReviewsByScript = async (req, res) => {
   }
 };
 
+export const getReviewsByUser = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20; // Fetch up to 20 for profile
+    const total = await Review.countDocuments({ user: req.params.userId });
+    const reviews = await Review.find({ user: req.params.userId })
+      .populate("script", "title coverImage genre _id")
+      .populate("user", "name profileImage role")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+    res.json({ reviews, totalPages: Math.ceil(total / limit), page, total });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const updateReview = async (req, res) => {
   try {
     const review = await Review.findById(req.params.id);
@@ -58,3 +75,4 @@ export const deleteReview = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

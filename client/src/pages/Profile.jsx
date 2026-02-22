@@ -125,11 +125,10 @@ const Profile = () => {
                 </button>
               ) : (
                 <button onClick={handleFollow}
-                  className={`px-5 py-2 rounded-xl transition-all text-[13px] font-bold ${
-                    isFollowing
+                  className={`px-5 py-2 rounded-xl transition-all text-[13px] font-bold ${isFollowing
                       ? "bg-gray-50 text-gray-600 border border-gray-200 hover:border-red-200 hover:text-red-500 hover:bg-red-50"
                       : "bg-[#1e3a5f] text-white hover:bg-[#162d4a] shadow-sm"
-                  }`}
+                    }`}
                 >
                   {isFollowing ? "Following" : "Follow"}
                 </button>
@@ -145,7 +144,7 @@ const Profile = () => {
                 {profile.role}
               </span>
             </div>
-            <p className="text-[13px] text-gray-400 font-medium">{profile.email}</p>
+            {isOwnProfile && <p className="text-[13px] text-gray-400 font-medium">{profile.email}</p>}
           </div>
 
           {/* Bio */}
@@ -195,18 +194,16 @@ const Profile = () => {
           { key: "about", label: "About" },
         ].map((tab) => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`relative px-5 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
-              activeTab === tab.key
+            className={`relative px-5 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${activeTab === tab.key
                 ? "bg-white text-gray-900 shadow-sm"
                 : "text-gray-400 hover:text-gray-600"
-            }`}
+              }`}
           >
             <span className="flex items-center gap-1.5">
               {tab.label}
               {tab.count !== undefined && (
-                <span className={`text-[11px] px-1.5 py-0.5 rounded-md font-bold tabular-nums ${
-                  activeTab === tab.key ? "bg-[#1e3a5f]/10 text-[#1e3a5f]" : "bg-gray-200/60 text-gray-400"
-                }`}>
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-md font-bold tabular-nums ${activeTab === tab.key ? "bg-[#1e3a5f]/10 text-[#1e3a5f]" : "bg-gray-200/60 text-gray-400"
+                  }`}>
                   {tab.count}
                 </span>
               )}
@@ -279,7 +276,7 @@ const Profile = () => {
               </span>
             </div>
 
-            {/* Contact card */}
+            {/* Contact / Member card */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center gap-2.5 mb-3">
                 <div className="w-8 h-8 rounded-lg bg-[#1e3a5f]/[0.06] flex items-center justify-center">
@@ -287,9 +284,9 @@ const Profile = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                   </svg>
                 </div>
-                <h3 className="text-[13px] font-bold text-gray-900">Contact</h3>
+                <h3 className="text-[13px] font-bold text-gray-900">{isOwnProfile ? "Contact" : "Member Info"}</h3>
               </div>
-              <p className="text-[13px] text-gray-600 font-medium">{profile.email}</p>
+              {isOwnProfile && <p className="text-[13px] text-gray-600 font-medium">{profile.email}</p>}
               {memberSince && (
                 <p className="text-[12px] text-gray-400 font-medium mt-1.5">Member since {memberSince}</p>
               )}

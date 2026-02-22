@@ -58,7 +58,7 @@ export const uploadScript = async (req, res) => {
       tags: tags || [],
       budget,
       holdFee: holdFee || 200,
-      
+
       // New fields from the 5-step wizard
       format: format || "feature_film",
       primaryGenre: classification?.primaryGenre || genre,
@@ -69,21 +69,21 @@ export const uploadScript = async (req, res) => {
         themes: classification.themes || [],
         settings: classification.settings || []
       } : undefined,
-      
+
       // Services tracking
       services: services ? {
         hosting: services.hosting !== undefined ? services.hosting : true,
         evaluation: services.evaluation || false,
         aiTrailer: services.aiTrailer || false
       } : { hosting: true, evaluation: false, aiTrailer: false },
-      
+
       // Legal compliance
       legal: legal ? {
         agreedToTerms: legal.agreedToTerms || false,
         timestamp: legal.timestamp || new Date(),
         ipAddress: req.ip || req.connection.remoteAddress
       } : undefined,
-      
+
       // AI Trailer status initialization
       trailerStatus: services?.aiTrailer ? "generating" : "none"
     };
@@ -93,20 +93,20 @@ export const uploadScript = async (req, res) => {
 
     // --- Async Service Processing ---
     // TODO: Implement these async workflows:
-    
+
     // 1. If hosting: Start subscription timer (30 days)
     if (services?.hosting) {
       // TODO: Create/Update Subscription document
       console.log(`[SERVICE] Hosting activated for script ${script._id}`);
     }
-    
+
     // 2. If evaluation: Create job ticket for Reader Portal
     if (services?.evaluation) {
       // TODO: Create evaluation job in a Queue or Job collection
       console.log(`[SERVICE] Evaluation requested for script ${script._id}`);
       // Example: await createEvaluationJob(script._id, req.user._id);
     }
-    
+
     // 3. If aiTrailer: Trigger AI video generation
     if (services?.aiTrailer) {
       // TODO: Send request to AI Video API (Runway/HeyGen/OpenAI)
@@ -114,7 +114,7 @@ export const uploadScript = async (req, res) => {
       console.log(`Logline: ${logline}`);
       console.log(`Genre: ${classification?.primaryGenre}`);
       console.log(`Tones: ${classification?.tones?.join(', ')}`);
-      
+
       // Example async call:
       // generateAITrailer({
       //   scriptId: script._id,
@@ -137,11 +137,18 @@ export const uploadScript = async (req, res) => {
 
 export const getScripts = async (req, res) => {
   try {
-    const { genre, contentType, budget, sort, search } = req.query;
+    const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
     const query = {};
     if (genre) query.genre = genre;
     if (contentType) query.contentType = contentType;
     if (budget) query.budget = budget;
+    if (premium === "true") query.premium = true;
+    else if (premium === "false") query.premium = { $ne: true };
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
     if (search) {
       query.$or = [
         { title: new RegExp(search, "i") },
@@ -247,7 +254,7 @@ export const getScriptById = async (req, res) => {
     const script = await Script.findById(req.params.id)
       .populate("creator", "name profileImage role bio followers")
       .populate("heldBy", "name role");
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
 
     // Track view
@@ -301,8 +308,8 @@ export const unlockScript = async (req, res) => {
     // Only investors, producers, directors, and industry professionals can unlock
     const allowedRoles = ['investor', 'producer', 'director', 'industry', 'professional'];
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: "Only investors, producers, and directors can unlock scripts. Writers cannot purchase synopsis access." 
+      return res.status(403).json({
+        message: "Only investors, producers, and directors can unlock scripts. Writers cannot purchase synopsis access."
       });
     }
 
@@ -336,7 +343,7 @@ export const holdScript = async (req, res) => {
   try {
     const { scriptId } = req.body;
     const script = await Script.findById(scriptId);
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.holdStatus === "held") {
       return res.status(400).json({ message: "This script is already on hold by another party" });
@@ -382,7 +389,7 @@ export const holdScript = async (req, res) => {
       message: `${user.name} has placed a hold on "${script.title}" for $${fee} (30 days). You earn $${creatorPayout}!`,
     });
 
-    res.json({ 
+    res.json({
       message: "Script held successfully",
       option,
       holdDetails: {
@@ -402,7 +409,7 @@ export const releaseHold = async (req, res) => {
   try {
     const { scriptId } = req.body;
     const script = await Script.findById(scriptId);
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.heldBy?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "You are not holding this script" });
@@ -448,7 +455,7 @@ export const addRoles = async (req, res) => {
   try {
     const { scriptId, roles } = req.body;
     const script = await Script.findById(scriptId);
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.creator.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Only the creator can add roles" });

@@ -11,7 +11,7 @@ const router = express.Router();
 // @access  Private
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const { q, type = "all", role } = req.query;
+    const { q, type = "all", role, genre, contentType, budget, premium } = req.query;
     if (!q || !q.trim()) {
       return res.json({ users: [], scripts: [] });
     }
@@ -57,14 +57,22 @@ router.get("/", authMiddleware, async (req, res) => {
 
     // Search scripts/projects
     if (type === "all" || type === "projects") {
-      results.scripts = await Script.find({
-        $or: [
+      const scriptQuery = {};
+      if (q && q.trim()) {
+        scriptQuery.$or = [
           { title: searchRegex },
           { description: searchRegex },
           { genre: searchRegex },
           { contentType: searchRegex },
-        ],
-      })
+        ];
+      }
+      if (genre) scriptQuery.genre = genre;
+      if (contentType) scriptQuery.contentType = contentType;
+      if (budget) scriptQuery.budget = budget;
+      if (premium === "true") scriptQuery.premium = true;
+      else if (premium === "false") scriptQuery.premium = { $ne: true };
+
+      results.scripts = await Script.find(scriptQuery)
         .populate("creator", "name profileImage role")
         .sort({ createdAt: -1 })
         .limit(30)

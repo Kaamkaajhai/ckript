@@ -7,11 +7,11 @@ const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // State for collapsible sections
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [watchlistOpen, setWatchlistOpen] = useState(true); // NEW for Producers
-  
+
   const [myScripts, setMyScripts] = useState([]);
   const [watchlist, setWatchlist] = useState([]); // NEW for Producers
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -40,10 +40,10 @@ const Sidebar = () => {
   const fetchWatchlist = async () => {
     try {
       // You need an endpoint for this: /users/watchlist
-      const { data } = await api.get("/users/watchlist"); 
+      const { data } = await api.get("/users/watchlist");
       setWatchlist(data);
-    } catch { 
-      setWatchlist([]); 
+    } catch {
+      setWatchlist([]);
     }
   };
 
@@ -111,11 +111,10 @@ const Sidebar = () => {
       <Link
         to={item.path}
         onClick={() => setMobileOpen(false)}
-        className={`flex items-center gap-3.5 px-4 py-3 mx-2 rounded-xl text-[15px] font-bold transition-colors ${
-          active
+        className={`flex items-center gap-3.5 px-4 py-3 mx-2 rounded-xl text-[15px] font-bold transition-colors ${active
             ? "bg-[#1e3a5f]/10 text-[#1e3a5f]"
             : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-        }`}
+          }`}
       >
         <Icon d={item.icon} />
         <span>{item.label}</span>
@@ -197,9 +196,8 @@ const Sidebar = () => {
             const active = isActive(item.path);
             return (
               <Link key={item.label} to={item.path} title={item.label}
-                className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${
-                  active ? "bg-[#1e3a5f]/10 text-[#1e3a5f]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-                }`}>
+                className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${active ? "bg-[#1e3a5f]/10 text-[#1e3a5f]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  }`}>
                 <Icon d={item.icon} />
               </Link>
             );
@@ -209,9 +207,8 @@ const Sidebar = () => {
             const active = isActive(item.path);
             return (
               <Link key={item.label} to={item.path} title={item.label}
-                className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
-                  active ? "bg-[#1e3a5f]/10 text-[#1e3a5f]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-                }`}>
+                className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${active ? "bg-[#1e3a5f]/10 text-[#1e3a5f]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  }`}>
                 <Icon d={item.icon} />
               </Link>
             );
@@ -260,9 +257,8 @@ const Sidebar = () => {
           const active = isActive(item.path);
           return (
             <Link key={item.path} to={item.path}
-              className={`flex flex-col items-center justify-center gap-0.5 w-14 h-12 transition-colors ${
-                active ? "text-[#1e3a5f]" : "text-gray-400"
-              }`}>
+              className={`flex flex-col items-center justify-center gap-0.5 w-14 h-12 transition-colors ${active ? "text-[#1e3a5f]" : "text-gray-400"
+                }`}>
               <Icon d={item.icon} size={`w-[22px] h-[22px] ${active ? "stroke-[2.2]" : ""}`} />
               <span className={`text-xs ${active ? "font-extrabold text-[#1e3a5f]" : "font-bold text-gray-400"}`}>
                 {item.label}

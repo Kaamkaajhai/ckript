@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { Film } from "lucide-react";
 
 const ScriptDetail = () => {
   const { id } = useParams();
@@ -10,6 +11,7 @@ const ScriptDetail = () => {
   const navigate = useNavigate();
   const [script, setScript] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [coverError, setCoverError] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [holdLoading, setHoldLoading] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
@@ -18,8 +20,15 @@ const ScriptDetail = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [unlockLoading, setUnlockLoading] = useState(false);
 
+  const resolveImage = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http") || url.startsWith("data:")) return url;
+    return `http://localhost:5001${url}`;
+  };
+
   useEffect(() => {
     fetchScript();
+    setCoverError(false);
   }, [id]);
 
   const fetchScript = async () => {
@@ -149,6 +158,7 @@ const ScriptDetail = () => {
 
   const isOwner = script.creator?._id === user?._id;
   const isPro = ["investor", "producer", "director"].includes(user?.role);
+  const showCoverPlaceholder = !script.coverImage || coverError;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -164,9 +174,24 @@ const ScriptDetail = () => {
         {/* Hero section */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-5">
           {/* Cover / Trailer */}
-          <div className="relative h-48 sm:h-64 bg-[#1e3a5f]">
-            {script.coverImage && (
-              <img src={script.coverImage} alt={script.title} className="w-full h-full object-cover absolute inset-0" />
+          <div className="relative h-48 sm:h-64 bg-gradient-to-br from-[#0f1c2e] to-[#1a2d45]">
+            {showCoverPlaceholder ? (
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center border border-white/[0.08] bg-white/[0.05] mb-4">
+                  <Film size={28} strokeWidth={1.5} className="text-white/40" />
+                </div>
+                <p className="text-white/70 text-lg font-semibold">{script.title}</p>
+                {script.genre && (
+                  <p className="text-white/25 text-xs font-medium mt-1 uppercase tracking-[0.15em]">{script.genre}</p>
+                )}
+              </div>
+            ) : (
+              <img
+                src={resolveImage(script.coverImage)}
+                alt={script.title}
+                onError={() => setCoverError(true)}
+                className="w-full h-full object-cover absolute inset-0"
+              />
             )}
             {script.trailerUrl && (
               <button onClick={() => setShowTrailer(true)}
@@ -201,8 +226,16 @@ const ScriptDetail = () => {
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div className="flex-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{script.title}</h1>
-                <Link to={`/profile/${script.creator?._id}`} className="text-base text-[#1e3a5f] hover:underline font-semibold">
-                  by {script.creator?.name}
+                <Link to={`/profile/${script.creator?._id}`} className="inline-flex items-center gap-2 text-base text-[#1e3a5f] hover:underline font-semibold">
+                  {script.creator?.profileImage && !coverError ? (
+                    <img src={resolveImage(script.creator.profileImage)} alt="" className="w-6 h-6 rounded-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; }} />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-[#1e3a5f]/10 flex items-center justify-center text-[10px] font-bold text-[#1e3a5f]">
+                      {script.creator?.name?.charAt(0)?.toUpperCase() || "U"}
+                    </div>
+                  )}
+                  {script.creator?.name}
                 </Link>
                 <p className="text-base text-gray-600 mt-3">{script.description}</p>
                 {script.tags?.length > 0 && (
@@ -264,9 +297,8 @@ const ScriptDetail = () => {
             { id: "synopsis", label: "Synopsis" },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3 text-base font-bold rounded-lg transition-all whitespace-nowrap px-4 ${
-                activeTab === tab.id ? "bg-white text-[#1e3a5f] shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}>{tab.label}</button>
+              className={`flex-1 py-3 text-base font-bold rounded-lg transition-all whitespace-nowrap px-4 ${activeTab === tab.id ? "bg-white text-[#1e3a5f] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}>{tab.label}</button>
           ))}
         </div>
 
