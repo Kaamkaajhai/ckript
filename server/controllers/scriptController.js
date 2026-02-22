@@ -3,6 +3,65 @@ import ScriptOption from "../models/ScriptOption.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 
+export const extractPdfText = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No PDF file provided" });
+    }
+
+    // Use dynamic import to handle CJS library in ESM correctly
+    const pdfParsePkg = await import("pdf-parse");
+    const pdfParse = pdfParsePkg.default || pdfParsePkg;
+
+    const data = await pdfParse(req.file.buffer);
+
+    // Quick sanitization: replace weird null bytes or excessive whitespace
+    let text = data.text || "";
+    // Standardize newlines
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    res.json({ text, numItems: data.numpages });
+  } catch (error) {
+    console.error("PDF Extraction Error:", error);
+    res.status(500).json({ message: "Failed to extract text from PDF", error: error.message });
+  }
+};
+
+export const saveDraft = async (req, res) => {
+  try {
+    const { scriptId, title, textContent, ...otherData } = req.body;
+
+    // If we have an ID, update the existing draft
+    if (scriptId) {
+      const script = await Script.findById(scriptId);
+      if (!script) return res.status(404).json({ message: "Script not found" });
+      if (script.creator.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      script.title = title || script.title;
+      script.textContent = textContent !== undefined ? textContent : script.textContent;
+      // Allow updating other work-in-progress metadata here if needed
+
+      await script.save();
+      return res.json(script);
+    }
+
+    // Otherwise create a new draft
+    const newDraft = await Script.create({
+      creator: req.user._id,
+      title: title || "Untitled Draft",
+      textContent: textContent || "",
+      status: "draft",
+      ...otherData
+    });
+
+    res.status(201).json(newDraft);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const uploadScript = async (req, res) => {
   try {
     const {
@@ -18,6 +77,7 @@ export const uploadScript = async (req, res) => {
       description,
       synopsis,
       fullContent,
+      textContent,
       fileUrl,
       coverImage,
       genre,
@@ -35,8 +95,8 @@ export const uploadScript = async (req, res) => {
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
-    if (!scriptUrl && !fileUrl) {
-      return res.status(400).json({ message: "Script file is required" });
+    if (!scriptUrl && !fileUrl && !textContent) {
+      return res.status(400).json({ message: "Script file or text content is required" });
     }
 
     // Build the script document
@@ -47,6 +107,7 @@ export const uploadScript = async (req, res) => {
       description: description || synopsis || logline,
       synopsis: synopsis || description,
       fullContent,
+      textContent,
       fileUrl: scriptUrl || fileUrl,
       pageCount,
       coverImage,
@@ -58,7 +119,7 @@ export const uploadScript = async (req, res) => {
       tags: tags || [],
       budget,
       holdFee: holdFee || 200,
-      
+
       // New fields from the 5-step wizard
       format: format || "feature_film",
       primaryGenre: classification?.primaryGenre || genre,
@@ -69,44 +130,47 @@ export const uploadScript = async (req, res) => {
         themes: classification.themes || [],
         settings: classification.settings || []
       } : undefined,
-      
+
       // Services tracking
       services: services ? {
         hosting: services.hosting !== undefined ? services.hosting : true,
         evaluation: services.evaluation || false,
         aiTrailer: services.aiTrailer || false
       } : { hosting: true, evaluation: false, aiTrailer: false },
-      
+
       // Legal compliance
       legal: legal ? {
         agreedToTerms: legal.agreedToTerms || false,
         timestamp: legal.timestamp || new Date(),
         ipAddress: req.ip || req.connection.remoteAddress
       } : undefined,
-      
+
       // AI Trailer status initialization
-      trailerStatus: services?.aiTrailer ? "generating" : "none"
+      trailerStatus: services?.aiTrailer ? "generating" : "none",
+
+      status: "published" // Force publish on final upload
     };
 
-    // Create the script in database
+    // If updating from a draft (if we pass draftId in the future), we could update instead of create.
+    // For now, assume it's a new or finalized creation.
     const script = await Script.create(scriptData);
 
     // --- Async Service Processing ---
     // TODO: Implement these async workflows:
-    
+
     // 1. If hosting: Start subscription timer (30 days)
     if (services?.hosting) {
       // TODO: Create/Update Subscription document
       console.log(`[SERVICE] Hosting activated for script ${script._id}`);
     }
-    
+
     // 2. If evaluation: Create job ticket for Reader Portal
     if (services?.evaluation) {
       // TODO: Create evaluation job in a Queue or Job collection
       console.log(`[SERVICE] Evaluation requested for script ${script._id}`);
       // Example: await createEvaluationJob(script._id, req.user._id);
     }
-    
+
     // 3. If aiTrailer: Trigger AI video generation
     if (services?.aiTrailer) {
       // TODO: Send request to AI Video API (Runway/HeyGen/OpenAI)
@@ -114,7 +178,7 @@ export const uploadScript = async (req, res) => {
       console.log(`Logline: ${logline}`);
       console.log(`Genre: ${classification?.primaryGenre}`);
       console.log(`Tones: ${classification?.tones?.join(', ')}`);
-      
+
       // Example async call:
       // generateAITrailer({
       //   scriptId: script._id,
@@ -247,7 +311,7 @@ export const getScriptById = async (req, res) => {
     const script = await Script.findById(req.params.id)
       .populate("creator", "name profileImage role bio followers")
       .populate("heldBy", "name role");
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
 
     // Track view
@@ -301,8 +365,8 @@ export const unlockScript = async (req, res) => {
     // Only investors, producers, directors, and industry professionals can unlock
     const allowedRoles = ['investor', 'producer', 'director', 'industry', 'professional'];
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: "Only investors, producers, and directors can unlock scripts. Writers cannot purchase synopsis access." 
+      return res.status(403).json({
+        message: "Only investors, producers, and directors can unlock scripts. Writers cannot purchase synopsis access."
       });
     }
 
@@ -336,7 +400,7 @@ export const holdScript = async (req, res) => {
   try {
     const { scriptId } = req.body;
     const script = await Script.findById(scriptId);
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.holdStatus === "held") {
       return res.status(400).json({ message: "This script is already on hold by another party" });
@@ -382,7 +446,7 @@ export const holdScript = async (req, res) => {
       message: `${user.name} has placed a hold on "${script.title}" for $${fee} (30 days). You earn $${creatorPayout}!`,
     });
 
-    res.json({ 
+    res.json({
       message: "Script held successfully",
       option,
       holdDetails: {
@@ -402,7 +466,7 @@ export const releaseHold = async (req, res) => {
   try {
     const { scriptId } = req.body;
     const script = await Script.findById(scriptId);
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.heldBy?.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "You are not holding this script" });
@@ -448,7 +512,7 @@ export const addRoles = async (req, res) => {
   try {
     const { scriptId, roles } = req.body;
     const script = await Script.findById(scriptId);
-    
+
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.creator.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Only the creator can add roles" });

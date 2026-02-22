@@ -85,11 +85,10 @@ const FeaturedProjects = () => {
             <button
               key={tab.key}
               onClick={() => setActiveSort(tab.key)}
-              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                activeSort === tab.key
+              className={`relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${activeSort === tab.key
                   ? "bg-white text-[#1e3a5f] shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
-              }`}
+                }`}
             >
               {tab.icon === "flame" && (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
