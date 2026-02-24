@@ -33,7 +33,12 @@ const ScriptReader = () => {
     return `http://localhost:5001${url}`;
   };
 
-  useEffect(() => { fetchScript(); fetchReviews(); setCoverError(false); }, [id]);
+  useEffect(() => {
+    fetchScript();
+    fetchReviews();
+    setCoverError(false);
+    api.post(`/scripts/${id}/read`).catch(() => {});
+  }, [id]);
 
   const fetchScript = async () => {
     try {

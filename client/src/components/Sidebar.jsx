@@ -25,7 +25,7 @@ const Sidebar = () => {
     if (user) {
       if (isIndustry) {
         fetchWatchlist();
-      } else {
+      } else if (!isReader) {
         fetchMyScripts();
       }
     }
@@ -34,7 +34,7 @@ const Sidebar = () => {
   // Re-fetch scripts whenever one is deleted anywhere in the app
   useEffect(() => {
     const onScriptDeleted = () => {
-      if (!isIndustry) fetchMyScripts();
+      if (!isIndustry && !isReader) fetchMyScripts();
     };
     window.addEventListener("scriptDeleted", onScriptDeleted);
     return () => window.removeEventListener("scriptDeleted", onScriptDeleted);
@@ -62,7 +62,14 @@ const Sidebar = () => {
 
   const handleLogout = () => { logout(); navigate("/login"); };
 
-  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const isActive = (path) => {
+    if (location.pathname === path) return true;
+    // Only use prefix matching for paths that won't accidentally match sibling routes
+    // e.g. "/reader" must NOT match "/reader/profile/..." since Profile is its own nav item
+    const siblingPaths = [...mainNavItems, ...actionItems].map((i) => i.path);
+    if (siblingPaths.some((p) => p !== path && p.startsWith(path + "/"))) return false;
+    return location.pathname.startsWith(path + "/");
+  };
 
   const mainNavItems = isReader ? [
     { path: "/reader", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -87,8 +94,8 @@ const Sidebar = () => {
   ];
 
   const actionItems = isReader ? [
-    { path: "/join", label: "Become a Writer", icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
-    { path: "/join", label: "Become an Investor", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { path: "/writer-onboarding", label: "Become a Writer", icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
+    { path: "/investor-onboarding", label: "Become an Investor", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
   ] : isIndustry ? [
     { path: "/writers", label: "Browse Writers", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" },
   ] : [
@@ -158,33 +165,37 @@ const Sidebar = () => {
         {mainNavItems.map((item) => <NavItem key={item.label} item={item} />)}
         <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
         {actionItems.map((item) => <NavItem key={item.label} item={item} />)}
-        <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+        {!isReader && (
+          <>
+            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
 
-        <button
-          onClick={() => setProjectsOpen(!projectsOpen)}
-          className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
-        >
-          <svg className={`w-4 h-4 transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
-            fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-          <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>My Projects</span>
-        </button>
+            <button
+              onClick={() => setProjectsOpen(!projectsOpen)}
+              className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
+            >
+              <svg className={`w-4 h-4 transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
+                fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+              <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>My Projects</span>
+            </button>
 
-        {projectsOpen && (
-          <div className="pl-3">
-            {myScripts.length > 0 ? (
-              myScripts.map((script) => (
-                <Link key={script._id} to={`/script/${script._id}`} onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}>
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#2a4060]" : "bg-gray-300"}`}></div>
-                  <span className="text-[15px] font-semibold truncate">{script.title}</span>
-                </Link>
-              ))
-            ) : (
-              <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>No projects yet</p>
+            {projectsOpen && (
+              <div className="pl-3">
+                {myScripts.length > 0 ? (
+                  myScripts.map((script) => (
+                    <Link key={script._id} to={`/script/${script._id}`} onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#2a4060]" : "bg-gray-300"}`}></div>
+                      <span className="text-[15px] font-semibold truncate">{script.title}</span>
+                    </Link>
+                  ))
+                ) : (
+                  <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>No projects yet</p>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </nav>
 

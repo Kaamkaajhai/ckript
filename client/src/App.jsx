@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Join from "./pages/Join";
 import RoleSelection from "./pages/RoleSelection";
 import WriterOnboarding from "./pages/WriterOnboarding";
+import InvestorOnboarding from "./pages/InvestorOnboarding";
 import IndustryOnboarding from "./pages/IndustryOnboarding";
 import Profile from "./pages/Profile";
 import Dashboard from "./pages/Dashboard";
@@ -40,6 +41,7 @@ function App() {
           <Route path="/join" element={<RoleSelection />} />
           <Route path="/signup" element={<Join />} />
           <Route path="/writer-onboarding" element={<WriterOnboarding />} />
+          <Route path="/investor-onboarding" element={<InvestorOnboarding />} />
           <Route path="/industry-onboarding" element={
             <PrivateRoute>
               <MainLayout>

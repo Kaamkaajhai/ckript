@@ -104,7 +104,7 @@ const RoleSelection = () => {
             whileHover={{ scale: 1.02 }}
             className="group"
           >
-            <Link to="/industry-onboarding">
+            <Link to="/investor-onboarding">
               <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-100 hover:border-[#1a365d] transition-all duration-300 h-full">
                 <div className="flex flex-col items-center text-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all duration-300">
@@ -112,11 +112,11 @@ const RoleSelection = () => {
                   </div>
                   
                   <h2 className="text-2xl font-extrabold text-[#0a1628] mb-3 tracking-tight">
-                    Industry Pro
+                    I'm an Investor
                   </h2>
                   
                   <p className="text-gray-600 mb-6 text-sm">
-                    Discover scripts and connect with writers
+                    Fund projects and connect with talented writers
                   </p>
                   
                   <ul className="text-left space-y-2 mb-8 w-full">
@@ -126,7 +126,7 @@ const RoleSelection = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-gray-700">Search by genre & theme</span>
+                      <span className="text-gray-700">Discover investment opportunities</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
                       <div className="w-5 h-5 bg-[#1e3a5f]/[0.08] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -134,7 +134,7 @@ const RoleSelection = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-gray-700">Read full scripts</span>
+                      <span className="text-gray-700">Browse curated scripts</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
                       <div className="w-5 h-5 bg-[#1e3a5f]/[0.08] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -142,7 +142,7 @@ const RoleSelection = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-gray-700">Connect with writers</span>
+                      <span className="text-gray-700">Connect directly with writers</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
                       <div className="w-5 h-5 bg-[#1e3a5f]/[0.08] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -150,12 +150,12 @@ const RoleSelection = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-gray-700">Option projects</span>
+                      <span className="text-gray-700">Option & fund projects</span>
                     </li>
                   </ul>
                   
                   <div className="w-full bg-[#0f2544] text-white py-3 rounded-lg font-semibold hover:bg-[#1a365d] transition flex items-center justify-center gap-2 text-sm">
-                    Join as Professional
+                    Join as Investor
                     <ArrowRight size={16} />
                   </div>
                   

@@ -110,9 +110,10 @@ const ScriptCard = ({ script, index = 0 }) => {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3 }}
+      className="h-full"
     >
-      <Link to={`/reader/script/${script._id}`} className="group block">
-          <div className={`rounded-2xl border overflow-hidden transition-all duration-300 hover:-translate-y-1 ${dark ? "bg-[#101e30] border-[#182840] hover:shadow-xl hover:shadow-[#020609]/20 hover:border-[#1d3350]" : "bg-white border-gray-100/80 hover:shadow-xl hover:shadow-gray-200/60 hover:border-gray-200"}`}>
+      <Link to={`/reader/script/${script._id}`} className="group block h-full">
+          <div className={`rounded-2xl border overflow-hidden transition-all duration-300 hover:-translate-y-1 flex flex-col h-full ${dark ? "bg-[#101e30] border-[#182840] hover:shadow-xl hover:shadow-[#020609]/20 hover:border-[#1d3350]" : "bg-white border-gray-100/80 hover:shadow-xl hover:shadow-gray-200/60 hover:border-gray-200"}`}>
           {/* Cover */}
           <div className="relative aspect-[3/4] overflow-hidden bg-gray-50">
             {showPlaceholder ? (
@@ -157,12 +158,12 @@ const ScriptCard = ({ script, index = 0 }) => {
             </div>
           </div>
           {/* Info */}
-          <div className="p-3.5">
+          <div className="p-3.5 flex flex-col flex-1">
             <div className="flex items-center gap-2 mb-1.5">
               {script.creator?.profileImage ? (
-                <img src={script.creator.profileImage} alt="" className="w-4.5 h-4.5 rounded-full object-cover" />
+                <img src={script.creator.profileImage} alt="" className="w-5 h-5 rounded-full object-cover" />
               ) : (
-                <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-medium ${dark ? "bg-white/[0.06] text-gray-400" : "bg-gray-100 text-gray-400"}`}>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-medium shrink-0 ${dark ? "bg-white/[0.06] text-gray-400" : "bg-gray-100 text-gray-400"}`}>
                   {script.creator?.name?.charAt(0)?.toUpperCase() || "U"}
                 </div>
               )}
@@ -174,6 +175,7 @@ const ScriptCard = ({ script, index = 0 }) => {
             {script.logline && (
               <p className="text-xs text-gray-400 line-clamp-2 mb-2 font-normal leading-relaxed">{script.logline}</p>
             )}
+            <div className="flex-1" />
             <div className={`flex items-center justify-between mt-1.5 pt-2 border-t ${dark ? "border-[#182840]" : "border-gray-50"}`}>
               <div className="flex items-center gap-1">
                 <svg className="w-3.5 h-3.5 text-amber-400 fill-amber-400" viewBox="0 0 20 20">
