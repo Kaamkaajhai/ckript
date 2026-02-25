@@ -2,6 +2,8 @@ import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 
+const EMAIL_EXISTS_MSG = "User already exists";
+
 const Join = () => {
   const { join } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -18,12 +20,19 @@ const Join = () => {
     e.preventDefault();
     setError("");
     try {
-      await join(formData);
-      navigate("/dashboard");
+      const userData = await join(formData);
+      if (userData?.role === "investor") {
+        navigate("/home");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
-      setError(err.response?.data?.message || "Join failed");
+      const msg = err.response?.data?.message || "Join failed";
+      setError(msg);
     }
   };
+
+  const isEmailExists = error === EMAIL_EXISTS_MSG;
 
   return (
     <div className="flex min-h-screen">
@@ -73,7 +82,13 @@ const Join = () => {
           {error && (
             <div className="mb-5 px-4 py-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-semibold flex items-center gap-2">
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-              {error}
+              <span>
+                {isEmailExists ? (
+                  <>An account with this email already exists.{" "}
+                    <Link to="/login" className="underline hover:no-underline">Sign in instead →</Link>
+                  </>
+                ) : error}
+              </span>
             </div>
           )}
 
