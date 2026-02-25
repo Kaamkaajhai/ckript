@@ -5,7 +5,8 @@ import {
   holdScript, releaseHold, getMyHolds, addRoles,
   getFeaturedScripts, getTopScripts, searchScriptsReader,
   getLatestScripts, recordRead, toggleFavorite, getCategories,
-  extractPdfText, saveDraft, deleteScript, getMyDrafts, updateScript
+  extractPdfText, saveDraft, deleteScript, getMyDrafts, updateScript,
+  getInvestorFeed
 } from "../controllers/scriptController.js";
 import multer from "multer";
 
@@ -24,6 +25,7 @@ router.get("/top", protect, getTopScripts);
 router.get("/reader-search", protect, searchScriptsReader);
 router.get("/latest", protect, getLatestScripts);
 router.get("/categories", protect, getCategories);
+router.get("/investor-home", protect, getInvestorFeed);
 router.get("/:id", protect, getScriptById);
 router.post("/unlock", protect, unlockScript);
 router.post("/hold", protect, holdScript);

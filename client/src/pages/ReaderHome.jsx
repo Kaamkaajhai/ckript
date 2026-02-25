@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
-import FeaturedSection from "../components/FeaturedSection";
-import TopProjects from "../components/TopProjects";
+import TrendingProjects from "../components/TrendingProjects";
 import ScriptCard from "../components/ScriptCard";
 
 const ReaderHome = () => {
@@ -36,11 +35,8 @@ const ReaderHome = () => {
   return (
     <div className="min-h-screen pb-16">
       <div className="max-w-6xl mx-auto px-4 space-y-14 mt-2">
-        {/* Featured */}
-        <FeaturedSection />
-
-        {/* Top Projects */}
-        <TopProjects />
+        {/* Trending Projects */}
+        <TrendingProjects />
 
         {/* Latest Scripts */}
         <section>

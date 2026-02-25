@@ -17,8 +17,8 @@ const Login = () => {
       const storedUser = JSON.parse(localStorage.getItem("user"));
       if (storedUser?.role === "reader") {
         navigate("/reader");
-      } else if (storedUser?.role === "professional" || storedUser?.role === "producer" || storedUser?.role === "investor") {
-        navigate("/dashboard");
+      } else if (storedUser?.role === "investor") {
+        navigate("/home");
       } else {
         navigate("/dashboard");
       }

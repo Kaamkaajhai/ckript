@@ -745,3 +745,170 @@ export const getCategories = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+/**
+ * GET /scripts/investor-home
+ *
+ * Smart feed that auto-detects the investor's interests from their full profile
+ * (bio, mandates, preferences, skills, previousCredits, specificHooks) and
+ * generates genre-grouped sections automatically — no manual "set preferences" step.
+ *
+ * Genre detection priority:
+ *   1. industryProfile.mandates.genres (explicit)
+ *   2. preferences.genres             (explicit)
+ *   3. NLP scan of bio, previousCredits, skills, specificHooks for genre keywords
+ *
+ * Response:
+ * {
+ *   detectedGenres: string[],
+ *   genreSections:  { genre: string, scripts: Script[] }[],
+ *   trending:       Script[],
+ *   newReleases:    Script[],
+ *   explore:        Script[],
+ * }
+ */
+export const getInvestorFeed = async (req, res) => {
+  try {
+    const investor = await User.findById(req.user._id).select(
+      "bio skills preferences industryProfile"
+    );
+
+    // ── 1. Build the genre list from every available profile signal ──────────
+
+    // All known genre keywords (lowercase). We'll scan free-text fields for these.
+    const KNOWN_GENRES = [
+      "action", "comedy", "drama", "horror", "thriller", "romance",
+      "sci-fi", "science fiction", "fantasy", "mystery", "adventure",
+      "crime", "documentary", "historical", "animation", "anime",
+      "musical", "western", "war", "noir", "family", "biography",
+      "sports", "superhero", "psychological", "satire", "dark comedy",
+      "rom-com", "romantic comedy", "slice of life", "supernatural",
+    ];
+    // Normalise map — "science fiction" → "Sci-Fi", "rom-com" → "Romance", etc.
+    const NORMALISE = {
+      "science fiction": "Sci-Fi",
+      "rom-com": "Romance",
+      "romantic comedy": "Romance",
+      "dark comedy": "Comedy",
+      "slice of life": "Drama",
+      "supernatural": "Horror",
+    };
+    const capitalise = (s) => s.split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+    // Collect raw genre strings from explicit fields
+    const rawGenres = [
+      ...(investor?.industryProfile?.mandates?.genres || []),
+      ...(investor?.preferences?.genres || []),
+    ];
+
+    // Scan free-text fields for genre mentions
+    const textBlob = [
+      investor?.bio || "",
+      investor?.industryProfile?.previousCredits || "",
+      (investor?.industryProfile?.mandates?.specificHooks || []).join(" "),
+      (investor?.skills || []).join(" "),
+    ].join(" ").toLowerCase();
+
+    for (const kw of KNOWN_GENRES) {
+      // Word-boundary match so "action" doesn't match inside "transaction"
+      if (new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(textBlob)) {
+        const display = NORMALISE[kw] || capitalise(kw);
+        rawGenres.push(display);
+      }
+    }
+
+    // Also check contentType / format mentions in the mandates
+    const formatHints = (investor?.industryProfile?.mandates?.formats || []);
+    // If they specifically want "Documentary" format, that's also a genre signal
+    for (const f of formatHints) {
+      const fl = f.toLowerCase();
+      if (fl.includes("documentary")) rawGenres.push("Documentary");
+      if (fl.includes("anime") || fl.includes("animation")) rawGenres.push("Anime");
+      if (fl.includes("short") || fl.includes("web")) { /* not a genre, skip */ }
+    }
+
+    // Deduplicate, preserve insertion order (explicit fields first)
+    const seen = new Set();
+    const detectedGenres = [];
+    for (const g of rawGenres) {
+      const key = g.trim().toLowerCase();
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        detectedGenres.push(g.trim());
+      }
+    }
+
+    // ── 2. Build genre sections ─────────────────────────────────────────────
+
+    const SECTION_LIMIT = 12;
+    const base = { status: "published" };
+    const usedIds = new Set();
+    const genreSections = [];
+
+    for (const genre of detectedGenres) {
+      const regex = new RegExp(genre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const scripts = await Script.find({
+        ...base,
+        $or: [
+          { genre: regex },
+          { primaryGenre: regex },
+          { "classification.primaryGenre": regex },
+          { "classification.secondaryGenre": regex },
+        ],
+      })
+        .populate("creator", "name profileImage role")
+        .sort({ views: -1, createdAt: -1 })
+        .limit(SECTION_LIMIT);
+
+      const unique = scripts.filter((s) => !usedIds.has(s._id.toString()));
+      unique.forEach((s) => usedIds.add(s._id.toString()));
+      if (unique.length > 0) genreSections.push({ genre, scripts: unique });
+    }
+
+    // ── 3. Trending (60-day, score = views + 5×unlocks) ─────────────────────
+
+    const since60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+    const trendingRaw = await Script.aggregate([
+      { $match: { ...base, createdAt: { $gte: since60 } } },
+      {
+        $addFields: {
+          trendScore: {
+            $add: [
+              { $ifNull: ["$views", 0] },
+              { $multiply: [{ $size: { $ifNull: ["$unlockedBy", []] } }, 5] },
+            ],
+          },
+        },
+      },
+      { $sort: { trendScore: -1 } },
+      { $limit: 20 },
+      { $lookup: { from: "users", localField: "creator", foreignField: "_id", as: "creator" } },
+      { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } },
+      { $project: { "creator.password": 0, "creator.emailVerificationToken": 0 } },
+    ]);
+    const trending = trendingRaw.filter((s) => !usedIds.has(s._id.toString())).slice(0, 10);
+    trending.forEach((s) => usedIds.add(s._id.toString()));
+
+    // ── 4. New Releases (last 30 days) ──────────────────────────────────────
+
+    const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const nrRaw = await Script.find({ ...base, createdAt: { $gte: since30 } })
+      .populate("creator", "name profileImage role")
+      .sort({ createdAt: -1 })
+      .limit(20);
+    const newReleases = nrRaw.filter((s) => !usedIds.has(s._id.toString())).slice(0, 10);
+    newReleases.forEach((s) => usedIds.add(s._id.toString()));
+
+    // ── 5. Explore (everything else) ────────────────────────────────────────
+
+    const explore = await Script.find({ ...base, _id: { $nin: [...usedIds] } })
+      .populate("creator", "name profileImage role")
+      .sort({ views: -1, createdAt: -1 })
+      .limit(12);
+
+    res.json({ detectedGenres, genreSections, trending, newReleases, explore });
+  } catch (error) {
+    console.error("getInvestorFeed error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};

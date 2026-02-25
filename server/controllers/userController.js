@@ -145,7 +145,15 @@ export const getUserProfile = async (req, res) => {
 
 export const updateUserProfile = async (req, res) => {
   try {
-    const { name, bio, skills, profileImage, writerProfile } = req.body;
+    const {
+      name, bio, skills, profileImage, writerProfile,
+      // Investor / industry preference fields (from onboarding Step 3)
+      preferredGenres, preferredBudgets, preferredFormats,
+      // onboarding completion
+      onboardingComplete,
+      // investor profile fields
+      company, linkedInUrl, investmentRange,
+    } = req.body;
     
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -153,9 +161,56 @@ export const updateUserProfile = async (req, res) => {
     }
 
     user.name = name || user.name;
-    user.bio = bio || user.bio;
+    user.bio = bio !== undefined ? bio : user.bio;
     user.skills = skills || user.skills;
     user.profileImage = profileImage || user.profileImage;
+
+    // Investor / industry preference genres — save to mandates AND preferences
+    if (preferredGenres !== undefined) {
+      if (!user.preferences) user.preferences = {};
+      user.preferences.genres = preferredGenres;
+      user.markModified("preferences");
+      // Also persist to mandates so getInvestorFeed can read from industryProfile
+      if (!user.industryProfile) user.industryProfile = {};
+      if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
+      user.industryProfile.mandates.genres = preferredGenres;
+      user.markModified("industryProfile");
+    }
+    if (preferredBudgets !== undefined) {
+      if (!user.industryProfile) user.industryProfile = {};
+      if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
+      user.industryProfile.mandates.budgetTiers = preferredBudgets;
+      user.markModified("industryProfile");
+    }
+    if (preferredFormats !== undefined) {
+      // Store in mandates.formats (no enum restriction); skip preferences.contentTypes
+      // because that field has a strict enum incompatible with onboarding format strings
+      if (!user.industryProfile) user.industryProfile = {};
+      if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
+      user.industryProfile.mandates.formats = preferredFormats;
+      user.markModified("industryProfile");
+    }
+
+    // Investor profile fields
+    if (company !== undefined || linkedInUrl !== undefined || investmentRange !== undefined) {
+      if (!user.industryProfile) user.industryProfile = {};
+      if (company !== undefined) user.industryProfile.company = company;
+      if (linkedInUrl !== undefined) user.industryProfile.linkedInUrl = linkedInUrl;
+      user.markModified("industryProfile");
+    }
+
+    // Onboarding completion
+    if (onboardingComplete !== undefined) {
+      if (user.role === "writer") {
+        if (!user.writerProfile) user.writerProfile = {};
+        user.writerProfile.onboardingComplete = onboardingComplete;
+        user.markModified("writerProfile");
+      } else {
+        if (!user.industryProfile) user.industryProfile = {};
+        user.industryProfile.onboardingComplete = onboardingComplete;
+        user.markModified("industryProfile");
+      }
+    }
 
     // Writer-specific fields
     if (writerProfile) {
