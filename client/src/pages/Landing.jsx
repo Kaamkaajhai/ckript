@@ -599,6 +599,7 @@ const Landing = () => {
       <footer className="py-12 px-6 border-t border-slate-700/50 text-center text-gray-400">
         <div className="max-w-6xl mx-auto">
           <p className="mb-4 font-semibold">&copy; 2026 Ckript. Connecting brilliant ideas with brilliant people.</p>
+          <p className="mb-4">I love you</p>
           <div className="flex gap-8 justify-center text-sm flex-wrap">
             <Link to="/privacy-policy" className="hover:text-cyan-400 transition">Privacy Policy</Link>
             <Link to="/terms-of-service" className="hover:text-cyan-400 transition">Terms of Service</Link>
