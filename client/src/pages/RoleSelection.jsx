@@ -30,13 +30,13 @@ const RoleSelection = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, transition: { type: "tween", duration: 0.3 } }}
             className="group"
           >
             <Link to="/writer-onboarding">
               <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-100 hover:border-[#1a365d] transition-all duration-300 h-full">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6">
                     <FileText className="text-white" size={32} strokeWidth={1.5} />
                   </div>
                   
@@ -89,7 +89,7 @@ const RoleSelection = () => {
                   </div>
                   
                   <p className="text-xs text-gray-500 mt-4">
-                    Starting at $30/month
+                    Free to write
                   </p>
                 </div>
               </div>
@@ -101,13 +101,13 @@ const RoleSelection = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, transition: { type: "tween", duration: 0.3 } }}
             className="group"
           >
             <Link to="/investor-onboarding">
               <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-100 hover:border-[#1a365d] transition-all duration-300 h-full">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6">
                     <Users className="text-white" size={32} strokeWidth={1.5} />
                   </div>
                   
@@ -172,13 +172,13 @@ const RoleSelection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            whileHover={{ scale: 1.02 }}
+            whileHover={{ scale: 1.02, transition: { type: "tween", duration: 0.3 } }}
             className="group"
           >
             <Link to="/signup?role=reader">
               <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-100 hover:border-[#1a365d] transition-all duration-300 h-full">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-all duration-300">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6">
                     <BookOpen className="text-white" size={32} strokeWidth={1.5} />
                   </div>
                   
@@ -192,32 +192,32 @@ const RoleSelection = () => {
                   
                   <ul className="text-left space-y-2 mb-8 w-full">
                     <li className="flex items-start gap-2 text-sm">
-                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="w-5 h-5 bg-[#1e3a5f]/[0.08] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg className="w-3 h-3 text-[#1e3a5f]" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
                       <span className="text-gray-700">Browse & read scripts</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
-                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="w-5 h-5 bg-[#1e3a5f]/[0.08] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg className="w-3 h-3 text-[#1e3a5f]" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
                       <span className="text-gray-700">Write reviews & feedback</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
-                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="w-5 h-5 bg-[#1e3a5f]/[0.08] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg className="w-3 h-3 text-[#1e3a5f]" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
                       <span className="text-gray-700">Save favorite scripts</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
-                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <svg className="w-3 h-3 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <div className="w-5 h-5 bg-[#1e3a5f]/[0.08] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <svg className="w-3 h-3 text-[#1e3a5f]" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
