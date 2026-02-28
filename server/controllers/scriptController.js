@@ -2,6 +2,7 @@ import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import { CREDIT_PRICES } from "./creditsController.js";
 
 export const extractPdfText = async (req, res) => {
   try {
@@ -194,6 +195,54 @@ export const uploadScript = async (req, res) => {
     }
     if (!scriptUrl && !fileUrl && !textContent) {
       return res.status(400).json({ message: "Script file or text content is required" });
+    }
+
+    // Calculate credits needed for selected services
+    let creditsRequired = 0;
+    if (services?.evaluation) creditsRequired += CREDIT_PRICES.AI_EVALUATION;
+    if (services?.aiTrailer) creditsRequired += CREDIT_PRICES.AI_TRAILER;
+
+    // Check and deduct credits if services are selected
+    if (creditsRequired > 0) {
+      const user = await User.findById(req.user._id);
+      const userBalance = user.credits?.balance || 0;
+
+      if (userBalance < creditsRequired) {
+        return res.status(402).json({
+          message: `Insufficient credits. You need ${creditsRequired} credits but have ${userBalance}.`,
+          requiresCredits: true,
+          required: creditsRequired,
+          balance: userBalance,
+          shortfall: creditsRequired - userBalance
+        });
+      }
+
+      // Deduct credits
+      user.credits.balance -= creditsRequired;
+      user.credits.totalSpent += creditsRequired;
+      
+      // Add transaction record for each service
+      if (services?.evaluation) {
+        user.credits.transactions.push({
+          type: "spent",
+          amount: -CREDIT_PRICES.AI_EVALUATION,
+          description: `AI Evaluation for "${title}"`,
+          reference: `EVAL-${Date.now().toString(36).toUpperCase()}`,
+          createdAt: new Date()
+        });
+      }
+      
+      if (services?.aiTrailer) {
+        user.credits.transactions.push({
+          type: "spent",
+          amount: -CREDIT_PRICES.AI_TRAILER,
+          description: `AI Trailer for "${title}"`,
+          reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
+          createdAt: new Date()
+        });
+      }
+
+      await user.save();
     }
 
     // Build the script document

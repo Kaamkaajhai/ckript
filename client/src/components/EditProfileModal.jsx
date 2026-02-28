@@ -55,6 +55,19 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
   });
   const [showTagError, setShowTagError] = useState(false);
 
+  // Bank details state
+  const [bankDetails, setBankDetails] = useState({
+    accountHolderName: profile.bankDetails?.accountHolderName || "",
+    bankName: profile.bankDetails?.bankName || "",
+    accountNumber: profile.bankDetails?.accountNumber || "",
+    routingNumber: profile.bankDetails?.routingNumber || "",
+    accountType: profile.bankDetails?.accountType || "checking",
+    swiftCode: profile.bankDetails?.swiftCode || "",
+    iban: profile.bankDetails?.iban || "",
+    country: profile.bankDetails?.country || "US",
+    currency: profile.bankDetails?.currency || "USD"
+  });
+
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -71,8 +84,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
       { key: "genres", label: "Genres" },
       { key: "tags", label: "Tags" },
       { key: "diversity", label: "Diversity" },
+      { key: "bank", label: "Banking" },
     ]
-    : [{ key: "basic", label: "Basic" }];
+    : [
+      { key: "basic", label: "Basic" },
+      { key: "bank", label: "Banking" },
+    ];
 
   const toggleGenre = (genre) => {
     setSelectedGenres((prev) =>
@@ -162,6 +179,11 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         };
       }
 
+      // Include bank details if any field is filled
+      if (Object.values(bankDetails).some(val => val && val !== "checking" && val !== "US" && val !== "USD")) {
+        payload.bankDetails = bankDetails;
+      }
+
       const { data } = await api.put("/users/update", payload);
       onUpdate(data);
     } catch (err) {
@@ -209,7 +231,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         </div>
 
         {/* Section Tabs */}
-        {isWriter && (
+        {sections.length > 1 && (
           <div className="flex items-center gap-1 px-5 pt-3 pb-2 overflow-x-auto">
             {sections.map((s) => (
               <button
@@ -488,6 +510,136 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   className={inputClass}
                   placeholder="Optional"
                 />
+              </div>
+            </motion.div>
+          )}
+
+          {/* === BANK DETAILS SECTION === */}
+          {activeSection === "bank" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <div>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Bank Account Details</h3>
+                <p className="text-xs text-gray-400 mb-4">
+                  Secure payment information for receiving funds
+                </p>
+              </div>
+
+              <div>
+                <label className={labelClass}>Account Holder Name</label>
+                <input
+                  type="text"
+                  value={bankDetails.accountHolderName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountHolderName: e.target.value })}
+                  className={inputClass}
+                  placeholder="Full name as it appears on your account"
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Bank Name</label>
+                <input
+                  type="text"
+                  value={bankDetails.bankName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                  className={inputClass}
+                  placeholder="e.g., Wells Fargo, Chase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Account Number</label>
+                  <input
+                    type="password"
+                    value={bankDetails.accountNumber}
+                    onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                    className={inputClass}
+                    placeholder="Account number"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Routing Number</label>
+                  <input
+                    type="text"
+                    value={bankDetails.routingNumber}
+                    onChange={(e) => setBankDetails({ ...bankDetails, routingNumber: e.target.value })}
+                    className={inputClass}
+                    placeholder="9-digit routing"
+                    maxLength="9"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelClass}>Account Type</label>
+                  <select
+                    value={bankDetails.accountType}
+                    onChange={(e) => setBankDetails({ ...bankDetails, accountType: e.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                    <option value="business">Business</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Country</label>
+                  <input
+                    type="text"
+                    value={bankDetails.country}
+                    onChange={(e) => setBankDetails({ ...bankDetails, country: e.target.value })}
+                    className={inputClass}
+                    placeholder="US"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Currency</label>
+                  <input
+                    type="text"
+                    value={bankDetails.currency}
+                    onChange={(e) => setBankDetails({ ...bankDetails, currency: e.target.value })}
+                    className={inputClass}
+                    placeholder="USD"
+                  />
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${dark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-semibold mb-2 ${dark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  International Transfers (Optional)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>SWIFT Code</label>
+                    <input
+                      type="text"
+                      value={bankDetails.swiftCode}
+                      onChange={(e) => setBankDetails({ ...bankDetails, swiftCode: e.target.value })}
+                      className={inputClass}
+                      placeholder="e.g., CHASUS33"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>IBAN</label>
+                    <input
+                      type="text"
+                      value={bankDetails.iban}
+                      onChange={(e) => setBankDetails({ ...bankDetails, iban: e.target.value })}
+                      className={inputClass}
+                      placeholder="International number"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={`flex items-start gap-2 p-3 rounded-lg ${dark ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-100'}`}>
+                <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? 'text-blue-400' : 'text-blue-600'}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+                <p className={`text-xs ${dark ? 'text-blue-300' : 'text-blue-700'}`}>
+                  All bank details are encrypted and stored securely. This information is used only for payment processing.
+                </p>
               </div>
             </motion.div>
           )}

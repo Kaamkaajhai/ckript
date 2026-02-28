@@ -113,6 +113,49 @@ const userSchema = new mongoose.Schema({
     holdAlerts: { type: Boolean, default: true },
     viewAlerts: { type: Boolean, default: true },
   },
+  // Financial information
+  bankDetails: {
+    accountHolderName: { type: String },
+    bankName: { type: String },
+    accountNumber: { type: String },
+    routingNumber: { type: String },
+    accountType: { 
+      type: String, 
+      enum: ["checking", "savings", "business"],
+      default: "checking"
+    },
+    swiftCode: { type: String }, // For international transfers
+    iban: { type: String }, // For international transfers
+    country: { type: String, default: "US" },
+    currency: { type: String, default: "USD" },
+    isVerified: { type: Boolean, default: false },
+    verifiedAt: { type: Date },
+    addedAt: { type: Date }
+  },
+  wallet: {
+    balance: { type: Number, default: 0 },
+    currency: { type: String, default: "USD" },
+    pendingBalance: { type: Number, default: 0 }, // Funds being processed
+    totalEarnings: { type: Number, default: 0 },
+    totalWithdrawals: { type: Number, default: 0 }
+  },
+  // Credits System
+  credits: {
+    balance: { type: Number, default: 0 },
+    totalPurchased: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 },
+    lastPurchase: { type: Date },
+    transactions: [{
+      type: { type: String, enum: ["purchase", "spent", "bonus", "refund"] },
+      amount: { type: Number },
+      description: { type: String },
+      reference: { type: String },
+      createdAt: { type: Date, default: Date.now }
+    }]
+  },
+  // Stripe Connected Account (for payouts)
+  stripeAccountId: { type: String },
+  stripeCustomerId: { type: String },
 }, { timestamps: true });
 
 userSchema.pre("save", async function () {

@@ -6,6 +6,8 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import ProjectCard from "../components/ProjectCard";
 import EditProfileModal from "../components/EditProfileModal";
+import BankDetails from "../components/BankDetails";
+import Transactions from "../components/Transactions";
 
 /* ── Helper components ── */
 
@@ -529,6 +531,7 @@ const Profile = () => {
         {[
           { key: "projects", label: "Projects", count: scripts.length },
           { key: "about", label: "About" },
+          ...(isOwnProfile ? [{ key: "financial", label: "Financial" }] : []),
         ].map((tab) => (
           <button
             key={tab.key}
@@ -931,6 +934,22 @@ const Profile = () => {
                 )}
             </>
           )}
+        </motion.div>
+      )}
+
+      {/* ──────── FINANCIAL TAB ──────── */}
+      {activeTab === "financial" && isOwnProfile && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-6"
+        >
+          {/* Transactions Overview */}
+          <Transactions dark={dark} />
+
+          {/* Bank Details */}
+          <BankDetails dark={dark} />
         </motion.div>
       )}
 

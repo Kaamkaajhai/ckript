@@ -608,7 +608,7 @@ const ScriptDetail = () => {
                         className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 border ${t.btnGhost}`}
                       >
                         <Film size={14} />
-                        {trailerLoading ? "Generating..." : "Generate AI Trailer"}
+                        {trailerLoading ? "Generating..." : "Generate AI Trailer — 15 credits"}
                       </button>
                     )}
 
@@ -628,7 +628,7 @@ const ScriptDetail = () => {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                           <path d="M18 20V10M12 20V4M6 20v-6" />
                         </svg>
-                        {scoreLoading ? "Scoring..." : "Get Script Score \u2014 $10"}
+                        {scoreLoading ? "Scoring..." : "Get Script Score \u2014 10 credits"}
                       </button>
                     )}
 
@@ -836,7 +836,7 @@ const ScriptDetail = () => {
                     {isOwner && (
                       <button onClick={handleGenerateScore} disabled={scoreLoading}
                         className={`px-6 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 ${t.btnPrim}`}>
-                        {scoreLoading ? "Scoring..." : "Get Script Score \u2014 $10"}
+                        {scoreLoading ? "Scoring..." : "Get Script Score — 10 credits"}
                       </button>
                     )}
                   </div>

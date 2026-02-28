@@ -137,7 +137,16 @@ export const getUserProfile = async (req, res) => {
       .populate("creator", "name profileImage role")
       .sort({ createdAt: -1 });
 
-    res.json({ user, posts, scripts });
+    // Sanitize bank details - only show to own profile
+    const userObj = user.toObject();
+    if (!isOwnProfile && userObj.bankDetails) {
+      delete userObj.bankDetails;
+    } else if (isOwnProfile && userObj.bankDetails && userObj.bankDetails.accountNumber) {
+      // Sanitize account number even for own profile (for security)
+      userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
+    }
+
+    res.json({ user: userObj, posts, scripts });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -241,7 +250,54 @@ export const updateUserProfile = async (req, res) => {
       }
     }
 
+    // Bank details
+    if (bankDetails) {
+      if (!user.bankDetails) user.bankDetails = {};
+      if (bankDetails.accountHolderName !== undefined) {
+        user.bankDetails.accountHolderName = bankDetails.accountHolderName;
+      }
+      if (bankDetails.bankName !== undefined) {
+        user.bankDetails.bankName = bankDetails.bankName;
+      }
+      if (bankDetails.accountNumber !== undefined) {
+        user.bankDetails.accountNumber = bankDetails.accountNumber;
+      }
+      if (bankDetails.routingNumber !== undefined) {
+        user.bankDetails.routingNumber = bankDetails.routingNumber;
+      }
+      if (bankDetails.accountType !== undefined) {
+        user.bankDetails.accountType = bankDetails.accountType;
+      }
+      if (bankDetails.swiftCode !== undefined) {
+        user.bankDetails.swiftCode = bankDetails.swiftCode;
+      }
+      if (bankDetails.iban !== undefined) {
+        user.bankDetails.iban = bankDetails.iban;
+      }
+      if (bankDetails.country !== undefined) {
+        user.bankDetails.country = bankDetails.country;
+      }
+      if (bankDetails.currency !== undefined) {
+        user.bankDetails.currency = bankDetails.currency;
+      }
+      // Set addedAt if this is the first time adding bank details
+      if (!user.bankDetails.addedAt) {
+        user.bankDetails.addedAt = new Date();
+      }
+      // Reset verification when details change
+      user.bankDetails.isVerified = false;
+    }
+
     await user.save();
+
+    // Sanitize bank details for response (hide full account number)
+    let sanitizedBankDetails = null;
+    if (user.bankDetails && user.bankDetails.accountNumber) {
+      sanitizedBankDetails = {
+        ...user.bankDetails.toObject(),
+        accountNumber: '****' + user.bankDetails.accountNumber.slice(-4)
+      };
+    }
 
     res.json({
       _id: user._id,
@@ -252,6 +308,7 @@ export const updateUserProfile = async (req, res) => {
       skills: user.skills,
       profileImage: user.profileImage,
       writerProfile: user.writerProfile,
+      bankDetails: sanitizedBankDetails,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

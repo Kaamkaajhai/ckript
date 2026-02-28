@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import Sidebar from "../components/Sidebar";
+import BuyCreditsModal from "../components/BuyCreditsModal";
 import api from "../services/api";
 
 const MainLayout = ({ children }) => {
@@ -15,6 +16,8 @@ const MainLayout = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const [creditsBalance, setCreditsBalance] = useState(0);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
 
@@ -37,9 +40,12 @@ const MainLayout = ({ children }) => {
 
   useEffect(() => {
     fetchUnreadCount();
+    if (user) {
+      fetchCreditsBalance();
+    }
     const interval = setInterval(fetchUnreadCount, 30000);
     return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+  }, [fetchUnreadCount, user]);
 
   const fetchNotifications = async () => {
     setNotifLoading(true);
@@ -48,6 +54,19 @@ const MainLayout = ({ children }) => {
       setNotifications(data);
     } catch { setNotifications([]); }
     finally { setNotifLoading(false); }
+  };
+
+  const fetchCreditsBalance = async () => {
+    try {
+      const { data } = await api.get("/credits/balance");
+      setCreditsBalance(data.balance || 0);
+    } catch {
+      setCreditsBalance(0);
+    }
+  };
+
+  const handleCreditsUpdate = (data) => {
+    setCreditsBalance(data.credits.balance);
   };
 
   const handleNotifToggle = () => {
@@ -132,7 +151,14 @@ const MainLayout = ({ children }) => {
     : "U";
 
   return (
-    <div className={`min-h-screen ${isDarkMode ? "bg-[#08111e]" : "bg-[#f8f9fb]"}`}>
+    <>
+      <BuyCreditsModal 
+        isOpen={showBuyCredits} 
+        onClose={() => setShowBuyCredits(false)}
+        onSuccess={handleCreditsUpdate}
+      />
+      
+      <div className={`min-h-screen ${isDarkMode ? "bg-[#08111e]" : "bg-[#f8f9fb]"}`}>
       <Sidebar />
 
       {/* Top bar */}
@@ -312,6 +338,22 @@ const MainLayout = ({ children }) => {
             )}
           </div>
 
+          {/* Credits Button */}
+          <button
+            onClick={() => setShowBuyCredits(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-sm hover:shadow-md ${
+              isDarkMode 
+                ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white" 
+                : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white"
+            }`}
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            <span className="font-bold">{creditsBalance}</span>
+            <span className="hidden sm:inline text-xs opacity-90">Credits</span>
+          </button>
+
           {/* User menu */}
           <div className="relative" ref={dropdownRef}>
             <button onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -359,6 +401,7 @@ const MainLayout = ({ children }) => {
         </div>
       </main>
     </div>
+    </>
   );
 };
 

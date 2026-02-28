@@ -50,11 +50,11 @@ const settingOptions = [
   "Prison", "Hospital", "School/College", "Military Base"
 ];
 
-// Service pricing
+// Service pricing (in credits)
 const SERVICE_PRICES = {
-  hosting: 30, // Monthly
-  evaluation: 100, // One-time
-  aiTrailer: 75, // One-time
+  hosting: 0, // Free
+  evaluation: 10, // 10 credits for AI evaluation
+  aiTrailer: 15, // 15 credits for AI trailer
 };
 
 // Legal agreement text (placeholder - replace with actual legal text)
@@ -110,6 +110,7 @@ const ScriptUpload = () => {
   const [textContent, setTextContent] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
+  const [creditsBalance, setCreditsBalance] = useState(0);
   const agreementRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -144,6 +145,21 @@ const ScriptUpload = () => {
 
   // Tags as comma-separated input
   const [tagsInput, setTagsInput] = useState("");
+
+  // Fetch credits balance on mount
+  useEffect(() => {
+    const fetchCreditsBalance = async () => {
+      try {
+        const { data } = await api.get("/credits/balance");
+        setCreditsBalance(data.balance || 0);
+      } catch {
+        setCreditsBalance(0);
+      }
+    };
+    if (user) {
+      fetchCreditsBalance();
+    }
+  }, [user]);
 
   // Load existing published script when entering edit mode
   useEffect(() => {
@@ -460,6 +476,13 @@ const ScriptUpload = () => {
 
     if (!validateStep(5)) return;
 
+    // Check credits before submitting
+    const creditsNeeded = calculateTotal();
+    if (creditsNeeded > creditsBalance) {
+      setError(`Insufficient credits. You need ${creditsNeeded} credits but have ${creditsBalance}. Please purchase more credits.`);
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -501,7 +524,10 @@ const ScriptUpload = () => {
         await api.put(`/scripts/${editId}`, payload);
         navigate(`/script/${editId}`);
       } else {
-        await api.post("/scripts/upload", payload);
+        const response = await api.post("/scripts/upload", payload);
+        // Refresh credits balance after successful upload
+        const { data: creditsData } = await api.get("/credits/balance");
+        setCreditsBalance(creditsData.balance || 0);
         // Delete the draft now that it's published
         if (scriptId) {
           try { await api.delete(`/scripts/${scriptId}`); } catch { /* ok */ }
@@ -509,7 +535,16 @@ const ScriptUpload = () => {
         navigate("/dashboard");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to upload script. Please try again.");
+      const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
+      setError(errorMsg);
+      
+      // If insufficient credits error, refresh balance
+      if (err.response?.data?.requiresCredits) {
+        try {
+          const { data: creditsData } = await api.get("/credits/balance");
+          setCreditsBalance(creditsData.balance || 0);
+        } catch { /* ignore */ }
+      }
     } finally {
       setLoading(false);
     }
@@ -991,9 +1026,8 @@ const ScriptUpload = () => {
                     >
                       <div className="text-3xl mb-3">☁️</div>
                       <h3 className="font-semibold text-white mb-1">Hosting</h3>
-                      <p className="text-2xl font-bold text-white mb-2">
-                        ${SERVICE_PRICES.hosting}
-                        <span className="text-sm font-normal text-neutral-500">/mo</span>
+                      <p className="text-2xl font-bold text-green-400 mb-2">
+                        FREE
                       </p>
                       <p className="text-xs text-neutral-400 mb-3">
                         Required to be searchable by industry professionals.
@@ -1024,8 +1058,7 @@ const ScriptUpload = () => {
                         Professional Evaluation
                       </h3>
                       <p className="text-2xl font-bold text-white mb-2">
-                        ${SERVICE_PRICES.evaluation}
-                        <span className="text-sm font-normal text-neutral-500"> one-time</span>
+                        {SERVICE_PRICES.evaluation} credits
                       </p>
                       <p className="text-xs text-neutral-400 mb-3">
                         Get a scorecard and written feedback from a vetted reader.
@@ -1061,8 +1094,7 @@ const ScriptUpload = () => {
                       <div className="text-3xl mb-3">🎬</div>
                       <h3 className="font-semibold text-white mb-1">AI Concept Trailer</h3>
                       <p className="text-2xl font-bold text-white mb-2">
-                        ${SERVICE_PRICES.aiTrailer}
-                        <span className="text-sm font-normal text-neutral-500"> one-time</span>
+                        {SERVICE_PRICES.aiTrailer} credits
                       </p>
                       <p className="text-xs text-neutral-400 mb-3">
                         Generate a 60-second cinematic teaser using AI voiceover & stock footage.
@@ -1084,24 +1116,24 @@ const ScriptUpload = () => {
                   {/* Total Preview */}
                   <div className="bg-white/[0.04] rounded-xl p-4 mt-6">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-neutral-300">Total:</span>
+                      <span className="text-sm font-medium text-neutral-300">Total Credits Required:</span>
                       <span className="text-2xl font-bold text-white">
-                        ${calculateTotal().toFixed(2)}
+                        {calculateTotal()} credits
                       </span>
                     </div>
                     <p className="text-xs text-neutral-500 mt-2">
                       {services.hosting && (
-                        <span>${SERVICE_PRICES.hosting}/mo hosting</span>
+                        <span>Hosting (FREE)</span>
                       )}
                       {services.evaluation && (
                         <span>
-                          {services.hosting ? " + " : ""}${SERVICE_PRICES.evaluation} evaluation
+                          {services.hosting ? " + " : ""}{SERVICE_PRICES.evaluation} credits evaluation
                         </span>
                       )}
                       {services.aiTrailer && (
                         <span>
                           {services.hosting || services.evaluation ? " + " : ""}
-                          ${SERVICE_PRICES.aiTrailer} AI trailer
+                          {SERVICE_PRICES.aiTrailer} credits AI trailer
                         </span>
                       )}
                     </p>
@@ -1135,6 +1167,22 @@ const ScriptUpload = () => {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-5"
                 >
+                  {/* Credits Balance Display */}
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-neutral-400">Your Credits Balance</p>
+                        <p className="text-2xl font-bold text-white">{creditsBalance} credits</p>
+                      </div>
+                      {calculateTotal() > creditsBalance && (
+                        <div className="text-right">
+                          <p className="text-sm text-red-400 font-medium">Insufficient credits</p>
+                          <p className="text-xs text-neutral-400">Need {calculateTotal() - creditsBalance} more</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Agreement */}
                   <div>
                     <label className="block text-sm text-neutral-300 font-medium mb-2">
@@ -1182,26 +1230,26 @@ const ScriptUpload = () => {
                     <div className="space-y-2 text-sm">
                       {services.hosting && (
                         <div className="flex justify-between">
-                          <span className="text-neutral-400">Hosting (Monthly)</span>
-                          <span className="font-medium">${SERVICE_PRICES.hosting}.00</span>
+                          <span className="text-neutral-400">Hosting & Discovery</span>
+                          <span className="font-medium text-green-400">FREE</span>
                         </div>
                       )}
                       {services.evaluation && (
                         <div className="flex justify-between">
                           <span className="text-neutral-400">Professional Evaluation</span>
-                          <span className="font-medium">${SERVICE_PRICES.evaluation}.00</span>
+                          <span className="font-medium">{SERVICE_PRICES.evaluation} credits</span>
                         </div>
                       )}
                       {services.aiTrailer && (
                         <div className="flex justify-between">
                           <span className="text-neutral-400">AI Concept Trailer</span>
-                          <span className="font-medium">${SERVICE_PRICES.aiTrailer}.00</span>
+                          <span className="font-medium">{SERVICE_PRICES.aiTrailer} credits</span>
                         </div>
                       )}
                       <div className="border-t border-white/[0.08] pt-2 mt-2 flex justify-between">
-                        <span className="font-semibold text-white">Total</span>
+                        <span className="font-semibold text-white">Total Credits</span>
                         <span className="text-xl font-bold text-white">
-                          ${calculateTotal().toFixed(2)}
+                          {calculateTotal()} credits
                         </span>
                       </div>
                     </div>
@@ -1220,7 +1268,7 @@ const ScriptUpload = () => {
                       disabled={loading || !legal.agreedToTerms}
                       className="flex-1 px-6 py-3 bg-white text-black rounded-xl text-sm font-semibold hover:bg-neutral-200 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl shadow-black/30"
                     >
-                      {loading ? "Processing..." : "💳 Pay & Publish"}
+                      {loading ? "Processing..." : "✨ Use Credits & Publish"}
                     </button>
                   </div>
                 </motion.div>

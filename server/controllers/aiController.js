@@ -1,6 +1,7 @@
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import { CREDIT_PRICES } from "./creditsController.js";
 
 // Simulate AI trailer generation (in production, integrate with RunwayML, Pika, etc.)
 export const generateTrailer = async (req, res) => {
@@ -13,6 +14,38 @@ export const generateTrailer = async (req, res) => {
     }
     if (script.creator.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Only the script creator can generate a trailer" });
+    }
+
+    // Check if credits were already paid during upload
+    const alreadyPaid = script.services?.aiTrailer === true;
+    
+    if (!alreadyPaid) {
+      // Check credits
+      const user = await User.findById(req.user._id);
+      const requiredCredits = CREDIT_PRICES.AI_TRAILER;
+      const userBalance = user.credits?.balance || 0;
+
+      if (userBalance < requiredCredits) {
+        return res.status(402).json({ 
+          message: `Insufficient credits. AI Trailer generation requires ${requiredCredits} credits.`,
+          requiresCredits: true,
+          required: requiredCredits,
+          balance: userBalance,
+          shortfall: requiredCredits - userBalance
+        });
+      }
+
+      // Deduct credits
+      user.credits.balance -= requiredCredits;
+      user.credits.totalSpent += requiredCredits;
+      user.credits.transactions.push({
+        type: "spent",
+        amount: -requiredCredits,
+        description: `AI Trailer generation for "${script.title}"`,
+        reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
+        createdAt: new Date()
+      });
+      await user.save();
     }
 
     // Mark as generating
@@ -69,7 +102,7 @@ export const getTrailerStatus = async (req, res) => {
   }
 };
 
-// AI Script Score / Pro Analysis ($10)
+// AI Script Score / Pro Analysis
 export const generateScriptScore = async (req, res) => {
   try {
     const { scriptId } = req.body;
@@ -82,23 +115,34 @@ export const generateScriptScore = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can request a score" });
     }
 
-    const user = await User.findById(req.user._id);
+    // Check if credits were already paid during upload
+    const alreadyPaid = script.services?.evaluation === true;
     
-    // Check if user has credits or is on pro plan
-    const hasPro = user.subscription.plan === "pro" || user.subscription.plan === "enterprise";
-    const hasCredits = user.subscription.scriptScoreCredits > 0;
-    
-    if (!hasPro && !hasCredits) {
-      return res.status(402).json({ 
-        message: "Script Score requires a Pro subscription or credits ($10 per analysis)",
-        requiresPayment: true,
-        cost: 10,
-      });
-    }
+    if (!alreadyPaid) {
+      const user = await User.findById(req.user._id);
+      const requiredCredits = CREDIT_PRICES.AI_EVALUATION;
+      const userBalance = user.credits?.balance || 0;
+      
+      if (userBalance < requiredCredits) {
+        return res.status(402).json({ 
+          message: `Insufficient credits. AI Script Evaluation requires ${requiredCredits} credits.`,
+          requiresCredits: true,
+          required: requiredCredits,
+          balance: userBalance,
+          shortfall: requiredCredits - userBalance
+        });
+      }
 
-    // Deduct credit if not on pro plan
-    if (!hasPro && hasCredits) {
-      user.subscription.scriptScoreCredits -= 1;
+      // Deduct credits
+      user.credits.balance -= requiredCredits;
+      user.credits.totalSpent += requiredCredits;
+      user.credits.transactions.push({
+        type: "spent",
+        amount: -requiredCredits,
+        description: `AI Script Evaluation for "${script.title}"`,
+        reference: `EVAL-${Date.now().toString(36).toUpperCase()}`,
+        createdAt: new Date()
+      });
       await user.save();
     }
 
@@ -134,20 +178,14 @@ export const generateScriptScore = async (req, res) => {
   }
 };
 
-// Purchase Script Score credits
-export const purchaseScoreCredits = async (req, res) => {
+// Get service costs
+export const getServiceCosts = async (req, res) => {
   try {
-    const { credits = 1 } = req.body;
-    const user = await User.findById(req.user._id);
-    
-    // In production, process payment via Stripe first
-    user.subscription.scriptScoreCredits += credits;
-    await user.save();
-
-    res.json({ 
-      message: `${credits} Script Score credit(s) added`,
-      totalCredits: user.subscription.scriptScoreCredits,
-      cost: credits * 10,
+    res.json({
+      aiEvaluation: CREDIT_PRICES.AI_EVALUATION,
+      aiTrailer: CREDIT_PRICES.AI_TRAILER,
+      scriptAnalysis: CREDIT_PRICES.SCRIPT_ANALYSIS,
+      premiumReport: CREDIT_PRICES.PREMIUM_REPORT
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -6,6 +6,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 
+// Load environment variables FIRST before importing other modules
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import connectDB from "./config/db.js";
@@ -25,8 +28,9 @@ import onboardingRoutes from "./routes/onboardingRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js";
+import creditsRoutes from "./routes/creditsRoutes.js";
 
-dotenv.config();
 connectDB();
 
 const app = express();
@@ -133,6 +137,8 @@ app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/credits", creditsRoutes);
 
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
