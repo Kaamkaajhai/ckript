@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
 import Landing from "./pages/Landing";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
+import PrivacyPolicy from "./pages/PolicyPage";
 import TermsOfService from "./pages/TermsOfService";
 import Login from "./pages/Login";
 import Join from "./pages/Join";
