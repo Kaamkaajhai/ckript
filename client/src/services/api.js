@@ -4,8 +4,15 @@ const api = axios.create({
   baseURL: "http://localhost:5001/api",
 });
 
+// Auth endpoints that should never receive an Authorization header
+const AUTH_ROUTES = ["/auth/login", "/auth/join"];
+
 // Attach token & check client-side expiry before every request
 api.interceptors.request.use((config) => {
+  // Skip token injection for auth endpoints to prevent stale-token 401 loops
+  const isAuthRoute = AUTH_ROUTES.some((route) => config.url?.includes(route));
+  if (isAuthRoute) return config;
+
   const stored = localStorage.getItem("user");
   if (stored) {
     const { token, expiresAt } = JSON.parse(stored);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Film, Zap, Users, TrendingUp, ChevronRight, Mail, Send, Briefcase, HelpCircle, MessageSquare, CheckCircle } from "lucide-react";
+import { Film, Zap, Users, TrendingUp, ChevronRight, Mail, Send, Briefcase, HelpCircle, MessageSquare, CheckCircle, PenLine } from "lucide-react";
 import FeaturesShowcase from "../components/FeaturesShowcase";
 import SuccessStories from "../components/SuccessStories";
 import api from "../services/api";
@@ -296,7 +296,7 @@ const Landing = () => {
           {/* Badge */}
           <motion.div variants={itemVariants} className="text-center mb-6">
             <span className="inline-block px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 rounded-full text-cyan-400 text-sm font-semibold">
-              🚀 The Future of Script Discovery
+              The Future of Script Discovery
             </span>
           </motion.div>
 
@@ -309,7 +309,7 @@ const Landing = () => {
           </motion.h1>
 
           {/* Subheadline */}
-          <motion.p variants={itemVariants} className="text-xl text-gray-300 text-center mb-10 max-w-3xl mx-auto leading-relaxed">
+          <motion.p variants={itemVariants} className="text-xl text-gray-500 text-center mb-10 max-w-3xl mx-auto leading-relaxed">
             Ckript connects brilliant creators with producers, directors, and investors who are actively searching for your next big idea. Publish, visualize, and monetize your scripts like never before.
           </motion.p>
 
@@ -518,10 +518,10 @@ const Landing = () => {
 
           <div className="grid md:grid-cols-4 gap-8">
             {[
-              { step: 1, title: "Upload Your Script", desc: "Share your brilliant idea with an intriguing summary and let AI generate a visual preview" },
-              { step: 2, title: "AI Creates Trailer", desc: "Our AI generates a captivating 30-second video trailer using stock footage and AI tech" },
-              { step: 3, title: "Get Smart Matched", desc: "Algorithm connects you with interested producers and investors in your genre" },
-              { step: 4, title: "Unlock & Earn", desc: "Producers pay to unlock full scripts, you earn 100% instantly" }
+              { step: 1, title: "Upload Your Script", desc: "Present your concept with a compelling summary and let AI generate a visual preview." },
+              { step: 2, title: "AI Creates Trailer", desc: "Our AI generates a 30-second visual trailer that helps viewers quickly understand your concept." },
+              { step: 3, title: "Get Smart Matched", desc: "The platform’s algorithm connects creators with producers and investors interested in their genre." },
+              { step: 4, title: "Unlock & Earn", desc: "Producers pay to access the full script, and creators receive their earnings instantly." }
             ].map((item, index) => (
               <motion.div key={index} variants={itemVariants} className="text-center">
                 <div className="mb-4 w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center mx-auto font-bold text-2xl ring-4 ring-cyan-500/20">
@@ -552,15 +552,18 @@ const Landing = () => {
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
-                role: "✍️ Writers & Creators",
+                icon: PenLine,
+                role: "Writers & Creators",
                 benefits: ["Publish with AI-generated trailers", "Earn 100% on unlock fees", "Get Pro Analysis reports", "Smart matching with producers"]
               },
               {
-                role: "🎬 Producers & Directors",
-                benefits: ["Browse visual trailers (not scripts)", "Auto-matched content", "Pre-auditioned talent attached", "30-day script options"]
+                icon: Film,
+                role: "Producers & Directors",
+                benefits: ["Browse visual trailers", "Auto-matched content", "Pre-auditioned talent attached", "30-day script options"]
               },
               {
-                role: "💰 Investors",
+                icon: TrendingUp,
+                role: "Investors",
                 benefits: ["Curated Domain Packages", "Invest in pre-packaged deals", "Discover emerging talent", "Market trends & analytics"]
               }
             ].map((user, index) => (
@@ -569,11 +572,16 @@ const Landing = () => {
                 variants={itemVariants}
                 className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-8 hover:border-cyan-500/50 transition-all group"
               >
-                <h3 className="text-2xl font-bold mb-6 group-hover:text-cyan-400 transition">{user.role}</h3>
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="p-2 rounded-lg bg-slate-700/50 border border-slate-600/40 group-hover:bg-cyan-500/20 group-hover:border-cyan-500/20 transition">
+                    <user.icon className="w-5 h-5 text-white " />
+                  </span>
+                  <h3 className="text-2xl font-bold ">{user.role}</h3>
+                </div>
                 <ul className="space-y-4">
                   {user.benefits.map((benefit, idx) => (
                     <li key={idx} className="flex gap-3 text-gray-300">
-                      <span className="text-cyan-400 font-bold">✓</span>
+                      <CheckCircle className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
                       <span>{benefit}</span>
                     </li>
                   ))}
