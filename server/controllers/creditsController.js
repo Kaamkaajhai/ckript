@@ -314,9 +314,9 @@ export const createRazorpayOrder = async (req, res) => {
   try {
     // Check if Razorpay is configured
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ 
-        message: "Payment system not configured. Please contact support.",
-        error: "Razorpay credentials missing"
+      return res.status(503).json({
+        message: "Payment service is not configured on server",
+        error: "Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET in server environment"
       });
     }
     
@@ -356,7 +356,6 @@ export const createRazorpayOrder = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Razorpay order creation error:", error);
     res.status(500).json({ message: "Failed to create payment order", error: error.message });
   }
 };
@@ -373,13 +372,11 @@ export const verifyRazorpayPayment = async (req, res) => {
       packageId 
     } = req.body;
     
-    console.log("Payment verification request:", { razorpay_order_id, razorpay_payment_id, packageId });
-    
     // Check if Razorpay key secret is available
     if (!process.env.RAZORPAY_KEY_SECRET) {
-      console.error("RAZORPAY_KEY_SECRET not found in environment");
-      return res.status(500).json({ 
-        message: "Payment system not configured",
+      return res.status(503).json({
+        message: "Payment service is not configured on server",
+        error: "Missing RAZORPAY_KEY_SECRET in server environment",
         success: false 
       });
     }
@@ -391,16 +388,9 @@ export const verifyRazorpayPayment = async (req, res) => {
       .update(body.toString())
       .digest("hex");
     
-    console.log("Signature verification:", { 
-      expected: expectedSignature, 
-      received: razorpay_signature,
-      match: expectedSignature === razorpay_signature 
-    });
-    
     const isAuthentic = expectedSignature === razorpay_signature;
     
     if (!isAuthentic) {
-      console.error("Signature verification failed");
       return res.status(400).json({ 
         message: "Payment verification failed - Invalid signature",
         success: false 
@@ -410,7 +400,6 @@ export const verifyRazorpayPayment = async (req, res) => {
     // Payment verified successfully, credit the user
     const creditPackage = await CreditPackage.findById(packageId);
     if (!creditPackage) {
-      console.error("Credit package not found:", packageId);
       return res.status(404).json({ 
         message: "Credit package not found",
         success: false 
@@ -419,7 +408,6 @@ export const verifyRazorpayPayment = async (req, res) => {
     
     const user = await User.findById(req.user._id);
     if (!user) {
-      console.error("User not found:", req.user._id);
       return res.status(404).json({ 
         message: "User not found",
         success: false 
@@ -428,8 +416,6 @@ export const verifyRazorpayPayment = async (req, res) => {
     
     const totalCredits = creditPackage.credits + (creditPackage.bonusCredits || 0);
     const reference = `RAZORPAY-${razorpay_payment_id}`;
-    
-    console.log("Crediting user:", user._id, "with", totalCredits, "credits");
     
     // Initialize credits if not exists
     if (!user.credits) {
@@ -454,7 +440,6 @@ export const verifyRazorpayPayment = async (req, res) => {
     });
     
     await user.save();
-    console.log("User credits updated successfully");
     
     // Create transaction record
     await Transaction.create({
@@ -473,7 +458,6 @@ export const verifyRazorpayPayment = async (req, res) => {
         razorpay_payment_id
       }
     });
-    console.log("Transaction record created");
     
     res.json({
       success: true,
@@ -486,7 +470,6 @@ export const verifyRazorpayPayment = async (req, res) => {
       reference
     });
   } catch (error) {
-    console.error("Payment verification error:", error);
     res.status(500).json({ 
       message: "Payment verification failed", 
       error: error.message,

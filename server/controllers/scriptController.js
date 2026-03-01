@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
 import { CREDIT_PRICES } from "./creditsController.js";
+import { createRequire } from 'module';
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
@@ -29,9 +30,8 @@ export const extractPdfText = async (req, res) => {
       return res.status(400).json({ message: "No PDF file provided" });
     }
 
-    // Use dynamic import to handle CJS library in ESM correctly
-    const pdfParsePkg = await import("pdf-parse");
-    const pdfParse = pdfParsePkg.default || pdfParsePkg;
+    const require = createRequire(import.meta.url);
+    const pdfParse = require('pdf-parse');
 
     const data = await pdfParse(req.file.buffer);
 
@@ -171,7 +171,7 @@ export const updateScript = async (req, res) => {
       };
     }
 
-    script.status = "published";
+    script.status = "pending_approval";
     await script.save();
     res.json(script);
   } catch (error) {
@@ -239,7 +239,7 @@ export const uploadScript = async (req, res) => {
       // Deduct credits
       user.credits.balance -= creditsRequired;
       user.credits.totalSpent += creditsRequired;
-      
+
       // Add transaction record for each service
       if (services?.evaluation) {
         user.credits.transactions.push({
@@ -250,7 +250,7 @@ export const uploadScript = async (req, res) => {
           createdAt: new Date()
         });
       }
-      
+
       if (services?.aiTrailer) {
         user.credits.transactions.push({
           type: "spent",
@@ -313,7 +313,7 @@ export const uploadScript = async (req, res) => {
       // AI Trailer status initialization
       trailerStatus: services?.aiTrailer ? "generating" : "none",
 
-      status: "published" // Force publish on final upload
+      status: "pending_approval" // Requires admin approval before publishing
     };
 
     // If updating from a draft (if we pass draftId in the future), we could update instead of create.

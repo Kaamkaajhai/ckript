@@ -35,8 +35,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("user");
-      // Only redirect if not already on login/join pages
-      if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/join")) {
+      // Only redirect if not already on login/join/admin pages
+      if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/join") && !window.location.pathname.startsWith("/admin")) {
         window.location.href = "/login";
       }
     }

@@ -102,7 +102,7 @@ export const getWriters = async (req, res) => {
 export const getCurrentUser = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password");
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -119,7 +119,7 @@ export const getUserProfile = async (req, res) => {
       .select("-password")
       .populate("followers", "name profileImage")
       .populate("following", "name profileImage");
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -162,8 +162,10 @@ export const updateUserProfile = async (req, res) => {
       onboardingComplete,
       // investor profile fields
       company, linkedInUrl, investmentRange,
+      // bank details
+      bankDetails,
     } = req.body;
-    
+
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -397,7 +399,7 @@ export const unfollowUser = async (req, res) => {
 export const getWatchlist = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -420,7 +422,7 @@ export const addToWatchlist = async (req, res) => {
   try {
     const { scriptId } = req.body;
     const user = await User.findById(req.user._id);
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -451,7 +453,7 @@ export const removeFromWatchlist = async (req, res) => {
   try {
     const { scriptId } = req.body;
     const user = await User.findById(req.user._id);
-    
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

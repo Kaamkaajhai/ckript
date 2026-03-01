@@ -537,7 +537,7 @@ const ScriptUpload = () => {
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
       setError(errorMsg);
-      
+
       // If insufficient credits error, refresh balance
       if (err.response?.data?.requiresCredits) {
         try {
@@ -954,30 +954,7 @@ const ScriptUpload = () => {
                       </div>
                     )}
 
-                    {/* The Text Editor */}
-                    <div className="mt-6">
-                      <label className="block text-sm text-neutral-300 font-medium mb-2 flex items-center justify-between">
-                        <span>Screenplay Editor</span>
-                        {textContent.trim() && (
-                          <span className="text-xs font-mono text-neutral-500 bg-white/[0.08] px-2 py-0.5 rounded">
-                            {textContent.trim().split(/\s+/).length} words
-                          </span>
-                        )}
-                      </label>
-                      <div className="relative border border-white/[0.08] rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-white/30 focus-within:border-transparent transition-all">
-                        <textarea
-                          value={textContent}
-                          onChange={(e) => setTextContent(e.target.value)}
-                          placeholder="Write your story here or upload a PDF above to extract text..."
-                          className="w-full h-[500px] p-6 font-mono text-[13px] leading-relaxed text-white bg-white/[0.04] resize-none outline-none whitespace-pre-wrap"
-                          style={{ fontFamily: "'Courier Prime', 'Courier New', Courier, monospace" }}
-                          spellCheck="false"
-                        />
-                      </div>
-                      <p className="text-xs text-neutral-500 mt-2 text-center">
-                        Edit extracted text or write from scratch. Use standard screenplay formatting.
-                      </p>
-                    </div>
+
                   </div>
 
                   <div className="flex gap-3 justify-between pt-2">
@@ -1016,8 +993,8 @@ const ScriptUpload = () => {
                     {/* Hosting Card */}
                     <div
                       className={`border-2 rounded-xl p-5 cursor-pointer transition ${services.hosting
-                          ? "border-white bg-white/[0.08]"
-                          : "border-white/[0.08] hover:border-white/[0.12]"
+                        ? "border-white bg-white/[0.08]"
+                        : "border-white/[0.08] hover:border-white/[0.12]"
                         }`}
                       onClick={() => {
                         // Hosting is required, so we don't allow toggling off
@@ -1046,8 +1023,8 @@ const ScriptUpload = () => {
                     {/* Evaluation Card */}
                     <div
                       className={`border-2 rounded-xl p-5 cursor-pointer transition ${services.evaluation
-                          ? "border-white bg-white/[0.08]"
-                          : "border-white/[0.08] hover:border-white/[0.12]"
+                        ? "border-white bg-white/[0.08]"
+                        : "border-white/[0.08] hover:border-white/[0.12]"
                         }`}
                       onClick={() =>
                         setServices({ ...services, evaluation: !services.evaluation })
@@ -1079,8 +1056,8 @@ const ScriptUpload = () => {
                     {/* AI Trailer Card */}
                     <div
                       className={`border-2 rounded-xl p-5 cursor-pointer transition relative ${services.aiTrailer
-                          ? "border-white bg-white/[0.08]"
-                          : "border-white/[0.08] hover:border-white/[0.12]"
+                        ? "border-white bg-white/[0.08]"
+                        : "border-white/[0.08] hover:border-white/[0.12]"
                         }`}
                       onClick={() =>
                         setServices({ ...services, aiTrailer: !services.aiTrailer })
