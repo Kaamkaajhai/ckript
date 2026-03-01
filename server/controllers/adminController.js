@@ -259,7 +259,7 @@ export const rejectScript = async (req, res) => {
 // ─── Platform Scoring ───
 export const scoreScript = async (req, res) => {
     try {
-        const { content, trailer, title, synopsis, tags, feedback } = req.body;
+        const { content, trailer, title, synopsis, tags, feedback, strengths, weaknesses, prospects } = req.body;
         const script = await Script.findById(req.params.id);
         if (!script) return res.status(404).json({ message: "Script not found" });
 
@@ -274,6 +274,9 @@ export const scoreScript = async (req, res) => {
             synopsis: synopsis || 0,
             tags: tags || 0,
             feedback: feedback || "",
+            strengths: strengths || "",
+            weaknesses: weaknesses || "",
+            prospects: prospects || "",
             scoredBy: req.user._id,
             scoredAt: new Date(),
         };

@@ -691,15 +691,42 @@ export const addRoles = async (req, res) => {
 
 export const getFeaturedScripts = async (req, res) => {
   try {
-    const scripts = await Script.find({
-      status: "published",
-      $or: [{ isFeatured: true }, { rating: { $gte: 4 } }],
-    })
-      .populate("creator", "name profileImage role")
-      .sort({ rating: -1 })
-      .limit(12);
-    res.json(scripts);
+    // Step 1: rank published scripts by trendScore via aggregation
+    const ranked = await Script.aggregate([
+      { $match: { status: "published" } },
+      {
+        $addFields: {
+          trendScore: {
+            $add: [
+              { $multiply: [{ $ifNull: ["$reviewCount", 0] }, 3] },
+              { $multiply: [{ $ifNull: ["$readsCount", 0] }, 2] },
+              { $ifNull: ["$views", 0] },
+            ],
+          },
+        },
+      },
+      { $sort: { trendScore: -1, rating: -1, createdAt: -1 } },
+      { $limit: 12 },
+      { $project: { _id: 1 } },
+    ]);
+
+    if (!ranked.length) return res.json([]);
+
+    const ids = ranked.map((s) => s._id);
+
+    // Step 2: fetch full documents with populated creator (preserving sort order)
+    const docs = await Script.find({ _id: { $in: ids } }).populate(
+      "creator",
+      "name profileImage role"
+    );
+
+    const idStr = (id) => id.toString();
+    const docMap = Object.fromEntries(docs.map((d) => [idStr(d._id), d]));
+    const ordered = ids.map((id) => docMap[idStr(id)]).filter(Boolean);
+
+    res.json(ordered);
   } catch (error) {
+    console.error("getFeaturedScripts error:", error);
     res.status(500).json({ message: error.message });
   }
 };

@@ -764,292 +764,265 @@ const ScriptDetail = () => {
               </motion.div>
             )}
 
-            {/* ── Evaluation (Premium) ─────────────────────── */}
+            {/* ── Evaluation ─────────────────────── */}
             {activeTab === "evaluation" && (() => {
-              /* Theme-aware color palettes */
               const dk = isDarkMode;
-              const dimsDef = [
-                { key: "plot", label: "Plot", lightColor: "#2563eb", darkColor: "#60a5fa", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
-                { key: "characters", label: "Characters", lightColor: "#7c3aed", darkColor: "#a78bfa", icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" },
-                { key: "dialogue", label: "Dialogue", lightColor: "#0891b2", darkColor: "#22d3ee", icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" },
-                { key: "pacing", label: "Pacing", lightColor: "#d97706", darkColor: "#fbbf24", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
-                { key: "marketability", label: "Market.", lightColor: "#059669", darkColor: "#34d399", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+
+              /* Dimension definitions — each has a distinct semantic color */
+              const dims = [
+                { key: "plot",          label: "Plot",          icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: dk ? "#818cf8" : "#4f46e5" },
+                { key: "characters",    label: "Characters",    icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z", color: dk ? "#a78bfa" : "#7c3aed" },
+                { key: "dialogue",      label: "Dialogue",      icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z", color: dk ? "#34d399" : "#059669" },
+                { key: "pacing",        label: "Pacing",        icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z", color: dk ? "#fbbf24" : "#d97706" },
+                { key: "marketability", label: "Marketability", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", color: dk ? "#fb923c" : "#ea580c" },
               ];
-              const dims = dimsDef.map(d => ({ ...d, color: dk ? d.darkColor : d.lightColor }));
+
+              /* Score → grade helpers */
               const gradeLabel = (v) => v >= 90 ? "S" : v >= 80 ? "A" : v >= 70 ? "B" : v >= 60 ? "C" : v >= 50 ? "D" : "F";
-              const gradeColor = (v) => dk
-                ? (v >= 90 ? "#c084fc" : v >= 80 ? "#34d399" : v >= 70 ? "#60a5fa" : v >= 60 ? "#fbbf24" : "#f87171")
-                : (v >= 90 ? "#9333ea" : v >= 80 ? "#059669" : v >= 70 ? "#2563eb" : v >= 60 ? "#d97706" : "#dc2626");
-              const gradeBg = (v) => dk
-                ? (v >= 90 ? "from-purple-400/10 to-purple-400/[0.02]" : v >= 80 ? "from-emerald-400/10 to-emerald-400/[0.02]" : v >= 70 ? "from-blue-400/10 to-blue-400/[0.02]" : v >= 60 ? "from-amber-400/10 to-amber-400/[0.02]" : "from-red-400/10 to-red-400/[0.02]")
-                : (v >= 90 ? "from-purple-500/15 to-purple-500/[0.03]" : v >= 80 ? "from-emerald-500/15 to-emerald-500/[0.03]" : v >= 70 ? "from-blue-500/15 to-blue-500/[0.03]" : v >= 60 ? "from-amber-500/15 to-amber-500/[0.03]" : "from-red-500/15 to-red-500/[0.03]");
+              const gradeColor = (v) =>
+                v >= 90 ? (dk ? "#c084fc" : "#9333ea") :
+                v >= 80 ? (dk ? "#34d399" : "#059669") :
+                v >= 70 ? (dk ? "#60a5fa" : "#2563eb") :
+                v >= 60 ? (dk ? "#fbbf24" : "#d97706") :
+                           (dk ? "#f87171" : "#dc2626");
               const gradeText = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
+              const gradeBand = (v) =>
+                v >= 90 ? (dk ? "bg-purple-400/10 border-purple-400/20 text-purple-300"   : "bg-purple-50 border-purple-200 text-purple-700") :
+                v >= 80 ? (dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700") :
+                v >= 70 ? (dk ? "bg-blue-400/10 border-blue-400/20 text-blue-300"         : "bg-blue-50 border-blue-200 text-blue-700") :
+                v >= 60 ? (dk ? "bg-amber-400/10 border-amber-400/20 text-amber-300"       : "bg-amber-50 border-amber-200 text-amber-700") :
+                           (dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700");
 
-              /* Radar chart coordinates */
-              const cx = 100, cy = 100, rr = 72;
+              /* Radar geometry */
+              const cx = 110, cy = 110, rr = 80;
               const angleStep = (2 * Math.PI) / dims.length;
-              const radarPts = dims.map((d, i) => { const v = (score[d.key] || 0) / 100; const a = angleStep * i - Math.PI / 2; return { x: cx + rr * v * Math.cos(a), y: cy + rr * v * Math.sin(a) }; });
+              const radarPts = dims.map((d, i) => {
+                const v = (score[d.key] || 0) / 100;
+                const a = angleStep * i - Math.PI / 2;
+                return { x: cx + rr * v * Math.cos(a), y: cy + rr * v * Math.sin(a) };
+              });
               const gridLevels = [0.25, 0.5, 0.75, 1];
-
-              /* Bar chart config */
-              const barChartH = 220;
-              const ySteps = [0, 20, 40, 60, 80, 100];
-
-              /* Theme tokens for charts */
-              const ct = {
-                gridLine: dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-                gridLineFine: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
-                axisLabel: dk ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.35)",
-                axisLine: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
-                radarFill: dk ? `${gradeColor(score.overall)}18` : `${gradeColor(score.overall)}15`,
-                radarStroke: gradeColor(score.overall),
-                dotStroke: dk ? "#0d1829" : "#ffffff",
-                labelFill: dk ? "fill-white/50" : "fill-gray-500",
-                barBg: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
-                barGlow: dk ? "40" : "20",
-                sectionIcon: dk ? "bg-white/[0.05] text-white/40" : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/60",
-              };
+              const overallColor = gradeColor(score.overall || 0);
 
               return (
-                <motion.div key="evaluation" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                <motion.div key="evaluation" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
                   {score?.overall ? (
                     <>
-                      {/* ── Hero: Overall Score + Grade ── */}
+                      {/* ── 1. Score Hero ── */}
                       <div className={`rounded-2xl border overflow-hidden ${t.card}`}>
-                        <div className={`bg-gradient-to-r ${gradeBg(score.overall)} p-6 sm:p-8`}>
-                          <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
-                            {/* Radial gauge */}
-                            <div className="relative w-40 h-40 shrink-0">
-                              <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-                                <circle cx="60" cy="60" r="52" fill="none" stroke={dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)"} strokeWidth="8" />
-                                <circle cx="60" cy="60" r="52" fill="none" stroke={gradeColor(score.overall)} strokeWidth="8" strokeLinecap="round"
-                                  strokeDasharray={`${(score.overall / 100) * 326.7} 326.7`}
-                                  style={{ filter: `drop-shadow(0 0 10px ${gradeColor(score.overall)}50)`, transition: "stroke-dasharray 1.2s ease-out" }} />
+                        <div className="flex flex-col sm:flex-row items-center gap-0 divide-y sm:divide-y-0 sm:divide-x"
+                          style={{ divideColor: dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
+
+                          {/* Overall gauge */}
+                          <div className="flex flex-col items-center justify-center gap-3 px-8 py-7 sm:w-56 shrink-0">
+                            <div className="relative w-28 h-28">
+                              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                                <circle cx="50" cy="50" r="42" fill="none"
+                                  stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="7" />
+                                <circle cx="50" cy="50" r="42" fill="none"
+                                  stroke={overallColor} strokeWidth="7" strokeLinecap="round"
+                                  strokeDasharray={`${(score.overall / 100) * 263.9} 263.9`}
+                                  style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)" }} />
                               </svg>
                               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                <span className={`text-4xl font-black tabular-nums ${dk ? "text-white" : "text-gray-900"}`}>{score.overall}</span>
-                                <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${dk ? "text-white/30" : "text-gray-400"}`}>Overall</span>
+                                <span className={`text-3xl font-black tabular-nums leading-none ${dk ? "text-white" : "text-gray-900"}`}>{score.overall}</span>
+                                <span className={`text-[9px] font-semibold uppercase tracking-widest mt-1 ${dk ? "text-white/30" : "text-gray-400"}`}>score</span>
                               </div>
                             </div>
-                            {/* Grade + Summary */}
-                            <div className="flex-1 text-center sm:text-left">
-                              <div className="flex items-center gap-3 justify-center sm:justify-start mb-2">
-                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black text-white shadow-lg"
-                                  style={{ backgroundColor: gradeColor(score.overall), boxShadow: `0 4px 20px ${gradeColor(score.overall)}40` }}>
-                                  {gradeLabel(score.overall)}
-                                </div>
-                                <div>
-                                  <h3 className={`text-lg font-extrabold tracking-tight ${dk ? "text-white" : "text-gray-900"}`}>{gradeText(score.overall)}</h3>
-                                  <p className={`text-xs ${dk ? "text-white/40" : "text-gray-500"}`}>AI Script Evaluation</p>
-                                </div>
-                              </div>
-                              {score.scoredAt && <p className={`text-[11px] mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Evaluated on {formatDate(score.scoredAt)}</p>}
-                              {/* Mini stat pills */}
-                              <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-                                {dims.map(d => (
-                                  <div key={d.key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${dk ? "bg-white/[0.04] border-white/[0.06]" : "bg-white/80 border-gray-200/60 shadow-sm"}`}>
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-                                    <span className={dk ? "text-white/50" : "text-gray-500"}>{d.label}</span>
-                                    <span className={dk ? "text-white" : "text-gray-900"}>{score[d.key] || "\u2014"}</span>
+                            {/* Grade badge */}
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold ${gradeBand(score.overall)}`}>
+                              <span className="text-base font-black leading-none">{gradeLabel(score.overall)}</span>
+                              <span>{gradeText(score.overall)}</span>
+                            </div>
+                          </div>
+
+                          {/* Dimension pills grid */}
+                          <div className="flex-1 px-6 py-6">
+                            <p className={`text-[10px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>
+                              Dimension Scores{score.scoredAt ? ` · ${formatDate(score.scoredAt)}` : ""}
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                              {dims.map(d => {
+                                const val = score[d.key] || 0;
+                                return (
+                                  <div key={d.key}
+                                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${dk ? "bg-white/[0.03] border-white/[0.07]" : "bg-gray-50/80 border-gray-200/60"}`}>
+                                    <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center"
+                                      style={{ backgroundColor: `${d.color}${dk ? "18" : "10"}` }}>
+                                      <svg className="w-4 h-4" style={{ color: d.color }} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d={d.icon} />
+                                      </svg>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className={`text-[10px] font-medium truncate ${dk ? "text-white/35" : "text-gray-400"}`}>{d.label}</p>
+                                      <p className="text-sm font-black tabular-nums leading-tight" style={{ color: d.color }}>{val}</p>
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* ── Dimension Score Cards ── */}
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                        {dims.map((d, i) => {
-                          const val = score[d.key] || 0;
-                          const circ = 2 * Math.PI * 18;
-                          return (
-                            <motion.div key={d.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-                              className={`rounded-xl border p-4 text-center transition-all hover:scale-[1.02] ${dk ? "bg-[#0d1829] border-white/[0.06] hover:border-white/[0.12]" : "bg-white border-gray-200/70 hover:border-gray-300 shadow-sm"}`}>
-                              <div className="relative w-14 h-14 mx-auto mb-2">
-                                <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
-                                  <circle cx="22" cy="22" r="18" fill="none" stroke={dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"} strokeWidth="4" />
-                                  <circle cx="22" cy="22" r="18" fill="none" stroke={d.color} strokeWidth="4" strokeLinecap="round"
-                                    strokeDasharray={`${(val / 100) * circ} ${circ}`}
-                                    style={{ filter: `drop-shadow(0 0 6px ${d.color}${ct.barGlow})`, transition: "stroke-dasharray 1s ease-out" }} />
-                                </svg>
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <span className={`text-sm font-extrabold tabular-nums ${dk ? "text-white" : "text-gray-900"}`}>{val}</span>
-                                </div>
-                              </div>
-                              <p className={`text-[11px] font-bold ${dk ? "text-white/50" : "text-gray-500"}`}>{d.label}</p>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
+                      {/* ── 2. Radar + Breakdown ── */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
 
-                      {/* ── Bar Chart with Gridlines (like reference) ── */}
-                      <div className={`rounded-2xl border p-6 ${t.card}`}>
-                        <h3 className={`text-[13px] font-bold mb-5 flex items-center gap-2 ${t.title}`}>
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
-                          </div>
-                          Score Overview
-                        </h3>
-                        {/* SVG Bar Chart with Y-axis gridlines */}
-                        <svg viewBox={`0 0 440 ${barChartH + 40}`} className="w-full" style={{ maxHeight: 320 }}>
-                          {/* Y-axis gridlines + labels */}
-                          {ySteps.map(step => {
-                            const y = barChartH - (step / 100) * barChartH + 10;
-                            return (
-                              <g key={step}>
-                                <line x1="40" y1={y} x2="430" y2={y} stroke={ct.gridLine} strokeWidth="1" strokeDasharray={step === 0 ? "" : "3,3"} />
-                                <text x="32" y={y + 4} textAnchor="end" style={{ fontSize: 10, fill: ct.axisLabel, fontWeight: 600 }}>{step}</text>
-                              </g>
-                            );
-                          })}
-                          {/* Overall bar + dimension bars */}
-                          {[{ key: "overall", label: "Overall", color: gradeColor(score.overall) }, ...dims].map((d, i) => {
-                            const val = score[d.key] || 0;
-                            const barW = 48, gap = 12;
-                            const totalW = (barW + gap) * 6 - gap;
-                            const startX = 40 + (390 - totalW) / 2;
-                            const x = startX + i * (barW + gap);
-                            const barH = (val / 100) * barChartH;
-                            const y = barChartH - barH + 10;
-                            return (
-                              <g key={d.key}>
-                                {/* Bar background */}
-                                <rect x={x} y={10} width={barW} height={barChartH} rx="6" fill={ct.barBg} />
-                                {/* Bar fill */}
-                                <rect x={x} y={y} width={barW} height={barH} rx="6"
-                                  fill={d.color} style={{ filter: `drop-shadow(0 -4px 8px ${d.color}${ct.barGlow})` }}>
-                                  <animate attributeName="height" from="0" to={barH} dur="0.8s" fill="freeze" />
-                                  <animate attributeName="y" from={barChartH + 10} to={y} dur="0.8s" fill="freeze" />
-                                </rect>
-                                {/* Value label on top */}
-                                <text x={x + barW / 2} y={y - 6} textAnchor="middle" style={{ fontSize: 11, fontWeight: 800, fill: dk ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.75)" }}>{val}</text>
-                                {/* X-axis label */}
-                                <text x={x + barW / 2} y={barChartH + 28} textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, fill: ct.axisLabel }}>{d.label}</text>
-                              </g>
-                            );
-                          })}
-                          {/* X-axis baseline */}
-                          <line x1="40" y1={barChartH + 10} x2="430" y2={barChartH + 10} stroke={ct.axisLine} strokeWidth="1.5" />
-                        </svg>
-                      </div>
-
-                      {/* ── Radar Chart + Dimension Breakdown side-by-side ── */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Radar Chart */}
-                        <div className={`rounded-2xl border p-6 ${t.card}`}>
-                          <h3 className={`text-[13px] font-bold mb-4 flex items-center gap-2 ${t.title}`}>
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>
-                            </div>
-                            Performance Radar
-                          </h3>
-                          <svg viewBox="0 0 220 220" className="w-full max-w-[300px] mx-auto">
-                            {/* Concentric grid rings with percentage labels */}
-                            {gridLevels.map((lv, i) => {
-                              const pts = dims.map((_, j) => { const a = angleStep * j - Math.PI / 2; return `${cx + 10 + rr * lv * Math.cos(a)},${cy + 10 + rr * lv * Math.sin(a)}`; }).join(" ");
+                        {/* Radar */}
+                        <div className={`rounded-2xl border p-5 ${t.card}`}>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Performance Radar</p>
+                          <svg viewBox="0 0 220 220" className="w-full max-w-xs mx-auto">
+                            <defs>
+                              <radialGradient id="evalRadarFill" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%"   stopColor={overallColor} stopOpacity={dk ? "0.22" : "0.16"} />
+                                <stop offset="100%" stopColor={overallColor} stopOpacity="0" />
+                              </radialGradient>
+                            </defs>
+                            {/* Grid rings */}
+                            {gridLevels.map((lv, gi) => {
+                              const pts = dims.map((_, j) => {
+                                const a = angleStep * j - Math.PI / 2;
+                                return `${cx + rr * lv * Math.cos(a)},${cy + rr * lv * Math.sin(a)}`;
+                              }).join(" ");
+                              return <polygon key={gi} points={pts} fill="none"
+                                stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="1" />;
+                            })}
+                            {/* Axis spokes */}
+                            {dims.map((_, i) => {
+                              const a = angleStep * i - Math.PI / 2;
+                              return <line key={i} x1={cx} y1={cy} x2={cx + rr * Math.cos(a)} y2={cy + rr * Math.sin(a)}
+                                stroke={dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeWidth="1" />;
+                            })}
+                            {/* Data shape */}
+                            <polygon points={radarPts.map(p => `${p.x},${p.y}`).join(" ")}
+                              fill="url(#evalRadarFill)" stroke={overallColor} strokeWidth="2" strokeLinejoin="round" />
+                            {/* Dimension dots + labels */}
+                            {radarPts.map((p, i) => {
+                              const a = angleStep * i - Math.PI / 2;
+                              const lx = cx + (rr + 22) * Math.cos(a);
+                              const ly = cy + (rr + 22) * Math.sin(a);
                               return (
                                 <g key={i}>
-                                  <polygon points={pts} fill="none" stroke={ct.gridLine} strokeWidth="0.8" />
-                                  <text x={cx + 10 + 4} y={cy + 10 - rr * lv + 3} style={{ fontSize: 7, fill: ct.axisLabel, fontWeight: 600 }}>{Math.round(lv * 100)}%</text>
+                                  <circle cx={p.x} cy={p.y} r="4" fill={dims[i].color}
+                                    stroke={dk ? "#0d1829" : "#ffffff"} strokeWidth="2" />
+                                  <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+                                    style={{ fontSize: 8.5, fontWeight: 700, fill: dk ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }}>
+                                    {dims[i].label}
+                                  </text>
                                 </g>
                               );
                             })}
-                            {/* Axis lines from center to vertices */}
-                            {dims.map((_, i) => {
-                              const a = angleStep * i - Math.PI / 2; return <line key={i} x1={cx + 10} y1={cy + 10} x2={cx + 10 + rr * Math.cos(a)} y2={cy + 10 + rr * Math.sin(a)} stroke={ct.gridLineFine} strokeWidth="0.8" />;
-                            })}
-                            {/* Data polygon with gradient fill */}
-                            <defs>
-                              <radialGradient id="radarGrad" cx="50%" cy="50%" r="50%">
-                                <stop offset="0%" stopColor={ct.radarStroke} stopOpacity={dk ? "0.25" : "0.2"} />
-                                <stop offset="100%" stopColor={ct.radarStroke} stopOpacity={dk ? "0.05" : "0.03"} />
-                              </radialGradient>
-                            </defs>
-                            <polygon points={radarPts.map(p => `${p.x + 10},${p.y + 10}`).join(" ")} fill="url(#radarGrad)" stroke={ct.radarStroke} strokeWidth="2.5" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 8px ${ct.radarStroke}30)` }} />
-                            {/* Data dots + labels */}
-                            {radarPts.map((p, i) => (
-                              <g key={i}>
-                                <circle cx={p.x + 10} cy={p.y + 10} r="5" fill={dims[i].color} stroke={ct.dotStroke} strokeWidth="2.5" style={{ filter: `drop-shadow(0 0 4px ${dims[i].color}50)` }} />
-                                <text x={cx + 10 + (rr + 20) * Math.cos(angleStep * i - Math.PI / 2)} y={cy + 10 + (rr + 20) * Math.sin(angleStep * i - Math.PI / 2)}
-                                  textAnchor="middle" dominantBaseline="middle"
-                                  style={{ fontSize: 8, fontWeight: 700 }} className={ct.labelFill}>{dims[i].label}</text>
-                              </g>
-                            ))}
                           </svg>
                         </div>
 
-                        {/* Dimension Breakdown Bars */}
-                        <div className={`rounded-2xl border p-6 ${t.card}`}>
-                          <h3 className={`text-[13px] font-bold mb-4 flex items-center gap-2 ${t.title}`}>
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" /></svg>
-                            </div>
-                            Dimension Breakdown
-                          </h3>
-                          <div className="space-y-4">
-                            {dims.map((d, i) => (
-                              <div key={d.key}>
-                                <div className="flex items-center gap-2.5 mb-2">
-                                  <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ backgroundColor: `${d.color}${dk ? "20" : "12"}` }}>
-                                    <svg className="w-3.5 h-3.5" style={{ color: d.color }} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={d.icon} /></svg>
-                                  </div>
-                                  <span className={`text-[12px] font-semibold flex-1 ${dk ? "text-white/60" : "text-gray-600"}`}>{d.label}</span>
-                                  <span className="text-sm font-extrabold tabular-nums" style={{ color: d.color }}>{score[d.key] || 0}</span>
+                        {/* Bar Chart */}
+                        <div className={`rounded-2xl border p-5 ${t.card}`}>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Score Overview</p>
+                          {(() => {
+                            const barH = 180;
+                            const bars = [{ key: "overall", label: "Overall", color: overallColor }, ...dims];
+                            const gridLines = [0, 25, 50, 75, 100];
+                            const gridColor = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+                            const labelColor = dk ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)";
+                            const slotW = 220 / bars.length;
+                            const barW = Math.min(slotW * 0.58, 28);
+                            return (
+                              <svg viewBox={`0 0 240 ${barH + 44}`} className="w-full">
+                                {gridLines.map(v => {
+                                  const y = barH - (v / 100) * barH + 4;
+                                  return (
+                                    <g key={v}>
+                                      <line x1="24" y1={y} x2="238" y2={y} stroke={gridColor} strokeWidth={v === 0 ? "1.5" : "1"} strokeDasharray={v === 0 ? "" : "3,3"} />
+                                      <text x="18" y={y + 3.5} textAnchor="end" style={{ fontSize: 7.5, fontWeight: 600, fill: labelColor }}>{v}</text>
+                                    </g>
+                                  );
+                                })}
+                                {bars.map((d, i) => {
+                                  const val = score[d.key] || 0;
+                                  const filledH = (val / 100) * barH;
+                                  const x = 24 + i * slotW + (slotW - barW) / 2;
+                                  const y = barH - filledH + 4;
+                                  return (
+                                    <g key={d.key}>
+                                      <rect x={x} y={4} width={barW} height={barH} rx="4"
+                                        fill={dk ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"} />
+                                      <rect x={x} y={y} width={barW} height={filledH} rx="4" fill={d.color}>
+                                        <animate attributeName="height" from="0" to={filledH} dur="0.75s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" />
+                                        <animate attributeName="y" from={barH + 4} to={y} dur="0.75s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" />
+                                      </rect>
+                                      <text x={x + barW / 2} y={y - 4} textAnchor="middle"
+                                        style={{ fontSize: 8, fontWeight: 800, fill: dk ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.7)" }}>{val}</text>
+                                      <text x={x + barW / 2} y={barH + 18} textAnchor="middle"
+                                        style={{ fontSize: 7, fontWeight: 700, fill: d.color }}>{d.label}</text>
+                                    </g>
+                                  );
+                                })}
+                              </svg>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* ── 3. AI Feedback ── */}
+                      {score.feedback && (
+                        <div className={`rounded-2xl border p-5 ${t.card}`}>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-3 ${dk ? "text-white/25" : "text-gray-400"}`}>AI Analysis</p>
+                          <p className={`text-sm leading-relaxed ${dk ? "text-white/60" : "text-gray-600"}`}>{score.feedback}</p>
+                        </div>
+                      )}
+
+                      {/* ── 4. Platform Editorial Sections ── */}
+                      {(() => {
+                        const ps = script.platformScore || {};
+                        const sections = [
+                          { key: "strengths",  label: "Strengths",  icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z",        band: dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700" },
+                          { key: "weaknesses", label: "Weaknesses", icon: "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z", band: dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700" },
+                          { key: "prospects",  label: "Prospects",  icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", band: dk ? "bg-indigo-400/10 border-indigo-400/20 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700" },
+                        ];
+                        return (
+                          <div className="space-y-3">
+                            {sections.map(s => (
+                              <div key={s.key} className={`rounded-2xl border overflow-hidden ${t.card}`}>
+                                <div className={`flex items-center gap-2.5 px-5 py-3.5 border-b ${dk ? "border-white/[0.06]" : "border-gray-100"}`}>
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${s.band}`}>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                                    </svg>
+                                    {s.label}
+                                  </span>
+                                  <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Platform Editorial</span>
                                 </div>
-                                <div className="relative">
-                                  <div className={`h-3 rounded-full overflow-hidden ${dk ? "bg-white/[0.06]" : "bg-gray-100"}`}>
-                                    <motion.div initial={{ width: 0 }} animate={{ width: `${score[d.key] || 0}%` }} transition={{ duration: 1, delay: i * 0.08 }}
-                                      className="h-full rounded-full"
-                                      style={{ background: `linear-gradient(90deg, ${d.color}CC, ${d.color})`, boxShadow: `0 0 16px ${d.color}${ct.barGlow}` }} />
-                                  </div>
-                                  {/* Tick marks */}
-                                  <div className="absolute top-0 left-0 w-full h-3 flex">
-                                    {[25, 50, 75].map(tick => (
-                                      <div key={tick} className="absolute top-0 h-full" style={{ left: `${tick}%` }}>
-                                        <div className="w-px h-full" style={{ backgroundColor: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }} />
-                                      </div>
-                                    ))}
-                                  </div>
+                                <div className="px-5 py-4">
+                                  {ps[s.key] ? (
+                                    <p className={`text-sm leading-relaxed whitespace-pre-line ${dk ? "text-white/65" : "text-gray-600"}`}>{ps[s.key]}</p>
+                                  ) : (
+                                    <p className={`text-sm italic ${dk ? "text-white/20" : "text-gray-300"}`}>Not yet reviewed by the platform.</p>
+                                  )}
                                 </div>
                               </div>
                             ))}
                           </div>
-                        </div>
-                      </div>
-
-                      {/* ── AI Feedback ── */}
-                      {score.feedback && (
-                        <div className={`rounded-2xl border p-6 ${t.card}`}>
-                          <h3 className={`text-[13px] font-bold mb-3 flex items-center gap-2 ${t.title}`}>
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-                            </div>
-                            AI Analysis
-                          </h3>
-                          <div className={`rounded-xl p-5 border ${dk ? "bg-white/[0.02] border-white/[0.06]" : "bg-gradient-to-br from-gray-50 to-white border-gray-100"}`}>
-                            <p className={`text-sm leading-relaxed ${dk ? "text-white/60" : "text-gray-600"}`}>{score.feedback}</p>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </>
                   ) : (
                     <div className={`text-center py-16 rounded-2xl border ${t.card}`}>
-                      <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4 ${dk ? "bg-white/[0.04]" : "bg-gray-100"}`}>
-                        <svg className={`w-7 h-7 ${t.muted}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${dk ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                        <svg className={`w-6 h-6 ${t.muted}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                         </svg>
                       </div>
-                      <h3 className={`text-lg font-extrabold mb-1 ${t.title}`}>No Evaluation Yet</h3>
-                      <p className={`text-sm mb-5 max-w-sm mx-auto ${t.muted}`}>
-                        {isOwner ? "Get an AI-powered evaluation with scores across 5 dimensions and detailed feedback." : "This project hasn't been evaluated yet."}
+                      <h3 className={`text-base font-bold mb-1.5 ${t.title}`}>No Evaluation Yet</h3>
+                      <p className={`text-sm mb-5 max-w-xs mx-auto ${t.muted}`}>
+                        {isOwner ? "Get an AI-powered score across 5 dimensions with detailed feedback." : "This project hasn't been evaluated yet."}
                       </p>
                       {isOwner && (
                         <button onClick={handleGenerateScore} disabled={scoreLoading}
-                          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 inline-flex items-center gap-2 ${t.btnPrim}`}>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-                          {scoreLoading ? "Evaluating..." : "Get Evaluation \u2014 10 credits"}
+                          className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center gap-2 ${t.btnPrim}`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                          </svg>
+                          {scoreLoading ? "Evaluating…" : "Get Evaluation — 10 credits"}
                         </button>
                       )}
                     </div>

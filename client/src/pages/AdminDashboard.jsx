@@ -187,7 +187,7 @@ const TransactionTable = ({ transactions, isDark }) => (
 
 // ─── Score Modal ───
 const ScoreModal = ({ script, isDark, onClose, onSave }) => {
-    const [scores, setScores] = useState({ content: 0, trailer: 0, title: 0, synopsis: 0, tags: 0, feedback: "" });
+    const [scores, setScores] = useState({ content: 0, trailer: 0, title: 0, synopsis: 0, tags: 0, feedback: "", strengths: "", weaknesses: "", prospects: "" });
     const [saving, setSaving] = useState(false);
 
     const handleSave = async () => {
@@ -207,7 +207,7 @@ const ScoreModal = ({ script, isDark, onClose, onSave }) => {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className={`w-full max-w-lg mx-4 rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
                 <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Score: {script?.title}</h3>
                 <p className={`text-sm mb-5 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Rate each dimension from 0 to 100</p>
                 <div className="space-y-4">
@@ -231,6 +231,15 @@ const ScoreModal = ({ script, isDark, onClose, onSave }) => {
                             placeholder="Write your feedback..."
                         />
                     </div>
+                    {[{ key: "strengths", label: "Strengths", placeholder: "What are the script's strongest elements?" }, { key: "weaknesses", label: "Weaknesses", placeholder: "What areas need improvement?" }, { key: "prospects", label: "Prospects", placeholder: "Commercial potential, market fit, next steps..." }].map(({ key, label, placeholder }) => (
+                        <div key={key}>
+                            <label className={`text-sm font-semibold block mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{label}</label>
+                            <textarea rows={4} value={scores[key]} onChange={(e) => setScores((p) => ({ ...p, [key]: e.target.value }))}
+                                className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`}
+                                placeholder={placeholder}
+                            />
+                        </div>
+                    ))}
                 </div>
                 <div className="flex items-center justify-end gap-3 mt-5">
                     <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>

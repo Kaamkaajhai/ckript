@@ -208,9 +208,10 @@ const ScriptReader = () => {
       </motion.div>
 
       {/* Tabs */}
-      <div className={`flex gap-1 rounded-xl p-1 max-w-sm mb-6 ${dark ? "bg-white/[0.04]" : "bg-gray-100/60"}`}>
+      <div className={`flex gap-1 rounded-xl p-1 mb-6 ${dark ? "bg-white/[0.04]" : "bg-gray-100/60"}`}>
         {[
           { key: "synopsis", label: "Synopsis" },
+          { key: "evaluation", label: "Evaluation" },
           { key: "reviews", label: `Reviews (${script.reviewCount || 0})` },
           { key: "details", label: "Details" },
         ].map((tab) => (
@@ -321,6 +322,111 @@ const ScriptReader = () => {
             </div>
           </motion.div>
         )}
+
+        {activeTab === "evaluation" && (() => {
+          const sc = script.scriptScore || {};
+          const ps = script.platformScore || {};
+          const dk = dark;
+          const dims = [
+            { key: "plot",          label: "Plot",          color: dk ? "#818cf8" : "#4f46e5", track: dk ? "rgba(99,102,241,0.12)" : "#ede9fe" },
+            { key: "characters",    label: "Characters",    color: dk ? "#a78bfa" : "#7c3aed", track: dk ? "rgba(167,139,250,0.12)" : "#ede9fe" },
+            { key: "dialogue",      label: "Dialogue",      color: dk ? "#34d399" : "#059669", track: dk ? "rgba(52,211,153,0.12)"  : "#d1fae5" },
+            { key: "pacing",        label: "Pacing",        color: dk ? "#fbbf24" : "#d97706", track: dk ? "rgba(251,191,36,0.12)"  : "#fef3c7" },
+            { key: "marketability", label: "Marketability", color: dk ? "#fb923c" : "#ea580c", track: dk ? "rgba(249,115,22,0.12)"  : "#ffedd5" },
+          ];
+          const gradeLabel = (v) => v >= 90 ? "S" : v >= 80 ? "A" : v >= 70 ? "B" : v >= 60 ? "C" : v >= 50 ? "D" : "F";
+          const gradeColor = (v) =>
+            v >= 90 ? (dk ? "#c084fc" : "#9333ea") :
+            v >= 80 ? (dk ? "#34d399" : "#059669") :
+            v >= 70 ? (dk ? "#60a5fa" : "#2563eb") :
+            v >= 60 ? (dk ? "#fbbf24" : "#d97706") :
+                       (dk ? "#f87171" : "#dc2626");
+          const gradeText = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
+          const hasScore = !!sc.overall;
+          const ovColor = gradeColor(sc.overall || 0);
+          return (
+            <motion.div key="evaluation" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
+              {hasScore ? (
+                <>
+                  {/* Score Hero */}
+                  <div className={`rounded-2xl border shadow-sm p-6 flex flex-col sm:flex-row items-center gap-6 ${dk ? "bg-[#101e30] border-[#333]" : "bg-white border-gray-100"}`}>
+                    {/* Gauge */}
+                    <div className="relative w-28 h-28 shrink-0">
+                      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                        <circle cx="50" cy="50" r="42" fill="none" stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="7" />
+                        <circle cx="50" cy="50" r="42" fill="none" stroke={ovColor} strokeWidth="7" strokeLinecap="round"
+                          strokeDasharray={`${(sc.overall / 100) * 263.9} 263.9`}
+                          style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)" }} />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className={`text-3xl font-black tabular-nums leading-none ${dk ? "text-white" : "text-gray-900"}`}>{sc.overall}</span>
+                        <span className={`text-[9px] font-semibold uppercase tracking-widest mt-1 ${dk ? "text-white/30" : "text-gray-400"}`}>score</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 w-full">
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-sm font-black px-3 py-1 rounded-full border" style={{ color: ovColor, backgroundColor: ovColor + "18", borderColor: ovColor + "33" }}>
+                          {gradeLabel(sc.overall)} — {gradeText(sc.overall)}
+                        </span>
+                      </div>
+                      <div className="space-y-2.5">
+                        {dims.map(d => {
+                          const val = sc[d.key] ?? 0;
+                          return (
+                            <div key={d.key} className="flex items-center gap-3">
+                              <span className={`text-[11px] font-semibold shrink-0 w-24 ${dk ? "text-gray-400" : "text-gray-500"}`}>{d.label}</span>
+                              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: d.track }}>
+                                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, val)}%`, backgroundColor: d.color }} />
+                              </div>
+                              <span className="text-[12px] font-black tabular-nums w-14 text-right" style={{ color: d.color }}>
+                                {val}<span className={`text-[10px] font-normal ${dk ? "text-gray-600" : "text-gray-300"}`}>/100</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI Feedback */}
+                  {sc.feedback && (
+                    <div className={`rounded-2xl border shadow-sm p-5 ${dk ? "bg-[#101e30] border-[#333]" : "bg-white border-gray-100"}`}>
+                      <p className={`text-[11px] font-bold uppercase tracking-widest mb-2 ${dk ? "text-gray-500" : "text-gray-400"}`}>AI Analysis</p>
+                      <p className={`text-sm leading-relaxed ${dk ? "text-gray-300" : "text-gray-600"}`}>{sc.feedback}</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className={`text-center py-14 rounded-2xl border ${dk ? "bg-[#101e30] border-[#333]" : "bg-white border-gray-100"}`}>
+                  <div className={`w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-3 ${dk ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                    <svg className={`w-6 h-6 ${dk ? "text-gray-600" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                  </div>
+                  <p className={`text-[14px] font-bold mb-1 ${dk ? "text-gray-400" : "text-gray-600"}`}>No Evaluation Yet</p>
+                  <p className={`text-[12px] max-w-[220px] mx-auto ${dk ? "text-gray-600" : "text-gray-400"}`}>This script hasn't been evaluated yet.</p>
+                </div>
+              )}
+
+              {/* Platform Editorial */}
+              {(ps.strengths || ps.weaknesses || ps.prospects) && (
+                <div className={`rounded-2xl border shadow-sm p-5 space-y-4 ${dk ? "bg-[#101e30] border-[#333]" : "bg-white border-gray-100"}`}>
+                  <p className={`text-[11px] font-bold uppercase tracking-widest ${dk ? "text-gray-500" : "text-gray-400"}`}>Platform Review</p>
+                  {[
+                    { key: "strengths",  label: "Strengths",  color: "#10b981", bg: dk ? "rgba(16,185,129,0.08)" : "#f0fdf4", border: dk ? "rgba(16,185,129,0.18)" : "#bbf7d0" },
+                    { key: "weaknesses", label: "Weaknesses", color: "#ef4444", bg: dk ? "rgba(239,68,68,0.08)"   : "#fff1f2", border: dk ? "rgba(239,68,68,0.18)"   : "#fecdd3" },
+                    { key: "prospects",  label: "Prospects",  color: "#6366f1", bg: dk ? "rgba(99,102,241,0.08)"  : "#eef2ff", border: dk ? "rgba(99,102,241,0.18)"  : "#c7d2fe" },
+                  ].filter(s => ps[s.key]).map(s => (
+                    <div key={s.key} className="rounded-xl p-4 border" style={{ backgroundColor: s.bg, borderColor: s.border }}>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color: s.color }}>{s.label}</p>
+                      <p className={`text-[13px] leading-relaxed ${dk ? "text-gray-300" : "text-gray-700"}`}>{ps[s.key]}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
 
         {activeTab === "details" && (
           <motion.div key="details" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
