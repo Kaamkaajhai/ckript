@@ -2,8 +2,27 @@ import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import Transaction from "../models/Transaction.js";
 import { CREDIT_PRICES } from "./creditsController.js";
 import { createRequire } from 'module';
+import Razorpay from "razorpay";
+import crypto from "crypto";
+
+// Lazy initialization of Razorpay
+let razorpayInstance = null;
+
+const getRazorpay = () => {
+  if (!razorpayInstance) {
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      throw new Error("Razorpay credentials not configured");
+    }
+    razorpayInstance = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return razorpayInstance;
+};
 
 export const extractPdfText = async (req, res) => {
   try {
@@ -795,169 +814,462 @@ export const getCategories = async (req, res) => {
   }
 };
 
-/**
- * GET /scripts/investor-home
- *
- * Smart feed that auto-detects the investor's interests from their full profile
- * (bio, mandates, preferences, skills, previousCredits, specificHooks) and
- * generates genre-grouped sections automatically — no manual "set preferences" step.
- *
- * Genre detection priority:
- *   1. industryProfile.mandates.genres (explicit)
- *   2. preferences.genres             (explicit)
- *   3. NLP scan of bio, previousCredits, skills, specificHooks for genre keywords
- *
- * Response:
- * {
- *   detectedGenres: string[],
- *   genreSections:  { genre: string, scripts: Script[] }[],
- *   trending:       Script[],
- *   newReleases:    Script[],
- *   explore:        Script[],
- * }
- */
-export const getInvestorFeed = async (req, res) => {
+// ═══════════════════════════════════════════════════════════
+//  RAZORPAY PAYMENT INTEGRATION FOR SCRIPTS
+// ═══════════════════════════════════════════════════════════
+
+// @desc    Create Razorpay order for script purchase
+// @route   POST /api/scripts/purchase/create-order
+// @access  Private
+export const createScriptPurchaseOrder = async (req, res) => {
   try {
-    const investor = await User.findById(req.user._id).select(
-      "bio skills preferences industryProfile"
-    );
-
-    // ── 1. Build the genre list from every available profile signal ──────────
-
-    // All known genre keywords (lowercase). We'll scan free-text fields for these.
-    const KNOWN_GENRES = [
-      "action", "comedy", "drama", "horror", "thriller", "romance",
-      "sci-fi", "science fiction", "fantasy", "mystery", "adventure",
-      "crime", "documentary", "historical", "animation", "anime",
-      "musical", "western", "war", "noir", "family", "biography",
-      "sports", "superhero", "psychological", "satire", "dark comedy",
-      "rom-com", "romantic comedy", "slice of life", "supernatural",
-    ];
-    // Normalise map — "science fiction" → "Sci-Fi", "rom-com" → "Romance", etc.
-    const NORMALISE = {
-      "science fiction": "Sci-Fi",
-      "rom-com": "Romance",
-      "romantic comedy": "Romance",
-      "dark comedy": "Comedy",
-      "slice of life": "Drama",
-      "supernatural": "Horror",
+    // Check if Razorpay is configured
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ 
+        message: "Payment system not configured. Please contact support.",
+        error: "Razorpay credentials missing"
+      });
+    }
+    
+    const { scriptId } = req.body;
+    
+    const script = await Script.findById(scriptId).populate("creator", "name");
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+    
+    // Check if already purchased
+    if (script.unlockedBy.includes(req.user._id)) {
+      return res.status(400).json({ message: "You have already purchased this script" });
+    }
+    
+    // Check if trying to buy own script
+    if (script.creator._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: "You cannot purchase your own script" });
+    }
+    
+    // Create Razorpay order
+    const options = {
+      amount: Math.round(script.price * 100), // Amount in paise (INR) or cents
+      currency: "INR",
+      receipt: `script_purchase_${Date.now()}`,
+      notes: {
+        userId: req.user._id.toString(),
+        scriptId: scriptId,
+        scriptTitle: script.title,
+        creatorId: script.creator._id.toString(),
+        type: "script_purchase"
+      }
     };
-    const capitalise = (s) => s.split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-
-    // Collect raw genre strings from explicit fields
-    const rawGenres = [
-      ...(investor?.industryProfile?.mandates?.genres || []),
-      ...(investor?.preferences?.genres || []),
-    ];
-
-    // Scan free-text fields for genre mentions
-    const textBlob = [
-      investor?.bio || "",
-      investor?.industryProfile?.previousCredits || "",
-      (investor?.industryProfile?.mandates?.specificHooks || []).join(" "),
-      (investor?.skills || []).join(" "),
-    ].join(" ").toLowerCase();
-
-    for (const kw of KNOWN_GENRES) {
-      // Word-boundary match so "action" doesn't match inside "transaction"
-      if (new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(textBlob)) {
-        const display = NORMALISE[kw] || capitalise(kw);
-        rawGenres.push(display);
+    
+    const razorpay = getRazorpay();
+    const order = await razorpay.orders.create(options);
+    
+    res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      scriptDetails: {
+        id: script._id,
+        title: script.title,
+        price: script.price,
+        creator: script.creator.name
       }
-    }
-
-    // Also check contentType / format mentions in the mandates
-    const formatHints = (investor?.industryProfile?.mandates?.formats || []);
-    // If they specifically want "Documentary" format, that's also a genre signal
-    for (const f of formatHints) {
-      const fl = f.toLowerCase();
-      if (fl.includes("documentary")) rawGenres.push("Documentary");
-      if (fl.includes("anime") || fl.includes("animation")) rawGenres.push("Anime");
-      if (fl.includes("short") || fl.includes("web")) { /* not a genre, skip */ }
-    }
-
-    // Deduplicate, preserve insertion order (explicit fields first)
-    const seen = new Set();
-    const detectedGenres = [];
-    for (const g of rawGenres) {
-      const key = g.trim().toLowerCase();
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        detectedGenres.push(g.trim());
-      }
-    }
-
-    // ── 2. Build genre sections ─────────────────────────────────────────────
-
-    const SECTION_LIMIT = 12;
-    const base = { status: "published" };
-    const usedIds = new Set();
-    const genreSections = [];
-
-    for (const genre of detectedGenres) {
-      const regex = new RegExp(genre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      const scripts = await Script.find({
-        ...base,
-        $or: [
-          { genre: regex },
-          { primaryGenre: regex },
-          { "classification.primaryGenre": regex },
-          { "classification.secondaryGenre": regex },
-        ],
-      })
-        .populate("creator", "name profileImage role")
-        .sort({ views: -1, createdAt: -1 })
-        .limit(SECTION_LIMIT);
-
-      const unique = scripts.filter((s) => !usedIds.has(s._id.toString()));
-      unique.forEach((s) => usedIds.add(s._id.toString()));
-      if (unique.length > 0) genreSections.push({ genre, scripts: unique });
-    }
-
-    // ── 3. Trending (60-day, score = views + 5×unlocks) ─────────────────────
-
-    const since60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
-    const trendingRaw = await Script.aggregate([
-      { $match: { ...base, createdAt: { $gte: since60 } } },
-      {
-        $addFields: {
-          trendScore: {
-            $add: [
-              { $ifNull: ["$views", 0] },
-              { $multiply: [{ $size: { $ifNull: ["$unlockedBy", []] } }, 5] },
-            ],
-          },
-        },
-      },
-      { $sort: { trendScore: -1 } },
-      { $limit: 20 },
-      { $lookup: { from: "users", localField: "creator", foreignField: "_id", as: "creator" } },
-      { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } },
-      { $project: { "creator.password": 0, "creator.emailVerificationToken": 0 } },
-    ]);
-    const trending = trendingRaw.filter((s) => !usedIds.has(s._id.toString())).slice(0, 10);
-    trending.forEach((s) => usedIds.add(s._id.toString()));
-
-    // ── 4. New Releases (last 30 days) ──────────────────────────────────────
-
-    const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const nrRaw = await Script.find({ ...base, createdAt: { $gte: since30 } })
-      .populate("creator", "name profileImage role")
-      .sort({ createdAt: -1 })
-      .limit(20);
-    const newReleases = nrRaw.filter((s) => !usedIds.has(s._id.toString())).slice(0, 10);
-    newReleases.forEach((s) => usedIds.add(s._id.toString()));
-
-    // ── 5. Explore (everything else) ────────────────────────────────────────
-
-    const explore = await Script.find({ ...base, _id: { $nin: [...usedIds] } })
-      .populate("creator", "name profileImage role")
-      .sort({ views: -1, createdAt: -1 })
-      .limit(12);
-
-    res.json({ detectedGenres, genreSections, trending, newReleases, explore });
+    });
   } catch (error) {
-    console.error("getInvestorFeed error:", error);
-    res.status(500).json({ message: error.message });
+    console.error("Razorpay order creation error:", error);
+    res.status(500).json({ message: "Failed to create payment order", error: error.message });
+  }
+};
+
+// @desc    Verify Razorpay payment and unlock script
+// @route   POST /api/scripts/purchase/verify-payment
+// @access  Private
+export const verifyScriptPurchase = async (req, res) => {
+  try {
+    const { 
+      razorpay_order_id, 
+      razorpay_payment_id, 
+      razorpay_signature,
+      scriptId 
+    } = req.body;
+    
+    console.log("Script purchase verification:", { razorpay_order_id, razorpay_payment_id, scriptId });
+    
+    // Check if Razorpay key secret is available
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      console.error("RAZORPAY_KEY_SECRET not found in environment");
+      return res.status(500).json({ 
+        message: "Payment system not configured",
+        success: false 
+      });
+    }
+    
+    // Verify signature
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+    
+    const isAuthentic = expectedSignature === razorpay_signature;
+    
+    if (!isAuthentic) {
+      console.error("Signature verification failed");
+      return res.status(400).json({ 
+        message: "Payment verification failed - Invalid signature",
+        success: false 
+      });
+    }
+    
+    // Payment verified successfully, unlock the script
+    const script = await Script.findById(scriptId).populate("creator", "name email");
+    if (!script) {
+      console.error("Script not found:", scriptId);
+      return res.status(404).json({ 
+        message: "Script not found",
+        success: false 
+      });
+    }
+    
+    // Check if already unlocked
+    if (script.unlockedBy.includes(req.user._id)) {
+      return res.status(400).json({ 
+        message: "Script already purchased",
+        success: false 
+      });
+    }
+    
+    // Unlock the script for the buyer
+    script.unlockedBy.push(req.user._id);
+    await script.save();
+    
+    const reference = `SCRIPT-PURCHASE-${razorpay_payment_id}`;
+    
+    // Calculate platform fee and creator payout
+    const platformFee = script.price * 0.10; // 10% platform fee
+    const creatorPayout = script.price - platformFee;
+    
+    // Create transaction record for buyer
+    await Transaction.create({
+      user: req.user._id,
+      type: "payment",
+      amount: -script.price,
+      currency: "INR",
+      status: "completed",
+      description: `Purchased script: "${script.title}"`,
+      reference,
+      paymentMethod: "razorpay",
+      relatedScript: script._id,
+      metadata: {
+        razorpay_order_id,
+        razorpay_payment_id,
+        platformFee,
+        creatorPayout
+      }
+    });
+    
+    // Credit the creator
+    const creator = await User.findById(script.creator._id);
+    if (!creator.wallet) {
+      creator.wallet = { balance: 0, totalEarnings: 0 };
+    }
+    creator.wallet.balance += creatorPayout;
+    creator.wallet.totalEarnings += creatorPayout;
+    await creator.save();
+    
+    // Create transaction record for creator (earnings)
+    await Transaction.create({
+      user: creator._id,
+      type: "credit",
+      amount: creatorPayout,
+      currency: "INR",
+      status: "completed",
+      description: `Earned from script sale: "${script.title}"`,
+      reference: `SCRIPT-EARNING-${razorpay_payment_id}`,
+      paymentMethod: "razorpay",
+      relatedScript: script._id,
+      metadata: {
+        buyerId: req.user._id.toString(),
+        platformFee,
+        originalAmount: script.price
+      }
+    });
+    
+    // Notify the creator
+    await Notification.create({
+      user: script.creator._id,
+      type: "purchase",
+      from: req.user._id,
+      script: script._id,
+      message: `Your script "${script.title}" was purchased! You earned ₹${creatorPayout.toFixed(2)}`
+    });
+    
+    console.log("Script purchase completed:", { scriptId, buyerId: req.user._id, amount: script.price });
+    
+    res.json({
+      success: true,
+      message: "Script purchased successfully!",
+      script: {
+        id: script._id,
+        title: script.title,
+        purchased: true
+      },
+      transaction: {
+        reference,
+        amount: script.price,
+        platformFee,
+        creatorPayout
+      }
+    });
+  } catch (error) {
+    console.error("Script purchase verification error:", error);
+    res.status(500).json({ 
+      message: "Failed to verify payment", 
+      error: error.message,
+      success: false 
+    });
+  }
+};
+
+// @desc    Create Razorpay order for script hold/option
+// @route   POST /api/scripts/hold/create-order
+// @access  Private
+export const createScriptHoldOrder = async (req, res) => {
+  try {
+    // Check if Razorpay is configured
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ 
+        message: "Payment system not configured. Please contact support.",
+        error: "Razorpay credentials missing"
+      });
+    }
+    
+    const { scriptId } = req.body;
+    
+    const script = await Script.findById(scriptId).populate("creator", "name");
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+    
+    // Check if already held
+    if (script.holdStatus === "held") {
+      return res.status(400).json({ message: "This script is already on hold by another party" });
+    }
+    if (script.holdStatus === "sold") {
+      return res.status(400).json({ message: "This script has been sold" });
+    }
+    
+    const user = await User.findById(req.user._id);
+    if (!["investor", "producer", "director"].includes(user.role)) {
+      return res.status(403).json({ message: "Only industry professionals can hold scripts" });
+    }
+    
+    const holdFee = script.holdFee || 200;
+    
+    // Create Razorpay order
+    const options = {
+      amount: Math.round(holdFee * 100), // Amount in paise (INR) or cents
+      currency: "INR",
+      receipt: `script_hold_${Date.now()}`,
+      notes: {
+        userId: req.user._id.toString(),
+        scriptId: scriptId,
+        scriptTitle: script.title,
+        creatorId: script.creator._id.toString(),
+        holdFee: holdFee,
+        type: "script_hold"
+      }
+    };
+    
+    const razorpay = getRazorpay();
+    const order = await razorpay.orders.create(options);
+    
+    res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      scriptDetails: {
+        id: script._id,
+        title: script.title,
+        holdFee: holdFee,
+        creator: script.creator.name
+      }
+    });
+  } catch (error) {
+    console.error("Razorpay hold order creation error:", error);
+    res.status(500).json({ message: "Failed to create payment order", error: error.message });
+  }
+};
+
+// @desc    Verify Razorpay payment and place hold on script
+// @route   POST /api/scripts/hold/verify-payment
+// @access  Private
+export const verifyScriptHold = async (req, res) => {
+  try {
+    const { 
+      razorpay_order_id, 
+      razorpay_payment_id, 
+      razorpay_signature,
+      scriptId 
+    } = req.body;
+    
+    console.log("Script hold verification:", { razorpay_order_id, razorpay_payment_id, scriptId });
+    
+    // Check if Razorpay key secret is available
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      console.error("RAZORPAY_KEY_SECRET not found in environment");
+      return res.status(500).json({ 
+        message: "Payment system not configured",
+        success: false 
+      });
+    }
+    
+    // Verify signature
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(body.toString())
+      .digest("hex");
+    
+    const isAuthentic = expectedSignature === razorpay_signature;
+    
+    if (!isAuthentic) {
+      console.error("Signature verification failed");
+      return res.status(400).json({ 
+        message: "Payment verification failed - Invalid signature",
+        success: false 
+      });
+    }
+    
+    // Payment verified successfully, place hold on script
+    const script = await Script.findById(scriptId).populate("creator", "name email");
+    if (!script) {
+      console.error("Script not found:", scriptId);
+      return res.status(404).json({ 
+        message: "Script not found",
+        success: false 
+      });
+    }
+    
+    // Double-check hold status
+    if (script.holdStatus === "held") {
+      return res.status(400).json({ 
+        message: "Script is already held",
+        success: false 
+      });
+    }
+    
+    const user = await User.findById(req.user._id);
+    const fee = script.holdFee || 200;
+    const platformCut = fee * 0.10; // 10% platform fee
+    const creatorPayout = fee - platformCut;
+    const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+    // Create option record
+    const option = await ScriptOption.create({
+      script: scriptId,
+      holder: req.user._id,
+      fee,
+      platformCut,
+      creatorPayout,
+      endDate,
+      status: "active",
+      paymentId: razorpay_payment_id,
+      orderId: razorpay_order_id
+    });
+
+    // Update script
+    script.holdStatus = "held";
+    script.heldBy = req.user._id;
+    script.holdStartDate = new Date();
+    script.holdEndDate = endDate;
+    await script.save();
+
+    const reference = `SCRIPT-HOLD-${razorpay_payment_id}`;
+    
+    // Create transaction record for holder (payment)
+    await Transaction.create({
+      user: req.user._id,
+      type: "payment",
+      amount: -fee,
+      currency: "INR",
+      status: "completed",
+      description: `Placed hold on script: "${script.title}" (30 days)`,
+      reference,
+      paymentMethod: "razorpay",
+      relatedScript: script._id,
+      metadata: {
+        razorpay_order_id,
+        razorpay_payment_id,
+        holdEndDate: endDate,
+        platformCut,
+        creatorPayout
+      }
+    });
+    
+    // Credit the creator
+    const creator = await User.findById(script.creator._id);
+    if (!creator.wallet) {
+      creator.wallet = { balance: 0, totalEarnings: 0 };
+    }
+    creator.wallet.balance += creatorPayout;
+    creator.wallet.totalEarnings += creatorPayout;
+    await creator.save();
+    
+    // Create transaction record for creator (earnings)
+    await Transaction.create({
+      user: creator._id,
+      type: "credit",
+      amount: creatorPayout,
+      currency: "INR",
+      status: "completed",
+      description: `Earned from script hold: "${script.title}"`,
+      reference: `SCRIPT-HOLD-EARNING-${razorpay_payment_id}`,
+      paymentMethod: "razorpay",
+      relatedScript: script._id,
+      metadata: {
+        holderId: req.user._id.toString(),
+        platformCut,
+        originalAmount: fee,
+        holdEndDate: endDate
+      }
+    });
+
+    // Notify the creator
+    await Notification.create({
+      user: script.creator._id,
+      type: "hold",
+      from: req.user._id,
+      script: script._id,
+      message: `${user.name} has placed a hold on "${script.title}" for ₹${fee} (30 days). You earn ₹${creatorPayout.toFixed(2)}!`,
+    });
+
+    console.log("Script hold completed:", { scriptId, holderId: req.user._id, fee });
+
+    res.json({
+      success: true,
+      message: "Hold placed successfully!",
+      option,
+      holdDetails: {
+        fee,
+        platformCut,
+        creatorPayout,
+        expiresAt: endDate,
+      },
+      transaction: {
+        reference,
+        amount: fee
+      }
+    });
+  } catch (error) {
+    console.error("Script hold verification error:", error);
+    res.status(500).json({ 
+      message: "Failed to verify payment", 
+      error: error.message,
+      success: false 
+    });
   }
 };

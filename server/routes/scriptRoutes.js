@@ -6,7 +6,8 @@ import {
   getFeaturedScripts, getTopScripts, searchScriptsReader,
   getLatestScripts, recordRead, toggleFavorite, getCategories,
   extractPdfText, saveDraft, deleteScript, getMyDrafts, updateScript,
-  getInvestorFeed
+  createScriptPurchaseOrder, verifyScriptPurchase,
+  createScriptHoldOrder, verifyScriptHold
 } from "../controllers/scriptController.js";
 import multer from "multer";
 
@@ -16,6 +17,13 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.post("/extract-pdf", protect, upload.single("pdf"), extractPdfText);
 router.post("/draft", protect, saveDraft);
 router.post("/upload", protect, uploadScript);
+
+// Razorpay payment routes for scripts
+router.post("/purchase/create-order", protect, createScriptPurchaseOrder);
+router.post("/purchase/verify-payment", protect, verifyScriptPurchase);
+router.post("/hold/create-order", protect, createScriptHoldOrder);
+router.post("/hold/verify-payment", protect, verifyScriptHold);
+
 router.get("/", protect, getScripts);
 router.get("/holds", protect, getMyHolds);
 router.get("/my-drafts", protect, getMyDrafts);
@@ -25,7 +33,6 @@ router.get("/top", protect, getTopScripts);
 router.get("/reader-search", protect, searchScriptsReader);
 router.get("/latest", protect, getLatestScripts);
 router.get("/categories", protect, getCategories);
-router.get("/investor-home", protect, getInvestorFeed);
 router.get("/:id", protect, getScriptById);
 router.post("/unlock", protect, unlockScript);
 router.post("/hold", protect, holdScript);

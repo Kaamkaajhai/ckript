@@ -5,6 +5,7 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { Film } from "lucide-react";
+import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 
 const ScriptDetail = () => {
   const { id } = useParams();
@@ -16,6 +17,7 @@ const ScriptDetail = () => {
   const [loading, setLoading] = useState(true);
   const [coverError, setCoverError] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [holdLoading, setHoldLoading] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [scoreLoading, setScoreLoading] = useState(false);
@@ -24,6 +26,7 @@ const ScriptDetail = () => {
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [paymentType, setPaymentType] = useState("purchase"); // "purchase" or "hold"
 
   /* ── Handlers ─────────────────────────────────────────── */
 
@@ -136,16 +139,29 @@ const ScriptDetail = () => {
   };
 
   const handleHold = async () => {
-    setHoldLoading(true);
-    try {
-      await api.post("/scripts/hold", { scriptId: script._id });
-      await fetchScript();
-      setShowHoldModal(false);
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to place hold");
-    } finally {
-      setHoldLoading(false);
+    setPaymentType("hold");
+    setShowHoldModal(true);
+  };
+
+  const handlePurchase = async () => {
+    setPaymentType("purchase");
+    setShowPurchaseModal(true);
+  };
+
+  const handlePaymentSuccess = async (paymentData) => {
+    // Refresh script data after successful payment
+    await fetchScript();
+    
+    // Show success message
+    if (paymentType === "purchase") {
+      alert(`Script purchased successfully! ${paymentData.message || ""}`);
+    } else {
+      alert(`Hold placed successfully! ${paymentData.message || ""}`);
     }
+    
+    // Close modal
+    setShowHoldModal(false);
+    setShowPurchaseModal(false);
   };
 
   const handleGenerateTrailer = async () => {
@@ -557,29 +573,37 @@ const ScriptDetail = () => {
                       </button>
                     )}
 
-                    {/* Message Writer — only visible to investors who have purchased this script */}
-                    {!isOwner && user?.role === "investor" && script.isUnlocked && (
+                    {/* Purchase Button for non-owners */}
+                    {!isOwner && script.premium && !script.unlockedBy?.includes(user?._id) && (
                       <button
-                        onClick={() =>
-                          navigate(
-                            `/messages?recipientId=${script.creator?._id}&recipientName=${encodeURIComponent(script.creator?.name || "Writer")}`
-                          )
-                        }
-                        className={`w-full px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-sm ${t.btnPrim}`}
+                        onClick={handlePurchase}
+                        className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-lg ${t.btnPrim}`}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-3-3z" />
-                        </svg>
-                        Message Writer
+                        <div className="flex items-center justify-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          Purchase Script &mdash; ₹{script.price}
+                        </div>
                       </button>
+                    )}
+
+                    {/* Already Purchased Badge */}
+                    {!isOwner && script.unlockedBy?.includes(user?._id) && (
+                      <div className="w-full px-4 py-3 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold text-center border border-emerald-200 flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Purchased
+                      </div>
                     )}
 
                     {!isOwner && isPro && script.holdStatus === "available" && (
                       <button
-                        onClick={() => setShowHoldModal(true)}
-                        className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-sm ${t.btnPrim}`}
+                        onClick={handleHold}
+                        className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-sm ${t.btnGhost}`}
                       >
-                        Place Hold &mdash; ${script.holdFee || 200}
+                        Place Hold &mdash; ₹{script.holdFee || 200}
                       </button>
                     )}
 
@@ -1271,46 +1295,22 @@ const ScriptDetail = () => {
       </AnimatePresence>
 
       {/* Hold modal */}
-      <AnimatePresence>
-        {showHoldModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => !holdLoading && setShowHoldModal(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className={`rounded-2xl shadow-2xl max-w-md w-full p-6 border ${t.card}`}>
-              <h2 className={`text-xl font-extrabold mb-2 tracking-tight ${t.title}`}>Place Hold</h2>
-              <p className={`text-sm mb-5 ${t.muted}`}>
-                Reserve 30-day exclusive access to &ldquo;<span className={`font-semibold ${t.sub}`}>{script.title}</span>&rdquo;
-              </p>
-              <div className={`rounded-xl p-4 mb-5 border space-y-2 ${t.inset}`}>
-                <div className="flex justify-between text-sm">
-                  <span className={`font-medium ${t.muted}`}>Hold Fee</span>
-                  <span className={`font-bold ${t.title}`}>${script.holdFee || 200}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className={`font-medium ${t.muted}`}>Platform Fee (10%)</span>
-                  <span className={`font-bold ${t.muted}`}>${((script.holdFee || 200) * 0.1).toFixed(2)}</span>
-                </div>
-                <div className={`flex justify-between text-sm pt-2 border-t ${t.divider}`}>
-                  <span className={`font-bold ${t.sub}`}>Creator Receives</span>
-                  <span className={`font-bold ${t.title}`}>${((script.holdFee || 200) * 0.9).toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setShowHoldModal(false)}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition border ${t.btnSec}`}>
-                  Cancel
-                </button>
-                <button onClick={handleHold} disabled={holdLoading}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 ${t.btnPrim}`}>
-                  {holdLoading ? "Processing..." : "Confirm Hold"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <RazorpayScriptPayment
+        isOpen={showHoldModal}
+        onClose={() => setShowHoldModal(false)}
+        script={script}
+        type="hold"
+        onSuccess={handlePaymentSuccess}
+      />
+
+      {/* Purchase modal */}
+      <RazorpayScriptPayment
+        isOpen={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        script={script}
+        type="purchase"
+        onSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 };
