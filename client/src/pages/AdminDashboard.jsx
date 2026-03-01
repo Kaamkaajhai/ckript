@@ -289,15 +289,8 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState("overview");
     const [loading, setLoading] = useState(false);
 
-    // ─── Code Gate (fully independent — uses sessionStorage only) ───
-    const [authorized, setAuthorized] = useState(() => {
-        const session = sessionStorage.getItem("admin-session");
-        if (!session) return false;
-        try {
-            const { token } = JSON.parse(session);
-            return !!token;
-        } catch { return false; }
-    });
+    // ─── Code Gate — always prompt on every visit ───
+    const [authorized, setAuthorized] = useState(false);
     const [codeInput, setCodeInput] = useState("");
     const [codeError, setCodeError] = useState("");
     const [codeLoading, setCodeLoading] = useState(false);

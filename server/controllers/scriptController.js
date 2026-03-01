@@ -107,6 +107,18 @@ export const getMyDrafts = async (req, res) => {
   }
 };
 
+export const getMyScripts = async (req, res) => {
+  try {
+    const scripts = await Script.find({ creator: req.user._id, status: { $ne: "draft" } })
+      .sort({ createdAt: -1 })
+      .select("_id title services scriptScore status")
+      .lean();
+    res.json(scripts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const updateScript = async (req, res) => {
   try {
     const script = await Script.findById(req.params.id);

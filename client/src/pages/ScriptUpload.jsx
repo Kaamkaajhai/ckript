@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { useDarkMode } from "../context/DarkModeContext";
 
 // Format options
 const formats = [
@@ -96,6 +97,7 @@ Last Updated: ${new Date().toLocaleDateString()}
 
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
+  const { isDarkMode } = useDarkMode();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
@@ -577,7 +579,7 @@ const ScriptUpload = () => {
         <div className="flex items-center gap-3 mb-6">
           <span className="text-3xl">🎬</span>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">{editId ? "Edit Your Project" : "Add Your Project"}</h1>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{editId ? "Edit Your Project" : "Add Your Project"}</h1>
             <p className="text-sm text-neutral-500">{editId ? "Update your script details and republish" : "Complete the 5-step wizard to publish your script"}</p>
           </div>
         </div>
