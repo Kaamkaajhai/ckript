@@ -21,7 +21,8 @@ const scriptSchema = new mongoose.Schema({
   coverImage: { type: String },
   genre: { type: String },
   contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup"], default: "movie" },
-  status: { type: String, enum: ["draft", "published"], default: "published" },
+  status: { type: String, enum: ["draft", "published", "pending_approval", "rejected"], default: "draft" },
+  adminApproved: { type: Boolean, default: false },
 
   // Enhanced metadata for writer onboarding
   format: {
@@ -82,6 +83,18 @@ const scriptSchema = new mongoose.Schema({
     pacing: { type: Number, min: 0, max: 100 },
     marketability: { type: Number, min: 0, max: 100 },
     feedback: { type: String },
+    scoredAt: { type: Date },
+  },
+  // Platform Score (Admin-given scores)
+  platformScore: {
+    overall: { type: Number, min: 0, max: 100 },
+    content: { type: Number, min: 0, max: 100 },
+    trailer: { type: Number, min: 0, max: 100 },
+    title: { type: Number, min: 0, max: 100 },
+    synopsis: { type: Number, min: 0, max: 100 },
+    tags: { type: Number, min: 0, max: 100 },
+    feedback: { type: String },
+    scoredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     scoredAt: { type: Date },
   },
   // Talent Attachment - Roles

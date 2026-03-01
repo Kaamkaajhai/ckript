@@ -28,263 +28,297 @@ import ReaderHome from "./pages/ReaderHome";
 import ScriptReader from "./pages/ScriptReader";
 import ReaderProfile from "./pages/ReaderProfile";
 import Credits from "./pages/Credits";
+import AdminDashboard from "./pages/AdminDashboard";
 import MainLayout from "./layouts/MainLayout";
 import PrivateRoute from "./utils/PrivateRoute";
+import { useEffect, useContext } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { AuthContext } from "./context/AuthContext";
+
+// Handles admin impersonation login via URL parameter
+function AdminLoginHandler({ children }) {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { setUser } = useContext(AuthContext);
+
+  useEffect(() => {
+    const adminLoginData = searchParams.get("adminLogin");
+    if (adminLoginData) {
+      try {
+        const userData = JSON.parse(decodeURIComponent(adminLoginData));
+        localStorage.setItem("user", JSON.stringify(userData));
+        setUser(userData);
+        // Clean URL by navigating without the query param
+        navigate("/dashboard", { replace: true });
+      } catch (err) {
+        console.error("Failed to parse admin login data:", err);
+      }
+    }
+  }, [searchParams, setUser, navigate]);
+
+  return children;
+}
 
 function App() {
   return (
     <DarkModeProvider>
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms-of-service" element={<TermsOfService />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/join" element={<RoleSelection />} />
-          <Route path="/signup" element={<Join />} />
-          <Route path="/writer-onboarding" element={<WriterOnboarding />} />
-          <Route path="/investor-onboarding" element={<InvestorOnboarding />} />
-          <Route path="/industry-onboarding" element={
-            <PrivateRoute>
-              <MainLayout>
-                <IndustryOnboarding />
-              </MainLayout>
-            </PrivateRoute>
-          } />
-          <Route
-            path="/top-list"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <TopList />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/featured"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <FeaturedProjects />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/trending"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Trending />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/profile/:id?"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Profile />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Dashboard />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/credits"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Credits />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/new-project"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <NewProject />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/ai-tools"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Dashboard />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/offer-holds"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Dashboard />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/create-project"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <CreateProject />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/create-project/:draftId"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <CreateProject />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/upload"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <ScriptUpload />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/search"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Search />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/script/:id"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <ScriptDetail />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/mandates"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Mandates />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/writers"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Writers />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/home"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <InvestorHome />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/programs"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <Messages />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reader"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <ReaderHome />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reader/script/:id"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <ScriptReader />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reader/profile/:id?"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <ReaderProfile />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reader/search"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <ReaderHome />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-          <Route
-            path="/reader/featured"
-            element={
-              <PrivateRoute>
-                <MainLayout>
-                  <ReaderHome />
-                </MainLayout>
-              </PrivateRoute>
-            }
-          />
-        </Routes>
-      </Router>
-    </AuthProvider>
+      <AuthProvider>
+        <Router>
+          <AdminLoginHandler>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/terms-of-service" element={<TermsOfService />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/join" element={<RoleSelection />} />
+              <Route path="/signup" element={<Join />} />
+              <Route path="/writer-onboarding" element={<WriterOnboarding />} />
+              <Route path="/investor-onboarding" element={<InvestorOnboarding />} />
+              <Route path="/industry-onboarding" element={
+                <PrivateRoute>
+                  <MainLayout>
+                    <IndustryOnboarding />
+                  </MainLayout>
+                </PrivateRoute>
+              } />
+              <Route
+                path="/top-list"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <TopList />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/featured"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <FeaturedProjects />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/trending"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Trending />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/profile/:id?"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Profile />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Dashboard />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/credits"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Credits />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/new-project"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <NewProject />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/ai-tools"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Dashboard />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/offer-holds"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Dashboard />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/create-project"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <CreateProject />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/create-project/:draftId"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <CreateProject />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/upload"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ScriptUpload />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/search"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Search />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/script/:id"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ScriptDetail />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/mandates"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Mandates />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/writers"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Writers />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/home"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <InvestorHome />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/programs"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <Messages />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/reader"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ReaderHome />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/reader/script/:id"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ScriptReader />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/reader/profile/:id?"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ReaderProfile />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/reader/search"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ReaderHome />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/reader/featured"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <ReaderHome />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={<AdminDashboard />}
+              />
+            </Routes>
+          </AdminLoginHandler>
+        </Router>
+      </AuthProvider>
     </DarkModeProvider>
   );
 }

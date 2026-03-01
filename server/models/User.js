@@ -5,21 +5,21 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional"], required: true },
+  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin"], required: true },
   bio: { type: String },
   skills: [String],
   profileImage: { type: String },
-  
+
   // Email verification
   emailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String },
   emailVerificationExpires: { type: Date },
-  
+
   // Writer-specific profile fields
   writerProfile: {
     legalName: { type: String },
-    representationStatus: { 
-      type: String, 
+    representationStatus: {
+      type: String,
       enum: ["unrepresented", "manager", "agent", "manager_and_agent"],
       default: "unrepresented"
     },
@@ -42,11 +42,11 @@ const userSchema = new mongoose.Schema({
     onboardingComplete: { type: Boolean, default: false },
     onboardingStep: { type: Number, default: 0 }, // Track which step they're on
   },
-  
+
   // Industry Professional Profile
   industryProfile: {
-    subRole: { 
-      type: String, 
+    subRole: {
+      type: String,
       enum: ["producer", "agent", "director", "actor"],
     },
     company: { type: String },
@@ -67,7 +67,7 @@ const userSchema = new mongoose.Schema({
     onboardingComplete: { type: Boolean, default: false },
     onboardingStep: { type: Number, default: 0 },
   },
-  
+
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   // Smart Match preferences
@@ -119,8 +119,8 @@ const userSchema = new mongoose.Schema({
     bankName: { type: String },
     accountNumber: { type: String },
     routingNumber: { type: String },
-    accountType: { 
-      type: String, 
+    accountType: {
+      type: String,
       enum: ["checking", "savings", "business"],
       default: "checking"
     },

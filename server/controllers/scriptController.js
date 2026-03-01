@@ -171,7 +171,7 @@ export const updateScript = async (req, res) => {
       };
     }
 
-    script.status = "published";
+    script.status = "pending_approval";
     await script.save();
     res.json(script);
   } catch (error) {
@@ -313,7 +313,7 @@ export const uploadScript = async (req, res) => {
       // AI Trailer status initialization
       trailerStatus: services?.aiTrailer ? "generating" : "none",
 
-      status: "published" // Force publish on final upload
+      status: "pending_approval" // Requires admin approval before publishing
     };
 
     // If updating from a draft (if we pass draftId in the future), we could update instead of create.

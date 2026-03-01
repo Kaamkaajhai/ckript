@@ -1099,7 +1099,7 @@ const Profile = () => {
           <Transactions dark={dark} />
 
           {/* Bank Details */}
-          <BankDetails dark={dark} />
+          {isWriter(profile.role) && <BankDetails dark={dark} />}
         </motion.div>
       )}
 
