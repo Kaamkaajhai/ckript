@@ -11,9 +11,11 @@ import {
   Mail,
   Lock,
   User,
+  Users,
   AlertCircle,
   Globe,
   Briefcase,
+  FileText,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -220,13 +222,11 @@ const InvestorOnboarding = () => {
       <div className="w-full max-w-lg">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2.5 mb-3">
-            <div className="w-9 h-9 bg-[#1e3a5f] rounded-xl flex items-center justify-center">
-              <DollarSign size={18} className="text-white" />
-            </div>
-            <span className="text-xl font-black text-[#1e3a5f] tracking-tight">Ckript</span>
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Users size={28} className="text-[#0a1628]" strokeWidth={1.5} />
+            <h1 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Ckript</h1>
           </div>
-          <p className="text-gray-400 text-sm font-medium">Investor Onboarding</p>
+          <p className="text-sm text-gray-600">Investor Onboarding</p>
         </div>
 
         {/* Steps */}
@@ -298,7 +298,7 @@ const InvestorOnboarding = () => {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-4">
                       <div>
                         <label className={labelClass}>Password</label>
                         <div className="relative">
