@@ -189,10 +189,10 @@ const ScriptDetail = () => {
   const formatDate = (d) =>
     d
       ? new Date(d).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
       : "N/A";
 
   const fmtFormat = (f) => {
@@ -236,41 +236,41 @@ const ScriptDetail = () => {
 
   /* ── Theme helpers ─────────────────────────────────────── */
   const t = {
-    page:     isDarkMode ? "bg-[#070e1a]"              : "bg-gray-50",
-    card:     isDarkMode ? "bg-[#0d1829] border-white/[0.06]"  : "bg-white border-gray-200",
-    cardHov:  isDarkMode ? "hover:border-white/[0.12]" : "hover:border-gray-300",
-    tabs:     isDarkMode ? "bg-[#0a1220] border-white/[0.04]"  : "bg-gray-100/80 border-gray-200",
-    tabAct:   isDarkMode ? "bg-[#1e3a5f] text-white shadow-md shadow-[#0a1520]/60"
-                        : "bg-white text-[#1e3a5f] shadow-sm shadow-gray-200",
+    page: isDarkMode ? "bg-[#070e1a]" : "bg-gray-50",
+    card: isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200",
+    cardHov: isDarkMode ? "hover:border-white/[0.12]" : "hover:border-gray-300",
+    tabs: isDarkMode ? "bg-[#0a1220] border-white/[0.04]" : "bg-gray-100/80 border-gray-200",
+    tabAct: isDarkMode ? "bg-[#1e3a5f] text-white shadow-md shadow-[#0a1520]/60"
+      : "bg-white text-[#1e3a5f] shadow-sm shadow-gray-200",
     tabInact: isDarkMode ? "text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04]"
-                        : "text-gray-400 hover:text-gray-700 hover:bg-white/60",
-    title:    isDarkMode ? "text-white"      : "text-gray-900",
-    sub:      isDarkMode ? "text-neutral-400": "text-gray-600",
-    muted:    isDarkMode ? "text-neutral-500": "text-gray-400",
-    label:    isDarkMode ? "text-neutral-500": "text-gray-400",
-    chip:     isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white/80"
-                        : "bg-gray-100 border-gray-200 text-gray-700",
+      : "text-gray-400 hover:text-gray-700 hover:bg-white/60",
+    title: isDarkMode ? "text-white" : "text-gray-900",
+    sub: isDarkMode ? "text-neutral-400" : "text-gray-600",
+    muted: isDarkMode ? "text-neutral-500" : "text-gray-400",
+    label: isDarkMode ? "text-neutral-500" : "text-gray-400",
+    chip: isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white/80"
+      : "bg-gray-100 border-gray-200 text-gray-700",
     chipBlue: isDarkMode ? "bg-[#1e3a5f]/40 border-[#1e3a5f]/60 text-blue-300"
-                        : "bg-blue-50 border-blue-200 text-blue-700",
-    row:      isDarkMode ? "border-white/[0.04]" : "border-gray-100",
-    divider:  isDarkMode ? "border-white/[0.06]" : "border-gray-100",
-    inset:    isDarkMode ? "bg-white/[0.03] border-white/[0.05]"
-                        : "bg-gray-50 border-gray-200",
-    btnPrim:  isDarkMode ? "bg-[#1e3a5f] hover:bg-[#254a75] text-white"
-                        : "bg-[#1e3a5f] hover:bg-[#254a75] text-white",
-    btnSec:   isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]"
-                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50",
+      : "bg-blue-50 border-blue-200 text-blue-700",
+    row: isDarkMode ? "border-white/[0.04]" : "border-gray-100",
+    divider: isDarkMode ? "border-white/[0.06]" : "border-gray-100",
+    inset: isDarkMode ? "bg-white/[0.03] border-white/[0.05]"
+      : "bg-gray-50 border-gray-200",
+    btnPrim: isDarkMode ? "bg-[#1e3a5f] hover:bg-[#254a75] text-white"
+      : "bg-[#1e3a5f] hover:bg-[#254a75] text-white",
+    btnSec: isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]"
+      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50",
     btnGhost: isDarkMode ? "bg-[#1a3050] border-white/[0.06] text-white hover:bg-[#213d64]"
-                        : "bg-blue-50 border-blue-200 text-[#1e3a5f] hover:bg-blue-100",
-    btnDel:   isDarkMode ? "bg-red-500/8 border-red-500/15 text-red-400 hover:bg-red-500/15 hover:text-red-300"
-                        : "bg-red-50 border-red-200 text-red-500 hover:bg-red-100",
-    logline:  isDarkMode ? "from-white/[0.03] border-l-[#1e3a5f]"
-                        : "from-blue-50 border-l-[#1e3a5f]",
-    tag:      isDarkMode ? "bg-white/[0.04] text-neutral-500 ring-white/[0.06] hover:ring-white/[0.12]"
-                        : "bg-gray-100 text-gray-500 ring-gray-200 hover:ring-gray-300",
+      : "bg-blue-50 border-blue-200 text-[#1e3a5f] hover:bg-blue-100",
+    btnDel: isDarkMode ? "bg-red-500/8 border-red-500/15 text-red-400 hover:bg-red-500/15 hover:text-red-300"
+      : "bg-red-50 border-red-200 text-red-500 hover:bg-red-100",
+    logline: isDarkMode ? "from-white/[0.03] border-l-[#1e3a5f]"
+      : "from-blue-50 border-l-[#1e3a5f]",
+    tag: isDarkMode ? "bg-white/[0.04] text-neutral-500 ring-white/[0.06] hover:ring-white/[0.12]"
+      : "bg-gray-100 text-gray-500 ring-gray-200 hover:ring-gray-300",
     priceSub: isDarkMode ? "bg-white/[0.03] border-white/[0.06]"
-                        : "bg-gray-50 border-gray-200",
-    dot:      isDarkMode ? "bg-[#2a4060]" : "bg-gray-300",
+      : "bg-gray-50 border-gray-200",
+    dot: isDarkMode ? "bg-[#2a4060]" : "bg-gray-300",
   };
 
   /* ── Loading / Error ──────────────────────────────────── */
@@ -305,21 +305,19 @@ const ScriptDetail = () => {
   const ci = script.contentIndicators || {};
 
   const tabs = [
-    { id: "overview",       label: "Overview" },
+    { id: "overview", label: "Overview" },
     { id: "classification", label: "Classification" },
-    { id: "score",          label: "Score" },
-    { id: "roles",          label: "Roles" },
-    { id: "synopsis",       label: "Synopsis" },
+    { id: "evaluation", label: "Evaluation" },
+    { id: "roles", label: "Roles" },
+    { id: "synopsis", label: "Synopsis" },
     ...(isOwner && script.textContent
       ? [{ id: "content", label: "My Script" }]
       : []),
   ];
 
   const stats = [
-    { label: "Views",     value: script.views || 0,        g: isDarkMode ? "from-blue-500/10 to-blue-500/5"    : "from-blue-50 to-white",    c: "text-blue-500",   b: isDarkMode ? "border-white/[0.06]" : "border-blue-100" },
-    { label: "Reads",     value: script.readsCount || 0,   g: isDarkMode ? "from-purple-500/10 to-purple-500/5": "from-purple-50 to-white",  c: "text-purple-500", b: isDarkMode ? "border-white/[0.06]" : "border-purple-100" },
-    { label: "Auditions", value: script.auditionCount || 0,g: isDarkMode ? "from-amber-500/10 to-amber-500/5"  : "from-amber-50 to-white",   c: "text-amber-500",  b: isDarkMode ? "border-white/[0.06]" : "border-amber-100" },
-    { label: "Reviews",   value: script.reviewCount || 0,  g: isDarkMode ? "from-emerald-500/10 to-emerald-500/5": "from-emerald-50 to-white",c: "text-emerald-600",b: isDarkMode ? "border-white/[0.06]" : "border-emerald-100" },
+    { label: "Views", value: script.views || 0, g: isDarkMode ? "from-blue-500/10 to-blue-500/5" : "from-blue-50 to-white", c: "text-blue-500", b: isDarkMode ? "border-white/[0.06]" : "border-blue-100" },
+    { label: "Reviews", value: script.reviewCount || 0, g: isDarkMode ? "from-emerald-500/10 to-emerald-500/5" : "from-emerald-50 to-white", c: "text-emerald-600", b: isDarkMode ? "border-white/[0.06]" : "border-emerald-100" },
   ];
 
   /* ══════════════════════════════════════════════════════════
@@ -417,11 +415,6 @@ const ScriptDetail = () => {
                     <span className={`px-2.5 py-1 rounded-lg text-[11px] font-medium ${isDarkMode ? "bg-black/30 text-white/80" : "bg-white/80 text-gray-600 border border-gray-200"}`}>
                       {script.views || 0} views
                     </span>
-                    {script.readsCount > 0 && (
-                      <span className={`px-2.5 py-1 rounded-lg text-[11px] font-medium ${isDarkMode ? "bg-black/30 text-white/80" : "bg-white/80 text-gray-600 border border-gray-200"}`}>
-                        {script.readsCount} reads
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -539,12 +532,7 @@ const ScriptDetail = () => {
                         <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Budget</p>
                         <p className={`text-[13px] font-bold capitalize ${t.title}`}>{script.budget || "\u2014"}</p>
                       </div>
-                      {score?.overall && (
-                        <div>
-                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Score</p>
-                          <p className={`text-lg font-extrabold tabular-nums ${scoreColor(score.overall)}`}>{score.overall}</p>
-                        </div>
-                      )}
+
                       {script.rating > 0 && (
                         <div>
                           <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Rating</p>
@@ -724,14 +712,14 @@ const ScriptDetail = () => {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
                     {[
-                      { label: "Format",         value: fmtFormat(script.format) },
-                      { label: "Primary Genre",  value: cl.primaryGenre || script.primaryGenre || script.genre },
-                      { label: "Secondary Genre",value: cl.secondaryGenre },
-                      { label: "Page Count",     value: script.pageCount },
-                      { label: "Budget Level",   value: fmtBudget(script.budget) },
-                      { label: "Hold Fee",       value: script.holdFee ? `$${script.holdFee}` : null },
-                      { label: "Hold Status",    value: script.holdStatus?.charAt(0).toUpperCase() + script.holdStatus?.slice(1) },
-                      { label: "Uploaded",       value: formatDate(script.createdAt) },
+                      { label: "Format", value: fmtFormat(script.format) },
+                      { label: "Primary Genre", value: cl.primaryGenre || script.primaryGenre || script.genre },
+                      { label: "Secondary Genre", value: cl.secondaryGenre },
+                      { label: "Page Count", value: script.pageCount },
+                      { label: "Budget Level", value: fmtBudget(script.budget) },
+                      { label: "Hold Fee", value: script.holdFee ? `$${script.holdFee}` : null },
+                      { label: "Hold Status", value: script.holdStatus?.charAt(0).toUpperCase() + script.holdStatus?.slice(1) },
+                      { label: "Uploaded", value: formatDate(script.createdAt) },
                     ]
                       .filter((i) => i.value && i.value !== "\u2014")
                       .map((item, idx) => (
@@ -749,9 +737,9 @@ const ScriptDetail = () => {
             {activeTab === "classification" && (
               <motion.div key="classification" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                 {[
-                  { label: "Tones",    items: cl.tones,    color: isDarkMode ? "bg-white/[0.06] text-white/80 border border-white/[0.08]"     : "bg-gray-100 text-gray-700 border border-gray-200" },
-                  { label: "Themes",   items: cl.themes,   color: isDarkMode ? "bg-blue-500/10 text-blue-300 border border-blue-500/15"       : "bg-blue-50 text-blue-700 border border-blue-200" },
-                  { label: "Settings", items: cl.settings, color: isDarkMode ? "bg-white/[0.04] text-neutral-300 border border-white/[0.06]"  : "bg-slate-50 text-slate-700 border border-slate-200" },
+                  { label: "Tones", items: cl.tones, color: isDarkMode ? "bg-white/[0.06] text-white/80 border border-white/[0.08]" : "bg-gray-100 text-gray-700 border border-gray-200" },
+                  { label: "Themes", items: cl.themes, color: isDarkMode ? "bg-blue-500/10 text-blue-300 border border-blue-500/15" : "bg-blue-50 text-blue-700 border border-blue-200" },
+                  { label: "Settings", items: cl.settings, color: isDarkMode ? "bg-white/[0.04] text-neutral-300 border border-white/[0.06]" : "bg-slate-50 text-slate-700 border border-slate-200" },
                 ]
                   .filter((c) => c.items?.length > 0)
                   .map((cat) => (
@@ -776,73 +764,299 @@ const ScriptDetail = () => {
               </motion.div>
             )}
 
-            {/* ── Score ────────────────────────────────────── */}
-            {activeTab === "score" && (
-              <motion.div key="score" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                {score?.overall ? (
-                  <div className={`rounded-xl border p-6 ${t.card}`}>
-                    <div className={`flex items-center gap-5 mb-6 pb-6 border-b ${t.divider}`}>
-                      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg ring-1 ${isDarkMode ? "bg-gradient-to-br from-[#0f1e30] to-[#162d4a] ring-white/[0.06]" : "bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] ring-[#1e3a5f]/20"}`}>
-                        <span className="text-3xl font-extrabold text-white">{score.overall}</span>
-                      </div>
-                      <div>
-                        <h3 className={`text-lg font-extrabold tracking-tight mb-0.5 ${t.title}`}>Overall Score</h3>
-                        <p className={`text-xs font-medium ${t.muted}`}>AI-powered analysis across 5 dimensions</p>
-                        {score.scoredAt && <p className={`text-[11px] mt-1 ${t.label}`}>Scored on {formatDate(score.scoredAt)}</p>}
-                      </div>
-                    </div>
+            {/* ── Evaluation (Premium) ─────────────────────── */}
+            {activeTab === "evaluation" && (() => {
+              /* Theme-aware color palettes */
+              const dk = isDarkMode;
+              const dimsDef = [
+                { key: "plot", label: "Plot", lightColor: "#2563eb", darkColor: "#60a5fa", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" },
+                { key: "characters", label: "Characters", lightColor: "#7c3aed", darkColor: "#a78bfa", icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" },
+                { key: "dialogue", label: "Dialogue", lightColor: "#0891b2", darkColor: "#22d3ee", icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" },
+                { key: "pacing", label: "Pacing", lightColor: "#d97706", darkColor: "#fbbf24", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" },
+                { key: "marketability", label: "Market.", lightColor: "#059669", darkColor: "#34d399", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+              ];
+              const dims = dimsDef.map(d => ({ ...d, color: dk ? d.darkColor : d.lightColor }));
+              const gradeLabel = (v) => v >= 90 ? "S" : v >= 80 ? "A" : v >= 70 ? "B" : v >= 60 ? "C" : v >= 50 ? "D" : "F";
+              const gradeColor = (v) => dk
+                ? (v >= 90 ? "#c084fc" : v >= 80 ? "#34d399" : v >= 70 ? "#60a5fa" : v >= 60 ? "#fbbf24" : "#f87171")
+                : (v >= 90 ? "#9333ea" : v >= 80 ? "#059669" : v >= 70 ? "#2563eb" : v >= 60 ? "#d97706" : "#dc2626");
+              const gradeBg = (v) => dk
+                ? (v >= 90 ? "from-purple-400/10 to-purple-400/[0.02]" : v >= 80 ? "from-emerald-400/10 to-emerald-400/[0.02]" : v >= 70 ? "from-blue-400/10 to-blue-400/[0.02]" : v >= 60 ? "from-amber-400/10 to-amber-400/[0.02]" : "from-red-400/10 to-red-400/[0.02]")
+                : (v >= 90 ? "from-purple-500/15 to-purple-500/[0.03]" : v >= 80 ? "from-emerald-500/15 to-emerald-500/[0.03]" : v >= 70 ? "from-blue-500/15 to-blue-500/[0.03]" : v >= 60 ? "from-amber-500/15 to-amber-500/[0.03]" : "from-red-500/15 to-red-500/[0.03]");
+              const gradeText = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                      {[
-                        { label: "Plot",           val: score.plot },
-                        { label: "Characters",     val: score.characters },
-                        { label: "Dialogue",       val: score.dialogue },
-                        { label: "Pacing",         val: score.pacing },
-                        { label: "Marketability",  val: score.marketability },
-                      ].map((item) => (
-                        <div key={item.label} className={`rounded-xl p-4 border ${t.inset}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className={`text-sm font-semibold ${t.sub}`}>{item.label}</span>
-                            <span className={`text-lg font-extrabold tabular-nums ${scoreColor(item.val)}`}>{item.val}</span>
-                          </div>
-                          <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? "bg-white/[0.06]" : "bg-gray-200"}`}>
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${item.val}%` }}
-                              transition={{ duration: 0.8, delay: 0.2 }}
-                              className={`h-full rounded-full ${scoreBg(item.val)}`}
-                            />
+              /* Radar chart coordinates */
+              const cx = 100, cy = 100, rr = 72;
+              const angleStep = (2 * Math.PI) / dims.length;
+              const radarPts = dims.map((d, i) => { const v = (score[d.key] || 0) / 100; const a = angleStep * i - Math.PI / 2; return { x: cx + rr * v * Math.cos(a), y: cy + rr * v * Math.sin(a) }; });
+              const gridLevels = [0.25, 0.5, 0.75, 1];
+
+              /* Bar chart config */
+              const barChartH = 220;
+              const ySteps = [0, 20, 40, 60, 80, 100];
+
+              /* Theme tokens for charts */
+              const ct = {
+                gridLine: dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+                gridLineFine: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+                axisLabel: dk ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.35)",
+                axisLine: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+                radarFill: dk ? `${gradeColor(score.overall)}18` : `${gradeColor(score.overall)}15`,
+                radarStroke: gradeColor(score.overall),
+                dotStroke: dk ? "#0d1829" : "#ffffff",
+                labelFill: dk ? "fill-white/50" : "fill-gray-500",
+                barBg: dk ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                barGlow: dk ? "40" : "20",
+                sectionIcon: dk ? "bg-white/[0.05] text-white/40" : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/60",
+              };
+
+              return (
+                <motion.div key="evaluation" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                  {score?.overall ? (
+                    <>
+                      {/* ── Hero: Overall Score + Grade ── */}
+                      <div className={`rounded-2xl border overflow-hidden ${t.card}`}>
+                        <div className={`bg-gradient-to-r ${gradeBg(score.overall)} p-6 sm:p-8`}>
+                          <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+                            {/* Radial gauge */}
+                            <div className="relative w-40 h-40 shrink-0">
+                              <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                                <circle cx="60" cy="60" r="52" fill="none" stroke={dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)"} strokeWidth="8" />
+                                <circle cx="60" cy="60" r="52" fill="none" stroke={gradeColor(score.overall)} strokeWidth="8" strokeLinecap="round"
+                                  strokeDasharray={`${(score.overall / 100) * 326.7} 326.7`}
+                                  style={{ filter: `drop-shadow(0 0 10px ${gradeColor(score.overall)}50)`, transition: "stroke-dasharray 1.2s ease-out" }} />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className={`text-4xl font-black tabular-nums ${dk ? "text-white" : "text-gray-900"}`}>{score.overall}</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${dk ? "text-white/30" : "text-gray-400"}`}>Overall</span>
+                              </div>
+                            </div>
+                            {/* Grade + Summary */}
+                            <div className="flex-1 text-center sm:text-left">
+                              <div className="flex items-center gap-3 justify-center sm:justify-start mb-2">
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-black text-white shadow-lg"
+                                  style={{ backgroundColor: gradeColor(score.overall), boxShadow: `0 4px 20px ${gradeColor(score.overall)}40` }}>
+                                  {gradeLabel(score.overall)}
+                                </div>
+                                <div>
+                                  <h3 className={`text-lg font-extrabold tracking-tight ${dk ? "text-white" : "text-gray-900"}`}>{gradeText(score.overall)}</h3>
+                                  <p className={`text-xs ${dk ? "text-white/40" : "text-gray-500"}`}>AI Script Evaluation</p>
+                                </div>
+                              </div>
+                              {score.scoredAt && <p className={`text-[11px] mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Evaluated on {formatDate(score.scoredAt)}</p>}
+                              {/* Mini stat pills */}
+                              <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                                {dims.map(d => (
+                                  <div key={d.key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold border ${dk ? "bg-white/[0.04] border-white/[0.06]" : "bg-white/80 border-gray-200/60 shadow-sm"}`}>
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
+                                    <span className={dk ? "text-white/50" : "text-gray-500"}>{d.label}</span>
+                                    <span className={dk ? "text-white" : "text-gray-900"}>{score[d.key] || "\u2014"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-
-                    {score.feedback && (
-                      <div className={`rounded-xl p-4 border ${t.inset}`}>
-                        <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${t.label}`}>AI Feedback</p>
-                        <p className={`text-sm leading-relaxed ${t.sub}`}>{score.feedback}</p>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className={`text-center py-16 rounded-xl border ${t.card}`}>
-                    <svg className={`w-8 h-8 mx-auto mb-4 ${t.muted}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                      <path d="M18 20V10M12 20V4M6 20v-6" />
-                    </svg>
-                    <h3 className={`text-base font-bold mb-1 ${t.title}`}>No Score Yet</h3>
-                    <p className={`text-sm mb-4 ${t.muted}`}>
-                      {isOwner ? "Generate an AI Script Score for detailed analysis" : "The creator hasn't scored this script yet"}
-                    </p>
-                    {isOwner && (
-                      <button onClick={handleGenerateScore} disabled={scoreLoading}
-                        className={`px-6 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 ${t.btnPrim}`}>
-                        {scoreLoading ? "Scoring..." : "Get Script Score — 10 credits"}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            )}
+
+                      {/* ── Dimension Score Cards ── */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        {dims.map((d, i) => {
+                          const val = score[d.key] || 0;
+                          const circ = 2 * Math.PI * 18;
+                          return (
+                            <motion.div key={d.key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+                              className={`rounded-xl border p-4 text-center transition-all hover:scale-[1.02] ${dk ? "bg-[#0d1829] border-white/[0.06] hover:border-white/[0.12]" : "bg-white border-gray-200/70 hover:border-gray-300 shadow-sm"}`}>
+                              <div className="relative w-14 h-14 mx-auto mb-2">
+                                <svg viewBox="0 0 44 44" className="w-full h-full -rotate-90">
+                                  <circle cx="22" cy="22" r="18" fill="none" stroke={dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"} strokeWidth="4" />
+                                  <circle cx="22" cy="22" r="18" fill="none" stroke={d.color} strokeWidth="4" strokeLinecap="round"
+                                    strokeDasharray={`${(val / 100) * circ} ${circ}`}
+                                    style={{ filter: `drop-shadow(0 0 6px ${d.color}${ct.barGlow})`, transition: "stroke-dasharray 1s ease-out" }} />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className={`text-sm font-extrabold tabular-nums ${dk ? "text-white" : "text-gray-900"}`}>{val}</span>
+                                </div>
+                              </div>
+                              <p className={`text-[11px] font-bold ${dk ? "text-white/50" : "text-gray-500"}`}>{d.label}</p>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+
+                      {/* ── Bar Chart with Gridlines (like reference) ── */}
+                      <div className={`rounded-2xl border p-6 ${t.card}`}>
+                        <h3 className={`text-[13px] font-bold mb-5 flex items-center gap-2 ${t.title}`}>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>
+                          </div>
+                          Score Overview
+                        </h3>
+                        {/* SVG Bar Chart with Y-axis gridlines */}
+                        <svg viewBox={`0 0 440 ${barChartH + 40}`} className="w-full" style={{ maxHeight: 320 }}>
+                          {/* Y-axis gridlines + labels */}
+                          {ySteps.map(step => {
+                            const y = barChartH - (step / 100) * barChartH + 10;
+                            return (
+                              <g key={step}>
+                                <line x1="40" y1={y} x2="430" y2={y} stroke={ct.gridLine} strokeWidth="1" strokeDasharray={step === 0 ? "" : "3,3"} />
+                                <text x="32" y={y + 4} textAnchor="end" style={{ fontSize: 10, fill: ct.axisLabel, fontWeight: 600 }}>{step}</text>
+                              </g>
+                            );
+                          })}
+                          {/* Overall bar + dimension bars */}
+                          {[{ key: "overall", label: "Overall", color: gradeColor(score.overall) }, ...dims].map((d, i) => {
+                            const val = score[d.key] || 0;
+                            const barW = 48, gap = 12;
+                            const totalW = (barW + gap) * 6 - gap;
+                            const startX = 40 + (390 - totalW) / 2;
+                            const x = startX + i * (barW + gap);
+                            const barH = (val / 100) * barChartH;
+                            const y = barChartH - barH + 10;
+                            return (
+                              <g key={d.key}>
+                                {/* Bar background */}
+                                <rect x={x} y={10} width={barW} height={barChartH} rx="6" fill={ct.barBg} />
+                                {/* Bar fill */}
+                                <rect x={x} y={y} width={barW} height={barH} rx="6"
+                                  fill={d.color} style={{ filter: `drop-shadow(0 -4px 8px ${d.color}${ct.barGlow})` }}>
+                                  <animate attributeName="height" from="0" to={barH} dur="0.8s" fill="freeze" />
+                                  <animate attributeName="y" from={barChartH + 10} to={y} dur="0.8s" fill="freeze" />
+                                </rect>
+                                {/* Value label on top */}
+                                <text x={x + barW / 2} y={y - 6} textAnchor="middle" style={{ fontSize: 11, fontWeight: 800, fill: dk ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.75)" }}>{val}</text>
+                                {/* X-axis label */}
+                                <text x={x + barW / 2} y={barChartH + 28} textAnchor="middle" style={{ fontSize: 9, fontWeight: 700, fill: ct.axisLabel }}>{d.label}</text>
+                              </g>
+                            );
+                          })}
+                          {/* X-axis baseline */}
+                          <line x1="40" y1={barChartH + 10} x2="430" y2={barChartH + 10} stroke={ct.axisLine} strokeWidth="1.5" />
+                        </svg>
+                      </div>
+
+                      {/* ── Radar Chart + Dimension Breakdown side-by-side ── */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Radar Chart */}
+                        <div className={`rounded-2xl border p-6 ${t.card}`}>
+                          <h3 className={`text-[13px] font-bold mb-4 flex items-center gap-2 ${t.title}`}>
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>
+                            </div>
+                            Performance Radar
+                          </h3>
+                          <svg viewBox="0 0 220 220" className="w-full max-w-[300px] mx-auto">
+                            {/* Concentric grid rings with percentage labels */}
+                            {gridLevels.map((lv, i) => {
+                              const pts = dims.map((_, j) => { const a = angleStep * j - Math.PI / 2; return `${cx + 10 + rr * lv * Math.cos(a)},${cy + 10 + rr * lv * Math.sin(a)}`; }).join(" ");
+                              return (
+                                <g key={i}>
+                                  <polygon points={pts} fill="none" stroke={ct.gridLine} strokeWidth="0.8" />
+                                  <text x={cx + 10 + 4} y={cy + 10 - rr * lv + 3} style={{ fontSize: 7, fill: ct.axisLabel, fontWeight: 600 }}>{Math.round(lv * 100)}%</text>
+                                </g>
+                              );
+                            })}
+                            {/* Axis lines from center to vertices */}
+                            {dims.map((_, i) => {
+                              const a = angleStep * i - Math.PI / 2; return <line key={i} x1={cx + 10} y1={cy + 10} x2={cx + 10 + rr * Math.cos(a)} y2={cy + 10 + rr * Math.sin(a)} stroke={ct.gridLineFine} strokeWidth="0.8" />;
+                            })}
+                            {/* Data polygon with gradient fill */}
+                            <defs>
+                              <radialGradient id="radarGrad" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stopColor={ct.radarStroke} stopOpacity={dk ? "0.25" : "0.2"} />
+                                <stop offset="100%" stopColor={ct.radarStroke} stopOpacity={dk ? "0.05" : "0.03"} />
+                              </radialGradient>
+                            </defs>
+                            <polygon points={radarPts.map(p => `${p.x + 10},${p.y + 10}`).join(" ")} fill="url(#radarGrad)" stroke={ct.radarStroke} strokeWidth="2.5" strokeLinejoin="round" style={{ filter: `drop-shadow(0 0 8px ${ct.radarStroke}30)` }} />
+                            {/* Data dots + labels */}
+                            {radarPts.map((p, i) => (
+                              <g key={i}>
+                                <circle cx={p.x + 10} cy={p.y + 10} r="5" fill={dims[i].color} stroke={ct.dotStroke} strokeWidth="2.5" style={{ filter: `drop-shadow(0 0 4px ${dims[i].color}50)` }} />
+                                <text x={cx + 10 + (rr + 20) * Math.cos(angleStep * i - Math.PI / 2)} y={cy + 10 + (rr + 20) * Math.sin(angleStep * i - Math.PI / 2)}
+                                  textAnchor="middle" dominantBaseline="middle"
+                                  style={{ fontSize: 8, fontWeight: 700 }} className={ct.labelFill}>{dims[i].label}</text>
+                              </g>
+                            ))}
+                          </svg>
+                        </div>
+
+                        {/* Dimension Breakdown Bars */}
+                        <div className={`rounded-2xl border p-6 ${t.card}`}>
+                          <h3 className={`text-[13px] font-bold mb-4 flex items-center gap-2 ${t.title}`}>
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" /></svg>
+                            </div>
+                            Dimension Breakdown
+                          </h3>
+                          <div className="space-y-4">
+                            {dims.map((d, i) => (
+                              <div key={d.key}>
+                                <div className="flex items-center gap-2.5 mb-2">
+                                  <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ backgroundColor: `${d.color}${dk ? "20" : "12"}` }}>
+                                    <svg className="w-3.5 h-3.5" style={{ color: d.color }} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={d.icon} /></svg>
+                                  </div>
+                                  <span className={`text-[12px] font-semibold flex-1 ${dk ? "text-white/60" : "text-gray-600"}`}>{d.label}</span>
+                                  <span className="text-sm font-extrabold tabular-nums" style={{ color: d.color }}>{score[d.key] || 0}</span>
+                                </div>
+                                <div className="relative">
+                                  <div className={`h-3 rounded-full overflow-hidden ${dk ? "bg-white/[0.06]" : "bg-gray-100"}`}>
+                                    <motion.div initial={{ width: 0 }} animate={{ width: `${score[d.key] || 0}%` }} transition={{ duration: 1, delay: i * 0.08 }}
+                                      className="h-full rounded-full"
+                                      style={{ background: `linear-gradient(90deg, ${d.color}CC, ${d.color})`, boxShadow: `0 0 16px ${d.color}${ct.barGlow}` }} />
+                                  </div>
+                                  {/* Tick marks */}
+                                  <div className="absolute top-0 left-0 w-full h-3 flex">
+                                    {[25, 50, 75].map(tick => (
+                                      <div key={tick} className="absolute top-0 h-full" style={{ left: `${tick}%` }}>
+                                        <div className="w-px h-full" style={{ backgroundColor: dk ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)" }} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ── AI Feedback ── */}
+                      {score.feedback && (
+                        <div className={`rounded-2xl border p-6 ${t.card}`}>
+                          <h3 className={`text-[13px] font-bold mb-3 flex items-center gap-2 ${t.title}`}>
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${ct.sectionIcon}`}>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                            </div>
+                            AI Analysis
+                          </h3>
+                          <div className={`rounded-xl p-5 border ${dk ? "bg-white/[0.02] border-white/[0.06]" : "bg-gradient-to-br from-gray-50 to-white border-gray-100"}`}>
+                            <p className={`text-sm leading-relaxed ${dk ? "text-white/60" : "text-gray-600"}`}>{score.feedback}</p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className={`text-center py-16 rounded-2xl border ${t.card}`}>
+                      <div className={`w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4 ${dk ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                        <svg className={`w-7 h-7 ${t.muted}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                        </svg>
+                      </div>
+                      <h3 className={`text-lg font-extrabold mb-1 ${t.title}`}>No Evaluation Yet</h3>
+                      <p className={`text-sm mb-5 max-w-sm mx-auto ${t.muted}`}>
+                        {isOwner ? "Get an AI-powered evaluation with scores across 5 dimensions and detailed feedback." : "This project hasn't been evaluated yet."}
+                      </p>
+                      {isOwner && (
+                        <button onClick={handleGenerateScore} disabled={scoreLoading}
+                          className={`px-6 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 inline-flex items-center gap-2 ${t.btnPrim}`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                          {scoreLoading ? "Evaluating..." : "Get Evaluation \u2014 10 credits"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
 
             {/* ── Roles ────────────────────────────────────── */}
             {activeTab === "roles" && (

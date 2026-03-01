@@ -3,6 +3,7 @@ import ScriptOption from "../models/ScriptOption.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { CREDIT_PRICES } from "./creditsController.js";
+import { createRequire } from 'module';
 
 export const extractPdfText = async (req, res) => {
   try {
@@ -10,9 +11,8 @@ export const extractPdfText = async (req, res) => {
       return res.status(400).json({ message: "No PDF file provided" });
     }
 
-    // Use dynamic import to handle CJS library in ESM correctly
-    const pdfParsePkg = await import("pdf-parse");
-    const pdfParse = pdfParsePkg.default || pdfParsePkg;
+    const require = createRequire(import.meta.url);
+    const pdfParse = require('pdf-parse');
 
     const data = await pdfParse(req.file.buffer);
 
@@ -220,7 +220,7 @@ export const uploadScript = async (req, res) => {
       // Deduct credits
       user.credits.balance -= creditsRequired;
       user.credits.totalSpent += creditsRequired;
-      
+
       // Add transaction record for each service
       if (services?.evaluation) {
         user.credits.transactions.push({
@@ -231,7 +231,7 @@ export const uploadScript = async (req, res) => {
           createdAt: new Date()
         });
       }
-      
+
       if (services?.aiTrailer) {
         user.credits.transactions.push({
           type: "spent",

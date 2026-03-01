@@ -27,6 +27,7 @@ import InvestorHome from "./pages/InvestorHome";
 import ReaderHome from "./pages/ReaderHome";
 import ScriptReader from "./pages/ScriptReader";
 import ReaderProfile from "./pages/ReaderProfile";
+import Credits from "./pages/Credits";
 import MainLayout from "./layouts/MainLayout";
 import PrivateRoute from "./utils/PrivateRoute";
 
@@ -97,6 +98,16 @@ function App() {
               <PrivateRoute>
                 <MainLayout>
                   <Dashboard />
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/credits"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <Credits />
                 </MainLayout>
               </PrivateRoute>
             }

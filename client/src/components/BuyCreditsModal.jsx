@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -8,7 +8,15 @@ import {
   TrendingUp,
   Crown,
   Rocket,
-  Gift
+  Gift,
+  Shield,
+  CreditCard,
+  ArrowRight,
+  Loader2,
+  AlertCircle,
+  Star,
+  Lock,
+  RefreshCw,
 } from "lucide-react";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
@@ -20,458 +28,604 @@ const BuyCreditsModal = ({ isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+  const modalRef = useRef(null);
 
-  // Load Razorpay script
+  // Load Razorpay SDK
   useEffect(() => {
+    if (document.querySelector('script[src*="razorpay"]')) {
+      setRazorpayLoaded(true);
+      return;
+    }
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     script.onload = () => setRazorpayLoaded(true);
+    script.onerror = () => setError("Failed to load payment gateway");
     document.body.appendChild(script);
-
     return () => {
-      document.body.removeChild(script);
+      if (script.parentNode) script.parentNode.removeChild(script);
     };
   }, []);
 
   useEffect(() => {
     if (isOpen) {
       fetchPackages();
+      setError("");
+      setSuccess(false);
+      setSelectedPackage(null);
     }
   }, [isOpen]);
+
+  // ESC to close
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape" && isOpen && !purchasing) onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isOpen, purchasing, onClose]);
 
   const fetchPackages = async () => {
     try {
       setLoading(true);
+      setError("");
       const { data } = await api.get("/credits/packages");
       setPackages(data);
-    } catch (err) {
-      setError("Failed to load credit packages");
+      // Auto-select popular package
+      const popular = data.find((p) => p.popular);
+      if (popular) setSelectedPackage(popular);
+    } catch {
+      setError("Failed to load credit packages. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   const handlePurchase = async () => {
-    if (!selectedPackage || !razorpayLoaded) {
-      setError("Payment system not ready. Please try again.");
+    if (!selectedPackage) {
+      setError("Please select a credit package");
+      return;
+    }
+    if (!razorpayLoaded) {
+      setError("Payment gateway is loading. Please wait and try again.");
       return;
     }
 
     try {
       setPurchasing(true);
       setError("");
-      
-      // Create Razorpay order
+
       const { data: orderData } = await api.post("/credits/create-order", {
-        packageId: selectedPackage._id
+        packageId: selectedPackage._id,
       });
 
-      // Configure Razorpay checkout options
       const options = {
         key: orderData.keyId,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "ScriptBridge",
-        description: `Purchase ${orderData.packageDetails.name}`,
+        name: "Ckript",
+        description: `${orderData.packageDetails.name} — ${orderData.packageDetails.totalCredits} Credits`,
         order_id: orderData.orderId,
         handler: async function (response) {
           try {
-            // Verify payment on backend
-            const { data: verifyData } = await api.post("/credits/verify-payment", {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              packageId: selectedPackage._id
-            });
+            const { data: verifyData } = await api.post(
+              "/credits/verify-payment",
+              {
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                packageId: selectedPackage._id,
+              }
+            );
 
             if (verifyData.success) {
-              if (onSuccess) {
-                onSuccess(verifyData);
-              }
-              onClose();
+              setSuccess(true);
+              if (onSuccess) onSuccess(verifyData);
+              setTimeout(() => onClose(), 2000);
             } else {
-              setError("Payment verification failed");
+              setError("Payment verification failed. Contact support if charged.");
             }
           } catch (err) {
-            setError(err.response?.data?.message || "Payment verification failed");
+            setError(
+              err.response?.data?.message ||
+                "Payment verification failed. Contact support if charged."
+            );
           } finally {
             setPurchasing(false);
           }
         },
-        prefill: {
-          name: "",
-          email: "",
-          contact: ""
-        },
+        prefill: {},
         notes: {
           package: selectedPackage.name,
-          credits: orderData.packageDetails.totalCredits
+          credits: orderData.packageDetails.totalCredits,
         },
-        theme: {
-          color: dark ? "#3b82f6" : "#1e3a5f"
-        },
+        theme: { color: "#3b82f6" },
         modal: {
-          ondismiss: function() {
+          ondismiss: function () {
             setPurchasing(false);
-            setError("Payment cancelled");
-          }
-        }
+          },
+        },
       };
 
       const razorpay = new window.Razorpay(options);
+      razorpay.on("payment.failed", function (response) {
+        setPurchasing(false);
+        setError(
+          response.error?.description || "Payment failed. Please try again."
+        );
+      });
       razorpay.open();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to initiate payment");
+      setError(
+        err.response?.data?.message || "Failed to initiate payment. Please try again."
+      );
       setPurchasing(false);
     }
   };
 
-  const getPackageIcon = (name) => {
-    if (name.includes("Starter")) return Zap;
-    if (name.includes("Professional")) return TrendingUp;
-    if (name.includes("Premium")) return Crown;
-    if (name.includes("Enterprise")) return Rocket;
+  const getIcon = (name) => {
+    if (name?.includes("Starter")) return Zap;
+    if (name?.includes("Professional")) return TrendingUp;
+    if (name?.includes("Premium")) return Crown;
+    if (name?.includes("Enterprise")) return Rocket;
     return Sparkles;
   };
 
-  const getCurrencySymbol = (currency) => {
-    switch (currency) {
-      case "INR": return "₹";
-      case "USD": return "$";
-      case "EUR": return "€";
-      case "GBP": return "£";
-      default: return "$";
-    }
+  const getCurrency = (c) => {
+    const map = { INR: "₹", USD: "$", EUR: "€", GBP: "£" };
+    return map[c] || "₹";
+  };
+
+  const getGradient = (name) => {
+    if (name?.includes("Starter"))
+      return dark
+        ? "from-blue-500/20 to-cyan-500/10"
+        : "from-blue-50 to-cyan-50";
+    if (name?.includes("Professional"))
+      return dark
+        ? "from-violet-500/20 to-purple-500/10"
+        : "from-violet-50 to-purple-50";
+    if (name?.includes("Premium"))
+      return dark
+        ? "from-amber-500/20 to-yellow-500/10"
+        : "from-amber-50 to-yellow-50";
+    if (name?.includes("Enterprise"))
+      return dark
+        ? "from-rose-500/20 to-pink-500/10"
+        : "from-rose-50 to-pink-50";
+    return dark ? "from-gray-500/20 to-gray-500/10" : "from-gray-50 to-gray-50";
+  };
+
+  const getAccent = (name) => {
+    if (name?.includes("Starter"))
+      return dark ? "text-cyan-400" : "text-blue-600";
+    if (name?.includes("Professional"))
+      return dark ? "text-violet-400" : "text-violet-600";
+    if (name?.includes("Premium"))
+      return dark ? "text-amber-400" : "text-amber-600";
+    if (name?.includes("Enterprise"))
+      return dark ? "text-rose-400" : "text-rose-600";
+    return dark ? "text-blue-400" : "text-blue-600";
   };
 
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      onClick={onClose}
-    >
+    <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        onClick={(e) => e.stopPropagation()}
-        className={`rounded-2xl border w-full max-w-5xl max-h-[90vh] overflow-hidden ${
-          dark ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200"
-        }`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !purchasing) onClose();
+        }}
       >
-        {/* Header */}
-        <div
-          className={`px-8 py-6 border-b flex items-center justify-between ${
-            dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-200 bg-gray-50/50"
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+        {/* Modal */}
+        <motion.div
+          ref={modalRef}
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
+          className={`relative w-full max-w-4xl max-h-[90vh] rounded-2xl border overflow-hidden flex flex-col ${
+            dark
+              ? "bg-[#0c1525] border-white/[0.08]"
+              : "bg-white border-gray-200"
           }`}
         >
-          <div>
-            <h2 className={`text-2xl font-black ${dark ? "text-white" : "text-gray-900"}`}>
-              Buy Credits
-            </h2>
-            <p className={`text-sm mt-1 ${dark ? "text-white/40" : "text-gray-500"}`}>
-              Choose a package to power your creative workflow
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+          {/* ─── Success Overlay ────────────────────── */}
+          <AnimatePresence>
+            {success && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+              >
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", damping: 15 }}
+                  className="flex flex-col items-center gap-3"
+                >
+                  <div className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <CheckCircle2 className="w-8 h-8 text-white" />
+                  </div>
+                  <p className="text-lg font-black text-white">
+                    Credits Added Successfully!
+                  </p>
+                  <p className="text-sm text-white/60">
+                    Your credits are now available to use
+                  </p>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ─── Header ─────────────────────────────── */}
+          <div
+            className={`px-6 py-5 border-b flex items-center justify-between shrink-0 ${
               dark
-                ? "hover:bg-white/10 text-white/60"
-                : "hover:bg-gray-100 text-gray-600"
+                ? "border-white/[0.06] bg-gradient-to-r from-blue-600/5 to-purple-600/5"
+                : "border-gray-100 bg-gradient-to-r from-blue-50/50 to-purple-50/30"
             }`}
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-8 overflow-y-auto max-h-[calc(90vh-180px)]">
-          {loading ? (
-            <div className="flex items-center justify-center py-20">
+            <div className="flex items-center gap-3">
               <div
-                className={`w-8 h-8 border-3 rounded-full animate-spin ${
+                className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                   dark
-                    ? "border-white/10 border-t-white/50"
-                    : "border-gray-200 border-t-[#1e3a5f]"
-                }`}
-              />
-            </div>
-          ) : (
-            <>
-              {/* Error Message */}
-              {error && (
-                <div
-                  className={`mb-6 px-4 py-3 rounded-xl ${
-                    dark
-                      ? "bg-red-500/10 border border-red-500/20 text-red-400"
-                      : "bg-red-50 border border-red-200 text-red-600"
-                  }`}
-                >
-                  {error}
-                </div>
-              )}
-
-              {/* Packages Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {packages.map((pkg) => {
-                  const Icon = getPackageIcon(pkg.name);
-                  const isSelected = selectedPackage?._id === pkg._id;
-                  const totalCredits = pkg.credits + (pkg.bonusCredits || 0);
-                  const pricePerCredit = (pkg.price / totalCredits).toFixed(2);
-                  const currencySymbol = getCurrencySymbol(pkg.currency || "USD");
-
-                  return (
-                    <motion.div
-                      key={pkg._id}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedPackage(pkg)}
-                      className={`relative rounded-2xl border p-6 cursor-pointer transition-all ${
-                        isSelected
-                          ? dark
-                            ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20"
-                            : "border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/20"
-                          : dark
-                          ? "border-white/[0.06] hover:border-white/20 bg-white/[0.02]"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                      }`}
-                    >
-                      {/* Popular Badge */}
-                      {pkg.popular && (
-                        <div
-                          className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-bold ${
-                            dark
-                              ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white"
-                              : "bg-gradient-to-r from-yellow-400 to-orange-400 text-gray-900"
-                          }`}
-                        >
-                          MOST POPULAR
-                        </div>
-                      )}
-
-                      {/* Icon */}
-                      <div
-                        className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${
-                          dark
-                            ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20"
-                            : "bg-gradient-to-br from-blue-50 to-purple-50"
-                        }`}
-                      >
-                        <Icon
-                          className={`w-7 h-7 ${dark ? "text-blue-400" : "text-blue-600"}`}
-                        />
-                      </div>
-
-                      {/* Package Name */}
-                      <h3
-                        className={`text-lg font-black mb-2 ${
-                          dark ? "text-white" : "text-gray-900"
-                        }`}
-                      >
-                        {pkg.name}
-                      </h3>
-
-                      {/* Credits */}
-                      <div className="mb-3">
-                        <div className="flex items-baseline gap-2">
-                          <span
-                            className={`text-3xl font-black ${
-                              dark ? "text-white" : "text-gray-900"
-                            }`}
-                          >
-                            {totalCredits}
-                          </span>
-                          <span className={`text-sm ${dark ? "text-white/40" : "text-gray-500"}`}>
-                            credits
-                          </span>
-                        </div>
-                        {pkg.bonusCredits > 0 && (
-                          <div
-                            className={`flex items-center gap-1 mt-1 text-xs font-semibold ${
-                              dark ? "text-green-400" : "text-green-600"
-                            }`}
-                          >
-                            <Gift className="w-3 h-3" />
-                            +{pkg.bonusCredits} bonus
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Price */}
-                      <div className="mb-4">
-                        <div className="flex items-baseline gap-1">
-                          <span
-                            className={`text-2xl font-black ${
-                              dark ? "text-white" : "text-gray-900"
-                            }`}
-                          >
-                            {currencySymbol}{pkg.price}
-                          </span>
-                          <span className={`text-sm ${dark ? "text-white/40" : "text-gray-500"}`}>
-                            {pkg.currency || "USD"}
-                          </span>
-                        </div>
-                        <p className={`text-xs mt-1 ${dark ? "text-white/30" : "text-gray-400"}`}>
-                          {currencySymbol}{pricePerCredit} per credit
-                        </p>
-                      </div>
-
-                      {/* Description */}
-                      <p
-                        className={`text-xs mb-4 ${dark ? "text-white/50" : "text-gray-600"}`}
-                      >
-                        {pkg.description}
-                      </p>
-
-                      {/* Features */}
-                      {pkg.features && pkg.features.length > 0 && (
-                        <ul className="space-y-2">
-                          {pkg.features.map((feature, idx) => (
-                            <li
-                              key={idx}
-                              className={`flex items-start gap-2 text-xs ${
-                                dark ? "text-white/60" : "text-gray-600"
-                              }`}
-                            >
-                              <CheckCircle2
-                                className={`w-4 h-4 shrink-0 mt-0.5 ${
-                                  dark ? "text-green-400" : "text-green-500"
-                                }`}
-                              />
-                              {feature}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {/* Selected Badge */}
-                      {isSelected && (
-                        <div
-                          className={`absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center ${
-                            dark ? "bg-blue-500" : "bg-blue-600"
-                          }`}
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-white" />
-                        </div>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </div>
-
-              {/* Service Pricing Info */}
-              <div
-                className={`rounded-xl p-4 ${
-                  dark
-                    ? "bg-white/[0.03] border border-white/[0.06]"
-                    : "bg-gray-50 border border-gray-200"
+                    ? "bg-gradient-to-br from-blue-500/20 to-purple-500/20"
+                    : "bg-gradient-to-br from-blue-100 to-purple-100"
                 }`}
               >
-                <h4
-                  className={`text-sm font-bold mb-3 ${dark ? "text-white" : "text-gray-900"}`}
-                >
-                  What can you do with credits?
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        dark ? "bg-white/10" : "bg-white"
-                      }`}
-                    >
-                      <Zap className={`w-4 h-4 ${dark ? "text-yellow-400" : "text-yellow-500"}`} />
-                    </div>
-                    <div>
-                      <p className={`text-sm font-semibold ${dark ? "text-white" : "text-gray-900"}`}>
-                        AI Script Evaluation
-                      </p>
-                      <p className={`text-xs ${dark ? "text-white/40" : "text-gray-500"}`}>
-                        10 credits per evaluation
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        dark ? "bg-white/10" : "bg-white"
-                      }`}
-                    >
-                      <Sparkles
-                        className={`w-4 h-4 ${dark ? "text-purple-400" : "text-purple-500"}`}
-                      />
-                    </div>
-                    <div>
-                      <p className={`text-sm font-semibold ${dark ? "text-white" : "text-gray-900"}`}>
-                        AI Trailer Generation
-                      </p>
-                      <p className={`text-xs ${dark ? "text-white/40" : "text-gray-500"}`}>
-                        15 credits per trailer
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                <CreditCard
+                  className={`w-5 h-5 ${
+                    dark ? "text-blue-400" : "text-blue-600"
+                  }`}
+                />
               </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div
-          className={`px-8 py-5 border-t flex items-center justify-between ${
-            dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-200 bg-gray-50/50"
-          }`}
-        >
-          <div>
-            {selectedPackage && (
-              <p className={`text-sm ${dark ? "text-white/60" : "text-gray-600"}`}>
-                Selected:{" "}
-                <span className="font-bold">
-                  {selectedPackage.name} - {getCurrencySymbol(selectedPackage.currency || "USD")}{selectedPackage.price}
-                </span>
-              </p>
-            )}
-          </div>
-          <div className="flex gap-3">
+              <div>
+                <h2
+                  className={`text-xl font-black ${
+                    dark ? "text-white" : "text-gray-900"
+                  }`}
+                >
+                  Buy Credits
+                </h2>
+                <p
+                  className={`text-xs mt-0.5 ${
+                    dark ? "text-white/40" : "text-gray-500"
+                  }`}
+                >
+                  Choose a plan that works for you
+                </p>
+              </div>
+            </div>
             <button
               onClick={onClose}
               disabled={purchasing}
-              className={`px-6 py-3 rounded-xl font-semibold text-sm transition-all ${
+              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all ${
                 dark
-                  ? "bg-white/[0.05] text-white/70 hover:bg-white/[0.10]"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              } disabled:opacity-50`}
+                  ? "hover:bg-white/10 text-white/40 hover:text-white/70"
+                  : "hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+              } disabled:opacity-40`}
             >
-              Cancel
-            </button>
-            <button
-              onClick={handlePurchase}
-              disabled={!selectedPackage || purchasing}
-              className={`px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${
-                dark
-                  ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600"
-                  : "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700"
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-              {purchasing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  Purchase Credits
-                </>
-              )}
+              <X className="w-5 h-5" />
             </button>
           </div>
-        </div>
+
+          {/* ─── Content ────────────────────────────── */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <Loader2
+                  className={`w-8 h-8 animate-spin ${
+                    dark ? "text-white/30" : "text-gray-400"
+                  }`}
+                />
+                <p
+                  className={`text-sm font-medium ${
+                    dark ? "text-white/40" : "text-gray-500"
+                  }`}
+                >
+                  Loading packages...
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Error */}
+                <AnimatePresence>
+                  {error && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className={`mb-5 px-4 py-3 rounded-xl flex items-start gap-3 ${
+                        dark
+                          ? "bg-red-500/10 border border-red-500/20"
+                          : "bg-red-50 border border-red-200"
+                      }`}
+                    >
+                      <AlertCircle
+                        className={`w-5 h-5 shrink-0 mt-0.5 ${
+                          dark ? "text-red-400" : "text-red-500"
+                        }`}
+                      />
+                      <div className="flex-1">
+                        <p
+                          className={`text-sm font-semibold ${
+                            dark ? "text-red-300" : "text-red-700"
+                          }`}
+                        >
+                          {error}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setError("")}
+                        className={`shrink-0 ${
+                          dark ? "text-red-400/60" : "text-red-400"
+                        }`}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Package Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {packages.map((pkg, idx) => {
+                    const Icon = getIcon(pkg.name);
+                    const isSelected = selectedPackage?._id === pkg._id;
+                    const total = pkg.credits + (pkg.bonusCredits || 0);
+                    const perCredit = (pkg.price / total).toFixed(1);
+                    const sym = getCurrency(pkg.currency || "INR");
+
+                    return (
+                      <motion.div
+                        key={pkg._id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.06 }}
+                        whileHover={{ y: -2 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedPackage(pkg)}
+                        className={`relative rounded-2xl border cursor-pointer transition-all duration-200 ${
+                          isSelected
+                            ? dark
+                              ? "border-blue-500 bg-blue-500/[0.08] ring-1 ring-blue-500/30 shadow-lg shadow-blue-500/10"
+                              : "border-blue-500 bg-blue-50/50 ring-1 ring-blue-500/20 shadow-lg shadow-blue-500/10"
+                            : dark
+                            ? "border-white/[0.06] hover:border-white/[0.15] bg-white/[0.02]"
+                            : "border-gray-200 hover:border-gray-300 bg-white hover:shadow-md"
+                        }`}
+                      >
+                        {/* Popular ribbon */}
+                        {pkg.popular && (
+                          <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
+                            <div className="flex items-center gap-1 px-3 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black uppercase tracking-wider shadow-md">
+                              <Star className="w-3 h-3" />
+                              Best Value
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="p-5">
+                          {/* Icon + Name */}
+                          <div
+                            className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 bg-gradient-to-br ${getGradient(
+                              pkg.name
+                            )}`}
+                          >
+                            <Icon
+                              className={`w-6 h-6 ${getAccent(pkg.name)}`}
+                            />
+                          </div>
+
+                          <h3
+                            className={`text-base font-black mb-1 ${
+                              dark ? "text-white" : "text-gray-900"
+                            }`}
+                          >
+                            {pkg.name}
+                          </h3>
+
+                          {/* Credits count */}
+                          <div className="mb-3">
+                            <div className="flex items-baseline gap-1.5">
+                              <span
+                                className={`text-2xl font-black tabular-nums ${
+                                  dark ? "text-white" : "text-gray-900"
+                                }`}
+                              >
+                                {total}
+                              </span>
+                              <span
+                                className={`text-xs font-semibold ${
+                                  dark ? "text-white/40" : "text-gray-500"
+                                }`}
+                              >
+                                credits
+                              </span>
+                            </div>
+                            {pkg.bonusCredits > 0 && (
+                              <div
+                                className={`flex items-center gap-1 mt-1 text-[11px] font-bold ${
+                                  dark ? "text-emerald-400" : "text-emerald-600"
+                                }`}
+                              >
+                                <Gift className="w-3 h-3" />+
+                                {pkg.bonusCredits} bonus included
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Price */}
+                          <div className="mb-3">
+                            <div className="flex items-baseline gap-1">
+                              <span
+                                className={`text-xl font-black ${
+                                  dark ? "text-white" : "text-gray-900"
+                                }`}
+                              >
+                                {sym}
+                                {pkg.price.toLocaleString("en-IN")}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[11px] font-medium ${
+                                dark ? "text-white/30" : "text-gray-400"
+                              }`}
+                            >
+                              {sym}
+                              {perCredit}/credit
+                            </span>
+                          </div>
+
+                          {/* Features */}
+                          {pkg.features?.length > 0 && (
+                            <ul className="space-y-1.5 mb-3">
+                              {pkg.features.slice(0, 3).map((f, i) => (
+                                <li
+                                  key={i}
+                                  className={`flex items-start gap-2 text-[11px] leading-tight ${
+                                    dark ? "text-white/50" : "text-gray-600"
+                                  }`}
+                                >
+                                  <CheckCircle2
+                                    className={`w-3.5 h-3.5 shrink-0 mt-px ${
+                                      dark
+                                        ? "text-emerald-400/70"
+                                        : "text-emerald-500"
+                                    }`}
+                                  />
+                                  <span>{f}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+
+                        {/* Selection indicator */}
+                        {isSelected && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="absolute top-3 right-3"
+                          >
+                            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                            </div>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Trust badges */}
+                <div className="flex flex-wrap items-center justify-center gap-4 mt-6">
+                  {[
+                    { icon: Shield, text: "Secure Payment" },
+                    { icon: Lock, text: "256-bit Encryption" },
+                    { icon: RefreshCw, text: "Instant Credits" },
+                  ].map(({ icon: TrustIcon, text }) => (
+                    <div
+                      key={text}
+                      className={`flex items-center gap-1.5 text-xs font-medium ${
+                        dark ? "text-white/30" : "text-gray-400"
+                      }`}
+                    >
+                      <TrustIcon className="w-3.5 h-3.5" />
+                      {text}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ─── Footer ─────────────────────────────── */}
+          <div
+            className={`px-6 py-4 border-t flex items-center justify-between shrink-0 ${
+              dark
+                ? "border-white/[0.06] bg-white/[0.02]"
+                : "border-gray-100 bg-gray-50/50"
+            }`}
+          >
+            <div>
+              {selectedPackage && (
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-sm ${
+                      dark ? "text-white/40" : "text-gray-500"
+                    }`}
+                  >
+                    Total:
+                  </span>
+                  <span
+                    className={`text-lg font-black ${
+                      dark ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    {getCurrency(selectedPackage.currency || "INR")}
+                    {selectedPackage.price.toLocaleString("en-IN")}
+                  </span>
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                      dark
+                        ? "bg-blue-500/10 text-blue-400"
+                        : "bg-blue-50 text-blue-600"
+                    }`}
+                  >
+                    {selectedPackage.credits +
+                      (selectedPackage.bonusCredits || 0)}{" "}
+                    credits
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                disabled={purchasing}
+                className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  dark
+                    ? "bg-white/[0.05] text-white/60 hover:bg-white/[0.10]"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                } disabled:opacity-40`}
+              >
+                Cancel
+              </button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handlePurchase}
+                disabled={!selectedPackage || purchasing}
+                className="px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+              >
+                {purchasing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    Pay Now
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
-    </div>
+    </AnimatePresence>
   );
 };
 
