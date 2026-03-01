@@ -6,11 +6,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 
-// Load environment variables FIRST before importing other modules
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load environment variables from server/.env regardless of process working directory
+dotenv.config({ path: path.join(__dirname, ".env") });
+
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";

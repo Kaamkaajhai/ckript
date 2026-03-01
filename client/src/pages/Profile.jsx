@@ -13,34 +13,30 @@ import Transactions from "../components/Transactions";
 
 const SectionCard = ({ title, icon, badge, dark, children }) => (
   <div
-    className={`rounded-2xl p-6 border transition-colors ${
-      dark
-        ? "bg-[#0d1829] border-white/[0.06]"
-        : "bg-white border-gray-200/70 shadow-sm"
-    }`}
+    className={`rounded-2xl p-6 border transition-colors ${dark
+      ? "bg-[#0d1829] border-white/[0.06]"
+      : "bg-white border-gray-200/70 shadow-sm"
+      }`}
   >
     <div className="flex items-center gap-2.5 mb-4">
       <div
-        className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-          dark
-            ? "bg-white/[0.05] text-white/40"
-            : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/60"
-        }`}
+        className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark
+          ? "bg-white/[0.05] text-white/40"
+          : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/60"
+          }`}
       >
         {icon}
       </div>
       <h3
-        className={`text-[13px] font-bold ${
-          dark ? "text-white/70" : "text-gray-800"
-        }`}
+        className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"
+          }`}
       >
         {title}
       </h3>
       {badge && (
         <span
-          className={`ml-auto text-[11px] font-medium ${
-            dark ? "text-white/25" : "text-gray-400"
-          }`}
+          className={`ml-auto text-[11px] font-medium ${dark ? "text-white/25" : "text-gray-400"
+            }`}
         >
           {badge}
         </span>
@@ -56,9 +52,8 @@ const InfoRow = ({ label, value, dark }) => (
       {label}
     </span>
     <span
-      className={`text-[13px] font-semibold capitalize ${
-        dark ? "text-white/65" : "text-gray-700"
-      }`}
+      className={`text-[13px] font-semibold capitalize ${dark ? "text-white/65" : "text-gray-700"
+        }`}
     >
       {value}
     </span>
@@ -87,11 +82,10 @@ const DeleteProjectButton = ({ dark, onConfirm, title }) => {
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowConfirm(true); }}
         title="Delete project"
-        className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all duration-200 ${
-          dark
-            ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20"
-            : "bg-red-50 text-red-500 hover:bg-red-100 border border-red-200"
-        }`}
+        className={`absolute top-2 right-2 z-10 w-8 h-8 rounded-lg flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all duration-200 ${dark
+          ? "bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20"
+          : "bg-red-50 text-red-500 hover:bg-red-100 border border-red-200"
+          }`}
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
@@ -104,36 +98,31 @@ const DeleteProjectButton = ({ dark, onConfirm, title }) => {
           onClick={() => setShowConfirm(false)}
         >
           <div
-            className={`rounded-2xl shadow-2xl max-w-sm w-full p-6 border ${
-              dark ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200"
-            }`}
+            className={`rounded-2xl shadow-2xl max-w-sm w-full p-6 border ${dark ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200"
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`w-11 h-11 mx-auto rounded-2xl flex items-center justify-center mb-4 ${
-              dark ? "bg-red-500/10" : "bg-red-50"
-            }`}>
+            <div className={`w-11 h-11 mx-auto rounded-2xl flex items-center justify-center mb-4 ${dark ? "bg-red-500/10" : "bg-red-50"
+              }`}>
               <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
               </svg>
             </div>
-            <h3 className={`text-[15px] font-extrabold text-center mb-1 ${
-              dark ? "text-white" : "text-gray-900"
-            }`}>Delete Project?</h3>
-            <p className={`text-[13px] text-center mb-1 ${
-              dark ? "text-neutral-400" : "text-gray-500"
-            }`}>
-              <span className={`font-semibold ${ dark ? "text-neutral-200" : "text-gray-800" }`}>{title}</span> will be removed from your profile.
+            <h3 className={`text-[15px] font-extrabold text-center mb-1 ${dark ? "text-white" : "text-gray-900"
+              }`}>Delete Project?</h3>
+            <p className={`text-[13px] text-center mb-1 ${dark ? "text-neutral-400" : "text-gray-500"
+              }`}>
+              <span className={`font-semibold ${dark ? "text-neutral-200" : "text-gray-800"}`}>{title}</span> will be removed from your profile.
             </p>
-            <p className={`text-[11px] text-center mb-5 ${ dark ? "text-neutral-600" : "text-gray-400" }`}>
+            <p className={`text-[11px] text-center mb-5 ${dark ? "text-neutral-600" : "text-gray-400"}`}>
               Uploaded files are kept in storage.
             </p>
             <div className="flex gap-2.5">
               <button
                 onClick={() => setShowConfirm(false)}
                 disabled={loading}
-                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 ${
-                  dark ? "bg-white/[0.07] text-neutral-400 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                }`}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 ${dark ? "bg-white/[0.07] text-neutral-400 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
               >Cancel</button>
               <button
                 onClick={handleDelete}
@@ -225,9 +214,9 @@ const Profile = () => {
 
   const memberSince = profile?.createdAt
     ? new Date(profile.createdAt).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
+      month: "long",
+      year: "numeric",
+    })
     : null;
 
   const resolveImage = (url) => {
@@ -241,11 +230,10 @@ const Profile = () => {
     return (
       <div className="flex justify-center items-center h-[60vh]">
         <div
-          className={`w-7 h-7 border-2 rounded-full animate-spin ${
-            dark
-              ? "border-white/10 border-t-white/50"
-              : "border-gray-200 border-t-[#1e3a5f]"
-          }`}
+          className={`w-7 h-7 border-2 rounded-full animate-spin ${dark
+            ? "border-white/10 border-t-white/50"
+            : "border-gray-200 border-t-[#1e3a5f]"
+            }`}
         />
       </div>
     );
@@ -256,9 +244,8 @@ const Profile = () => {
     return (
       <div className="flex flex-col justify-center items-center h-[60vh] gap-3">
         <div
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
-            dark ? "bg-white/[0.04]" : "bg-gray-100"
-          }`}
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center ${dark ? "bg-white/[0.04]" : "bg-gray-100"
+            }`}
         >
           <svg
             className={`w-6 h-6 ${dark ? "text-white/20" : "text-gray-300"}`}
@@ -275,9 +262,8 @@ const Profile = () => {
           </svg>
         </div>
         <p
-          className={`text-sm font-semibold ${
-            dark ? "text-white/30" : "text-gray-400"
-          }`}
+          className={`text-sm font-semibold ${dark ? "text-white/30" : "text-gray-400"
+            }`}
         >
           User not found
         </p>
@@ -405,9 +391,8 @@ const Profile = () => {
             ) : (
               <button
                 onClick={handleFollow}
-                className={`px-5 py-1.5 rounded-xl text-[13px] font-bold transition-all border backdrop-blur-md ${
-                  isFollowing ? t.followActive : t.followIdle
-                }`}
+                className={`px-5 py-1.5 rounded-xl text-[13px] font-bold transition-all border backdrop-blur-md ${isFollowing ? t.followActive : t.followIdle
+                  }`}
               >
                 {isFollowing ? "Following" : "Follow"}
               </button>
@@ -536,27 +521,25 @@ const Profile = () => {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border ${
-              activeTab === tab.key
-                ? dark
-                  ? "bg-[#1e3a5f] text-white border-[#1e3a5f]/60 shadow-lg shadow-[#1e3a5f]/20"
-                  : "bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-sm"
-                : dark
+            className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border ${activeTab === tab.key
+              ? dark
+                ? "bg-[#1e3a5f] text-white border-[#1e3a5f]/60 shadow-lg shadow-[#1e3a5f]/20"
+                : "bg-[#1e3a5f] text-white border-[#1e3a5f] shadow-sm"
+              : dark
                 ? "bg-[#152236] text-white/80 border-white/[0.15] hover:bg-[#1a2d47] hover:text-white"
                 : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:text-gray-900 shadow-sm"
-            }`}
+              }`}
           >
             <span className="flex items-center gap-1.5">
               {tab.label}
               {tab.count !== undefined && (
                 <span
-                  className={`text-[11px] px-1.5 py-0.5 rounded-md font-bold tabular-nums ${
-                    activeTab === tab.key
-                      ? "bg-white/20 text-white"
-                      : dark
+                  className={`text-[11px] px-1.5 py-0.5 rounded-md font-bold tabular-nums ${activeTab === tab.key
+                    ? "bg-white/20 text-white"
+                    : dark
                       ? "bg-white/10 text-white/60"
                       : "bg-gray-100 text-gray-500"
-                  }`}
+                    }`}
                 >
                   {tab.count}
                 </span>
@@ -719,9 +702,8 @@ const Profile = () => {
               )}
               {memberSince && (
                 <p
-                  className={`text-[12px] font-medium ${t.contactSub} ${
-                    isOwnProfile ? "mt-1.5" : ""
-                  }`}
+                  className={`text-[12px] font-medium ${t.contactSub} ${isOwnProfile ? "mt-1.5" : ""
+                    }`}
                 >
                   Member since {memberSince}
                 </p>
@@ -803,16 +785,14 @@ const Profile = () => {
                   )}
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-[13px] ${
-                        dark ? "text-white/35" : "text-gray-400"
-                      }`}
+                      className={`text-[13px] ${dark ? "text-white/35" : "text-gray-400"
+                        }`}
                     >
                       WGA Member
                     </span>
                     <span
-                      className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${
-                        profile.writerProfile.wgaMember ? t.wgaYes : t.wgaNo
-                      }`}
+                      className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${profile.writerProfile.wgaMember ? t.wgaYes : t.wgaNo
+                        }`}
                     >
                       {profile.writerProfile.wgaMember ? "Yes" : "No"}
                     </span>
@@ -936,6 +916,176 @@ const Profile = () => {
           )}
         </motion.div>
       )}
+      {/* ──────── FINANCIAL TAB ──────── */}
+      {false && (() => {
+        /* Gather scores from all scripts */
+        const scored = scripts.filter(s => s.scriptScore?.overall);
+        const dims = ["plot", "characters", "dialogue", "pacing", "marketability"];
+        const dimLabels = { plot: "Plot", characters: "Characters", dialogue: "Dialogue", pacing: "Pacing", marketability: "Marketability" };
+        const dimColors = { plot: "#3b82f6", characters: "#8b5cf6", dialogue: "#06b6d4", pacing: "#f59e0b", marketability: "#10b981" };
+        const avg = (arr) => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+        const overallAvg = avg(scored.map(s => s.scriptScore.overall));
+        const dimAvgs = Object.fromEntries(dims.map(d => [d, avg(scored.filter(s => s.scriptScore[d]).map(s => s.scriptScore[d]))]));
+        const scoreLabel = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
+        const scoreColorFn = (v) => v >= 80 ? "#10b981" : v >= 60 ? "#f59e0b" : "#ef4444";
+        /* Distribution buckets */
+        const buckets = [{ label: "90-100", min: 90, max: 100 }, { label: "80-89", min: 80, max: 89 }, { label: "70-79", min: 70, max: 79 }, { label: "60-69", min: 60, max: 69 }, { label: "<60", min: 0, max: 59 }];
+        const dist = buckets.map(b => ({ ...b, count: scored.filter(s => s.scriptScore.overall >= b.min && s.scriptScore.overall <= b.max).length }));
+        const maxDist = Math.max(...dist.map(d => d.count), 1);
+
+        return (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
+
+            {scored.length === 0 ? (
+              <div className={`rounded-2xl border py-20 text-center ${t.card}`}>
+                <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
+                  <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                  </svg>
+                </div>
+                <p className={`text-[15px] font-bold mb-1 ${t.emptyH}`}>No evaluations yet</p>
+                <p className={`text-[13px] max-w-xs mx-auto ${t.emptyP}`}>Script scores will appear here once projects are evaluated.</p>
+              </div>
+            ) : (
+              <>
+                {/* ── Overall Score Gauge + Summary ── */}
+                <div className={`rounded-2xl border p-6 sm:p-8 ${t.card}`}>
+                  <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+                    {/* Radial gauge */}
+                    <div className="relative w-36 h-36 shrink-0">
+                      <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                        <circle cx="60" cy="60" r="52" fill="none" stroke={dark ? "rgba(255,255,255,0.04)" : "#f3f4f6"} strokeWidth="10" />
+                        <circle cx="60" cy="60" r="52" fill="none" stroke={scoreColorFn(overallAvg)} strokeWidth="10" strokeLinecap="round"
+                          strokeDasharray={`${(overallAvg / 100) * 326.7} 326.7`}
+                          className="transition-all duration-1000" style={{ filter: `drop-shadow(0 0 8px ${scoreColorFn(overallAvg)}40)` }} />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className={`text-3xl font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>{overallAvg}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${dark ? "text-white/30" : "text-gray-400"}`}>Average</span>
+                      </div>
+                    </div>
+                    {/* Summary stats */}
+                    <div className="flex-1 text-center sm:text-left">
+                      <h3 className={`text-lg font-extrabold tracking-tight mb-1 ${dark ? "text-white" : "text-gray-900"}`}>Overall Performance</h3>
+                      <p className={`text-sm mb-4 ${dark ? "text-white/40" : "text-gray-500"}`}>
+                        Based on {scored.length} evaluated {scored.length === 1 ? "project" : "projects"} — <span className="font-bold" style={{ color: scoreColorFn(overallAvg) }}>{scoreLabel(overallAvg)}</span>
+                      </p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[{ label: "Best Score", value: Math.max(...scored.map(s => s.scriptScore.overall)) }, { label: "Latest", value: scored.sort((a, b) => new Date(b.scriptScore?.scoredAt || 0) - new Date(a.scriptScore?.scoredAt || 0))[0]?.scriptScore?.overall || 0 }, { label: "Projects", value: scored.length }].map(s => (
+                          <div key={s.label} className={`rounded-xl p-3 border ${dark ? "bg-white/[0.03] border-white/[0.06]" : "bg-gray-50 border-gray-100"}`}>
+                            <p className={`text-xl font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>{s.value}</p>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${dark ? "text-white/25" : "text-gray-400"}`}>{s.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Dimension Breakdown Bars ── */}
+                <div className={`rounded-2xl border p-6 ${t.card}`}>
+                  <div className="flex items-center gap-2.5 mb-5">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.06]"}`}>
+                      <svg className={`w-4 h-4 ${dark ? "text-white/40" : "text-[#1e3a5f]/60"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                      </svg>
+                    </div>
+                    <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Dimension Breakdown</h3>
+                  </div>
+                  <div className="space-y-4">
+                    {dims.map(d => (
+                      <div key={d}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className={`text-[12px] font-semibold ${dark ? "text-white/60" : "text-gray-600"}`}>{dimLabels[d]}</span>
+                          <span className={`text-sm font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>{dimAvgs[d]}</span>
+                        </div>
+                        <div className={`h-3 rounded-full overflow-hidden ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`}>
+                          <div className="h-full rounded-full transition-all duration-1000 ease-out"
+                            style={{ width: `${dimAvgs[d]}%`, backgroundColor: dimColors[d], boxShadow: `0 0 12px ${dimColors[d]}30` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Score Distribution ── */}
+                <div className={`rounded-2xl border p-6 ${t.card}`}>
+                  <div className="flex items-center gap-2.5 mb-5">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.06]"}`}>
+                      <svg className={`w-4 h-4 ${dark ? "text-white/40" : "text-[#1e3a5f]/60"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" />
+                      </svg>
+                    </div>
+                    <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Score Distribution</h3>
+                  </div>
+                  <div className="flex items-end gap-2 h-32">
+                    {dist.map((b, i) => (
+                      <div key={b.label} className="flex-1 flex flex-col items-center gap-1.5">
+                        <span className={`text-[11px] font-bold tabular-nums ${dark ? "text-white/50" : "text-gray-500"}`}>{b.count}</span>
+                        <div className={`w-full rounded-t-lg transition-all duration-700 ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`} style={{ height: "100%", position: "relative" }}>
+                          <div className="absolute bottom-0 left-0 right-0 rounded-t-lg transition-all duration-700"
+                            style={{
+                              height: `${b.count ? Math.max((b.count / maxDist) * 100, 8) : 0}%`,
+                              background: `linear-gradient(to top, ${["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"][i]}, ${["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"][i]}90)`,
+                              boxShadow: `0 -4px 12px ${["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"][i]}20`
+                            }} />
+                        </div>
+                        <span className={`text-[10px] font-bold ${dark ? "text-white/30" : "text-gray-400"}`}>{b.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Per-Project Score Cards ── */}
+                <div className={`rounded-2xl border p-6 ${t.card}`}>
+                  <div className="flex items-center gap-2.5 mb-5">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.06]"}`}>
+                      <svg className={`w-4 h-4 ${dark ? "text-white/40" : "text-[#1e3a5f]/60"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                    </div>
+                    <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Project Scores</h3>
+                    <span className={`ml-auto text-[11px] font-medium ${dark ? "text-white/25" : "text-gray-400"}`}>{scored.length} evaluated</span>
+                  </div>
+                  <div className="space-y-3">
+                    {scored.sort((a, b) => (b.scriptScore?.overall || 0) - (a.scriptScore?.overall || 0)).map((s, i) => (
+                      <div key={s._id} className={`rounded-xl border p-4 transition-all hover:scale-[1.01] ${dark ? "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.1]" : "bg-gray-50/50 border-gray-100 hover:border-gray-200"}`}>
+                        <div className="flex items-center gap-4 mb-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-extrabold shrink-0`}
+                            style={{ backgroundColor: `${scoreColorFn(s.scriptScore.overall)}15`, color: scoreColorFn(s.scriptScore.overall) }}>
+                            {s.scriptScore.overall}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className={`text-sm font-bold truncate ${dark ? "text-white" : "text-gray-900"}`}>{s.title}</h4>
+                            <p className={`text-[11px] ${dark ? "text-white/30" : "text-gray-400"}`}>
+                              {s.format?.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} · {s.scriptScore.scoredAt ? new Date(s.scriptScore.scoredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                            </p>
+                          </div>
+                          <span className="text-[11px] font-bold px-2 py-1 rounded-lg" style={{ backgroundColor: `${scoreColorFn(s.scriptScore.overall)}15`, color: scoreColorFn(s.scriptScore.overall) }}>
+                            {scoreLabel(s.scriptScore.overall)}
+                          </span>
+                        </div>
+                        {/* Mini horizontal bars */}
+                        <div className="grid grid-cols-5 gap-2">
+                          {dims.map(d => (
+                            <div key={d} className="text-center">
+                              <div className={`h-1.5 rounded-full overflow-hidden mb-1 ${dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
+                                <div className="h-full rounded-full" style={{ width: `${s.scriptScore[d] || 0}%`, backgroundColor: dimColors[d] }} />
+                              </div>
+                              <p className={`text-[9px] font-bold ${dark ? "text-white/30" : "text-gray-400"}`}>{dimLabels[d]}</p>
+                              <p className={`text-[11px] font-extrabold tabular-nums ${dark ? "text-white/60" : "text-gray-600"}`}>{s.scriptScore[d] || "—"}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </motion.div>
+        );
+      })()}
 
       {/* ──────── FINANCIAL TAB ──────── */}
       {activeTab === "financial" && isOwnProfile && (

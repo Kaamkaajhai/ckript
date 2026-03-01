@@ -76,12 +76,12 @@ const Dashboard = () => {
 
   const statCards = stats ? [
     { label: "Total Views", value: stats.totalViews || 0 },
-    { label: "Earnings", value: `$${(stats.totalEarnings || 0) + (stats.holdEarnings || 0)}` },
-    { label: "Hold Earnings", value: `$${stats.holdEarnings || 0}` },
+    { label: "Earnings", value: `$${stats.totalEarnings || 0}` },
+
     { label: "Unlocks", value: stats.totalUnlocks || 0 },
     { label: "AI Trailers", value: stats.trailersGenerated || 0 },
     { label: "Avg Score", value: stats.avgScore ?? "N/A" },
-    { label: "Active Holds", value: stats.activeHolds || 0 },
+
   ] : [];
 
   return (
@@ -98,17 +98,22 @@ const Dashboard = () => {
             </div>
             <div className="flex items-center gap-3">
               {stats?.plan && (
-                <span className={`hidden sm:inline-flex px-3 py-1.5 rounded-lg text-[12px] font-bold tracking-wide uppercase ${
-                  stats.plan === "pro" ? "bg-[#1e3a5f]/[0.06] text-[#1e3a5f] ring-1 ring-[#1e3a5f]/10" : dark ? "bg-white/[0.06] text-gray-400 ring-1 ring-white/10" : "bg-gray-50 text-gray-500 ring-1 ring-gray-200/60"
-                }`}>
+                <span className={`hidden sm:inline-flex px-3 py-1.5 rounded-lg text-[12px] font-bold tracking-wide uppercase ${stats.plan === "pro" ? "bg-[#1e3a5f]/[0.06] text-[#1e3a5f] ring-1 ring-[#1e3a5f]/10" : dark ? "bg-white/[0.06] text-gray-400 ring-1 ring-white/10" : "bg-gray-50 text-gray-500 ring-1 ring-gray-200/60"
+                  }`}>
                   {stats.plan === "pro" ? "Pro" : "Free"}
                 </span>
               )}
+              <Link to="/create-project"
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 shadow-sm hover:-translate-y-0.5 ${dark ? 'bg-white/[0.06] text-gray-200 hover:bg-white/[0.1] ring-1 ring-white/10' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                <span className="hidden sm:inline">Create Project</span>
+                <span className="sm:hidden">Create</span>
+              </Link>
               <Link to="/upload"
                 className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#1e3a5f] text-white rounded-xl text-[13px] font-bold hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                <span className="hidden sm:inline">Add Project</span>
-                <span className="sm:hidden">Add</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+                <span className="hidden sm:inline">Upload Project</span>
+                <span className="sm:hidden">Upload</span>
               </Link>
             </div>
           </div>
@@ -213,59 +218,59 @@ const Dashboard = () => {
                   {chartsReady && (
                     <ResponsiveContainer width="100%" height={220} minWidth={0}>
                       <BarChart data={chartData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={26}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={dark ? '#182840' : '#f5f5f5'} vertical={false} />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 11, fontWeight: 600, fill: "#9ca3af" }}
-                        axisLine={false}
-                        tickLine={false}
-                        interval={0}
-                        angle={-15}
-                        textAnchor="end"
-                        height={45}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fontWeight: 500, fill: "#d1d5db" }}
-                        axisLine={false}
-                        tickLine={false}
-                        allowDecimals={false}
-                        width={40}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: dark ? '#101e30' : '#fff',
-                          border: `1px solid ${dark ? '#182840' : '#f3f4f6'}`,
-                          borderRadius: 12,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          boxShadow: dark ? '0 8px 24px rgba(0,0,0,0.3)' : '0 8px 24px rgba(0,0,0,0.06)',
-                          padding: '10px 16px',
-                          color: dark ? '#e5e7eb' : undefined,
-                        }}
-                        labelStyle={{ color: dark ? '#f3f4f6' : '#111827', fontWeight: 700, marginBottom: 2, fontSize: 13 }}
-                        itemStyle={{ color: dark ? '#9ca3af' : '#6b7280' }}
-                        formatter={(value) => [value.toLocaleString() + " views", ""]}
-                        cursor={{ fill: "rgba(30,58,95,0.03)", radius: 6 }}
-                      />
-                      <defs>
-                        <linearGradient id="barGradTop" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#1e3a5f" />
-                          <stop offset="100%" stopColor="#162d4a" />
-                        </linearGradient>
-                        <linearGradient id="barGradMid" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#4a6d8c" />
-                          <stop offset="100%" stopColor="#3d5f7e" />
-                        </linearGradient>
-                        <linearGradient id="barGradLow" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#a8c4d8" />
-                          <stop offset="100%" stopColor="#8ab0c8" />
-                        </linearGradient>
-                      </defs>
-                      <Bar dataKey="views" radius={[6, 6, 2, 2]}>
-                        {chartData.map((_, i) => (
-                          <Cell key={i} fill={i === 0 ? "url(#barGradTop)" : i <= 2 ? "url(#barGradMid)" : "url(#barGradLow)"} />
-                        ))}
-                      </Bar>
+                        <CartesianGrid strokeDasharray="3 3" stroke={dark ? '#182840' : '#f5f5f5'} vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 11, fontWeight: 600, fill: "#9ca3af" }}
+                          axisLine={false}
+                          tickLine={false}
+                          interval={0}
+                          angle={-15}
+                          textAnchor="end"
+                          height={45}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10, fontWeight: 500, fill: "#d1d5db" }}
+                          axisLine={false}
+                          tickLine={false}
+                          allowDecimals={false}
+                          width={40}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: dark ? '#101e30' : '#fff',
+                            border: `1px solid ${dark ? '#182840' : '#f3f4f6'}`,
+                            borderRadius: 12,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            boxShadow: dark ? '0 8px 24px rgba(0,0,0,0.3)' : '0 8px 24px rgba(0,0,0,0.06)',
+                            padding: '10px 16px',
+                            color: dark ? '#e5e7eb' : undefined,
+                          }}
+                          labelStyle={{ color: dark ? '#f3f4f6' : '#111827', fontWeight: 700, marginBottom: 2, fontSize: 13 }}
+                          itemStyle={{ color: dark ? '#9ca3af' : '#6b7280' }}
+                          formatter={(value) => [value.toLocaleString() + " views", ""]}
+                          cursor={{ fill: "rgba(30,58,95,0.03)", radius: 6 }}
+                        />
+                        <defs>
+                          <linearGradient id="barGradTop" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#1e3a5f" />
+                            <stop offset="100%" stopColor="#162d4a" />
+                          </linearGradient>
+                          <linearGradient id="barGradMid" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#4a6d8c" />
+                            <stop offset="100%" stopColor="#3d5f7e" />
+                          </linearGradient>
+                          <linearGradient id="barGradLow" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#a8c4d8" />
+                            <stop offset="100%" stopColor="#8ab0c8" />
+                          </linearGradient>
+                        </defs>
+                        <Bar dataKey="views" radius={[6, 6, 2, 2]}>
+                          {chartData.map((_, i) => (
+                            <Cell key={i} fill={i === 0 ? "url(#barGradTop)" : i <= 2 ? "url(#barGradMid)" : "url(#barGradLow)"} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                   )}
@@ -332,24 +337,29 @@ const Dashboard = () => {
               <div className="px-6 pt-5 pb-0">
                 <div className={`inline-flex items-center rounded-xl p-1 gap-1 ${dark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
                   {[
-                    { key: "ai", label: "AI Analysis", shortLabel: "AI",
+                    {
+                      key: "ai", label: "AI Analysis", shortLabel: "AI",
                       icon: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5",
-                      gradient: "from-[#1e3a5f] to-[#162d4a]" },
-                    { key: "reader", label: "Reader Engagement", shortLabel: "Readers",
+                      gradient: "from-[#1e3a5f] to-[#162d4a]"
+                    },
+                    {
+                      key: "reader", label: "Reader Engagement", shortLabel: "Readers",
                       icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z",
-                      gradient: "from-[#1e3a5f] to-[#162d4a]" },
-                    { key: "platform", label: "Platform Insights", shortLabel: "Platform",
+                      gradient: "from-[#1e3a5f] to-[#162d4a]"
+                    },
+                    {
+                      key: "platform", label: "Platform Insights", shortLabel: "Platform",
                       icon: "M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6",
-                      gradient: "from-[#1e3a5f] to-[#162d4a]" },
+                      gradient: "from-[#1e3a5f] to-[#162d4a]"
+                    },
                   ].map((tab) => (
                     <button
                       key={tab.key}
                       onClick={() => setReviewTab(tab.key)}
-                      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
-                        reviewTab === tab.key
-                          ? dark ? 'bg-white/[0.08] text-blue-400 shadow-sm' : 'bg-white text-[#1e3a5f] shadow-sm'
-                          : dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
-                      }`}
+                      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${reviewTab === tab.key
+                        ? dark ? 'bg-white/[0.08] text-blue-400 shadow-sm' : 'bg-white text-[#1e3a5f] shadow-sm'
+                        : dark ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+                        }`}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
@@ -366,11 +376,11 @@ const Dashboard = () => {
                 {reviewTab === "ai" && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
                     {reviews.ai?.length > 0 ? (
-                      <div className="space-y-5">
+                      <div className="space-y-5 max-h-[520px] overflow-y-auto pr-1">
                         {reviews.ai.map((r, idx) => {
                           const scoreColor = r.rating >= 80 ? { ring: "#1e3a5f", bg: "bg-[#1e3a5f]/[0.06]", text: "text-[#1e3a5f]", label: "Excellent" }
                             : r.rating >= 60 ? { ring: "#6b7280", bg: "bg-gray-50", text: "text-gray-600", label: "Good" }
-                            : { ring: "#9ca3af", bg: "bg-gray-50", text: "text-gray-500", label: "Needs Work" };
+                              : { ring: "#9ca3af", bg: "bg-gray-50", text: "text-gray-500", label: "Needs Work" };
                           return (
                             <motion.div key={r.scriptId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: idx * 0.08 }}
@@ -465,7 +475,7 @@ const Dashboard = () => {
                 {reviewTab === "reader" && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
                     {reviews.readers?.length > 0 ? (
-                      <div className="space-y-4">
+                      <div className="space-y-4 max-h-[520px] overflow-y-auto pr-1">
                         {reviews.readers.map((r, idx) => (
                           <motion.div key={r.scriptId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: idx * 0.08 }}
@@ -491,19 +501,13 @@ const Dashboard = () => {
                               <div className={`flex items-center gap-1 shrink-0 rounded-xl px-4 py-3 ${dark ? 'bg-white/[0.04]' : 'bg-gray-50/80'}`}>
                                 <div className="text-center px-3">
                                   <p className={`text-lg font-extrabold leading-none mb-0.5 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.views.toLocaleString()}</p>
-                                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Views</p>
+                                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Total Views</p>
                                 </div>
                                 <div className={`w-px h-8 mx-1 ${dark ? 'bg-white/[0.06]' : 'bg-gray-200/80'}`}></div>
                                 <div className="text-center px-3">
-                                  <p className={`text-lg font-extrabold leading-none mb-0.5 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{r.unlocks}</p>
-                                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Unlocks</p>
-                                </div>
-                                <div className={`w-px h-8 mx-1 ${dark ? 'bg-white/[0.06]' : 'bg-gray-200/80'}`}></div>
-                                <div className="text-center px-3">
-                                  <p className={`text-lg font-extrabold leading-none mb-0.5 ${
-                                    r.conversionRate > 10 ? "text-[#1e3a5f]" : r.conversionRate > 0 ? "text-gray-700" : "text-gray-300"
-                                  }`}>{r.conversionRate}%</p>
-                                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">CVR</p>
+                                  <p className={`text-lg font-extrabold leading-none mb-0.5 ${r.engagementScore >= 70 ? "text-[#1e3a5f]" : r.engagementScore >= 40 ? (dark ? "text-gray-300" : "text-gray-700") : (dark ? "text-gray-500" : "text-gray-400")
+                                    }`}>{r.engagementScore ?? 0}</p>
+                                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Avg Rating</p>
                                 </div>
                               </div>
                             </div>
@@ -528,7 +532,7 @@ const Dashboard = () => {
                 {reviewTab === "platform" && (
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
                     {reviews.platform?.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[520px] overflow-y-auto pr-1">
                         {reviews.platform.map((p, idx) => {
                           const iconMap = {
                             quality: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z",
@@ -619,15 +623,26 @@ const Dashboard = () => {
             </div>
             <h2 className={`text-2xl font-bold mb-2 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>No projects yet</h2>
             <p className={`text-base mb-6 ${dark ? 'text-gray-500' : 'text-gray-500'}`}>Upload your first script to get started</p>
-            <Link
-              to="/upload"
-              className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#1e3a5f] text-white font-bold rounded-xl hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 text-base"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              ADD PROJECT
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/create-project"
+                className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-base transition-all duration-200 hover:-translate-y-0.5 ${dark ? 'bg-white/[0.06] text-gray-200 hover:bg-white/[0.1] ring-1 ring-white/10' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                CREATE PROJECT
+              </Link>
+              <Link
+                to="/upload"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#1e3a5f] text-white font-bold rounded-xl hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 text-base"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                UPLOAD PROJECT
+              </Link>
+            </div>
           </div>
         )}
       </motion.div>
