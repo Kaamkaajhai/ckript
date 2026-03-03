@@ -2,6 +2,7 @@ import { useState, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import OTPVerification from "../components/OTPVerification";
 import { 
   FileText, 
   UserCircle, 
@@ -16,13 +17,34 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Email validation regex
+const isValidEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+// Password validation criteria
+const validatePassword = (password) => {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  };
+};
+
 const WriterOnboarding = () => {
-  const { join } = useContext(AuthContext);
+  const { join, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [showPasswordReqs, setShowPasswordReqs] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   
   // Step 1: Account Creation
   const [accountData, setAccountData] = useState({
@@ -33,7 +55,7 @@ const WriterOnboarding = () => {
     role: "creator"
   });
   
-  // Email Verification
+  // Email Verification (keeping for compatibility, but using OTP now)
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
   
@@ -73,36 +95,65 @@ const WriterOnboarding = () => {
   const handleAccountCreation = async (e) => {
     e.preventDefault();
     setError("");
+    setEmailError("");
     
-    if (accountData.password !== accountData.confirmPassword) {
-      setError("Passwords do not match");
+    // Validate email
+    if (!isValidEmail(accountData.email)) {
+      setEmailError("Please enter a valid email address");
       return;
     }
     
-    if (accountData.password.length < 6) {
-      setError("Password must be at least 6 characters");
+    // Validate password
+    const passwordCheck = validatePassword(accountData.password);
+    if (!Object.values(passwordCheck).every(Boolean)) {
+      setError("Password does not meet all requirements");
+      return;
+    }
+    
+    // Check password confirmation
+    if (accountData.password !== accountData.confirmPassword) {
+      setError("Passwords do not match");
       return;
     }
     
     setLoading(true);
     try {
       // Create account using AuthContext join function
-      await join({
+      const response = await join({
         name: accountData.name,
         email: accountData.email,
         password: accountData.password,
         role: "creator"
       });
       
-      // Send verification email
-      await api.post("/onboarding/send-verification");
-      setVerificationSent(true);
+      // Check if OTP verification is required
+      if (response?.requiresVerification) {
+        setUserEmail(accountData.email);
+        setShowOTPVerification(true);
+      } else if (response?.token) {
+        // Direct login (shouldn't happen with new flow)
+        setCurrentStep(2);
+      }
+      
       setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Join failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOTPSuccess = (userData) => {
+    // Update auth context with user data
+    setUser(userData);
+    setShowOTPVerification(false);
+    // Move to next step
+    setCurrentStep(2);
+  };
+
+  const handleBackToSignup = () => {
+    setShowOTPVerification(false);
+    setUserEmail("");
   };
 
   const handleEmailVerification = async (e) => {
@@ -290,12 +341,60 @@ const WriterOnboarding = () => {
                   <input
                     type="password"
                     value={accountData.password}
-                    onChange={(e) => setAccountData({...accountData, password: e.target.value})}
+                    onChange={(e) => {
+                      setAccountData({...accountData, password: e.target.value});
+                      if (!showPasswordReqs) setShowPasswordReqs(true);
+                    }}
+                    onFocus={() => setShowPasswordReqs(true)}
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="••••••••"
                     required
                   />
                 </div>
+                {showPasswordReqs && (
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-[11px] font-semibold text-gray-600 mb-2">Password Requirements:</p>
+                    <div className="space-y-1">
+                      {(() => {
+                        const validation = validatePassword(accountData.password);
+                        return (
+                          <>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.length ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.length ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              At least 8 characters
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.uppercase ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.uppercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One uppercase letter (A-Z)
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.lowercase ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.lowercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One lowercase letter (a-z)
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.number ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.number ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One number (0-9)
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.special ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.special ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One special character (!@#$%^&*)
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div>
@@ -314,6 +413,12 @@ const WriterOnboarding = () => {
                   />
                 </div>
               </div>
+              
+              {emailError && (
+                <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+                  {emailError}
+                </div>
+              )}
               
               {error && (
                 <div className="bg-red-50 text-red-600 p-4 rounded-lg">
@@ -818,6 +923,17 @@ const WriterOnboarding = () => {
         return null;
     }
   };
+
+  // Show OTP verification screen if needed
+  if (showOTPVerification) {
+    return (
+      <OTPVerification 
+        email={userEmail} 
+        onSuccess={handleOTPSuccess} 
+        onBack={handleBackToSignup}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f0f4f8] py-8 px-4">
