@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { useDarkMode } from "../context/DarkModeContext"
 
 // Format options
 const formats = [
@@ -96,6 +97,7 @@ Last Updated: ${new Date().toLocaleDateString()}
 
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
+  const { isDarkMode } = useDarkMode();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
@@ -563,21 +565,23 @@ const ScriptUpload = () => {
     );
   }
 
-  const inputCls = "w-full p-2.5 border border-white/[0.08] rounded-xl text-sm text-white bg-white/[0.04] placeholder-neutral-600 focus:ring-2 focus:ring-white/30 focus:border-transparent transition";
+  const inputCls = isDarkMode
+    ? "w-full p-2.5 border border-white/[0.08] rounded-xl text-sm text-white bg-white/[0.04] placeholder-neutral-600 focus:ring-2 focus:ring-white/30 focus:border-transparent transition"
+    : "w-full p-2.5 border border-gray-200 rounded-xl text-sm text-[#1e3a5f] bg-white placeholder-gray-400 focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f]/50 transition";
   const chipCls = (selected) =>
     `px-4 py-2 rounded-full text-sm font-medium transition cursor-pointer ${selected
-      ? "bg-white text-black"
-      : "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]"
+      ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+      : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
     }`;
+  const labelCls = isDarkMode ? "text-white" : "text-[#1e3a5f]";
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <span className="text-3xl">🎬</span>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">{editId ? "Edit Your Project" : "Add Your Project"}</h1>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>{editId ? "Edit Your Project" : "Add Your Project"}</h1>
             <p className="text-sm text-neutral-500">{editId ? "Update your script details and republish" : "Complete the 5-step wizard to publish your script"}</p>
           </div>
         </div>
@@ -607,7 +611,7 @@ const ScriptUpload = () => {
         </p>
 
         {/* Main form container */}
-        <div className="bg-[#0d1829] rounded-2xl border border-white/[0.06] p-6 sm:p-8">
+        <div className={`rounded-2xl border p-6 sm:p-8 ${isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200 shadow-sm"}`}>
           {error && (
             <div className="mb-5 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm">
               {error}
@@ -626,7 +630,7 @@ const ScriptUpload = () => {
                   className="space-y-5"
                 >
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Title *
                     </label>
                     <input
@@ -642,7 +646,7 @@ const ScriptUpload = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                         Format *
                       </label>
                       <select
@@ -661,7 +665,7 @@ const ScriptUpload = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                         Page Count *
                       </label>
                       <input
@@ -683,7 +687,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Primary Genre *
                     </label>
                     <select
@@ -703,7 +707,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Logline * <span className="text-neutral-500">(Max 300 characters)</span>
                     </label>
                     <textarea
@@ -722,7 +726,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Description <span className="text-neutral-500">(shown on your project page)</span>
                     </label>
                     <textarea
@@ -736,7 +740,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Tags <span className="text-neutral-500">(comma-separated)</span>
                     </label>
                     <input
@@ -775,7 +779,7 @@ const ScriptUpload = () => {
 
                   {/* Tones */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Tone ({classification.tones.length}/3)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -794,7 +798,7 @@ const ScriptUpload = () => {
 
                   {/* Themes */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Theme ({classification.themes.length}/3)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -813,7 +817,7 @@ const ScriptUpload = () => {
 
                   {/* Settings */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Setting ({classification.settings.length}/3)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -860,7 +864,7 @@ const ScriptUpload = () => {
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm text-neutral-300 font-medium">
+                      <label className={`block text-sm ${labelCls} font-medium`}>
                         Script File (PDF) & Editor *
                       </label>
                       {!fromDraft && (
@@ -900,7 +904,7 @@ const ScriptUpload = () => {
                         className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isExtracting ? 'border-blue-500/20 bg-blue-500/10 cursor-wait' : 'border-white/[0.12] cursor-pointer hover:border-white'}`}
                       >
                         <div className="text-3xl mb-2">{isExtracting ? "⏳" : "📄"}</div>
-                        <p className="text-sm font-medium text-neutral-300 mb-1">
+                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
                           {isExtracting ? "Extracting text from PDF..." : "Drag & drop your PDF here to auto-fill editor"}
                         </p>
                         <p className="text-xs text-neutral-500">{isExtracting ? "Please wait..." : "or click to browse"}</p>
@@ -1016,7 +1020,7 @@ const ScriptUpload = () => {
                           readOnly
                           className="w-4 h-4 text-white rounded"
                         />
-                        <span className="text-xs text-neutral-300">Selected (Required)</span>
+                        <span className={`text-xs ${labelCls}`}>Selected (Required)</span>
                       </div>
                     </div>
 
@@ -1047,7 +1051,7 @@ const ScriptUpload = () => {
                           readOnly
                           className="w-4 h-4 text-white rounded"
                         />
-                        <span className="text-xs text-neutral-300">
+                        <span className={`text-xs ${labelCls}`}>
                           {services.evaluation ? "Selected" : "Optional"}
                         </span>
                       </div>
@@ -1083,7 +1087,7 @@ const ScriptUpload = () => {
                           readOnly
                           className="w-4 h-4 text-white rounded"
                         />
-                        <span className="text-xs text-neutral-300">
+                        <span className={`text-xs ${labelCls}`}>
                           {services.aiTrailer ? "Selected" : "Optional"}
                         </span>
                       </div>
@@ -1093,7 +1097,7 @@ const ScriptUpload = () => {
                   {/* Total Preview */}
                   <div className="bg-white/[0.04] rounded-xl p-4 mt-6">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-neutral-300">Total Credits Required:</span>
+                      <span className={`text-sm font-medium ${labelCls}`}>Total Credits Required:</span>
                       <span className="text-2xl font-bold text-white">
                         {calculateTotal()} credits
                       </span>
@@ -1162,12 +1166,12 @@ const ScriptUpload = () => {
 
                   {/* Agreement */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Submission Release Agreement *
                     </label>
                     <div
                       ref={agreementRef}
-                      className="border border-white/[0.08] rounded-xl p-4 h-64 overflow-y-auto text-xs text-neutral-300 leading-relaxed"
+                      className={`rounded-xl p-4 h-64 overflow-y-auto text-xs leading-relaxed ${isDarkMode ? "border border-white/[0.08] text-neutral-300" : "border border-gray-200 text-[#1e3a5f]"}`}
                     >
                       <pre className="whitespace-pre-wrap font-sans">{LEGAL_AGREEMENT}</pre>
                     </div>
@@ -1192,7 +1196,7 @@ const ScriptUpload = () => {
                     />
                     <label
                       htmlFor="agreeTerms"
-                      className={`text-sm ${agreementScrolled ? "text-neutral-300" : "text-neutral-500"
+                      className={`text-sm ${agreementScrolled ? labelCls : "text-neutral-500"
                         }`}
                     >
                       I have read and agree to the Submission Release Agreement
