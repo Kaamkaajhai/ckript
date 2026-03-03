@@ -1,0 +1,18 @@
+# CODEOWNERS - Admin Panel Protection
+# Only the designated admin developer (yashu branch owner) can approve
+# changes to admin-related files. All PRs touching these files MUST be
+# reviewed and approved by @Kaamkaajhai before merging.
+
+# ─── Admin Server Files ───────────────────────────────────────────────────────
+/server/middleware/adminMiddleware.js           @Kaamkaajhai
+/server/controllers/adminController.js         @Kaamkaajhai
+/server/routes/adminRoutes.js                  @Kaamkaajhai
+
+# ─── Admin Client Files ───────────────────────────────────────────────────────
+/client/src/pages/AdminDashboard.jsx           @Kaamkaajhai
+
+# ─── Auth & Security Middleware ───────────────────────────────────────────────
+/server/middleware/authMiddleware.js           @Kaamkaajhai
+
+# ─── Entire .github folder (workflow & protection rules) ──────────────────────
+/.github/                                      @Kaamkaajhai

@@ -5,6 +5,7 @@ import {
 	getTrailerStatus,
 	generateScriptScore,
 	correctScriptText,
+	aiWritingAssist,
 } from "../controllers/aiController.js";
 
 const router = express.Router();
@@ -18,5 +19,8 @@ router.post("/script-score", protect, generateScriptScore);
 
 // Script grammar correction
 router.post("/correct-script-text", protect, correctScriptText);
+
+// AI Writing Assistant (improve, professional, grammar, shorten, expand, dialogue, emotional, custom)
+router.post("/writing-assist", protect, aiWritingAssist);
 
 export default router;
