@@ -416,9 +416,10 @@ const AdminDashboard = () => {
     };
 
     const handleReject = async (id) => {
-        if (!window.confirm("Are you sure you want to reject this script? The writer will need to resubmit it.")) return;
+        const reason = window.prompt("Rejection reason (optional — the writer will see this):");
+        if (reason === null) return; // cancelled
         try {
-            await adminApi.put(`/admin/scripts/${id}/reject`);
+            await adminApi.put(`/admin/scripts/${id}/reject`, { reason: reason.trim() || undefined });
             showToast("Script rejected");
             fetchData();
         } catch (err) {

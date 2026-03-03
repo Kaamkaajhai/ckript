@@ -373,6 +373,36 @@ export const correctScriptText = async (req, res) => {
       return res.status(400).json({ message: "Script text is required" });
     }
 
+    // ── Credit check (5 credits for grammar fix) ─────────────────────────
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found." });
+
+    const required = CREDIT_PRICES.AI_GRAMMAR; // 5 credits
+    const balance = user.credits?.balance || 0;
+
+    if (balance < required) {
+      return res.status(402).json({
+        message: `Insufficient credits. Grammar Fix requires ${required} credits. You have ${balance}.`,
+        requiresCredits: true,
+        required,
+        balance,
+        shortfall: required - balance,
+      });
+    }
+
+    // Deduct credits before AI call
+    user.credits.balance -= required;
+    user.credits.totalSpent = (user.credits.totalSpent || 0) + required;
+    user.credits.transactions = user.credits.transactions || [];
+    user.credits.transactions.push({
+      type: "spent",
+      amount: -required,
+      description: "AI Grammar Fix (Script Editor)",
+      reference: `GRAMMAR-${Date.now().toString(36).toUpperCase()}`,
+      createdAt: new Date(),
+    });
+    await user.save();
+
     const normalizedSource = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
     const truncatedSource = normalizedSource.slice(0, 25000);
 
@@ -432,26 +462,26 @@ ${truncatedSource}`;
 // ── AI Writing Assistant (free tool for writers during script creation) ──────
 
 const AI_ACTION_PROMPTS = {
-  improve: `You are a senior Hollywood screenwriter and story consultant.
-Improve the following script text: make it more engaging, vivid, and compelling while preserving the writer's voice, intent, plot, and character names. Enhance descriptions, tighten dialogue, and strengthen emotional beats.`,
+  improve: `You are a senior Hollywood screenwriter, story consultant, and creative writing expert with 25+ years of experience.
+Significantly improve the following script text: make it dramatically more engaging, vivid, and compelling. Add powerful imagery, sharpen action lines, strengthen scene transitions, add authentic sensory details (sights, sounds, smells), introduce compelling subtext in dialogue, and enhance emotional resonance. Go beyond surface edits — add new descriptive paragraphs where scenes feel thin, flesh out character reactions, add atmospheric details, and ensure every line pulls the reader deeper into the story. The improved version should be noticeably longer and richer than the original while preserving the writer's core voice, plot, and character names.`,
 
-  professional: `You are a professional screenplay formatter and editor who works at top studios.
-Rewrite the following script text to industry-professional standards: proper screenplay formatting, crisp scene descriptions (lean action lines), natural and punchy dialogue, clear slug lines, and professional tone. Make it read like a polished studio submission.`,
+  professional: `You are an elite screenplay formatter and editor at a top Hollywood studio (think A24, Paramount, Warner Bros).
+Completely rewrite the following script text to premium industry-professional standards. Apply proper screenplay formatting with precise slug lines (INT./EXT.), lean but evocative action lines, natural and punchy dialogue with proper character cues, parentheticals where needed, and professional transitions. Add missing scene descriptions, atmosphere, and production-ready details. Expand thin scenes with proper cinematic language — camera-aware descriptions, beat indicators, and pacing marks. The result should read like a polished, submission-ready studio script that a producer would immediately want to read more of. Make it significantly more detailed and complete.`,
 
-  grammar: `You are an expert screenplay proofreader and copy editor.
-Fix all grammar, punctuation, spelling, and readability issues in the following script text. Preserve the writer's voice, story intent, scene structure, character names, and all line breaks exactly.`,
+  grammar: `You are a world-class screenplay proofreader, copy editor, and language specialist.
+Meticulously fix ALL grammar, punctuation, spelling, sentence structure, and readability issues. Also improve word choices where bland or repetitive — replace weak verbs with vivid ones, fix awkward phrasing, ensure consistent tense usage, and polish sentence rhythm for better flow. Add proper paragraph breaks where walls of text exist. Preserve the writer's voice, story intent, scene structure, character names, and formatting.`,
 
-  shorten: `You are a ruthless but respectful script editor known for making lean, tight screenplays.
-Condense the following script text: remove redundancy, trim verbose descriptions, tighten dialogue (cut filler words), and eliminate unnecessary action lines — while keeping ALL important story beats, character moments, and plot points intact.`,
+  shorten: `You are an acclaimed script editor known for creating razor-sharp, propulsive screenplays.
+Condense the following script text: cut redundancy, trim verbose descriptions to their essential visual beats, tighten dialogue by removing filler words and on-the-nose exposition, and eliminate unnecessary action lines. Replace wordy passages with punchy, precise alternatives — don't just delete, rewrite tighter. Every remaining line should earn its place. Keep ALL important story beats, character moments, and plot points intact while making the script read faster and hit harder.`,
 
-  expand: `You are a creative screenplay consultant who helps writers develop richer, more immersive scenes.
-Expand the following script text: add richer sensory details to scene descriptions, deepen character reactions and subtext in dialogue, add atmosphere and tension where appropriate, and flesh out moments that feel rushed — while staying true to the writer's tone and style.`,
+  expand: `You are an award-winning screenplay consultant who specializes in developing rich, immersive, cinematic scenes.
+Substantially expand the following script text — make it at least 40-60% longer. Add rich sensory details to every scene description (what we see, hear, feel), deepen character reactions with specific physical gestures and internal beats, add atmospheric details (lighting, weather, ambient sounds, textures), build tension through pacing and micro-moments, flesh out transitions between scenes, add meaningful subtext to dialogue exchanges, and develop any rushed or skeletal moments into full, breathing scenes. Add new descriptive paragraphs, character actions, and environmental details that make the world feel real and cinematic. Stay true to the writer's tone and style.`,
 
-  dialogue: `You are a dialogue specialist who has worked on award-winning screenplays.
-Improve ONLY the dialogue in the following script text: make conversations sound more natural, give each character a distinct voice, add subtext where appropriate, remove on-the-nose exposition, and ensure dialogue drives the scene forward. Keep all action lines and scene headings unchanged.`,
+  dialogue: `You are an Emmy and Oscar-winning dialogue specialist who has crafted conversations for the most memorable characters in cinema.
+Dramatically improve ALL dialogue in the following script text: make every conversation crackle with life — give each character a truly distinct voice (speech patterns, vocabulary, rhythm, verbal tics), layer in rich subtext (what's said vs. what's meant), remove all on-the-nose exposition and replace with natural reveals, add interruptions and overlapping speech where realistic, include meaningful pauses and beats, and ensure each dialogue exchange drives both character development and plot forward. Add new dialogue lines where characters need more depth. Add parentheticals for delivery notes. Keep all action lines and scene headings but enhance them slightly to support the improved dialogue.`,
 
-  emotional: `You are a story consultant specializing in emotional storytelling and character arcs.
-Enhance the emotional depth of the following script text: strengthen character motivations, add layers of vulnerability or conflict, deepen interpersonal dynamics, and heighten the emotional stakes — while keeping the plot structure and character names intact.`,
+  emotional: `You are a master story consultant specializing in deeply emotional, award-winning storytelling and complex character arcs.
+Profoundly enhance the emotional depth of the following script text: strengthen character motivations with specific backstory hints, add layers of vulnerability, internal conflict, and unspoken tension. Deepen interpersonal dynamics — show what characters feel through actions, micro-expressions, and loaded silences. Heighten emotional stakes by adding moments of tenderness, fear, hope, or heartbreak. Add new emotional beats — a lingering look, a hand that trembles, a voice that cracks. Develop the emotional subtext so readers feel the weight of every scene. Expand thin emotional moments into rich, affecting passages. Keep the plot structure and character names intact while making every scene resonate on a human level.`,
 };
 
 export const aiWritingAssist = async (req, res) => {
@@ -466,13 +496,45 @@ export const aiWritingAssist = async (req, res) => {
       return res.status(400).json({ message: "An action or custom instruction is required." });
     }
 
+    // ── Credit check for grammar action ──────────────────────────────────
+    if (action === "grammar") {
+      const user = await User.findById(req.user._id);
+      if (!user) return res.status(404).json({ message: "User not found." });
+
+      const required = CREDIT_PRICES.AI_GRAMMAR; // 5 credits
+      const balance = user.credits?.balance || 0;
+
+      if (balance < required) {
+        return res.status(402).json({
+          message: `Insufficient credits. AI Grammar Fix requires ${required} credits. You have ${balance}.`,
+          requiresCredits: true,
+          required,
+          balance,
+          shortfall: required - balance,
+        });
+      }
+
+      // Deduct credits
+      user.credits.balance -= required;
+      user.credits.totalSpent = (user.credits.totalSpent || 0) + required;
+      user.credits.transactions = user.credits.transactions || [];
+      user.credits.transactions.push({
+        type: "spent",
+        amount: -required,
+        description: `AI Grammar Fix`,
+        reference: `GRAMMAR-${Date.now().toString(36).toUpperCase()}`,
+        createdAt: new Date(),
+      });
+      await user.save();
+    }
+
     const normalizedSource = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
     const truncatedSource = normalizedSource.slice(0, 25000);
 
     // Build the prompt
     let systemInstruction;
     if (customInstruction) {
-      systemInstruction = `You are a professional screenplay writing assistant. Follow the writer's instruction precisely while preserving story intent, character names, and screenplay formatting.\n\nWriter's instruction: ${String(customInstruction).slice(0, 500)}`;
+      systemInstruction = `You are an elite professional screenplay writing assistant with decades of Hollywood experience. Follow the writer's instruction precisely while preserving story intent, character names, and screenplay formatting. Go above and beyond — don't just make minimal changes, provide rich, detailed, professional-quality content. Add extra detail, depth, and polish that elevates the writing significantly.\n\nWriter's instruction: ${String(customInstruction).slice(0, 500)}`;
     } else {
       systemInstruction = AI_ACTION_PROMPTS[action];
       if (!systemInstruction) {
@@ -489,9 +551,10 @@ Return STRICT JSON with this exact shape — no markdown, no code fences:
 }
 
 Rules:
-- "result" must contain the COMPLETE rewritten text (not a summary or partial).
-- "changes" should list 3-5 brief bullet points describing what was changed.
+- "result" must contain the COMPLETE rewritten text — it should be RICHER and MORE DETAILED than the original (not a summary or partial). Add extra content, descriptions, and depth.
+- "changes" should list 3-5 brief bullet points describing what was changed and improved.
 - Preserve all line breaks, scene headings, and character names.
+- Go above and beyond — add new descriptive details, richer language, and professional touches that weren't in the original.
 - Do NOT add meta-commentary inside the result text.
 
 Original script text:
@@ -504,7 +567,7 @@ ${truncatedSource}`;
       payload = await generateJsonWithGoogleAI({
         prompt,
         temperature: action === "grammar" ? 0.15 : 0.5,
-        maxOutputTokens: Math.min(truncatedSource.length * 2 + 500, 8000),
+        maxOutputTokens: Math.min(truncatedSource.length * 3 + 2000, 16000),
       });
     } catch (aiError) {
       console.error("[AI Writing Assist] AI call failed:", aiError.message);

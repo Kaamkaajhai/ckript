@@ -26,7 +26,8 @@ export const CREDIT_PRICES = {
   AI_TRAILER: 15,           // 15 credits for AI trailer generation
   SCRIPT_ANALYSIS: 5,       // 5 credits for basic analysis
   PREMIUM_REPORT: 20,       // 20 credits for premium report
-  CONSULTATION: 50          // 50 credits for consultation booking
+  CONSULTATION: 50,         // 50 credits for consultation booking
+  AI_GRAMMAR: 5,            // 5 credits for AI grammar fix
 };
 
 // @desc    Get all credit packages

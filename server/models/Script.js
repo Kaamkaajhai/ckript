@@ -83,6 +83,11 @@ const scriptSchema = new mongoose.Schema({
     pacing: { type: Number, min: 0, max: 100 },
     marketability: { type: Number, min: 0, max: 100 },
     feedback: { type: String },
+    strengths: [{ type: String }],
+    weaknesses: [{ type: String }],
+    improvements: [{ type: String }],
+    audienceFit: { type: String },
+    comparables: { type: String },
     scoredAt: { type: Date },
   },
   // Platform Score (Admin-given scores)
@@ -121,6 +126,8 @@ const scriptSchema = new mongoose.Schema({
   }],
   tags: [String],
   budget: { type: String, enum: ["micro", "low", "medium", "high", "blockbuster"] },
+  // Admin approval
+  rejectionReason: { type: String },
 }, { timestamps: true });
 
 export default mongoose.model("Script", scriptSchema);

@@ -30,16 +30,13 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const [scriptsRes, statsRes, reviewsRes] = await Promise.allSettled([
-        api.get("/scripts"),
+        api.get("/scripts/mine"),
         api.get("/dashboard"),
         api.get("/dashboard/reviews"),
       ]);
 
       if (scriptsRes.status === "fulfilled") {
-        const mine = scriptsRes.value.data.filter(
-          (s) => (s.creator?._id === user?._id || s.creator === user?._id) && s.status !== "draft"
-        );
-        setMyScripts(mine);
+        setMyScripts(scriptsRes.value.data);
       } else {
         setMyScripts([]);
       }
@@ -138,10 +135,12 @@ const Dashboard = () => {
 
         {/* Content Views */}
         {myScripts.length > 0 && (() => {
-          const totalViews = myScripts.reduce((sum, s) => sum + (s.views || 0), 0);
-          const topScript = myScripts.reduce((a, b) => ((a.views || 0) >= (b.views || 0) ? a : b), myScripts[0]);
-          const avgViews = myScripts.length > 0 ? Math.round(totalViews / myScripts.length) : 0;
-          const chartData = myScripts.map(s => ({
+          const publishedScripts = myScripts.filter(s => s.status === "published");
+          if (publishedScripts.length === 0) return null;
+          const totalViews = publishedScripts.reduce((sum, s) => sum + (s.views || 0), 0);
+          const topScript = publishedScripts.reduce((a, b) => ((a.views || 0) >= (b.views || 0) ? a : b), publishedScripts[0]);
+          const avgViews = publishedScripts.length > 0 ? Math.round(totalViews / publishedScripts.length) : 0;
+          const chartData = publishedScripts.map(s => ({
             name: s.title?.length > 14 ? s.title.slice(0, 14) + "…" : s.title,
             views: s.views || 0,
             fullName: s.title,
@@ -439,16 +438,78 @@ const Dashboard = () => {
 
                                   {/* AI Feedback */}
                                   {r.feedback && (
-                                    <div className={`mt-4 flex gap-3 p-3.5 rounded-xl border ${dark ? 'bg-white/[0.03] border-[#182840]' : 'bg-gray-50/80 border-gray-100'}`}>
-                                      <div className="w-7 h-7 rounded-lg bg-[#1e3a5f]/[0.08] flex items-center justify-center shrink-0 mt-0.5">
-                                        <svg className="w-3.5 h-3.5 text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
-                                        </svg>
+                                    <div className={`mt-4 rounded-xl border p-3.5 ${dark ? 'bg-white/[0.03] border-[#182840]' : 'bg-gray-50/80 border-gray-100'}`}>
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-6 h-6 rounded-lg bg-[#1e3a5f]/[0.08] flex items-center justify-center shrink-0">
+                                          <svg className="w-3.5 h-3.5 text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                                          </svg>
+                                        </div>
+                                        <p className="text-[11px] font-bold text-[#1e3a5f] uppercase tracking-wider">AI Feedback</p>
                                       </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[11px] font-bold text-[#1e3a5f] uppercase tracking-wider mb-1">AI Feedback</p>
-                                        <p className={`text-[13px] leading-relaxed ${dark ? 'text-gray-400' : 'text-gray-600'}`}>{r.feedback}</p>
-                                      </div>
+                                      <p className={`text-[13px] leading-relaxed ${dark ? 'text-gray-400' : 'text-gray-600'}`}>{r.feedback}</p>
+                                    </div>
+                                  )}
+
+                                  {/* Strengths */}
+                                  {r.strengths?.length > 0 && (
+                                    <div className={`mt-3 rounded-xl border p-3.5 ${dark ? 'bg-emerald-400/[0.05] border-emerald-400/15' : 'bg-emerald-50 border-emerald-100'}`}>
+                                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${dark ? 'text-emerald-400' : 'text-emerald-600'}`}>Strengths</p>
+                                      <ul className="space-y-1">
+                                        {r.strengths.map((s, i) => (
+                                          <li key={i} className={`flex items-start gap-1.5 text-[12px] ${dark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            <span className={`mt-0.5 shrink-0 text-xs ${dark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓</span>{s}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+
+                                  {/* Weaknesses + Improvements */}
+                                  {(r.weaknesses?.length > 0 || r.improvements?.length > 0) && (
+                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      {r.weaknesses?.length > 0 && (
+                                        <div className={`rounded-xl border p-3.5 ${dark ? 'bg-amber-400/[0.05] border-amber-400/15' : 'bg-amber-50 border-amber-100'}`}>
+                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${dark ? 'text-amber-400' : 'text-amber-600'}`}>To Improve</p>
+                                          <ul className="space-y-1">
+                                            {r.weaknesses.map((w, i) => (
+                                              <li key={i} className={`flex items-start gap-1.5 text-[12px] ${dark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                <span className={`mt-0.5 shrink-0 text-xs ${dark ? 'text-amber-400' : 'text-amber-600'}`}>△</span>{w}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {r.improvements?.length > 0 && (
+                                        <div className={`rounded-xl border p-3.5 ${dark ? 'bg-blue-400/[0.05] border-blue-400/15' : 'bg-blue-50 border-blue-100'}`}>
+                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${dark ? 'text-blue-400' : 'text-blue-600'}`}>Recommendations</p>
+                                          <ul className="space-y-1">
+                                            {r.improvements.map((imp, i) => (
+                                              <li key={i} className={`flex items-start gap-1.5 text-[12px] ${dark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                <span className={`mt-0.5 shrink-0 font-bold text-[10px] ${dark ? 'text-blue-400' : 'text-blue-600'}`}>{i + 1}.</span>{imp}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Audience Fit + Comparables */}
+                                  {(r.audienceFit || r.comparables) && (
+                                    <div className={`mt-3 grid gap-3 ${r.audienceFit && r.comparables ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+                                      {r.audienceFit && (
+                                        <div className={`rounded-xl border p-3 ${dark ? 'border-[#182840] bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
+                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Audience &amp; Market</p>
+                                          <p className={`text-[12px] leading-relaxed ${dark ? 'text-gray-400' : 'text-gray-600'}`}>{r.audienceFit}</p>
+                                        </div>
+                                      )}
+                                      {r.comparables && (
+                                        <div className={`rounded-xl border p-3 ${dark ? 'border-[#182840] bg-white/[0.02]' : 'border-gray-100 bg-gray-50'}`}>
+                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Comparable Titles</p>
+                                          <p className={`text-[12px] leading-relaxed ${dark ? 'text-gray-400' : 'text-gray-600'}`}>{r.comparables}</p>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -635,6 +696,36 @@ const Dashboard = () => {
           <h2 className={`text-[17px] font-bold tracking-tight ${dark ? 'text-gray-100' : 'text-gray-900'}`}>My Projects</h2>
           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-gray-400 bg-white/[0.06]' : 'text-gray-400 bg-gray-100'}`}>{myScripts.length}</span>
         </div>
+
+        {/* Approval status notices */}
+        {(() => {
+          const pending = myScripts.filter(s => s.status === "pending_approval");
+          const rejected = myScripts.filter(s => s.status === "rejected");
+          return (
+            <>
+              {pending.length > 0 && (
+                <div className={`mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border ${dark ? 'bg-amber-500/5 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
+                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-[13px] font-medium">
+                    <span className="font-bold">{pending.length} project{pending.length > 1 ? 's' : ''}</span> pending admin approval — {pending.length > 1 ? 'they are' : 'it is'} hidden from the public until approved.
+                  </p>
+                </div>
+              )}
+              {rejected.length > 0 && (
+                <div className={`mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border ${dark ? 'bg-red-500/5 border-red-500/20 text-red-300' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <p className="text-[13px] font-medium">
+                    <span className="font-bold">{rejected.length} project{rejected.length > 1 ? 's were' : ' was'}</span> not approved. Review the feedback on each card and make revisions, then re-upload.
+                  </p>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* Projects grid */}
         {myScripts.length > 0 ? (

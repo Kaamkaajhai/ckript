@@ -115,6 +115,11 @@ export const getDashboardReviews = async (req, res) => {
           marketability: s.scriptScore.marketability,
         },
         feedback: s.scriptScore.feedback,
+        strengths: s.scriptScore.strengths || [],
+        weaknesses: s.scriptScore.weaknesses || [],
+        improvements: s.scriptScore.improvements || [],
+        audienceFit: s.scriptScore.audienceFit || "",
+        comparables: s.scriptScore.comparables || "",
         date: s.scriptScore.scoredAt,
       }));
 

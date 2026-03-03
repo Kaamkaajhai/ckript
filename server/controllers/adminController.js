@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Script from "../models/Script.js";
 import Transaction from "../models/Transaction.js";
+import Notification from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 
 // ─── Dashboard Stats ───
@@ -235,7 +236,17 @@ export const approveScript = async (req, res) => {
         if (!script) return res.status(404).json({ message: "Script not found" });
         script.status = "published";
         script.adminApproved = true;
+        script.rejectionReason = undefined;
         await script.save();
+
+        // Notify the writer
+        await Notification.create({
+            user: script.creator,
+            type: "script_approved",
+            script: script._id,
+            message: `Your project "${script.title}" has been approved and is now live on the platform.`,
+        });
+
         res.json({ message: "Script approved and published", script });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -249,7 +260,17 @@ export const rejectScript = async (req, res) => {
         if (!script) return res.status(404).json({ message: "Script not found" });
         script.status = "rejected";
         script.adminApproved = false;
+        if (reason) script.rejectionReason = reason;
         await script.save();
+
+        // Notify the writer
+        await Notification.create({
+            user: script.creator,
+            type: "script_rejected",
+            script: script._id,
+            message: `Your project "${script.title}" was not approved.${ reason ? ` Reason: ${reason}` : " Please review and resubmit." }`,
+        });
+
         res.json({ message: "Script rejected", script, reason });
     } catch (error) {
         res.status(500).json({ message: error.message });

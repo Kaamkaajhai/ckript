@@ -111,7 +111,8 @@ export const getMyScripts = async (req, res) => {
   try {
     const scripts = await Script.find({ creator: req.user._id, status: { $ne: "draft" } })
       .sort({ createdAt: -1 })
-      .select("_id title services scriptScore status")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator createdAt")
+      .populate("creator", "name profileImage")
       .lean();
     res.json(scripts);
   } catch (error) {
