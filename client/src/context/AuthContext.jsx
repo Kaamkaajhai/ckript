@@ -82,6 +82,12 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
+    
+    // If OTP verification is required, don't set user yet
+    if (data.requiresVerification) {
+      return data;
+    }
+    
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
@@ -90,6 +96,12 @@ export const AuthProvider = ({ children }) => {
 
   const join = async (formData) => {
     const { data } = await axios.post(`${API_URL}/auth/join`, formData);
+    
+    // If OTP verification is required, don't set user yet
+    if (data.requiresVerification) {
+      return data;
+    }
+    
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
