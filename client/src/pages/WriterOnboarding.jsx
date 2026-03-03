@@ -16,6 +16,7 @@ import {
   AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import BrandLogo from "../components/BrandLogo";
 
 // Email validation regex
 const isValidEmail = (email) => {
@@ -941,8 +942,7 @@ const WriterOnboarding = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <FileText size={28} className="text-[#0a1628]" strokeWidth={1.5} />
-            <h1 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Ckript</h1>
+            <BrandLogo className="h-11 w-auto" />
           </div>
           <p className="text-sm text-gray-600">Writer Onboarding</p>
         </div>

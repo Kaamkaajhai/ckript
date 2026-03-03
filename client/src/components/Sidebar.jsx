@@ -3,6 +3,7 @@ import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
+import BrandLogo from "./BrandLogo";
 
 const Sidebar = () => {
   const { user, logout } = useContext(AuthContext);
@@ -165,16 +166,8 @@ const Sidebar = () => {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className="px-5 h-16 flex items-center gap-3 shrink-0">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-blue-500/15" : "bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e]"}`}>
-          <svg className={`w-5 h-5 ${isDarkMode ? "text-blue-400" : "text-white"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-          </svg>
-        </div>
-        <div>
-          <span className={`text-[16px] font-extrabold tracking-tight ${isDarkMode ? "text-gray-100" : "text-[#1e3a5f]"}`}>Ckript</span>
-          <p className={`text-[10px] font-medium -mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Creator Platform</p>
-        </div>
+      <div className="px-5 h-16 flex items-center shrink-0">
+        <BrandLogo className="h-9 w-auto" />
       </div>
 
       <div className={`mx-3 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>

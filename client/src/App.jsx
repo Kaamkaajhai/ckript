@@ -1,39 +1,39 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useSearchParams, useNavigate } from "react-router-dom";
+import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
-import Landing from "./pages/Landing";
-import PrivacyPolicy from "./pages/PolicyPage";
-import TermsOfService from "./pages/TermsOfService";
-import Login from "./pages/Login";
-import Join from "./pages/Join";
-import RoleSelection from "./pages/RoleSelection";
-import WriterOnboarding from "./pages/WriterOnboarding";
-import InvestorOnboarding from "./pages/InvestorOnboarding";
-import IndustryOnboarding from "./pages/IndustryOnboarding";
-import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard";
-import ScriptUpload from "./pages/ScriptUpload";
-import NewProject from "./pages/NewProject";
-import CreateProject from "./pages/CreateProject";
-import Search from "./pages/Search";
-import ScriptDetail from "./pages/ScriptDetail";
-import Mandates from "./pages/Mandates";
-import TopList from "./pages/TopList";
-import FeaturedProjects from "./pages/FeaturedProjects";
-import Trending from "./pages/Trending";
-import Messages from "./pages/Messages";
-import Writers from "./pages/Writers";
-import InvestorHome from "./pages/InvestorHome";
-import ReaderHome from "./pages/ReaderHome";
-import ScriptReader from "./pages/ScriptReader";
-import ReaderProfile from "./pages/ReaderProfile";
-import Credits from "./pages/Credits";
-import AdminDashboard from "./pages/AdminDashboard";
-import MainLayout from "./layouts/MainLayout";
 import PrivateRoute from "./utils/PrivateRoute";
-import { useEffect, useContext } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
 import { AuthContext } from "./context/AuthContext";
+
+const Landing = lazy(() => import("./pages/Landing"));
+const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const Login = lazy(() => import("./pages/Login"));
+const Join = lazy(() => import("./pages/Join"));
+const RoleSelection = lazy(() => import("./pages/RoleSelection"));
+const WriterOnboarding = lazy(() => import("./pages/WriterOnboarding"));
+const InvestorOnboarding = lazy(() => import("./pages/InvestorOnboarding"));
+const IndustryOnboarding = lazy(() => import("./pages/IndustryOnboarding"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ScriptUpload = lazy(() => import("./pages/ScriptUpload"));
+const NewProject = lazy(() => import("./pages/NewProject"));
+const CreateProject = lazy(() => import("./pages/CreateProject"));
+const Search = lazy(() => import("./pages/Search"));
+const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
+const Mandates = lazy(() => import("./pages/Mandates"));
+const TopList = lazy(() => import("./pages/TopList"));
+const FeaturedProjects = lazy(() => import("./pages/FeaturedProjects"));
+const Trending = lazy(() => import("./pages/Trending"));
+const Messages = lazy(() => import("./pages/Messages"));
+const Writers = lazy(() => import("./pages/Writers"));
+const InvestorHome = lazy(() => import("./pages/InvestorHome"));
+const ReaderHome = lazy(() => import("./pages/ReaderHome"));
+const ScriptReader = lazy(() => import("./pages/ScriptReader"));
+const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
+const Credits = lazy(() => import("./pages/Credits"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const MainLayout = lazy(() => import("./layouts/MainLayout"));
 
 // Handles admin impersonation login via URL parameter
 function AdminLoginHandler({ children }) {
@@ -65,6 +65,13 @@ function App() {
       <AuthProvider>
         <Router>
           <AdminLoginHandler>
+            <Suspense
+              fallback={
+                <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 bg-white">
+                  Loading...
+                </div>
+              }
+            >
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -316,6 +323,7 @@ function App() {
                 element={<AdminDashboard />}
               />
             </Routes>
+            </Suspense>
           </AdminLoginHandler>
         </Router>
       </AuthProvider>

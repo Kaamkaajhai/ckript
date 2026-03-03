@@ -1,8 +1,8 @@
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { BookOpen } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
+import BrandLogo from "../components/BrandLogo";
 
 const EMAIL_EXISTS_MSG = "User already exists";
 
@@ -124,8 +124,7 @@ const Join = () => {
       {/* Form panel */}
       <div className="w-full flex flex-col items-center justify-center px-6 py-12">
           <div className="flex items-center justify-center gap-2 mb-1">
-            <BookOpen size={28} className="text-[#0a1628]" strokeWidth={1.5} />
-            <h1 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Ckript</h1>
+            <BrandLogo className="h-11 w-auto" />
           </div>
           <p className="text-gray-400 text-sm font-medium mb-4">Reader Onboarding</p>
         <div className="w-full max-w-[540px] bg-white rounded-2xl shadow-lg border border-gray-100 p-10">

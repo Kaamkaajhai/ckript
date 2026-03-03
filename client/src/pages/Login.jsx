@@ -2,6 +2,7 @@ import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import OTPVerification from "../components/OTPVerification";
+import BrandLogo from "../components/BrandLogo";
 
 const Login = () => {
   const { login, setUser } = useContext(AuthContext);
@@ -93,12 +94,7 @@ const Login = () => {
       <div className="flex-1 flex items-center justify-center bg-white px-6">
         <div className="w-full max-w-[400px]">
           <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            </div>
-            <span className="text-lg font-extrabold text-[#1e3a5f] tracking-tight">Ckript</span>
+            <BrandLogo className="h-10 w-auto" />
           </div>
 
           <div className="mb-8">

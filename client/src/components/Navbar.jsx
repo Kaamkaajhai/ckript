@@ -3,6 +3,7 @@ import { useContext, useState, useRef, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import BuyCreditsModal from "./BuyCreditsModal";
 import api from "../services/api";
+import BrandLogo from "./BrandLogo";
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
@@ -71,7 +72,7 @@ const Navbar = () => {
       />
       
       <nav className="flex justify-between items-center px-6 h-16 bg-white border-b border-gray-200">
-      <h1 className="text-base font-bold text-[#1e3a5f] tracking-tight">Ckript</h1>
+      <BrandLogo className="h-9 w-auto" />
 
       {/* Center search */}
       <div className="relative hidden md:block" ref={dropdownRef}>

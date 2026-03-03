@@ -96,7 +96,7 @@ export const getDashboardReviews = async (req, res) => {
     const userId = req.user._id;
 
     const scripts = await Script.find({ creator: userId })
-      .select("title scriptScore views unlockedBy genre price holdStatus trailerStatus createdAt")
+      .select("title scriptScore platformScore views unlockedBy genre price holdStatus trailerStatus createdAt")
       .sort({ createdAt: -1 });
 
     // AI Reviews — from scripts that have been scored
@@ -115,6 +115,11 @@ export const getDashboardReviews = async (req, res) => {
           marketability: s.scriptScore.marketability,
         },
         feedback: s.scriptScore.feedback,
+        strengths: s.scriptScore.strengths || [],
+        weaknesses: s.scriptScore.weaknesses || [],
+        improvements: s.scriptScore.improvements || [],
+        audienceFit: s.scriptScore.audienceFit || "",
+        comparables: s.scriptScore.comparables || "",
         date: s.scriptScore.scoredAt,
       }));
 
@@ -203,10 +208,26 @@ export const getDashboardReviews = async (req, res) => {
       });
     }
 
+    const adminScores = scripts
+      .filter(s => s.platformScore?.overall)
+      .map(s => ({
+        scriptId: s._id,
+        scriptTitle: s.title,
+        overall: s.platformScore.overall,
+        content: s.platformScore.content,
+        trailer: s.platformScore.trailer,
+        title: s.platformScore.title,
+        synopsis: s.platformScore.synopsis,
+        tags: s.platformScore.tags,
+        feedback: s.platformScore.feedback,
+        scoredAt: s.platformScore.scoredAt,
+      }));
+
     res.json({
       ai: aiReviews,
       readers: readerReviews,
       platform: platformInsights,
+      adminScores,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

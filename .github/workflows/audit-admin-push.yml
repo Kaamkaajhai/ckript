@@ -1,0 +1,93 @@
+name: 🔍 Admin Security Audit on Push
+
+# Runs on every direct push to master to catch any direct-push tampering
+on:
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - "server/middleware/adminMiddleware.js"
+      - "server/controllers/adminController.js"
+      - "server/routes/adminRoutes.js"
+      - "client/src/pages/AdminDashboard.jsx"
+      - "server/middleware/authMiddleware.js"
+
+jobs:
+  audit-admin-files:
+    name: Audit Admin File Integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # ── Who pushed? ─────────────────────────────────────────────────────────
+      - name: Check actor
+        run: |
+          ACTOR="${{ github.actor }}"
+          REF="${{ github.ref_name }}"
+
+          echo "==========================================="
+          echo "  PUSHED BY  : $ACTOR"
+          echo "  BRANCH/REF : $REF"
+          echo "==========================================="
+
+          if [ "$REF" != "yashu" ]; then
+            echo "⚠️   WARNING: Admin files were changed via a push to '$REF'."
+            echo "    Only the 'yashu' branch should modify admin panel code."
+            echo "    This may be a policy violation."
+            echo ""
+            echo "    Review the commit manually:"
+            echo "    https://github.com/${{ github.repository }}/commit/${{ github.sha }}"
+          else
+            echo "✅  Authorized push from the 'yashu' branch."
+          fi
+
+      # ── Integrity check on every push ───────────────────────────────────────
+      - name: Validate adminMiddleware integrity
+        run: |
+          MW_FILE="server/middleware/adminMiddleware.js"
+
+          if [ ! -f "$MW_FILE" ]; then
+            echo "❌  adminMiddleware.js is MISSING from the repository!"
+            exit 1
+          fi
+
+          if ! grep -q 'req.user.role.*admin\|role.*===.*admin\|role.*==.*admin' "$MW_FILE"; then
+            echo "❌  CRITICAL: adminMiddleware — role check is GONE!"
+            exit 1
+          fi
+
+          if ! grep -q '403' "$MW_FILE"; then
+            echo "❌  CRITICAL: adminMiddleware — 403 Forbidden response is GONE!"
+            exit 1
+          fi
+
+          echo "✅  adminMiddleware.js is intact."
+
+      - name: Validate admin routes use middleware
+        run: |
+          ROUTES_FILE="server/routes/adminRoutes.js"
+
+          if [ ! -f "$ROUTES_FILE" ]; then
+            echo "❌  adminRoutes.js is MISSING!"
+            exit 1
+          fi
+
+          if ! grep -q 'adminOnly\|adminMiddleware\|verifyAdmin' "$ROUTES_FILE"; then
+            echo "❌  CRITICAL: adminRoutes.js no longer uses admin middleware!"
+            exit 1
+          fi
+
+          echo "✅  adminRoutes.js is intact."
+
+      # ── Summary ─────────────────────────────────────────────────────────────
+      - name: Audit summary
+        if: always()
+        run: |
+          echo "Audit completed for commit ${{ github.sha }}"
+          echo "Repo: ${{ github.repository }}"
+          echo "Actor: ${{ github.actor }}"

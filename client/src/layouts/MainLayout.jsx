@@ -39,11 +39,12 @@ const MainLayout = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (!user) return undefined;
+
     fetchUnreadCount();
-    if (user) {
-      fetchCreditsBalance();
-    }
-    const interval = setInterval(fetchUnreadCount, 30000);
+    fetchCreditsBalance();
+
+    const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
   }, [fetchUnreadCount, user]);
 

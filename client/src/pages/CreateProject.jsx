@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useContext, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEditor, EditorContent } from "@tiptap/react";
@@ -193,6 +194,16 @@ const CreateProject = () => {
   const [charCount, setCharCount] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [grammarLoading, setGrammarLoading] = useState(false);
+  const [grammarNotes, setGrammarNotes] = useState([]);
+
+  // Grammar credit confirmation + undo/keep
+  const GRAMMAR_COST = 5;
+  const [showGrammarModal, setShowGrammarModal] = useState(false);
+  const [grammarCreditBalance, setGrammarCreditBalance] = useState(null);
+  const [grammarCreditLoading, setGrammarCreditLoading] = useState(false);
+  const [preGrammarContent, setPreGrammarContent] = useState(null); // for undo
+  const [showUndoBar, setShowUndoBar] = useState(false);
 
   // Step 2: Details
   const [formData, setFormData] = useState({ format: "feature", primaryGenre: "", logline: "", description: "" });
@@ -341,6 +352,113 @@ const CreateProject = () => {
     } catch (err) { setError(err.response?.data?.message || "Failed to publish."); } finally { setLoading(false); }
   };
 
+  const escapeHtml = (str = "") =>
+    str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const textToParagraphHtml = (text = "") => {
+    const blocks = text
+      .split(/\n{2,}/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+
+    if (!blocks.length) return "";
+
+    return blocks
+      .map((block) => `<p>${escapeHtml(block).replace(/\n/g, "<br />")}</p>`)
+      .join("");
+  };
+
+  // Fetch credits for grammar modal
+  const fetchGrammarCredits = useCallback(async () => {
+    setGrammarCreditLoading(true);
+    try {
+      const { data } = await api.get("/credits/balance");
+      setGrammarCreditBalance(data.balance || 0);
+    } catch {
+      setGrammarCreditBalance(0);
+    } finally {
+      setGrammarCreditLoading(false);
+    }
+  }, []);
+
+  // Click "Fix Grammar" → show credit confirmation first
+  const handleGrammarClick = () => {
+    if (!editor) return;
+    const plainText = editor.getText().trim();
+    if (!plainText || plainText.length < 10) {
+      setError("Write some script text before running grammar correction.");
+      return;
+    }
+    fetchGrammarCredits();
+    setShowGrammarModal(true);
+  };
+
+  // Confirmed → actually run grammar fix
+  const handleFixGrammar = async () => {
+    setShowGrammarModal(false);
+    if (!editor) return;
+    const plainText = editor.getText().trim();
+    if (!plainText) return;
+
+    // Save current content for undo
+    setPreGrammarContent(editor.getHTML());
+    setGrammarLoading(true);
+    setError("");
+    setGrammarNotes([]);
+    setShowUndoBar(false);
+
+    try {
+      const { data } = await api.post("/ai/correct-script-text", { text: plainText });
+      const correctedText = data?.correctedText?.trim();
+
+      if (correctedText) {
+        editor.commands.setContent(textToParagraphHtml(correctedText));
+        setSaved(false);
+        // Show undo/keep bar after a small delay
+        setTimeout(() => setShowUndoBar(true), 150);
+      }
+
+      setGrammarNotes(Array.isArray(data?.notes) ? data.notes : []);
+      // Refresh balance
+      api.get("/credits/balance").then(({ data: d }) => {
+        setCreditsBalance(d.balance || 0);
+        setGrammarCreditBalance(d.balance || 0);
+      }).catch(() => {});
+    } catch (err) {
+      const msg = err.response?.data?.message || "Failed to correct script text.";
+      // If credit error, show modal again
+      if (err.response?.status === 402) {
+        setGrammarCreditBalance(err.response.data?.balance ?? 0);
+        setShowGrammarModal(true);
+      }
+      setError(msg);
+    } finally {
+      setGrammarLoading(false);
+    }
+  };
+
+  // Undo grammar changes
+  const handleGrammarUndo = () => {
+    if (preGrammarContent && editor) {
+      editor.commands.setContent(preGrammarContent);
+      setSaved(false);
+    }
+    setShowUndoBar(false);
+    setPreGrammarContent(null);
+    setGrammarNotes([]);
+  };
+
+  // Keep grammar changes
+  const handleGrammarKeep = () => {
+    setShowUndoBar(false);
+    setPreGrammarContent(null);
+  };
+
   // Styling helpers
   const cardCls = `rounded-2xl border backdrop-blur-sm ${dark ? "bg-[#0d1520]/80 border-[#182840]" : "bg-white/90 border-gray-200 shadow-sm"}`;
   const inputCls = `w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 outline-none ${dark
@@ -431,6 +549,217 @@ const CreateProject = () => {
         )}
       </AnimatePresence>
 
+      {/* ═══ Grammar Credit Confirmation Modal (portal) ═══ */}
+      {showGrammarModal && createPortal(
+        <AnimatePresence>
+          <motion.div
+            key="grammar-modal-bg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+            onClick={() => setShowGrammarModal(false)}
+          >
+            <motion.div
+              key="grammar-modal"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: "spring", damping: 24, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
+                dark
+                  ? "bg-[#0a1120] border border-white/[0.08]"
+                  : "bg-white border border-gray-200"
+              }`}
+            >
+              {/* Header */}
+              <div className={`px-6 pt-6 pb-4 border-b ${
+                dark ? "border-white/[0.06]" : "border-gray-100"
+              }`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                    dark
+                      ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
+                      : "bg-emerald-50 border border-emerald-200"
+                  }`}>
+                    <span className="text-xl">📝</span>
+                  </div>
+                  <div>
+                    <h3 className={`text-base font-bold ${
+                      dark ? "text-white" : "text-gray-900"
+                    }`}>AI Grammar Fix</h3>
+                    <p className={`text-[11px] ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Powered by Gemini AI</p>
+                  </div>
+                </div>
+                <p className={`text-xs leading-relaxed ${
+                  dark ? "text-neutral-400" : "text-gray-500"
+                }`}>
+                  Fix grammar, spelling, punctuation, and readability with professional AI proofreading.
+                </p>
+              </div>
+
+              {/* Credit info */}
+              <div className="px-6 py-5 space-y-3">
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">⚡</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Cost</span>
+                  </div>
+                  <span className={`text-sm font-bold ${
+                    dark ? "text-amber-300" : "text-amber-600"
+                  }`}>{GRAMMAR_COST} credits</span>
+                </div>
+
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">💰</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Your Balance</span>
+                  </div>
+                  {grammarCreditLoading ? (
+                    <span className={`text-xs ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Loading...</span>
+                  ) : (
+                    <span className={`text-sm font-bold ${
+                      grammarCreditBalance >= GRAMMAR_COST
+                        ? dark ? "text-emerald-400" : "text-emerald-600"
+                        : "text-red-400"
+                    }`}>
+                      {grammarCreditBalance ?? "—"} credits
+                    </span>
+                  )}
+                </div>
+
+                {!grammarCreditLoading && grammarCreditBalance !== null && grammarCreditBalance < GRAMMAR_COST && (
+                  <div className={`px-4 py-3 rounded-xl ${
+                    dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      dark ? "text-red-300" : "text-red-600"
+                    }`}>
+                      Not enough credits. You need {GRAMMAR_COST - grammarCreditBalance} more credit{GRAMMAR_COST - grammarCreditBalance > 1 ? "s" : ""} to use this feature.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Buttons */}
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowGrammarModal(false)}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    dark
+                      ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+                      : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFixGrammar}
+                  disabled={grammarCreditLoading || grammarCreditBalance === null || grammarCreditBalance < GRAMMAR_COST}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
+                    dark
+                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
+                  }`}
+                >
+                  Pay {GRAMMAR_COST} Credits & Fix
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ═══ Undo/Keep Bar — fixed bottom (always visible) ═══ */}
+      {showUndoBar && createPortal(
+        <AnimatePresence>
+          <motion.div
+            key="grammar-undo-bar"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ type: "spring", damping: 22, stiffness: 300 }}
+            className="fixed bottom-6 left-1/2 z-[9999] -translate-x-1/2"
+          >
+            <div className={`rounded-2xl shadow-2xl px-5 py-3.5 flex items-center gap-4 min-w-[340px] max-w-[520px] ${
+              dark
+                ? "bg-[#0c1424] border border-white/[0.12] shadow-black/60"
+                : "bg-white border border-gray-200 shadow-gray-300/40"
+            }`}>
+              {/* Status */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span className={`text-xs font-bold ${
+                    dark ? "text-emerald-400" : "text-emerald-600"
+                  }`}>Grammar Fixed</span>
+                  <span className={`text-[10px] ${
+                    dark ? "text-neutral-500" : "text-gray-400"
+                  }`}>— {GRAMMAR_COST} credits used</span>
+                </div>
+                {grammarNotes.length > 0 && (
+                  <p className={`text-[10px] truncate leading-snug ${
+                    dark ? "text-neutral-500" : "text-gray-400"
+                  }`}>
+                    {grammarNotes[0]}{grammarNotes.length > 1 ? ` +${grammarNotes.length - 1} more` : ""}
+                  </p>
+                )}
+              </div>
+
+              {/* Undo */}
+              <button
+                type="button"
+                onClick={handleGrammarUndo}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.96] shrink-0 ${
+                  dark
+                    ? "text-amber-300 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-400/40"
+                    : "text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:border-amber-300"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v0a5 5 0 01-5 5H3M3 10l4-4M3 10l4 4" />
+                </svg>
+                Undo
+              </button>
+
+              {/* Keep */}
+              <button
+                type="button"
+                onClick={handleGrammarKeep}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.96] shrink-0 ${
+                  dark
+                    ? "text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-400/40"
+                    : "text-emerald-600 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Keep
+              </button>
+            </div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+
       {/* ── Error ── */}
       <AnimatePresence>
         {error && (
@@ -464,11 +793,50 @@ const CreateProject = () => {
               {/* Status */}
               <div className={`flex items-center justify-between px-4 py-2.5 border-t text-xs ${dark ? "border-[#182840] text-gray-500" : "border-gray-100 text-gray-400"}`}>
                 <div className="flex gap-4"><span>{wordCount} words</span><span>{charCount} chars</span></div>
-                <button onClick={() => handleSave(false)} disabled={saving}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${dark ? "hover:bg-white/[0.06] text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
-                  {saving ? "Saving..." : "Save Draft"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleGrammarClick}
+                    disabled={grammarLoading || saving}
+                    className={`group relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 active:scale-[0.97] ${dark
+                      ? "border-emerald-500/20 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-400/30"
+                      : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-300"
+                      }`}
+                  >
+                    {grammarLoading ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Fixing...
+                      </>
+                    ) : (
+                      <>
+                        <span>📝</span>
+                        Fix Grammar
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${dark
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          : "bg-amber-50 text-amber-600 border border-amber-200"
+                        }`}>{GRAMMAR_COST}cr</span>
+                      </>
+                    )}
+                  </button>
+                  <button onClick={() => handleSave(false)} disabled={saving}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${dark ? "hover:bg-white/[0.06] text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}>
+                    {saving ? "Saving..." : "Save Draft"}
+                  </button>
+                </div>
               </div>
+              {grammarNotes.length > 0 && (
+                <div className={`px-4 py-3 text-xs border-t ${dark ? "border-[#182840] text-gray-400" : "border-gray-100 text-gray-600"}`}>
+                  <p className={`font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>AI Notes</p>
+                  <ul className="space-y-0.5">
+                    {grammarNotes.slice(0, 3).map((note, idx) => (
+                      <li key={`${note}-${idx}`}>• {note}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

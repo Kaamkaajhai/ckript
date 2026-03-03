@@ -5,15 +5,55 @@ const ProjectCard = ({ project, userName }) => {
   const navigate = useNavigate();
   const { isDarkMode: dark } = useDarkMode();
 
+  const statusConfig = {
+    pending_approval: {
+      label: "Pending Approval",
+      className: "bg-amber-100 text-amber-700 border border-amber-200",
+      icon: (
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    rejected: {
+      label: "Not Approved",
+      className: "bg-red-100 text-red-700 border border-red-200",
+      icon: (
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      ),
+    },
+    published: null,
+  };
+
+  const statusInfo = statusConfig[project?.status];
+  const isClickable = project?.status === "published";
+
   return (
     <div
-      onClick={() => navigate(`/script/${project._id}`)}
-      className={`rounded-2xl border transition-all duration-300 overflow-hidden w-full cursor-pointer group hover:-translate-y-1 ${
+      onClick={() => isClickable && navigate(`/script/${project._id}`)}
+      className={`rounded-2xl border transition-all duration-300 overflow-hidden w-full group relative ${
+        isClickable ? "cursor-pointer hover:-translate-y-1" : "cursor-default opacity-90"
+      } ${
         dark
           ? "bg-[#0d1829] border-white/[0.06] hover:border-white/[0.1] hover:shadow-xl hover:shadow-[#020609]/30"
           : "bg-white border-gray-100 shadow-sm hover:shadow-xl hover:shadow-gray-200/60"
       }`}
     >
+      {/* Status badge */}
+      {statusInfo && (
+        <div className={`absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${statusInfo.className}`}>
+          {statusInfo.icon}
+          {statusInfo.label}
+        </div>
+      )}
+      {/* Rejection reason tooltip */}
+      {project?.status === "rejected" && project?.rejectionReason && (
+        <div className="absolute top-10 right-3 z-10 max-w-[160px] bg-red-50 border border-red-200 rounded-xl px-2.5 py-1.5 text-[10px] text-red-600 leading-snug font-medium">
+          {project.rejectionReason}
+        </div>
+      )}
       {/* Card body */}
       <div className="flex flex-col items-center px-6 pt-10 pb-6 relative">
         {/* Subtle accent at top */}

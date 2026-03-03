@@ -5,7 +5,7 @@ import {
   holdScript, releaseHold, getMyHolds, addRoles,
   getFeaturedScripts, getTopScripts, searchScriptsReader,
   getLatestScripts, recordRead, toggleFavorite, getCategories,
-  extractPdfText, saveDraft, deleteScript, getMyDrafts, updateScript,
+  extractPdfText, saveDraft, deleteScript, getMyDrafts, getMyScripts, updateScript,
   createScriptPurchaseOrder, verifyScriptPurchase,
   createScriptHoldOrder, verifyScriptHold
 } from "../controllers/scriptController.js";
@@ -27,6 +27,7 @@ router.post("/hold/verify-payment", protect, verifyScriptHold);
 router.get("/", protect, getScripts);
 router.get("/holds", protect, getMyHolds);
 router.get("/my-drafts", protect, getMyDrafts);
+router.get("/mine", protect, getMyScripts);
 // Reader static routes (must be before /:id)
 router.get("/featured", protect, getFeaturedScripts);
 router.get("/top", protect, getTopScripts);

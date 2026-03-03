@@ -3,46 +3,70 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 
-const RazorpayScriptPayment = ({ 
-  isOpen, 
-  onClose, 
-  script, 
+const RazorpayScriptPayment = ({
+  isOpen,
+  onClose,
+  script,
   type = "purchase", // "purchase" or "hold"
-  onSuccess 
+  onSuccess,
 }) => {
   const { isDarkMode } = useDarkMode();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [razorpayReady, setRazorpayReady] = useState(false);
 
   useEffect(() => {
-    // Load Razorpay script
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
+    if (!isOpen) {
+      return;
+    }
+
+    setRazorpayReady(Boolean(window.Razorpay));
+
+    if (window.Razorpay) return undefined;
+
+    const sdkScript = document.createElement("script");
+    sdkScript.src = "https://checkout.razorpay.com/v1/checkout.js";
+    sdkScript.async = true;
+    sdkScript.onload = () => setRazorpayReady(true);
+    sdkScript.onerror = () => {
+      setRazorpayReady(false);
+      setError(
+        "Payment SDK failed to load. Disable ad blocker/privacy extension for checkout.razorpay.com and try again."
+      );
+    };
+    document.body.appendChild(sdkScript);
 
     return () => {
-      document.body.removeChild(script);
+      if (sdkScript.parentNode) {
+        sdkScript.parentNode.removeChild(sdkScript);
+      }
     };
-  }, []);
+  }, [isOpen]);
 
   const handlePayment = async () => {
     try {
       setLoading(true);
       setError("");
 
-      // Determine endpoint based on payment type
-      const orderEndpoint = type === "purchase" 
-        ? "/scripts/purchase/create-order" 
-        : "/scripts/hold/create-order";
-      
-      const verifyEndpoint = type === "purchase"
-        ? "/scripts/purchase/verify-payment"
-        : "/scripts/hold/verify-payment";
+      if (!window.Razorpay || !razorpayReady) {
+        setError(
+          "Payment SDK is blocked or not ready. Disable blocker for checkout.razorpay.com, then retry."
+        );
+        setLoading(false);
+        return;
+      }
+
+      const orderEndpoint =
+        type === "purchase" ? "/scripts/purchase/create-order" : "/scripts/hold/create-order";
+
+      const verifyEndpoint =
+        type === "purchase"
+          ? "/scripts/purchase/verify-payment"
+          : "/scripts/hold/verify-payment";
 
       // Create order
       const { data: orderData } = await api.post(orderEndpoint, {
-        scriptId: script._id
+        scriptId: script._id,
       });
 
       const options = {
@@ -50,18 +74,19 @@ const RazorpayScriptPayment = ({
         amount: orderData.amount,
         currency: orderData.currency,
         name: "ScriptBridge",
-        description: type === "purchase" 
+        description:
+          type === "purchase"
           ? `Purchase: ${script.title}`
           : `Place Hold: ${script.title}`,
         order_id: orderData.orderId,
-        handler: async function (response) {
+        handler: async (response) => {
           try {
             // Verify payment on backend
             const { data: verifyData } = await api.post(verifyEndpoint, {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              scriptId: script._id
+              scriptId: script._id,
             });
 
             if (verifyData.success) {
@@ -80,21 +105,20 @@ const RazorpayScriptPayment = ({
         prefill: {
           name: "",
           email: "",
-          contact: ""
+          contact: "",
         },
         theme: {
-          color: "#1e3a5f"
+          color: "#1e3a5f",
         },
         modal: {
-          ondismiss: function() {
+          ondismiss: () => {
             setLoading(false);
-          }
-        }
+          },
+        },
       };
 
       const razorpay = new window.Razorpay(options);
       razorpay.open();
-
     } catch (err) {
       console.error("Payment initiation error:", err);
       setError(err.response?.data?.message || "Failed to initiate payment");
@@ -104,7 +128,7 @@ const RazorpayScriptPayment = ({
 
   if (!isOpen) return null;
 
-  const amount = type === "purchase" ? script.price : (script.holdFee || 200);
+  const amount = type === "purchase" ? script.price : script.holdFee || 200;
   const title = type === "purchase" ? "Purchase Script" : "Place Hold";
   const description = type === "purchase"
     ? "Get full access to this script immediately after payment"
@@ -112,21 +136,21 @@ const RazorpayScriptPayment = ({
 
   const t = {
     overlay: "fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4",
-    modal: isDarkMode 
+    modal: isDarkMode
       ? "bg-[#0d1829] border border-white/[0.08] rounded-2xl shadow-2xl max-w-md w-full"
       : "bg-white border border-gray-200 rounded-2xl shadow-2xl max-w-md w-full",
     title: isDarkMode ? "text-white" : "text-gray-900",
     text: isDarkMode ? "text-neutral-300" : "text-gray-600",
     muted: isDarkMode ? "text-neutral-500" : "text-gray-400",
     divider: isDarkMode ? "border-white/[0.06]" : "border-gray-100",
-    infoRow: isDarkMode 
+    infoRow: isDarkMode
       ? "bg-white/[0.03] border border-white/[0.05]"
       : "bg-gray-50 border border-gray-200",
     btnPrimary: "bg-[#1e3a5f] hover:bg-[#254a75] text-white",
     btnSecondary: isDarkMode
       ? "bg-white/[0.06] border border-white/[0.08] text-white hover:bg-white/[0.1]"
       : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50",
-    error: "bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3"
+    error: "bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg p-3",
   };
 
   return (
@@ -196,7 +220,7 @@ const RazorpayScriptPayment = ({
             {error && (
               <div className={t.error}>
                 <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="font-medium">{error}</span>
@@ -231,10 +255,12 @@ const RazorpayScriptPayment = ({
               </button>
               <button
                 onClick={handlePayment}
-                disabled={loading}
+                disabled={loading || !razorpayReady}
                 className={`flex-1 px-4 py-3 rounded-xl font-bold text-sm transition disabled:opacity-50 shadow-lg ${t.btnPrimary}`}
               >
-                {loading ? (
+                {!razorpayReady ? (
+                  "Preparing payment..."
+                ) : loading ? (
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     <span>Processing...</span>

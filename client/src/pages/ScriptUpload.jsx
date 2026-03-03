@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { useDarkMode } from "../context/DarkModeContext";
+import AiWritingAssistant from "../components/AiWritingAssistant";
 
 // Format options
 const formats = [
@@ -96,6 +98,7 @@ Last Updated: ${new Date().toLocaleDateString()}
 
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
+  const { isDarkMode } = useDarkMode();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
@@ -577,7 +580,7 @@ const ScriptUpload = () => {
         <div className="flex items-center gap-3 mb-6">
           <span className="text-3xl">🎬</span>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">{editId ? "Edit Your Project" : "Add Your Project"}</h1>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{editId ? "Edit Your Project" : "Add Your Project"}</h1>
             <p className="text-sm text-neutral-500">{editId ? "Update your script details and republish" : "Complete the 5-step wizard to publish your script"}</p>
           </div>
         </div>
@@ -954,6 +957,36 @@ const ScriptUpload = () => {
                       </div>
                     )}
 
+                    {/* ── AI Writing Assistant + Script Editor ── */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm text-neutral-300 font-medium">
+                          Script Editor
+                        </label>
+                        <AiWritingAssistant
+                          textContent={textContent}
+                          onApply={(newText) => setTextContent(newText)}
+                          isDarkMode={isDarkMode}
+                        />
+                      </div>
+                      <textarea
+                        value={textContent}
+                        onChange={(e) => setTextContent(e.target.value)}
+                        rows={18}
+                        placeholder="Paste or write your script here... then use the AI Assistant above to improve it instantly."
+                        className="w-full p-4 bg-white/[0.03] border border-white/[0.1] rounded-xl text-sm text-neutral-200 placeholder-neutral-600 focus:ring-2 focus:ring-purple-500/30 focus:border-transparent transition font-mono leading-relaxed resize-y"
+                      />
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-[10px] text-neutral-600">
+                          {textContent.length > 0
+                            ? `${textContent.split(/\s+/).filter(Boolean).length} words · ${textContent.length} chars`
+                            : "Start writing or upload a PDF above"}
+                        </p>
+                        <p className="text-[10px] text-purple-400/60">
+                          🤖 Use AI Assistant to improve, polish & professionalize your script
+                        </p>
+                      </div>
+                    </div>
 
                   </div>
 
@@ -1074,7 +1107,7 @@ const ScriptUpload = () => {
                         {SERVICE_PRICES.aiTrailer} credits
                       </p>
                       <p className="text-xs text-neutral-400 mb-3">
-                        Generate a 60-second cinematic teaser using AI voiceover & stock footage.
+                        Generate a 60-second cinematic teaser using AI voiceover &amp; stock footage. Ready within 2 business days.
                       </p>
                       <div className="flex items-center gap-2">
                         <input

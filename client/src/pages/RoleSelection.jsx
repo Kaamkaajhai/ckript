@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FileText, Users, ArrowRight, ArrowLeft, BookOpen } from "lucide-react";
+import BrandLogo from "../components/BrandLogo";
 
 const RoleSelection = () => {
   return (
@@ -12,6 +13,9 @@ const RoleSelection = () => {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
+          <div className="flex justify-center mb-6">
+            <BrandLogo className="h-12 w-auto" />
+          </div>
           <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">
             Join Ckript
           </h1>
