@@ -1,0 +1,98 @@
+name: 🔒 Protect Admin Panel
+
+# Runs on every Pull Request targeting master or yashu branch
+on:
+  pull_request:
+    branches:
+      - master
+      - main
+    paths:
+      # Trigger only when admin-related files are touched
+      - "server/middleware/adminMiddleware.js"
+      - "server/controllers/adminController.js"
+      - "server/routes/adminRoutes.js"
+      - "client/src/pages/AdminDashboard.jsx"
+      - "server/middleware/authMiddleware.js"
+      - ".github/**"
+
+jobs:
+  check-admin-branch:
+    name: Verify Admin Code Change Source
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── Core guard: only the 'yashu' branch may touch admin files ──────────
+      - name: Block unauthorized admin panel changes
+        run: |
+          ALLOWED_BRANCH="yashu"
+          SOURCE_BRANCH="${{ github.head_ref }}"
+
+          echo "==========================================="
+          echo "  SOURCE BRANCH : $SOURCE_BRANCH"
+          echo "  ALLOWED BRANCH: $ALLOWED_BRANCH"
+          echo "==========================================="
+
+          if [ "$SOURCE_BRANCH" != "$ALLOWED_BRANCH" ]; then
+            echo ""
+            echo "❌  BLOCKED: Admin panel files were modified."
+            echo "    Only the '$ALLOWED_BRANCH' branch is permitted"
+            echo "    to change admin panel code."
+            echo ""
+            echo "    If you need to update admin panel code, please:"
+            echo "    1. Switch to the '$ALLOWED_BRANCH' branch"
+            echo "    2. Make your changes there"
+            echo "    3. Open a new PR from '$ALLOWED_BRANCH'"
+            echo ""
+            exit 1
+          fi
+
+          echo "✅  Authorized: this PR originates from '$SOURCE_BRANCH'."
+
+      # ── Verify adminMiddleware has not been weakened ────────────────────────
+      - name: Validate adminMiddleware integrity
+        run: |
+          MW_FILE="server/middleware/adminMiddleware.js"
+
+          if [ ! -f "$MW_FILE" ]; then
+            echo "❌  adminMiddleware.js is missing!"
+            exit 1
+          fi
+
+          # The role check must still be present
+          if ! grep -q 'req.user.role.*admin\|role.*===.*admin\|role.*==.*admin' "$MW_FILE"; then
+            echo "❌  SECURITY ALERT: adminMiddleware.js no longer contains"
+            echo "    a valid role === 'admin' check! Possible bypass attempt."
+            exit 1
+          fi
+
+          # The 403 response must still be present
+          if ! grep -q '403' "$MW_FILE"; then
+            echo "❌  SECURITY ALERT: adminMiddleware.js is missing the"
+            echo "    403 Forbidden response! Possible bypass attempt."
+            exit 1
+          fi
+
+          echo "✅  adminMiddleware.js integrity check passed."
+
+      # ── Verify admin routes are still protected ─────────────────────────────
+      - name: Validate admin routes use middleware
+        run: |
+          ROUTES_FILE="server/routes/adminRoutes.js"
+
+          if [ ! -f "$ROUTES_FILE" ]; then
+            echo "❌  adminRoutes.js is missing!"
+            exit 1
+          fi
+
+          if ! grep -q 'adminOnly\|adminMiddleware\|adminOnly\|verifyAdmin' "$ROUTES_FILE"; then
+            echo "❌  SECURITY ALERT: adminRoutes.js does not appear to use"
+            echo "    the admin middleware! Possible bypass attempt."
+            exit 1
+          fi
+
+          echo "✅  adminRoutes.js middleware check passed."

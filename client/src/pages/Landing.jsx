@@ -1,19 +1,22 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Film, Zap, Users, TrendingUp, ChevronRight, Mail, Send, Briefcase, HelpCircle, MessageSquare, CheckCircle, PenLine, BookOpen } from "lucide-react";
+import { Film, Zap, Users, TrendingUp, ChevronRight, Mail, Send, Briefcase, HelpCircle, MessageSquare, CheckCircle, PenLine, BookOpen, ArrowRight } from "lucide-react";
 import FeaturesShowcase from "../components/FeaturesShowcase";
 import SuccessStories from "../components/SuccessStories";
 import api from "../services/api";
 import BrandLogo from "../components/BrandLogo";
 
 const contactReasons = [
-  { value: "doubt", label: "I have a question / doubt", icon: HelpCircle, accent: "cyan" },
-  { value: "team", label: "I want to join the team", icon: Briefcase, accent: "blue" },
-  { value: "general", label: "General enquiry / feedback", icon: MessageSquare, accent: "violet" },
-  { value: "email", label: "Just send an email", icon: Mail, accent: "teal" },
+  { value: "doubt", label: "I have a question / doubt", icon: HelpCircle },
+  { value: "team", label: "I want to join the team", icon: Briefcase },
+  { value: "general", label: "General enquiry / feedback", icon: MessageSquare },
+  { value: "email", label: "Just send an email", icon: Mail },
 ];
 
+/* ─────────────────────────────────────────────
+   Contact Section
+   ───────────────────────────────────────────── */
 const ContactSection = () => {
   const [form, setForm] = useState({ reason: "", name: "", email: "", message: "" });
   const [submitted, setSubmitted] = useState(false);
@@ -29,7 +32,6 @@ const ContactSection = () => {
     e.preventDefault();
     setLoading(true);
     setSubmitError("");
-
     try {
       await api.post("/contact", form);
       setLoading(false);
@@ -40,98 +42,85 @@ const ContactSection = () => {
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.15, delayChildren: 0.2 } },
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 24 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" } },
-  };
-
   return (
-    <section className="relative py-24 px-6 overflow-hidden">
-      {/* ambient glows */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-blue-600/5 rounded-full blur-3xl" />
-      </div>
-
-      <motion.div
-        className="relative max-w-6xl mx-auto"
-        variants={containerVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-      >
-        {/* Heading */}
-        <motion.div variants={itemVariants} className="text-center mb-14">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold tracking-widest uppercase mb-4">
-            Get In Touch
-          </span>
-          <h2 className="text-4xl lg:text-5xl font-bold text-white mb-4">
-            We'd Love to{" "}
-            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Hear From You
-            </span>
+    <section className="py-28 px-6 bg-[#080e18]">
+      <div className="max-w-5xl mx-auto">
+        {/* Header — left-aligned */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="mb-12"
+        >
+          <p className="text-gray-400 text-sm font-semibold tracking-wide uppercase mb-3">Get in touch</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2">
+            We'd love to hear from you
           </h2>
-          <p className="text-gray-400 text-lg max-w-xl mx-auto">
+          <p className="text-[#8896a7] text-base max-w-lg">
             Have a question, want to collaborate, or curious about joining the team? Drop us a message.
           </p>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-start">
           {/* Left — reason cards */}
-          <motion.div variants={itemVariants} className="lg:col-span-2 flex flex-col gap-4">
-            {contactReasons.map(({ value, label, icon: Icon, accent }) => (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="lg:col-span-2 flex flex-col gap-3"
+          >
+            {contactReasons.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, reason: value }))}
-                className={`flex items-center gap-4 px-5 py-4 rounded-xl border text-left transition-all duration-200
+                className={`flex items-center gap-4 px-5 py-4 rounded-lg border text-left transition-colors duration-150
                   ${form.reason === value
-                    ? `bg-${accent}-500/10 border-${accent}-500/50 shadow-lg shadow-${accent}-500/10`
-                    : "bg-slate-900/60 border-slate-700/50 hover:border-slate-600/70 hover:bg-slate-800/60"
+                    ? "bg-gray-400/8 border-gray-400/25 text-white"
+                    : "bg-[#0d1520] border-[#1c2a3a] text-[#8896a7] hover:border-[#2a3a4e]"
                   }`}
               >
-                <span className={`p-2 rounded-lg ${form.reason === value ? `bg-${accent}-500/20` : "bg-slate-800"}`}>
-                  <Icon className={`w-5 h-5 ${form.reason === value ? `text-${accent}-400` : "text-gray-400"}`} />
-                </span>
-                <span className={`text-sm font-medium ${form.reason === value ? "text-white" : "text-gray-400"}`}>
-                  {label}
-                </span>
+                <Icon className={`w-[18px] h-[18px] shrink-0 ${form.reason === value ? "text-gray-400" : "text-[#4a5a6e]"}`} />
+                <span className="text-sm font-medium">{label}</span>
                 {form.reason === value && (
-                  <CheckCircle className="w-4 h-4 text-cyan-400 ml-auto shrink-0" />
+                  <CheckCircle className="w-4 h-4 text-gray-400 ml-auto shrink-0" />
                 )}
               </button>
             ))}
 
-            {/* Direct email */}
-            <div className="mt-2 px-5 py-4 rounded-xl bg-slate-900/40 border border-slate-700/40">
-              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Or reach us directly</p>
-              <a href="mailto:info.ckript@gmail.com" className="text-cyan-400 text-sm font-medium hover:underline">
+            <div className="mt-3 px-5 py-4 rounded-lg bg-[#0d1520] border border-[#1c2a3a]">
+              <p className="text-[11px] text-[#4a5a6e] uppercase tracking-widest mb-1">Or email us directly</p>
+              <a href="mailto:info.ckript@gmail.com" className="text-gray-400 text-sm font-medium hover:underline">
                 info.ckript@gmail.com
               </a>
             </div>
           </motion.div>
 
           {/* Right — form */}
-          <motion.div variants={itemVariants} className="lg:col-span-3">
-            <div className="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-8 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="lg:col-span-3"
+          >
+            <div className="bg-[#0d1520] border border-[#1c2a3a] rounded-xl p-7">
               <AnimatePresence mode="wait">
                 {submitted ? (
                   <motion.div
                     key="success"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="flex flex-col items-center justify-center text-center py-12 gap-4"
+                    className="flex flex-col items-center justify-center text-center py-14 gap-3"
                   >
-                    <div className="w-16 h-16 rounded-full bg-cyan-500/15 flex items-center justify-center mb-2">
-                      <CheckCircle className="w-8 h-8 text-cyan-400" />
+                    <div className="w-14 h-14 rounded-full bg-gray-400/10 flex items-center justify-center mb-1">
+                      <CheckCircle className="w-7 h-7 text-gray-400" />
                     </div>
-                    <h3 className="text-2xl font-bold text-white">Message Sent!</h3>
-                    <p className="text-gray-400 max-w-xs">
+                    <h3 className="text-xl font-bold text-white">Message Sent!</h3>
+                    <p className="text-[#8896a7] text-sm max-w-xs">
                       Thanks for reaching out. We'll get back to you within 24 hours.
                     </p>
                     <button
@@ -140,7 +129,7 @@ const ContactSection = () => {
                         setSubmitError("");
                         setForm({ reason: "", name: "", email: "", message: "" });
                       }}
-                      className="mt-4 px-6 py-2 rounded-lg border border-cyan-500/40 text-cyan-400 text-sm hover:bg-cyan-500/10 transition"
+                      className="mt-3 px-5 py-2 rounded-lg border border-[#1c2a3a] text-[#8896a7] text-sm hover:text-white hover:border-[#2a3a4e] transition-colors"
                     >
                       Send another message
                     </button>
@@ -152,22 +141,22 @@ const ContactSection = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="flex flex-col gap-5"
+                    className="flex flex-col gap-4"
                   >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Full Name</label>
+                        <label className="text-xs font-medium text-[#6b7a8d]">Full Name</label>
                         <input
                           name="name"
                           value={form.name}
                           onChange={handleChange}
                           required
                           placeholder="Jane Doe"
-                          className="bg-slate-800/70 border border-slate-700/60 rounded-lg px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition"
+                          className="bg-[#080e18] border border-[#1c2a3a] rounded-lg px-4 py-2.5 text-white text-sm placeholder-[#3a4a5e] focus:outline-none focus:border-gray-400/40 transition-colors"
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
-                        <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Email Address</label>
+                        <label className="text-xs font-medium text-[#6b7a8d]">Email Address</label>
                         <input
                           name="email"
                           type="email"
@@ -175,42 +164,42 @@ const ContactSection = () => {
                           onChange={handleChange}
                           required
                           placeholder="jane@example.com"
-                          className="bg-slate-800/70 border border-slate-700/60 rounded-lg px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition"
+                          className="bg-[#080e18] border border-[#1c2a3a] rounded-lg px-4 py-2.5 text-white text-sm placeholder-[#3a4a5e] focus:outline-none focus:border-gray-400/40 transition-colors"
                         />
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Reason for Contact</label>
+                      <label className="text-xs font-medium text-[#6b7a8d]">Reason for Contact</label>
                       <select
                         name="reason"
                         value={form.reason}
                         onChange={handleChange}
                         required
-                        className="bg-slate-800/70 border border-slate-700/60 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition appearance-none"
+                        className="bg-[#080e18] border border-[#1c2a3a] rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-gray-400/40 transition-colors appearance-none"
                       >
-                        <option value="" disabled className="text-gray-500">Select a reason…</option>
+                        <option value="" disabled className="text-[#3a4a5e]">Select a reason…</option>
                         {contactReasons.map(({ value, label }) => (
-                          <option key={value} value={value} className="bg-slate-800">{label}</option>
+                          <option key={value} value={value} className="bg-[#0d1520]">{label}</option>
                         ))}
                       </select>
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Your Message</label>
+                      <label className="text-xs font-medium text-[#6b7a8d]">Your Message</label>
                       <textarea
                         name="message"
                         value={form.message}
                         onChange={handleChange}
                         required
-                        rows={5}
+                        rows={4}
                         placeholder="Tell us what's on your mind…"
-                        className="bg-slate-800/70 border border-slate-700/60 rounded-lg px-4 py-3 text-white text-sm placeholder-gray-600 resize-none focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition"
+                        className="bg-[#080e18] border border-[#1c2a3a] rounded-lg px-4 py-2.5 text-white text-sm placeholder-[#3a4a5e] resize-none focus:outline-none focus:border-gray-400/40 transition-colors"
                       />
                     </div>
 
                     {submitError && (
-                      <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                      <div className="rounded-lg border border-red-500/25 bg-red-500/8 px-4 py-2.5 text-sm text-red-300">
                         {submitError}
                       </div>
                     )}
@@ -218,7 +207,7 @@ const ContactSection = () => {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="flex items-center justify-center gap-2 w-full py-3.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 font-semibold text-white hover:shadow-lg hover:shadow-cyan-500/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                      className="flex items-center justify-center gap-2 w-full py-3 rounded-lg bg-white hover:bg-gray-200 font-semibold text-[#080e18] text-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {loading ? (
                         <>
@@ -240,199 +229,190 @@ const ContactSection = () => {
             </div>
           </motion.div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 };
 
+/* ─────────────────────────────────────────────
+   Landing Page
+   ───────────────────────────────────────────── */
 const Landing = () => {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-        delayChildren: 0.3,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.8, ease: "easeOut" },
-    },
-  };
-
   return (
-    <div className="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 text-white overflow-hidden">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-700/50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <BrandLogo className="h-11 w-auto" />
-          <div className="flex items-center gap-4">
-            <Link to="/login" className="px-6 py-2 text-sm font-semibold text-gray-300 hover:text-white transition">
+    <div className="bg-[#080e18] text-white">
+
+      {/* ── Navigation ── */}
+      <nav className="fixed top-0 w-full z-50 bg-[#080e18]/90 backdrop-blur-sm border-b border-[#151f2e]">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+          <BrandLogo className="h-10 w-auto" />
+          <div className="flex items-center gap-3">
+            <Link to="/login" className="px-5 py-2 text-sm font-medium text-[#8896a7] hover:text-white transition-colors">
               Sign In
             </Link>
-            <Link to="/join" className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition">
+            <Link to="/join" className="px-5 py-2 bg-white hover:bg-gray-200 text-[#080e18] rounded-lg text-sm font-semibold transition-colors">
               Get Started
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6 min-h-screen flex items-center">
-        <motion.div
-          className="max-w-5xl mx-auto w-full"
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-        >
-          {/* Badge */}
-          <motion.div variants={itemVariants} className="text-center mb-6">
-            <span className="inline-block px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 rounded-full text-cyan-400 text-sm font-semibold">
+      {/* ── Hero ── */}
+      <section className="pt-28 pb-24 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="max-w-3xl pt-16 md:pt-24">
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="text-gray-400 text-sm font-semibold tracking-wide uppercase mb-5"
+            >
               The Future of Script Discovery
-            </span>
-          </motion.div>
+            </motion.p>
 
-          {/* Main Headline */}
-          <motion.h1
-            variants={itemVariants}
-            className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-8 text-center"
+            <motion.h1
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] mb-6 tracking-tight"
+            >
+              Your Ideas Deserve
+              <br />
+              <span className="text-gray-400">More Than Rejection</span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="text-lg text-[#8896a7] leading-relaxed mb-10 max-w-xl"
+            >
+              Ckript connects brilliant creators with producers, directors, and investors who are actively searching for your next big idea. Publish, visualize, and monetize your scripts like never before.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="flex gap-4 flex-wrap"
+            >
+              <Link
+                to="/writer-onboarding"
+                className="px-7 py-3.5 bg-white hover:bg-gray-200 text-[#080e18] rounded-lg font-semibold text-sm transition-colors flex items-center gap-2"
+              >
+                Sign Up as Creator
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <a
+                href="#platform-innovations"
+                className="px-7 py-3.5 bg-transparent border border-[#1c2a3a] hover:border-[#2a3a4e] text-[#8896a7] hover:text-white rounded-lg font-semibold text-sm transition-colors"
+              >
+                Learn More
+              </a>
+            </motion.div>
+          </div>
+
+          {/* Lightweight stat strip */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+            className="mt-20 pt-8 border-t border-[#151f2e] grid grid-cols-2 md:grid-cols-4 gap-8"
           >
-            Your Ideas Deserve <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">More Than Rejection</span>
-          </motion.h1>
-
-          {/* Subheadline */}
-          <motion.p variants={itemVariants} className="text-xl text-gray-500 text-center mb-10 max-w-3xl mx-auto leading-relaxed">
-            Ckript connects brilliant creators with producers, directors, and investors who are actively searching for your next big idea. Publish, visualize, and monetize your scripts like never before.
-          </motion.p>
-
-          {/* CTA Buttons */}
-          <motion.div variants={itemVariants} className="flex gap-6 justify-center flex-wrap mb-16">
-            <Link
-              to="/writer-onboarding"
-              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg font-bold text-lg hover:shadow-2xl hover:shadow-cyan-500/40 transition-all transform hover:scale-105 flex items-center gap-2"
-            >
-              Sign Up as Creator
-              <ChevronRight className="w-5 h-5" />
-            </Link>
-            <a
-              href="#platform-innovations"
-              className="px-8 py-4 bg-slate-800 border-2 border-cyan-500/50 rounded-lg font-bold text-lg hover:bg-slate-700/50 transition-all"
-            >
-              Learn More
-            </a>
+            {[
+              { number: "1,000+", label: "Scripts Uploaded" },
+              { number: "$500K+", label: "Creator Earnings" },
+              { number: "500+", label: "Deals Matched" },
+              { number: "95%", label: "Satisfaction Rate" },
+            ].map((stat, i) => (
+              <div key={i}>
+                <p className="text-2xl font-bold text-white mb-0.5">{stat.number}</p>
+                <p className="text-sm text-[#4a5a6e]">{stat.label}</p>
+              </div>
+            ))}
           </motion.div>
-
-
-        </motion.div>
+        </div>
       </section>
 
-      {/* Problem & Solution Section */}
-      <section className="relative py-28 px-6 overflow-hidden bg-slate-950">
-        {/* subtle dot-grid bg */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(148,163,184,0.04)_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none" />
-        {/* ambient glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-64 bg-cyan-500/5 blur-3xl pointer-events-none rounded-full" />
-
-        <motion.div
-          className="max-w-6xl mx-auto relative"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          {/* eyebrow */}
-          <motion.div variants={itemVariants} className="flex items-center justify-center gap-3 mb-5">
-            <div className="h-px w-10 bg-gradient-to-r from-transparent to-cyan-500/50" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-400/70">Industry Friction</span>
-            <div className="h-px w-10 bg-gradient-to-l from-transparent to-cyan-500/50" />
+      {/* ── Problem & Solution ── */}
+      <section className="py-28 px-6 bg-[#0a1221]">
+        <div className="max-w-6xl mx-auto">
+          {/* heading — left aligned */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="max-w-2xl mb-16"
+          >
+            <p className="text-gray-400 text-sm font-semibold tracking-wide uppercase mb-3">Industry Friction</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 tracking-tight">
+              The Problem We Solve
+            </h2>
+            <p className="text-[#8896a7] text-base leading-relaxed">
+              A fractured industry kept apart by walls that shouldn't exist.
+            </p>
           </motion.div>
 
-          {/* heading */}
-          <motion.h2 variants={itemVariants} className="text-4xl sm:text-5xl font-extrabold text-center mb-3 tracking-tight">
-            The Problem{" "}
-            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              We Solve
-            </span>
-          </motion.h2>
-          <motion.p variants={itemVariants} className="text-center text-slate-400 text-lg mb-16 max-w-xl mx-auto leading-relaxed">
-            A fractured industry kept apart by walls that shouldn't exist.
-          </motion.p>
-
           {/* Two problem cards */}
-          <div className="grid md:grid-cols-2 gap-5 mb-5">
-            {/* Creators card */}
+          <div className="grid md:grid-cols-2 gap-5 mb-6">
             <motion.div
-              variants={itemVariants}
-              className="group relative rounded-2xl border border-slate-700/60 bg-slate-900/60 backdrop-blur-sm p-8 hover:border-cyan-500/30 hover:bg-slate-900 transition-all duration-300"
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4 }}
+              className="rounded-xl border border-[#1c2a3a] bg-[#0d1520] p-7"
             >
-              {/* top shimmer line */}
-              <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-slate-500/30 to-transparent group-hover:via-cyan-500/40 transition-all duration-300" />
-
-              <div className="flex items-center gap-3 mb-7">
-                <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 group-hover:border-cyan-500/30 transition-colors duration-300">
-                  <Users className="w-5 h-5 text-slate-400 group-hover:text-cyan-400 transition-colors duration-300" />
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-[#151f2e] flex items-center justify-center shrink-0">
+                  <PenLine className="w-[18px] h-[18px] text-[#8896a7]" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">Side A</p>
-                  <h3 className="text-xl font-bold text-white">For Creators</h3>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a5a6e] mb-0.5">Side A</p>
+                  <h3 className="text-lg font-bold text-white">For Creators</h3>
                 </div>
               </div>
 
-              <ul className="space-y-4">
+              <ul className="space-y-3.5">
                 {[
                   "Brilliant ideas stuck without capital or connections",
                   "No path to reach producers, directors, and investors",
                   "Endless rejection from traditional gatekeepers",
                   "Stories remain dormant and undiscovered forever",
                 ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-[14px] text-slate-400 leading-snug">
-                    <div className="mt-0.5 w-5 h-5 rounded-full bg-slate-800 border border-slate-600/80 flex items-center justify-center shrink-0">
-                      <svg className="w-2.5 h-2.5 text-slate-500" fill="none" stroke="currentColor" strokeWidth={2.8} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </div>
+                  <li key={i} className="flex items-start gap-3 text-sm text-[#8896a7] leading-snug">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#2a3a4e] shrink-0" />
                     {item}
                   </li>
                 ))}
               </ul>
             </motion.div>
 
-            {/* Industry card */}
             <motion.div
-              variants={itemVariants}
-              className="group relative rounded-2xl border border-slate-700/60 bg-slate-900/60 backdrop-blur-sm p-8 hover:border-cyan-500/30 hover:bg-slate-900 transition-all duration-300"
+              initial={{ opacity: 0, y: 12 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="rounded-xl border border-[#1c2a3a] bg-[#0d1520] p-7"
             >
-              <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-slate-500/30 to-transparent group-hover:via-cyan-500/40 transition-all duration-300" />
-
-              <div className="flex items-center gap-3 mb-7">
-                <div className="w-11 h-11 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0 group-hover:border-cyan-500/30 transition-colors duration-300">
-                  <TrendingUp className="w-5 h-5 text-slate-400 group-hover:text-cyan-400 transition-colors duration-300" />
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-[#151f2e] flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-[18px] h-[18px] text-[#8896a7]" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-0.5">Side B</p>
-                  <h3 className="text-xl font-bold text-white">For Industry Professionals</h3>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a5a6e] mb-0.5">Side B</p>
+                  <h3 className="text-lg font-bold text-white">For Industry Professionals</h3>
                 </div>
               </div>
 
-              <ul className="space-y-4">
+              <ul className="space-y-3.5">
                 {[
                   "Drowning in unfiltered submissions with no smart search",
                   "Impossible to find fresh, genre-specific content fast",
                   "No way to preview talent before committing resources",
                   "Expensive, slow, and painfully manual discovery process",
                 ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-[14px] text-slate-400 leading-snug">
-                    <div className="mt-0.5 w-5 h-5 rounded-full bg-slate-800 border border-slate-600/80 flex items-center justify-center shrink-0">
-                      <svg className="w-2.5 h-2.5 text-slate-500" fill="none" stroke="currentColor" strokeWidth={2.8} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </div>
+                  <li key={i} className="flex items-start gap-3 text-sm text-[#8896a7] leading-snug">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#2a3a4e] shrink-0" />
                     {item}
                   </li>
                 ))}
@@ -440,168 +420,176 @@ const Landing = () => {
             </motion.div>
           </div>
 
-          {/* divider pill */}
-          <motion.div variants={itemVariants} className="flex items-center justify-center gap-4 mb-5">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-700/60" />
-            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-700 bg-slate-900">
-              <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span className="text-[11px] font-semibold text-slate-500 tracking-wide">Ckript closes the gap</span>
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-            </div>
-            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-700/60" />
-          </motion.div>
-
-          {/* Solution card */}
+          {/* Solution card — full width, different visual weight */}
           <motion.div
-            variants={itemVariants}
-            className="relative rounded-2xl overflow-hidden border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.07] via-blue-600/[0.05] to-slate-900 p-10 sm:p-12 text-center"
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="rounded-xl border border-gray-400/15 bg-[#0d1520] p-8 sm:p-10"
           >
-            {/* corner glows */}
-            <div className="absolute -top-24 -right-24 w-72 h-72 bg-cyan-500/8 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-600/8 rounded-full blur-3xl pointer-events-none" />
-            {/* top shimmer */}
-            <div className="absolute top-0 left-16 right-16 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
-
-            <div className="relative">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 mb-6 mx-auto">
-                <Zap className="w-6 h-6 text-cyan-400" />
+            <div className="grid md:grid-cols-[auto_1fr] gap-6 items-start">
+              <div className="w-12 h-12 rounded-lg bg-gray-400/10 flex items-center justify-center shrink-0">
+                <Zap className="w-5 h-5 text-gray-400" />
               </div>
-              <h3 className="text-3xl sm:text-4xl font-extrabold text-white mb-4 tracking-tight">The Ckript Solution</h3>
-              <p className="text-slate-300 text-lg leading-relaxed max-w-2xl mx-auto mb-8">
-                A platform that instantly connects creators with decision-makers.
-                Scripts are visualized through{" "}
-                <span className="text-cyan-400 font-semibold">AI-generated trailers</span>, matched{" "}
-                <span className="text-cyan-400 font-semibold">algorithmically</span>, and packaged with
-                ready-to-cast talent.{" "}
-                <span className="text-white font-semibold">Everyone wins.</span>
-              </p>
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-3">The Ckript Solution</h3>
+                <p className="text-[#8896a7] text-base leading-relaxed mb-6 max-w-2xl">
+                  A platform that instantly connects creators with decision-makers.
+                  Scripts are visualized through{" "}
+                  <span className="text-white font-medium">AI-generated trailers</span>, matched{" "}
+                  <span className="text-white font-medium">algorithmically</span>, and packaged with
+                  ready-to-cast talent.{" "}
+                  <span className="text-white font-medium">Everyone wins.</span>
+                </p>
 
-              {/* feature pills */}
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                {[
-                  { icon: <Zap className="w-3.5 h-3.5" />, label: "AI-Powered Matching" },
-                  { icon: <Film className="w-3.5 h-3.5" />, label: "Visual Script Previews" },
-                  { icon: <Users className="w-3.5 h-3.5" />, label: "Zero Gatekeepers" },
-                  { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Real-time Analytics" },
-                ].map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800/80 border border-slate-700 text-[13px] font-semibold text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300 transition-colors duration-200">
-                    <span className="text-cyan-400">{f.icon}</span>
-                    {f.label}
-                  </div>
-                ))}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { icon: <Zap className="w-3.5 h-3.5" />, label: "AI-Powered Matching" },
+                    { icon: <Film className="w-3.5 h-3.5" />, label: "Visual Script Previews" },
+                    { icon: <Users className="w-3.5 h-3.5" />, label: "Zero Gatekeepers" },
+                    { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Real-time Analytics" },
+                  ].map((f, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#151f2e] text-xs font-medium text-[#8896a7]">
+                      <span className="text-gray-400">{f.icon}</span>
+                      {f.label}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           </motion.div>
-        </motion.div>
+        </div>
       </section>
 
-      {/* Features Showcase Component */}
+      {/* ── Features Showcase ── */}
       <FeaturesShowcase />
 
-      {/* Success Stories Component */}
+      {/* ── Success Stories ── */}
       <SuccessStories />
 
-      {/* How it Works */}
-      <section className="py-20 px-6 bg-slate-800/50">
-        <motion.div
-          className="max-w-6xl mx-auto"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          <motion.h2 variants={itemVariants} className="text-4xl font-bold text-center mb-16">
-            How It Works in 4 Simple Steps
-          </motion.h2>
+      {/* ── How it Works ── */}
+      <section className="py-28 px-6 bg-[#0a1221]">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="max-w-lg mb-16"
+          >
+            <p className="text-gray-400 text-sm font-semibold tracking-wide uppercase mb-3">Process</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              How It Works in 4 Simple Steps
+            </h2>
+          </motion.div>
 
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-4 gap-px bg-[#1c2a3a] rounded-xl overflow-hidden">
             {[
-              { step: 1, title: "Upload Your Script", desc: "Present your concept with a compelling summary and let AI generate a visual preview." },
-              { step: 2, title: "AI Creates Trailer", desc: "Our AI generates a 30-second visual trailer that helps viewers quickly understand your concept." },
-              { step: 3, title: "Get Smart Matched", desc: "The platform’s algorithm connects creators with producers and investors interested in their genre." },
-              { step: 4, title: "Unlock & Earn", desc: "Producers pay to access the full script, and creators receive their earnings instantly." }
+              { step: "01", title: "Upload Your Script", desc: "Present your concept with a compelling summary and let AI generate a visual preview." },
+              { step: "02", title: "AI Creates Trailer", desc: "Our AI generates a 30-second visual trailer that helps viewers quickly understand your concept." },
+              { step: "03", title: "Get Smart Matched", desc: "The platform's algorithm connects creators with producers and investors interested in their genre." },
+              { step: "04", title: "Unlock & Earn", desc: "Producers pay to access the full script, and creators receive their earnings instantly." }
             ].map((item, index) => (
-              <motion.div key={index} variants={itemVariants} className="text-center">
-                <div className="mb-4 w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center mx-auto font-bold text-2xl ring-4 ring-cyan-500/20">
-                  {item.step}
-                </div>
-                <h3 className="text-lg font-bold mb-2">{item.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
-                {index < 3 && <div className="hidden md:block absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 text-cyan-500/50">→</div>}
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.08 }}
+                className="bg-[#0d1520] p-7"
+              >
+                <span className="text-gray-400 text-2xl font-bold mb-4 block">{item.step}</span>
+                <h3 className="text-base font-bold text-white mb-2">{item.title}</h3>
+                <p className="text-sm text-[#8896a7] leading-relaxed">{item.desc}</p>
               </motion.div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </section>
 
-      {/* For All User Types */}
-      <section className="py-20 px-6">
-        <motion.div
-          className="max-w-6xl mx-auto"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          <motion.h2 variants={itemVariants} className="text-4xl font-bold text-center mb-16">
-            For Everyone on the Creative Spectrum
-          </motion.h2>
+      {/* ── For All User Types ── */}
+      <section className="py-28 px-6 bg-[#080e18]">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-center mb-16"
+          >
+            <p className="text-gray-400 text-sm font-semibold tracking-wide uppercase mb-3">Built for you</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+              For Everyone on the Creative Spectrum
+            </h2>
+          </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-5">
             {[
               {
                 icon: PenLine,
                 role: "Writers & Creators",
+                desc: "Publish, protect, and profit from your scripts.",
                 benefits: ["Publish with AI-generated trailers", "Earn 100% on unlock fees", "Get Pro Analysis reports", "Smart matching with producers"]
               },
               {
                 icon: Film,
-                role: "Producers & Investors",
+                role: "Producers & Directors",
+                desc: "Find production-ready scripts and talent fast.",
                 benefits: ["Browse visual trailers", "Auto-matched content", "Pre-auditioned talent attached", "30-day script options"]
+              },
+              {
+                icon: TrendingUp,
+                role: "Investors",
+                desc: "Access curated, pre-packaged investment opportunities.",
+                benefits: ["Curated Domain Packages", "Invest in pre-packaged deals", "Discover emerging talent", "Market trends & analytics"]
               },
               {
                 icon: BookOpen,
                 role: "Readers",
+                desc: "Discover and evaluate compelling stories.",
                 benefits: ["Deliver in-depth coverage reports", "Explore content you prefer", "Bookmark favorite stories", "Discover fresh interests"]
               }
             ].map((user, index) => (
               <motion.div
                 key={index}
-                variants={itemVariants}
-                className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 rounded-xl p-8 hover:border-cyan-500/50 transition-all group"
+                initial={{ opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.08 }}
+                className="bg-[#0d1520] border border-[#1c2a3a] rounded-xl p-7 hover:border-[#2a3a4e] transition-colors"
               >
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="p-2 rounded-lg bg-slate-700/50 border border-slate-600/40 group-hover:bg-cyan-500/20 group-hover:border-cyan-500/20 transition">
-                    <user.icon className="w-5 h-5 text-white " />
-                  </span>
-                  <h3 className="text-2xl font-bold ">{user.role}</h3>
+                <div className="w-10 h-10 rounded-lg bg-[#151f2e] flex items-center justify-center mb-5">
+                  <user.icon className="w-[18px] h-[18px] text-gray-400" />
                 </div>
-                <ul className="space-y-4">
+                <h3 className="text-lg font-bold text-white mb-1">{user.role}</h3>
+                <p className="text-sm text-[#4a5a6e] mb-5">{user.desc}</p>
+                <ul className="space-y-3">
                   {user.benefits.map((benefit, idx) => (
-                    <li key={idx} className="flex gap-3 text-gray-300">
-                      <CheckCircle className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                      <span>{benefit}</span>
+                    <li key={idx} className="flex gap-2.5 text-sm text-[#8896a7]">
+                      <CheckCircle className="w-4 h-4 text-gray-400/60 shrink-0 mt-0.5" />
+                      {benefit}
                     </li>
                   ))}
                 </ul>
               </motion.div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </section>
 
-      {/* Contact / Get In Touch Section */}
+      {/* ── Contact ── */}
       <ContactSection />
 
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-slate-700/50 text-center text-gray-400">
-        <div className="max-w-6xl mx-auto">
-          <p className="mb-4 font-semibold">&copy; 2026 Ckript. Connecting brilliant ideas with brilliant people.</p>
-          <div className="flex gap-8 justify-center text-sm flex-wrap">
-            <Link to="/privacy-policy" className="hover:text-cyan-400 transition">Privacy Policy</Link>
-            <Link to="/terms-of-service" className="hover:text-cyan-400 transition">Terms of Service</Link>
-            <a href="mailto:info.ckript@gmail.com" className="hover:text-cyan-400 transition">Contact Us</a>
-            <a href="https://www.linkedin.com/company/ckript/?viewAsMember=true" target="_blank" rel="noopener noreferrer" className="hover:text-cyan-400 transition">LinkedIn</a>
+      {/* ── Footer ── */}
+      <footer className="py-10 px-6 border-t border-[#151f2e]">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-[#4a5a6e]">&copy; 2026 Ckript. Connecting brilliant ideas with brilliant people.</p>
+          <div className="flex gap-6 text-sm text-[#4a5a6e]">
+            <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link to="/terms-of-service" className="hover:text-white transition-colors">Terms</Link>
+            <a href="mailto:info.ckript@gmail.com" className="hover:text-white transition-colors">Contact</a>
+            <a href="https://www.linkedin.com/company/ckript/?viewAsMember=true" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">LinkedIn</a>
           </div>
         </div>
       </footer>

@@ -29,8 +29,9 @@ const TrendingProjects = () => {
     const fetchFeatured = async () => {
       try {
         const { data } = await api.get("/scripts/featured");
-        setFeaturedScripts(data);
-      } catch {
+        setFeaturedScripts(Array.isArray(data) ? data : data.scripts || []);
+      } catch (err) {
+        console.error("Featured scripts fetch failed:", err?.response?.data || err?.message || err);
         setFeaturedScripts([]);
       }
       setFeaturedLoading(false);

@@ -1,20 +1,31 @@
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
 
 const Login = () => {
-  const { login } = useContext(AuthContext);
+  const { login, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     try {
       const userData = await login(email, password);
+      
+      // Check if OTP verification is required
+      if (userData?.requiresVerification) {
+        setUserEmail(email);
+        setShowOTPVerification(true);
+        return;
+      }
+      
       const storedUser = JSON.parse(localStorage.getItem("user"));
       if (storedUser?.role === "reader") {
         navigate("/reader");
@@ -27,6 +38,36 @@ const Login = () => {
       setError(err.response?.data?.message || "Login failed");
     }
   };
+
+  const handleOTPSuccess = (userData) => {
+    // Update auth context with user data
+    setUser(userData);
+    
+    // Navigate based on role
+    if (userData.role === "reader") {
+      navigate("/reader");
+    } else if (userData.role === "investor") {
+      navigate("/home");
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setShowOTPVerification(false);
+    setUserEmail("");
+  };
+
+  // Show OTP verification screen if needed
+  if (showOTPVerification) {
+    return (
+      <OTPVerification 
+        email={userEmail} 
+        onSuccess={handleOTPSuccess} 
+        onBack={handleBackToLogin}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen">
