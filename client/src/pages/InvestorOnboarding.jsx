@@ -21,10 +21,20 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import BrandLogo from "../components/BrandLogo";
 
-// Email validation regex
+// Comprehensive email validation
 const isValidEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  if (!email || typeof email !== 'string') return false;
+  email = email.trim().toLowerCase();
+  if (email.length > 254 || email.length < 5) return false;
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  if (!emailRegex.test(email)) return false;
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const [localPart, domain] = parts;
+  if (localPart.length > 64 || localPart.startsWith('.') || localPart.endsWith('.') || localPart.includes('..')) return false;
+  if (!domain.includes('.') || domain.startsWith('-') || domain.endsWith('-') || domain.includes('..')) return false;
+  const tld = domain.split('.').pop();
+  return tld.length >= 2;
 };
 
 // Password validation criteria
@@ -121,9 +131,12 @@ const InvestorOnboarding = () => {
     setError("");
     setEmailError("");
     
+    // Trim and sanitize email
+    const sanitizedEmail = accountData.email.trim().toLowerCase();
+    
     // Validate email
-    if (!isValidEmail(accountData.email)) {
-      setEmailError("Please enter a valid email address");
+    if (!isValidEmail(sanitizedEmail)) {
+      setEmailError("Please enter a valid email address (e.g., user@example.com)");
       return;
     }
     
@@ -144,14 +157,14 @@ const InvestorOnboarding = () => {
     try {
       const response = await join({
         name: accountData.name,
-        email: accountData.email,
+        email: sanitizedEmail,
         password: accountData.password,
         role: "investor",
       });
       
       // Check if OTP verification is required
       if (response?.requiresVerification) {
-        setUserEmail(accountData.email);
+        setUserEmail(sanitizedEmail);
         setShowOTPVerification(true);
       } else if (response?.token) {
         // Direct login (shouldn't happen with new flow)

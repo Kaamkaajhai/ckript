@@ -6,10 +6,21 @@ import api from "../services/api";
 import ProjectCard from "../components/ProjectCard";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import InvestorDashboard from "./InvestorDashboard";
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode: dark } = useDarkMode();
+
+  // If user is an investor, render the dedicated investor dashboard
+  if (user?.role === "investor") {
+    return <InvestorDashboard />;
+  }
+
+  return <CreatorDashboard user={user} dark={dark} />;
+};
+
+const CreatorDashboard = ({ user, dark }) => {
   const [myScripts, setMyScripts] = useState([]);
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState(null);
