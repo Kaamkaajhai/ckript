@@ -68,9 +68,9 @@ export const sendOTPEmail = async (email, name, otp) => {
     console.log('Email service verified successfully');
 
     const mailOptions = {
-      from: `"ScriptBridge" <${process.env.EMAIL_USER || 'noreply@scriptbridge.com'}>`,
+      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
       to: email,
-      subject: 'Verify Your Email - ScriptBridge',
+      subject: 'Verify Your Email - ckript',
       html: `
         <!DOCTYPE html>
         <html>
@@ -89,11 +89,11 @@ export const sendOTPEmail = async (email, name, otp) => {
         <body>
           <div class="container">
             <div class="header">
-              <h1>Welcome to ScriptBridge!</h1>
+              <h1>Welcome to ckript!</h1>
             </div>
             <div class="content">
               <p>Hi ${name},</p>
-              <p>Thank you for signing up with ScriptBridge! To complete your registration, please verify your email address using the OTP code below:</p>
+              <p>Thank you for signing up with ckript! To complete your registration, please verify your email address using the OTP code below:</p>
               
               <div class="otp-box">
                 <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">Your verification code is:</p>
@@ -101,19 +101,19 @@ export const sendOTPEmail = async (email, name, otp) => {
               </div>
               
               <p>This code will expire in <strong>10 minutes</strong>.</p>
-              <p>If you didn't create an account with ScriptBridge, please ignore this email.</p>
+              <p>If you didn't create an account with ckript, please ignore this email.</p>
               
-              <p>Best regards,<br>The ScriptBridge Team</p>
+              <p>Best regards,<br>The ckript Team</p>
             </div>
             <div class="footer">
-              <p>© 2026 ScriptBridge. All rights reserved.</p>
+              <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
           </div>
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nThank you for signing up with ScriptBridge! Your verification code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you didn't create an account with ScriptBridge, please ignore this email.\n\nBest regards,\nThe ScriptBridge Team`,
+      text: `Hi ${name},\n\nThank you for signing up with ckript! Your verification code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you didn't create an account with ckript, please ignore this email.\n\nBest regards,\nThe ckript Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -146,9 +146,9 @@ export const sendWelcomeEmail = async (email, name) => {
     console.log('Email service verified successfully');
 
     const mailOptions = {
-      from: `"ScriptBridge" <${process.env.EMAIL_USER || 'noreply@scriptbridge.com'}>`,
+      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
       to: email,
-      subject: 'Welcome to ScriptBridge!',
+      subject: 'Welcome to ckript!',
       html: `
         <!DOCTYPE html>
         <html>
@@ -164,11 +164,11 @@ export const sendWelcomeEmail = async (email, name) => {
         <body>
           <div class="container">
             <div class="header">
-              <h1>🎉 Welcome to ScriptBridge!</h1>
+              <h1>🎉 Welcome to ckript!</h1>
             </div>
             <div class="content">
               <p>Hi ${name},</p>
-              <p>Your email has been successfully verified! You're now part of the ScriptBridge community.</p>
+              <p>Your email has been successfully verified! You're now part of the ckript community.</p>
               <p>Get started by:</p>
               <ul>
                 <li>Completing your profile</li>
@@ -176,16 +176,16 @@ export const sendWelcomeEmail = async (email, name) => {
                 <li>Connecting with industry professionals</li>
               </ul>
               <p>We're excited to have you on board!</p>
-              <p>Best regards,<br>The ScriptBridge Team</p>
+              <p>Best regards,<br>The ckript Team</p>
             </div>
             <div class="footer">
-              <p>© 2026 ScriptBridge. All rights reserved.</p>
+              <p>© 2026 ckript. All rights reserved.</p>
             </div>
           </div>
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nYour email has been successfully verified! You're now part of the ScriptBridge community.\n\nWe're excited to have you on board!\n\nBest regards,\nThe ScriptBridge Team`,
+      text: `Hi ${name},\n\nYour email has been successfully verified! You're now part of the ckript community.\n\nWe're excited to have you on board!\n\nBest regards,\nThe ckript Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);
