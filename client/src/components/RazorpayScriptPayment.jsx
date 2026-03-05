@@ -73,7 +73,7 @@ const RazorpayScriptPayment = ({
         key: orderData.keyId,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "ScriptBridge",
+        name: "ckript",
         description:
           type === "purchase"
           ? `Purchase: ${script.title}`

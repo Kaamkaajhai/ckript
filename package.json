@@ -1,5 +1,5 @@
 {
-  "name": "scriptbridge",
+  "name": "ckript",
   "version": "1.0.0",
   "description": "A full-stack social platform connecting **creators, actors, investors, producers, and readers** in the entertainment industry. Share scripts, discover talent, fund projects, and collaborate — all in one place.",
   "main": "index.js",
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Kaamkaajhai/scriptbridge.git"
+    "url": "git+https://github.com/Kaamkaajhai/ckript.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/Kaamkaajhai/scriptbridge/issues"
+    "url": "https://github.com/Kaamkaajhai/ckript/issues"
   },
-  "homepage": "https://github.com/Kaamkaajhai/scriptbridge#readme"
+  "homepage": "https://github.com/Kaamkaajhai/ckript#readme"
 }
