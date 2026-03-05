@@ -1,6 +1,7 @@
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { BookOpen } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
 
@@ -161,11 +162,13 @@ const Join = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       {/* Form panel */}
-      <div className="w-full flex flex-col items-center justify-center px-6 py-12">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <BrandLogo className="h-11 w-auto" />
+      <div className="w-full flex flex-col items-center justify-center px-6 pt-4 pb-12">
+          <div className="flex items-center justify-center mb-0">
+            <div className="w-20 h-20 bg-gray-50 rounded-xl flex items-center justify-center">
+              <BookOpen className="text-black" size={40} strokeWidth={1.5} />
+            </div>
           </div>
-          <p className="text-gray-400 text-sm font-medium mb-4">Reader Onboarding</p>
+          <p className="text-gray-400 text-sm font-medium mb-6">Reader Onboarding</p>
         <div className="w-full max-w-[540px] bg-white rounded-2xl shadow-lg border border-gray-100 p-10">
           <div className="mb-8">
             <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Create your account</h2>

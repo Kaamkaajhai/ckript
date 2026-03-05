@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Film, Zap, Users, TrendingUp, ChevronRight, Mail, Send, Briefcase, HelpCircle, MessageSquare, CheckCircle, PenLine, ArrowRight } from "lucide-react";
+import { Film, Zap, Users, TrendingUp, ChevronRight, Mail, Send, Briefcase, HelpCircle, MessageSquare, CheckCircle, PenLine, BookOpen, ArrowRight } from "lucide-react";
 import FeaturesShowcase from "../components/FeaturesShowcase";
 import SuccessStories from "../components/SuccessStories";
 import api from "../services/api";
@@ -543,6 +543,12 @@ const Landing = () => {
                 role: "Investors",
                 desc: "Access curated, pre-packaged investment opportunities.",
                 benefits: ["Curated Domain Packages", "Invest in pre-packaged deals", "Discover emerging talent", "Market trends & analytics"]
+              },
+              {
+                icon: BookOpen,
+                role: "Readers",
+                desc: "Discover and evaluate compelling stories.",
+                benefits: ["Deliver in-depth coverage reports", "Explore content you prefer", "Bookmark favorite stories", "Discover fresh interests"]
               }
             ].map((user, index) => (
               <motion.div

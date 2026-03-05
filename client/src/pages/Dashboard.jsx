@@ -131,11 +131,10 @@ const CreatorDashboard = ({ user, dark }) => {
         {statCards.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
             {statCards.map((card, idx) => {
-              const accent = "border-l-[#1e3a5f]";
               return (
                 <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04 }}
-                  className={`rounded-xl border border-l-[3px] ${accent} p-4 hover:-translate-y-0.5 transition-all duration-200 group/card cursor-default ${dark ? 'bg-[#101e30] border-[#182840] hover:shadow-lg hover:shadow-[#020609]/20' : 'bg-white border-gray-100 hover:shadow-lg hover:shadow-gray-100'}`}>
+                  className={`rounded-xl border-2 p-4 hover:-translate-y-0.5 transition-all duration-200 group/card cursor-default ${dark ? 'bg-[#101e30] border-[#182840] hover:shadow-lg hover:shadow-[#020609]/20' : 'bg-white border-[#1e3a5f]/25 hover:shadow-lg hover:shadow-gray-100'}`}>
                   <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 transition-colors ${dark ? 'text-gray-500 group-hover/card:text-gray-400' : 'text-gray-400 group-hover/card:text-gray-500'}`}>{card.label}</p>
                   <p className={`text-2xl font-extrabold tabular-nums ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{card.value}</p>
                 </motion.div>

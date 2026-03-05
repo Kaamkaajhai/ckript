@@ -162,7 +162,7 @@ const MainLayout = ({ children }) => {
         onSuccess={handleCreditsUpdate}
       />
       
-      <div className={`min-h-screen ${isDarkMode ? "bg-[#08111e]" : "bg-[#f8f9fb]"}`}>
+      <div className={`min-h-screen ${isDarkMode ? "bg-[#060d18]" : "bg-[#eef0f3]"}`}>
       <Sidebar />
 
       {/* Top bar */}
