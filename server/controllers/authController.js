@@ -11,10 +11,49 @@ const generateToken = (id) => {
   return { token, expiresAt: decoded.exp * 1000 }; // ms epoch
 };
 
-// Email validation regex
+// Comprehensive email validation
 const isValidEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  if (!email || typeof email !== 'string') return false;
+  
+  // Trim and convert to lowercase
+  email = email.trim().toLowerCase();
+  
+  // Check length
+  if (email.length > 254 || email.length < 5) return false;
+  
+  // More comprehensive email regex (RFC 5322 Official Standard)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  
+  if (!emailRegex.test(email)) return false;
+  
+  // Additional checks
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  
+  const [localPart, domain] = parts;
+  
+  // Local part validation
+  if (localPart.length > 64 || localPart.length === 0) return false;
+  if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
+  if (localPart.includes('..')) return false;
+  
+  // Domain validation
+  if (domain.length === 0 || domain.startsWith('-') || domain.endsWith('-')) return false;
+  if (domain.includes('..')) return false;
+  if (!domain.includes('.')) return false;
+  
+  // Check for valid TLD (at least 2 characters)
+  const domainParts = domain.split('.');
+  const tld = domainParts[domainParts.length - 1];
+  if (tld.length < 2) return false;
+  
+  return true;
+};
+
+// Sanitize email
+const sanitizeEmail = (email) => {
+  if (!email || typeof email !== 'string') return '';
+  return email.trim().toLowerCase();
 };
 
 // Password validation (min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char)
@@ -29,16 +68,19 @@ const isValidPassword = (password) => {
 
 export const join = async (req, res) => {
   console.log('Join request received:', req.body);
-  const { name, email, password, role } = req.body;
+  let { name, email, password, role } = req.body;
   try {
     // Validate required fields
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide name, email, and password" });
     }
 
+    // Sanitize email
+    email = sanitizeEmail(email);
+    
     // Validate email format
     if (!isValidEmail(email)) {
-      return res.status(400).json({ message: "Please provide a valid email address" });
+      return res.status(400).json({ message: "Please provide a valid email address. Ensure it has a valid format (e.g., user@example.com)" });
     }
 
     // Validate password strength
@@ -58,7 +100,12 @@ export const join = async (req, res) => {
         
         const emailResult = await sendOTPEmail(email, name, otp);
         if (!emailResult.success) {
-          return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+          console.error('Failed to resend OTP email:', emailResult.error);
+          return res.status(500).json({ 
+            message: emailResult.error?.includes('Invalid login') || emailResult.error?.includes('authentication') 
+              ? "Email service configuration error. Please contact support." 
+              : "Failed to send verification email. Please check your email address and try again."
+          });
         }
         
         return res.status(200).json({ 
@@ -89,7 +136,12 @@ export const join = async (req, res) => {
     if (!emailResult.success) {
       // Delete user if email fails
       await User.findByIdAndDelete(user._id);
-      return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+      console.error('Failed to send OTP email:', emailResult.error);
+      return res.status(500).json({ 
+        message: emailResult.error?.includes('Invalid login') || emailResult.error?.includes('authentication') 
+          ? "Email service configuration error. Please contact support." 
+          : "Failed to send verification email. Please check your email address and try again."
+      });
     }
     
     console.log('User created successfully, OTP sent:', user._id);
@@ -137,10 +189,18 @@ export const login = async (req, res) => {
 
 // Verify OTP and complete registration
 export const verifyOTP = async (req, res) => {
-  const { email, otp } = req.body;
+  let { email, otp } = req.body;
   try {
     if (!email || !otp) {
       return res.status(400).json({ message: "Please provide email and OTP" });
+    }
+
+    // Sanitize email
+    email = sanitizeEmail(email);
+    
+    // Validate email format
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please provide a valid email address" });
     }
 
     const user = await User.findOne({ email });
@@ -195,10 +255,18 @@ export const verifyOTP = async (req, res) => {
 
 // Resend OTP
 export const resendOTP = async (req, res) => {
-  const { email } = req.body;
+  let { email } = req.body;
   try {
     if (!email) {
       return res.status(400).json({ message: "Please provide email" });
+    }
+
+    // Sanitize email
+    email = sanitizeEmail(email);
+    
+    // Validate email format
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please provide a valid email address" });
     }
 
     const user = await User.findOne({ email });
@@ -219,7 +287,12 @@ export const resendOTP = async (req, res) => {
     // Send OTP email
     const emailResult = await sendOTPEmail(email, user.name, otp);
     if (!emailResult.success) {
-      return res.status(500).json({ message: "Failed to send verification email. Please try again." });
+      console.error('Failed to resend OTP email:', emailResult.error);
+      return res.status(500).json({ 
+        message: emailResult.error?.includes('Invalid login') || emailResult.error?.includes('authentication') 
+          ? "Email service configuration error. Please contact support." 
+          : "Failed to send verification email. Please check your email address and try again."
+      });
     }
 
     res.json({ message: "Verification code sent to your email" });

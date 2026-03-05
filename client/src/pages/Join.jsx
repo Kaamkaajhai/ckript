@@ -7,10 +7,43 @@ import BrandLogo from "../components/BrandLogo";
 
 const EMAIL_EXISTS_MSG = "User already exists";
 
-// Email validation regex
+// Comprehensive email validation
 const isValidEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
+  if (!email || typeof email !== 'string') return false;
+  
+  // Trim and convert to lowercase
+  email = email.trim().toLowerCase();
+  
+  // Check length
+  if (email.length > 254 || email.length < 5) return false;
+  
+  // More comprehensive email regex
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  
+  if (!emailRegex.test(email)) return false;
+  
+  // Additional checks
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  
+  const [localPart, domain] = parts;
+  
+  // Local part validation
+  if (localPart.length > 64 || localPart.length === 0) return false;
+  if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
+  if (localPart.includes('..')) return false;
+  
+  // Domain validation
+  if (domain.length === 0 || domain.startsWith('-') || domain.endsWith('-')) return false;
+  if (domain.includes('..')) return false;
+  if (!domain.includes('.')) return false;
+  
+  // Check for valid TLD (at least 2 characters)
+  const domainParts = domain.split('.');
+  const tld = domainParts[domainParts.length - 1];
+  if (tld.length < 2) return false;
+  
+  return true;
 };
 
 // Password validation criteria
@@ -47,9 +80,12 @@ const Join = () => {
     setError("");
     setEmailError("");
     
+    // Trim and sanitize email
+    const sanitizedEmail = formData.email.trim().toLowerCase();
+    
     // Validate email
-    if (!isValidEmail(formData.email)) {
-      setEmailError("Please enter a valid email address");
+    if (!isValidEmail(sanitizedEmail)) {
+      setEmailError("Please enter a valid email address (e.g., user@example.com)");
       return;
     }
     
@@ -68,7 +104,10 @@ const Join = () => {
     setPasswordMismatch(false);
     
     try {
-      const response = await join(formData);
+      const response = await join({
+        ...formData,
+        email: sanitizedEmail
+      });
       
       // Check if OTP verification is required
       if (response?.requiresVerification) {

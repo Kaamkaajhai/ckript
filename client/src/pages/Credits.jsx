@@ -54,6 +54,13 @@ const Credits = () => {
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [activeTab, setActiveTab] = useState("overview");
 
+  // Redirect investors to dashboard - credits not available for investors
+  useEffect(() => {
+    if (user && user.role === "investor") {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
+
   const fetchBalance = useCallback(async () => {
     try {
       const { data } = await api.get("/credits/balance");

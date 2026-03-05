@@ -28,9 +28,24 @@ const createTransporter = () => {
   }
 };
 
+// Validate email configuration
+const validateEmailConfig = () => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    throw new Error('Email configuration missing. Please set EMAIL_USER and EMAIL_PASSWORD environment variables.');
+  }
+};
+
 // Send OTP email
 export const sendOTPEmail = async (email, name, otp) => {
   try {
+    // Validate email configuration
+    validateEmailConfig();
+    
+    // Validate email format
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      throw new Error('Invalid email address format');
+    }
+    
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -83,11 +98,22 @@ export const sendOTPEmail = async (email, name, otp) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log('OTP email sent:', info.messageId);
+    console.log('OTP email sent successfully to:', email, 'MessageId:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending OTP email:', error);
-    return { success: false, error: error.message };
+    console.error('Error sending OTP email to', email, ':', error.message);
+    
+    // Provide more specific error messages
+    let errorMessage = error.message;
+    if (error.code === 'EAUTH') {
+      errorMessage = 'Email authentication failed. Invalid credentials.';
+    } else if (error.code === 'ECONNECTION') {
+      errorMessage = 'Failed to connect to email server.';
+    } else if (error.responseCode === 550) {
+      errorMessage = 'Invalid recipient email address.';
+    }
+    
+    return { success: false, error: errorMessage };
   }
 };
 
