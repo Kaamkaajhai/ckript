@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the Razorpay payment integration for investors/producers to purchase scripts or place holds (options) on scripts in ScriptBridge.
+This document describes the Razorpay payment integration for investors/producers to purchase scripts or place holds (options) on scripts in ckript.
 
 ## Features
 
