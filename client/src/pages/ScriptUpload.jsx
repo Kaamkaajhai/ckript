@@ -116,6 +116,13 @@ const ScriptUpload = () => {
   const [creditsBalance, setCreditsBalance] = useState(0);
   const agreementRef = useRef(null);
   const fileInputRef = useRef(null);
+  const thumbnailInputRef = useRef(null);
+  const trailerInputRef = useRef(null);
+
+  // Thumbnail and Trailer states
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [trailerFile, setTrailerFile] = useState(null);
+  const [trailerOption, setTrailerOption] = useState("none"); // "none", "ai", "upload"
 
   // Form data
   const [formData, setFormData] = useState({
@@ -325,6 +332,51 @@ const ScriptUpload = () => {
     e.preventDefault();
   };
 
+  // Handle thumbnail selection
+  const handleThumbnailSelect = (file) => {
+    if (!file) return;
+    
+    console.log("Thumbnail file selected:", file.name, file.type, file.size);
+    
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a valid image file (JPEG, PNG, WebP, or GIF).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Thumbnail file size must be less than 5MB.");
+      return;
+    }
+
+    setThumbnailFile(file);
+    setError("");
+    console.log("Thumbnail file set successfully");
+  };
+
+  // Handle trailer selection
+  const handleTrailerSelect = (file) => {
+    if (!file) return;
+    
+    console.log("Trailer file selected:", file.name, file.type, file.size);
+    
+    const allowedTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/webm"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a valid video file (MP4, MPEG, MOV, or WebM).");
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      setError("Trailer file size must be less than 100MB.");
+      return;
+    }
+
+    setTrailerFile(file);
+    setTrailerOption("upload");
+    setError("");
+    console.log("Trailer file set successfully, trailerOption set to 'upload'");
+  };
+
   // Handle agreement scroll
   useEffect(() => {
     if (step !== 5) return;
@@ -359,7 +411,7 @@ const ScriptUpload = () => {
     let total = 0;
     if (services.hosting) total += SERVICE_PRICES.hosting;
     if (services.evaluation) total += SERVICE_PRICES.evaluation;
-    if (services.aiTrailer) total += SERVICE_PRICES.aiTrailer;
+    if (trailerOption === "ai") total += SERVICE_PRICES.aiTrailer; // Use trailerOption instead
     return total;
   };
 
@@ -486,6 +538,11 @@ const ScriptUpload = () => {
       return;
     }
 
+    console.log("Starting script submission...");
+    console.log("Thumbnail file:", thumbnailFile ? thumbnailFile.name : "none");
+    console.log("Trailer file:", trailerFile ? trailerFile.name : "none");
+    console.log("Trailer option:", trailerOption);
+
     setLoading(true);
 
     try {
@@ -513,7 +570,7 @@ const ScriptUpload = () => {
         services: {
           hosting: services.hosting,
           evaluation: services.evaluation,
-          aiTrailer: services.aiTrailer,
+          aiTrailer: trailerOption === "ai", // Only set if user chose AI trailer
         },
         legal: {
           agreedToTerms: legal.agreedToTerms,
@@ -525,9 +582,77 @@ const ScriptUpload = () => {
 
       if (editId) {
         await api.put(`/scripts/${editId}`, payload);
+        
+        // Upload thumbnail if provided
+        if (thumbnailFile) {
+          try {
+            console.log("Uploading thumbnail for script:", editId);
+            const thumbnailFormData = new FormData();
+            thumbnailFormData.append("thumbnail", thumbnailFile);
+            const thumbResponse = await api.post(`/scripts/${editId}/upload-thumbnail`, thumbnailFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Thumbnail uploaded successfully:", thumbResponse.data);
+          } catch (thumbError) {
+            console.error("Thumbnail upload failed:", thumbError);
+            setError(`Script updated but thumbnail upload failed: ${thumbError.response?.data?.message || thumbError.message}`);
+          }
+        }
+
+        // Upload trailer if provided (free)
+        if (trailerFile && trailerOption === "upload") {
+          try {
+            console.log("Uploading trailer for script:", editId);
+            const trailerFormData = new FormData();
+            trailerFormData.append("trailer", trailerFile);
+            const trailerResponse = await api.post(`/scripts/${editId}/upload-trailer`, trailerFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Trailer uploaded successfully:", trailerResponse.data);
+          } catch (trailerError) {
+            console.error("Trailer upload failed:", trailerError);
+            setError(`Script updated but trailer upload failed: ${trailerError.response?.data?.message || trailerError.message}`);
+          }
+        }
+
         navigate(`/script/${editId}`);
       } else {
         const response = await api.post("/scripts/upload", payload);
+        const newScriptId = response.data._id;
+        console.log("Script created with ID:", newScriptId);
+        
+        // Upload thumbnail if provided
+        if (thumbnailFile) {
+          try {
+            console.log("Uploading thumbnail for new script:", newScriptId);
+            const thumbnailFormData = new FormData();
+            thumbnailFormData.append("thumbnail", thumbnailFile);
+            const thumbResponse = await api.post(`/scripts/${newScriptId}/upload-thumbnail`, thumbnailFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Thumbnail uploaded successfully:", thumbResponse.data);
+          } catch (thumbError) {
+            console.error("Thumbnail upload failed:", thumbError);
+            setError(`Script created but thumbnail upload failed: ${thumbError.response?.data?.message || thumbError.message}`);
+          }
+        }
+
+        // Upload trailer if provided (free)
+        if (trailerFile && trailerOption === "upload") {
+          try {
+            console.log("Uploading trailer for new script:", newScriptId);
+            const trailerFormData = new FormData();
+            trailerFormData.append("trailer", trailerFile);
+            const trailerResponse = await api.post(`/scripts/${newScriptId}/upload-trailer`, trailerFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Trailer uploaded successfully:", trailerResponse.data);
+          } catch (trailerError) {
+            console.error("Trailer upload failed:", trailerError);
+            setError(`Script created but trailer upload failed: ${trailerError.response?.data?.message || trailerError.message}`);
+          }
+        }
+
         // Refresh credits balance after successful upload
         const { data: creditsData } = await api.get("/credits/balance");
         setCreditsBalance(creditsData.balance || 0);
@@ -992,6 +1117,187 @@ const ScriptUpload = () => {
 
                   </div>
 
+                  {/* ── Thumbnail Upload ── */}
+                  <div>
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
+                      Script Thumbnail (Optional)
+                    </label>
+                    <p className="text-xs text-neutral-500 mb-3">
+                      Upload a cover image for your script. This will be displayed on your script card.
+                    </p>
+                    
+                    {!thumbnailFile ? (
+                      <div
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        className="border-2 border-dashed border-white/[0.12] rounded-xl p-6 text-center cursor-pointer hover:border-white transition"
+                      >
+                        <div className="text-3xl mb-2">🖼️</div>
+                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
+                          Upload Thumbnail Image
+                        </p>
+                        <p className="text-xs text-neutral-500">JPEG, PNG, WebP, or GIF (Max 5MB)</p>
+                        <input
+                          ref={thumbnailInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={(e) => handleThumbnailSelect(e.target.files[0])}
+                          className="hidden"
+                        />
+                      </div>
+                    ) : (
+                      <div className="border border-green-500/20 rounded-xl p-3 bg-green-500/10">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={URL.createObjectURL(thumbnailFile)} 
+                            alt="Thumbnail preview" 
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-green-400">
+                              {thumbnailFile.name}
+                            </p>
+                            <p className="text-xs text-green-400">
+                              {(thumbnailFile.size / 1024).toFixed(2)} KB
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setThumbnailFile(null)}
+                            className="text-red-400 hover:text-red-400 text-sm font-bold px-2 py-1 bg-white/[0.08] rounded-md border border-red-500/20"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Trailer Upload or AI Generation ── */}
+                  <div>
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
+                      Trailer (Optional)
+                    </label>
+                    <p className="text-xs text-neutral-500 mb-3">
+                      Choose to upload your own trailer (FREE) or generate one with AI (costs credits in next step).
+                    </p>
+                    
+                    {/* Hidden file input - always rendered so ref works */}
+                    <input
+                      ref={trailerInputRef}
+                      type="file"
+                      accept="video/mp4,video/mpeg,video/quicktime,video/webm"
+                      onChange={(e) => handleTrailerSelect(e.target.files[0])}
+                      className="hidden"
+                    />
+                    
+                    {/* Trailer Options */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTrailerOption("none");
+                          setTrailerFile(null);
+                        }}
+                        className={`p-3 rounded-xl text-sm font-medium transition ${
+                          trailerOption === "none"
+                            ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+                            : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">🚫</div>
+                        No Trailer
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => trailerInputRef.current?.click()}
+                        className={`p-3 rounded-xl text-sm font-medium transition ${
+                          trailerOption === "upload"
+                            ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+                            : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">📤</div>
+                        Upload (FREE)
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTrailerOption("ai");
+                          setTrailerFile(null);
+                        }}
+                        className={`p-3 rounded-xl text-sm font-medium transition relative ${
+                          trailerOption === "ai"
+                            ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+                            : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">🤖</div>
+                        AI Generate
+                        <span className="absolute top-1 right-1 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                          {SERVICE_PRICES.aiTrailer} credits
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Trailer File Upload Prompt */}
+                    {trailerOption === "upload" && !trailerFile && (
+                      <div
+                        onClick={() => trailerInputRef.current?.click()}
+                        className="border-2 border-dashed border-white/[0.12] rounded-xl p-6 text-center cursor-pointer hover:border-white transition"
+                      >
+                        <div className="text-3xl mb-2">🎬</div>
+                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
+                          Click to Upload Your Trailer Video
+                        </p>
+                        <p className="text-xs text-neutral-500">MP4, MPEG, MOV, or WebM (Max 100MB)</p>
+                      </div>
+                    )}
+
+                    {trailerFile && trailerOption === "upload" && (
+                      <div className="border border-green-500/20 rounded-xl p-3 bg-green-500/10">
+                        <div className="flex items-center gap-3">
+                          <div className="text-3xl">✅</div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-green-400">
+                              {trailerFile.name}
+                            </p>
+                            <p className="text-xs text-green-400">
+                              {(trailerFile.size / 1024 / 1024).toFixed(2)} MB - Will be uploaded for FREE
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTrailerFile(null);
+                              setTrailerOption("none");
+                            }}
+                            className="text-red-400 hover:text-red-400 text-sm font-bold px-2 py-1 bg-white/[0.08] rounded-md border border-red-500/20"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {trailerOption === "ai" && (
+                      <div className="border border-blue-500/20 rounded-xl p-4 bg-blue-500/10">
+                        <div className="flex items-center gap-3">
+                          <div className="text-3xl">🤖</div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-blue-400">
+                              AI Trailer Generation Selected
+                            </p>
+                            <p className="text-xs text-neutral-400">
+                              {SERVICE_PRICES.aiTrailer} credits will be charged in the next step. Ready within 2 business days.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex gap-3 justify-between pt-2">
                     <button
                       type="button"
@@ -1024,7 +1330,7 @@ const ScriptUpload = () => {
                     Select the services you'd like to include with your project.
                   </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Hosting Card */}
                     <div
                       className={`border-2 rounded-xl p-5 cursor-pointer transition ${services.hosting
@@ -1087,41 +1393,39 @@ const ScriptUpload = () => {
                         </span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* AI Trailer Card */}
-                    <div
-                      className={`border-2 rounded-xl p-5 cursor-pointer transition relative ${services.aiTrailer
-                        ? "border-white bg-white/[0.08]"
-                        : "border-white/[0.08] hover:border-white/[0.12]"
-                        }`}
-                      onClick={() =>
-                        setServices({ ...services, aiTrailer: !services.aiTrailer })
-                      }
-                    >
-                      <div className="absolute top-2 right-2">
-                        <span className="bg-amber-500/100 text-white text-xs font-bold px-2 py-0.5 rounded">
-                          BETA
-                        </span>
+                  {/* Trailer Selection Display */}
+                  <div className="bg-white/[0.04] rounded-xl p-4 mt-4 border border-white/[0.08]">
+                    <div className="flex items-center gap-3">
+                      <div className="text-3xl">
+                        {trailerOption === "none" && "🚫"}
+                        {trailerOption === "upload" && "📤"}
+                        {trailerOption === "ai" && "🤖"}
                       </div>
-                      <div className="text-3xl mb-3">🎬</div>
-                      <h3 className="font-semibold text-white mb-1">AI Concept Trailer</h3>
-                      <p className="text-2xl font-bold text-white mb-2">
-                        {SERVICE_PRICES.aiTrailer} credits
-                      </p>
-                      <p className="text-xs text-neutral-400 mb-3">
-                        Generate a 60-second cinematic teaser using AI voiceover &amp; stock footage. Ready within 2 business days.
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={services.aiTrailer}
-                          readOnly
-                          className="w-4 h-4 text-white rounded"
-                        />
-                        <span className={`text-xs ${labelCls}`}>
-                          {services.aiTrailer ? "Selected" : "Optional"}
-                        </span>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-white mb-1">Trailer Option</h3>
+                        {trailerOption === "none" && (
+                          <p className="text-sm text-neutral-400">No trailer selected</p>
+                        )}
+                        {trailerOption === "upload" && (
+                          <p className="text-sm text-green-400">
+                            {trailerFile ? `Uploaded: ${trailerFile.name}` : "Custom trailer to be uploaded"} (FREE)
+                          </p>
+                        )}
+                        {trailerOption === "ai" && (
+                          <p className="text-sm text-blue-400">
+                            AI Trailer Generation - {SERVICE_PRICES.aiTrailer} credits
+                          </p>
+                        )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setStep(3)}
+                        className="text-xs text-neutral-400 hover:text-white underline"
+                      >
+                        Change
+                      </button>
                     </div>
                   </div>
 
@@ -1142,10 +1446,16 @@ const ScriptUpload = () => {
                           {services.hosting ? " + " : ""}{SERVICE_PRICES.evaluation} credits evaluation
                         </span>
                       )}
-                      {services.aiTrailer && (
+                      {trailerOption === "ai" && (
                         <span>
                           {services.hosting || services.evaluation ? " + " : ""}
                           {SERVICE_PRICES.aiTrailer} credits AI trailer
+                        </span>
+                      )}
+                      {trailerOption === "upload" && trailerFile && (
+                        <span>
+                          {services.hosting || services.evaluation ? " + " : ""}
+                          Trailer upload (FREE)
                         </span>
                       )}
                     </p>

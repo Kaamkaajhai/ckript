@@ -74,6 +74,9 @@ const scriptSchema = new mongoose.Schema({
   trailerUrl: { type: String },
   trailerThumbnail: { type: String },
   trailerStatus: { type: String, enum: ["none", "generating", "ready", "failed"], default: "none" },
+  // Uploaded Trailer (User uploaded, no credits required)
+  uploadedTrailerUrl: { type: String },
+  trailerSource: { type: String, enum: ["ai", "uploaded", "none"], default: "none" }, // Track trailer source
   // Script Score (Pro Analysis)
   scriptScore: {
     overall: { type: Number, min: 0, max: 100 },

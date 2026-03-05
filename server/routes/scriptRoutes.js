@@ -7,7 +7,9 @@ import {
   getLatestScripts, recordRead, toggleFavorite, getCategories,
   extractPdfText, saveDraft, deleteScript, getMyDrafts, getMyScripts, updateScript,
   createScriptPurchaseOrder, verifyScriptPurchase,
-  createScriptHoldOrder, verifyScriptHold
+  createScriptHoldOrder, verifyScriptHold,
+  uploadThumbnail, uploadTrailer,
+  uploadScriptThumbnail, uploadScriptTrailer
 } from "../controllers/scriptController.js";
 import multer from "multer";
 
@@ -17,6 +19,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.post("/extract-pdf", protect, upload.single("pdf"), extractPdfText);
 router.post("/draft", protect, saveDraft);
 router.post("/upload", protect, uploadScript);
+
+// Thumbnail and Trailer upload routes
+router.post("/:id/upload-thumbnail", protect, uploadThumbnail.single("thumbnail"), uploadScriptThumbnail);
+router.post("/:id/upload-trailer", protect, uploadTrailer.single("trailer"), uploadScriptTrailer);
 
 // Razorpay payment routes for scripts
 router.post("/purchase/create-order", protect, createScriptPurchaseOrder);

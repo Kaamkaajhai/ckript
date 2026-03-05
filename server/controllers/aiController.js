@@ -159,6 +159,7 @@ Content: ${scriptText || "N/A"}`;
     script.trailerUrl = trailerData.videoUrl;
     script.trailerThumbnail = trailerData.thumbnailUrl;
     script.trailerStatus = "ready";
+    script.trailerSource = "ai"; // Mark as AI-generated
     script.services = {
       hosting: script.services?.hosting ?? true,
       evaluation: script.services?.evaluation ?? false,
