@@ -19,7 +19,7 @@ import {
   FileText,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import BrandLogo from "../components/BrandLogo";
+
 
 // Email validation regex
 const isValidEmail = (email) => {
@@ -290,9 +290,11 @@ const InvestorOnboarding = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#f8faff] via-white to-[#f0f4ff] flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <BrandLogo className="h-11 w-auto" />
+        <div className="text-center mb-3">
+          <div className="flex items-center justify-center mb-1">
+            <div className="w-20 h-20 bg-[#f8faff] rounded-xl flex items-center justify-center">
+              <Users className="text-black" size={40} strokeWidth={1.5} />
+            </div>
           </div>
           <p className="text-sm text-gray-600">Investor Onboarding</p>
         </div>

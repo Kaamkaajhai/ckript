@@ -13,10 +13,20 @@ import {
   Mail,
   Lock,
   User,
-  AlertCircle
+  AlertCircle,
+  MapPin,
+  Phone,
+  Calendar,
+  Link,
+  Instagram,
+  Twitter,
+  Linkedin,
+  Facebook,
+  Film,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import BrandLogo from "../components/BrandLogo";
+
 
 // Email validation regex
 const isValidEmail = (email) => {
@@ -42,6 +52,10 @@ const WriterOnboarding = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [dobError, setDobError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [openRepSections, setOpenRepSections] = useState({ filmTv: false, theater: false, literary: false });
   const [emailError, setEmailError] = useState("");
   const [showPasswordReqs, setShowPasswordReqs] = useState(false);
   const [showOTPVerification, setShowOTPVerification] = useState(false);
@@ -50,9 +64,12 @@ const WriterOnboarding = () => {
   // Step 1: Account Creation
   const [accountData, setAccountData] = useState({
     name: "",
+    dateOfBirth: "",
     email: "",
     password: "",
     confirmPassword: "",
+    address: "",
+    phone: "",
     role: "creator"
   });
   
@@ -62,13 +79,29 @@ const WriterOnboarding = () => {
   
   // Step 2: Writer Profile
   const [writerProfile, setWriterProfile] = useState({
+    username: "",
     bio: "",
     representationStatus: "unrepresented",
     agencyName: "",
     wgaMember: false,
+    links: {
+      portfolio: "",
+      instagram: "",
+      twitter: "",
+      linkedin: "",
+      imdb: "",
+      facebook: ""
+    },
+    accomplishments: [],
+    representation: {
+      filmTv: { agency: "", agent: "", managementCompany: "", manager: "", lawFirm: "", lawyer: "" },
+      theater: { agency: "", agent: "", managementCompany: "", manager: "", lawFirm: "", lawyer: "" },
+      literary: { agency: "", agent: "", managementCompany: "", manager: "", lawFirm: "", lawyer: "" }
+    },
+    demographicPrivacy: "searchable",
     diversity: {
       gender: "",
-      ethnicity: "",
+      nationality: "",
       lgbtqStatus: "",
       disabilityStatus: ""
     }
@@ -96,7 +129,24 @@ const WriterOnboarding = () => {
   const handleAccountCreation = async (e) => {
     e.preventDefault();
     setError("");
+    setPhoneError("");
+    setDobError("");
     setEmailError("");
+
+    if (!accountData.dateOfBirth) {
+      setDobError("Date of birth is required");
+      return;
+    }
+
+    if (!accountData.phone) {
+      setPhoneError("Phone number is required");
+      return;
+    }
+    const phoneRegex = /^[+]?[\d\s\-().]{7,15}$/;
+    if (!phoneRegex.test(accountData.phone)) {
+      setPhoneError("Please enter a valid phone number (e.g. +91 00000 00000)");
+      return;
+    }
     
     // Validate email
     if (!isValidEmail(accountData.email)) {
@@ -179,8 +229,19 @@ const WriterOnboarding = () => {
 
   const handleWriterProfile = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setUsernameError("");
     setError("");
+
+    if (!writerProfile.username) {
+      setUsernameError("Username is required");
+      return;
+    }
+    if (writerProfile.username.length < 3) {
+      setUsernameError("Username must be at least 3 characters");
+      return;
+    }
+
+    setLoading(true);
     
     try {
       const response = await api.put("/onboarding/writer-profile", writerProfile);
@@ -315,6 +376,28 @@ const WriterOnboarding = () => {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="date"
+                    value={accountData.dateOfBirth}
+                    onChange={(e) => setAccountData({...accountData, dateOfBirth: e.target.value})}
+                    className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent ${accountData.dateOfBirth ? "text-gray-900" : "text-gray-400"}`}
+                    max={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+                {dobError && (
+                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle size={12} /> {dobError}
+                  </p>
+                )}
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -332,7 +415,48 @@ const WriterOnboarding = () => {
                   />
                 </div>
               </div>
-              
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Address
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    value={accountData.address}
+                    onChange={(e) => setAccountData({...accountData, address: e.target.value})}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                    placeholder="123 Main St, City, State, ZIP"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="tel"
+                    value={accountData.phone}
+                    onChange={(e) => { setAccountData({...accountData, phone: e.target.value}); setPhoneError(""); }}
+                    className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:border-transparent text-gray-900 ${
+                      phoneError ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-[#1a365d]"
+                    }`}
+                    placeholder="+91 00000 00000"
+                    required
+                  />
+                </div>
+                {phoneError && (
+                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle size={12} /> {phoneError}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Password
@@ -486,7 +610,29 @@ const WriterOnboarding = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio (Max 500 characters)
+                Username
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium text-sm">@</span>
+                <input
+                  type="text"
+                  value={writerProfile.username}
+                  onChange={(e) => setWriterProfile({...writerProfile, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "")})}
+                  className="w-full pl-7 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                  placeholder="e.g. john_doe"
+                  required
+                />
+              </div>
+              {usernameError && (
+                <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {usernameError}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Bio <span className="text-xs font-normal text-gray-500">(Max 500 characters)</span>
               </label>
               <textarea
                 value={writerProfile.bio}
@@ -547,7 +693,7 @@ const WriterOnboarding = () => {
             
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Diversity Information (Optional)
+                Diversity Information <span className="text-sm font-normal text-gray-500">(Optional)</span>
               </h3>
               <p className="text-sm text-gray-600 mb-4">
                 This information helps producers find underrepresented voices and is completely optional.
@@ -572,19 +718,217 @@ const WriterOnboarding = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ethnicity
+                    Nationality
                   </label>
                   <input
                     type="text"
-                    value={writerProfile.diversity.ethnicity}
+                    value={writerProfile.diversity.nationality}
                     onChange={(e) => setWriterProfile({
                       ...writerProfile, 
-                      diversity: {...writerProfile.diversity, ethnicity: e.target.value}
+                      diversity: {...writerProfile.diversity, nationality: e.target.value}
                     })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="Optional"
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Links & Social Media <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Portfolio / Website</label>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input type="url" value={writerProfile.links.portfolio}
+                      onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, portfolio: e.target.value}})}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                      placeholder="https://yourwebsite.com" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Instagram</label>
+                    <div className="relative">
+                      <Instagram className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.instagram}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, instagram: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://instagram.com/..." />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Twitter / X</label>
+                    <div className="relative">
+                      <Twitter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.twitter}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, twitter: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://x.com/..." />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn</label>
+                    <div className="relative">
+                      <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.linkedin}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, linkedin: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://linkedin.com/in/..." />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Facebook</label>
+                    <div className="relative">
+                      <Facebook className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.facebook}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, facebook: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://facebook.com/..." />
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">IMDb</label>
+                    <div className="relative">
+                      <Film className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.imdb}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, imdb: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://imdb.com/name/..." />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Accomplishments */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Accomplishments <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role / Credit</label>
+                <select
+                  value={writerProfile.accomplishments[0] || ""}
+                  onChange={(e) => setWriterProfile({...writerProfile, accomplishments: e.target.value ? [e.target.value] : []})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                >
+                  <option value="">Optional — select a credit</option>
+                  <option value="co-executive-producer">Co-Executive Producer</option>
+                  <option value="co-producer">Co-Producer</option>
+                  <option value="executive-producer">Executive Producer</option>
+                  <option value="executive-story-editor">Executive Story Editor</option>
+                  <option value="producer">Producer</option>
+                  <option value="showrunner">Showrunner</option>
+                  <option value="staff-writer">Staff Writer</option>
+                  <option value="story-editor">Story Editor</option>
+                  <option value="supervising-producer">Supervising Producer</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Representation */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Representation <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
+
+              {[
+                { key: "filmTv", label: "Film & TV Writer Representation" },
+                { key: "theater", label: "Theater Representation" },
+                { key: "literary", label: "Literary Representation" }
+              ].map(({ key, label }) => (
+                <div key={key} className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setOpenRepSections(prev => ({ ...prev, [key]: !prev[key] }))}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left"
+                  >
+                    <span className="text-sm font-semibold text-gray-800">{label}</span>
+                    <ChevronDown
+                      size={18}
+                      className={`text-gray-500 transition-transform duration-200 ${openRepSections[key] ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {openRepSections[key] && (
+                    <div className="grid grid-cols-2 gap-4 p-4">
+                      {[
+                        { field: "agency", label: "Agency" },
+                        { field: "agent", label: "Agent" },
+                        { field: "managementCompany", label: "Management Company" },
+                        { field: "manager", label: "Manager" },
+                        { field: "lawFirm", label: "Law Firm" },
+                        { field: "lawyer", label: "Lawyer" }
+                      ].map(({ field, label: fieldLabel }) => (
+                        <div key={field}>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">{fieldLabel}</label>
+                          <input
+                            type="text"
+                            value={writerProfile.representation[key][field]}
+                            onChange={(e) => setWriterProfile({
+                              ...writerProfile,
+                              representation: {
+                                ...writerProfile.representation,
+                                [key]: { ...writerProfile.representation[key], [field]: e.target.value }
+                              }
+                            })}
+                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                            placeholder=""
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Privacy */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Privacy</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Please note that unless you choose otherwise in your privacy settings, your demographic information will be searchable on the website.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
+                  writerProfile.demographicPrivacy === "searchable"
+                    ? "border-[#0f2544] bg-[#0f2544]/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}>
+                  <input
+                    type="radio"
+                    name="demographicPrivacy"
+                    value="searchable"
+                    checked={writerProfile.demographicPrivacy === "searchable"}
+                    onChange={() => setWriterProfile({...writerProfile, demographicPrivacy: "searchable"})}
+                    className="mt-0.5 accent-[#0f2544]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Use in search filtering</p>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
+                  writerProfile.demographicPrivacy === "private"
+                    ? "border-[#0f2544] bg-[#0f2544]/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}>
+                  <input
+                    type="radio"
+                    name="demographicPrivacy"
+                    value="private"
+                    checked={writerProfile.demographicPrivacy === "private"}
+                    onChange={() => setWriterProfile({...writerProfile, demographicPrivacy: "private"})}
+                    className="mt-0.5 accent-[#0f2544]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Keep private</p>
+                  </div>
+                </label>
               </div>
             </div>
             
@@ -937,12 +1281,14 @@ const WriterOnboarding = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f0f4f8] py-8 px-4">
+    <div className="min-h-screen bg-[#f0f4f8] pt-2 pb-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <BrandLogo className="h-11 w-auto" />
+        <div className="text-center mb-3">
+          <div className="flex items-center justify-center mb-1">
+            <div className="w-20 h-20 bg-[#f0f4f8] rounded-xl flex items-center justify-center">
+              <FileText className="text-black" size={40} strokeWidth={1.5} />
+            </div>
           </div>
           <p className="text-sm text-gray-600">Writer Onboarding</p>
         </div>

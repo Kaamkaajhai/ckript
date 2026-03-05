@@ -18,7 +18,7 @@
   --brand-50: #f0f6fc;
   --surface: #ffffff;
   --surface-raised: #fafbfc;
-  --surface-overlay: #f8f9fb;
+  --surface-overlay: #eef0f3;
   --surface-sunken: #f1f3f5;
   --text-primary: #111827;
   --text-secondary: #4b5563;
@@ -75,6 +75,19 @@ textarea:focus-visible,
 select:focus-visible {
   box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
   border-color: var(--brand-600) !important;
+}
+
+/* ── Editor — no focus border ── */
+.editor-title:focus,
+.editor-title:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
+.ProseMirror:focus,
+.ProseMirror:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* ── Selection ── */
@@ -235,11 +248,11 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 
 html.dark-mode {
   color-scheme: dark;
-  background: #08111e;
+  background: #060d18;
 }
 
 html.dark-mode body {
-  background: #08111e;
+  background: #060d18;
   color: #e2e8f0;
 }
 
@@ -299,6 +312,15 @@ html.dark-mode textarea:focus-visible,
 html.dark-mode select:focus-visible {
   box-shadow: 0 0 0 3px rgba(45, 90, 142, 0.25);
   border-color: #2d5a8e !important;
+}
+
+html.dark-mode .editor-title:focus,
+html.dark-mode .editor-title:focus-visible,
+html.dark-mode .ProseMirror:focus,
+html.dark-mode .ProseMirror:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
 }
 
 /* ── Dark Mode Scrollbar ── */
