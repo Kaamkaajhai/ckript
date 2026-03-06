@@ -5,7 +5,7 @@ const api = axios.create({
 });
 
 // Auth endpoints that should never receive an Authorization header
-const AUTH_ROUTES = ["/auth/login", "/auth/join"];
+const AUTH_ROUTES = ["/auth/login", "/auth/join", "/auth/verify-otp", "/auth/resend-otp"];
 
 // Attach token & check client-side expiry before every request
 api.interceptors.request.use((config) => {
@@ -15,15 +15,19 @@ api.interceptors.request.use((config) => {
 
   const stored = localStorage.getItem("user");
   if (stored) {
-    const { token, expiresAt } = JSON.parse(stored);
-    // If token is expired, clear session immediately
-    if (expiresAt && Date.now() >= expiresAt) {
+    try {
+      const { token, expiresAt } = JSON.parse(stored);
+      // If token is expired, clear session immediately
+      if (expiresAt && Date.now() >= expiresAt) {
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+        return Promise.reject(new Error("Token expired"));
+      }
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {
       localStorage.removeItem("user");
-      window.location.href = "/login";
-      return Promise.reject(new Error("Token expired"));
-    }
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
     }
   }
   return config;
@@ -33,10 +37,18 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || "";
+    const isAuthRoute = AUTH_ROUTES.some((route) => requestUrl.includes(route));
+
+    if (error.response?.status === 401 && !isAuthRoute) {
       localStorage.removeItem("user");
       // Only redirect if not already on login/join/admin pages
-      if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/join") && !window.location.pathname.startsWith("/admin")) {
+      if (
+        !window.location.pathname.startsWith("/login") &&
+        !window.location.pathname.startsWith("/join") &&
+        !window.location.pathname.startsWith("/signup") &&
+        !window.location.pathname.startsWith("/admin")
+      ) {
         window.location.href = "/login";
       }
     }
