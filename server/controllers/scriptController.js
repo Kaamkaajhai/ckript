@@ -7,6 +7,12 @@ import { CREDIT_PRICES } from "./creditsController.js";
 import { createRequire } from 'module';
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Lazy initialization of Razorpay
 let razorpayInstance = null;
@@ -1313,3 +1319,131 @@ export const verifyScriptHold = async (req, res) => {
     });
   }
 };
+
+// ── Multer Configuration for Thumbnail & Trailer Uploads ──
+
+// Storage configuration for thumbnails
+const thumbnailStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "..", "uploads", "thumbnails"));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `thumb-${req.params.id || Date.now()}-${Date.now()}${ext}`);
+  },
+});
+
+// Storage configuration for trailers
+const trailerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "..", "uploads", "trailers"));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `trailer-${req.params.id || Date.now()}-${Date.now()}${ext}`);
+  },
+});
+
+// File filters
+const imageFileFilter = (req, file, cb) => {
+  const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only JPEG, PNG, WebP and GIF images are allowed"), false);
+  }
+};
+
+const videoFileFilter = (req, file, cb) => {
+  const allowed = ["video/mp4", "video/mpeg", "video/quicktime", "video/webm"];
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only MP4, MPEG, MOV and WebM videos are allowed"), false);
+  }
+};
+
+// Export multer upload instances
+export const uploadThumbnail = multer({ 
+  storage: thumbnailStorage, 
+  fileFilter: imageFileFilter, 
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+export const uploadTrailer = multer({ 
+  storage: trailerStorage, 
+  fileFilter: videoFileFilter, 
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+});
+
+// ── Upload Thumbnail Controller ──
+export const uploadScriptThumbnail = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No thumbnail file provided" });
+    }
+
+    const scriptId = req.params.id;
+    const script = await Script.findById(scriptId);
+
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    if (script.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can upload a thumbnail" });
+    }
+
+    // Save the thumbnail path
+    const thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`;
+    script.coverImage = thumbnailUrl;
+    await script.save();
+
+    res.json({ 
+      message: "Thumbnail uploaded successfully", 
+      thumbnailUrl,
+      script 
+    });
+  } catch (error) {
+    console.error("Thumbnail upload error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ── Upload Trailer Controller ──
+export const uploadScriptTrailer = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No trailer file provided" });
+    }
+
+    const scriptId = req.params.id;
+    const script = await Script.findById(scriptId);
+
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    if (script.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can upload a trailer" });
+    }
+
+    // Save the uploaded trailer path (free, no credits required)
+    const trailerUrl = `/uploads/trailers/${req.file.filename}`;
+    script.uploadedTrailerUrl = trailerUrl;
+    script.trailerSource = "uploaded";
+    script.trailerStatus = "ready";
+    await script.save();
+
+    res.json({ 
+      message: "Trailer uploaded successfully (free)", 
+      trailerUrl,
+      trailerSource: "uploaded",
+      script 
+    });
+  } catch (error) {
+    console.error("Trailer upload error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+

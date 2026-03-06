@@ -385,7 +385,7 @@ const ScriptDetail = () => {
               )}
 
               {/* Play overlay */}
-              {script.trailerUrl && (
+              {(script.trailerUrl || script.uploadedTrailerUrl) && (
                 <button onClick={() => setShowTrailer(true)} className="absolute inset-0 flex items-center justify-center group">
                   <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl ring-1 ring-white/10">
                     <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
@@ -614,7 +614,7 @@ const ScriptDetail = () => {
                       </div>
                     )}
 
-                    {isOwner && !script.trailerUrl && script.trailerStatus !== "generating" && script.trailerStatus !== "ready" && (
+                    {isOwner && !script.trailerUrl && !script.uploadedTrailerUrl && script.trailerStatus !== "generating" && script.trailerStatus !== "ready" && (
                       <button
                         onClick={handleGenerateTrailer}
                         disabled={trailerLoading}
@@ -1376,7 +1376,7 @@ const ScriptDetail = () => {
       {/* ══════════════  MODALS  ═════════════════════════════ */}
 
       {/* Trailer modal */}
-      {showTrailer && script.trailerUrl && (
+      {showTrailer && (script.trailerUrl || script.uploadedTrailerUrl) && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTrailer(false)}>
           <div className="max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-2">
@@ -1385,7 +1385,12 @@ const ScriptDetail = () => {
               </button>
             </div>
             <div className="rounded-xl overflow-hidden shadow-2xl">
-              <video src={script.trailerUrl} controls autoPlay className="w-full" />
+              <video 
+                src={script.trailerSource === "uploaded" ? script.uploadedTrailerUrl : script.trailerUrl} 
+                controls 
+                autoPlay 
+                className="w-full" 
+              />
             </div>
           </div>
         </div>
