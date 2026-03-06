@@ -208,9 +208,11 @@ const ScriptReader = () => {
       </motion.div>
 
       {/* Tabs */}
-      <div className={`flex gap-1 rounded-xl p-1 max-w-sm mb-6 ${dark ? "bg-white/[0.04]" : "bg-gray-100/60"}`}>
+      <div className={`flex gap-1 rounded-xl p-1 mb-6 ${dark ? "bg-white/[0.04]" : "bg-gray-100/60"}`}>
         {[
           { key: "synopsis", label: "Synopsis" },
+          { key: "evaluation", label: "Evaluation" },
+          { key: "insights", label: "Insights" },
           { key: "reviews", label: `Reviews (${script.reviewCount || 0})` },
           { key: "details", label: "Details" },
         ].map((tab) => (
@@ -321,6 +323,474 @@ const ScriptReader = () => {
             </div>
           </motion.div>
         )}
+
+        {activeTab === "evaluation" && (() => {
+          const sc = script.scriptScore || {};
+          const ps = script.platformScore || {};
+          const dk = dark;
+          const fmtDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          const card = dk ? "bg-[#101e30] border-[#333]" : "bg-white border-gray-100";
+
+          const dims = [
+            { key: "plot",          label: "Plot",          icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: dk ? "#818cf8" : "#4f46e5" },
+            { key: "characters",    label: "Characters",    icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z", color: dk ? "#a78bfa" : "#7c3aed" },
+            { key: "dialogue",      label: "Dialogue",      icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z", color: dk ? "#34d399" : "#059669" },
+            { key: "pacing",        label: "Pacing",        icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z", color: dk ? "#fbbf24" : "#d97706" },
+            { key: "marketability", label: "Marketability", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", color: dk ? "#fb923c" : "#ea580c" },
+          ];
+
+          const gradeLabel = (v) => v >= 90 ? "S" : v >= 80 ? "A" : v >= 70 ? "B" : v >= 60 ? "C" : v >= 50 ? "D" : "F";
+          const gradeColor = (v) =>
+            v >= 90 ? (dk ? "#c084fc" : "#9333ea") :
+            v >= 80 ? (dk ? "#34d399" : "#059669") :
+            v >= 70 ? (dk ? "#60a5fa" : "#2563eb") :
+            v >= 60 ? (dk ? "#fbbf24" : "#d97706") :
+                       (dk ? "#f87171" : "#dc2626");
+          const gradeText = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
+          const gradeBand = (v) =>
+            v >= 90 ? (dk ? "bg-purple-400/10 border-purple-400/20 text-purple-300"   : "bg-purple-50 border-purple-200 text-purple-700") :
+            v >= 80 ? (dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700") :
+            v >= 70 ? (dk ? "bg-blue-400/10 border-blue-400/20 text-blue-300"         : "bg-blue-50 border-blue-200 text-blue-700") :
+            v >= 60 ? (dk ? "bg-amber-400/10 border-amber-400/20 text-amber-300"       : "bg-amber-50 border-amber-200 text-amber-700") :
+                       (dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700");
+
+          /* Radar geometry */
+          const cx = 110, cy = 110, rr = 80;
+          const angleStep = (2 * Math.PI) / dims.length;
+          const radarPts = dims.map((d, i) => {
+            const v = (sc[d.key] || 0) / 100;
+            const a = angleStep * i - Math.PI / 2;
+            return { x: cx + rr * v * Math.cos(a), y: cy + rr * v * Math.sin(a) };
+          });
+          const gridLevels = [0.25, 0.5, 0.75, 1];
+          const overallColor = gradeColor(sc.overall || 0);
+
+          return (
+            <motion.div key="evaluation" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
+              {sc.overall ? (
+                <>
+                  {/* ── 1. Score Hero ── */}
+                  <div className={`rounded-2xl border overflow-hidden ${card}`}>
+                    <div className="flex flex-col sm:flex-row items-center gap-0 divide-y sm:divide-y-0 sm:divide-x"
+                      style={{ divideColor: dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
+
+                      {/* Overall gauge */}
+                      <div className="flex flex-col items-center justify-center gap-3 px-8 py-7 sm:w-56 shrink-0">
+                        <div className="relative w-28 h-28">
+                          <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                            <circle cx="50" cy="50" r="42" fill="none"
+                              stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="7" />
+                            <circle cx="50" cy="50" r="42" fill="none"
+                              stroke={overallColor} strokeWidth="7" strokeLinecap="round"
+                              strokeDasharray={`${(sc.overall / 100) * 263.9} 263.9`}
+                              style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)" }} />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`text-3xl font-black tabular-nums leading-none ${dk ? "text-white" : "text-gray-900"}`}>{sc.overall}</span>
+                            <span className={`text-[9px] font-semibold uppercase tracking-widest mt-1 ${dk ? "text-white/30" : "text-gray-400"}`}>score</span>
+                          </div>
+                        </div>
+                        {/* Grade badge */}
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold ${gradeBand(sc.overall)}`}>
+                          <span className="text-base font-black leading-none">{gradeLabel(sc.overall)}</span>
+                          <span>{gradeText(sc.overall)}</span>
+                        </div>
+                      </div>
+
+                      {/* Dimension pills grid */}
+                      <div className="flex-1 px-6 py-6">
+                        <p className={`text-[10px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>
+                          Dimension Scores{sc.scoredAt ? ` · ${fmtDate(sc.scoredAt)}` : ""}
+                        </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {dims.map(d => {
+                            const val = sc[d.key] || 0;
+                            return (
+                              <div key={d.key}
+                                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${dk ? "bg-white/[0.03] border-white/[0.07]" : "bg-gray-50/80 border-gray-200/60"}`}>
+                                <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center"
+                                  style={{ backgroundColor: `${d.color}${dk ? "18" : "10"}` }}>
+                                  <svg className="w-4 h-4" style={{ color: d.color }} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d={d.icon} />
+                                  </svg>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className={`text-[10px] font-medium truncate ${dk ? "text-white/35" : "text-gray-400"}`}>{d.label}</p>
+                                  <p className="text-sm font-black tabular-nums leading-tight" style={{ color: d.color }}>{val}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── 2. Radar + Bar Chart ── */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+                    {/* Radar */}
+                    <div className={`rounded-2xl border p-5 ${card}`}>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Performance Radar</p>
+                      <svg viewBox="0 0 220 220" className="w-full max-w-xs mx-auto">
+                        <defs>
+                          <radialGradient id="readerRadarFill" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%"   stopColor={overallColor} stopOpacity={dk ? "0.22" : "0.16"} />
+                            <stop offset="100%" stopColor={overallColor} stopOpacity="0" />
+                          </radialGradient>
+                        </defs>
+                        {/* Grid rings */}
+                        {gridLevels.map((lv, gi) => {
+                          const pts = dims.map((_, j) => {
+                            const a = angleStep * j - Math.PI / 2;
+                            return `${cx + rr * lv * Math.cos(a)},${cy + rr * lv * Math.sin(a)}`;
+                          }).join(" ");
+                          return <polygon key={gi} points={pts} fill="none"
+                            stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="1" />;
+                        })}
+                        {/* Axis spokes */}
+                        {dims.map((_, i) => {
+                          const a = angleStep * i - Math.PI / 2;
+                          return <line key={i} x1={cx} y1={cy} x2={cx + rr * Math.cos(a)} y2={cy + rr * Math.sin(a)}
+                            stroke={dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeWidth="1" />;
+                        })}
+                        {/* Data shape */}
+                        <polygon points={radarPts.map(p => `${p.x},${p.y}`).join(" ")}
+                          fill="url(#readerRadarFill)" stroke={overallColor} strokeWidth="2" strokeLinejoin="round" />
+                        {/* Dots + labels */}
+                        {radarPts.map((p, i) => {
+                          const a = angleStep * i - Math.PI / 2;
+                          const lx = cx + (rr + 22) * Math.cos(a);
+                          const ly = cy + (rr + 22) * Math.sin(a);
+                          return (
+                            <g key={i}>
+                              <circle cx={p.x} cy={p.y} r="4" fill={dims[i].color}
+                                stroke={dk ? "#0d1829" : "#ffffff"} strokeWidth="2" />
+                              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+                                style={{ fontSize: 8.5, fontWeight: 700, fill: dk ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }}>
+                                {dims[i].label}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+
+                    {/* Bar Chart */}
+                    <div className={`rounded-2xl border p-5 ${card}`}>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Score Overview</p>
+                      {(() => {
+                        const barH = 180;
+                        const bars = [{ key: "overall", label: "Overall", color: overallColor }, ...dims];
+                        const gridLines = [0, 25, 50, 75, 100];
+                        const gridColor = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+                        const labelColor = dk ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)";
+                        const slotW = 220 / bars.length;
+                        const barW = Math.min(slotW * 0.58, 28);
+                        return (
+                          <svg viewBox={`0 0 240 ${barH + 44}`} className="w-full">
+                            {gridLines.map(v => {
+                              const y = barH - (v / 100) * barH + 4;
+                              return (
+                                <g key={v}>
+                                  <line x1="24" y1={y} x2="238" y2={y} stroke={gridColor} strokeWidth={v === 0 ? "1.5" : "1"} strokeDasharray={v === 0 ? "" : "3,3"} />
+                                  <text x="18" y={y + 3.5} textAnchor="end" style={{ fontSize: 7.5, fontWeight: 600, fill: labelColor }}>{v}</text>
+                                </g>
+                              );
+                            })}
+                            {bars.map((d, i) => {
+                              const val = sc[d.key] || 0;
+                              const filledH = (val / 100) * barH;
+                              const x = 24 + i * slotW + (slotW - barW) / 2;
+                              const y = barH - filledH + 4;
+                              return (
+                                <g key={d.key}>
+                                  <rect x={x} y={4} width={barW} height={barH} rx="4"
+                                    fill={dk ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"} />
+                                  <rect x={x} y={y} width={barW} height={filledH} rx="4" fill={d.color}>
+                                    <animate attributeName="height" from="0" to={filledH} dur="0.75s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" />
+                                    <animate attributeName="y" from={barH + 4} to={y} dur="0.75s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" />
+                                  </rect>
+                                  <text x={x + barW / 2} y={y - 4} textAnchor="middle"
+                                    style={{ fontSize: 8, fontWeight: 800, fill: dk ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.7)" }}>{val}</text>
+                                  <text x={x + barW / 2} y={barH + 18} textAnchor="middle"
+                                    style={{ fontSize: 7, fontWeight: 700, fill: d.color }}>{d.label}</text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* ── 3. AI Feedback ── */}
+                  {sc.feedback && (
+                    <div className={`rounded-2xl border p-5 ${card}`}>
+                      <p className={`text-[11px] font-semibold uppercase tracking-wider mb-3 ${dk ? "text-white/25" : "text-gray-400"}`}>AI Analysis</p>
+                      <p className={`text-sm leading-relaxed ${dk ? "text-white/60" : "text-gray-600"}`}>{sc.feedback}</p>
+                    </div>
+                  )}
+
+                  {/* ── 4. Platform Editorial ── */}
+                  {(() => {
+                    const sections = [
+                      { key: "strengths",  label: "Strengths",  icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z",        band: dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700" },
+                      { key: "weaknesses", label: "Weaknesses", icon: "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z", band: dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700" },
+                      { key: "prospects",  label: "Prospects",  icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", band: dk ? "bg-indigo-400/10 border-indigo-400/20 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700" },
+                    ];
+                    return (
+                      <div className="space-y-3">
+                        {sections.map(s => (
+                          <div key={s.key} className={`rounded-2xl border overflow-hidden ${card}`}>
+                            <div className={`flex items-center gap-2.5 px-5 py-3.5 border-b ${dk ? "border-white/[0.06]" : "border-gray-100"}`}>
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${s.band}`}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                                </svg>
+                                {s.label}
+                              </span>
+                              <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Platform Editorial</span>
+                            </div>
+                            <div className="px-5 py-4">
+                              {ps[s.key] ? (
+                                <p className={`text-sm leading-relaxed whitespace-pre-line ${dk ? "text-white/65" : "text-gray-600"}`}>{ps[s.key]}</p>
+                              ) : (
+                                <p className={`text-sm italic ${dk ? "text-white/20" : "text-gray-300"}`}>Not yet reviewed by the platform.</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <div className={`text-center py-16 rounded-2xl border ${card}`}>
+                  <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${dk ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                    <svg className={`w-6 h-6 ${dk ? "text-gray-500" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                  </div>
+                  <h3 className={`text-base font-bold mb-1.5 ${dk ? "text-gray-300" : "text-gray-700"}`}>No Evaluation Yet</h3>
+                  <p className={`text-sm max-w-xs mx-auto ${dk ? "text-gray-500" : "text-gray-400"}`}>This script hasn't been evaluated yet.</p>
+                </div>
+              )}
+            </motion.div>
+          );
+        })()}
+
+        {activeTab === "insights" && (() => {
+          const sc = script.scriptScore || {};
+          const dk = dark;
+          const card = dk ? "bg-[#101e30] border-[#333]" : "bg-white border-gray-100";
+          const gradeColor = (v) =>
+            v >= 90 ? (dk ? "#c084fc" : "#9333ea") :
+            v >= 80 ? (dk ? "#34d399" : "#059669") :
+            v >= 70 ? (dk ? "#60a5fa" : "#2563eb") :
+            v >= 60 ? (dk ? "#fbbf24" : "#d97706") :
+                       (dk ? "#f87171" : "#dc2626");
+          const gradeLabel = (v) => v >= 90 ? "S" : v >= 80 ? "A" : v >= 70 ? "B" : v >= 60 ? "C" : v >= 50 ? "D" : "F";
+          const gradeText = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
+          const fmtDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          const dims = [
+            { key: "plot",          label: "Plot",          color: dk ? "#818cf8" : "#4f46e5", track: dk ? "rgba(129,140,248,0.12)" : "#ede9fe" },
+            { key: "characters",    label: "Characters",    color: dk ? "#a78bfa" : "#7c3aed", track: dk ? "rgba(167,139,250,0.12)" : "#ede9fe" },
+            { key: "dialogue",      label: "Dialogue",      color: dk ? "#34d399" : "#059669", track: dk ? "rgba(52,211,153,0.12)"  : "#d1fae5" },
+            { key: "pacing",        label: "Pacing",        color: dk ? "#fbbf24" : "#d97706", track: dk ? "rgba(251,191,36,0.12)"  : "#fef3c7" },
+            { key: "marketability", label: "Marketability", color: dk ? "#fb923c" : "#ea580c", track: dk ? "rgba(251,146,60,0.12)"  : "#ffedd5" },
+          ];
+          const overallColor = gradeColor(sc.overall || 0);
+          const engStats = [
+            {
+              label: "Total Views",
+              value: (script.views || 0).toLocaleString(),
+              icon: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+              color: dk ? "#60a5fa" : "#2563eb",
+              bg: dk ? "rgba(96,165,250,0.1)" : "#eff6ff",
+              border: dk ? "rgba(96,165,250,0.2)" : "#bfdbfe",
+            },
+            {
+              label: "Total Reads",
+              value: (script.readsCount || 0).toLocaleString(),
+              icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253",
+              color: dk ? "#34d399" : "#059669",
+              bg: dk ? "rgba(52,211,153,0.1)" : "#f0fdf4",
+              border: dk ? "rgba(52,211,153,0.2)" : "#bbf7d0",
+            },
+            {
+              label: "Reviews",
+              value: (script.reviewCount || 0).toLocaleString(),
+              icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z",
+              color: dk ? "#fbbf24" : "#d97706",
+              bg: dk ? "rgba(251,191,36,0.1)" : "#fffbeb",
+              border: dk ? "rgba(251,191,36,0.2)" : "#fde68a",
+            },
+            {
+              label: "Avg. Rating",
+              value: (script.rating || 0).toFixed(1) + " / 5",
+              icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z",
+              color: dk ? "#f472b6" : "#db2777",
+              bg: dk ? "rgba(244,114,182,0.1)" : "#fdf2f8",
+              border: dk ? "rgba(244,114,182,0.2)" : "#fbcfe8",
+            },
+          ];
+          return (
+            <motion.div key="insights" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+
+              {/* ── Reader Engagement ── */}
+              <div className={`rounded-2xl border overflow-hidden ${card}`}>
+                <div className={`px-5 py-4 border-b flex items-center gap-3 ${dk ? "border-[#333]" : "border-gray-100"}`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dk ? "bg-blue-500/10" : "bg-blue-50"}`}>
+                    <svg className={`w-4 h-4 ${dk ? "text-blue-400" : "text-blue-500"}`} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold ${dk ? "text-gray-100" : "text-gray-900"}`}>Reader Engagement</p>
+                    <p className={`text-[11px] font-medium ${dk ? "text-gray-500" : "text-gray-400"}`}>Audience interaction metrics</p>
+                  </div>
+                </div>
+                <div className="p-5">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {engStats.map((s) => (
+                      <div key={s.label} className="rounded-xl border p-4 flex flex-col gap-2"
+                        style={{ backgroundColor: s.bg, borderColor: s.border }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: s.color + "18" }}>
+                          <svg className="w-4 h-4" style={{ color: s.color }} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xl font-black tabular-nums leading-tight" style={{ color: s.color }}>{s.value}</p>
+                          <p className={`text-[10px] font-semibold uppercase tracking-wide mt-0.5 ${dk ? "text-gray-500" : "text-gray-400"}`}>{s.label}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Rating bar breakdown */}
+                  {script.reviewCount > 0 && (
+                    <div className={`mt-4 rounded-xl border p-4 ${dk ? "bg-white/[0.03] border-white/[0.06]" : "bg-gray-50/60 border-gray-100"}`}>
+                      <p className={`text-[11px] font-bold uppercase tracking-wider mb-3 ${dk ? "text-gray-500" : "text-gray-400"}`}>Rating Distribution</p>
+                      <div className="flex items-end gap-3">
+                        <div className="flex flex-col items-center">
+                          <span className={`text-3xl font-black tabular-nums ${dk ? "text-white" : "text-gray-900"}`}>{(script.rating || 0).toFixed(1)}</span>
+                          <div className="flex gap-0.5 my-1">
+                            {[1,2,3,4,5].map(s => (
+                              <svg key={s} className={`w-3.5 h-3.5 ${s <= Math.round(script.rating || 0) ? "text-amber-400 fill-amber-400" : (dk ? "text-gray-700 fill-gray-700" : "text-gray-200 fill-gray-200")}`} viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                            ))}
+                          </div>
+                          <span className={`text-[10px] font-semibold ${dk ? "text-gray-500" : "text-gray-400"}`}>{script.reviewCount} reviews</span>
+                        </div>
+                        <div className="flex-1 space-y-1.5">
+                          {[5,4,3,2,1].map(star => (
+                            <div key={star} className="flex items-center gap-2">
+                              <span className={`text-[10px] font-bold w-2 text-right ${dk ? "text-gray-500" : "text-gray-400"}`}>{star}</span>
+                              <svg className="w-3 h-3 text-amber-400 fill-amber-400 shrink-0" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                              <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${dk ? "bg-white/[0.06]" : "bg-gray-200"}`}>
+                                <div className="h-full bg-amber-400 rounded-full transition-all duration-700"
+                                  style={{ width: `${star === Math.round(script.rating || 0) ? Math.min(100, (script.reviewCount / Math.max(1, script.reviewCount)) * 100) : Math.max(0, 100 - Math.abs(star - (script.rating || 0)) * 30)}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── AI Analysis ── */}
+              <div className={`rounded-2xl border overflow-hidden ${card}`}>
+                <div className={`px-5 py-4 border-b flex items-center gap-3 ${dk ? "border-[#333]" : "border-gray-100"}`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dk ? "bg-violet-500/10" : "bg-violet-50"}`}>
+                    <svg className={`w-4 h-4 ${dk ? "text-violet-400" : "text-violet-500"}`} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold ${dk ? "text-gray-100" : "text-gray-900"}`}>AI Analysis</p>
+                    <p className={`text-[11px] font-medium ${dk ? "text-gray-500" : "text-gray-400"}`}>
+                      {sc.scoredAt ? `Evaluated · ${fmtDate(sc.scoredAt)}` : "Script quality evaluation"}
+                    </p>
+                  </div>
+                  {sc.overall && (
+                    <div className="ml-auto flex items-center gap-2">
+                      <span className="text-[11px] font-black px-2.5 py-1 rounded-full border"
+                        style={{ color: overallColor, backgroundColor: overallColor + "15", borderColor: overallColor + "30" }}>
+                        {gradeLabel(sc.overall)} &mdash; {gradeText(sc.overall)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {sc.overall ? (
+                  <div className="p-5 space-y-5">
+                    {/* Score + dims in a clean 2-col layout */}
+                    <div className="flex flex-col sm:flex-row gap-5">
+                      {/* Gauge */}
+                      <div className="flex flex-col items-center justify-center gap-2 sm:w-36 shrink-0 py-2">
+                        <div className="relative w-24 h-24">
+                          <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                            <circle cx="50" cy="50" r="42" fill="none"
+                              stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="8" />
+                            <circle cx="50" cy="50" r="42" fill="none"
+                              stroke={overallColor} strokeWidth="8" strokeLinecap="round"
+                              strokeDasharray={`${(sc.overall / 100) * 263.9} 263.9`}
+                              style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)" }} />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`text-2xl font-black tabular-nums leading-none ${dk ? "text-white" : "text-gray-900"}`}>{sc.overall}</span>
+                            <span className={`text-[8px] font-bold uppercase tracking-widest mt-0.5 ${dk ? "text-white/30" : "text-gray-400"}`}>/ 100</span>
+                          </div>
+                        </div>
+                        <p className={`text-[11px] font-semibold text-center ${dk ? "text-gray-400" : "text-gray-500"}`}>Overall Score</p>
+                      </div>
+
+                      {/* Dimension bars */}
+                      <div className="flex-1 space-y-2.5 justify-center flex flex-col">
+                        {dims.map(d => {
+                          const val = sc[d.key] || 0;
+                          return (
+                            <div key={d.key} className="flex items-center gap-3">
+                              <span className={`text-[11px] font-semibold shrink-0 w-24 ${dk ? "text-gray-400" : "text-gray-500"}`}>{d.label}</span>
+                              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: d.track }}>
+                                <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, val)}%`, backgroundColor: d.color }} />
+                              </div>
+                              <span className="text-[12px] font-black tabular-nums shrink-0" style={{ color: d.color }}>{val}<span className={`text-[9px] font-normal ml-0.5 ${dk ? "text-gray-600" : "text-gray-300"}`}>/100</span></span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* AI Feedback */}
+                    {sc.feedback && (
+                      <div className={`rounded-xl p-4 border ${dk ? "bg-white/[0.03] border-white/[0.06]" : "bg-violet-50/60 border-violet-100"}`}>
+                        <p className={`text-[10px] font-black uppercase tracking-widest mb-2 ${dk ? "text-violet-400" : "text-violet-500"}`}>AI Feedback</p>
+                        <p className={`text-sm leading-relaxed ${dk ? "text-gray-300" : "text-gray-600"}`}>{sc.feedback}</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className={`flex flex-col items-center justify-center py-12 px-6 text-center`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-3 ${dk ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                      <svg className={`w-6 h-6 ${dk ? "text-gray-600" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+                      </svg>
+                    </div>
+                    <p className={`text-sm font-bold mb-1 ${dk ? "text-gray-400" : "text-gray-600"}`}>Not Yet Evaluated</p>
+                    <p className={`text-xs max-w-[200px] ${dk ? "text-gray-600" : "text-gray-400"}`}>No AI analysis has been run on this script yet.</p>
+                  </div>
+                )}
+              </div>
+
+            </motion.div>
+          );
+        })()}
 
         {activeTab === "details" && (
           <motion.div key="details" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="grid grid-cols-1 md:grid-cols-2 gap-6">

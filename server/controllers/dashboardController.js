@@ -3,6 +3,7 @@ import Post from "../models/Post.js";
 import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
 import Audition from "../models/Audition.js";
+import Notification from "../models/Notification.js";
 
 export const getDashboardStats = async (req, res) => {
   try {
@@ -96,7 +97,7 @@ export const getDashboardReviews = async (req, res) => {
     const userId = req.user._id;
 
     const scripts = await Script.find({ creator: userId })
-      .select("title scriptScore views unlockedBy genre price holdStatus trailerStatus createdAt")
+      .select("title scriptScore platformScore views unlockedBy genre price holdStatus trailerStatus createdAt")
       .sort({ createdAt: -1 });
 
     // AI Reviews — from scripts that have been scored
@@ -115,6 +116,11 @@ export const getDashboardReviews = async (req, res) => {
           marketability: s.scriptScore.marketability,
         },
         feedback: s.scriptScore.feedback,
+        strengths: s.scriptScore.strengths || [],
+        weaknesses: s.scriptScore.weaknesses || [],
+        improvements: s.scriptScore.improvements || [],
+        audienceFit: s.scriptScore.audienceFit || "",
+        comparables: s.scriptScore.comparables || "",
         date: s.scriptScore.scoredAt,
       }));
 
@@ -203,10 +209,176 @@ export const getDashboardReviews = async (req, res) => {
       });
     }
 
+    const adminScores = scripts
+      .filter(s => s.platformScore?.overall)
+      .map(s => ({
+        scriptId: s._id,
+        scriptTitle: s.title,
+        overall: s.platformScore.overall,
+        content: s.platformScore.content,
+        trailer: s.platformScore.trailer,
+        title: s.platformScore.title,
+        synopsis: s.platformScore.synopsis,
+        tags: s.platformScore.tags,
+        feedback: s.platformScore.feedback,
+        scoredAt: s.platformScore.scoredAt,
+      }));
+
     res.json({
       ai: aiReviews,
       readers: readerReviews,
       platform: platformInsights,
+      adminScores,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ─── Investor Dashboard ────────────────────────────────────────────
+export const getInvestorDashboard = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+
+    // Scripts the investor has viewed (deduplicated by script id)
+    const rawViewHistory = (user.viewHistory || []).map(v => v.script?.toString()).filter(Boolean);
+    const viewedScriptIds = [...new Set(rawViewHistory)];
+
+    // Fallback: also count scripts where this user is in script.viewedBy (covers existing data before fix)
+    const viewedByCount = await Script.countDocuments({ "viewedBy.user": userId });
+    const totalViewedCount = Math.max(viewedScriptIds.length, viewedByCount);
+
+    // Active holds by this investor
+    const activeHolds = await ScriptOption.find({
+      holder: userId,
+      status: "active",
+    }).populate({
+      path: "script",
+      select: "title genre contentType creator views scriptScore coverImage trailerStatus holdStatus budget logline",
+      populate: { path: "creator", select: "name profileImage" },
+    });
+
+    // All option deals (active + past)
+    const allDeals = await ScriptOption.find({ holder: userId })
+      .populate({
+        path: "script",
+        select: "title genre contentType creator coverImage",
+        populate: { path: "creator", select: "name profileImage" },
+      })
+      .sort({ createdAt: -1 });
+
+    const totalInvested = allDeals.reduce((sum, d) => sum + d.fee, 0);
+    const activeDealsCount = allDeals.filter(d => d.status === "active").length;
+    const convertedDealsCount = allDeals.filter(d => d.status === "converted").length;
+
+    // Scripts viewed recently
+    const recentViews = await Script.find({ _id: { $in: viewedScriptIds.slice(-20) } })
+      .populate("creator", "name profileImage")
+      .select("title genre contentType views scriptScore coverImage trailerStatus holdStatus logline budget createdAt")
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    // Top-rated scripts on the platform (for recommendations)
+    const topRated = await Script.find({
+      status: "published",
+      adminApproved: true,
+      "scriptScore.overall": { $exists: true },
+      holdStatus: "available",
+    })
+      .populate("creator", "name profileImage")
+      .select("title genre contentType views scriptScore coverImage trailerStatus holdStatus logline budget createdAt")
+      .sort({ "scriptScore.overall": -1 })
+      .limit(8);
+
+    // Preference-matched scripts (mandates take priority over general preferences)
+    const mandateGenres = user.industryProfile?.mandates?.genres;
+    const prefGenres = (mandateGenres?.length > 0) ? mandateGenres : (user.preferences?.genres || []);
+    const prefQuery = { status: "published", adminApproved: true, holdStatus: "available" };
+    if (prefGenres.length > 0) {
+      prefQuery.genre = { $in: prefGenres };
+    }
+    const matchedScripts = await Script.find(prefQuery)
+      .populate("creator", "name profileImage")
+      .select("title genre contentType views scriptScore coverImage trailerStatus holdStatus logline budget createdAt")
+      .sort({ createdAt: -1 })
+      .limit(8);
+
+    // Genre breakdown of viewed scripts
+    const genreBreakdown = {};
+    recentViews.forEach(s => {
+      if (s.genre) genreBreakdown[s.genre] = (genreBreakdown[s.genre] || 0) + 1;
+    });
+
+    // Average AI score of scripts the investor has viewed
+    const scoredViews = recentViews.filter(s => s.scriptScore?.overall);
+    const avgViewedScore = scoredViews.length > 0
+      ? Math.round(scoredViews.reduce((sum, s) => sum + s.scriptScore.overall, 0) / scoredViews.length)
+      : null;
+
+    // Recent notifications for investor
+    const recentNotifications = await Notification.find({ user: userId })
+      .populate("from", "name profileImage role")
+      .populate("script", "title genre")
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    // Platform-wide stats (gives investor a market pulse)
+    const totalPlatformScripts = await Script.countDocuments({ status: "published", adminApproved: true });
+    const newThisWeek = await Script.countDocuments({
+      status: "published",
+      adminApproved: true,
+      createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+    });
+    const availableScripts = await Script.countDocuments({
+      status: "published",
+      adminApproved: true,
+      holdStatus: "available",
+    });
+
+    res.json({
+      stats: {
+        totalViewed: totalViewedCount,
+        activeHolds: activeDealsCount,
+        convertedDeals: convertedDealsCount,
+        totalInvested,
+        totalDeals: allDeals.length,
+        avgViewedScore,
+        followingCount: user.following?.length || 0,
+        followersCount: user.followers?.length || 0,
+      },
+      marketPulse: {
+        totalScripts: totalPlatformScripts,
+        newThisWeek,
+        available: availableScripts,
+      },
+      activeHolds: activeHolds.map(h => ({
+        _id: h._id,
+        script: h.script,
+        fee: h.fee,
+        startDate: h.startDate,
+        endDate: h.endDate,
+        status: h.status,
+        daysRemaining: Math.max(0, Math.ceil((new Date(h.endDate) - new Date()) / (1000 * 60 * 60 * 24))),
+      })),
+      recentViews,
+      topRated,
+      matchedScripts,
+      genreBreakdown,
+      recentNotifications,
+      recentDeals: allDeals.slice(0, 10).map(d => ({
+        _id: d._id,
+        script: d.script,
+        fee: d.fee,
+        startDate: d.startDate,
+        endDate: d.endDate,
+        status: d.status,
+        daysRemaining: d.status === "active"
+          ? Math.max(0, Math.ceil((new Date(d.endDate) - new Date()) / (1000 * 60 * 60 * 24)))
+          : null,
+      })),
+      preferences: user.preferences || {},
+      industryProfile: user.industryProfile || {},
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -21,7 +21,8 @@
     "mongoose": "^9.2.1",
     "multer": "^2.0.2",
     "nodemailer": "^8.0.1",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
+    "razorpay": "^2.9.6",
     "socket.io": "^4.8.3",
     "stripe": "^20.3.1"
   },

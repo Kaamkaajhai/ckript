@@ -9,7 +9,6 @@ const SORT_TABS = [
   { key: "featured", label: "Featured" },
   { key: "rating", label: "Highest Rated" },
   { key: "reads", label: "Most Read" },
-  { key: "purchases", label: "Most Purchased" },
 ];
 
 const TrendingProjects = () => {
@@ -30,8 +29,9 @@ const TrendingProjects = () => {
     const fetchFeatured = async () => {
       try {
         const { data } = await api.get("/scripts/featured");
-        setFeaturedScripts(data);
-      } catch {
+        setFeaturedScripts(Array.isArray(data) ? data : data.scripts || []);
+      } catch (err) {
+        console.error("Featured scripts fetch failed:", err?.response?.data || err?.message || err);
         setFeaturedScripts([]);
       }
       setFeaturedLoading(false);
@@ -80,28 +80,25 @@ const TrendingProjects = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
         <h2
-          className={`text-xl font-semibold tracking-tight ${
-            dark ? "text-gray-100" : "text-gray-800"
-          }`}
+          className={`text-xl font-semibold tracking-tight ${dark ? "text-gray-100" : "text-gray-800"
+            }`}
         >
           Trending Projects
         </h2>
         <div
-          className={`flex gap-0.5 border rounded-lg p-0.5 ${
-            dark ? "border-[#182840]" : "border-gray-100"
-          }`}
+          className={`flex gap-0.5 border rounded-lg p-0.5 ${dark ? "border-[#182840]" : "border-gray-100"
+            }`}
         >
           {SORT_TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${
-                activeTab === t.key
+              className={`px-3.5 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === t.key
                   ? "bg-gray-800 text-white"
                   : dark
-                  ? "text-gray-400 hover:text-gray-200"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}
+                    ? "text-gray-400 hover:text-gray-200"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
             >
               {t.label}
             </button>
@@ -183,11 +180,10 @@ const TrendingProjects = () => {
                   <button
                     key={i}
                     onClick={() => setHeroIdx(i)}
-                    className={`h-1.5 rounded-full transition-all ${
-                      i === heroIdx
+                    className={`h-1.5 rounded-full transition-all ${i === heroIdx
                         ? "bg-white w-5"
                         : "bg-white/40 w-1.5 hover:bg-white/60"
-                    }`}
+                      }`}
                   />
                 ))}
               </div>
@@ -201,9 +197,8 @@ const TrendingProjects = () => {
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className={`h-64 rounded-xl animate-pulse ${
-                dark ? "bg-[#182840]" : "bg-gray-50"
-              }`}
+              className={`h-64 rounded-xl animate-pulse ${dark ? "bg-[#182840]" : "bg-gray-50"
+                }`}
             />
           ))}
         </div>

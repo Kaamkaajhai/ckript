@@ -5,6 +5,7 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { Film } from "lucide-react";
+import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 
 const ScriptDetail = () => {
   const { id } = useParams();
@@ -16,6 +17,7 @@ const ScriptDetail = () => {
   const [loading, setLoading] = useState(true);
   const [coverError, setCoverError] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [holdLoading, setHoldLoading] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [scoreLoading, setScoreLoading] = useState(false);
@@ -24,6 +26,7 @@ const ScriptDetail = () => {
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [paymentType, setPaymentType] = useState("purchase"); // "purchase" or "hold"
 
   /* ── Handlers ─────────────────────────────────────────── */
 
@@ -136,16 +139,29 @@ const ScriptDetail = () => {
   };
 
   const handleHold = async () => {
-    setHoldLoading(true);
-    try {
-      await api.post("/scripts/hold", { scriptId: script._id });
-      await fetchScript();
-      setShowHoldModal(false);
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to place hold");
-    } finally {
-      setHoldLoading(false);
+    setPaymentType("hold");
+    setShowHoldModal(true);
+  };
+
+  const handlePurchase = async () => {
+    setPaymentType("purchase");
+    setShowPurchaseModal(true);
+  };
+
+  const handlePaymentSuccess = async (paymentData) => {
+    // Refresh script data after successful payment
+    await fetchScript();
+    
+    // Show success message
+    if (paymentType === "purchase") {
+      alert(`Script purchased successfully! ${paymentData.message || ""}`);
+    } else {
+      alert(`Hold placed successfully! ${paymentData.message || ""}`);
     }
+    
+    // Close modal
+    setShowHoldModal(false);
+    setShowPurchaseModal(false);
   };
 
   const handleGenerateTrailer = async () => {
@@ -153,6 +169,7 @@ const ScriptDetail = () => {
     try {
       await api.post("/ai/generate-trailer", { scriptId: script._id });
       await fetchScript();
+      alert("✅ Trailer request received! Your AI trailer will be ready in approximately 2 business days. We\'ll notify you once it\'s live.");
     } catch (err) {
       alert(err.response?.data?.message || "Failed to generate trailer");
     } finally {
@@ -189,10 +206,10 @@ const ScriptDetail = () => {
   const formatDate = (d) =>
     d
       ? new Date(d).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
       : "N/A";
 
   const fmtFormat = (f) => {
@@ -236,41 +253,41 @@ const ScriptDetail = () => {
 
   /* ── Theme helpers ─────────────────────────────────────── */
   const t = {
-    page:     isDarkMode ? "bg-[#070e1a]"              : "bg-gray-50",
-    card:     isDarkMode ? "bg-[#0d1829] border-white/[0.06]"  : "bg-white border-gray-200",
-    cardHov:  isDarkMode ? "hover:border-white/[0.12]" : "hover:border-gray-300",
-    tabs:     isDarkMode ? "bg-[#0a1220] border-white/[0.04]"  : "bg-gray-100/80 border-gray-200",
-    tabAct:   isDarkMode ? "bg-[#1e3a5f] text-white shadow-md shadow-[#0a1520]/60"
-                        : "bg-white text-[#1e3a5f] shadow-sm shadow-gray-200",
+    page: isDarkMode ? "bg-[#070e1a]" : "bg-gray-50",
+    card: isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200",
+    cardHov: isDarkMode ? "hover:border-white/[0.12]" : "hover:border-gray-300",
+    tabs: isDarkMode ? "bg-[#0a1220] border-white/[0.04]" : "bg-gray-100/80 border-gray-200",
+    tabAct: isDarkMode ? "bg-[#1e3a5f] text-white shadow-md shadow-[#0a1520]/60"
+      : "bg-white text-[#1e3a5f] shadow-sm shadow-gray-200",
     tabInact: isDarkMode ? "text-neutral-500 hover:text-neutral-300 hover:bg-white/[0.04]"
-                        : "text-gray-400 hover:text-gray-700 hover:bg-white/60",
-    title:    isDarkMode ? "text-white"      : "text-gray-900",
-    sub:      isDarkMode ? "text-neutral-400": "text-gray-600",
-    muted:    isDarkMode ? "text-neutral-500": "text-gray-400",
-    label:    isDarkMode ? "text-neutral-500": "text-gray-400",
-    chip:     isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white/80"
-                        : "bg-gray-100 border-gray-200 text-gray-700",
+      : "text-gray-400 hover:text-gray-700 hover:bg-white/60",
+    title: isDarkMode ? "text-white" : "text-gray-900",
+    sub: isDarkMode ? "text-neutral-400" : "text-gray-600",
+    muted: isDarkMode ? "text-neutral-500" : "text-gray-400",
+    label: isDarkMode ? "text-neutral-500" : "text-gray-400",
+    chip: isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white/80"
+      : "bg-gray-100 border-gray-200 text-gray-700",
     chipBlue: isDarkMode ? "bg-[#1e3a5f]/40 border-[#1e3a5f]/60 text-blue-300"
-                        : "bg-blue-50 border-blue-200 text-blue-700",
-    row:      isDarkMode ? "border-white/[0.04]" : "border-gray-100",
-    divider:  isDarkMode ? "border-white/[0.06]" : "border-gray-100",
-    inset:    isDarkMode ? "bg-white/[0.03] border-white/[0.05]"
-                        : "bg-gray-50 border-gray-200",
-    btnPrim:  isDarkMode ? "bg-[#1e3a5f] hover:bg-[#254a75] text-white"
-                        : "bg-[#1e3a5f] hover:bg-[#254a75] text-white",
-    btnSec:   isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]"
-                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50",
+      : "bg-blue-50 border-blue-200 text-blue-700",
+    row: isDarkMode ? "border-white/[0.04]" : "border-gray-100",
+    divider: isDarkMode ? "border-white/[0.06]" : "border-gray-100",
+    inset: isDarkMode ? "bg-white/[0.03] border-white/[0.05]"
+      : "bg-gray-50 border-gray-200",
+    btnPrim: isDarkMode ? "bg-[#1e3a5f] hover:bg-[#254a75] text-white"
+      : "bg-[#1e3a5f] hover:bg-[#254a75] text-white",
+    btnSec: isDarkMode ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]"
+      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50",
     btnGhost: isDarkMode ? "bg-[#1a3050] border-white/[0.06] text-white hover:bg-[#213d64]"
-                        : "bg-blue-50 border-blue-200 text-[#1e3a5f] hover:bg-blue-100",
-    btnDel:   isDarkMode ? "bg-red-500/8 border-red-500/15 text-red-400 hover:bg-red-500/15 hover:text-red-300"
-                        : "bg-red-50 border-red-200 text-red-500 hover:bg-red-100",
-    logline:  isDarkMode ? "from-white/[0.03] border-l-[#1e3a5f]"
-                        : "from-blue-50 border-l-[#1e3a5f]",
-    tag:      isDarkMode ? "bg-white/[0.04] text-neutral-500 ring-white/[0.06] hover:ring-white/[0.12]"
-                        : "bg-gray-100 text-gray-500 ring-gray-200 hover:ring-gray-300",
+      : "bg-blue-50 border-blue-200 text-[#1e3a5f] hover:bg-blue-100",
+    btnDel: isDarkMode ? "bg-red-500/8 border-red-500/15 text-red-400 hover:bg-red-500/15 hover:text-red-300"
+      : "bg-red-50 border-red-200 text-red-500 hover:bg-red-100",
+    logline: isDarkMode ? "from-white/[0.03] border-l-[#1e3a5f]"
+      : "from-blue-50 border-l-[#1e3a5f]",
+    tag: isDarkMode ? "bg-white/[0.04] text-neutral-500 ring-white/[0.06] hover:ring-white/[0.12]"
+      : "bg-gray-100 text-gray-500 ring-gray-200 hover:ring-gray-300",
     priceSub: isDarkMode ? "bg-white/[0.03] border-white/[0.06]"
-                        : "bg-gray-50 border-gray-200",
-    dot:      isDarkMode ? "bg-[#2a4060]" : "bg-gray-300",
+      : "bg-gray-50 border-gray-200",
+    dot: isDarkMode ? "bg-[#2a4060]" : "bg-gray-300",
   };
 
   /* ── Loading / Error ──────────────────────────────────── */
@@ -305,21 +322,19 @@ const ScriptDetail = () => {
   const ci = script.contentIndicators || {};
 
   const tabs = [
-    { id: "overview",       label: "Overview" },
+    { id: "overview", label: "Overview" },
     { id: "classification", label: "Classification" },
-    { id: "score",          label: "Score" },
-    { id: "roles",          label: "Roles" },
-    { id: "synopsis",       label: "Synopsis" },
+    { id: "evaluation", label: "Evaluation" },
+    { id: "roles", label: "Roles" },
+    { id: "synopsis", label: "Synopsis" },
     ...(isOwner && script.textContent
       ? [{ id: "content", label: "My Script" }]
       : []),
   ];
 
   const stats = [
-    { label: "Views",     value: script.views || 0,        g: isDarkMode ? "from-blue-500/10 to-blue-500/5"    : "from-blue-50 to-white",    c: "text-blue-500",   b: isDarkMode ? "border-white/[0.06]" : "border-blue-100" },
-    { label: "Reads",     value: script.readsCount || 0,   g: isDarkMode ? "from-purple-500/10 to-purple-500/5": "from-purple-50 to-white",  c: "text-purple-500", b: isDarkMode ? "border-white/[0.06]" : "border-purple-100" },
-    { label: "Auditions", value: script.auditionCount || 0,g: isDarkMode ? "from-amber-500/10 to-amber-500/5"  : "from-amber-50 to-white",   c: "text-amber-500",  b: isDarkMode ? "border-white/[0.06]" : "border-amber-100" },
-    { label: "Reviews",   value: script.reviewCount || 0,  g: isDarkMode ? "from-emerald-500/10 to-emerald-500/5": "from-emerald-50 to-white",c: "text-emerald-600",b: isDarkMode ? "border-white/[0.06]" : "border-emerald-100" },
+    { label: "Views", value: script.views || 0, g: isDarkMode ? "from-blue-500/10 to-blue-500/5" : "from-blue-50 to-white", c: "text-blue-500", b: isDarkMode ? "border-white/[0.06]" : "border-blue-100" },
+    { label: "Reviews", value: script.reviewCount || 0, g: isDarkMode ? "from-emerald-500/10 to-emerald-500/5" : "from-emerald-50 to-white", c: "text-emerald-600", b: isDarkMode ? "border-white/[0.06]" : "border-emerald-100" },
   ];
 
   /* ══════════════════════════════════════════════════════════
@@ -370,7 +385,7 @@ const ScriptDetail = () => {
               )}
 
               {/* Play overlay */}
-              {script.trailerUrl && (
+              {(script.trailerUrl || script.uploadedTrailerUrl) && (
                 <button onClick={() => setShowTrailer(true)} className="absolute inset-0 flex items-center justify-center group">
                   <div className="w-16 h-16 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center group-hover:scale-110 transition-transform shadow-2xl ring-1 ring-white/10">
                     <svg className="w-6 h-6 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
@@ -417,11 +432,6 @@ const ScriptDetail = () => {
                     <span className={`px-2.5 py-1 rounded-lg text-[11px] font-medium ${isDarkMode ? "bg-black/30 text-white/80" : "bg-white/80 text-gray-600 border border-gray-200"}`}>
                       {script.views || 0} views
                     </span>
-                    {script.readsCount > 0 && (
-                      <span className={`px-2.5 py-1 rounded-lg text-[11px] font-medium ${isDarkMode ? "bg-black/30 text-white/80" : "bg-white/80 text-gray-600 border border-gray-200"}`}>
-                        {script.readsCount} reads
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
@@ -539,12 +549,7 @@ const ScriptDetail = () => {
                         <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Budget</p>
                         <p className={`text-[13px] font-bold capitalize ${t.title}`}>{script.budget || "\u2014"}</p>
                       </div>
-                      {score?.overall && (
-                        <div>
-                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Score</p>
-                          <p className={`text-lg font-extrabold tabular-nums ${scoreColor(score.overall)}`}>{score.overall}</p>
-                        </div>
-                      )}
+
                       {script.rating > 0 && (
                         <div>
                           <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Rating</p>
@@ -569,29 +574,37 @@ const ScriptDetail = () => {
                       </button>
                     )}
 
-                    {/* Message Writer — only visible to investors who have purchased this script */}
-                    {!isOwner && user?.role === "investor" && script.isUnlocked && (
+                    {/* Purchase Button for non-owners */}
+                    {!isOwner && script.premium && !script.unlockedBy?.includes(user?._id) && (
                       <button
-                        onClick={() =>
-                          navigate(
-                            `/messages?recipientId=${script.creator?._id}&recipientName=${encodeURIComponent(script.creator?.name || "Writer")}`
-                          )
-                        }
-                        className={`w-full px-4 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 shadow-sm ${t.btnPrim}`}
+                        onClick={handlePurchase}
+                        className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-lg ${t.btnPrim}`}
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-3 3-3-3z" />
-                        </svg>
-                        Message Writer
+                        <div className="flex items-center justify-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          Purchase Script &mdash; ₹{script.price}
+                        </div>
                       </button>
+                    )}
+
+                    {/* Already Purchased Badge */}
+                    {!isOwner && script.unlockedBy?.includes(user?._id) && (
+                      <div className="w-full px-4 py-3 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold text-center border border-emerald-200 flex items-center justify-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Purchased
+                      </div>
                     )}
 
                     {!isOwner && isPro && script.holdStatus === "available" && (
                       <button
-                        onClick={() => setShowHoldModal(true)}
-                        className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-sm ${t.btnPrim}`}
+                        onClick={handleHold}
+                        className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-sm ${t.btnGhost}`}
                       >
-                        Place Hold &mdash; ${script.holdFee || 200}
+                        Place Hold &mdash; ₹{script.holdFee || 200}
                       </button>
                     )}
 
@@ -601,21 +614,24 @@ const ScriptDetail = () => {
                       </div>
                     )}
 
-                    {isOwner && !script.trailerUrl && script.trailerStatus !== "processing" && (
+                    {isOwner && !script.trailerUrl && !script.uploadedTrailerUrl && script.trailerStatus !== "generating" && script.trailerStatus !== "ready" && (
                       <button
                         onClick={handleGenerateTrailer}
                         disabled={trailerLoading}
                         className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 border ${t.btnGhost}`}
                       >
                         <Film size={14} />
-                        {trailerLoading ? "Generating..." : "Generate AI Trailer"}
+                        {trailerLoading ? "Submitting request..." : "Generate AI Trailer — 15 credits"}
                       </button>
                     )}
 
-                    {script.trailerStatus === "processing" && (
-                      <div className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold text-center border flex items-center justify-center gap-2 ${t.inset} ${t.muted}`}>
-                        <div className={`w-3 h-3 border-2 rounded-full animate-spin ${isDarkMode ? "border-neutral-600 border-t-neutral-300" : "border-gray-300 border-t-gray-500"}`} />
-                        Trailer Processing
+                    {script.trailerStatus === "generating" && (
+                      <div className={`w-full px-4 py-3 rounded-xl text-xs font-bold text-center border flex flex-col items-center justify-center gap-1.5 ${t.inset}`}>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 border-2 rounded-full animate-spin ${isDarkMode ? "border-neutral-600 border-t-amber-400" : "border-gray-300 border-t-amber-500"}`} />
+                          <span className={isDarkMode ? "text-amber-400" : "text-amber-600"}>Trailer Requested</span>
+                        </div>
+                        <span className={`text-[10px] font-medium ${isDarkMode ? "text-neutral-500" : "text-gray-400"}`}>Ready in approximately 2 business days</span>
                       </div>
                     )}
 
@@ -628,7 +644,7 @@ const ScriptDetail = () => {
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                           <path d="M18 20V10M12 20V4M6 20v-6" />
                         </svg>
-                        {scoreLoading ? "Scoring..." : "Get Script Score \u2014 $10"}
+                        {scoreLoading ? "Scoring..." : "Get Script Score \u2014 10 credits"}
                       </button>
                     )}
 
@@ -724,14 +740,14 @@ const ScriptDetail = () => {
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
                     {[
-                      { label: "Format",         value: fmtFormat(script.format) },
-                      { label: "Primary Genre",  value: cl.primaryGenre || script.primaryGenre || script.genre },
-                      { label: "Secondary Genre",value: cl.secondaryGenre },
-                      { label: "Page Count",     value: script.pageCount },
-                      { label: "Budget Level",   value: fmtBudget(script.budget) },
-                      { label: "Hold Fee",       value: script.holdFee ? `$${script.holdFee}` : null },
-                      { label: "Hold Status",    value: script.holdStatus?.charAt(0).toUpperCase() + script.holdStatus?.slice(1) },
-                      { label: "Uploaded",       value: formatDate(script.createdAt) },
+                      { label: "Format", value: fmtFormat(script.format) },
+                      { label: "Primary Genre", value: cl.primaryGenre || script.primaryGenre || script.genre },
+                      { label: "Secondary Genre", value: cl.secondaryGenre },
+                      { label: "Page Count", value: script.pageCount },
+                      { label: "Budget Level", value: fmtBudget(script.budget) },
+                      { label: "Hold Fee", value: script.holdFee ? `$${script.holdFee}` : null },
+                      { label: "Hold Status", value: script.holdStatus?.charAt(0).toUpperCase() + script.holdStatus?.slice(1) },
+                      { label: "Uploaded", value: formatDate(script.createdAt) },
                     ]
                       .filter((i) => i.value && i.value !== "\u2014")
                       .map((item, idx) => (
@@ -749,9 +765,9 @@ const ScriptDetail = () => {
             {activeTab === "classification" && (
               <motion.div key="classification" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
                 {[
-                  { label: "Tones",    items: cl.tones,    color: isDarkMode ? "bg-white/[0.06] text-white/80 border border-white/[0.08]"     : "bg-gray-100 text-gray-700 border border-gray-200" },
-                  { label: "Themes",   items: cl.themes,   color: isDarkMode ? "bg-blue-500/10 text-blue-300 border border-blue-500/15"       : "bg-blue-50 text-blue-700 border border-blue-200" },
-                  { label: "Settings", items: cl.settings, color: isDarkMode ? "bg-white/[0.04] text-neutral-300 border border-white/[0.06]"  : "bg-slate-50 text-slate-700 border border-slate-200" },
+                  { label: "Tones", items: cl.tones, color: isDarkMode ? "bg-white/[0.06] text-white/80 border border-white/[0.08]" : "bg-gray-100 text-gray-700 border border-gray-200" },
+                  { label: "Themes", items: cl.themes, color: isDarkMode ? "bg-blue-500/10 text-blue-300 border border-blue-500/15" : "bg-blue-50 text-blue-700 border border-blue-200" },
+                  { label: "Settings", items: cl.settings, color: isDarkMode ? "bg-white/[0.04] text-neutral-300 border border-white/[0.06]" : "bg-slate-50 text-slate-700 border border-slate-200" },
                 ]
                   .filter((c) => c.items?.length > 0)
                   .map((cat) => (
@@ -776,73 +792,429 @@ const ScriptDetail = () => {
               </motion.div>
             )}
 
-            {/* ── Score ────────────────────────────────────── */}
-            {activeTab === "score" && (
-              <motion.div key="score" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                {score?.overall ? (
-                  <div className={`rounded-xl border p-6 ${t.card}`}>
-                    <div className={`flex items-center gap-5 mb-6 pb-6 border-b ${t.divider}`}>
-                      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg ring-1 ${isDarkMode ? "bg-gradient-to-br from-[#0f1e30] to-[#162d4a] ring-white/[0.06]" : "bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] ring-[#1e3a5f]/20"}`}>
-                        <span className="text-3xl font-extrabold text-white">{score.overall}</span>
-                      </div>
-                      <div>
-                        <h3 className={`text-lg font-extrabold tracking-tight mb-0.5 ${t.title}`}>Overall Score</h3>
-                        <p className={`text-xs font-medium ${t.muted}`}>AI-powered analysis across 5 dimensions</p>
-                        {score.scoredAt && <p className={`text-[11px] mt-1 ${t.label}`}>Scored on {formatDate(score.scoredAt)}</p>}
-                      </div>
-                    </div>
+            {/* ── Evaluation ─────────────────────── */}
+            {activeTab === "evaluation" && (() => {
+              const dk = isDarkMode;
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-                      {[
-                        { label: "Plot",           val: score.plot },
-                        { label: "Characters",     val: score.characters },
-                        { label: "Dialogue",       val: score.dialogue },
-                        { label: "Pacing",         val: score.pacing },
-                        { label: "Marketability",  val: score.marketability },
-                      ].map((item) => (
-                        <div key={item.label} className={`rounded-xl p-4 border ${t.inset}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className={`text-sm font-semibold ${t.sub}`}>{item.label}</span>
-                            <span className={`text-lg font-extrabold tabular-nums ${scoreColor(item.val)}`}>{item.val}</span>
+              /* Dimension definitions — each has a distinct semantic color */
+              const dims = [
+                { key: "plot",          label: "Plot",          icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: dk ? "#818cf8" : "#4f46e5" },
+                { key: "characters",    label: "Characters",    icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z", color: dk ? "#a78bfa" : "#7c3aed" },
+                { key: "dialogue",      label: "Dialogue",      icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z", color: dk ? "#34d399" : "#059669" },
+                { key: "pacing",        label: "Pacing",        icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z", color: dk ? "#fbbf24" : "#d97706" },
+                { key: "marketability", label: "Marketability", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", color: dk ? "#fb923c" : "#ea580c" },
+              ];
+
+              /* Score → grade helpers */
+              const gradeLabel = (v) => v >= 90 ? "S" : v >= 80 ? "A" : v >= 70 ? "B" : v >= 60 ? "C" : v >= 50 ? "D" : "F";
+              const gradeColor = (v) =>
+                v >= 90 ? (dk ? "#c084fc" : "#9333ea") :
+                v >= 80 ? (dk ? "#34d399" : "#059669") :
+                v >= 70 ? (dk ? "#60a5fa" : "#2563eb") :
+                v >= 60 ? (dk ? "#fbbf24" : "#d97706") :
+                           (dk ? "#f87171" : "#dc2626");
+              const gradeText = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
+              const gradeBand = (v) =>
+                v >= 90 ? (dk ? "bg-purple-400/10 border-purple-400/20 text-purple-300"   : "bg-purple-50 border-purple-200 text-purple-700") :
+                v >= 80 ? (dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700") :
+                v >= 70 ? (dk ? "bg-blue-400/10 border-blue-400/20 text-blue-300"         : "bg-blue-50 border-blue-200 text-blue-700") :
+                v >= 60 ? (dk ? "bg-amber-400/10 border-amber-400/20 text-amber-300"       : "bg-amber-50 border-amber-200 text-amber-700") :
+                           (dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700");
+
+              /* Radar geometry */
+              const cx = 110, cy = 110, rr = 80;
+              const angleStep = (2 * Math.PI) / dims.length;
+              const radarPts = dims.map((d, i) => {
+                const v = (score[d.key] || 0) / 100;
+                const a = angleStep * i - Math.PI / 2;
+                return { x: cx + rr * v * Math.cos(a), y: cy + rr * v * Math.sin(a) };
+              });
+              const gridLevels = [0.25, 0.5, 0.75, 1];
+              const overallColor = gradeColor(score.overall || 0);
+
+              return (
+                <motion.div key="evaluation" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
+                  {score?.overall ? (
+                    <>
+                      {/* ── 1. Score Hero ── */}
+                      <div className={`rounded-2xl border overflow-hidden ${t.card}`}>
+                        <div className="flex flex-col sm:flex-row items-center gap-0 divide-y sm:divide-y-0 sm:divide-x"
+                          style={{ divideColor: dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)" }}>
+
+                          {/* Overall gauge */}
+                          <div className="flex flex-col items-center justify-center gap-3 px-8 py-7 sm:w-56 shrink-0">
+                            <div className="relative w-28 h-28">
+                              <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+                                <circle cx="50" cy="50" r="42" fill="none"
+                                  stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="7" />
+                                <circle cx="50" cy="50" r="42" fill="none"
+                                  stroke={overallColor} strokeWidth="7" strokeLinecap="round"
+                                  strokeDasharray={`${(score.overall / 100) * 263.9} 263.9`}
+                                  style={{ transition: "stroke-dasharray 1.2s cubic-bezier(.4,0,.2,1)" }} />
+                              </svg>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className={`text-3xl font-black tabular-nums leading-none ${dk ? "text-white" : "text-gray-900"}`}>{score.overall}</span>
+                                <span className={`text-[9px] font-semibold uppercase tracking-widest mt-1 ${dk ? "text-white/30" : "text-gray-400"}`}>score</span>
+                              </div>
+                            </div>
+                            {/* Grade badge */}
+                            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold ${gradeBand(score.overall)}`}>
+                              <span className="text-base font-black leading-none">{gradeLabel(score.overall)}</span>
+                              <span>{gradeText(score.overall)}</span>
+                            </div>
                           </div>
-                          <div className={`w-full h-1.5 rounded-full overflow-hidden ${isDarkMode ? "bg-white/[0.06]" : "bg-gray-200"}`}>
-                            <motion.div
-                              initial={{ width: 0 }}
-                              animate={{ width: `${item.val}%` }}
-                              transition={{ duration: 0.8, delay: 0.2 }}
-                              className={`h-full rounded-full ${scoreBg(item.val)}`}
-                            />
+
+                          {/* Dimension pills grid */}
+                          <div className="flex-1 px-6 py-6">
+                            <p className={`text-[10px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>
+                              Dimension Scores{score.scoredAt ? ` · ${formatDate(score.scoredAt)}` : ""}
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                              {dims.map(d => {
+                                const val = score[d.key] || 0;
+                                return (
+                                  <div key={d.key}
+                                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border ${dk ? "bg-white/[0.03] border-white/[0.07]" : "bg-gray-50/80 border-gray-200/60"}`}>
+                                    <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center"
+                                      style={{ backgroundColor: `${d.color}${dk ? "18" : "10"}` }}>
+                                      <svg className="w-4 h-4" style={{ color: d.color }} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d={d.icon} />
+                                      </svg>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className={`text-[10px] font-medium truncate ${dk ? "text-white/35" : "text-gray-400"}`}>{d.label}</p>
+                                      <p className="text-sm font-black tabular-nums leading-tight" style={{ color: d.color }}>{val}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-
-                    {score.feedback && (
-                      <div className={`rounded-xl p-4 border ${t.inset}`}>
-                        <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${t.label}`}>AI Feedback</p>
-                        <p className={`text-sm leading-relaxed ${t.sub}`}>{score.feedback}</p>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className={`text-center py-16 rounded-xl border ${t.card}`}>
-                    <svg className={`w-8 h-8 mx-auto mb-4 ${t.muted}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                      <path d="M18 20V10M12 20V4M6 20v-6" />
-                    </svg>
-                    <h3 className={`text-base font-bold mb-1 ${t.title}`}>No Score Yet</h3>
-                    <p className={`text-sm mb-4 ${t.muted}`}>
-                      {isOwner ? "Generate an AI Script Score for detailed analysis" : "The creator hasn't scored this script yet"}
-                    </p>
-                    {isOwner && (
-                      <button onClick={handleGenerateScore} disabled={scoreLoading}
-                        className={`px-6 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 ${t.btnPrim}`}>
-                        {scoreLoading ? "Scoring..." : "Get Script Score \u2014 $10"}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </motion.div>
-            )}
+
+                      {/* ── 2. Radar + Breakdown ── */}
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+                        {/* Radar */}
+                        <div className={`rounded-2xl border p-5 ${t.card}`}>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Performance Radar</p>
+                          <svg viewBox="0 0 220 220" className="w-full max-w-xs mx-auto">
+                            <defs>
+                              <radialGradient id="evalRadarFill" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%"   stopColor={overallColor} stopOpacity={dk ? "0.22" : "0.16"} />
+                                <stop offset="100%" stopColor={overallColor} stopOpacity="0" />
+                              </radialGradient>
+                            </defs>
+                            {/* Grid rings */}
+                            {gridLevels.map((lv, gi) => {
+                              const pts = dims.map((_, j) => {
+                                const a = angleStep * j - Math.PI / 2;
+                                return `${cx + rr * lv * Math.cos(a)},${cy + rr * lv * Math.sin(a)}`;
+                              }).join(" ");
+                              return <polygon key={gi} points={pts} fill="none"
+                                stroke={dk ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"} strokeWidth="1" />;
+                            })}
+                            {/* Axis spokes */}
+                            {dims.map((_, i) => {
+                              const a = angleStep * i - Math.PI / 2;
+                              return <line key={i} x1={cx} y1={cy} x2={cx + rr * Math.cos(a)} y2={cy + rr * Math.sin(a)}
+                                stroke={dk ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeWidth="1" />;
+                            })}
+                            {/* Data shape */}
+                            <polygon points={radarPts.map(p => `${p.x},${p.y}`).join(" ")}
+                              fill="url(#evalRadarFill)" stroke={overallColor} strokeWidth="2" strokeLinejoin="round" />
+                            {/* Dimension dots + labels */}
+                            {radarPts.map((p, i) => {
+                              const a = angleStep * i - Math.PI / 2;
+                              const lx = cx + (rr + 22) * Math.cos(a);
+                              const ly = cy + (rr + 22) * Math.sin(a);
+                              return (
+                                <g key={i}>
+                                  <circle cx={p.x} cy={p.y} r="4" fill={dims[i].color}
+                                    stroke={dk ? "#0d1829" : "#ffffff"} strokeWidth="2" />
+                                  <text x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+                                    style={{ fontSize: 8.5, fontWeight: 700, fill: dk ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.45)" }}>
+                                    {dims[i].label}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </div>
+
+                        {/* Bar Chart */}
+                        <div className={`rounded-2xl border p-5 ${t.card}`}>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-4 ${dk ? "text-white/25" : "text-gray-400"}`}>Score Overview</p>
+                          {(() => {
+                            const barH = 180;
+                            const bars = [{ key: "overall", label: "Overall", color: overallColor }, ...dims];
+                            const gridLines = [0, 25, 50, 75, 100];
+                            const gridColor = dk ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+                            const labelColor = dk ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)";
+                            const slotW = 220 / bars.length;
+                            const barW = Math.min(slotW * 0.58, 28);
+                            return (
+                              <svg viewBox={`0 0 240 ${barH + 44}`} className="w-full">
+                                {gridLines.map(v => {
+                                  const y = barH - (v / 100) * barH + 4;
+                                  return (
+                                    <g key={v}>
+                                      <line x1="24" y1={y} x2="238" y2={y} stroke={gridColor} strokeWidth={v === 0 ? "1.5" : "1"} strokeDasharray={v === 0 ? "" : "3,3"} />
+                                      <text x="18" y={y + 3.5} textAnchor="end" style={{ fontSize: 7.5, fontWeight: 600, fill: labelColor }}>{v}</text>
+                                    </g>
+                                  );
+                                })}
+                                {bars.map((d, i) => {
+                                  const val = score[d.key] || 0;
+                                  const filledH = (val / 100) * barH;
+                                  const x = 24 + i * slotW + (slotW - barW) / 2;
+                                  const y = barH - filledH + 4;
+                                  return (
+                                    <g key={d.key}>
+                                      <rect x={x} y={4} width={barW} height={barH} rx="4"
+                                        fill={dk ? "rgba(255,255,255,0.025)" : "rgba(0,0,0,0.025)"} />
+                                      <rect x={x} y={y} width={barW} height={filledH} rx="4" fill={d.color}>
+                                        <animate attributeName="height" from="0" to={filledH} dur="0.75s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" />
+                                        <animate attributeName="y" from={barH + 4} to={y} dur="0.75s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" />
+                                      </rect>
+                                      <text x={x + barW / 2} y={y - 4} textAnchor="middle"
+                                        style={{ fontSize: 8, fontWeight: 800, fill: dk ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.7)" }}>{val}</text>
+                                      <text x={x + barW / 2} y={barH + 18} textAnchor="middle"
+                                        style={{ fontSize: 7, fontWeight: 700, fill: d.color }}>{d.label}</text>
+                                    </g>
+                                  );
+                                })}
+                              </svg>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* ── 3. Platform Score (Admin) ── */}
+                      {script.platformScore?.overall > 0 && (() => {
+                        const ps = script.platformScore;
+                        const psDims = [
+                          { key: "content",  label: "Main Content", color: "#6366f1", track: dk ? "rgba(99,102,241,0.15)"  : "#ede9fe" },
+                          { key: "trailer",  label: "Trailer",      color: "#8b5cf6", track: dk ? "rgba(139,92,246,0.15)" : "#ede9fe" },
+                          { key: "title",    label: "Title",        color: "#f59e0b", track: dk ? "rgba(245,158,11,0.15)"  : "#fef3c7" },
+                          { key: "synopsis", label: "Synopsis",     color: "#10b981", track: dk ? "rgba(16,185,129,0.15)"  : "#d1fae5" },
+                          { key: "tags",     label: "Tag & Meta",   color: "#f97316", track: dk ? "rgba(249,115,22,0.15)"  : "#ffedd5" },
+                        ];
+                        const ov = ps.overall ?? 0;
+                        const gc = ov >= 85 ? "#8b5cf6" : ov >= 70 ? "#10b981" : ov >= 55 ? "#3b82f6" : ov >= 40 ? "#f59e0b" : "#ef4444";
+                        const gl = ov >= 85 ? "S" : ov >= 70 ? "A" : ov >= 55 ? "B" : ov >= 40 ? "C" : "D";
+                        return (
+                          <div className={`rounded-2xl border overflow-hidden ${t.card}`}>
+                            {/* Header */}
+                            <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${dk ? "bg-[#0d1b2e]/60 border-white/[0.06]" : "bg-gray-50/80 border-gray-100"}`}>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className={`text-[10px] font-bold uppercase tracking-widest ${dk ? "text-white/25" : "text-gray-400"}`}>Platform Score</span>
+                                </div>
+                                <h4 className={`text-[14px] font-bold truncate ${dk ? "text-gray-100" : "text-gray-900"}`}>{script.title}</h4>
+                                {ps.scoredAt && (
+                                  <p className={`text-[11px] mt-0.5 ${dk ? "text-gray-500" : "text-gray-400"}`}>
+                                    Reviewed {new Date(ps.scoredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[10px] font-black px-2.5 py-1 rounded-lg" style={{ color: gc, backgroundColor: gc + "22" }}>Grade {gl}</span>
+                                <div className="text-right">
+                                  <span className="text-[28px] font-black tabular-nums leading-none" style={{ color: gc }}>{ov}</span>
+                                  <span className={`text-[10px] block font-semibold ${dk ? "text-gray-500" : "text-gray-400"}`}>/ 100</span>
+                                </div>
+                              </div>
+                            </div>
+                            {/* Score bars */}
+                            <div className={`px-5 py-5 space-y-3.5 ${dk ? "bg-[#0a1628]/40" : "bg-white"}`}>
+                              {psDims.map(d => {
+                                const val = ps[d.key] ?? 0;
+                                const pct = Math.min(100, Math.max(0, val));
+                                return (
+                                  <div key={d.key} className="flex items-center gap-3">
+                                    <span className={`text-[12px] font-semibold shrink-0 w-[100px] ${dk ? "text-gray-400" : "text-gray-500"}`}>{d.label}</span>
+                                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: d.track }}>
+                                      <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${pct}%` }}
+                                        transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+                                        className="h-full rounded-full"
+                                        style={{ backgroundColor: d.color }}
+                                      />
+                                    </div>
+                                    <span className="text-[13px] font-black tabular-nums w-16 text-right" style={{ color: d.color }}>
+                                      {val}<span className={`text-[10px] font-normal ${dk ? "text-gray-600" : "text-gray-300"}`}>/100</span>
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {/* Admin feedback */}
+                            {ps.feedback && (
+                              <div className={`px-5 py-3.5 border-t text-[12px] leading-relaxed ${dk ? "border-white/[0.06] bg-[#0a1628]/60 text-gray-400" : "border-gray-100 bg-gray-50/60 text-gray-500"}`}>
+                                <span className={`font-semibold mr-1.5 ${dk ? "text-gray-300" : "text-gray-700"}`}>Feedback:</span>
+                                {ps.feedback}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── 4. AI Analysis ── */}
+                      {score.feedback && (
+                        <div className={`rounded-2xl border overflow-hidden ${t.card}`}>
+                          {/* Header */}
+                          <div className={`flex items-center gap-2.5 px-5 py-3.5 border-b ${dk ? "border-white/[0.06]" : "border-gray-100"}`}>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${dk ? "bg-violet-400/10 border-violet-400/20 text-violet-300" : "bg-violet-50 border-violet-200 text-violet-700"}`}>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                              </svg>
+                              AI Analysis
+                            </span>
+                            <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Powered by Gemini AI</span>
+                          </div>
+
+                          {/* Main Feedback */}
+                          <div className="px-5 pt-4 pb-2">
+                            <p className={`text-sm leading-relaxed ${dk ? "text-white/70" : "text-gray-600"}`}>{score.feedback}</p>
+                          </div>
+
+                          {/* Strengths */}
+                          {Array.isArray(score.strengths) && score.strengths.length > 0 && (
+                            <div className={`mx-5 mb-3 rounded-xl border p-4 ${dk ? "bg-emerald-400/[0.05] border-emerald-400/15" : "bg-emerald-50 border-emerald-100"}`}>
+                              <p className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${dk ? "text-emerald-400" : "text-emerald-600"}`}>Strengths</p>
+                              <ul className="space-y-1.5">
+                                {score.strengths.map((s, i) => (
+                                  <li key={i} className={`flex items-start gap-2 text-sm ${dk ? "text-white/65" : "text-gray-600"}`}>
+                                    <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${dk ? "bg-emerald-400/20" : "bg-emerald-100"}`}>
+                                      <svg className={`w-2.5 h-2.5 ${dk ? "text-emerald-300" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                      </svg>
+                                    </span>
+                                    {s}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Weaknesses */}
+                          {Array.isArray(score.weaknesses) && score.weaknesses.length > 0 && (
+                            <div className={`mx-5 mb-3 rounded-xl border p-4 ${dk ? "bg-amber-400/[0.05] border-amber-400/15" : "bg-amber-50 border-amber-100"}`}>
+                              <p className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${dk ? "text-amber-400" : "text-amber-600"}`}>Areas for Improvement</p>
+                              <ul className="space-y-1.5">
+                                {score.weaknesses.map((w, i) => (
+                                  <li key={i} className={`flex items-start gap-2 text-sm ${dk ? "text-white/65" : "text-gray-600"}`}>
+                                    <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${dk ? "bg-amber-400/20" : "bg-amber-100"}`}>
+                                      <svg className={`w-2.5 h-2.5 ${dk ? "text-amber-300" : "text-amber-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+                                      </svg>
+                                    </span>
+                                    {w}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Recommendations */}
+                          {Array.isArray(score.improvements) && score.improvements.length > 0 && (
+                            <div className={`mx-5 mb-3 rounded-xl border p-4 ${dk ? "bg-blue-400/[0.05] border-blue-400/15" : "bg-blue-50 border-blue-100"}`}>
+                              <p className={`text-[11px] font-bold uppercase tracking-wider mb-2.5 ${dk ? "text-blue-400" : "text-blue-600"}`}>Recommendations</p>
+                              <ul className="space-y-1.5">
+                                {score.improvements.map((imp, i) => (
+                                  <li key={i} className={`flex items-start gap-2 text-sm ${dk ? "text-white/65" : "text-gray-600"}`}>
+                                    <span className={`mt-0.5 shrink-0 w-4 h-4 rounded-full flex items-center justify-center ${dk ? "bg-blue-400/20" : "bg-blue-100"}`}>
+                                      <span className={`text-[9px] font-bold ${dk ? "text-blue-300" : "text-blue-600"}`}>{i + 1}</span>
+                                    </span>
+                                    {imp}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Audience Fit + Comparables */}
+                          {(score.audienceFit || score.comparables) && (
+                            <div className={`mx-5 mb-4 grid gap-3 ${score.audienceFit && score.comparables ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
+                              {score.audienceFit && (
+                                <div className={`rounded-xl border p-3.5 ${dk ? "border-white/[0.08] bg-white/[0.02]" : "border-gray-100 bg-gray-50"}`}>
+                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dk ? "text-white/30" : "text-gray-400"}`}>Audience &amp; Market</p>
+                                  <p className={`text-xs leading-relaxed ${dk ? "text-white/60" : "text-gray-600"}`}>{score.audienceFit}</p>
+                                </div>
+                              )}
+                              {score.comparables && (
+                                <div className={`rounded-xl border p-3.5 ${dk ? "border-white/[0.08] bg-white/[0.02]" : "border-gray-100 bg-gray-50"}`}>
+                                  <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dk ? "text-white/30" : "text-gray-400"}`}>Comparable Titles</p>
+                                  <p className={`text-xs leading-relaxed ${dk ? "text-white/60" : "text-gray-600"}`}>{score.comparables}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ── 4. Platform Editorial Sections ── */}
+                      {(() => {
+                        const ps = script.platformScore || {};
+                        const sections = [
+                          { key: "strengths",  label: "Strengths",  icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z",        band: dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700" },
+                          { key: "weaknesses", label: "Weaknesses", icon: "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z", band: dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700" },
+                          { key: "prospects",  label: "Prospects",  icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", band: dk ? "bg-indigo-400/10 border-indigo-400/20 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700" },
+                        ];
+                        return (
+                          <div className="space-y-3">
+                            {sections.map(s => (
+                              <div key={s.key} className={`rounded-2xl border overflow-hidden ${t.card}`}>
+                                <div className={`flex items-center gap-2.5 px-5 py-3.5 border-b ${dk ? "border-white/[0.06]" : "border-gray-100"}`}>
+                                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${s.band}`}>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d={s.icon} />
+                                    </svg>
+                                    {s.label}
+                                  </span>
+                                  <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Platform Editorial</span>
+                                </div>
+                                <div className="px-5 py-4">
+                                  {ps[s.key] ? (
+                                    <p className={`text-sm leading-relaxed whitespace-pre-line ${dk ? "text-white/65" : "text-gray-600"}`}>{ps[s.key]}</p>
+                                  ) : (
+                                    <p className={`text-sm italic ${dk ? "text-white/20" : "text-gray-300"}`}>Not yet reviewed by the platform.</p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <div className={`text-center py-16 rounded-2xl border ${t.card}`}>
+                      <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${dk ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                        <svg className={`w-6 h-6 ${t.muted}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                        </svg>
+                      </div>
+                      <h3 className={`text-base font-bold mb-1.5 ${t.title}`}>No Evaluation Yet</h3>
+                      <p className={`text-sm mb-5 max-w-xs mx-auto ${t.muted}`}>
+                        {isOwner ? "Get an AI-powered score across 5 dimensions with detailed feedback." : "This project hasn't been evaluated yet."}
+                      </p>
+                      {isOwner && (
+                        <button onClick={handleGenerateScore} disabled={scoreLoading}
+                          className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 inline-flex items-center gap-2 ${t.btnPrim}`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                          </svg>
+                          {scoreLoading ? "Evaluating…" : "Get Evaluation — 10 credits"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })()}
 
             {/* ── Roles ────────────────────────────────────── */}
             {activeTab === "roles" && (
@@ -1004,7 +1376,7 @@ const ScriptDetail = () => {
       {/* ══════════════  MODALS  ═════════════════════════════ */}
 
       {/* Trailer modal */}
-      {showTrailer && script.trailerUrl && (
+      {showTrailer && (script.trailerUrl || script.uploadedTrailerUrl) && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowTrailer(false)}>
           <div className="max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-end mb-2">
@@ -1013,7 +1385,12 @@ const ScriptDetail = () => {
               </button>
             </div>
             <div className="rounded-xl overflow-hidden shadow-2xl">
-              <video src={script.trailerUrl} controls autoPlay className="w-full" />
+              <video 
+                src={script.trailerSource === "uploaded" ? script.uploadedTrailerUrl : script.trailerUrl} 
+                controls 
+                autoPlay 
+                className="w-full" 
+              />
             </div>
           </div>
         </div>
@@ -1057,46 +1434,22 @@ const ScriptDetail = () => {
       </AnimatePresence>
 
       {/* Hold modal */}
-      <AnimatePresence>
-        {showHoldModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-            onClick={() => !holdLoading && setShowHoldModal(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className={`rounded-2xl shadow-2xl max-w-md w-full p-6 border ${t.card}`}>
-              <h2 className={`text-xl font-extrabold mb-2 tracking-tight ${t.title}`}>Place Hold</h2>
-              <p className={`text-sm mb-5 ${t.muted}`}>
-                Reserve 30-day exclusive access to &ldquo;<span className={`font-semibold ${t.sub}`}>{script.title}</span>&rdquo;
-              </p>
-              <div className={`rounded-xl p-4 mb-5 border space-y-2 ${t.inset}`}>
-                <div className="flex justify-between text-sm">
-                  <span className={`font-medium ${t.muted}`}>Hold Fee</span>
-                  <span className={`font-bold ${t.title}`}>${script.holdFee || 200}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className={`font-medium ${t.muted}`}>Platform Fee (10%)</span>
-                  <span className={`font-bold ${t.muted}`}>${((script.holdFee || 200) * 0.1).toFixed(2)}</span>
-                </div>
-                <div className={`flex justify-between text-sm pt-2 border-t ${t.divider}`}>
-                  <span className={`font-bold ${t.sub}`}>Creator Receives</span>
-                  <span className={`font-bold ${t.title}`}>${((script.holdFee || 200) * 0.9).toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button onClick={() => setShowHoldModal(false)}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition border ${t.btnSec}`}>
-                  Cancel
-                </button>
-                <button onClick={handleHold} disabled={holdLoading}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 ${t.btnPrim}`}>
-                  {holdLoading ? "Processing..." : "Confirm Hold"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <RazorpayScriptPayment
+        isOpen={showHoldModal}
+        onClose={() => setShowHoldModal(false)}
+        script={script}
+        type="hold"
+        onSuccess={handlePaymentSuccess}
+      />
+
+      {/* Purchase modal */}
+      <RazorpayScriptPayment
+        isOpen={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        script={script}
+        type="purchase"
+        onSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 };

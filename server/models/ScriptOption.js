@@ -11,6 +11,7 @@ const scriptOptionSchema = new mongoose.Schema({
   status: { type: String, enum: ["active", "expired", "converted", "cancelled"], default: "active" },
   convertedToSale: { type: Boolean, default: false },
   paymentId: { type: String },
+  orderId: { type: String },
 }, { timestamps: true });
 
 export default mongoose.model("ScriptOption", scriptOptionSchema);

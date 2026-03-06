@@ -1,19 +1,31 @@
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import OTPVerification from "../components/OTPVerification";
+import BrandLogo from "../components/BrandLogo";
 
 const Login = () => {
-  const { login } = useContext(AuthContext);
+  const { login, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     try {
       const userData = await login(email, password);
+      
+      // Check if OTP verification is required
+      if (userData?.requiresVerification) {
+        setUserEmail(email);
+        setShowOTPVerification(true);
+        return;
+      }
+      
       const storedUser = JSON.parse(localStorage.getItem("user"));
       if (storedUser?.role === "reader") {
         navigate("/reader");
@@ -27,6 +39,36 @@ const Login = () => {
     }
   };
 
+  const handleOTPSuccess = (userData) => {
+    // Update auth context with user data
+    setUser(userData);
+    
+    // Navigate based on role
+    if (userData.role === "reader") {
+      navigate("/reader");
+    } else if (userData.role === "investor") {
+      navigate("/home");
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setShowOTPVerification(false);
+    setUserEmail("");
+  };
+
+  // Show OTP verification screen if needed
+  if (showOTPVerification) {
+    return (
+      <OTPVerification 
+        email={userEmail} 
+        onSuccess={handleOTPSuccess} 
+        onBack={handleBackToLogin}
+      />
+    );
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Left decorative panel */}
@@ -35,11 +77,6 @@ const Login = () => {
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
         <div className="relative z-10 px-12 max-w-md">
-          <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center mb-8">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          </div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight mb-4 leading-tight">Where stories find<br/>their audience.</h1>
           <p className="text-blue-200/70 text-base leading-relaxed">Ckript connects writers, producers, and investors to bring creative projects to life.</p>
           <div className="mt-12 flex items-center gap-4">
@@ -57,12 +94,7 @@ const Login = () => {
       <div className="flex-1 flex items-center justify-center bg-white px-6">
         <div className="w-full max-w-[400px]">
           <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            </div>
-            <span className="text-lg font-extrabold text-[#1e3a5f] tracking-tight">Ckript</span>
+            <BrandLogo className="h-10 w-auto" />
           </div>
 
           <div className="mb-8">

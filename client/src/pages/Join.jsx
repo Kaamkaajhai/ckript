@@ -1,14 +1,73 @@
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { BookOpen } from "lucide-react";
+import OTPVerification from "../components/OTPVerification";
+import BrandLogo from "../components/BrandLogo";
 
 const EMAIL_EXISTS_MSG = "User already exists";
 
+// Comprehensive email validation
+const isValidEmail = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  
+  // Trim and convert to lowercase
+  email = email.trim().toLowerCase();
+  
+  // Check length
+  if (email.length > 254 || email.length < 5) return false;
+  
+  // More comprehensive email regex
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  
+  if (!emailRegex.test(email)) return false;
+  
+  // Additional checks
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  
+  const [localPart, domain] = parts;
+  
+  // Local part validation
+  if (localPart.length > 64 || localPart.length === 0) return false;
+  if (localPart.startsWith('.') || localPart.endsWith('.')) return false;
+  if (localPart.includes('..')) return false;
+  
+  // Domain validation
+  if (domain.length === 0 || domain.startsWith('-') || domain.endsWith('-')) return false;
+  if (domain.includes('..')) return false;
+  if (!domain.includes('.')) return false;
+  
+  // Check for valid TLD (at least 2 characters)
+  const domainParts = domain.split('.');
+  const tld = domainParts[domainParts.length - 1];
+  if (tld.length < 2) return false;
+  
+  return true;
+};
+
+// Password validation criteria
+const validatePassword = (password) => {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  };
+};
+
 const Join = () => {
-  const { join } = useContext(AuthContext);
+  const { join, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [showPasswordReqs, setShowPasswordReqs] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -19,12 +78,48 @@ const Join = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setEmailError("");
+    
+    // Trim and sanitize email
+    const sanitizedEmail = formData.email.trim().toLowerCase();
+    
+    // Validate email
+    if (!isValidEmail(sanitizedEmail)) {
+      setEmailError("Please enter a valid email address (e.g., user@example.com)");
+      return;
+    }
+    
+    // Validate password
+    const passwordCheck = validatePassword(formData.password);
+    if (!Object.values(passwordCheck).every(Boolean)) {
+      setError("Password does not meet all requirements");
+      return;
+    }
+    
+    // Check password confirmation
+    if (formData.password !== confirmPassword) {
+      setPasswordMismatch(true);
+      return;
+    }
+    setPasswordMismatch(false);
+    
     try {
-      const userData = await join(formData);
-      if (userData?.role === "investor") {
-        navigate("/home");
-      } else {
-        navigate("/dashboard");
+      const response = await join({
+        ...formData,
+        email: sanitizedEmail
+      });
+      
+      // Check if OTP verification is required
+      if (response?.requiresVerification) {
+        setUserEmail(formData.email);
+        setShowOTPVerification(true);
+      } else if (response?.token) {
+        // Direct login (shouldn't happen with new flow, but keeping for backwards compatibility)
+        if (response.role === "investor") {
+          navigate("/home");
+        } else {
+          navigate("/dashboard");
+        }
       }
     } catch (err) {
       const msg = err.response?.data?.message || "Join failed";
@@ -32,48 +127,49 @@ const Join = () => {
     }
   };
 
+  const handleOTPSuccess = (userData) => {
+    // Update auth context with user data
+    setUser(userData);
+    
+    // Navigate based on role
+    if (userData.role === "investor") {
+      navigate("/home");
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
+  const handleBackToSignup = () => {
+    setShowOTPVerification(false);
+    setUserEmail("");
+  };
+
   const isEmailExists = error === EMAIL_EXISTS_MSG;
+  const passwordValidation = validatePassword(formData.password);
+  const allPasswordReqsMet = Object.values(passwordValidation).every(Boolean);
+
+  // Show OTP verification screen if needed
+  if (showOTPVerification) {
+    return (
+      <OTPVerification 
+        email={userEmail} 
+        onSuccess={handleOTPSuccess} 
+        onBack={handleBackToSignup}
+      />
+    );
+  }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left decorative panel */}
-      <div className="hidden lg:flex lg:w-[45%] bg-gradient-to-br from-[#0f1c2e] via-[#1e3a5f] to-[#2d5a8e] relative overflow-hidden items-center justify-center">
-        <div className="absolute inset-0 opacity-[0.04]" style={{backgroundImage:'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',backgroundSize:'32px 32px'}} />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        <div className="relative z-10 px-12 max-w-md">
-          <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center mb-8">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight mb-4 leading-tight">Start your creative<br/>journey today.</h1>
-          <p className="text-blue-200/70 text-base leading-relaxed">Upload scripts, connect with industry professionals, and unlock opportunities for your stories.</p>
-          <div className="mt-12 space-y-3">
-            {['Upload and share scripts','Get AI-powered analysis','Connect with producers & investors'].map((t,i)=>(
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center">
-                  <svg className="w-3 h-3 text-blue-300" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                </div>
-                <span className="text-sm text-blue-200/60 font-medium">{t}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center bg-white px-6 py-12">
-        <div className="w-full max-w-[400px]">
-          <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      {/* Form panel */}
+      <div className="w-full flex flex-col items-center justify-center px-6 pt-4 pb-12">
+          <div className="flex items-center justify-center mb-0">
+            <div className="w-20 h-20 bg-gray-50 rounded-xl flex items-center justify-center">
+              <BookOpen className="text-black" size={40} strokeWidth={1.5} />
             </div>
-            <span className="text-lg font-extrabold text-[#1e3a5f] tracking-tight">Ckript</span>
           </div>
-
+          <p className="text-gray-400 text-sm font-medium mb-6">Reader Onboarding</p>
+        <div className="w-full max-w-[540px] bg-white rounded-2xl shadow-lg border border-gray-100 p-10">
           <div className="mb-8">
             <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Create your account</h2>
             <p className="text-[15px] text-gray-400 mt-1.5 font-medium">Get started with Ckript in seconds</p>
@@ -102,28 +198,90 @@ const Join = () => {
             <div>
               <label className="block text-[13px] font-semibold text-gray-600 mb-2">Email address</label>
               <input type="email" placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-[#1e3a5f]/10 focus:bg-white transition-all duration-200"
-                value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
+                className={`w-full px-4 py-3 bg-gray-50/80 border rounded-xl text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:bg-white transition-all duration-200 ${
+                  emailError
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
+                    : 'border-gray-200 focus:border-[#1e3a5f] focus:ring-[#1e3a5f]/10'
+                }`}
+                value={formData.email} 
+                onChange={(e) => { 
+                  setFormData({ ...formData, email: e.target.value }); 
+                  setEmailError(""); 
+                }} 
+                onBlur={() => formData.email && !isValidEmail(formData.email) && setEmailError("Invalid email format")}
+                required />
+              {emailError && (
+                <p className="mt-1.5 text-[12px] font-semibold text-red-500 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+                  {emailError}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-[13px] font-semibold text-gray-600 mb-2">Password</label>
-              <input type="password" placeholder="Min 6 characters"
+              <input type="password" placeholder="Create a strong password"
                 className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-[#1e3a5f]/10 focus:bg-white transition-all duration-200"
-                value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required minLength="6" />
+                value={formData.password} 
+                onChange={(e) => { 
+                  setFormData({ ...formData, password: e.target.value }); 
+                  setPasswordMismatch(false); 
+                  if (!showPasswordReqs) setShowPasswordReqs(true);
+                }} 
+                onFocus={() => setShowPasswordReqs(true)}
+                required />
+              {showPasswordReqs && (
+                <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-[11px] font-semibold text-gray-600 mb-2">Password Requirements:</p>
+                  <div className="space-y-1">
+                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${passwordValidation.length ? 'text-green-600' : 'text-gray-500'}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={passwordValidation.length ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                      </svg>
+                      At least 8 characters
+                    </div>
+                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${passwordValidation.uppercase ? 'text-green-600' : 'text-gray-500'}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={passwordValidation.uppercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                      </svg>
+                      One uppercase letter (A-Z)
+                    </div>
+                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${passwordValidation.lowercase ? 'text-green-600' : 'text-gray-500'}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={passwordValidation.lowercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                      </svg>
+                      One lowercase letter (a-z)
+                    </div>
+                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${passwordValidation.number ? 'text-green-600' : 'text-gray-500'}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={passwordValidation.number ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                      </svg>
+                      One number (0-9)
+                    </div>
+                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${passwordValidation.special ? 'text-green-600' : 'text-gray-500'}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d={passwordValidation.special ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                      </svg>
+                      One special character (!@#$%^&*)
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-gray-600 mb-2">I am a...</label>
-              <select
-                className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-[15px] text-gray-800 outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-[#1e3a5f]/10 focus:bg-white transition-all duration-200 appearance-none"
-                style={{backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E")`,backgroundRepeat:'no-repeat',backgroundPosition:'right 12px center',backgroundSize:'16px'}}
-                value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
-                <option value="creator">Creator / Writer</option>
-                <option value="investor">Investor</option>
-                <option value="producer">Producer</option>
-                <option value="director">Director</option>
-                <option value="actor">Actor</option>
-                <option value="reader">Reader</option>
-              </select>
+              <label className="block text-[13px] font-semibold text-gray-600 mb-2">Confirm password</label>
+              <input type="password" placeholder="Re-enter your password"
+                className={`w-full px-4 py-3 bg-gray-50/80 border rounded-xl text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:ring-2 focus:bg-white transition-all duration-200 ${
+                  passwordMismatch
+                    ? 'border-red-400 focus:border-red-400 focus:ring-red-100'
+                    : 'border-gray-200 focus:border-[#1e3a5f] focus:ring-[#1e3a5f]/10'
+                }`}
+                value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); setPasswordMismatch(false); }} required />
+              {passwordMismatch && (
+                <p className="mt-1.5 text-[12px] font-semibold text-red-500 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+                  Passwords do not match
+                </p>
+              )}
             </div>
             <button type="submit" className="w-full py-3 bg-[#1e3a5f] text-white rounded-xl text-[15px] font-bold hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 mt-1">
               Create account

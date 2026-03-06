@@ -2,6 +2,7 @@ import { useState, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import OTPVerification from "../components/OTPVerification";
 import { 
   FileText, 
   UserCircle, 
@@ -12,40 +13,105 @@ import {
   Mail,
   Lock,
   User,
-  AlertCircle
+  AlertCircle,
+  MapPin,
+  Phone,
+  Calendar,
+  Link,
+  Instagram,
+  Twitter,
+  Linkedin,
+  Facebook,
+  Film,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+
+// Comprehensive email validation
+const isValidEmail = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  email = email.trim().toLowerCase();
+  if (email.length > 254 || email.length < 5) return false;
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  if (!emailRegex.test(email)) return false;
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const [localPart, domain] = parts;
+  if (localPart.length > 64 || localPart.startsWith('.') || localPart.endsWith('.') || localPart.includes('..')) return false;
+  if (!domain.includes('.') || domain.startsWith('-') || domain.endsWith('-') || domain.includes('..')) return false;
+  const tld = domain.split('.').pop();
+  return tld.length >= 2;
+};
+
+// Password validation criteria
+const validatePassword = (password) => {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  };
+};
+
 const WriterOnboarding = () => {
-  const { join } = useContext(AuthContext);
+  const { join, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [dobError, setDobError] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [openRepSections, setOpenRepSections] = useState({ filmTv: false, theater: false, literary: false });
+  const [emailError, setEmailError] = useState("");
+  const [showPasswordReqs, setShowPasswordReqs] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   
   // Step 1: Account Creation
   const [accountData, setAccountData] = useState({
     name: "",
+    dateOfBirth: "",
     email: "",
     password: "",
     confirmPassword: "",
+    address: "",
+    phone: "",
     role: "creator"
   });
   
-  // Email Verification
+  // Email Verification (keeping for compatibility, but using OTP now)
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
   
   // Step 2: Writer Profile
   const [writerProfile, setWriterProfile] = useState({
+    username: "",
     bio: "",
     representationStatus: "unrepresented",
     agencyName: "",
     wgaMember: false,
+    links: {
+      portfolio: "",
+      instagram: "",
+      twitter: "",
+      linkedin: "",
+      imdb: "",
+      facebook: ""
+    },
+    accomplishments: [],
+    representation: {
+      filmTv: { agency: "", agent: "", managementCompany: "", manager: "", lawFirm: "", lawyer: "" },
+      theater: { agency: "", agent: "", managementCompany: "", manager: "", lawFirm: "", lawyer: "" },
+      literary: { agency: "", agent: "", managementCompany: "", manager: "", lawFirm: "", lawyer: "" }
+    },
+    demographicPrivacy: "searchable",
     diversity: {
       gender: "",
-      ethnicity: "",
+      nationality: "",
       lgbtqStatus: "",
       disabilityStatus: ""
     }
@@ -73,36 +139,85 @@ const WriterOnboarding = () => {
   const handleAccountCreation = async (e) => {
     e.preventDefault();
     setError("");
-    
-    if (accountData.password !== accountData.confirmPassword) {
-      setError("Passwords do not match");
+    setPhoneError("");
+    setDobError("");
+    setEmailError("");
+
+    if (!accountData.dateOfBirth) {
+      setDobError("Date of birth is required");
+      return;
+    }
+
+    if (!accountData.phone) {
+      setPhoneError("Phone number is required");
+      return;
+    }
+    const phoneRegex = /^[+]?[\d\s\-().]{7,15}$/;
+    if (!phoneRegex.test(accountData.phone)) {
+      setPhoneError("Please enter a valid phone number (e.g. +91 00000 00000)");
       return;
     }
     
-    if (accountData.password.length < 6) {
-      setError("Password must be at least 6 characters");
+    // Trim and sanitize email
+    const sanitizedEmail = accountData.email.trim().toLowerCase();
+    
+    // Validate email
+    if (!isValidEmail(sanitizedEmail)) {
+      setEmailError("Please enter a valid email address (e.g., user@example.com)");
+      return;
+    }
+    
+    // Validate password
+    const passwordCheck = validatePassword(accountData.password);
+    if (!Object.values(passwordCheck).every(Boolean)) {
+      setError("Password does not meet all requirements");
+      return;
+    }
+    
+    // Check password confirmation
+    if (accountData.password !== accountData.confirmPassword) {
+      setError("Passwords do not match");
       return;
     }
     
     setLoading(true);
     try {
       // Create account using AuthContext join function
-      await join({
+      const response = await join({
         name: accountData.name,
-        email: accountData.email,
+        email: sanitizedEmail,
         password: accountData.password,
         role: "creator"
       });
       
-      // Send verification email
-      await api.post("/onboarding/send-verification");
-      setVerificationSent(true);
+      // Check if OTP verification is required
+      if (response?.requiresVerification) {
+        setUserEmail(sanitizedEmail);
+        setShowOTPVerification(true);
+      } else if (response?.token) {
+        // Direct login (shouldn't happen with new flow)
+        setCurrentStep(2);
+      }
+      
       setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Join failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOTPSuccess = (userData) => {
+    // Update auth context with user data
+    setUser(userData);
+    setShowOTPVerification(false);
+    // Move to next step
+    setCurrentStep(2);
+  };
+
+  const handleBackToSignup = () => {
+    setShowOTPVerification(false);
+    setUserEmail("");
   };
 
   const handleEmailVerification = async (e) => {
@@ -127,8 +242,19 @@ const WriterOnboarding = () => {
 
   const handleWriterProfile = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setUsernameError("");
     setError("");
+
+    if (!writerProfile.username) {
+      setUsernameError("Username is required");
+      return;
+    }
+    if (writerProfile.username.length < 3) {
+      setUsernameError("Username must be at least 3 characters");
+      return;
+    }
+
+    setLoading(true);
     
     try {
       const response = await api.put("/onboarding/writer-profile", writerProfile);
@@ -257,11 +383,33 @@ const WriterOnboarding = () => {
                     type="text"
                     value={accountData.name}
                     onChange={(e) => setAccountData({...accountData, name: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="John Doe"
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="date"
+                    value={accountData.dateOfBirth}
+                    onChange={(e) => setAccountData({...accountData, dateOfBirth: e.target.value})}
+                    className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent ${accountData.dateOfBirth ? "text-gray-900" : "text-gray-400"}`}
+                    max={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+                {dobError && (
+                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle size={12} /> {dobError}
+                  </p>
+                )}
               </div>
               
               <div>
@@ -274,13 +422,54 @@ const WriterOnboarding = () => {
                     type="email"
                     value={accountData.email}
                     onChange={(e) => setAccountData({...accountData, email: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="writer@example.com"
                     required
                   />
                 </div>
               </div>
-              
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Address
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    value={accountData.address}
+                    onChange={(e) => setAccountData({...accountData, address: e.target.value})}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                    placeholder="123 Main St, City, State, ZIP"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="tel"
+                    value={accountData.phone}
+                    onChange={(e) => { setAccountData({...accountData, phone: e.target.value}); setPhoneError(""); }}
+                    className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:border-transparent text-gray-900 ${
+                      phoneError ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-[#1a365d]"
+                    }`}
+                    placeholder="+91 00000 00000"
+                    required
+                  />
+                </div>
+                {phoneError && (
+                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle size={12} /> {phoneError}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Password
@@ -290,12 +479,60 @@ const WriterOnboarding = () => {
                   <input
                     type="password"
                     value={accountData.password}
-                    onChange={(e) => setAccountData({...accountData, password: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    onChange={(e) => {
+                      setAccountData({...accountData, password: e.target.value});
+                      if (!showPasswordReqs) setShowPasswordReqs(true);
+                    }}
+                    onFocus={() => setShowPasswordReqs(true)}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="••••••••"
                     required
                   />
                 </div>
+                {showPasswordReqs && (
+                  <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-[11px] font-semibold text-gray-600 mb-2">Password Requirements:</p>
+                    <div className="space-y-1">
+                      {(() => {
+                        const validation = validatePassword(accountData.password);
+                        return (
+                          <>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.length ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.length ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              At least 8 characters
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.uppercase ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.uppercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One uppercase letter (A-Z)
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.lowercase ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.lowercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One lowercase letter (a-z)
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.number ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.number ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One number (0-9)
+                            </div>
+                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.special ? 'text-green-600' : 'text-gray-500'}`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.special ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                              </svg>
+                              One special character (!@#$%^&*)
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div>
@@ -308,12 +545,18 @@ const WriterOnboarding = () => {
                     type="password"
                     value={accountData.confirmPassword}
                     onChange={(e) => setAccountData({...accountData, confirmPassword: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="••••••••"
                     required
                   />
                 </div>
               </div>
+              
+              {emailError && (
+                <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+                  {emailError}
+                </div>
+              )}
               
               {error && (
                 <div className="bg-red-50 text-red-600 p-4 rounded-lg">
@@ -347,7 +590,7 @@ const WriterOnboarding = () => {
                   type="text"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-center text-2xl tracking-widest"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-center text-2xl tracking-widest text-gray-900"
                   placeholder="000000"
                   maxLength={6}
                   required
@@ -380,12 +623,34 @@ const WriterOnboarding = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio (Max 500 characters)
+                Username
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium text-sm">@</span>
+                <input
+                  type="text"
+                  value={writerProfile.username}
+                  onChange={(e) => setWriterProfile({...writerProfile, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "")})}
+                  className="w-full pl-7 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                  placeholder="e.g. john_doe"
+                  required
+                />
+              </div>
+              {usernameError && (
+                <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle size={12} /> {usernameError}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Bio <span className="text-xs font-normal text-gray-500">(Max 500 characters)</span>
               </label>
               <textarea
                 value={writerProfile.bio}
                 onChange={(e) => setWriterProfile({...writerProfile, bio: e.target.value})}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent resize-none"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent resize-none text-gray-900"
                 rows={4}
                 maxLength={500}
                 placeholder="Tell us about your background, voice, and experience..."
@@ -401,7 +666,7 @@ const WriterOnboarding = () => {
               <select
                 value={writerProfile.representationStatus}
                 onChange={(e) => setWriterProfile({...writerProfile, representationStatus: e.target.value})}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
               >
                 <option value="unrepresented">Unrepresented</option>
                 <option value="manager">Manager</option>
@@ -419,7 +684,7 @@ const WriterOnboarding = () => {
                   type="text"
                   value={writerProfile.agencyName}
                   onChange={(e) => setWriterProfile({...writerProfile, agencyName: e.target.value})}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                   placeholder="e.g., CAA, WME, UTA"
                 />
               </div>
@@ -431,7 +696,8 @@ const WriterOnboarding = () => {
                 id="wgaMember"
                 checked={writerProfile.wgaMember}
                 onChange={(e) => setWriterProfile({...writerProfile, wgaMember: e.target.checked})}
-                className="w-5 h-5 text-[#1a365d] border-gray-300 rounded focus:ring-[#1a365d]"
+                className="w-5 h-5 border-gray-300 rounded focus:ring-[#0f2544]"
+                style={{ accentColor: '#0f2544' }}
               />
               <label htmlFor="wgaMember" className="ml-3 text-sm font-medium text-gray-700">
                 I am a WGA member
@@ -440,7 +706,7 @@ const WriterOnboarding = () => {
             
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Diversity Information (Optional)
+                Diversity Information <span className="text-sm font-normal text-gray-500">(Optional)</span>
               </h3>
               <p className="text-sm text-gray-600 mb-4">
                 This information helps producers find underrepresented voices and is completely optional.
@@ -458,26 +724,224 @@ const WriterOnboarding = () => {
                       ...writerProfile, 
                       diversity: {...writerProfile.diversity, gender: e.target.value}
                     })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="Optional"
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ethnicity
+                    Nationality
                   </label>
                   <input
                     type="text"
-                    value={writerProfile.diversity.ethnicity}
+                    value={writerProfile.diversity.nationality}
                     onChange={(e) => setWriterProfile({
                       ...writerProfile, 
-                      diversity: {...writerProfile.diversity, ethnicity: e.target.value}
+                      diversity: {...writerProfile.diversity, nationality: e.target.value}
                     })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
                     placeholder="Optional"
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Links & Social Media <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Portfolio / Website</label>
+                  <div className="relative">
+                    <Link className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input type="url" value={writerProfile.links.portfolio}
+                      onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, portfolio: e.target.value}})}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                      placeholder="https://yourwebsite.com" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Instagram</label>
+                    <div className="relative">
+                      <Instagram className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.instagram}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, instagram: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://instagram.com/..." />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Twitter / X</label>
+                    <div className="relative">
+                      <Twitter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.twitter}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, twitter: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://x.com/..." />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn</label>
+                    <div className="relative">
+                      <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.linkedin}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, linkedin: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://linkedin.com/in/..." />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Facebook</label>
+                    <div className="relative">
+                      <Facebook className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.facebook}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, facebook: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://facebook.com/..." />
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">IMDb</label>
+                    <div className="relative">
+                      <Film className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                      <input type="url" value={writerProfile.links.imdb}
+                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, imdb: e.target.value}})}
+                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                        placeholder="https://imdb.com/name/..." />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Accomplishments */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Accomplishments <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Role / Credit</label>
+                <select
+                  value={writerProfile.accomplishments[0] || ""}
+                  onChange={(e) => setWriterProfile({...writerProfile, accomplishments: e.target.value ? [e.target.value] : []})}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                >
+                  <option value="">Optional — select a credit</option>
+                  <option value="co-executive-producer">Co-Executive Producer</option>
+                  <option value="co-producer">Co-Producer</option>
+                  <option value="executive-producer">Executive Producer</option>
+                  <option value="executive-story-editor">Executive Story Editor</option>
+                  <option value="producer">Producer</option>
+                  <option value="showrunner">Showrunner</option>
+                  <option value="staff-writer">Staff Writer</option>
+                  <option value="story-editor">Story Editor</option>
+                  <option value="supervising-producer">Supervising Producer</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Representation */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Representation <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
+
+              {[
+                { key: "filmTv", label: "Film & TV Writer Representation" },
+                { key: "theater", label: "Theater Representation" },
+                { key: "literary", label: "Literary Representation" }
+              ].map(({ key, label }) => (
+                <div key={key} className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setOpenRepSections(prev => ({ ...prev, [key]: !prev[key] }))}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left"
+                  >
+                    <span className="text-sm font-semibold text-gray-800">{label}</span>
+                    <ChevronDown
+                      size={18}
+                      className={`text-gray-500 transition-transform duration-200 ${openRepSections[key] ? "rotate-180" : ""}`}
+                    />
+                  </button>
+
+                  {openRepSections[key] && (
+                    <div className="grid grid-cols-2 gap-4 p-4">
+                      {[
+                        { field: "agency", label: "Agency" },
+                        { field: "agent", label: "Agent" },
+                        { field: "managementCompany", label: "Management Company" },
+                        { field: "manager", label: "Manager" },
+                        { field: "lawFirm", label: "Law Firm" },
+                        { field: "lawyer", label: "Lawyer" }
+                      ].map(({ field, label: fieldLabel }) => (
+                        <div key={field}>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">{fieldLabel}</label>
+                          <input
+                            type="text"
+                            value={writerProfile.representation[key][field]}
+                            onChange={(e) => setWriterProfile({
+                              ...writerProfile,
+                              representation: {
+                                ...writerProfile.representation,
+                                [key]: { ...writerProfile.representation[key], [field]: e.target.value }
+                              }
+                            })}
+                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
+                            placeholder=""
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Privacy */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Privacy</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Please note that unless you choose otherwise in your privacy settings, your demographic information will be searchable on the website.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
+                  writerProfile.demographicPrivacy === "searchable"
+                    ? "border-[#0f2544] bg-[#0f2544]/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}>
+                  <input
+                    type="radio"
+                    name="demographicPrivacy"
+                    value="searchable"
+                    checked={writerProfile.demographicPrivacy === "searchable"}
+                    onChange={() => setWriterProfile({...writerProfile, demographicPrivacy: "searchable"})}
+                    className="mt-0.5 accent-[#0f2544]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Use in search filtering</p>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
+                  writerProfile.demographicPrivacy === "private"
+                    ? "border-[#0f2544] bg-[#0f2544]/5"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}>
+                  <input
+                    type="radio"
+                    name="demographicPrivacy"
+                    value="private"
+                    checked={writerProfile.demographicPrivacy === "private"}
+                    onChange={() => setWriterProfile({...writerProfile, demographicPrivacy: "private"})}
+                    className="mt-0.5 accent-[#0f2544]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Keep private</p>
+                  </div>
+                </label>
               </div>
             </div>
             
@@ -766,7 +1230,8 @@ const WriterOnboarding = () => {
                   checked={agreementAccepted}
                   onChange={(e) => setAgreementAccepted(e.target.checked)}
                   disabled={!agreementScrolled}
-                  className="w-5 h-5 text-[#1a365d] border-gray-300 rounded focus:ring-[#1a365d] mt-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-5 h-5 border-gray-300 rounded focus:ring-[#1e3a5f] mt-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ accentColor: '#1e3a5f' }}
                 />
                 <label
                   htmlFor="agreement"
@@ -817,14 +1282,26 @@ const WriterOnboarding = () => {
     }
   };
 
+  // Show OTP verification screen if needed
+  if (showOTPVerification) {
+    return (
+      <OTPVerification 
+        email={userEmail} 
+        onSuccess={handleOTPSuccess} 
+        onBack={handleBackToSignup}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#f0f4f8] py-8 px-4">
+    <div className="min-h-screen bg-[#f0f4f8] pt-2 pb-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <FileText size={28} className="text-[#0a1628]" strokeWidth={1.5} />
-            <h1 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Ckript</h1>
+        <div className="text-center mb-3">
+          <div className="flex items-center justify-center mb-1">
+            <div className="w-20 h-20 bg-[#f0f4f8] rounded-xl flex items-center justify-center">
+              <FileText className="text-black" size={40} strokeWidth={1.5} />
+            </div>
           </div>
           <p className="text-sm text-gray-600">Writer Onboarding</p>
         </div>

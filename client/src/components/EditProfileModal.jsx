@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Building2, Linkedin, IndianRupee, Film, TrendingUp, Bell, User, CreditCard, Briefcase, Globe, Target, Heart } from "lucide-react";
 import { useDarkMode } from "../context/DarkModeContext";
 
 const GENRE_OPTIONS = [
@@ -31,16 +31,55 @@ const NUANCED_TAGS = [
   "Surreal", "Cerebral", "Raw", "Poetic", "Epic"
 ];
 
+const INVESTOR_GENRE_OPTIONS = [
+  "Action", "Comedy", "Drama", "Horror", "Thriller",
+  "Romance", "Sci-Fi", "Fantasy", "Mystery", "Documentary",
+  "Crime", "Animation", "Historical", "Biographical", "Sports",
+  "Family", "Musical", "War", "Western", "Adventure"
+];
+
+const BUDGET_TIERS = [
+  { key: "micro", label: "Micro", range: "< ₹50L" },
+  { key: "low", label: "Low", range: "₹50L – ₹2Cr" },
+  { key: "medium", label: "Medium", range: "₹2Cr – ₹10Cr" },
+  { key: "high", label: "High", range: "₹10Cr – ₹50Cr" },
+  { key: "blockbuster", label: "Blockbuster", range: "₹50Cr+" },
+];
+
+const FORMAT_OPTIONS = [
+  "Feature Film", "TV Pilot", "Web Series", "Documentary",
+  "Short Film", "Anime", "Limited Series", "Reality Show"
+];
+
 const EditProfileModal = ({ profile, onClose, onUpdate }) => {
   const { isDarkMode: dark } = useDarkMode();
   const isWriter = profile.role === "creator" || profile.role === "writer";
+  const isInvestor = profile.role === "investor";
   const wp = profile.writerProfile || {};
+  const ip = profile.industryProfile || {};
+  const mandates = ip.mandates || {};
 
   const [formData, setFormData] = useState({
     name: profile.name || "",
     bio: profile.bio || "",
     skills: profile.skills?.join(", ") || "",
     profileImage: profile.profileImage || "",
+  });
+
+  // Investor-specific state
+  const [investorData, setInvestorData] = useState({
+    company: ip.company || "",
+    linkedInUrl: ip.linkedInUrl || "",
+    investmentRange: "",
+  });
+  const [investorGenres, setInvestorGenres] = useState(mandates.genres || profile.preferences?.genres || []);
+  const [investorBudgets, setInvestorBudgets] = useState(mandates.budgetTiers || []);
+  const [investorFormats, setInvestorFormats] = useState(mandates.formats || []);
+  const [notifPrefs, setNotifPrefs] = useState({
+    smartMatchAlerts: profile.notificationPrefs?.smartMatchAlerts ?? true,
+    auditionAlerts: profile.notificationPrefs?.auditionAlerts ?? true,
+    holdAlerts: profile.notificationPrefs?.holdAlerts ?? true,
+    viewAlerts: profile.notificationPrefs?.viewAlerts ?? true,
   });
 
   // Writer-specific state
@@ -55,6 +94,19 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
   });
   const [showTagError, setShowTagError] = useState(false);
 
+  // Bank details state
+  const [bankDetails, setBankDetails] = useState({
+    accountHolderName: profile.bankDetails?.accountHolderName || "",
+    bankName: profile.bankDetails?.bankName || "",
+    accountNumber: profile.bankDetails?.accountNumber || "",
+    routingNumber: profile.bankDetails?.routingNumber || "",
+    accountType: profile.bankDetails?.accountType || "checking",
+    swiftCode: profile.bankDetails?.swiftCode || "",
+    iban: profile.bankDetails?.iban || "",
+    country: profile.bankDetails?.country || "US",
+    currency: profile.bankDetails?.currency || "USD"
+  });
+
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -66,13 +118,25 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
 
   const sections = isWriter
     ? [
-      { key: "basic", label: "Basic" },
-      { key: "writer", label: "Writer" },
-      { key: "genres", label: "Genres" },
-      { key: "tags", label: "Tags" },
-      { key: "diversity", label: "Diversity" },
+      { key: "basic", label: "Basic", icon: <User size={13} /> },
+      { key: "writer", label: "Writer", icon: <Briefcase size={13} /> },
+      { key: "genres", label: "Genres", icon: <Film size={13} /> },
+      { key: "tags", label: "Tags", icon: <Target size={13} /> },
+      { key: "diversity", label: "Diversity", icon: <Heart size={13} /> },
+      { key: "bank", label: "Banking", icon: <CreditCard size={13} /> },
     ]
-    : [{ key: "basic", label: "Basic" }];
+    : isInvestor
+      ? [
+        { key: "basic", label: "Basic", icon: <User size={13} /> },
+        { key: "investor", label: "Investor", icon: <TrendingUp size={13} /> },
+        { key: "preferences", label: "Preferences", icon: <Film size={13} /> },
+        { key: "notifications", label: "Alerts", icon: <Bell size={13} /> },
+        { key: "bank", label: "Banking", icon: <CreditCard size={13} /> },
+      ]
+      : [
+        { key: "basic", label: "Basic", icon: <User size={13} /> },
+        { key: "bank", label: "Banking", icon: <CreditCard size={13} /> },
+      ];
 
   const toggleGenre = (genre) => {
     setSelectedGenres((prev) =>
@@ -162,6 +226,21 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         };
       }
 
+      if (isInvestor) {
+        payload.company = investorData.company;
+        payload.linkedInUrl = investorData.linkedInUrl;
+        payload.investmentRange = investorData.investmentRange;
+        payload.preferredGenres = investorGenres;
+        payload.preferredBudgets = investorBudgets;
+        payload.preferredFormats = investorFormats;
+        payload.notificationPrefs = notifPrefs;
+      }
+
+      // Include bank details if any field is filled
+      if (Object.values(bankDetails).some(val => val && val !== "checking" && val !== "US" && val !== "USD")) {
+        payload.bankDetails = bankDetails;
+      }
+
       const { data } = await api.put("/users/update", payload);
       onUpdate(data);
     } catch (err) {
@@ -193,7 +272,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         transition={{ duration: 0.2 }}
         onClick={(e) => e.stopPropagation()}
         className={`rounded-xl border w-full overflow-hidden ${dark ? 'bg-[#101e30] border-[#444]' : 'bg-white border-gray-200/80'}`}
-        style={{ maxWidth: "520px", maxHeight: "90vh" }}
+        style={{ maxWidth: isInvestor ? "580px" : "520px", maxHeight: "90vh" }}
       >
         {/* Header */}
         <div className={`flex items-center justify-between px-5 py-4 border-b ${dark ? 'border-[#333]' : 'border-gray-100'}`}>
@@ -209,18 +288,19 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         </div>
 
         {/* Section Tabs */}
-        {isWriter && (
+        {sections.length > 1 && (
           <div className="flex items-center gap-1 px-5 pt-3 pb-2 overflow-x-auto">
             {sections.map((s) => (
               <button
                 key={s.key}
                 type="button"
                 onClick={() => setActiveSection(s.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeSection === s.key
-                    ? "bg-[#0f2544] text-white"
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${activeSection === s.key
+                    ? "bg-[#0f2544] text-white shadow-lg shadow-[#0f2544]/20"
                     : dark ? "bg-white/[0.04] text-gray-400 hover:bg-white/[0.08]" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
                   }`}
               >
+                {s.icon}
                 {s.label}
               </button>
             ))}
@@ -488,6 +568,315 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   className={inputClass}
                   placeholder="Optional"
                 />
+              </div>
+            </motion.div>
+          )}
+
+          {/* === INVESTOR DETAILS SECTION === */}
+          {activeSection === "investor" && isInvestor && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <div>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Investor Profile</h3>
+                <p className={`text-xs mb-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Business details visible to creators and writers</p>
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  <span className="flex items-center gap-1.5"><Building2 size={12} /> Company / Firm</span>
+                </label>
+                <input
+                  type="text"
+                  value={investorData.company}
+                  onChange={(e) => setInvestorData({ ...investorData, company: e.target.value })}
+                  className={inputClass}
+                  placeholder="e.g., Yash Raj Films, Dharma Productions"
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  <span className="flex items-center gap-1.5"><Linkedin size={12} /> LinkedIn URL</span>
+                </label>
+                <input
+                  type="url"
+                  value={investorData.linkedInUrl}
+                  onChange={(e) => setInvestorData({ ...investorData, linkedInUrl: e.target.value })}
+                  className={inputClass}
+                  placeholder="https://linkedin.com/in/yourprofile"
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  <span className="flex items-center gap-1.5"><IndianRupee size={12} /> Investment Range</span>
+                </label>
+                <select
+                  value={investorData.investmentRange}
+                  onChange={(e) => setInvestorData({ ...investorData, investmentRange: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="">Select typical investment range</option>
+                  <option value="under_50l">Under ₹50 Lakhs</option>
+                  <option value="50l_2cr">₹50 Lakhs – ₹2 Crore</option>
+                  <option value="2cr_10cr">₹2 Crore – ₹10 Crore</option>
+                  <option value="10cr_50cr">₹10 Crore – ₹50 Crore</option>
+                  <option value="50cr_plus">₹50 Crore+</option>
+                </select>
+              </div>
+
+              <div className={`flex items-start gap-2.5 p-3 rounded-lg ${dark ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-emerald-50 border border-emerald-100'}`}>
+                <TrendingUp size={16} className={`mt-0.5 shrink-0 ${dark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                <p className={`text-xs ${dark ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                  Complete your investor profile to get better script recommendations and connect with relevant creators.
+                </p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* === INVESTOR PREFERENCES SECTION === */}
+          {activeSection === "preferences" && isInvestor && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+              {/* Preferred Genres */}
+              <div>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Preferred Genres</h3>
+                <p className={`text-xs mb-3 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Select genres you're interested in investing in</p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {INVESTOR_GENRE_OPTIONS.map((genre) => (
+                    <button
+                      key={genre}
+                      type="button"
+                      onClick={() => setInvestorGenres((prev) => prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre])}
+                      className={`px-2.5 py-2 rounded-lg font-medium text-xs transition-all border ${investorGenres.includes(genre)
+                        ? dark ? "bg-[#0f2544] text-white border-[#1e3a5f] shadow-md shadow-[#0f2544]/20" : "bg-[#0f2544] text-white border-[#0f2544]"
+                        : dark ? "bg-white/[0.03] text-gray-400 border-[#333] hover:border-[#1e3a5f]/50" : "bg-white text-gray-600 border-gray-200 hover:border-[#1e3a5f]/40"
+                      }`}
+                    >
+                      {genre}
+                    </button>
+                  ))}
+                </div>
+                {investorGenres.length > 0 && (
+                  <p className={`text-xs mt-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    <span className="font-semibold text-[#0f2544]">{investorGenres.length}</span> genre{investorGenres.length !== 1 ? 's' : ''} selected
+                  </p>
+                )}
+              </div>
+
+              {/* Budget Tiers */}
+              <div>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Budget Tiers</h3>
+                <p className={`text-xs mb-3 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>What budget ranges interest you?</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {BUDGET_TIERS.map((tier) => (
+                    <button
+                      key={tier.key}
+                      type="button"
+                      onClick={() => setInvestorBudgets((prev) => prev.includes(tier.key) ? prev.filter(b => b !== tier.key) : [...prev, tier.key])}
+                      className={`px-3 py-2.5 rounded-lg text-xs transition-all border text-left ${investorBudgets.includes(tier.key)
+                        ? dark ? "bg-[#0f2544] text-white border-[#1e3a5f] shadow-md shadow-[#0f2544]/20" : "bg-[#0f2544] text-white border-[#0f2544]"
+                        : dark ? "bg-white/[0.03] text-gray-400 border-[#333] hover:border-[#1e3a5f]/50" : "bg-white text-gray-600 border-gray-200 hover:border-[#1e3a5f]/40"
+                      }`}
+                    >
+                      <span className="font-bold block">{tier.label}</span>
+                      <span className={`text-[10px] ${investorBudgets.includes(tier.key) ? 'text-white/60' : dark ? 'text-gray-600' : 'text-gray-400'}`}>{tier.range}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Content Formats */}
+              <div>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Content Formats</h3>
+                <p className={`text-xs mb-3 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>What types of content do you fund?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {FORMAT_OPTIONS.map((fmt) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      onClick={() => setInvestorFormats((prev) => prev.includes(fmt) ? prev.filter(f => f !== fmt) : [...prev, fmt])}
+                      className={`px-3 py-2.5 rounded-lg font-medium text-xs transition-all border ${investorFormats.includes(fmt)
+                        ? dark ? "bg-[#0f2544] text-white border-[#1e3a5f] shadow-md shadow-[#0f2544]/20" : "bg-[#0f2544] text-white border-[#0f2544]"
+                        : dark ? "bg-white/[0.03] text-gray-400 border-[#333] hover:border-[#1e3a5f]/50" : "bg-white text-gray-600 border-gray-200 hover:border-[#1e3a5f]/40"
+                      }`}
+                    >
+                      {fmt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* === NOTIFICATION PREFERENCES SECTION === */}
+          {activeSection === "notifications" && isInvestor && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <div>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Notification Preferences</h3>
+                <p className={`text-xs mb-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Control which alerts you receive</p>
+              </div>
+
+              {[
+                { key: "smartMatchAlerts", label: "Smart Match Alerts", desc: "Get notified when scripts match your preferences" },
+                { key: "holdAlerts", label: "Hold Updates", desc: "Updates when scripts you've held have changes" },
+                { key: "viewAlerts", label: "Profile Views", desc: "Know when creators view your investor profile" },
+                { key: "auditionAlerts", label: "Audition Alerts", desc: "Notifications about audition opportunities" },
+              ].map((item) => (
+                <label
+                  key={item.key}
+                  className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer transition-all ${dark
+                    ? notifPrefs[item.key] ? 'bg-[#0f2544]/30 border-[#1e3a5f]/40' : 'bg-white/[0.02] border-[#333] hover:border-[#444]'
+                    : notifPrefs[item.key] ? 'bg-[#1e3a5f]/[0.04] border-[#1e3a5f]/20' : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div>
+                    <p className={`text-sm font-semibold ${dark ? 'text-gray-200' : 'text-gray-800'}`}>{item.label}</p>
+                    <p className={`text-[11px] mt-0.5 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>{item.desc}</p>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={notifPrefs[item.key]}
+                      onChange={(e) => setNotifPrefs({ ...notifPrefs, [item.key]: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-10 h-6 rounded-full transition-colors ${notifPrefs[item.key]
+                      ? 'bg-[#1e3a5f]'
+                      : dark ? 'bg-[#333]' : 'bg-gray-300'
+                    }`}>
+                      <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${notifPrefs[item.key] ? 'translate-x-4' : ''}`} />
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </motion.div>
+          )}
+
+          {/* === BANK DETAILS SECTION === */}
+          {activeSection === "bank" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <div>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Bank Account Details</h3>
+                <p className="text-xs text-gray-400 mb-4">
+                  Secure payment information for receiving funds
+                </p>
+              </div>
+
+              <div>
+                <label className={labelClass}>Account Holder Name</label>
+                <input
+                  type="text"
+                  value={bankDetails.accountHolderName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountHolderName: e.target.value })}
+                  className={inputClass}
+                  placeholder="Full name as it appears on your account"
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>Bank Name</label>
+                <input
+                  type="text"
+                  value={bankDetails.bankName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                  className={inputClass}
+                  placeholder="e.g., Wells Fargo, Chase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Account Number</label>
+                  <input
+                    type="password"
+                    value={bankDetails.accountNumber}
+                    onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                    className={inputClass}
+                    placeholder="Account number"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Routing Number</label>
+                  <input
+                    type="text"
+                    value={bankDetails.routingNumber}
+                    onChange={(e) => setBankDetails({ ...bankDetails, routingNumber: e.target.value })}
+                    className={inputClass}
+                    placeholder="9-digit routing"
+                    maxLength="9"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelClass}>Account Type</label>
+                  <select
+                    value={bankDetails.accountType}
+                    onChange={(e) => setBankDetails({ ...bankDetails, accountType: e.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="checking">Checking</option>
+                    <option value="savings">Savings</option>
+                    <option value="business">Business</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Country</label>
+                  <input
+                    type="text"
+                    value={bankDetails.country}
+                    onChange={(e) => setBankDetails({ ...bankDetails, country: e.target.value })}
+                    className={inputClass}
+                    placeholder="US"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Currency</label>
+                  <input
+                    type="text"
+                    value={bankDetails.currency}
+                    onChange={(e) => setBankDetails({ ...bankDetails, currency: e.target.value })}
+                    className={inputClass}
+                    placeholder="USD"
+                  />
+                </div>
+              </div>
+
+              <div className={`p-3 rounded-lg ${dark ? 'bg-white/[0.03]' : 'bg-gray-50'}`}>
+                <p className={`text-xs font-semibold mb-2 ${dark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  International Transfers (Optional)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>SWIFT Code</label>
+                    <input
+                      type="text"
+                      value={bankDetails.swiftCode}
+                      onChange={(e) => setBankDetails({ ...bankDetails, swiftCode: e.target.value })}
+                      className={inputClass}
+                      placeholder="e.g., CHASUS33"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>IBAN</label>
+                    <input
+                      type="text"
+                      value={bankDetails.iban}
+                      onChange={(e) => setBankDetails({ ...bankDetails, iban: e.target.value })}
+                      className={inputClass}
+                      placeholder="International number"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={`flex items-start gap-2 p-3 rounded-lg ${dark ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-100'}`}>
+                <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? 'text-blue-400' : 'text-blue-600'}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+                <p className={`text-xs ${dark ? 'text-blue-300' : 'text-blue-700'}`}>
+                  All bank details are encrypted and stored securely. This information is used only for payment processing.
+                </p>
               </div>
             </motion.div>
           )}

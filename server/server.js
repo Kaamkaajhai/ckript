@@ -8,6 +8,10 @@ import { Server } from "socket.io";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load environment variables from server/.env regardless of process working directory
+dotenv.config({ path: path.join(__dirname, ".env") });
+
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -25,8 +29,10 @@ import onboardingRoutes from "./routes/onboardingRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js";
+import creditsRoutes from "./routes/creditsRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
-dotenv.config();
 connectDB();
 
 const app = express();
@@ -133,6 +139,9 @@ app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/credits", creditsRoutes);
+app.use("/api/admin", adminRoutes);
 
 const PORT = process.env.PORT || 5001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

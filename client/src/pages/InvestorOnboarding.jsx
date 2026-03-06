@@ -2,6 +2,7 @@ import { useState, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import OTPVerification from "../components/OTPVerification";
 import {
   DollarSign,
   TrendingUp,
@@ -11,19 +12,53 @@ import {
   Mail,
   Lock,
   User,
+  Users,
   AlertCircle,
   Globe,
   Briefcase,
+  FileText,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+
+// Comprehensive email validation
+const isValidEmail = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  email = email.trim().toLowerCase();
+  if (email.length > 254 || email.length < 5) return false;
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  if (!emailRegex.test(email)) return false;
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const [localPart, domain] = parts;
+  if (localPart.length > 64 || localPart.startsWith('.') || localPart.endsWith('.') || localPart.includes('..')) return false;
+  if (!domain.includes('.') || domain.startsWith('-') || domain.endsWith('-') || domain.includes('..')) return false;
+  const tld = domain.split('.').pop();
+  return tld.length >= 2;
+};
+
+// Password validation criteria
+const validatePassword = (password) => {
+  return {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  };
+};
+
 const InvestorOnboarding = () => {
-  const { join } = useContext(AuthContext);
+  const { join, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [showPasswordReqs, setShowPasswordReqs] = useState(false);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   // Step 1: Account
   const [accountData, setAccountData] = useState({
@@ -33,7 +68,7 @@ const InvestorOnboarding = () => {
     confirmPassword: "",
   });
 
-  // Email Verification
+  // Email Verification (keeping for compatibility, but using OTP now)
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationSent, setVerificationSent] = useState(false);
 
@@ -94,29 +129,67 @@ const InvestorOnboarding = () => {
   const handleAccountCreation = async (e) => {
     e.preventDefault();
     setError("");
+    setEmailError("");
+    
+    // Trim and sanitize email
+    const sanitizedEmail = accountData.email.trim().toLowerCase();
+    
+    // Validate email
+    if (!isValidEmail(sanitizedEmail)) {
+      setEmailError("Please enter a valid email address (e.g., user@example.com)");
+      return;
+    }
+    
+    // Validate password
+    const passwordCheck = validatePassword(accountData.password);
+    if (!Object.values(passwordCheck).every(Boolean)) {
+      setError("Password does not meet all requirements");
+      return;
+    }
+    
+    // Check password confirmation
     if (accountData.password !== accountData.confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-    if (accountData.password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
+    
     setLoading(true);
     try {
-      await join({
+      const response = await join({
         name: accountData.name,
-        email: accountData.email,
+        email: sanitizedEmail,
         password: accountData.password,
         role: "investor",
       });
-      await api.post("/onboarding/send-verification");
-      setVerificationSent(true);
+      
+      // Check if OTP verification is required
+      if (response?.requiresVerification) {
+        setUserEmail(sanitizedEmail);
+        setShowOTPVerification(true);
+      } else if (response?.token) {
+        // Direct login (shouldn't happen with new flow)
+        setCurrentStep(2);
+      }
+      
+      setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOTPSuccess = (userData) => {
+    // Update auth context with user data
+    setUser(userData);
+    setShowOTPVerification(false);
+    // Move to next step
+    setCurrentStep(2);
+  };
+
+  const handleBackToSignup = () => {
+    setShowOTPVerification(false);
+    setUserEmail("");
   };
 
   const handleEmailVerification = async (e) => {
@@ -215,18 +288,28 @@ const InvestorOnboarding = () => {
     </button>
   );
 
+  // Show OTP verification screen if needed
+  if (showOTPVerification) {
+    return (
+      <OTPVerification 
+        email={userEmail} 
+        onSuccess={handleOTPSuccess} 
+        onBack={handleBackToSignup}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8faff] via-white to-[#f0f4ff] flex items-center justify-center p-4">
       <div className="w-full max-w-lg">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2.5 mb-3">
-            <div className="w-9 h-9 bg-[#1e3a5f] rounded-xl flex items-center justify-center">
-              <DollarSign size={18} className="text-white" />
+        <div className="text-center mb-3">
+          <div className="flex items-center justify-center mb-1">
+            <div className="w-20 h-20 bg-[#f8faff] rounded-xl flex items-center justify-center">
+              <Users className="text-black" size={40} strokeWidth={1.5} />
             </div>
-            <span className="text-xl font-black text-[#1e3a5f] tracking-tight">Ckript</span>
           </div>
-          <p className="text-gray-400 text-sm font-medium">Investor Onboarding</p>
+          <p className="text-sm text-gray-600">Investor Onboarding</p>
         </div>
 
         {/* Steps */}
@@ -298,20 +381,68 @@ const InvestorOnboarding = () => {
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-4">
                       <div>
                         <label className={labelClass}>Password</label>
                         <div className="relative">
                           <Lock size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
                           <input
                             type="password"
-                            placeholder="Min. 6 chars"
+                            placeholder="Min. 8 chars"
                             value={accountData.password}
-                            onChange={(e) => setAccountData({ ...accountData, password: e.target.value })}
+                            onChange={(e) => {
+                              setAccountData({ ...accountData, password: e.target.value });
+                              if (!showPasswordReqs) setShowPasswordReqs(true);
+                            }}
+                            onFocus={() => setShowPasswordReqs(true)}
                             className={`${inputClass} pl-10`}
                             required
                           />
                         </div>
+                        {showPasswordReqs && (
+                          <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="text-[11px] font-semibold text-gray-600 mb-2">Password Requirements:</p>
+                            <div className="space-y-1">
+                              {(() => {
+                                const validation = validatePassword(accountData.password);
+                                return (
+                                  <>
+                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.length ? 'text-green-600' : 'text-gray-500'}`}>
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.length ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                                      </svg>
+                                      At least 8 characters
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.uppercase ? 'text-green-600' : 'text-gray-500'}`}>
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.uppercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                                      </svg>
+                                      One uppercase letter (A-Z)
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.lowercase ? 'text-green-600' : 'text-gray-500'}`}>
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.lowercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                                      </svg>
+                                      One lowercase letter (a-z)
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.number ? 'text-green-600' : 'text-gray-500'}`}>
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.number ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                                      </svg>
+                                      One number (0-9)
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.special ? 'text-green-600' : 'text-gray-500'}`}>
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.special ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
+                                      </svg>
+                                      One special character (!@#$%^&*)
+                                    </div>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className={labelClass}>Confirm</label>
@@ -328,6 +459,13 @@ const InvestorOnboarding = () => {
                         </div>
                       </div>
                     </div>
+
+                    {emailError && (
+                      <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
+                        <AlertCircle size={15} className="text-red-400 shrink-0" />
+                        <p className="text-sm font-semibold text-red-600">{emailError}</p>
+                      </div>
+                    )}
 
                     {error && (
                       <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">

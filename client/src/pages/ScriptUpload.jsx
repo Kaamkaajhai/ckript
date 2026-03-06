@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { useDarkMode } from "../context/DarkModeContext";
+import AiWritingAssistant from "../components/AiWritingAssistant";
 
 // Format options
 const formats = [
@@ -50,11 +52,11 @@ const settingOptions = [
   "Prison", "Hospital", "School/College", "Military Base"
 ];
 
-// Service pricing
+// Service pricing (in credits)
 const SERVICE_PRICES = {
-  hosting: 30, // Monthly
-  evaluation: 100, // One-time
-  aiTrailer: 75, // One-time
+  hosting: 0, // Free
+  evaluation: 10, // 10 credits for AI evaluation
+  aiTrailer: 15, // 15 credits for AI trailer
 };
 
 // Legal agreement text (placeholder - replace with actual legal text)
@@ -96,6 +98,7 @@ Last Updated: ${new Date().toLocaleDateString()}
 
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
+  const { isDarkMode } = useDarkMode();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
@@ -110,8 +113,16 @@ const ScriptUpload = () => {
   const [textContent, setTextContent] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
+  const [creditsBalance, setCreditsBalance] = useState(0);
   const agreementRef = useRef(null);
   const fileInputRef = useRef(null);
+  const thumbnailInputRef = useRef(null);
+  const trailerInputRef = useRef(null);
+
+  // Thumbnail and Trailer states
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [trailerFile, setTrailerFile] = useState(null);
+  const [trailerOption, setTrailerOption] = useState("none"); // "none", "ai", "upload"
 
   // Form data
   const [formData, setFormData] = useState({
@@ -144,6 +155,21 @@ const ScriptUpload = () => {
 
   // Tags as comma-separated input
   const [tagsInput, setTagsInput] = useState("");
+
+  // Fetch credits balance on mount
+  useEffect(() => {
+    const fetchCreditsBalance = async () => {
+      try {
+        const { data } = await api.get("/credits/balance");
+        setCreditsBalance(data.balance || 0);
+      } catch {
+        setCreditsBalance(0);
+      }
+    };
+    if (user) {
+      fetchCreditsBalance();
+    }
+  }, [user]);
 
   // Load existing published script when entering edit mode
   useEffect(() => {
@@ -306,6 +332,51 @@ const ScriptUpload = () => {
     e.preventDefault();
   };
 
+  // Handle thumbnail selection
+  const handleThumbnailSelect = (file) => {
+    if (!file) return;
+    
+    console.log("Thumbnail file selected:", file.name, file.type, file.size);
+    
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a valid image file (JPEG, PNG, WebP, or GIF).");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Thumbnail file size must be less than 5MB.");
+      return;
+    }
+
+    setThumbnailFile(file);
+    setError("");
+    console.log("Thumbnail file set successfully");
+  };
+
+  // Handle trailer selection
+  const handleTrailerSelect = (file) => {
+    if (!file) return;
+    
+    console.log("Trailer file selected:", file.name, file.type, file.size);
+    
+    const allowedTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/webm"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a valid video file (MP4, MPEG, MOV, or WebM).");
+      return;
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      setError("Trailer file size must be less than 100MB.");
+      return;
+    }
+
+    setTrailerFile(file);
+    setTrailerOption("upload");
+    setError("");
+    console.log("Trailer file set successfully, trailerOption set to 'upload'");
+  };
+
   // Handle agreement scroll
   useEffect(() => {
     if (step !== 5) return;
@@ -340,7 +411,7 @@ const ScriptUpload = () => {
     let total = 0;
     if (services.hosting) total += SERVICE_PRICES.hosting;
     if (services.evaluation) total += SERVICE_PRICES.evaluation;
-    if (services.aiTrailer) total += SERVICE_PRICES.aiTrailer;
+    if (trailerOption === "ai") total += SERVICE_PRICES.aiTrailer; // Use trailerOption instead
     return total;
   };
 
@@ -460,6 +531,18 @@ const ScriptUpload = () => {
 
     if (!validateStep(5)) return;
 
+    // Check credits before submitting
+    const creditsNeeded = calculateTotal();
+    if (creditsNeeded > creditsBalance) {
+      setError(`Insufficient credits. You need ${creditsNeeded} credits but have ${creditsBalance}. Please purchase more credits.`);
+      return;
+    }
+
+    console.log("Starting script submission...");
+    console.log("Thumbnail file:", thumbnailFile ? thumbnailFile.name : "none");
+    console.log("Trailer file:", trailerFile ? trailerFile.name : "none");
+    console.log("Trailer option:", trailerOption);
+
     setLoading(true);
 
     try {
@@ -487,7 +570,7 @@ const ScriptUpload = () => {
         services: {
           hosting: services.hosting,
           evaluation: services.evaluation,
-          aiTrailer: services.aiTrailer,
+          aiTrailer: trailerOption === "ai", // Only set if user chose AI trailer
         },
         legal: {
           agreedToTerms: legal.agreedToTerms,
@@ -499,9 +582,80 @@ const ScriptUpload = () => {
 
       if (editId) {
         await api.put(`/scripts/${editId}`, payload);
+        
+        // Upload thumbnail if provided
+        if (thumbnailFile) {
+          try {
+            console.log("Uploading thumbnail for script:", editId);
+            const thumbnailFormData = new FormData();
+            thumbnailFormData.append("thumbnail", thumbnailFile);
+            const thumbResponse = await api.post(`/scripts/${editId}/upload-thumbnail`, thumbnailFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Thumbnail uploaded successfully:", thumbResponse.data);
+          } catch (thumbError) {
+            console.error("Thumbnail upload failed:", thumbError);
+            setError(`Script updated but thumbnail upload failed: ${thumbError.response?.data?.message || thumbError.message}`);
+          }
+        }
+
+        // Upload trailer if provided (free)
+        if (trailerFile && trailerOption === "upload") {
+          try {
+            console.log("Uploading trailer for script:", editId);
+            const trailerFormData = new FormData();
+            trailerFormData.append("trailer", trailerFile);
+            const trailerResponse = await api.post(`/scripts/${editId}/upload-trailer`, trailerFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Trailer uploaded successfully:", trailerResponse.data);
+          } catch (trailerError) {
+            console.error("Trailer upload failed:", trailerError);
+            setError(`Script updated but trailer upload failed: ${trailerError.response?.data?.message || trailerError.message}`);
+          }
+        }
+
         navigate(`/script/${editId}`);
       } else {
-        await api.post("/scripts/upload", payload);
+        const response = await api.post("/scripts/upload", payload);
+        const newScriptId = response.data._id;
+        console.log("Script created with ID:", newScriptId);
+        
+        // Upload thumbnail if provided
+        if (thumbnailFile) {
+          try {
+            console.log("Uploading thumbnail for new script:", newScriptId);
+            const thumbnailFormData = new FormData();
+            thumbnailFormData.append("thumbnail", thumbnailFile);
+            const thumbResponse = await api.post(`/scripts/${newScriptId}/upload-thumbnail`, thumbnailFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Thumbnail uploaded successfully:", thumbResponse.data);
+          } catch (thumbError) {
+            console.error("Thumbnail upload failed:", thumbError);
+            setError(`Script created but thumbnail upload failed: ${thumbError.response?.data?.message || thumbError.message}`);
+          }
+        }
+
+        // Upload trailer if provided (free)
+        if (trailerFile && trailerOption === "upload") {
+          try {
+            console.log("Uploading trailer for new script:", newScriptId);
+            const trailerFormData = new FormData();
+            trailerFormData.append("trailer", trailerFile);
+            const trailerResponse = await api.post(`/scripts/${newScriptId}/upload-trailer`, trailerFormData, {
+              headers: { "Content-Type": "multipart/form-data" }
+            });
+            console.log("Trailer uploaded successfully:", trailerResponse.data);
+          } catch (trailerError) {
+            console.error("Trailer upload failed:", trailerError);
+            setError(`Script created but trailer upload failed: ${trailerError.response?.data?.message || trailerError.message}`);
+          }
+        }
+
+        // Refresh credits balance after successful upload
+        const { data: creditsData } = await api.get("/credits/balance");
+        setCreditsBalance(creditsData.balance || 0);
         // Delete the draft now that it's published
         if (scriptId) {
           try { await api.delete(`/scripts/${scriptId}`); } catch { /* ok */ }
@@ -509,7 +663,16 @@ const ScriptUpload = () => {
         navigate("/dashboard");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to upload script. Please try again.");
+      const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
+      setError(errorMsg);
+
+      // If insufficient credits error, refresh balance
+      if (err.response?.data?.requiresCredits) {
+        try {
+          const { data: creditsData } = await api.get("/credits/balance");
+          setCreditsBalance(creditsData.balance || 0);
+        } catch { /* ignore */ }
+      }
     } finally {
       setLoading(false);
     }
@@ -528,21 +691,23 @@ const ScriptUpload = () => {
     );
   }
 
-  const inputCls = "w-full p-2.5 border border-white/[0.08] rounded-xl text-sm text-white bg-white/[0.04] placeholder-neutral-600 focus:ring-2 focus:ring-white/30 focus:border-transparent transition";
+  const inputCls = isDarkMode
+    ? "w-full p-2.5 border border-white/[0.08] rounded-xl text-sm text-white bg-white/[0.04] placeholder-neutral-600 focus:ring-2 focus:ring-white/30 focus:border-transparent transition"
+    : "w-full p-2.5 border border-gray-200 rounded-xl text-sm text-[#1e3a5f] bg-white placeholder-gray-400 focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f]/50 transition";
   const chipCls = (selected) =>
     `px-4 py-2 rounded-full text-sm font-medium transition cursor-pointer ${selected
-      ? "bg-white text-black"
-      : "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]"
+      ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+      : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
     }`;
+  const labelCls = isDarkMode ? "text-white" : "text-[#1e3a5f]";
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <span className="text-3xl">🎬</span>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">{editId ? "Edit Your Project" : "Add Your Project"}</h1>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>{editId ? "Edit Your Project" : "Add Your Project"}</h1>
             <p className="text-sm text-neutral-500">{editId ? "Update your script details and republish" : "Complete the 5-step wizard to publish your script"}</p>
           </div>
         </div>
@@ -572,7 +737,7 @@ const ScriptUpload = () => {
         </p>
 
         {/* Main form container */}
-        <div className="bg-[#0d1829] rounded-2xl border border-white/[0.06] p-6 sm:p-8">
+        <div className={`rounded-2xl border p-6 sm:p-8 ${isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200 shadow-sm"}`}>
           {error && (
             <div className="mb-5 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm">
               {error}
@@ -591,7 +756,7 @@ const ScriptUpload = () => {
                   className="space-y-5"
                 >
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Title *
                     </label>
                     <input
@@ -607,7 +772,7 @@ const ScriptUpload = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                         Format *
                       </label>
                       <select
@@ -626,7 +791,7 @@ const ScriptUpload = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                         Page Count *
                       </label>
                       <input
@@ -648,7 +813,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Primary Genre *
                     </label>
                     <select
@@ -668,7 +833,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Logline * <span className="text-neutral-500">(Max 300 characters)</span>
                     </label>
                     <textarea
@@ -687,7 +852,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Description <span className="text-neutral-500">(shown on your project page)</span>
                     </label>
                     <textarea
@@ -701,7 +866,7 @@ const ScriptUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-1.5">
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Tags <span className="text-neutral-500">(comma-separated)</span>
                     </label>
                     <input
@@ -740,7 +905,7 @@ const ScriptUpload = () => {
 
                   {/* Tones */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Tone ({classification.tones.length}/3)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -759,7 +924,7 @@ const ScriptUpload = () => {
 
                   {/* Themes */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Theme ({classification.themes.length}/3)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -778,7 +943,7 @@ const ScriptUpload = () => {
 
                   {/* Settings */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Setting ({classification.settings.length}/3)
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -825,7 +990,7 @@ const ScriptUpload = () => {
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm text-neutral-300 font-medium">
+                      <label className={`block text-sm ${labelCls} font-medium`}>
                         Script File (PDF) & Editor *
                       </label>
                       {!fromDraft && (
@@ -865,7 +1030,7 @@ const ScriptUpload = () => {
                         className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isExtracting ? 'border-blue-500/20 bg-blue-500/10 cursor-wait' : 'border-white/[0.12] cursor-pointer hover:border-white'}`}
                       >
                         <div className="text-3xl mb-2">{isExtracting ? "⏳" : "📄"}</div>
-                        <p className="text-sm font-medium text-neutral-300 mb-1">
+                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
                           {isExtracting ? "Extracting text from PDF..." : "Drag & drop your PDF here to auto-fill editor"}
                         </p>
                         <p className="text-xs text-neutral-500">{isExtracting ? "Please wait..." : "or click to browse"}</p>
@@ -919,30 +1084,218 @@ const ScriptUpload = () => {
                       </div>
                     )}
 
-                    {/* The Text Editor */}
-                    <div className="mt-6">
-                      <label className="block text-sm text-neutral-300 font-medium mb-2 flex items-center justify-between">
-                        <span>Screenplay Editor</span>
-                        {textContent.trim() && (
-                          <span className="text-xs font-mono text-neutral-500 bg-white/[0.08] px-2 py-0.5 rounded">
-                            {textContent.trim().split(/\s+/).length} words
-                          </span>
-                        )}
-                      </label>
-                      <div className="relative border border-white/[0.08] rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-white/30 focus-within:border-transparent transition-all">
-                        <textarea
-                          value={textContent}
-                          onChange={(e) => setTextContent(e.target.value)}
-                          placeholder="Write your story here or upload a PDF above to extract text..."
-                          className="w-full h-[500px] p-6 font-mono text-[13px] leading-relaxed text-white bg-white/[0.04] resize-none outline-none whitespace-pre-wrap"
-                          style={{ fontFamily: "'Courier Prime', 'Courier New', Courier, monospace" }}
-                          spellCheck="false"
+                    {/* ── AI Writing Assistant + Script Editor ── */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-sm text-neutral-300 font-medium">
+                          Script Editor
+                        </label>
+                        <AiWritingAssistant
+                          textContent={textContent}
+                          onApply={(newText) => setTextContent(newText)}
+                          isDarkMode={isDarkMode}
                         />
                       </div>
-                      <p className="text-xs text-neutral-500 mt-2 text-center">
-                        Edit extracted text or write from scratch. Use standard screenplay formatting.
-                      </p>
+                      <textarea
+                        value={textContent}
+                        onChange={(e) => setTextContent(e.target.value)}
+                        rows={18}
+                        placeholder="Paste or write your script here... then use the AI Assistant above to improve it instantly."
+                        className="w-full p-4 bg-white/[0.03] border border-white/[0.1] rounded-xl text-sm text-neutral-200 placeholder-neutral-600 focus:ring-2 focus:ring-purple-500/30 focus:border-transparent transition font-mono leading-relaxed resize-y"
+                      />
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-[10px] text-neutral-600">
+                          {textContent.length > 0
+                            ? `${textContent.split(/\s+/).filter(Boolean).length} words · ${textContent.length} chars`
+                            : "Start writing or upload a PDF above"}
+                        </p>
+                        <p className="text-[10px] text-purple-400/60">
+                          🤖 Use AI Assistant to improve, polish & professionalize your script
+                        </p>
+                      </div>
                     </div>
+
+                  </div>
+
+                  {/* ── Thumbnail Upload ── */}
+                  <div>
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
+                      Script Thumbnail (Optional)
+                    </label>
+                    <p className="text-xs text-neutral-500 mb-3">
+                      Upload a cover image for your script. This will be displayed on your script card.
+                    </p>
+                    
+                    {!thumbnailFile ? (
+                      <div
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        className="border-2 border-dashed border-white/[0.12] rounded-xl p-6 text-center cursor-pointer hover:border-white transition"
+                      >
+                        <div className="text-3xl mb-2">🖼️</div>
+                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
+                          Upload Thumbnail Image
+                        </p>
+                        <p className="text-xs text-neutral-500">JPEG, PNG, WebP, or GIF (Max 5MB)</p>
+                        <input
+                          ref={thumbnailInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          onChange={(e) => handleThumbnailSelect(e.target.files[0])}
+                          className="hidden"
+                        />
+                      </div>
+                    ) : (
+                      <div className="border border-green-500/20 rounded-xl p-3 bg-green-500/10">
+                        <div className="flex items-center gap-3">
+                          <img 
+                            src={URL.createObjectURL(thumbnailFile)} 
+                            alt="Thumbnail preview" 
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-green-400">
+                              {thumbnailFile.name}
+                            </p>
+                            <p className="text-xs text-green-400">
+                              {(thumbnailFile.size / 1024).toFixed(2)} KB
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setThumbnailFile(null)}
+                            className="text-red-400 hover:text-red-400 text-sm font-bold px-2 py-1 bg-white/[0.08] rounded-md border border-red-500/20"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Trailer Upload or AI Generation ── */}
+                  <div>
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
+                      Trailer (Optional)
+                    </label>
+                    <p className="text-xs text-neutral-500 mb-3">
+                      Choose to upload your own trailer (FREE) or generate one with AI (costs credits in next step).
+                    </p>
+                    
+                    {/* Hidden file input - always rendered so ref works */}
+                    <input
+                      ref={trailerInputRef}
+                      type="file"
+                      accept="video/mp4,video/mpeg,video/quicktime,video/webm"
+                      onChange={(e) => handleTrailerSelect(e.target.files[0])}
+                      className="hidden"
+                    />
+                    
+                    {/* Trailer Options */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTrailerOption("none");
+                          setTrailerFile(null);
+                        }}
+                        className={`p-3 rounded-xl text-sm font-medium transition ${
+                          trailerOption === "none"
+                            ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+                            : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">🚫</div>
+                        No Trailer
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => trailerInputRef.current?.click()}
+                        className={`p-3 rounded-xl text-sm font-medium transition ${
+                          trailerOption === "upload"
+                            ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+                            : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">📤</div>
+                        Upload (FREE)
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTrailerOption("ai");
+                          setTrailerFile(null);
+                        }}
+                        className={`p-3 rounded-xl text-sm font-medium transition relative ${
+                          trailerOption === "ai"
+                            ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
+                            : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">🤖</div>
+                        AI Generate
+                        <span className="absolute top-1 right-1 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                          {SERVICE_PRICES.aiTrailer} credits
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Trailer File Upload Prompt */}
+                    {trailerOption === "upload" && !trailerFile && (
+                      <div
+                        onClick={() => trailerInputRef.current?.click()}
+                        className="border-2 border-dashed border-white/[0.12] rounded-xl p-6 text-center cursor-pointer hover:border-white transition"
+                      >
+                        <div className="text-3xl mb-2">🎬</div>
+                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
+                          Click to Upload Your Trailer Video
+                        </p>
+                        <p className="text-xs text-neutral-500">MP4, MPEG, MOV, or WebM (Max 100MB)</p>
+                      </div>
+                    )}
+
+                    {trailerFile && trailerOption === "upload" && (
+                      <div className="border border-green-500/20 rounded-xl p-3 bg-green-500/10">
+                        <div className="flex items-center gap-3">
+                          <div className="text-3xl">✅</div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-green-400">
+                              {trailerFile.name}
+                            </p>
+                            <p className="text-xs text-green-400">
+                              {(trailerFile.size / 1024 / 1024).toFixed(2)} MB - Will be uploaded for FREE
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTrailerFile(null);
+                              setTrailerOption("none");
+                            }}
+                            className="text-red-400 hover:text-red-400 text-sm font-bold px-2 py-1 bg-white/[0.08] rounded-md border border-red-500/20"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {trailerOption === "ai" && (
+                      <div className="border border-blue-500/20 rounded-xl p-4 bg-blue-500/10">
+                        <div className="flex items-center gap-3">
+                          <div className="text-3xl">🤖</div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-blue-400">
+                              AI Trailer Generation Selected
+                            </p>
+                            <p className="text-xs text-neutral-400">
+                              {SERVICE_PRICES.aiTrailer} credits will be charged in the next step. Ready within 2 business days.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-3 justify-between pt-2">
@@ -977,12 +1330,12 @@ const ScriptUpload = () => {
                     Select the services you'd like to include with your project.
                   </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Hosting Card */}
                     <div
                       className={`border-2 rounded-xl p-5 cursor-pointer transition ${services.hosting
-                          ? "border-white bg-white/[0.08]"
-                          : "border-white/[0.08] hover:border-white/[0.12]"
+                        ? "border-white bg-white/[0.08]"
+                        : "border-white/[0.08] hover:border-white/[0.12]"
                         }`}
                       onClick={() => {
                         // Hosting is required, so we don't allow toggling off
@@ -991,9 +1344,8 @@ const ScriptUpload = () => {
                     >
                       <div className="text-3xl mb-3">☁️</div>
                       <h3 className="font-semibold text-white mb-1">Hosting</h3>
-                      <p className="text-2xl font-bold text-white mb-2">
-                        ${SERVICE_PRICES.hosting}
-                        <span className="text-sm font-normal text-neutral-500">/mo</span>
+                      <p className="text-2xl font-bold text-green-400 mb-2">
+                        FREE
                       </p>
                       <p className="text-xs text-neutral-400 mb-3">
                         Required to be searchable by industry professionals.
@@ -1005,15 +1357,15 @@ const ScriptUpload = () => {
                           readOnly
                           className="w-4 h-4 text-white rounded"
                         />
-                        <span className="text-xs text-neutral-300">Selected (Required)</span>
+                        <span className={`text-xs ${labelCls}`}>Selected (Required)</span>
                       </div>
                     </div>
 
                     {/* Evaluation Card */}
                     <div
                       className={`border-2 rounded-xl p-5 cursor-pointer transition ${services.evaluation
-                          ? "border-white bg-white/[0.08]"
-                          : "border-white/[0.08] hover:border-white/[0.12]"
+                        ? "border-white bg-white/[0.08]"
+                        : "border-white/[0.08] hover:border-white/[0.12]"
                         }`}
                       onClick={() =>
                         setServices({ ...services, evaluation: !services.evaluation })
@@ -1024,8 +1376,7 @@ const ScriptUpload = () => {
                         Professional Evaluation
                       </h3>
                       <p className="text-2xl font-bold text-white mb-2">
-                        ${SERVICE_PRICES.evaluation}
-                        <span className="text-sm font-normal text-neutral-500"> one-time</span>
+                        {SERVICE_PRICES.evaluation} credits
                       </p>
                       <p className="text-xs text-neutral-400 mb-3">
                         Get a scorecard and written feedback from a vetted reader.
@@ -1037,71 +1388,74 @@ const ScriptUpload = () => {
                           readOnly
                           className="w-4 h-4 text-white rounded"
                         />
-                        <span className="text-xs text-neutral-300">
+                        <span className={`text-xs ${labelCls}`}>
                           {services.evaluation ? "Selected" : "Optional"}
                         </span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* AI Trailer Card */}
-                    <div
-                      className={`border-2 rounded-xl p-5 cursor-pointer transition relative ${services.aiTrailer
-                          ? "border-white bg-white/[0.08]"
-                          : "border-white/[0.08] hover:border-white/[0.12]"
-                        }`}
-                      onClick={() =>
-                        setServices({ ...services, aiTrailer: !services.aiTrailer })
-                      }
-                    >
-                      <div className="absolute top-2 right-2">
-                        <span className="bg-amber-500/100 text-white text-xs font-bold px-2 py-0.5 rounded">
-                          BETA
-                        </span>
+                  {/* Trailer Selection Display */}
+                  <div className="bg-white/[0.04] rounded-xl p-4 mt-4 border border-white/[0.08]">
+                    <div className="flex items-center gap-3">
+                      <div className="text-3xl">
+                        {trailerOption === "none" && "🚫"}
+                        {trailerOption === "upload" && "📤"}
+                        {trailerOption === "ai" && "🤖"}
                       </div>
-                      <div className="text-3xl mb-3">🎬</div>
-                      <h3 className="font-semibold text-white mb-1">AI Concept Trailer</h3>
-                      <p className="text-2xl font-bold text-white mb-2">
-                        ${SERVICE_PRICES.aiTrailer}
-                        <span className="text-sm font-normal text-neutral-500"> one-time</span>
-                      </p>
-                      <p className="text-xs text-neutral-400 mb-3">
-                        Generate a 60-second cinematic teaser using AI voiceover & stock footage.
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={services.aiTrailer}
-                          readOnly
-                          className="w-4 h-4 text-white rounded"
-                        />
-                        <span className="text-xs text-neutral-300">
-                          {services.aiTrailer ? "Selected" : "Optional"}
-                        </span>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-white mb-1">Trailer Option</h3>
+                        {trailerOption === "none" && (
+                          <p className="text-sm text-neutral-400">No trailer selected</p>
+                        )}
+                        {trailerOption === "upload" && (
+                          <p className="text-sm text-green-400">
+                            {trailerFile ? `Uploaded: ${trailerFile.name}` : "Custom trailer to be uploaded"} (FREE)
+                          </p>
+                        )}
+                        {trailerOption === "ai" && (
+                          <p className="text-sm text-blue-400">
+                            AI Trailer Generation - {SERVICE_PRICES.aiTrailer} credits
+                          </p>
+                        )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setStep(3)}
+                        className="text-xs text-neutral-400 hover:text-white underline"
+                      >
+                        Change
+                      </button>
                     </div>
                   </div>
 
                   {/* Total Preview */}
                   <div className="bg-white/[0.04] rounded-xl p-4 mt-6">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-neutral-300">Total:</span>
+                      <span className={`text-sm font-medium ${labelCls}`}>Total Credits Required:</span>
                       <span className="text-2xl font-bold text-white">
-                        ${calculateTotal().toFixed(2)}
+                        {calculateTotal()} credits
                       </span>
                     </div>
                     <p className="text-xs text-neutral-500 mt-2">
                       {services.hosting && (
-                        <span>${SERVICE_PRICES.hosting}/mo hosting</span>
+                        <span>Hosting (FREE)</span>
                       )}
                       {services.evaluation && (
                         <span>
-                          {services.hosting ? " + " : ""}${SERVICE_PRICES.evaluation} evaluation
+                          {services.hosting ? " + " : ""}{SERVICE_PRICES.evaluation} credits evaluation
                         </span>
                       )}
-                      {services.aiTrailer && (
+                      {trailerOption === "ai" && (
                         <span>
                           {services.hosting || services.evaluation ? " + " : ""}
-                          ${SERVICE_PRICES.aiTrailer} AI trailer
+                          {SERVICE_PRICES.aiTrailer} credits AI trailer
+                        </span>
+                      )}
+                      {trailerOption === "upload" && trailerFile && (
+                        <span>
+                          {services.hosting || services.evaluation ? " + " : ""}
+                          Trailer upload (FREE)
                         </span>
                       )}
                     </p>
@@ -1135,14 +1489,30 @@ const ScriptUpload = () => {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-5"
                 >
+                  {/* Credits Balance Display */}
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-neutral-400">Your Credits Balance</p>
+                        <p className="text-2xl font-bold text-white">{creditsBalance} credits</p>
+                      </div>
+                      {calculateTotal() > creditsBalance && (
+                        <div className="text-right">
+                          <p className="text-sm text-red-400 font-medium">Insufficient credits</p>
+                          <p className="text-xs text-neutral-400">Need {calculateTotal() - creditsBalance} more</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Agreement */}
                   <div>
-                    <label className="block text-sm text-neutral-300 font-medium mb-2">
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Submission Release Agreement *
                     </label>
                     <div
                       ref={agreementRef}
-                      className="border border-white/[0.08] rounded-xl p-4 h-64 overflow-y-auto text-xs text-neutral-300 leading-relaxed"
+                      className={`rounded-xl p-4 h-64 overflow-y-auto text-xs leading-relaxed ${isDarkMode ? "border border-white/[0.08] text-neutral-300" : "border border-gray-200 text-[#1e3a5f]"}`}
                     >
                       <pre className="whitespace-pre-wrap font-sans">{LEGAL_AGREEMENT}</pre>
                     </div>
@@ -1167,7 +1537,7 @@ const ScriptUpload = () => {
                     />
                     <label
                       htmlFor="agreeTerms"
-                      className={`text-sm ${agreementScrolled ? "text-neutral-300" : "text-neutral-500"
+                      className={`text-sm ${agreementScrolled ? labelCls : "text-neutral-500"
                         }`}
                     >
                       I have read and agree to the Submission Release Agreement
@@ -1182,26 +1552,26 @@ const ScriptUpload = () => {
                     <div className="space-y-2 text-sm">
                       {services.hosting && (
                         <div className="flex justify-between">
-                          <span className="text-neutral-400">Hosting (Monthly)</span>
-                          <span className="font-medium">${SERVICE_PRICES.hosting}.00</span>
+                          <span className="text-neutral-400">Hosting & Discovery</span>
+                          <span className="font-medium text-green-400">FREE</span>
                         </div>
                       )}
                       {services.evaluation && (
                         <div className="flex justify-between">
                           <span className="text-neutral-400">Professional Evaluation</span>
-                          <span className="font-medium">${SERVICE_PRICES.evaluation}.00</span>
+                          <span className="font-medium">{SERVICE_PRICES.evaluation} credits</span>
                         </div>
                       )}
                       {services.aiTrailer && (
                         <div className="flex justify-between">
                           <span className="text-neutral-400">AI Concept Trailer</span>
-                          <span className="font-medium">${SERVICE_PRICES.aiTrailer}.00</span>
+                          <span className="font-medium">{SERVICE_PRICES.aiTrailer} credits</span>
                         </div>
                       )}
                       <div className="border-t border-white/[0.08] pt-2 mt-2 flex justify-between">
-                        <span className="font-semibold text-white">Total</span>
+                        <span className="font-semibold text-white">Total Credits</span>
                         <span className="text-xl font-bold text-white">
-                          ${calculateTotal().toFixed(2)}
+                          {calculateTotal()} credits
                         </span>
                       </div>
                     </div>
@@ -1220,7 +1590,7 @@ const ScriptUpload = () => {
                       disabled={loading || !legal.agreedToTerms}
                       className="flex-1 px-6 py-3 bg-white text-black rounded-xl text-sm font-semibold hover:bg-neutral-200 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl shadow-black/30"
                     >
-                      {loading ? "Processing..." : "💳 Pay & Publish"}
+                      {loading ? "Processing..." : "✨ Use Credits & Publish"}
                     </button>
                   </div>
                 </motion.div>

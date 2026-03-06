@@ -21,7 +21,8 @@ const scriptSchema = new mongoose.Schema({
   coverImage: { type: String },
   genre: { type: String },
   contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup"], default: "movie" },
-  status: { type: String, enum: ["draft", "published"], default: "published" },
+  status: { type: String, enum: ["draft", "published", "pending_approval", "rejected"], default: "draft" },
+  adminApproved: { type: Boolean, default: false },
 
   // Enhanced metadata for writer onboarding
   format: {
@@ -73,6 +74,9 @@ const scriptSchema = new mongoose.Schema({
   trailerUrl: { type: String },
   trailerThumbnail: { type: String },
   trailerStatus: { type: String, enum: ["none", "generating", "ready", "failed"], default: "none" },
+  // Uploaded Trailer (User uploaded, no credits required)
+  uploadedTrailerUrl: { type: String },
+  trailerSource: { type: String, enum: ["ai", "uploaded", "none"], default: "none" }, // Track trailer source
   // Script Score (Pro Analysis)
   scriptScore: {
     overall: { type: Number, min: 0, max: 100 },
@@ -82,6 +86,26 @@ const scriptSchema = new mongoose.Schema({
     pacing: { type: Number, min: 0, max: 100 },
     marketability: { type: Number, min: 0, max: 100 },
     feedback: { type: String },
+    strengths: [{ type: String }],
+    weaknesses: [{ type: String }],
+    improvements: [{ type: String }],
+    audienceFit: { type: String },
+    comparables: { type: String },
+    scoredAt: { type: Date },
+  },
+  // Platform Score (Admin-given scores)
+  platformScore: {
+    overall: { type: Number, min: 0, max: 100 },
+    content: { type: Number, min: 0, max: 100 },
+    trailer: { type: Number, min: 0, max: 100 },
+    title: { type: Number, min: 0, max: 100 },
+    synopsis: { type: Number, min: 0, max: 100 },
+    tags: { type: Number, min: 0, max: 100 },
+    feedback: { type: String },
+    strengths: { type: String },
+    weaknesses: { type: String },
+    prospects: { type: String },
+    scoredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     scoredAt: { type: Date },
   },
   // Talent Attachment - Roles
@@ -105,6 +129,8 @@ const scriptSchema = new mongoose.Schema({
   }],
   tags: [String],
   budget: { type: String, enum: ["micro", "low", "medium", "high", "blockbuster"] },
+  // Admin approval
+  rejectionReason: { type: String },
 }, { timestamps: true });
 
 export default mongoose.model("Script", scriptSchema);
