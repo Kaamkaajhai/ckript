@@ -38,6 +38,19 @@ export const AuthProvider = ({ children }) => {
     return !expiresAt || Date.now() >= expiresAt;
   };
 
+  // Decode JWT exp (seconds) into ms epoch; returns null for invalid tokens
+  const getTokenExpiryFromJwt = (token) => {
+    try {
+      const payload = token?.split(".")?.[1];
+      if (!payload) return null;
+      const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const decoded = JSON.parse(window.atob(normalized));
+      return decoded?.exp ? decoded.exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  };
+
   // On mount, restore session from localStorage and validate token
   useEffect(() => {
     const restoreSession = async () => {
@@ -45,29 +58,34 @@ export const AuthProvider = ({ children }) => {
       if (storedUser) {
         try {
           const parsed = JSON.parse(storedUser);
-          // Quick client-side expiry check before hitting the server
-          if (parsed?.expiresAt && isTokenExpired(parsed.expiresAt)) {
+          if (!parsed?.token) {
             localStorage.removeItem("user");
             setLoading(false);
             return;
           }
-          if (parsed?.token) {
-            // Validate token with backend
-            const { data } = await axios.get(`${API_URL}/auth/me`, {
-              headers: { Authorization: `Bearer ${parsed.token}` },
-            });
-            // Merge fresh user data with stored token & expiry
-            const refreshedUser = {
-              ...data,
-              token: parsed.token,
-              expiresAt: data.expiresAt || parsed.expiresAt,
-            };
-            setUser(refreshedUser);
-            localStorage.setItem("user", JSON.stringify(refreshedUser));
-            scheduleAutoLogout(refreshedUser.expiresAt);
-          } else {
+
+          const effectiveExpiry = parsed?.expiresAt || getTokenExpiryFromJwt(parsed.token);
+
+          // Quick client-side expiry check before hitting the server
+          if (!effectiveExpiry || isTokenExpired(effectiveExpiry)) {
             localStorage.removeItem("user");
+            setLoading(false);
+            return;
           }
+
+          // Validate token with backend
+          const { data } = await axios.get(`${API_URL}/auth/me`, {
+            headers: { Authorization: `Bearer ${parsed.token}` },
+          });
+          // Merge fresh user data with stored token & expiry
+          const refreshedUser = {
+            ...data,
+            token: parsed.token,
+            expiresAt: data.expiresAt || effectiveExpiry,
+          };
+          setUser(refreshedUser);
+          localStorage.setItem("user", JSON.stringify(refreshedUser));
+          scheduleAutoLogout(refreshedUser.expiresAt);
         } catch {
           // Token expired or invalid — clear session
           localStorage.removeItem("user");
