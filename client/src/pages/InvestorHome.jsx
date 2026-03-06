@@ -28,19 +28,6 @@ const Fade = ({ children, delay = 0, className = "" }) => (
 );
 
 /* ══════════════════════════════════════════════
-   STAT PILL — small metric in the hero bar
-══════════════════════════════════════════════ */
-const StatPill = ({ value, label, dark }) => (
-  <div className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border backdrop-blur-sm
-    ${dark ? "bg-white/[0.03] border-white/[0.06]" : "bg-white/70 border-gray-200/60 shadow-sm"}`}>
-    <span className={`text-base font-extrabold tabular-nums leading-none
-      ${dark ? "text-white" : "text-gray-900"}`}>{value}</span>
-    <span className={`text-[10px] font-semibold uppercase tracking-wider leading-none
-      ${dark ? "text-gray-500" : "text-gray-400"}`}>{label}</span>
-  </div>
-);
-
-/* ══════════════════════════════════════════════
    SECTION HEADER — label + count + "See all"
 ══════════════════════════════════════════════ */
 const SectionHead = ({ icon, title, count, sub, to, dark }) => (
@@ -358,47 +345,101 @@ const InvestorHome = () => {
     <div className={`min-h-screen ${bg} pb-28`}>
 
       {/* ═══════ HERO HEADER ═══════ */}
-      <div className={`relative overflow-hidden border-b
-        ${dark ? "border-white/[0.04]" : "border-gray-200/60"}`}>
-        {/* Ambient glow */}
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full blur-[100px] opacity-20"
-          style={{ background: dark ? "#1e40af" : "#93c5fd" }} />
-        <div className="absolute -bottom-20 -left-20 w-56 h-56 rounded-full blur-[80px] opacity-10"
-          style={{ background: dark ? "#3b82f6" : "#bfdbfe" }} />
+      <div className={`relative overflow-hidden
+        ${dark ? "border-b border-white/[0.05] bg-[#07101f]" : "border-b border-gray-200 bg-white"}`}>
 
-        <div className={`relative z-10 ${dark ? "bg-[#060e1d]/80" : "bg-white/80"} backdrop-blur-xl`}>
-          <div className="max-w-[1120px] mx-auto px-4 sm:px-6 pt-8 pb-6">
-            <Fade>
-              <p className={`text-[10px] font-extrabold uppercase tracking-[0.25em] mb-1.5
-                ${dark ? "text-blue-500/50" : "text-blue-600/40"}`}>{greeting}</p>
-              <h1 className={`text-[26px] sm:text-[32px] font-extrabold tracking-tight leading-none
-                ${dark ? "text-white" : "text-gray-900"}`}>
-                Welcome back,{" "}
-                <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                  {firstName}
-                </span>
-              </h1>
-              <p className={`text-[13px] mt-2 ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                Your personalised script feed — curated from your investment profile
-              </p>
+        {/* Solid top accent line */}
+        <div className={`absolute top-0 left-0 right-0 h-[3px] z-20
+          ${dark ? "bg-blue-600" : "bg-[#1e3a5f]"}`} />
+
+        <div className="relative z-10 max-w-[1120px] mx-auto px-4 sm:px-6 pt-10 pb-9">
+          <div className="flex items-start justify-between gap-8">
+
+            {/* LEFT — greeting, name, subtitle, genres, stats */}
+            <div className="flex-1 min-w-0">
+              <Fade>
+                {/* Greeting label */}
+                <p className={`text-[9px] font-extrabold uppercase tracking-[0.3em] mb-4
+                  ${dark ? "text-blue-500" : "text-[#1e3a5f]"}`}>{greeting}</p>
+
+                {/* Main heading */}
+                <h1 className={`text-[28px] sm:text-[38px] font-extrabold tracking-[-0.02em] leading-[1.1]
+                  ${dark ? "text-white" : "text-gray-900"}`}>
+                  Welcome back,{" "}
+                  <span className={dark ? "text-blue-400" : "text-[#1e3a5f]"}>{firstName}.</span>
+                </h1>
+
+                {/* Subtitle */}
+                <p className={`text-[13px] mt-2.5 leading-relaxed
+                  ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                  {feed?.detectedGenres?.length > 0
+                    ? "Your investment feed, personalised by mandate profile."
+                    : "Complete your mandate profile to receive personalised script recommendations."}
+                </p>
+              </Fade>
+
+              {/* Genre chips */}
+              {!loading && feed?.detectedGenres?.length > 0 && (
+                <Fade delay={0.08}>
+                  <div className="flex items-center gap-1.5 mt-5 flex-wrap">
+                    <span className={`text-[8px] font-extrabold uppercase tracking-[0.28em] mr-2
+                      ${dark ? "text-gray-600" : "text-gray-400"}`}>Focus</span>
+                    {feed.detectedGenres.map((g) => (
+                      <span key={g}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border leading-none
+                          ${dark
+                            ? "bg-white/[0.04] border-white/[0.09] text-gray-200"
+                            : "bg-gray-50 border-gray-200 text-gray-700"}`}>
+                        <span className={`w-3.5 h-3.5 shrink-0 inline-flex items-center justify-center ${dark ? "text-gray-400" : "text-gray-500"}`}>
+                          {getGenreIcon(g)}
+                        </span>
+                        <span className="capitalize leading-none">{g}</span>
+                      </span>
+                    ))}
+                    <Link to="/mandates"
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors
+                        ${dark
+                          ? "border-white/[0.07] text-gray-500 hover:text-gray-200 hover:border-white/[0.14]"
+                          : "border-gray-200 text-gray-400 hover:text-gray-600 hover:border-gray-300"}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                      </svg>
+                      Edit
+                    </Link>
+                  </div>
+                </Fade>
+              )}
+
+
+            </div>
+
+            {/* RIGHT — avatar card (desktop only) */}
+            <Fade delay={0.05}>
+              <div className="hidden md:flex flex-col items-end gap-3 shrink-0 pt-1">
+                {/* Avatar */}
+                <div className="relative">
+                  <div className={`w-[52px] h-[52px] rounded-2xl flex items-center justify-center
+                    text-[20px] font-extrabold select-none
+                    ${dark ? "bg-white/[0.06] text-white border border-white/[0.1]" : "bg-[#1e3a5f] text-white"}`}>
+                    {firstName.charAt(0).toUpperCase()}
+                  </div>
+                  <span className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500
+                    border-2 ${dark ? "border-[#07101f]" : "border-white"}`} />
+                </div>
+
+                {/* Role badge */}
+                <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[9px] font-bold uppercase tracking-[0.18em]
+                  ${dark
+                    ? "bg-white/[0.03] border-white/[0.07] text-gray-500"
+                    : "bg-gray-50 border-gray-200 text-gray-500"}`}>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                  </svg>
+                  Investor
+                </div>
+              </div>
             </Fade>
 
-            {/* Stats row */}
-            {!loading && !isEmpty && (
-              <Fade delay={0.1}>
-                <div className="flex items-center gap-2.5 mt-5 flex-wrap">
-                  {genres.length > 0 && (
-                    <StatPill value={genres.length} label={genres.length === 1 ? "genre" : "genres matched"} dark={dark} />
-                  )}
-                  {totalScripts > 0 && (
-                    <StatPill value={totalScripts} label="scripts" dark={dark} />
-                  )}
-                  {newRel.length > 0 && (
-                    <StatPill value={newRel.length} label="new this month" dark={dark} />
-                  )}
-                </div>
-              </Fade>
-            )}
           </div>
         </div>
       </div>
@@ -428,7 +469,7 @@ const InvestorHome = () => {
               {genres.map(({ genre, scripts }, idx) => (
                 <Fade key={genre} delay={0.05 + idx * 0.06}>
                   <SectionHead
-                    icon={gEmoji(genre)}
+                    icon={getGenreIcon(genre)}
                     title={genre}
                     count={scripts.length}
                     sub={idx === 0 ? "Best match from your profile" : null}
@@ -445,7 +486,13 @@ const InvestorHome = () => {
               {/* ── Trending ── */}
               {trending.length > 0 && (
                 <Fade delay={0.15}>
-                  <SectionHead icon="📈" title="Trending Now" count={trending.length}
+                  <SectionHead
+                    icon={
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                        <path d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
+                      </svg>
+                    }
+                    title="Trending Now" count={trending.length}
                     sub="Most viewed & unlocked this month" to="/search" dark={dark} />
                   <HRow>
                     {trending.map((s, i) => (
@@ -459,7 +506,13 @@ const InvestorHome = () => {
               {/* ── New Releases ── */}
               {newRel.length > 0 && (
                 <Fade delay={0.2}>
-                  <SectionHead icon="🆕" title="New Releases" count={newRel.length}
+                  <SectionHead
+                    icon={
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                        <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                      </svg>
+                    }
+                    title="New Releases" count={newRel.length}
                     sub="Uploaded in the last 30 days" to="/search" dark={dark} />
                   <HRow>
                     {newRel.map((s, i) => <ScriptPoster key={s._id} script={s} idx={i} dark={dark} />)}
@@ -471,7 +524,13 @@ const InvestorHome = () => {
               {/* ── Explore ── */}
               {explore.length > 0 && (
                 <Fade delay={0.25}>
-                  <SectionHead icon="🧭" title="Explore" count={explore.length}
+                  <SectionHead
+                    icon={
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                        <path d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253M3.157 7.582A8.959 8.959 0 003 12c0 .778.099 1.533.284 2.253" />
+                      </svg>
+                    }
+                    title="Explore" count={explore.length}
                     sub="Outside your usual interests" to="/search" dark={dark} />
                   <HRow>
                     {explore.map((s, i) => <ScriptPoster key={s._id} script={s} idx={i} dark={dark} />)}

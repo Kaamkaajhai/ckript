@@ -75,6 +75,41 @@ const Sidebar = () => {
 
   const isInvestorRole = user?.role === "investor";
 
+  // --- Investor sectioned sidebar ---
+  const investorSections = isInvestorRole ? [
+    {
+      label: "Overview",
+      items: [
+        { path: "/home", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+        { path: "/dashboard", label: "Dashboard", icon: "M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" },
+        { path: `/profile/${user?._id || ""}`, label: "My Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
+      ],
+    },
+    {
+      label: "Discover",
+      items: [
+        { path: "/search", label: "Search Scripts", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
+        { path: "/top-list", label: "Top Ranked", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+        { path: "/featured", label: "Featured", icon: "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" },
+        { path: "/trending", label: "Trending", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+      ],
+    },
+    {
+      label: "Network",
+      items: [
+        { path: "/writers", label: "Browse Writers", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" },
+        { path: "/programs", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
+      ],
+    },
+    {
+      label: "Manage",
+      items: [
+        { path: "/industry-onboarding", label: "Mandates", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" },
+        { path: "/offer-holds", label: "Offers & Holds", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
+      ],
+    },
+  ] : null;
+
   const mainNavItems = isAdmin ? [
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
     { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
@@ -86,8 +121,7 @@ const Sidebar = () => {
     { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
     { path: "/featured", label: "Featured", icon: "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" },
   ] : isIndustry ? [
-    ...(isInvestorRole ? [{ path: "/home", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" }] : []),
-    { path: "/dashboard", label: isInvestorRole ? "Dashboard" : "Dashboard", icon: "M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H3.75A.75.75 0 013 21V9.75z" },
+    { path: "/dashboard", label: "Dashboard", icon: "M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H3.75A.75.75 0 013 21V9.75z" },
     { path: `/profile/${user?._id || ""}`, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
     { path: "/industry-onboarding", label: "Mandates", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" },
     { path: "/search", label: "Search Scripts", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
@@ -125,8 +159,13 @@ const Sidebar = () => {
     { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
     { path: "/featured", label: "Featured", icon: "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" },
     { path: `/reader/profile/${user?._id || ""}`, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
+  ] : isInvestorRole ? [
+    { path: "/home", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
+    { path: "/programs", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
+    { path: `/profile/${user?._id || ""}`, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   ] : isIndustry ? [
-    { path: isInvestorRole ? "/home" : "/dashboard", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { path: "/dashboard", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
     { path: "/industry-onboarding", label: "Mandates", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" },
     { path: `/profile/${user?._id || ""}`, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
@@ -163,6 +202,12 @@ const Sidebar = () => {
     );
   };
 
+  const SectionLabel = ({ label }) => (
+    <div className={`px-5 pt-4 pb-1`}>
+      <span className={`text-[11px] font-bold tracking-widest uppercase ${isDarkMode ? "text-gray-600" : "text-gray-300"}`}>{label}</span>
+    </div>
+  );
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="px-5 h-16 flex items-center shrink-0">
@@ -171,45 +216,61 @@ const Sidebar = () => {
 
       <div className={`mx-3 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
 
-      <nav className="flex-1 py-3 overflow-y-auto space-y-1">
-        {mainNavItems.map((item) => <NavItem key={item.label} item={item} />)}
-        <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
-        {actionItems.map((item) => <NavItem key={item.label} item={item} />)}
-        {bottomNavItems.length > 0 && (
-          <>
-            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
-            {bottomNavItems.map((item) => <NavItem key={item.label} item={item} />)}
-          </>
-        )}
-        {!isReader && !isAdmin && (
-          <>
-            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
-
-            <button
-              onClick={() => setProjectsOpen(!projectsOpen)}
-              className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
-            >
-              <svg className={`w-4 h-4 transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
-                fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-              <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>My Projects</span>
-            </button>
-
-            {projectsOpen && (
-              <div className="pl-3">
-                {myScripts.length > 0 ? (
-                  myScripts.map((script) => (
-                    <Link key={script._id} to={`/script/${script._id}`} onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}>
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#2a4060]" : "bg-gray-300"}`}></div>
-                      <span className="text-[15px] font-semibold truncate">{script.title}</span>
-                    </Link>
-                  ))
-                ) : (
-                  <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>No projects yet</p>
-                )}
+      <nav className="flex-1 py-2 overflow-y-auto">
+        {isInvestorRole && investorSections ? (
+          investorSections.map((section, idx) => (
+            <div key={section.label}>
+              {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>}
+              <SectionLabel label={section.label} />
+              <div className="space-y-0.5">
+                {section.items.map((item) => <NavItem key={item.label} item={item} />)}
               </div>
+            </div>
+          ))
+        ) : (
+          <>
+            <div className="space-y-1">
+              {mainNavItems.map((item) => <NavItem key={item.label} item={item} />)}
+            </div>
+            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+            {actionItems.map((item) => <NavItem key={item.label} item={item} />)}
+            {bottomNavItems.length > 0 && (
+              <>
+                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+                {bottomNavItems.map((item) => <NavItem key={item.label} item={item} />)}
+              </>
+            )}
+            {!isReader && !isAdmin && !isInvestorRole && (
+              <>
+                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+
+                <button
+                  onClick={() => setProjectsOpen(!projectsOpen)}
+                  className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
+                >
+                  <svg className={`w-4 h-4 transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
+                    fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                  <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>My Projects</span>
+                </button>
+
+                {projectsOpen && (
+                  <div className="pl-3">
+                    {myScripts.length > 0 ? (
+                      myScripts.map((script) => (
+                        <Link key={script._id} to={`/script/${script._id}`} onClick={() => setMobileOpen(false)}
+                          className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#2a4060]" : "bg-gray-300"}`}></div>
+                          <span className="text-[15px] font-semibold truncate">{script.title}</span>
+                        </Link>
+                      ))
+                    ) : (
+                      <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>No projects yet</p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

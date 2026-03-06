@@ -520,6 +520,18 @@ export const getScriptById = async (req, res) => {
     }
     await script.save();
 
+    // Update viewer's viewHistory so investor dashboard stats are accurate
+    if (!isOwner) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $push: {
+          viewHistory: {
+            $each: [{ script: script._id, viewedAt: new Date() }],
+            $slice: -200, // keep last 200 entries
+          },
+        },
+      });
+    }
+
     // Check if user has unlocked this script
     const isUnlocked = script.unlockedBy.includes(req.user._id);
     const isCreator = script.creator._id.toString() === req.user._id.toString();
@@ -856,6 +868,119 @@ export const getCategories = async (req, res) => {
     const genres = await Script.distinct("genre", { status: "published" });
     res.json({ contentTypes: contentTypes.filter(Boolean), genres: genres.filter(Boolean) });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+//  INVESTOR HOME FEED — Personalised by genre / mandate prefs
+// ═══════════════════════════════════════════════════════════
+export const getInvestorHomeFeed = async (req, res) => {
+  try {
+    const investor = await User.findById(req.user._id).select(
+      "industryProfile.mandates preferences"
+    );
+
+    // Gather preferred genres from mandates + general preferences
+    const mandateGenres = (investor?.industryProfile?.mandates?.genres || [])
+      .map((g) => g.toLowerCase().trim());
+    const prefGenres = (investor?.preferences?.genres || [])
+      .map((g) => g.toLowerCase().trim());
+    const excludeGenres = (investor?.industryProfile?.mandates?.excludeGenres || [])
+      .map((g) => g.toLowerCase().trim());
+
+    // Deduplicated preferred genres, minus excluded ones
+    const preferredGenres = [...new Set([...mandateGenres, ...prefGenres])].filter(
+      (g) => g && !excludeGenres.includes(g)
+    );
+
+    const usedIds = new Set();
+
+    // ── Genre sections (up to 4 preferred genres, 12 scripts each) ──
+    const genreSections = [];
+    for (const genre of preferredGenres.slice(0, 4)) {
+      const scripts = await Script.find({
+        status: "published",
+        genre: { $regex: new RegExp(`^${genre}$`, "i") },
+      })
+        .populate("creator", "name profileImage role")
+        .sort({ rating: -1, readsCount: -1, createdAt: -1 })
+        .limit(12);
+
+      if (scripts.length > 0) {
+        scripts.forEach((s) => usedIds.add(s._id.toString()));
+        genreSections.push({
+          genre: genre.charAt(0).toUpperCase() + genre.slice(1),
+          scripts,
+        });
+      }
+    }
+
+    // ── Trending (by trendScore, not already shown) ──
+    const trendingAgg = await Script.aggregate([
+      { $match: { status: "published" } },
+      {
+        $addFields: {
+          trendScore: {
+            $add: [
+              { $multiply: [{ $ifNull: ["$reviewCount", 0] }, 3] },
+              { $multiply: [{ $ifNull: ["$readsCount", 0] }, 2] },
+              { $ifNull: ["$views", 0] },
+            ],
+          },
+        },
+      },
+      { $sort: { trendScore: -1 } },
+      { $limit: 30 },
+      { $project: { _id: 1 } },
+    ]);
+
+    const trendIds = trendingAgg
+      .map((s) => s._id)
+      .filter((id) => !usedIds.has(id.toString()))
+      .slice(0, 12);
+
+    let trending = [];
+    if (trendIds.length > 0) {
+      const tDocs = await Script.find({ _id: { $in: trendIds } }).populate(
+        "creator", "name profileImage role"
+      );
+      const tMap = Object.fromEntries(tDocs.map((d) => [d._id.toString(), d]));
+      trending = trendIds.map((id) => tMap[id.toString()]).filter(Boolean);
+      trending.forEach((s) => usedIds.add(s._id.toString()));
+    }
+
+    // ── New Releases (last 30 days, not already shown) ──
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const notUsedArray = [...usedIds];
+    const newReleases = await Script.find({
+      status: "published",
+      createdAt: { $gte: thirtyDaysAgo },
+      _id: { $nin: notUsedArray },
+    })
+      .populate("creator", "name profileImage role")
+      .sort({ createdAt: -1 })
+      .limit(12);
+    newReleases.forEach((s) => usedIds.add(s._id.toString()));
+
+    // ── Explore (top rated, outside investor's interests) ──
+    const explore = await Script.find({
+      status: "published",
+      _id: { $nin: [...usedIds] },
+    })
+      .populate("creator", "name profileImage role")
+      .sort({ rating: -1, createdAt: -1 })
+      .limit(12);
+
+    res.json({
+      detectedGenres: preferredGenres,
+      genreSections,
+      trending,
+      newReleases,
+      explore,
+    });
+  } catch (error) {
+    console.error("getInvestorHomeFeed error:", error);
     res.status(500).json({ message: error.message });
   }
 };

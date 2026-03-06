@@ -66,7 +66,7 @@ const Mandates = () => {
     setMessage("");
 
     try {
-      await api.put("/onboarding/professional-identity", { mandates });
+      await api.put("/onboarding/mandates", { mandates });
       setMessage("Mandates updated successfully!");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {

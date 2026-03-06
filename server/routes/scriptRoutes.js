@@ -9,7 +9,8 @@ import {
   createScriptPurchaseOrder, verifyScriptPurchase,
   createScriptHoldOrder, verifyScriptHold,
   uploadThumbnail, uploadTrailer,
-  uploadScriptThumbnail, uploadScriptTrailer
+  uploadScriptThumbnail, uploadScriptTrailer,
+  getInvestorHomeFeed
 } from "../controllers/scriptController.js";
 import multer from "multer";
 
@@ -40,6 +41,7 @@ router.get("/top", protect, getTopScripts);
 router.get("/reader-search", protect, searchScriptsReader);
 router.get("/latest", protect, getLatestScripts);
 router.get("/categories", protect, getCategories);
+router.get("/investor-home", protect, getInvestorHomeFeed);
 router.get("/:id", protect, getScriptById);
 router.post("/unlock", protect, unlockScript);
 router.post("/hold", protect, holdScript);

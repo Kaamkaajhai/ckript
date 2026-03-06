@@ -164,6 +164,8 @@ export const updateUserProfile = async (req, res) => {
       company, linkedInUrl, investmentRange,
       // bank details
       bankDetails,
+      // notification preferences
+      notificationPrefs,
     } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -290,6 +292,16 @@ export const updateUserProfile = async (req, res) => {
       user.bankDetails.isVerified = false;
     }
 
+    // Notification preferences
+    if (notificationPrefs) {
+      if (!user.notificationPrefs) user.notificationPrefs = {};
+      if (notificationPrefs.smartMatchAlerts !== undefined) user.notificationPrefs.smartMatchAlerts = notificationPrefs.smartMatchAlerts;
+      if (notificationPrefs.auditionAlerts !== undefined) user.notificationPrefs.auditionAlerts = notificationPrefs.auditionAlerts;
+      if (notificationPrefs.holdAlerts !== undefined) user.notificationPrefs.holdAlerts = notificationPrefs.holdAlerts;
+      if (notificationPrefs.viewAlerts !== undefined) user.notificationPrefs.viewAlerts = notificationPrefs.viewAlerts;
+      user.markModified("notificationPrefs");
+    }
+
     await user.save();
 
     // Sanitize bank details for response (hide full account number)
@@ -310,6 +322,9 @@ export const updateUserProfile = async (req, res) => {
       skills: user.skills,
       profileImage: user.profileImage,
       writerProfile: user.writerProfile,
+      industryProfile: user.industryProfile,
+      preferences: user.preferences,
+      notificationPrefs: user.notificationPrefs,
       bankDetails: sanitizedBankDetails,
     });
   } catch (error) {
@@ -468,6 +483,77 @@ export const removeFromWatchlist = async (req, res) => {
     await user.save();
 
     res.json({ message: "Script removed from watchlist" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ──────── SETTINGS ────────
+
+export const updateSettings = async (req, res) => {
+  try {
+    const { notificationPrefs, isPrivate, language, timezone } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (notificationPrefs !== undefined) {
+      if (!user.notificationPrefs) user.notificationPrefs = {};
+      if (notificationPrefs.smartMatchAlerts !== undefined) user.notificationPrefs.smartMatchAlerts = notificationPrefs.smartMatchAlerts;
+      if (notificationPrefs.auditionAlerts !== undefined) user.notificationPrefs.auditionAlerts = notificationPrefs.auditionAlerts;
+      if (notificationPrefs.holdAlerts !== undefined) user.notificationPrefs.holdAlerts = notificationPrefs.holdAlerts;
+      if (notificationPrefs.viewAlerts !== undefined) user.notificationPrefs.viewAlerts = notificationPrefs.viewAlerts;
+      user.markModified("notificationPrefs");
+    }
+
+    if (isPrivate !== undefined) user.isPrivate = isPrivate;
+    if (language !== undefined) user.language = language;
+    if (timezone !== undefined) user.timezone = timezone;
+
+    await user.save();
+    res.json({ message: "Settings updated", user: { isPrivate: user.isPrivate, language: user.language, timezone: user.timezone, notificationPrefs: user.notificationPrefs } });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: "Current and new password are required" });
+    if (newPassword.length < 6) return res.status(400).json({ message: "New password must be at least 6 characters" });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) return res.status(401).json({ message: "Current password is incorrect" });
+
+    user.password = newPassword;
+    await user.save();
+    res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const changeEmail = async (req, res) => {
+  try {
+    const { password, newEmail } = req.body;
+    if (!password || !newEmail) return res.status(400).json({ message: "Password and new email are required" });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) return res.status(401).json({ message: "Password is incorrect" });
+
+    const existing = await User.findOne({ email: newEmail });
+    if (existing) return res.status(409).json({ message: "Email is already in use" });
+
+    user.email = newEmail;
+    user.emailVerified = false;
+    await user.save();
+    res.json({ message: "Email changed successfully", email: user.email });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

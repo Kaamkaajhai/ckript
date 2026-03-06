@@ -7,7 +7,8 @@ import {
   verifyEmail,
   getOnboardingStatus,
   updateProfessionalIdentity,
-  completeIndustryOnboarding
+  completeIndustryOnboarding,
+  updateMandates
 } from "../controllers/onboardingController.js";
 import protect from "../middleware/authMiddleware.js";
 
@@ -28,5 +29,6 @@ router.post("/complete", completeOnboarding);
 // Industry professional onboarding routes
 router.put("/professional-identity", updateProfessionalIdentity);
 router.post("/complete-industry", completeIndustryOnboarding);
+router.put("/mandates", updateMandates);
 
 export default router;

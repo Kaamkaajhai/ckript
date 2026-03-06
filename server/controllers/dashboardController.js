@@ -241,8 +241,13 @@ export const getInvestorDashboard = async (req, res) => {
     const userId = req.user._id;
     const user = await User.findById(userId);
 
-    // Scripts the investor has viewed
-    const viewedScriptIds = (user.viewHistory || []).map(v => v.script);
+    // Scripts the investor has viewed (deduplicated by script id)
+    const rawViewHistory = (user.viewHistory || []).map(v => v.script?.toString()).filter(Boolean);
+    const viewedScriptIds = [...new Set(rawViewHistory)];
+
+    // Fallback: also count scripts where this user is in script.viewedBy (covers existing data before fix)
+    const viewedByCount = await Script.countDocuments({ "viewedBy.user": userId });
+    const totalViewedCount = Math.max(viewedScriptIds.length, viewedByCount);
 
     // Active holds by this investor
     const activeHolds = await ScriptOption.find({
@@ -286,10 +291,12 @@ export const getInvestorDashboard = async (req, res) => {
       .sort({ "scriptScore.overall": -1 })
       .limit(8);
 
-    // Preference-matched scripts
+    // Preference-matched scripts (mandates take priority over general preferences)
+    const mandateGenres = user.industryProfile?.mandates?.genres;
+    const prefGenres = (mandateGenres?.length > 0) ? mandateGenres : (user.preferences?.genres || []);
     const prefQuery = { status: "published", adminApproved: true, holdStatus: "available" };
-    if (user.preferences?.genres?.length > 0) {
-      prefQuery.genre = { $in: user.preferences.genres };
+    if (prefGenres.length > 0) {
+      prefQuery.genre = { $in: prefGenres };
     }
     const matchedScripts = await Script.find(prefQuery)
       .populate("creator", "name profileImage")
@@ -302,6 +309,12 @@ export const getInvestorDashboard = async (req, res) => {
     recentViews.forEach(s => {
       if (s.genre) genreBreakdown[s.genre] = (genreBreakdown[s.genre] || 0) + 1;
     });
+
+    // Average AI score of scripts the investor has viewed
+    const scoredViews = recentViews.filter(s => s.scriptScore?.overall);
+    const avgViewedScore = scoredViews.length > 0
+      ? Math.round(scoredViews.reduce((sum, s) => sum + s.scriptScore.overall, 0) / scoredViews.length)
+      : null;
 
     // Recent notifications for investor
     const recentNotifications = await Notification.find({ user: userId })
@@ -325,11 +338,12 @@ export const getInvestorDashboard = async (req, res) => {
 
     res.json({
       stats: {
-        totalViewed: viewedScriptIds.length,
+        totalViewed: totalViewedCount,
         activeHolds: activeDealsCount,
         convertedDeals: convertedDealsCount,
         totalInvested,
         totalDeals: allDeals.length,
+        avgViewedScore,
         followingCount: user.following?.length || 0,
         followersCount: user.followers?.length || 0,
       },
@@ -352,6 +366,17 @@ export const getInvestorDashboard = async (req, res) => {
       matchedScripts,
       genreBreakdown,
       recentNotifications,
+      recentDeals: allDeals.slice(0, 10).map(d => ({
+        _id: d._id,
+        script: d.script,
+        fee: d.fee,
+        startDate: d.startDate,
+        endDate: d.endDate,
+        status: d.status,
+        daysRemaining: d.status === "active"
+          ? Math.max(0, Math.ceil((new Date(d.endDate) - new Date()) / (1000 * 60 * 60 * 24)))
+          : null,
+      })),
       preferences: user.preferences || {},
       industryProfile: user.industryProfile || {},
     });

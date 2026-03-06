@@ -378,6 +378,47 @@ export const updateProfessionalIdentity = async (req, res) => {
   }
 };
 
+// @desc    Update investor/professional mandates
+// @route   PUT /api/onboarding/mandates
+// @access  Private
+export const updateMandates = async (req, res) => {
+  try {
+    const { mandates } = req.body;
+
+    if (!mandates) {
+      return res.status(400).json({ success: false, message: "Mandates data is required" });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (!user.industryProfile) {
+      user.industryProfile = {};
+    }
+
+    user.industryProfile.mandates = {
+      formats: mandates.formats || [],
+      budgetTiers: mandates.budgetTiers || [],
+      genres: mandates.genres || [],
+      excludeGenres: mandates.excludeGenres || [],
+      specificHooks: mandates.specificHooks || [],
+    };
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Mandates updated successfully",
+      mandates: user.industryProfile.mandates,
+    });
+  } catch (error) {
+    console.error("Error updating mandates:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // @desc    Complete industry professional onboarding
 // @route   POST /api/onboarding/complete-industry
 // @access  Private
