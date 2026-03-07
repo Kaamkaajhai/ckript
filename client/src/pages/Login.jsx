@@ -12,6 +12,9 @@ const Login = () => {
   const [error, setError] = useState("");
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [userEmail, setUserEmail] = useState("");
+  const [pendingApproval, setPendingApproval] = useState(false);
+  const [accountRejected, setAccountRejected] = useState(false);
+  const [rejectedMessage, setRejectedMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,11 +38,28 @@ const Login = () => {
         navigate("/dashboard");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed");
+      const data = err.response?.data;
+      if (data?.pendingApproval) {
+        setPendingApproval(true);
+        return;
+      }
+      if (data?.rejected) {
+        setAccountRejected(true);
+        setRejectedMessage(data.message || "Your investor account has been rejected. Please contact support.");
+        return;
+      }
+      setError(data?.message || "Login failed");
     }
   };
 
   const handleOTPSuccess = (userData) => {
+    // Investor pending approval — show waiting screen
+    if (userData.pendingApproval) {
+      setShowOTPVerification(false);
+      setPendingApproval(true);
+      return;
+    }
+
     // Update auth context with user data
     setUser(userData);
     
@@ -66,6 +86,51 @@ const Login = () => {
         onSuccess={handleOTPSuccess} 
         onBack={handleBackToLogin}
       />
+    );
+  }
+
+  // Show pending approval screen for investors
+  if (pendingApproval) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-6">
+        <div className="w-full max-w-md text-center">
+          <div className="w-20 h-20 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Account Pending Approval</h2>
+          <p className="text-gray-500 text-[15px] leading-relaxed mb-6">
+            Your investor account has been submitted and is currently under review.<br />
+            You'll be able to log in once an admin approves your account.
+          </p>
+          <p className="text-sm text-gray-400">Need help? Contact <a href="mailto:support@ckript.com" className="text-[#1e3a5f] font-semibold hover:underline">support@ckript.com</a></p>
+          <button onClick={() => setPendingApproval(false)} className="mt-6 text-sm text-gray-400 hover:text-gray-600 font-medium transition-colors">
+            &larr; Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show rejected screen for investors
+  if (accountRejected) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white px-6">
+        <div className="w-full max-w-md text-center">
+          <div className="w-20 h-20 rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Account Not Approved</h2>
+          <p className="text-gray-500 text-[15px] leading-relaxed mb-6">{rejectedMessage}</p>
+          <p className="text-sm text-gray-400">Contact <a href="mailto:support@ckript.com" className="text-[#1e3a5f] font-semibold hover:underline">support@ckript.com</a> for assistance.</p>
+          <button onClick={() => setAccountRejected(false)} className="mt-6 text-sm text-gray-400 hover:text-gray-600 font-medium transition-colors">
+            &larr; Back to login
+          </button>
+        </div>
+      </div>
     );
   }
 

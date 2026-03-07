@@ -73,6 +73,12 @@ const OTPVerification = ({ email, onSuccess, onBack }) => {
         otp: otpString,
       });
 
+      // Investor accounts need admin approval — don't store token yet
+      if (response.data.pendingApproval) {
+        onSuccess(response.data);
+        return;
+      }
+
       // Store token and user data
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data));

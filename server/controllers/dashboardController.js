@@ -8,81 +8,108 @@ import Notification from "../models/Notification.js";
 export const getDashboardStats = async (req, res) => {
   try {
     const userId = req.user._id;
-    const user = await User.findById(userId);
 
-    // Get user's posts
-    const posts = await Post.find({ user: userId });
-    const totalPosts = posts.length;
-    const totalLikes = posts.reduce((sum, post) => sum + post.likes.length, 0);
-    const totalComments = posts.reduce((sum, post) => sum + post.comments.length, 0);
-    const totalSaves = posts.reduce((sum, post) => sum + post.saves.length, 0);
+    // Run all heavy queries in parallel
+    const [user, postStats, scriptStats, recentPosts, topScripts] = await Promise.all([
+      User.findById(userId).select("followers following subscription"),
 
-    // Get user's scripts
-    const scripts = await Script.find({ creator: userId });
-    const totalScripts = scripts.length;
-    const totalEarnings = scripts.reduce((sum, script) => {
-      return sum + (script.unlockedBy.length * script.price);
-    }, 0);
+      // Aggregate post stats in one query instead of loading every post doc
+      Post.aggregate([
+        { $match: { user: userId } },
+        {
+          $group: {
+            _id: null,
+            totalPosts:    { $sum: 1 },
+            totalLikes:    { $sum: { $size: { $ifNull: ["$likes", []] } } },
+            totalComments: { $sum: { $size: { $ifNull: ["$comments", []] } } },
+            totalSaves:    { $sum: { $size: { $ifNull: ["$saves", []] } } },
+          },
+        },
+      ]),
 
-    // Hold earnings
-    const holdOptions = await ScriptOption.find({ 
-      script: { $in: scripts.map(s => s._id) },
-      status: { $in: ["active", "converted"] }
-    });
-    const holdEarnings = holdOptions.reduce((sum, opt) => sum + opt.creatorPayout, 0);
+      // Aggregate script stats in one query instead of loading every script doc
+      Script.aggregate([
+        { $match: { creator: userId } },
+        {
+          $group: {
+            _id: null,
+            totalScripts:      { $sum: 1 },
+            totalViews:        { $sum: { $ifNull: ["$views", 0] } },
+            trailersGenerated: { $sum: { $cond: [{ $eq: ["$trailerStatus", "ready"] }, 1, 0] } },
+            activeHolds:       { $sum: { $cond: [{ $eq: ["$holdStatus", "held"] }, 1, 0] } },
+            scoredCount:       { $sum: { $cond: [{ $gt: ["$scriptScore.overall", 0] }, 1, 0] } },
+            scoreSum:          { $sum: { $cond: [{ $gt: ["$scriptScore.overall", 0] }, "$scriptScore.overall", 0] } },
+            totalUnlocks:      { $sum: { $size: { $ifNull: ["$unlockedBy", []] } } },
+            // earnings = unlockedBy.length * price per script
+            totalEarnings: {
+              $sum: {
+                $multiply: [
+                  { $size: { $ifNull: ["$unlockedBy", []] } },
+                  { $ifNull: ["$price", 0] },
+                ],
+              },
+            },
+            scriptIds: { $push: "$_id" },
+          },
+        },
+      ]),
 
-    // Total views across all scripts
-    const totalViews = scripts.reduce((sum, s) => sum + (s.views || 0), 0);
+      Post.find({ user: userId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate("user", "name profileImage")
+        .lean(),
 
-    // Scripts with trailers
-    const trailersGenerated = scripts.filter(s => s.trailerStatus === "ready").length;
+      Script.find({ creator: userId })
+        .sort({ views: -1 })
+        .limit(5)
+        .select("title views unlockedBy scriptScore trailerStatus holdStatus genre")
+        .lean(),
+    ]);
 
-    // Scripts with scores  
-    const scoredScripts = scripts.filter(s => s.scriptScore?.overall).length;
-    const avgScore = scoredScripts > 0 
-      ? Math.round(scripts.filter(s => s.scriptScore?.overall).reduce((sum, s) => sum + s.scriptScore.overall, 0) / scoredScripts) 
-      : null;
+    const ps = postStats[0] || { totalPosts: 0, totalLikes: 0, totalComments: 0, totalSaves: 0 };
+    const ss = scriptStats[0] || {
+      totalScripts: 0, totalViews: 0, trailersGenerated: 0,
+      activeHolds: 0, scoredCount: 0, scoreSum: 0, totalUnlocks: 0,
+      totalEarnings: 0, scriptIds: [],
+    };
 
-    // Audition stats
-    const auditionCount = await Audition.countDocuments({ script: { $in: scripts.map(s => s._id) } });
-    
-    // Active holds on my scripts
-    const activeHolds = scripts.filter(s => s.holdStatus === "held").length;
+    const avgScore = ss.scoredCount > 0 ? Math.round(ss.scoreSum / ss.scoredCount) : null;
 
-    const followersCount = user.followers.length;
-    const followingCount = user.following.length;
+    // Hold earnings — only if there are scripts
+    let holdEarnings = 0;
+    if (ss.scriptIds.length > 0) {
+      const holdAgg = await ScriptOption.aggregate([
+        { $match: { script: { $in: ss.scriptIds }, status: { $in: ["active", "converted"] } } },
+        { $group: { _id: null, total: { $sum: "$creatorPayout" } } },
+      ]);
+      holdEarnings = holdAgg[0]?.total || 0;
+    }
 
-    // Recent activity (last 5 posts)
-    const recentPosts = await Post.find({ user: userId })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .populate("user", "name profileImage");
-
-    // Top performing scripts
-    const topScripts = await Script.find({ creator: userId })
-      .sort({ views: -1 })
-      .limit(5)
-      .select("title views unlockedBy scriptScore trailerStatus holdStatus genre");
+    // Audition count — only if there are scripts
+    const auditionCount = ss.scriptIds.length > 0
+      ? await Audition.countDocuments({ script: { $in: ss.scriptIds } })
+      : 0;
 
     res.json({
       stats: {
-        totalPosts,
-        totalLikes,
-        totalComments,
-        totalSaves,
-        totalScripts,
-        totalEarnings: totalEarnings + holdEarnings,
+        totalPosts:    ps.totalPosts,
+        totalLikes:    ps.totalLikes,
+        totalComments: ps.totalComments,
+        totalSaves:    ps.totalSaves,
+        totalScripts:  ss.totalScripts,
+        totalEarnings: ss.totalEarnings + holdEarnings,
         holdEarnings,
-        followersCount,
-        followingCount,
-        totalViews,
-        trailersGenerated,
-        scoredScripts,
+        followersCount: user?.followers?.length || 0,
+        followingCount: user?.following?.length || 0,
+        totalViews:      ss.totalViews,
+        trailersGenerated: ss.trailersGenerated,
+        scoredScripts:   ss.scoredCount,
         avgScore,
         auditionCount,
-        activeHolds,
-        scriptScoreCredits: user.subscription?.scriptScoreCredits || 0,
-        plan: user.subscription?.plan || "free",
+        activeHolds: ss.activeHolds,
+        scriptScoreCredits: user?.subscription?.scriptScoreCredits || 0,
+        plan: user?.subscription?.plan || "free",
       },
       recentPosts,
       topScripts,
@@ -283,6 +310,7 @@ export const getInvestorDashboard = async (req, res) => {
     const topRated = await Script.find({
       status: "published",
       adminApproved: true,
+      isSold: { $ne: true },
       "scriptScore.overall": { $exists: true },
       holdStatus: "available",
     })
@@ -294,7 +322,7 @@ export const getInvestorDashboard = async (req, res) => {
     // Preference-matched scripts (mandates take priority over general preferences)
     const mandateGenres = user.industryProfile?.mandates?.genres;
     const prefGenres = (mandateGenres?.length > 0) ? mandateGenres : (user.preferences?.genres || []);
-    const prefQuery = { status: "published", adminApproved: true, holdStatus: "available" };
+    const prefQuery = { status: "published", adminApproved: true, holdStatus: "available", isSold: { $ne: true } };
     if (prefGenres.length > 0) {
       prefQuery.genre = { $in: prefGenres };
     }
@@ -324,15 +352,17 @@ export const getInvestorDashboard = async (req, res) => {
       .limit(5);
 
     // Platform-wide stats (gives investor a market pulse)
-    const totalPlatformScripts = await Script.countDocuments({ status: "published", adminApproved: true });
+    const totalPlatformScripts = await Script.countDocuments({ status: "published", adminApproved: true, isSold: { $ne: true } });
     const newThisWeek = await Script.countDocuments({
       status: "published",
       adminApproved: true,
+      isSold: { $ne: true },
       createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
     });
     const availableScripts = await Script.countDocuments({
       status: "published",
       adminApproved: true,
+      isSold: { $ne: true },
       holdStatus: "available",
     });
 

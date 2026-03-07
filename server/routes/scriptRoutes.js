@@ -10,7 +10,8 @@ import {
   createScriptHoldOrder, verifyScriptHold,
   uploadThumbnail, uploadTrailer,
   uploadScriptThumbnail, uploadScriptTrailer,
-  getInvestorHomeFeed
+  getInvestorHomeFeed, getTopList,
+  requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
 } from "../controllers/scriptController.js";
 import multer from "multer";
 
@@ -38,10 +39,16 @@ router.get("/mine", protect, getMyScripts);
 // Reader static routes (must be before /:id)
 router.get("/featured", protect, getFeaturedScripts);
 router.get("/top", protect, getTopScripts);
+router.get("/top-list", protect, getTopList);
 router.get("/reader-search", protect, searchScriptsReader);
 router.get("/latest", protect, getLatestScripts);
 router.get("/categories", protect, getCategories);
 router.get("/investor-home", protect, getInvestorHomeFeed);
+// Purchase request routes (must be before /:id)
+router.post("/purchase-request", protect, requestScriptPurchase);
+router.get("/purchase-requests/mine", protect, getMyPurchaseRequests);
+router.put("/purchase-request/:id/approve", protect, approveScriptPurchase);
+router.put("/purchase-request/:id/reject", protect, rejectScriptPurchase);
 router.get("/:id", protect, getScriptById);
 router.post("/unlock", protect, unlockScript);
 router.post("/hold", protect, holdScript);

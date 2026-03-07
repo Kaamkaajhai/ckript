@@ -33,17 +33,48 @@ export const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024
 
 export const getWriters = async (req, res) => {
   try {
-    const { sort } = req.query;
+    const { sort, genre, search } = req.query;
 
-    // Aggregation to get writers with their script stats
+    // Base match: only writers
+    const matchStage = { role: "writer" };
+
+    // Name search (case-insensitive)
+    if (search && search.trim()) {
+      matchStage.name = { $regex: search.trim(), $options: "i" };
+    }
+
+    // Genre filter early (before lookup) when writerProfile.genres exists on the user doc
+    if (genre && genre !== "All") {
+      matchStage["writerProfile.genres"] = genre;
+    }
+
     const pipeline = [
-      { $match: { role: "writer" } },
-      { $project: { password: 0, emailVerificationToken: 0, emailVerificationExpires: 0 } },
+      { $match: matchStage },
+      // Strip sensitive / heavy fields before the lookup so less data travels
+      {
+        $project: {
+          password: 0,
+          emailVerificationToken: 0,
+          emailVerificationExpires: 0,
+          resetPasswordToken: 0,
+          resetPasswordExpires: 0,
+        },
+      },
+      // Pipeline-form lookup: only pull the three fields we actually need from each script
       {
         $lookup: {
           from: "scripts",
-          localField: "_id",
-          foreignField: "creator",
+          let: { uid: "$_id" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$creator", "$$uid"] }, isSold: { $ne: true } } },
+            {
+              $project: {
+                views: 1,
+                "scriptScore.overall": 1,
+                unlockedByCount: { $size: { $ifNull: ["$unlockedBy", []] } },
+              },
+            },
+          ],
           as: "scripts",
         },
       },
@@ -52,15 +83,22 @@ export const getWriters = async (req, res) => {
           scriptCount: { $size: "$scripts" },
           totalViews: { $sum: "$scripts.views" },
           avgScore: {
-            $cond: [
-              { $gt: [{ $size: { $filter: { input: "$scripts", as: "s", cond: { $gt: ["$$s.scriptScore.overall", 0] } } } }, 0] },
-              { $avg: { $map: { input: { $filter: { input: "$scripts", as: "s", cond: { $gt: ["$$s.scriptScore.overall", 0] } } }, as: "s", in: "$$s.scriptScore.overall" } } },
-              0,
-            ],
+            $let: {
+              vars: {
+                scored: {
+                  $filter: { input: "$scripts", as: "s", cond: { $gt: ["$$s.scriptScore.overall", 0] } },
+                },
+              },
+              in: {
+                $cond: [
+                  { $gt: [{ $size: "$$scored" }, 0] },
+                  { $avg: "$$scored.scriptScore.overall" },
+                  0,
+                ],
+              },
+            },
           },
-          totalUnlocks: {
-            $sum: { $map: { input: "$scripts", as: "s", in: { $size: { $ifNull: ["$$s.unlockedBy", []] } } } },
-          },
+          totalUnlocks: { $sum: "$scripts.unlockedByCount" },
           followerCount: { $size: { $ifNull: ["$followers", []] } },
         },
       },
@@ -69,7 +107,7 @@ export const getWriters = async (req, res) => {
 
     // Sort options
     if (sort === "score") {
-      pipeline.push({ $sort: { avgScore: -1 } });
+      pipeline.push({ $sort: { avgScore: -1, followerCount: -1 } });
     } else if (sort === "views") {
       pipeline.push({ $sort: { totalViews: -1 } });
     } else if (sort === "followers") {
@@ -91,6 +129,9 @@ export const getWriters = async (req, res) => {
       });
       pipeline.push({ $sort: { reputation: -1 } });
     }
+
+    // Cap results – 100 writers is more than enough for the browse page
+    pipeline.push({ $limit: 100 });
 
     const writers = await User.aggregate(pipeline);
     res.json(writers);
@@ -137,6 +178,16 @@ export const getUserProfile = async (req, res) => {
       .populate("creator", "name profileImage role")
       .sort({ createdAt: -1 });
 
+    // Fetch scripts purchased by this user (only for own profile or investor/producer viewing)
+    const isPro = ["investor", "producer", "director"].includes(user.role);
+    let purchasedScripts = [];
+    if (isOwnProfile && isPro) {
+      purchasedScripts = await Script.find({ unlockedBy: req.params.id })
+        .populate("creator", "name profileImage role")
+        .select("_id title genre format price coverImage creator premium createdAt logline unlockedBy")
+        .sort({ createdAt: -1 });
+    }
+
     // Sanitize bank details - only show to own profile
     const userObj = user.toObject();
     if (!isOwnProfile && userObj.bankDetails) {
@@ -146,7 +197,7 @@ export const getUserProfile = async (req, res) => {
       userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
     }
 
-    res.json({ user: userObj, posts, scripts });
+    res.json({ user: userObj, posts, scripts, purchasedScripts });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

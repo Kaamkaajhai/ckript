@@ -281,6 +281,16 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+@keyframes progress {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(60%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-progress {
+  animation: progress 1.2s ease-in-out infinite;
+}
+
 /* ── Glass Effect Utility ── */
 .glass {
   background: rgba(255, 255, 255, 0.85);

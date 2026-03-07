@@ -149,6 +149,7 @@ const Profile = () => {
 
   const [profile, setProfile] = useState(null);
   const [scripts, setScripts] = useState([]);
+  const [purchasedScripts, setPurchasedScripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -180,6 +181,7 @@ const Profile = () => {
       const { data } = await api.get(`/users/${id || currentUser._id}`);
       setProfile(data.user);
       setScripts((data.scripts || []).filter((s) => s.status !== "draft"));
+      setPurchasedScripts(data.purchasedScripts || []);
       setIsFollowing(
         data.user.followers.some((f) => f._id === currentUser._id)
       );
@@ -515,6 +517,9 @@ const Profile = () => {
         {[
           ...(profile.role !== "investor" ? [{ key: "projects", label: "Projects", count: scripts.length }] : []),
           { key: "about", label: "About" },
+          ...(isOwnProfile && ["investor", "producer", "director"].includes(profile.role)
+            ? [{ key: "purchased", label: "Purchased", count: purchasedScripts.length }]
+            : []),
           ...(isOwnProfile ? [{ key: "financial", label: "Financial" }] : []),
           ...(isOwnProfile ? [{ key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
@@ -1078,6 +1083,84 @@ const Profile = () => {
                   </SectionCard>
                 )}
             </>
+          )}
+        </motion.div>
+      )}
+
+      {/* ──────── PURCHASED SCRIPTS TAB ──────── */}
+      {activeTab === "purchased" && isOwnProfile && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+          {purchasedScripts.length === 0 ? (
+            <div className={`rounded-2xl border py-20 text-center transition-colors ${t.card}`}>
+              <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
+                <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+              </div>
+              <p className={`text-[15px] font-bold mb-1 ${t.emptyH}`}>No scripts purchased yet</p>
+              <p className={`text-[13px] max-w-xs mx-auto ${t.emptyP}`}>Scripts you purchase will appear here for instant access.</p>
+              <a href="/search" className={`inline-block mt-5 px-5 py-2.5 rounded-xl text-[13px] font-bold transition ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75]" : "bg-[#1e3a5f] text-white hover:bg-[#254a75]"}`}>Browse Scripts</a>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className={`flex items-center justify-between px-1 mb-1`}>
+                <p className={`text-[13px] font-semibold ${dark ? "text-white/40" : "text-gray-400"}`}>{purchasedScripts.length} script{purchasedScripts.length !== 1 ? "s" : ""} purchased</p>
+                <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${dark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>Full Access</span>
+              </div>
+              {purchasedScripts.map((script, idx) => (
+                <motion.a
+                  key={script._id}
+                  href={`/script/${script._id}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.04 }}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all group cursor-pointer ${dark ? "bg-[#0d1829] border-white/[0.06] hover:border-white/[0.12] hover:bg-[#112030]" : "bg-white border-gray-200 hover:border-blue-200 hover:shadow-md shadow-sm"}`}
+                >
+                  {/* Thumbnail */}
+                  <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 ${dark ? "bg-[#1a2d47]" : "bg-gray-100"}`}>
+                    {script.coverImage ? (
+                      <img src={script.coverImage.startsWith("http") ? script.coverImage : `http://localhost:5001${script.coverImage}`}
+                        alt={script.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = "none"; }} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <svg className={`w-6 h-6 ${dark ? "text-white/15" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[14px] font-bold truncate mb-0.5 group-hover:text-[#4a90d9] transition-colors ${dark ? "text-white" : "text-gray-900"}`}>{script.title}</p>
+                    <p className={`text-[12px] truncate mb-2 ${dark ? "text-white/40" : "text-gray-400"}`}>
+                      by {script.creator?.name || "Unknown"}
+                      {script.genre && <> &middot; {script.genre}</>}
+                      {script.format && <> &middot; {script.format.replace(/_/g, " ")}</>}
+                    </p>
+                    {script.logline && (
+                      <p className={`text-[12px] line-clamp-1 ${dark ? "text-white/30" : "text-gray-400"}`}>{script.logline}</p>
+                    )}
+                  </div>
+
+                  {/* Right side */}
+                  <div className="shrink-0 flex flex-col items-end gap-2">
+                    <span className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border ${dark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Purchased
+                    </span>
+                    {script.price > 0 && (
+                      <span className={`text-[12px] font-bold ${dark ? "text-white/30" : "text-gray-400"}`}>₹{script.price}</span>
+                    )}
+                    <svg className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${dark ? "text-white/30" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </motion.a>
+              ))}
+            </div>
           )}
         </motion.div>
       )}

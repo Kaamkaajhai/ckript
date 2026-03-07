@@ -27,6 +27,13 @@ const ScriptDetail = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [paymentType, setPaymentType] = useState("purchase"); // "purchase" or "hold"
+  const [showRequestModal, setShowRequestModal] = useState(false);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState([]); // for creator view on this script
+  const [pendingReqLoading, setPendingReqLoading] = useState(false);
+  const [pendingReqActionId, setPendingReqActionId] = useState(null);
+  const [rejectNoteModal, setRejectNoteModal] = useState(null); // { id, investorName }
+  const [rejectNoteText, setRejectNoteText] = useState("");
 
   /* ── Handlers ─────────────────────────────────────────── */
 
@@ -49,10 +56,61 @@ const ScriptDetail = () => {
     return `http://localhost:5001${url}`;
   };
 
+  const handlePrint = () => {
+    const raw = script?.textContent || "";
+    const isHtml = raw.startsWith("<");
+    const bodyContent = isHtml
+      ? raw
+      : raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
+    const win = window.open("", "_blank", "width=800,height=900");
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${script?.title || "Script"}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #fff; color: #000; font-family: 'Courier Prime', 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.7; padding: 60px 80px; max-width: 800px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+    .meta { text-align: center; font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #555; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 1px solid #ccc; }
+    .content { white-space: pre-wrap; }
+    @media print { body { padding: 40px 60px; } }
+  </style>
+</head>
+<body>
+  <h1>${script?.title || ""}</h1>
+  <div class="meta">${script?.format || ""}</div>
+  <div class="content">${isHtml ? bodyContent : `<p class="content">${bodyContent}</p>`}</div>
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`);
+    win.document.close();
+  };
+
+  const handleDownload = () => {
+    const raw = script?.textContent || "";
+    const plain = raw.replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    const blob = new Blob([`${script?.title || "Script"}\n${'='.repeat((script?.title || '').length)}\n\n${plain}`], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(script?.title || "script").replace(/[^a-z0-9]/gi, "_")}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     fetchScript();
     setCoverError(false);
   }, [id]);
+
+  useEffect(() => {
+    if (script?.isCreator) {
+      fetchPendingRequestsForScript();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [script?._id, script?.isCreator]);
 
   const fetchScript = async () => {
     try {
@@ -201,6 +259,61 @@ const ScriptDetail = () => {
     }
   };
 
+  const handleRequestPurchase = async () => {
+    setRequestLoading(true);
+    try {
+      await api.post("/scripts/purchase-request", { scriptId: script._id });
+      setShowRequestModal(false);
+      await fetchScript();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to submit purchase request");
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
+  const fetchPendingRequestsForScript = async () => {
+    if (!script?.isCreator) return;
+    setPendingReqLoading(true);
+    try {
+      const { data } = await api.get("/scripts/purchase-requests/mine");
+      setPendingRequests(data.filter((r) => r.script?._id === script._id && r.status === "pending"));
+    } catch {
+      // silent
+    } finally {
+      setPendingReqLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (reqId) => {
+    setPendingReqActionId(reqId);
+    try {
+      await api.put(`/scripts/purchase-request/${reqId}/approve`);
+      await fetchScript();
+      await fetchPendingRequestsForScript();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to approve request");
+    } finally {
+      setPendingReqActionId(null);
+    }
+  };
+
+  const handleRejectRequestSubmit = async () => {
+    if (!rejectNoteModal) return;
+    setPendingReqActionId(rejectNoteModal.id);
+    try {
+      await api.put(`/scripts/purchase-request/${rejectNoteModal.id}/reject`, { note: rejectNoteText });
+      setRejectNoteModal(null);
+      setRejectNoteText("");
+      await fetchScript();
+      await fetchPendingRequestsForScript();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to reject request");
+    } finally {
+      setPendingReqActionId(null);
+    }
+  };
+
   /* ── Formatters ───────────────────────────────────────── */
 
   const formatDate = (d) =>
@@ -327,8 +440,8 @@ const ScriptDetail = () => {
     { id: "evaluation", label: "Evaluation" },
     { id: "roles", label: "Roles" },
     { id: "synopsis", label: "Synopsis" },
-    ...(isOwner && script.textContent
-      ? [{ id: "content", label: "My Script" }]
+    ...((isOwner || script.isUnlocked) && script.textContent
+      ? [{ id: "content", label: isOwner ? "My Script" : "Full Script" }]
       : []),
   ];
 
@@ -574,29 +687,57 @@ const ScriptDetail = () => {
                       </button>
                     )}
 
-                    {/* Purchase Button for non-owners */}
-                    {!isOwner && script.premium && !script.unlockedBy?.includes(user?._id) && (
-                      <button
-                        onClick={handlePurchase}
-                        className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-lg ${t.btnPrim}`}
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
-                          Purchase Script &mdash; ₹{script.price}
+                    {/* Purchase / Request Button for non-owners */}
+                    {!isOwner && script.canPurchase && !script.isUnlocked && (
+                      script.myPendingRequest ? (
+                        <div className="w-full px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
+                          <div className="flex items-center justify-center gap-2 text-amber-700 text-sm font-bold">
+                            <svg className="w-4 h-4 animate-pulse flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Awaiting Writer Approval
+                          </div>
                         </div>
-                      </button>
+                      ) : (
+                        <button
+                          onClick={() => setShowRequestModal(true)}
+                          className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition shadow-lg ${t.btnPrim}`}
+                        >
+                          <div className="flex items-center justify-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            {script.price > 0 ? `Request to Purchase — $${script.price}` : "Request Access"}
+                          </div>
+                        </button>
+                      )
                     )}
 
-                    {/* Already Purchased Badge */}
-                    {!isOwner && script.unlockedBy?.includes(user?._id) && (
-                      <div className="w-full px-4 py-3 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold text-center border border-emerald-200 flex items-center justify-center gap-2">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Purchased
-                      </div>
+                    {/* Already Purchased Badge + Message Writer CTA */}
+                    {!isOwner && script.isUnlocked && (
+                      <>
+                        <div className="w-full px-4 py-3 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold text-center border border-emerald-200 flex items-center justify-center gap-2">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Purchased
+                        </div>
+                        {user?.role === "investor" && script.creator?._id && (
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/messages?recipientId=${script.creator._id}&recipientName=${encodeURIComponent(script.creator.name || "Writer")}`
+                              )
+                            }
+                            className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2 border ${t.btnSec}`}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                            Message Writer
+                          </button>
+                        )}
+                      </>
                     )}
 
                     {!isOwner && isPro && script.holdStatus === "available" && (
@@ -1244,8 +1385,8 @@ const ScriptDetail = () => {
               </motion.div>
             )}
 
-            {/* ── My Script (owner only) ───────────────────── */}
-            {activeTab === "content" && isOwner && (
+            {/* ── Full Script (owner or purchased) ────────── */}
+            {activeTab === "content" && (isOwner || script.isUnlocked) && (
               <motion.div key="content" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className={`flex items-center justify-between mb-4 rounded-xl border px-5 py-3 ${t.card}`}>
                   <div className="flex items-center gap-3">
@@ -1256,7 +1397,8 @@ const ScriptDetail = () => {
                       <p className={`text-[13px] font-bold ${t.title}`}>{script.title}</p>
                       <p className={`text-[11px] ${t.muted}`}>
                         {(() => {
-                          const plain = script.textContent.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+                          const raw = script.textContent || "";
+                          const plain = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
                           const words = plain.split(" ").filter(Boolean).length;
                           const pages = script.pageCount || Math.ceil(words / 250);
                           return `${words.toLocaleString()} words \u00B7 ~${pages} pages`;
@@ -1267,7 +1409,8 @@ const ScriptDetail = () => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
-                        const plain = script.textContent.replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+                        const raw = script.textContent || "";
+                        const plain = raw.replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
                         navigator.clipboard.writeText(plain);
                       }}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isDarkMode ? "bg-white/[0.05] text-neutral-400 hover:text-white hover:bg-white/[0.08]" : "bg-gray-100 text-gray-500 hover:text-gray-800 hover:bg-gray-200"}`}
@@ -1279,7 +1422,7 @@ const ScriptDetail = () => {
                       Copy
                     </button>
                     <button
-                      onClick={() => window.print()}
+                      onClick={handlePrint}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isDarkMode ? "bg-white/[0.05] text-neutral-400 hover:text-white hover:bg-white/[0.08]" : "bg-gray-100 text-gray-500 hover:text-gray-800 hover:bg-gray-200"}`}
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -1288,6 +1431,17 @@ const ScriptDetail = () => {
                         <rect x="6" y="14" width="12" height="8" />
                       </svg>
                       Print
+                    </button>
+                    <button
+                      onClick={handleDownload}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isDarkMode ? "bg-white/[0.05] text-neutral-400 hover:text-white hover:bg-white/[0.08]" : "bg-gray-100 text-gray-500 hover:text-gray-800 hover:bg-gray-200"}`}
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                      Download
                     </button>
                   </div>
                 </div>
@@ -1298,7 +1452,7 @@ const ScriptDetail = () => {
                       <h2 className={`text-2xl font-bold tracking-tight mb-1 ${t.title}`}>{script.title}</h2>
                       {script.format && <p className={`text-[11px] font-bold uppercase tracking-widest ${t.muted}`}>{fmtFormat(script.format)}</p>}
                     </div>
-                    {script.textContent.startsWith("<") ? (
+                    {(script.textContent || "").startsWith("<") ? (
                       <div className="script-content" dangerouslySetInnerHTML={{ __html: script.textContent }} />
                     ) : (
                       <pre className={`whitespace-pre-wrap text-[14px] leading-relaxed ${t.sub}`}
@@ -1309,13 +1463,42 @@ const ScriptDetail = () => {
                   </div>
                 </div>
 
-                <div className={`mt-3 flex items-center justify-center gap-2 text-[11px] ${t.muted}`}>
-                  <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0110 0v4" />
-                  </svg>
-                  This content is private and only visible to you as the creator
-                </div>
+                {isOwner && (
+                  <div className={`mt-3 flex items-center justify-center gap-2 text-[11px] ${t.muted}`}>
+                    <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0110 0v4" />
+                    </svg>
+                    This content is private and only visible to you as the creator
+                  </div>
+                )}
+                {!isOwner && script.isUnlocked && (
+                  <div className="mt-4 space-y-2">
+                    <div className={`flex items-center justify-center gap-2 text-[11px] text-emerald-500`}>
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Full script unlocked — purchased on {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                    </div>
+                    {user?.role === "investor" && script.creator?._id && (
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() =>
+                            navigate(
+                              `/messages?recipientId=${script.creator._id}&recipientName=${encodeURIComponent(script.creator.name || "Writer")}`
+                            )
+                          }
+                          className={`inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold border transition ${t.btnSec}`}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                          </svg>
+                          Message Writer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -1341,11 +1524,31 @@ const ScriptDetail = () => {
                             <p className={`text-sm ${t.muted}`}>Writers cannot purchase synopsis access. Only industry professionals can unlock full scripts.</p>
                           ) : script.canPurchase ? (
                             <div>
-                              <p className={`text-sm mb-4 ${t.muted}`}>Pay to unlock the full synopsis and content.</p>
-                              <button onClick={handleUnlockSynopsis} disabled={unlockLoading}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 ${t.btnPrim}`}>
-                                {unlockLoading ? "Processing..." : `Unlock \u2014 $${script.price || 0}`}
-                              </button>
+                              <p className={`text-sm mb-4 ${t.muted}`}>Submit a purchase request to the writer. Once approved, you'll get full access to this script.</p>
+                              {script.isUnlocked ? (
+                                <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  Access Granted
+                                </div>
+                              ) : script.myPendingRequest ? (
+                                <div className="flex flex-col items-center gap-2">
+                                  <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-700 text-sm font-semibold">
+                                    <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Request Pending — Awaiting Writer Approval
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setShowRequestModal(true)}
+                                  className={`px-6 py-2.5 rounded-xl text-sm font-bold transition ${t.btnPrim}`}
+                                >
+                                  {script.price > 0 ? `Request to Purchase — $${script.price}` : "Request Access"}
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <p className={`text-sm ${t.muted}`}>Sign in as a producer or director to unlock.</p>
@@ -1361,6 +1564,65 @@ const ScriptDetail = () => {
                         <span className="text-xs font-bold">Full synopsis unlocked</span>
                       </div>
                     )}
+                    {/* Creator: pending purchase requests for this script */}
+                    {script.isCreator && script.pendingRequestsCount > 0 && (
+                      <div className={`mt-5 pt-5 border-t ${t.divider}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className={`text-sm font-bold ${t.title}`}>
+                            Purchase Requests
+                            <span className="ml-2 inline-flex items-center justify-center bg-amber-500 text-white text-xs rounded-full w-5 h-5 font-bold">
+                              {script.pendingRequestsCount}
+                            </span>
+                          </h4>
+                        </div>
+                        {pendingReqLoading ? (
+                          <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                            Loading requests...
+                          </div>
+                        ) : pendingRequests.length === 0 ? (
+                          <p className={`text-xs ${t.muted}`}>No pending requests.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {pendingRequests.map((pr) => (
+                              <div key={pr._id} className={`rounded-xl border px-4 py-3 flex items-center gap-3 ${t.inset}`}>
+                                {pr.investor?.profileImage ? (
+                                  <img src={pr.investor.profileImage} alt={pr.investor.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-slate-300 to-slate-400 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-white text-xs font-bold">{pr.investor?.name?.charAt(0)?.toUpperCase()}</span>
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-semibold truncate ${t.title}`}>{pr.investor?.name}</p>
+                                  <p className={`text-xs ${t.muted}`}>
+                                    {pr.amount > 0 ? `$${pr.amount} offered` : "Free access request"}
+                                    {" · "}
+                                    {new Date(pr.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <button
+                                    onClick={() => handleApproveRequest(pr._id)}
+                                    disabled={pendingReqActionId === pr._id}
+                                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition disabled:opacity-50"
+                                  >
+                                    {pendingReqActionId === pr._id ? "..." : "Approve"}
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectNoteModal({ id: pr._id, investorName: pr.investor?.name })}
+                                    disabled={pendingReqActionId === pr._id}
+                                    className="px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 text-xs font-semibold transition disabled:opacity-50"
+                                  >
+                                    Decline
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="text-center py-12">
@@ -1374,6 +1636,93 @@ const ScriptDetail = () => {
       </div>
 
       {/* ══════════════  MODALS  ═════════════════════════════ */}
+
+      {/* Purchase Request confirmation modal */}
+      {showRequestModal && script && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => !requestLoading && setShowRequestModal(false)}
+        >
+          <div
+            className={`rounded-2xl shadow-2xl max-w-sm w-full p-6 border ${t.card}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mb-4">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className={`text-lg font-extrabold text-center mb-1 ${t.title}`}>Request to Purchase</h2>
+            <p className={`text-sm text-center mb-4 ${t.muted}`}>
+              You are requesting to purchase{" "}
+              <span className={`font-semibold ${t.sub}`}>"{script.title}"</span>.
+              {script.price > 0
+                ? ` You will be contacted to complete payment of $${script.price} once the writer approves.`
+                : " The writer will be notified and can approve your access."}
+            </p>
+            <div className={`rounded-xl border px-4 py-3 mb-4 text-center ${t.inset}`}>
+              <p className={`text-xs ${t.muted}`}>Amount</p>
+              <p className={`text-2xl font-bold mt-1 ${t.title}`}>{script.price > 0 ? `$${script.price}` : "Free"}</p>
+              {script.price > 0 && <p className={`text-xs ${t.muted} mt-0.5`}>Payment collected after writer approves</p>}
+            </div>
+            <button
+              onClick={handleRequestPurchase}
+              disabled={requestLoading}
+              className={`w-full py-3 rounded-xl text-sm font-bold transition disabled:opacity-50 ${t.btnPrim}`}
+            >
+              {requestLoading ? "Submitting..." : "Submit Request"}
+            </button>
+            <button
+              onClick={() => setShowRequestModal(false)}
+              disabled={requestLoading}
+              className={`w-full mt-2 py-2.5 rounded-xl text-sm font-medium border ${t.divider} ${t.muted} hover:opacity-70 transition`}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Decline request modal (for creator on this script) */}
+      {rejectNoteModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setPendingReqActionId(null) || setRejectNoteModal(null)}
+        >
+          <div
+            className={`rounded-2xl shadow-2xl max-w-sm w-full p-6 border ${t.card}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className={`text-base font-bold mb-1 ${t.title}`}>Decline Purchase Request</h3>
+            <p className={`text-sm mb-4 ${t.muted}`}>
+              Declining <strong>{rejectNoteModal.investorName}</strong>'s request. Their reserved funds will be returned.
+            </p>
+            <label className={`block text-xs font-semibold mb-1 ${t.muted}`}>Reason (optional)</label>
+            <textarea
+              rows={3}
+              className={`w-full border rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 ${t.inset} ${t.sub}`}
+              placeholder="Let the investor know why you're declining..."
+              value={rejectNoteText}
+              onChange={(e) => setRejectNoteText(e.target.value)}
+            />
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => { setRejectNoteModal(null); setRejectNoteText(""); }}
+                className={`flex-1 py-2.5 rounded-xl border text-sm font-medium ${t.muted} ${t.divider} hover:opacity-70 transition`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRejectRequestSubmit}
+                disabled={pendingReqActionId === rejectNoteModal.id}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition disabled:opacity-50"
+              >
+                {pendingReqActionId === rejectNoteModal.id ? "Declining..." : "Decline"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trailer modal */}
       {showTrailer && (script.trailerUrl || script.uploadedTrailerUrl) && (

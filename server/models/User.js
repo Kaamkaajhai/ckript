@@ -161,6 +161,13 @@ const userSchema = new mongoose.Schema({
   // Stripe Connected Account (for payouts)
   stripeAccountId: { type: String },
   stripeCustomerId: { type: String },
+  // Admin approval for investors
+  approvalStatus: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "approved",
+  },
+  approvalNote: { type: String },
 }, { timestamps: true });
 
 userSchema.pre("save", async function () {

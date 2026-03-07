@@ -69,6 +69,7 @@ const scriptSchema = new mongoose.Schema({
 
   premium: { type: Boolean, default: false },
   price: { type: Number, default: 0 },
+  isSold: { type: Boolean, default: false }, // true once any buyer purchases — hides script from all public listings
   unlockedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   // AI Trailer (Text-to-Trailer)
   trailerUrl: { type: String },

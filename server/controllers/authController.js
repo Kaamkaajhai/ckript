@@ -169,6 +169,22 @@ export const login = async (req, res) => {
           email: user.email
         });
       }
+
+      // Check admin approval for investors
+      if (user.role === "investor" && user.approvalStatus === "pending") {
+        return res.status(403).json({
+          message: "Your account is pending admin approval. You will be notified once approved.",
+          pendingApproval: true,
+        });
+      }
+      if (user.role === "investor" && user.approvalStatus === "rejected") {
+        return res.status(403).json({
+          message: user.approvalNote
+            ? `Your account has been rejected: ${user.approvalNote}. Please contact support.`
+            : "Your investor account has been rejected. Please contact support.",
+          rejected: true,
+        });
+      }
       
       const { token, expiresAt } = generateToken(user._id);
       res.json({
@@ -230,10 +246,26 @@ export const verifyOTP = async (req, res) => {
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
+
+    // Investors require admin approval — set pending status
+    if (user.role === "investor") {
+      user.approvalStatus = "pending";
+    }
+
     await user.save();
 
     // Send welcome email
     await sendWelcomeEmail(user.email, user.name);
+
+    // Investors cannot log in yet — they need admin approval
+    if (user.role === "investor") {
+      return res.json({
+        message: "Email verified successfully! Your account is now pending admin approval. You will be notified once approved.",
+        pendingApproval: true,
+        email: user.email,
+        role: user.role,
+      });
+    }
 
     // Generate token and log user in
     const { token, expiresAt } = generateToken(user._id);

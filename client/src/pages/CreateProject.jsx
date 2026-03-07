@@ -222,6 +222,22 @@ const CreateProject = () => {
   const [legal, setLegal] = useState({ agreedToTerms: false });
   const [creditsBalance, setCreditsBalance] = useState(0);
 
+  // Step 4: Script pricing
+  const PRICE_PRESETS = [5, 10, 15, 25, 50];
+  const PLATFORM_FEE = 0.2; // 20%
+  const [isPremium, setIsPremium] = useState(false);
+  const [scriptPrice, setScriptPrice] = useState(10);
+  const [customPriceInput, setCustomPriceInput] = useState("");
+  const [useCustomPrice, setUseCustomPrice] = useState(false);
+  const effectivePrice = isPremium ? (useCustomPrice ? Number(customPriceInput) || 0 : scriptPrice) : 0;
+  const writerEarns = Math.round(effectivePrice * (1 - PLATFORM_FEE) * 100) / 100;
+  const FORMAT_PRICE_GUIDE = {
+    feature:      { label: "Feature Film",    min: 15, max: 50, suggest: 25 },
+    tv_1hour:     { label: "TV 1-Hour",       min: 10, max: 30, suggest: 15 },
+    tv_halfhour:  { label: "TV Half-Hour",    min: 5,  max: 20, suggest: 10 },
+    short:        { label: "Short Film",      min: 5,  max: 15, suggest: 5  },
+  };
+
   // TipTap Editor
   const editor = useEditor({
     extensions: [
@@ -344,6 +360,8 @@ const CreateProject = () => {
         classification: { primaryGenre: formData.primaryGenre, secondaryGenre: null, tones: classification.tones, themes: classification.themes, settings: classification.settings },
         services: { hosting: services.hosting, evaluation: services.evaluation, aiTrailer: services.aiTrailer },
         legal: { agreedToTerms: legal.agreedToTerms, timestamp: new Date().toISOString() },
+        premium: isPremium && effectivePrice > 0,
+        price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         ...(scriptId ? { scriptId } : {}),
       };
       await api.post("/scripts/upload", payload);
@@ -953,7 +971,137 @@ const CreateProject = () => {
             <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Review & Publish</h2>
-                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Choose optional services and agree to our terms.</p>
+                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Set your script's price, choose optional services, and agree to our terms.</p>
+              </div>
+
+              {/* ── Pricing ── */}
+              <div className={`rounded-2xl border p-5 space-y-5 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
+                    <svg className={`w-4 h-4 ${dark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                  <div>
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Script Access & Pricing</h3>
+                    <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Decide whether your full script is freely readable or paid</p>
+                  </div>
+                </div>
+
+                {/* Free / Premium toggle */}
+                <div className={`grid grid-cols-2 gap-2.5 p-1 rounded-xl ${dark ? "bg-white/[0.04]" : "bg-white border border-gray-200"}`}>
+                  <button type="button" onClick={() => setIsPremium(false)}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      !isPremium
+                        ? dark ? "bg-white/[0.1] text-white shadow" : "bg-[#1e3a5f] text-white shadow-sm"
+                        : dark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
+                    }`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                    Free Access
+                  </button>
+                  <button type="button" onClick={() => setIsPremium(true)}
+                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      isPremium
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm"
+                        : dark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
+                    }`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                    Premium (Paid)
+                  </button>
+                </div>
+
+                {/* Free description */}
+                {!isPremium && (
+                  <div className={`flex items-start gap-3 px-4 py-3 rounded-xl ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                    <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? "text-blue-400" : "text-blue-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                    <p className={`text-[12px] leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                      Anyone can read your full script for free. Great for building your audience and getting discovered by more industry professionals.
+                    </p>
+                  </div>
+                )}
+
+                {/* Paid price picker */}
+                {isPremium && (
+                  <div className="space-y-4">
+                    {/* Suggested range */}
+                    {FORMAT_PRICE_GUIDE[formData.format] && (
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] ${dark ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" : "bg-amber-50 border border-amber-200 text-amber-700"}`}>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
+                        <span><strong>Industry guide for {FORMAT_PRICE_GUIDE[formData.format].label}:</strong> ${FORMAT_PRICE_GUIDE[formData.format].min}–${FORMAT_PRICE_GUIDE[formData.format].max} · Suggested: ${FORMAT_PRICE_GUIDE[formData.format].suggest}</span>
+                      </div>
+                    )}
+
+                    {/* Quick-select presets */}
+                    <div>
+                      <p className={`text-[11px] font-semibold mb-2 ${dark ? "text-gray-500" : "text-gray-400"}`}>QUICK SELECT</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PRICE_PRESETS.map(p => (
+                          <button key={p} type="button"
+                            onClick={() => { setScriptPrice(p); setUseCustomPrice(false); setCustomPriceInput(""); }}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                              !useCustomPrice && scriptPrice === p
+                                ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+                                : dark
+                                  ? "border-[#1d3350] text-gray-400 hover:border-emerald-500/50 hover:text-emerald-400"
+                                  : "border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600"
+                            }`}>
+                            ${p}
+                          </button>
+                        ))}
+                        <button type="button"
+                          onClick={() => { setUseCustomPrice(true); setCustomPriceInput(String(scriptPrice)); }}
+                          className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                            useCustomPrice
+                              ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+                              : dark
+                                ? "border-[#1d3350] text-gray-400 hover:border-emerald-500/50 hover:text-emerald-400"
+                                : "border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600"
+                          }`}>
+                          Custom
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Custom input */}
+                    {useCustomPrice && (
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-36">
+                          <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold ${dark ? "text-gray-400" : "text-gray-500"}`}>$</span>
+                          <input
+                            type="number" min="1" max="500" step="1"
+                            value={customPriceInput}
+                            onChange={e => setCustomPriceInput(e.target.value)}
+                            placeholder="0"
+                            className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${
+                              dark
+                                ? "bg-white/[0.04] border-emerald-500/50 text-white focus:border-emerald-500"
+                                : "bg-white border-emerald-400 text-gray-900 focus:border-emerald-500"
+                            }`}
+                          />
+                        </div>
+                        <span className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Enter a value between $1 and $500</span>
+                      </div>
+                    )}
+
+                    {/* Earnings preview */}
+                    {effectivePrice > 0 && (
+                      <div className={`grid grid-cols-3 gap-3 p-4 rounded-xl ${
+                        dark ? "bg-emerald-500/[0.07] border border-emerald-500/20" : "bg-emerald-50 border border-emerald-200"
+                      }`}>
+                        <div className="text-center">
+                          <p className={`text-[11px] font-semibold mb-1 ${ dark ? "text-gray-500" : "text-gray-400"}`}>Buyer Pays</p>
+                          <p className={`text-xl font-black ${ dark ? "text-white" : "text-gray-900"}`}>${effectivePrice}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-[11px] font-semibold mb-1 ${ dark ? "text-gray-500" : "text-gray-400"}`}>Platform Fee</p>
+                          <p className={`text-xl font-black text-gray-400`}>${(effectivePrice * PLATFORM_FEE).toFixed(2)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-[11px] font-semibold mb-1 ${ dark ? "text-emerald-400" : "text-emerald-600"}`}>You Earn</p>
+                          <p className={`text-xl font-black ${ dark ? "text-emerald-400" : "text-emerald-600"}`}>${writerEarns}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Services */}

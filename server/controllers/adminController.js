@@ -3,6 +3,7 @@ import Script from "../models/Script.js";
 import Transaction from "../models/Transaction.js";
 import Notification from "../models/Notification.js";
 import jwt from "jsonwebtoken";
+import { sendInvestorApprovalEmail } from "../utils/emailService.js";
 
 // ─── Dashboard Stats ───
 export const getStats = async (req, res) => {
@@ -369,6 +370,63 @@ export const getScriptDetail = async (req, res) => {
             .populate("platformScore.scoredBy", "name");
         if (!script) return res.status(404).json({ message: "Script not found" });
         res.json(script);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ─── Investor Approval ───
+export const getPendingInvestors = async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const filter = { role: "investor", approvalStatus: "pending" };
+        const total = await User.countDocuments(filter);
+        const investors = await User.find(filter)
+            .select("-password")
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(Number(limit));
+        res.json({ investors, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const approveInvestor = async (req, res) => {
+    try {
+        const user = await User.findOne({ _id: req.params.id, role: "investor" });
+        if (!user) return res.status(404).json({ message: "Investor not found" });
+        user.approvalStatus = "approved";
+        user.approvalNote = undefined;
+        await user.save();
+
+        // Send approval email
+        sendInvestorApprovalEmail(user.email, user.name).catch((err) =>
+            console.error("Failed to send investor approval email:", err.message)
+        );
+
+        // Create in-app notification
+        await Notification.create({
+            user: user._id,
+            type: "investor_approved",
+            message: "Your investor account has been approved! You can now log in and start exploring investment opportunities.",
+        });
+
+        res.json({ message: "Investor approved successfully", user: { _id: user._id, name: user.name, email: user.email, approvalStatus: user.approvalStatus } });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const rejectInvestor = async (req, res) => {
+    try {
+        const { note } = req.body;
+        const user = await User.findOne({ _id: req.params.id, role: "investor" });
+        if (!user) return res.status(404).json({ message: "Investor not found" });
+        user.approvalStatus = "rejected";
+        if (note) user.approvalNote = note;
+        await user.save();
+        res.json({ message: "Investor rejected", user: { _id: user._id, name: user.name, email: user.email, approvalStatus: user.approvalStatus } });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

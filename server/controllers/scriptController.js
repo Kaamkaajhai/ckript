@@ -1,8 +1,14 @@
 import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
+import ScriptPurchaseRequest from "../models/ScriptPurchaseRequest.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
+import {
+  sendPurchaseRequestEmail,
+  sendPurchaseApprovedEmail,
+  sendPurchaseRejectedEmail,
+} from "../utils/emailService.js";
 import { CREDIT_PRICES } from "./creditsController.js";
 import { createRequire } from 'module';
 import Razorpay from "razorpay";
@@ -386,7 +392,7 @@ export const uploadScript = async (req, res) => {
 export const getScripts = async (req, res) => {
   try {
     const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
-    const query = { status: "published" };
+    const query = { status: "published", isSold: { $ne: true } };
     if (genre) query.genre = genre;
     if (contentType) query.contentType = contentType;
     if (budget) query.budget = budget;
@@ -510,6 +516,13 @@ export const getScriptById = async (req, res) => {
       return res.status(403).json({ message: "This draft is private" });
     }
 
+    // Block access to sold scripts — only allow creator, buyer, and admins
+    const isBuyer = script.unlockedBy?.some(uid => uid.toString() === req.user._id.toString());
+    const isAdmin = req.user.role === "admin";
+    if (script.isSold && !isOwner && !isBuyer && !isAdmin) {
+      return res.status(403).json({ message: "This script has been purchased and is no longer publicly available" });
+    }
+
     // Track view — only count views from users who are NOT the script creator
     if (!isOwner) {
       script.views += 1;
@@ -547,6 +560,25 @@ export const getScriptById = async (req, res) => {
     const synopsisTeaser = script.synopsis ? script.synopsis.substring(0, 120) + (script.synopsis.length > 120 ? '...' : '') : null;
     const isSynopsisLocked = !isCreator && !isUnlocked;
 
+    // Check if the viewer has a pending purchase request for this script
+    let myPendingRequest = null;
+    if (canPurchase && !isUnlocked) {
+      myPendingRequest = await ScriptPurchaseRequest.findOne({
+        script: script._id,
+        investor: req.user._id,
+        status: "pending",
+      }).lean();
+    }
+
+    // For creators, count how many pending purchase requests exist for this script
+    let pendingRequestsCount = 0;
+    if (isCreator) {
+      pendingRequestsCount = await ScriptPurchaseRequest.countDocuments({
+        script: script._id,
+        status: "pending",
+      });
+    }
+
     const response = {
       ...script.toObject(),
       isUnlocked,
@@ -555,10 +587,14 @@ export const getScriptById = async (req, res) => {
       canPurchase,
       isWriter: isWriter && !isCreator,
       auditionCount,
+      myPendingRequest,
+      pendingRequestsCount,
       // Hide full synopsis unless unlocked or creator
       synopsis: (isUnlocked || isCreator) ? script.synopsis : synopsisTeaser,
       // Hide full content unless unlocked or creator
       fullContent: (isUnlocked || isCreator) ? script.fullContent : null,
+      // Hide script text unless unlocked or creator
+      textContent: (isUnlocked || isCreator) ? script.textContent : null,
     };
 
     res.json(response);
@@ -587,6 +623,7 @@ export const unlockScript = async (req, res) => {
 
     if (!script.unlockedBy.includes(req.user._id)) {
       script.unlockedBy.push(req.user._id);
+      script.isSold = true; // hide from all public listings once purchased
       await script.save();
 
       // Notify creator
@@ -604,6 +641,206 @@ export const unlockScript = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// ─── PURCHASE REQUEST WORKFLOW ────────────────────────────────────────────────
+
+// Investor submits a purchase request for a script (funds frozen immediately)
+export const requestScriptPurchase = async (req, res) => {
+  try {
+    const { scriptId, note } = req.body;
+
+    const allowedRoles = ["investor", "producer", "director", "industry", "professional"];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Only investors and industry professionals can request script purchases." });
+    }
+
+    const script = await Script.findById(scriptId).populate("creator", "name email");
+    if (!script) return res.status(404).json({ message: "Script not found" });
+
+    if (script.creator._id.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: "You cannot purchase your own script." });
+    }
+
+    if (script.unlockedBy.some((uid) => uid.toString() === req.user._id.toString())) {
+      return res.status(400).json({ message: "You already have access to this script." });
+    }
+
+    // Check for existing pending request
+    const existing = await ScriptPurchaseRequest.findOne({
+      script: scriptId,
+      investor: req.user._id,
+      status: "pending",
+    });
+    if (existing) {
+      return res.status(400).json({ message: "You already have a pending purchase request for this script." });
+    }
+
+    const investor = await User.findById(req.user._id);
+    const amount = script.price || 0;
+
+    const purchaseRequest = await ScriptPurchaseRequest.create({
+      script: scriptId,
+      investor: req.user._id,
+      writer: script.creator._id,
+      amount,
+      frozenAmount: 0,
+      note: note || "",
+    });
+
+    // Notify writer in-app
+    await Notification.create({
+      user: script.creator._id,
+      type: "purchase_request",
+      from: req.user._id,
+      script: script._id,
+      message: `${investor.name} wants to purchase your script "${script.title}"${amount > 0 ? ` for $${amount}` : ""}.`,
+    });
+
+    // Email writer
+    sendPurchaseRequestEmail(
+      script.creator.email,
+      script.creator.name,
+      investor.name,
+      script.title,
+      amount
+    ).catch((err) => console.error("[Purchase] Failed to send request email:", err.message));
+
+    res.status(201).json({ message: "Purchase request submitted successfully.", purchaseRequest });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Writer approves a purchase request
+export const approveScriptPurchase = async (req, res) => {
+  try {
+    const purchaseRequest = await ScriptPurchaseRequest.findById(req.params.id)
+      .populate("script")
+      .populate("investor", "name email wallet");
+
+    if (!purchaseRequest) return res.status(404).json({ message: "Purchase request not found." });
+    if (purchaseRequest.writer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script writer can approve this request." });
+    }
+    if (purchaseRequest.status !== "pending") {
+      return res.status(400).json({ message: "This request has already been processed." });
+    }
+
+    const script = purchaseRequest.script;
+    const investor = purchaseRequest.investor;
+    const writer = await User.findById(req.user._id);
+
+    // Grant access to the script
+    if (!script.unlockedBy.some((uid) => uid.toString() === investor._id.toString())) {
+      script.unlockedBy.push(investor._id);
+      await script.save();
+    }
+
+    purchaseRequest.status = "approved";
+    await purchaseRequest.save();
+
+    // Notify investor in-app
+    await Notification.create({
+      user: investor._id,
+      type: "purchase_approved",
+      from: req.user._id,
+      script: script._id,
+      message: `${writer.name} approved your purchase request for "${script.title}". You now have full access!`,
+    });
+
+    // Email investor
+    sendPurchaseApprovedEmail(
+      investor.email,
+      investor.name,
+      writer.name,
+      script.title
+    ).catch((err) => console.error("[Purchase] Failed to send approval email:", err.message));
+
+    res.json({ message: "Purchase request approved. Investor now has access to the script.", purchaseRequest });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Writer rejects a purchase request
+export const rejectScriptPurchase = async (req, res) => {
+  try {
+    const { note } = req.body;
+
+    const purchaseRequest = await ScriptPurchaseRequest.findById(req.params.id)
+      .populate("script")
+      .populate("investor", "name email wallet");
+
+    if (!purchaseRequest) return res.status(404).json({ message: "Purchase request not found." });
+    if (purchaseRequest.writer.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script writer can reject this request." });
+    }
+    if (purchaseRequest.status !== "pending") {
+      return res.status(400).json({ message: "This request has already been processed." });
+    }
+
+    const script = purchaseRequest.script;
+    const investor = purchaseRequest.investor;
+    const writer = await User.findById(req.user._id);
+
+    purchaseRequest.status = "rejected";
+    if (note) purchaseRequest.note = note;
+    await purchaseRequest.save();
+
+    // Notify investor in-app
+    await Notification.create({
+      user: investor._id,
+      type: "purchase_rejected",
+      from: req.user._id,
+      script: script._id,
+      message: `${writer.name} declined your purchase request for "${script.title}".`,
+    });
+
+    // Email investor
+    sendPurchaseRejectedEmail(
+      investor.email,
+      investor.name,
+      writer.name,
+      script.title,
+      note || ""
+    ).catch((err) => console.error("[Purchase] Failed to send rejection email:", err.message));
+
+    res.json({ message: "Purchase request rejected. Funds returned to investor.", purchaseRequest });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get purchase requests — writers see incoming requests, investors see their own
+export const getMyPurchaseRequests = async (req, res) => {
+  try {
+    const { role } = req.user;
+    const isWriterRole = ["writer", "creator"].includes(role);
+    const isInvestorRole = ["investor", "producer", "director", "industry", "professional"].includes(role);
+
+    let requests;
+
+    if (isWriterRole) {
+      requests = await ScriptPurchaseRequest.find({ writer: req.user._id })
+        .populate("script", "title price thumbnailUrl")
+        .populate("investor", "name profileImage role")
+        .sort({ createdAt: -1 });
+    } else if (isInvestorRole) {
+      requests = await ScriptPurchaseRequest.find({ investor: req.user._id })
+        .populate("script", "title price thumbnailUrl creator")
+        .populate("writer", "name profileImage role")
+        .sort({ createdAt: -1 });
+    } else {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
+    res.json(requests);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Hold/Option a script (for producers - $200 default, 30 days)
 export const holdScript = async (req, res) => {
@@ -743,7 +980,7 @@ export const getFeaturedScripts = async (req, res) => {
   try {
     // Step 1: rank published scripts by trendScore via aggregation
     const ranked = await Script.aggregate([
-      { $match: { status: "published" } },
+      { $match: { status: "published", isSold: { $ne: true } } },
       {
         $addFields: {
           trendScore: {
@@ -765,7 +1002,7 @@ export const getFeaturedScripts = async (req, res) => {
     const ids = ranked.map((s) => s._id);
 
     // Step 2: fetch full documents with populated creator (preserving sort order)
-    const docs = await Script.find({ _id: { $in: ids } }).populate(
+    const docs = await Script.find({ _id: { $in: ids }, isSold: { $ne: true } }).populate(
       "creator",
       "name profileImage role"
     );
@@ -787,7 +1024,7 @@ export const getTopScripts = async (req, res) => {
     let sortObj = { rating: -1 };
     if (sortBy === "reads") sortObj = { readsCount: -1 };
     if (sortBy === "purchases") sortObj = { "unlockedBy": -1 };
-    const scripts = await Script.find({ status: "published" })
+    const scripts = await Script.find({ status: "published", isSold: { $ne: true } })
       .populate("creator", "name profileImage role")
       .sort(sortObj)
       .limit(20);
@@ -800,7 +1037,7 @@ export const getTopScripts = async (req, res) => {
 export const searchScriptsReader = async (req, res) => {
   try {
     const { q, category, genre, page = 1, limit = 20 } = req.query;
-    const query = { status: "published" };
+    const query = { status: "published", isSold: { $ne: true } };
     if (q) {
       const regex = new RegExp(q, "i");
       query.$or = [{ title: regex }, { description: regex }, { logline: regex }, { tags: regex }];
@@ -821,7 +1058,7 @@ export const searchScriptsReader = async (req, res) => {
 
 export const getLatestScripts = async (req, res) => {
   try {
-    const scripts = await Script.find({ status: "published" })
+    const scripts = await Script.find({ status: "published", isSold: { $ne: true } })
       .populate("creator", "name profileImage role")
       .sort({ createdAt: -1 })
       .limit(18);
@@ -864,8 +1101,8 @@ export const toggleFavorite = async (req, res) => {
 
 export const getCategories = async (req, res) => {
   try {
-    const contentTypes = await Script.distinct("contentType", { status: "published" });
-    const genres = await Script.distinct("genre", { status: "published" });
+    const contentTypes = await Script.distinct("contentType", { status: "published", isSold: { $ne: true } });
+    const genres = await Script.distinct("genre", { status: "published", isSold: { $ne: true } });
     res.json({ contentTypes: contentTypes.filter(Boolean), genres: genres.filter(Boolean) });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -901,6 +1138,7 @@ export const getInvestorHomeFeed = async (req, res) => {
     for (const genre of preferredGenres.slice(0, 4)) {
       const scripts = await Script.find({
         status: "published",
+        isSold: { $ne: true },
         genre: { $regex: new RegExp(`^${genre}$`, "i") },
       })
         .populate("creator", "name profileImage role")
@@ -918,7 +1156,7 @@ export const getInvestorHomeFeed = async (req, res) => {
 
     // ── Trending (by trendScore, not already shown) ──
     const trendingAgg = await Script.aggregate([
-      { $match: { status: "published" } },
+      { $match: { status: "published", isSold: { $ne: true } } },
       {
         $addFields: {
           trendScore: {
@@ -955,6 +1193,7 @@ export const getInvestorHomeFeed = async (req, res) => {
     const notUsedArray = [...usedIds];
     const newReleases = await Script.find({
       status: "published",
+      isSold: { $ne: true },
       createdAt: { $gte: thirtyDaysAgo },
       _id: { $nin: notUsedArray },
     })
@@ -966,6 +1205,7 @@ export const getInvestorHomeFeed = async (req, res) => {
     // ── Explore (top rated, outside investor's interests) ──
     const explore = await Script.find({
       status: "published",
+      isSold: { $ne: true },
       _id: { $nin: [...usedIds] },
     })
       .populate("creator", "name profileImage role")
@@ -981,6 +1221,95 @@ export const getInvestorHomeFeed = async (req, res) => {
     });
   } catch (error) {
     console.error("getInvestorHomeFeed error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+//  TOP LIST — merged Top Ranked + Featured + Trending
+// ═══════════════════════════════════════════════════════════
+export const getTopList = async (req, res) => {
+  try {
+    const { genre, contentType, budget, sort = "platform", premium } = req.query;
+    const match = { status: "published", isSold: { $ne: true } };
+    if (genre) match.genre = genre;
+    if (contentType) match.contentType = contentType;
+    if (budget) match.budget = budget;
+    if (premium === "true") match.premium = true;
+    else if (premium === "false") match.premium = { $ne: true };
+
+    const pipeline = [
+      { $match: match },
+      {
+        $addFields: {
+          unlockCount: { $size: { $ifNull: ["$unlockedBy", []] } },
+          trendScore: {
+            $add: [
+              { $multiply: [{ $ifNull: ["$reviewCount", 0] }, 3] },
+              { $multiply: [{ $ifNull: ["$readsCount", 0] }, 2] },
+              { $ifNull: ["$views", 0] },
+            ],
+          },
+          engagementScore: {
+            $min: [
+              100,
+              {
+                $add: [
+                  { $multiply: [{ $divide: [{ $ifNull: ["$views", 0] }, 500] }, 40] },
+                  { $multiply: [{ $divide: [{ $size: { $ifNull: ["$unlockedBy", []] } }, 50] }, 40] },
+                  {
+                    $cond: [
+                      { $gt: [{ $ifNull: ["$views", 0] }, 0] },
+                      { $multiply: [{ $divide: [{ $size: { $ifNull: ["$unlockedBy", []] } }, { $ifNull: ["$views", 1] }] }, 100] },
+                      0,
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          platformScore: {
+            $add: [
+              { $multiply: [{ $ifNull: ["$scriptScore.overall", 0] }, 0.6] },
+              { $multiply: ["$engagementScore", 0.4] },
+            ],
+          },
+        },
+      },
+    ];
+
+    // Sort based on tab
+    if (sort === "trending") pipeline.push({ $sort: { trendScore: -1 } });
+    else if (sort === "featured") pipeline.push({ $sort: { engagementScore: -1, trendScore: -1 } });
+    else if (sort === "score") pipeline.push({ $sort: { "scriptScore.overall": -1 } });
+    else if (sort === "views") pipeline.push({ $sort: { views: -1 } });
+    else pipeline.push({ $sort: { platformScore: -1 } }); // default: platform
+
+    // Populate creator
+    pipeline.push({
+      $lookup: {
+        from: "users",
+        localField: "creator",
+        foreignField: "_id",
+        as: "creator",
+        pipeline: [{ $project: { name: 1, profileImage: 1, role: 1 } }],
+      },
+    });
+    pipeline.push({ $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } });
+
+    const scripts = await Script.aggregate(pipeline);
+    const sanitized = scripts.map((s) => ({
+      ...s,
+      synopsis: s.synopsis ? s.synopsis.substring(0, 120) + (s.synopsis.length > 120 ? "..." : "") : null,
+      fullContent: undefined,
+    }));
+    res.json(sanitized);
+  } catch (error) {
+    console.error("getTopList error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -1112,8 +1441,9 @@ export const verifyScriptPurchase = async (req, res) => {
       });
     }
     
-    // Unlock the script for the buyer
+    // Unlock the script for the buyer and mark as sold
     script.unlockedBy.push(req.user._id);
+    script.isSold = true; // hide from all public listings once purchased
     await script.save();
     
     const reference = `SCRIPT-PURCHASE-${razorpay_payment_id}`;
@@ -1169,13 +1499,17 @@ export const verifyScriptPurchase = async (req, res) => {
     });
     
     // Notify the creator
-    await Notification.create({
-      user: script.creator._id,
-      type: "purchase",
-      from: req.user._id,
-      script: script._id,
-      message: `Your script "${script.title}" was purchased! You earned ₹${creatorPayout.toFixed(2)}`
-    });
+    try {
+      await Notification.create({
+        user: script.creator._id,
+        type: "purchase",
+        from: req.user._id,
+        script: script._id,
+        message: `Your script "${script.title}" was purchased! You earned ₹${creatorPayout.toFixed(2)}`
+      });
+    } catch (notifErr) {
+      console.error("Notification creation failed (non-fatal):", notifErr.message);
+    }
     
     console.log("Script purchase completed:", { scriptId, buyerId: req.user._id, amount: script.price });
     

@@ -142,7 +142,7 @@ export const updateAuditionStatus = async (req, res) => {
 export const getAvailableRoles = async (req, res) => {
   try {
     const { genre, contentType } = req.query;
-    const query = { "roles.0": { $exists: true }, holdStatus: "available" };
+    const query = { "roles.0": { $exists: true }, holdStatus: "available", isSold: { $ne: true } };
     if (genre) query.genre = genre;
     if (contentType) query.contentType = contentType;
 

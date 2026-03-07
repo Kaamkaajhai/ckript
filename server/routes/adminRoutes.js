@@ -20,6 +20,9 @@ import {
     approveTrailer,
     loginAsUser,
     getScriptDetail,
+    getPendingInvestors,
+    approveInvestor,
+    rejectInvestor,
 } from "../controllers/adminController.js";
 
 const router = express.Router();
@@ -56,5 +59,10 @@ router.get("/scores/reader", getReaderScores);
 
 // Impersonation
 router.post("/login-as/:userId", loginAsUser);
+
+// Investor Approval
+router.get("/investors/pending", getPendingInvestors);
+router.put("/investors/:id/approve", approveInvestor);
+router.put("/investors/:id/reject", rejectInvestor);
 
 export default router;

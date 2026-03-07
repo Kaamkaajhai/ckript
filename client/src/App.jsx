@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useSearchParams, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useNavigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
@@ -23,8 +23,6 @@ const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const Mandates = lazy(() => import("./pages/Mandates"));
 const TopList = lazy(() => import("./pages/TopList"));
-const FeaturedProjects = lazy(() => import("./pages/FeaturedProjects"));
-const Trending = lazy(() => import("./pages/Trending"));
 const Messages = lazy(() => import("./pages/Messages"));
 const Writers = lazy(() => import("./pages/Writers"));
 const InvestorHome = lazy(() => import("./pages/InvestorHome"));
@@ -33,6 +31,7 @@ const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const Credits = lazy(() => import("./pages/Credits"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 
 // Handles admin impersonation login via URL parameter
@@ -100,23 +99,11 @@ function App() {
               />
               <Route
                 path="/featured"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <FeaturedProjects />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
+                element={<Navigate to="/top-list" replace />}
               />
               <Route
                 path="/trending"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Trending />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
+                element={<Navigate to="/top-list" replace />}
               />
               <Route
                 path="/profile/:id?"
@@ -144,6 +131,16 @@ function App() {
                   <PrivateRoute>
                     <MainLayout>
                       <Credits />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/purchase-requests"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <WriterPurchaseRequests />
                     </MainLayout>
                   </PrivateRoute>
                 }
@@ -259,7 +256,7 @@ function App() {
                 }
               />
               <Route
-                path="/programs"
+                path="/messages"
                 element={
                   <PrivateRoute>
                     <MainLayout>
@@ -310,13 +307,7 @@ function App() {
               />
               <Route
                 path="/reader/featured"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ReaderHome />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
+                element={<Navigate to="/top-list" replace />}
               />
               <Route
                 path="/admin"

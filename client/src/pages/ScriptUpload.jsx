@@ -156,6 +156,22 @@ const ScriptUpload = () => {
   // Tags as comma-separated input
   const [tagsInput, setTagsInput] = useState("");
 
+  // Script pricing
+  const PRICE_PRESETS = [5, 10, 15, 25, 50];
+  const PLATFORM_FEE = 0.2;
+  const [isPremium, setIsPremium] = useState(false);
+  const [scriptPrice, setScriptPrice] = useState(10);
+  const [customPriceInput, setCustomPriceInput] = useState("");
+  const [useCustomPrice, setUseCustomPrice] = useState(false);
+  const effectivePrice = isPremium ? (useCustomPrice ? Number(customPriceInput) || 0 : scriptPrice) : 0;
+  const writerEarns = Math.round(effectivePrice * (1 - PLATFORM_FEE) * 100) / 100;
+  const FORMAT_PRICE_GUIDE = {
+    feature:      { label: "Feature Film",  min: 15, max: 50, suggest: 25 },
+    tv_1hour:     { label: "TV 1-Hour",     min: 10, max: 30, suggest: 15 },
+    tv_halfhour:  { label: "TV Half-Hour",  min: 5,  max: 20, suggest: 10 },
+    short:        { label: "Short Film",    min: 5,  max: 15, suggest: 5  },
+  };
+
   // Fetch credits balance on mount
   useEffect(() => {
     const fetchCreditsBalance = async () => {
@@ -570,12 +586,14 @@ const ScriptUpload = () => {
         services: {
           hosting: services.hosting,
           evaluation: services.evaluation,
-          aiTrailer: trailerOption === "ai", // Only set if user chose AI trailer
+          aiTrailer: trailerOption === "ai",
         },
         legal: {
           agreedToTerms: legal.agreedToTerms,
           timestamp: new Date().toISOString(),
         },
+        premium: isPremium && effectivePrice > 0,
+        price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         // If this was created via the editor, attach the draftId so the backend updates/converts it
         ...(scriptId ? { scriptId } : {}),
       };
@@ -1327,8 +1345,137 @@ const ScriptUpload = () => {
                   className="space-y-5"
                 >
                   <p className="text-sm text-neutral-400 mb-4">
-                    Select the services you'd like to include with your project.
+                    Set your script's price and select optional services.
                   </p>
+
+                  {/* ── Pricing Panel ── */}
+                  <div className="border border-white/[0.08] bg-white/[0.03] rounded-2xl p-5 space-y-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Script Access & Pricing</h3>
+                        <p className="text-[11px] text-neutral-500">Decide whether your full script is freely readable or paid</p>
+                      </div>
+                    </div>
+
+                    {/* Free / Premium toggle */}
+                    <div className="grid grid-cols-2 gap-2.5 p-1 rounded-xl bg-white/[0.04]">
+                      <button
+                        type="button"
+                        onClick={() => setIsPremium(false)}
+                        className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                          !isPremium ? "bg-white/[0.12] text-white shadow" : "text-neutral-500 hover:text-neutral-300"
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                        Free Access
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsPremium(true)}
+                        className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                          isPremium
+                            ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm"
+                            : "text-neutral-500 hover:text-neutral-300"
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                        Premium (Paid)
+                      </button>
+                    </div>
+
+                    {/* Free description */}
+                    {!isPremium && (
+                      <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                        <svg className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                        <p className="text-[12px] leading-relaxed text-neutral-400">
+                          Anyone can read your full script for free. Great for building your audience and getting discovered by more industry professionals.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Premium price picker */}
+                    {isPremium && (
+                      <div className="space-y-4">
+                        {/* Suggested range */}
+                        {FORMAT_PRICE_GUIDE[formData.format] && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" /></svg>
+                            <span><strong>Industry guide for {FORMAT_PRICE_GUIDE[formData.format].label}:</strong> ${FORMAT_PRICE_GUIDE[formData.format].min}–${FORMAT_PRICE_GUIDE[formData.format].max} · Suggested: ${FORMAT_PRICE_GUIDE[formData.format].suggest}</span>
+                          </div>
+                        )}
+
+                        {/* Quick-select presets */}
+                        <div>
+                          <p className="text-[11px] font-semibold mb-2 text-neutral-500">QUICK SELECT</p>
+                          <div className="flex flex-wrap gap-2">
+                            {PRICE_PRESETS.map(p => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => { setScriptPrice(p); setUseCustomPrice(false); setCustomPriceInput(""); }}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                                  !useCustomPrice && scriptPrice === p
+                                    ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+                                    : "border-white/[0.1] text-neutral-400 hover:border-emerald-500/50 hover:text-emerald-400"
+                                }`}
+                              >
+                                ${p}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => { setUseCustomPrice(true); setCustomPriceInput(String(scriptPrice)); }}
+                              className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                                useCustomPrice
+                                  ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/25"
+                                  : "border-white/[0.1] text-neutral-400 hover:border-emerald-500/50 hover:text-emerald-400"
+                              }`}
+                            >
+                              Custom
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Custom input */}
+                        {useCustomPrice && (
+                          <div className="flex items-center gap-2">
+                            <div className="relative w-36">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-neutral-400">$</span>
+                              <input
+                                type="number" min="1" max="500" step="1"
+                                value={customPriceInput}
+                                onChange={e => setCustomPriceInput(e.target.value)}
+                                placeholder="0"
+                                className="w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none bg-white/[0.04] border-emerald-500/50 text-white focus:border-emerald-500 transition-all"
+                              />
+                            </div>
+                            <span className="text-[11px] text-neutral-500">Enter a value between $1 and $500</span>
+                          </div>
+                        )}
+
+                        {/* Earnings preview */}
+                        {effectivePrice > 0 && (
+                          <div className="grid grid-cols-3 gap-3 p-4 rounded-xl bg-emerald-500/[0.07] border border-emerald-500/20">
+                            <div className="text-center">
+                              <p className="text-[11px] font-semibold mb-1 text-neutral-500">Buyer Pays</p>
+                              <p className="text-xl font-black text-white">${effectivePrice}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[11px] font-semibold mb-1 text-neutral-500">Platform Fee</p>
+                              <p className="text-xl font-black text-neutral-400">${(effectivePrice * PLATFORM_FEE).toFixed(2)}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[11px] font-semibold mb-1 text-emerald-400">You Earn</p>
+                              <p className="text-xl font-black text-emerald-400">${writerEarns}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Hosting Card */}

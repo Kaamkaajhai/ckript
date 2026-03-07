@@ -151,7 +151,7 @@ async function getMatchesForProfessional(user, page, limit) {
   const skip = (page - 1) * limit;
   
   // Build match query based on preferences
-  const query = { holdStatus: "available" };
+  const query = { holdStatus: "available", isSold: { $ne: true } };
   
   if (user.preferences.genres?.length > 0) {
     query.genre = { $in: user.preferences.genres };
@@ -216,6 +216,7 @@ async function getMatchesForActor(user, page, limit) {
   const scripts = await Script.find({
     "roles.0": { $exists: true },
     holdStatus: "available",
+    isSold: { $ne: true },
   }).populate("creator", "name profileImage");
 
   const matchedRoles = [];

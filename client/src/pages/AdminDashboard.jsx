@@ -29,6 +29,7 @@ const TABS = [
     { key: "scores", label: "Scores", icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" },
     { key: "approvals", label: "Approvals", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "trailers", label: "AI Trailers", icon: "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375V5.625A1.125 1.125 0 016 4.5h12a1.125 1.125 0 011.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125h1.5" },
+    { key: "pending-investors", label: "Investor Requests", icon: "M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" },
 ];
 
 const Icon = ({ d, className = "w-5 h-5" }) => (
@@ -306,6 +307,8 @@ const AdminDashboard = () => {
     const [scoreModal, setScoreModal] = useState(null);
     const [scoreSubTab, setScoreSubTab] = useState("ai");
     const [total, setTotal] = useState(0);
+    const [pendingInvestors, setPendingInvestors] = useState([]);
+    const [rejectModal, setRejectModal] = useState(null); // investor object
 
     // ─── Toast notification system ───
     const [toast, setToast] = useState(null);
@@ -382,6 +385,11 @@ const AdminDashboard = () => {
                     setScripts(data.scripts); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
+                case "pending-investors": {
+                    const { data } = await adminApi.get(`/admin/investors/pending?page=${page}`);
+                    setPendingInvestors(data.investors); setTotalPages(data.totalPages); setTotal(data.total);
+                    break;
+                }
             }
         } catch (err) {
             console.error("Admin fetch error:", err);
@@ -448,6 +456,29 @@ const AdminDashboard = () => {
         } catch (err) {
             console.error(err);
             showToast("Failed to approve trailer", "error");
+        }
+    };
+
+    const handleApproveInvestor = async (id) => {
+        try {
+            await adminApi.put(`/admin/investors/${id}/approve`);
+            showToast("Investor approved — they can now log in");
+            fetchData();
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to approve investor", "error");
+        }
+    };
+
+    const handleRejectInvestor = async (id, note) => {
+        try {
+            await adminApi.put(`/admin/investors/${id}/reject`, { note });
+            showToast("Investor rejected");
+            setRejectModal(null);
+            fetchData();
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to reject investor", "error");
         }
     };
 
@@ -725,9 +756,109 @@ const AdminDashboard = () => {
                     </div>
                 );
 
+            case "pending-investors":
+                return (
+                    <div>
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
+                                Investor Account Requests
+                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({total})</span>
+                            </h2>
+                        </div>
+                        {pendingInvestors.length === 0 ? (
+                            <div className={`rounded-2xl border p-12 text-center ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
+                                    <svg className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <p className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-600"}`}>No pending investor requests</p>
+                            </div>
+                        ) : (
+                            <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                            {["Investor", "Email", "Signed Up", "Actions"].map((h) => (
+                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                        {pendingInvestors.map((inv) => (
+                                            <tr key={inv._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex items-center gap-3">
+                                                        {inv.profileImage ? (
+                                                            <img src={inv.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                                        ) : (
+                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>
+                                                                {inv.name?.charAt(0)?.toUpperCase() || "?"}
+                                                            </div>
+                                                        )}
+                                                        <div>
+                                                            <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{inv.name}</p>
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-700`}>pending</span>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{inv.email}</td>
+                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>{new Date(inv.createdAt).toLocaleDateString()}</td>
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <button onClick={() => handleApproveInvestor(inv._id)}
+                                                            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors">
+                                                            ✓ Approve
+                                                        </button>
+                                                        <button onClick={() => setRejectModal(inv)}
+                                                            className="text-xs font-bold text-red-500 hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
+                                                            ✕ Reject
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
+                    </div>
+                );
+
             default:
                 return null;
         }
+    };
+
+    // ─── Reject Investor Modal ───
+    const RejectInvestorModal = ({ investor, onClose, onConfirm }) => {
+        const [note, setNote] = useState("");
+        return (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+                <div className={`w-full max-w-md mx-4 rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
+                    <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Reject Investor</h3>
+                    <p className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                        Rejecting <strong>{investor.name}</strong> ({investor.email}). They will not be able to log in.<br />
+                        Optionally add a reason (visible to the user on login attempt).
+                    </p>
+                    <textarea
+                        rows={3}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Rejection reason (optional)..."
+                        className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
+                    />
+                    <div className="flex items-center justify-end gap-3 mt-4">
+                        <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
+                        <button onClick={() => onConfirm(investor._id, note.trim())}
+                            className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all">
+                            Confirm Reject
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     return (
@@ -820,6 +951,9 @@ const AdminDashboard = () => {
 
             {/* Score Modal */}
             {scoreModal && <ScoreModal script={scoreModal} isDark={true} onClose={() => setScoreModal(null)} onSave={handleScore} />}
+
+            {/* Reject Investor Modal */}
+            {rejectModal && <RejectInvestorModal investor={rejectModal} onClose={() => setRejectModal(null)} onConfirm={handleRejectInvestor} />}
         </div>
     );
 };
