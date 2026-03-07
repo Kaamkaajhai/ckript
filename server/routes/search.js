@@ -93,4 +93,55 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/search/suggestions?q=
+router.get("/suggestions", authMiddleware, async (req, res) => {
+  try {
+    const { q = "" } = req.query;
+    if (!q.trim() || q.trim().length < 2) return res.json({ scripts: [], users: [] });
+
+    const regex = new RegExp(q.trim(), "i");
+
+    const [scripts, users] = await Promise.all([
+      Script.find({ title: regex })
+        .select("title genre coverImage creator readsCount scriptScore")
+        .populate("creator", "name profileImage")
+        .sort({ readsCount: -1 })
+        .limit(5)
+        .lean(),
+      User.find({ name: regex, role: { $in: ["writer", "investor"] } })
+        .select("name profileImage role")
+        .limit(3)
+        .lean(),
+    ]);
+
+    res.json({ scripts, users });
+  } catch (error) {
+    console.error("Suggestions error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// GET /api/search/trending
+router.get("/trending", async (req, res) => {
+  try {
+    const trendingScripts = await Script.find({ isPublished: true })
+      .select("title genre readsCount scriptScore coverImage creator")
+      .populate("creator", "name")
+      .sort({ readsCount: -1, scriptScore: -1 })
+      .limit(8)
+      .lean();
+
+    const trendingGenres = [
+      "Drama", "Comedy", "Thriller", "Romance", "Action",
+      "Horror", "Sci-Fi", "Documentary",
+    ];
+
+    res.json({ scripts: trendingScripts, genres: trendingGenres });
+  } catch (error) {
+    console.error("Trending error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;
+

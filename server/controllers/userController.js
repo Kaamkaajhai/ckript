@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Post from "../models/Post.js";
 import Script from "../models/Script.js";
+import Review from "../models/Review.js";
 import Notification from "../models/Notification.js";
 import multer from "multer";
 import path from "path";
@@ -155,7 +156,7 @@ export const getUserProfile = async (req, res) => {
 export const updateUserProfile = async (req, res) => {
   try {
     const {
-      name, bio, skills, profileImage, writerProfile,
+      name, bio, skills, profileImage, coverImage, favoriteGenres, writerProfile,
       // Investor / industry preference fields (from onboarding Step 3)
       preferredGenres, preferredBudgets, preferredFormats,
       // onboarding completion
@@ -177,6 +178,8 @@ export const updateUserProfile = async (req, res) => {
     user.bio = bio !== undefined ? bio : user.bio;
     user.skills = skills || user.skills;
     user.profileImage = profileImage || user.profileImage;
+    if (coverImage !== undefined) user.coverImage = coverImage;
+    if (favoriteGenres !== undefined) user.favoriteGenres = favoriteGenres;
 
     // Investor / industry preference genres — save to mandates AND preferences
     if (preferredGenres !== undefined) {
@@ -321,11 +324,88 @@ export const updateUserProfile = async (req, res) => {
       bio: user.bio,
       skills: user.skills,
       profileImage: user.profileImage,
+      coverImage: user.coverImage,
+      favoriteGenres: user.favoriteGenres,
       writerProfile: user.writerProfile,
       industryProfile: user.industryProfile,
       preferences: user.preferences,
       notificationPrefs: user.notificationPrefs,
       bankDetails: sanitizedBankDetails,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getActivityTimeline = async (req, res) => {
+  try {
+    const userId = req.params.id || req.user._id;
+    const user = await User.findById(userId)
+      .populate({ path: "scriptsRead", select: "title genre coverImage", options: { sort: { updatedAt: -1 } } })
+      .populate({ path: "favoriteScripts", select: "title genre coverImage" })
+      .lean();
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const reviews = await Review.find({ user: userId })
+      .populate("script", "title genre coverImage")
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    // Merge and sort events chronologically
+    const events = [];
+
+    // scriptsRead — use array index order (most recent last in array, we reverse)
+    const readList = (user.scriptsRead || []).slice(-10).reverse();
+    readList.forEach((s, i) => {
+      events.push({
+        type: "read",
+        scriptId: s._id,
+        title: s.title,
+        genre: s.genre,
+        coverImage: s.coverImage,
+        // approximate time — we don't have per-read timestamps, use relative index offset
+        date: null,
+        order: i,
+      });
+    });
+
+    // favoriteScripts (saved)
+    (user.favoriteScripts || []).slice(0, 6).forEach((s, i) => {
+      events.push({
+        type: "saved",
+        scriptId: s._id,
+        title: s.title,
+        genre: s.genre,
+        coverImage: s.coverImage,
+        date: null,
+        order: 100 + i,
+      });
+    });
+
+    // reviews
+    reviews.forEach((r, i) => {
+      events.push({
+        type: "review",
+        scriptId: r.script?._id,
+        title: r.script?.title || "Unknown Script",
+        genre: r.script?.genre,
+        coverImage: r.script?.coverImage,
+        rating: r.rating,
+        comment: r.comment,
+        date: r.createdAt,
+        order: 200 + i,
+      });
+    });
+
+    res.json({
+      events,
+      stats: {
+        scriptsRead: user.scriptsRead?.length || 0,
+        favoriteScripts: user.favoriteScripts?.length || 0,
+        reviewsWritten: reviews.length,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

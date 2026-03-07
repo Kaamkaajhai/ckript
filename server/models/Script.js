@@ -133,4 +133,18 @@ const scriptSchema = new mongoose.Schema({
   rejectionReason: { type: String },
 }, { timestamps: true });
 
+// Indexes for fast queries
+scriptSchema.index({ status: 1, rating: -1 });
+scriptSchema.index({ status: 1, isFeatured: 1, rating: -1 });
+scriptSchema.index({ status: 1, readsCount: -1 });
+scriptSchema.index({ status: 1, unlockedByCount: -1 });
+scriptSchema.index({ status: 1, createdAt: -1 });
+scriptSchema.index({ status: 1, contentType: 1 });
+scriptSchema.index({ status: 1, genre: 1 });
+// Indexes for TopList & Featured sort fields
+scriptSchema.index({ status: 1, views: -1 });
+scriptSchema.index({ status: 1, "scriptScore.overall": -1 });
+scriptSchema.index({ status: 1, genre: 1, views: -1 });
+scriptSchema.index({ status: 1, contentType: 1, views: -1 });
+
 export default mongoose.model("Script", scriptSchema);
