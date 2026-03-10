@@ -120,16 +120,34 @@ export const join = async (req, res) => {
     // Generate OTP
     const otp = generateOTP();
     
+    // Check if email verification should be skipped (dev mode)
+    const skipEmailVerification = process.env.SKIP_EMAIL_VERIFICATION === 'true';
+    
     // Create user with OTP
     const user = await User.create({ 
       name, 
       email, 
       password, 
       role,
-      emailVerified: false,
-      emailVerificationToken: otp,
-      emailVerificationExpires: generateOTPExpiry()
+      emailVerified: skipEmailVerification, // Auto-verify if skipping email
+      emailVerificationToken: skipEmailVerification ? undefined : otp,
+      emailVerificationExpires: skipEmailVerification ? undefined : generateOTPExpiry()
     });
+    
+    // If skipping email verification, return token directly
+    if (skipEmailVerification) {
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      return res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        token,
+        expiresAt,
+        message: "Account created successfully (email verification skipped in dev mode)"
+      });
+    }
     
     // Send OTP email
     const emailResult = await sendOTPEmail(email, name, otp);
