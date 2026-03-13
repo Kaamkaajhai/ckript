@@ -209,14 +209,14 @@ const ScriptDetail = () => {
   const handlePaymentSuccess = async (paymentData) => {
     // Refresh script data after successful payment
     await fetchScript();
-    
+
     // Show success message
     if (paymentType === "purchase") {
       alert(`Script purchased successfully! ${paymentData.message || ""}`);
     } else {
       alert(`Hold placed successfully! ${paymentData.message || ""}`);
     }
-    
+
     // Close modal
     setShowHoldModal(false);
     setShowPurchaseModal(false);
@@ -430,7 +430,8 @@ const ScriptDetail = () => {
   const score = script.scriptScore || {};
   const isOwner = script.creator?._id === user?._id;
   const isPro = ["investor", "producer", "director"].includes(user?.role);
-  const showCoverPlaceholder = !script.coverImage || coverError;
+  const heroImage = script.trailerThumbnail || script.coverImage;
+  const showCoverPlaceholder = !heroImage || coverError;
   const cl = script.classification || {};
   const ci = script.contentIndicators || {};
 
@@ -490,7 +491,7 @@ const ScriptDetail = () => {
                 </div>
               ) : (
                 <img
-                  src={resolveImage(script.coverImage)}
+                  src={resolveImage(heroImage)}
                   alt={script.title}
                   onError={() => setCoverError(true)}
                   className="w-full h-full object-cover absolute inset-0"
@@ -939,10 +940,10 @@ const ScriptDetail = () => {
 
               /* Dimension definitions — each has a distinct semantic color */
               const dims = [
-                { key: "plot",          label: "Plot",          icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: dk ? "#818cf8" : "#4f46e5" },
-                { key: "characters",    label: "Characters",    icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z", color: dk ? "#a78bfa" : "#7c3aed" },
-                { key: "dialogue",      label: "Dialogue",      icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z", color: dk ? "#34d399" : "#059669" },
-                { key: "pacing",        label: "Pacing",        icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z", color: dk ? "#fbbf24" : "#d97706" },
+                { key: "plot", label: "Plot", icon: "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253", color: dk ? "#818cf8" : "#4f46e5" },
+                { key: "characters", label: "Characters", icon: "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z", color: dk ? "#a78bfa" : "#7c3aed" },
+                { key: "dialogue", label: "Dialogue", icon: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z", color: dk ? "#34d399" : "#059669" },
+                { key: "pacing", label: "Pacing", icon: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z", color: dk ? "#fbbf24" : "#d97706" },
                 { key: "marketability", label: "Marketability", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", color: dk ? "#fb923c" : "#ea580c" },
               ];
 
@@ -950,17 +951,17 @@ const ScriptDetail = () => {
               const gradeLabel = (v) => v >= 90 ? "S" : v >= 80 ? "A" : v >= 70 ? "B" : v >= 60 ? "C" : v >= 50 ? "D" : "F";
               const gradeColor = (v) =>
                 v >= 90 ? (dk ? "#c084fc" : "#9333ea") :
-                v >= 80 ? (dk ? "#34d399" : "#059669") :
-                v >= 70 ? (dk ? "#60a5fa" : "#2563eb") :
-                v >= 60 ? (dk ? "#fbbf24" : "#d97706") :
-                           (dk ? "#f87171" : "#dc2626");
+                  v >= 80 ? (dk ? "#34d399" : "#059669") :
+                    v >= 70 ? (dk ? "#60a5fa" : "#2563eb") :
+                      v >= 60 ? (dk ? "#fbbf24" : "#d97706") :
+                        (dk ? "#f87171" : "#dc2626");
               const gradeText = (v) => v >= 90 ? "Exceptional" : v >= 80 ? "Excellent" : v >= 70 ? "Strong" : v >= 60 ? "Promising" : v >= 50 ? "Developing" : "Needs Work";
               const gradeBand = (v) =>
-                v >= 90 ? (dk ? "bg-purple-400/10 border-purple-400/20 text-purple-300"   : "bg-purple-50 border-purple-200 text-purple-700") :
-                v >= 80 ? (dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700") :
-                v >= 70 ? (dk ? "bg-blue-400/10 border-blue-400/20 text-blue-300"         : "bg-blue-50 border-blue-200 text-blue-700") :
-                v >= 60 ? (dk ? "bg-amber-400/10 border-amber-400/20 text-amber-300"       : "bg-amber-50 border-amber-200 text-amber-700") :
-                           (dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700");
+                v >= 90 ? (dk ? "bg-purple-400/10 border-purple-400/20 text-purple-300" : "bg-purple-50 border-purple-200 text-purple-700") :
+                  v >= 80 ? (dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700") :
+                    v >= 70 ? (dk ? "bg-blue-400/10 border-blue-400/20 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-700") :
+                      v >= 60 ? (dk ? "bg-amber-400/10 border-amber-400/20 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-700") :
+                        (dk ? "bg-red-400/10 border-red-400/20 text-red-300" : "bg-red-50 border-red-200 text-red-700");
 
               /* Radar geometry */
               const cx = 110, cy = 110, rr = 80;
@@ -1043,7 +1044,7 @@ const ScriptDetail = () => {
                           <svg viewBox="0 0 220 220" className="w-full max-w-xs mx-auto">
                             <defs>
                               <radialGradient id="evalRadarFill" cx="50%" cy="50%" r="50%">
-                                <stop offset="0%"   stopColor={overallColor} stopOpacity={dk ? "0.22" : "0.16"} />
+                                <stop offset="0%" stopColor={overallColor} stopOpacity={dk ? "0.22" : "0.16"} />
                                 <stop offset="100%" stopColor={overallColor} stopOpacity="0" />
                               </radialGradient>
                             </defs>
@@ -1136,11 +1137,11 @@ const ScriptDetail = () => {
                       {script.platformScore?.overall > 0 && (() => {
                         const ps = script.platformScore;
                         const psDims = [
-                          { key: "content",  label: "Main Content", color: "#6366f1", track: dk ? "rgba(99,102,241,0.15)"  : "#ede9fe" },
-                          { key: "trailer",  label: "Trailer",      color: "#8b5cf6", track: dk ? "rgba(139,92,246,0.15)" : "#ede9fe" },
-                          { key: "title",    label: "Title",        color: "#f59e0b", track: dk ? "rgba(245,158,11,0.15)"  : "#fef3c7" },
-                          { key: "synopsis", label: "Synopsis",     color: "#10b981", track: dk ? "rgba(16,185,129,0.15)"  : "#d1fae5" },
-                          { key: "tags",     label: "Tag & Meta",   color: "#f97316", track: dk ? "rgba(249,115,22,0.15)"  : "#ffedd5" },
+                          { key: "content", label: "Main Content", color: "#6366f1", track: dk ? "rgba(99,102,241,0.15)" : "#ede9fe" },
+                          { key: "trailer", label: "Trailer", color: "#8b5cf6", track: dk ? "rgba(139,92,246,0.15)" : "#ede9fe" },
+                          { key: "title", label: "Title", color: "#f59e0b", track: dk ? "rgba(245,158,11,0.15)" : "#fef3c7" },
+                          { key: "synopsis", label: "Synopsis", color: "#10b981", track: dk ? "rgba(16,185,129,0.15)" : "#d1fae5" },
+                          { key: "tags", label: "Tag & Meta", color: "#f97316", track: dk ? "rgba(249,115,22,0.15)" : "#ffedd5" },
                         ];
                         const ov = ps.overall ?? 0;
                         const gc = ov >= 85 ? "#8b5cf6" : ov >= 70 ? "#10b981" : ov >= 55 ? "#3b82f6" : ov >= 40 ? "#f59e0b" : "#ef4444";
@@ -1301,9 +1302,9 @@ const ScriptDetail = () => {
                       {(() => {
                         const ps = script.platformScore || {};
                         const sections = [
-                          { key: "strengths",  label: "Strengths",  icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z",        band: dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700" },
-                          { key: "weaknesses", label: "Weaknesses", icon: "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z", band: dk ? "bg-red-400/10 border-red-400/20 text-red-300"             : "bg-red-50 border-red-200 text-red-700" },
-                          { key: "prospects",  label: "Prospects",  icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", band: dk ? "bg-indigo-400/10 border-indigo-400/20 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700" },
+                          { key: "strengths", label: "Strengths", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z", band: dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700" },
+                          { key: "weaknesses", label: "Weaknesses", icon: "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z", band: dk ? "bg-red-400/10 border-red-400/20 text-red-300" : "bg-red-50 border-red-200 text-red-700" },
+                          { key: "prospects", label: "Prospects", icon: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941", band: dk ? "bg-indigo-400/10 border-indigo-400/20 text-indigo-300" : "bg-indigo-50 border-indigo-200 text-indigo-700" },
                         ];
                         return (
                           <div className="space-y-3">
@@ -1734,11 +1735,12 @@ const ScriptDetail = () => {
               </button>
             </div>
             <div className="rounded-xl overflow-hidden shadow-2xl">
-              <video 
-                src={script.trailerSource === "uploaded" ? script.uploadedTrailerUrl : script.trailerUrl} 
-                controls 
-                autoPlay 
-                className="w-full" 
+              <video
+                src={script.trailerSource === "uploaded" ? script.uploadedTrailerUrl : script.trailerUrl}
+                poster={script.trailerThumbnail ? resolveImage(script.trailerThumbnail) : undefined}
+                controls
+                autoPlay
+                className="w-full"
               />
             </div>
           </div>

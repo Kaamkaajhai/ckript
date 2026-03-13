@@ -11,6 +11,7 @@ import Color from "@tiptap/extension-color";
 import Placeholder from "@tiptap/extension-placeholder";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
+import { Image as ImageIcon, Film, CheckCircle2 } from "lucide-react";
 import api from "../services/api";
 
 /* ── Constants ─────────────────────────────────────── */
@@ -206,7 +207,23 @@ const CreateProject = () => {
   const [showUndoBar, setShowUndoBar] = useState(false);
 
   // Step 2: Details
-  const [formData, setFormData] = useState({ format: "feature", primaryGenre: "", logline: "", description: "", writer: "", productionCompany: "", director: "", studioFinancier: "" });
+  const [formData, setFormData] = useState({ format: "feature", primaryGenre: "", logline: "", description: "" });
+
+  // File Upload State
+  const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [trailerFile, setTrailerFile] = useState(null);
+  const thumbnailInputRef = useRef(null);
+  const trailerInputRef = useRef(null);
+
+  const handleThumbnailSelect = (file) => {
+    if (file && file.size <= 5 * 1024 * 1024) setThumbnailFile(file);
+    else setError("Thumbnail must be an image under 5MB.");
+  };
+
+  const handleTrailerSelect = (file) => {
+    if (file && file.size <= 100 * 1024 * 1024) setTrailerFile(file);
+    else setError("Trailer must be a video under 100MB.");
+  };
 
   // Auto-calculated page count from word count + format
   const formatInfo = FORMAT_PAGE_RANGES[formData.format] || FORMAT_PAGE_RANGES.feature;
@@ -364,8 +381,26 @@ const CreateProject = () => {
         price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         ...(scriptId ? { scriptId } : {}),
       };
-      await api.post("/scripts/upload", payload);
-      if (scriptId) { try { await api.delete(`/scripts/${scriptId}`); } catch { } }
+      const { data } = await api.post("/scripts/upload", payload);
+      const publishedScriptId = data?.script?._id || data?._id;
+
+      if (publishedScriptId && thumbnailFile) {
+        const tdfData = new FormData();
+        tdfData.append("thumbnail", thumbnailFile);
+        await api.post(`/scripts/${publishedScriptId}/upload-thumbnail`, tdfData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+      }
+
+      if (publishedScriptId && trailerFile) {
+        const vdfData = new FormData();
+        vdfData.append("trailer", trailerFile);
+        await api.post(`/scripts/${publishedScriptId}/upload-trailer`, vdfData, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+      }
+
+      if (scriptId && String(scriptId) !== String(publishedScriptId)) { try { await api.delete(`/scripts/${scriptId}`); } catch { } }
       navigate("/dashboard");
     } catch (err) { setError(err.response?.data?.message || "Failed to publish."); } finally { setLoading(false); }
   };
@@ -446,7 +481,7 @@ const CreateProject = () => {
       api.get("/credits/balance").then(({ data: d }) => {
         setCreditsBalance(d.balance || 0);
         setGrammarCreditBalance(d.balance || 0);
-      }).catch(() => {});
+      }).catch(() => { });
     } catch (err) {
       const msg = err.response?.data?.message || "Failed to correct script text.";
       // If credit error, show modal again
@@ -586,87 +621,72 @@ const CreateProject = () => {
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               transition={{ type: "spring", damping: 24, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
-                dark
-                  ? "bg-[#0a1120] border border-white/[0.08]"
-                  : "bg-white border border-gray-200"
-              }`}
+              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${dark
+                ? "bg-[#0a1120] border border-white/[0.08]"
+                : "bg-white border border-gray-200"
+                }`}
             >
               {/* Header */}
-              <div className={`px-6 pt-6 pb-4 border-b ${
-                dark ? "border-white/[0.06]" : "border-gray-100"
-              }`}>
+              <div className={`px-6 pt-6 pb-4 border-b ${dark ? "border-white/[0.06]" : "border-gray-100"
+                }`}>
                 <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-                    dark
-                      ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
-                      : "bg-emerald-50 border border-emerald-200"
-                  }`}>
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${dark
+                    ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
+                    : "bg-emerald-50 border border-emerald-200"
+                    }`}>
                     <span className="text-xl">📝</span>
                   </div>
                   <div>
-                    <h3 className={`text-base font-bold ${
-                      dark ? "text-white" : "text-gray-900"
-                    }`}>AI Grammar Fix</h3>
-                    <p className={`text-[11px] ${
-                      dark ? "text-neutral-500" : "text-gray-400"
-                    }`}>Powered by Gemini AI</p>
+                    <h3 className={`text-base font-bold ${dark ? "text-white" : "text-gray-900"
+                      }`}>AI Grammar Fix</h3>
+                    <p className={`text-[11px] ${dark ? "text-neutral-500" : "text-gray-400"
+                      }`}>Powered by Gemini AI</p>
                   </div>
                 </div>
-                <p className={`text-xs leading-relaxed ${
-                  dark ? "text-neutral-400" : "text-gray-500"
-                }`}>
+                <p className={`text-xs leading-relaxed ${dark ? "text-neutral-400" : "text-gray-500"
+                  }`}>
                   Fix grammar, spelling, punctuation, and readability with professional AI proofreading.
                 </p>
               </div>
 
               {/* Credit info */}
               <div className="px-6 py-5 space-y-3">
-                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
-                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
-                }`}>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                  }`}>
                   <div className="flex items-center gap-2">
                     <span className="text-base">⚡</span>
-                    <span className={`text-xs font-medium ${
-                      dark ? "text-neutral-300" : "text-gray-600"
-                    }`}>Cost</span>
+                    <span className={`text-xs font-medium ${dark ? "text-neutral-300" : "text-gray-600"
+                      }`}>Cost</span>
                   </div>
-                  <span className={`text-sm font-bold ${
-                    dark ? "text-amber-300" : "text-amber-600"
-                  }`}>{GRAMMAR_COST} credits</span>
+                  <span className={`text-sm font-bold ${dark ? "text-amber-300" : "text-amber-600"
+                    }`}>{GRAMMAR_COST} credits</span>
                 </div>
 
-                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
-                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
-                }`}>
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                  }`}>
                   <div className="flex items-center gap-2">
                     <span className="text-base">💰</span>
-                    <span className={`text-xs font-medium ${
-                      dark ? "text-neutral-300" : "text-gray-600"
-                    }`}>Your Balance</span>
+                    <span className={`text-xs font-medium ${dark ? "text-neutral-300" : "text-gray-600"
+                      }`}>Your Balance</span>
                   </div>
                   {grammarCreditLoading ? (
-                    <span className={`text-xs ${
-                      dark ? "text-neutral-500" : "text-gray-400"
-                    }`}>Loading...</span>
+                    <span className={`text-xs ${dark ? "text-neutral-500" : "text-gray-400"
+                      }`}>Loading...</span>
                   ) : (
-                    <span className={`text-sm font-bold ${
-                      grammarCreditBalance >= GRAMMAR_COST
-                        ? dark ? "text-emerald-400" : "text-emerald-600"
-                        : "text-red-400"
-                    }`}>
+                    <span className={`text-sm font-bold ${grammarCreditBalance >= GRAMMAR_COST
+                      ? dark ? "text-emerald-400" : "text-emerald-600"
+                      : "text-red-400"
+                      }`}>
                       {grammarCreditBalance ?? "—"} credits
                     </span>
                   )}
                 </div>
 
                 {!grammarCreditLoading && grammarCreditBalance !== null && grammarCreditBalance < GRAMMAR_COST && (
-                  <div className={`px-4 py-3 rounded-xl ${
-                    dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
-                  }`}>
-                    <p className={`text-xs leading-relaxed ${
-                      dark ? "text-red-300" : "text-red-600"
+                  <div className={`px-4 py-3 rounded-xl ${dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
                     }`}>
+                    <p className={`text-xs leading-relaxed ${dark ? "text-red-300" : "text-red-600"
+                      }`}>
                       Not enough credits. You need {GRAMMAR_COST - grammarCreditBalance} more credit{GRAMMAR_COST - grammarCreditBalance > 1 ? "s" : ""} to use this feature.
                     </p>
                   </div>
@@ -678,11 +698,10 @@ const CreateProject = () => {
                 <button
                   type="button"
                   onClick={() => setShowGrammarModal(false)}
-                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    dark
-                      ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
-                      : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                  }`}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${dark
+                    ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+                    : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                    }`}
                 >
                   Cancel
                 </button>
@@ -690,11 +709,10 @@ const CreateProject = () => {
                   type="button"
                   onClick={handleFixGrammar}
                   disabled={grammarCreditLoading || grammarCreditBalance === null || grammarCreditBalance < GRAMMAR_COST}
-                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
-                    dark
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
-                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
-                  }`}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${dark
+                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
+                    : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
+                    }`}
                 >
                   Pay {GRAMMAR_COST} Credits & Fix
                 </button>
@@ -716,26 +734,22 @@ const CreateProject = () => {
             transition={{ type: "spring", damping: 22, stiffness: 300 }}
             className="fixed bottom-6 left-1/2 z-[9999] -translate-x-1/2"
           >
-            <div className={`rounded-2xl shadow-2xl px-5 py-3.5 flex items-center gap-4 min-w-[340px] max-w-[520px] ${
-              dark
-                ? "bg-[#0c1424] border border-white/[0.12] shadow-black/60"
-                : "bg-white border border-gray-200 shadow-gray-300/40"
-            }`}>
+            <div className={`rounded-2xl shadow-2xl px-5 py-3.5 flex items-center gap-4 min-w-[340px] max-w-[520px] ${dark
+              ? "bg-[#0c1424] border border-white/[0.12] shadow-black/60"
+              : "bg-white border border-gray-200 shadow-gray-300/40"
+              }`}>
               {/* Status */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                  <span className={`text-xs font-bold ${
-                    dark ? "text-emerald-400" : "text-emerald-600"
-                  }`}>Grammar Fixed</span>
-                  <span className={`text-[10px] ${
-                    dark ? "text-neutral-500" : "text-gray-400"
-                  }`}>— {GRAMMAR_COST} credits used</span>
+                  <span className={`text-xs font-bold ${dark ? "text-emerald-400" : "text-emerald-600"
+                    }`}>Grammar Fixed</span>
+                  <span className={`text-[10px] ${dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>— {GRAMMAR_COST} credits used</span>
                 </div>
                 {grammarNotes.length > 0 && (
-                  <p className={`text-[10px] truncate leading-snug ${
-                    dark ? "text-neutral-500" : "text-gray-400"
-                  }`}>
+                  <p className={`text-[10px] truncate leading-snug ${dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>
                     {grammarNotes[0]}{grammarNotes.length > 1 ? ` +${grammarNotes.length - 1} more` : ""}
                   </p>
                 )}
@@ -745,11 +759,10 @@ const CreateProject = () => {
               <button
                 type="button"
                 onClick={handleGrammarUndo}
-                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.96] shrink-0 ${
-                  dark
-                    ? "text-amber-300 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-400/40"
-                    : "text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:border-amber-300"
-                }`}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.96] shrink-0 ${dark
+                  ? "text-amber-300 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-400/40"
+                  : "text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 hover:border-amber-300"
+                  }`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v0a5 5 0 01-5 5H3M3 10l4-4M3 10l4 4" />
@@ -761,11 +774,10 @@ const CreateProject = () => {
               <button
                 type="button"
                 onClick={handleGrammarKeep}
-                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.96] shrink-0 ${
-                  dark
-                    ? "text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-400/40"
-                    : "text-emerald-600 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300"
-                }`}
+                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-[0.96] shrink-0 ${dark
+                  ? "text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 hover:border-emerald-400/40"
+                  : "text-emerald-600 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300"
+                  }`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -835,7 +847,7 @@ const CreateProject = () => {
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${dark
                           ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
                           : "bg-amber-50 text-amber-600 border border-amber-200"
-                        }`}>{GRAMMAR_COST}cr</span>
+                          }`}>{GRAMMAR_COST}cr</span>
                       </>
                     )}
                   </button>
@@ -867,39 +879,19 @@ const CreateProject = () => {
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Project Details</h2>
                 <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Tell us about your script so we can categorize it properly.</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Writer *</label>
-                  <input type="text" name="writer" value={formData.writer} onChange={handleChange} placeholder="Writer's name" className={inputCls} />
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Production Company</label>
-                  <input type="text" name="productionCompany" value={formData.productionCompany} onChange={handleChange} placeholder="Production company name" className={inputCls} />
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Director</label>
-                  <input type="text" name="director" value={formData.director} onChange={handleChange} placeholder="Director's name" className={inputCls} />
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Studio / Financier</label>
-                  <input type="text" name="studioFinancier" value={formData.studioFinancier} onChange={handleChange} placeholder="Studio or financier name" className={inputCls} />
-                </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Format *</label>
+                <select name="format" value={formData.format} onChange={handleChange} className={inputCls}>
+                  {formats.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Format *</label>
-                  <select name="format" value={formData.format} onChange={handleChange} className={inputCls}>
-                    {formats.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Estimated Pages</label>
-                  <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${dark ? "bg-white/[0.04] border border-[#1d3350]" : "bg-gray-50 border border-gray-200"}`}>
-                    <span className={`text-2xl font-bold ${pageStatus === "good" ? dark ? "text-green-400" : "text-green-600" : pageStatus === "short" ? dark ? "text-amber-400" : "text-amber-600" : dark ? "text-blue-400" : "text-[#1e3a5f]"}`}>{estimatedPages}</span>
-                    <div>
-                      <p className={`text-xs font-medium ${dark ? "text-gray-300" : "text-gray-600"}`}>pages</p>
-                      <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Auto-calculated from {wordCount} words</p>
-                    </div>
+              <div>
+                <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Estimated Pages</label>
+                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${dark ? "bg-white/[0.04] border border-[#1d3350]" : "bg-gray-50 border border-gray-200"}`}>
+                  <span className={`text-2xl font-bold ${pageStatus === "good" ? dark ? "text-green-400" : "text-green-600" : pageStatus === "short" ? dark ? "text-amber-400" : "text-amber-600" : dark ? "text-blue-400" : "text-[#1e3a5f]"}`}>{estimatedPages}</span>
+                  <div>
+                    <p className={`text-xs font-medium ${dark ? "text-gray-300" : "text-gray-600"}`}>pages</p>
+                    <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Auto-calculated from {wordCount} words</p>
                   </div>
                 </div>
               </div>
@@ -940,6 +932,59 @@ const CreateProject = () => {
               <div>
                 <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Tags <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(comma separated)</span></label>
                 <input type="text" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="e.g. heist, ensemble, twist ending" className={inputCls} />
+              </div>
+
+              {/* Media Uploads */}
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
+                {/* Thumbnail Upload */}
+                <div>
+                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                    Script Thumbnail <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                  </label>
+                  {!thumbnailFile ? (
+                    <div onClick={() => thumbnailInputRef.current?.click()} className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${dark ? "border-[#1d3350] hover:border-[#1e3a5f]" : "border-gray-200 hover:border-gray-300"}`}>
+                      <ImageIcon className={`w-8 h-8 mb-2 ${dark ? "text-[#1d3350]" : "text-gray-400"}`} />
+                      <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload Image</p>
+                      <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG (Max 5MB)</p>
+                      <input ref={thumbnailInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => handleThumbnailSelect(e.target.files[0])} className="hidden" />
+                    </div>
+                  ) : (
+                    <div className={`border rounded-xl p-3 flex items-center gap-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                      <img src={URL.createObjectURL(thumbnailFile)} alt="Preview" className="w-12 h-16 object-cover rounded" />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-bold truncate ${dark ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
+                        <p className={`text-[10px] ${dark ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <button type="button" onClick={() => setThumbnailFile(null)} className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}>Remove</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Trailer Upload */}
+                <div>
+                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                    Trailer Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                  </label>
+                  {!trailerFile ? (
+                    <div onClick={() => trailerInputRef.current?.click()} className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${dark ? "border-[#1d3350] hover:border-[#1e3a5f]" : "border-gray-200 hover:border-gray-300"}`}>
+                      <Film className={`w-8 h-8 mb-2 ${dark ? "text-[#1d3350]" : "text-gray-400"}`} />
+                      <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload Video</p>
+                      <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV (Max 100MB)</p>
+                      <input ref={trailerInputRef} type="file" accept="video/mp4,video/mpeg,video/quicktime,video/webm" onChange={(e) => handleTrailerSelect(e.target.files[0])} className="hidden" />
+                    </div>
+                  ) : (
+                    <div className={`border rounded-xl p-3 flex items-center gap-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                      <div className="w-12 h-16 bg-black/20 rounded flex items-center justify-center">
+                        <CheckCircle2 className="w-6 h-6 text-green-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs font-bold truncate ${dark ? "text-green-400" : "text-green-700"}`}>{trailerFile.name}</p>
+                        <p className={`text-[10px] ${dark ? "text-green-500/80" : "text-green-600/80"}`}>{(trailerFile.size / 1024 / 1024).toFixed(1)} MB</p>
+                      </div>
+                      <button type="button" onClick={() => setTrailerFile(null)} className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}>Remove</button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -1169,24 +1214,26 @@ const CreateProject = () => {
       </AnimatePresence>
 
       {/* ── Navigation Buttons ── */}
-      {step > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-between mt-5">
-          <button onClick={handleBack} disabled={step === 1}
-            className={`px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all disabled:opacity-30 ${dark
-              ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-            ← Back
-          </button>
-          {step < 4 && (
-            <button onClick={handleNext}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${dark
-                ? "bg-[#1e3a5f] text-white hover:bg-[#2a4a70] shadow-lg shadow-[#1e3a5f]/20"
-                : "bg-[#1e3a5f] text-white hover:bg-[#162d4a] shadow-lg shadow-[#1e3a5f]/20"}`}>
-              Next →
+      {
+        step > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-between mt-5">
+            <button onClick={handleBack} disabled={step === 1}
+              className={`px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all disabled:opacity-30 ${dark
+                ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+              ← Back
             </button>
-          )}
-        </motion.div>
-      )}
-    </div>
+            {step < 4 && (
+              <button onClick={handleNext}
+                className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${dark
+                  ? "bg-[#1e3a5f] text-white hover:bg-[#2a4a70] shadow-lg shadow-[#1e3a5f]/20"
+                  : "bg-[#1e3a5f] text-white hover:bg-[#162d4a] shadow-lg shadow-[#1e3a5f]/20"}`}>
+                Next →
+              </button>
+            )}
+          </motion.div>
+        )
+      }
+    </div >
   );
 };
 
