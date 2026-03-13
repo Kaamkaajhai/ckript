@@ -80,7 +80,7 @@ You grant Ckript a non-exclusive, worldwide, royalty-free license to:
 3. PAYMENT TERMS
 - Hosting fees are charged monthly and are non-refundable
 - One-time service fees (evaluation, AI trailer) are non-refundable once processing begins
-- All payments are processed securely through Stripe
+- All payments are processed securely through Razorpay
 
 4. INTELLECTUAL PROPERTY
 You retain all ownership rights to your Work. Ckript does not claim ownership of your script.
@@ -1016,7 +1016,7 @@ const ScriptUpload = () => {
                           type="button"
                           onClick={handleSaveDraft}
                           disabled={loading}
-                          className="text-xs font-bold text-white bg-blue-500/10 px-3 py-1.5 rounded-lg hover:bg-white/[0.08] transition disabled:opacity-50"
+                          className="text-xs font-bold text-white bg-white/[0.06] px-3 py-1.5 rounded-lg hover:bg-white/[0.08] transition disabled:opacity-50"
                         >
                           {loading ? "Saving..." : "💾 Save Draft"}
                         </button>
@@ -1045,7 +1045,7 @@ const ScriptUpload = () => {
                         onDrop={handleDrop}
                         onDragOver={handleDragOver}
                         onClick={() => !isExtracting && fileInputRef.current?.click()}
-                        className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isExtracting ? 'border-blue-500/20 bg-blue-500/10 cursor-wait' : 'border-white/[0.12] cursor-pointer hover:border-white'}`}
+                        className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isExtracting ? 'border-[#1c2a3a] bg-[#0d1520] cursor-wait' : 'border-white/[0.12] cursor-pointer hover:border-white'}`}
                       >
                         <div className="text-3xl mb-2">{isExtracting ? "⏳" : "📄"}</div>
                         <p className={`text-sm font-medium ${labelCls} mb-1`}>
@@ -1300,11 +1300,11 @@ const ScriptUpload = () => {
                     )}
 
                     {trailerOption === "ai" && (
-                      <div className="border border-blue-500/20 rounded-xl p-4 bg-blue-500/10">
+                      <div className="border border-[#1c2a3a] rounded-xl p-4 bg-[#0d1520]">
                         <div className="flex items-center gap-3">
                           <div className="text-3xl">🤖</div>
                           <div className="flex-1">
-                            <p className="text-sm font-bold text-blue-400">
+                            <p className="text-sm font-bold text-[#8896a7]">
                               AI Trailer Generation Selected
                             </p>
                             <p className="text-xs text-neutral-400">
@@ -1389,7 +1389,7 @@ const ScriptUpload = () => {
                     {/* Free description */}
                     {!isPremium && (
                       <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                        <svg className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                        <svg className="w-4 h-4 mt-0.5 shrink-0 text-[#8896a7]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                         <p className="text-[12px] leading-relaxed text-neutral-400">
                           Anyone can read your full script for free. Great for building your audience and getting discovered by more industry professionals.
                         </p>
@@ -1561,7 +1561,7 @@ const ScriptUpload = () => {
                           </p>
                         )}
                         {trailerOption === "ai" && (
-                          <p className="text-sm text-blue-400">
+                          <p className="text-sm text-[#8896a7]">
                             AI Trailer Generation - {SERVICE_PRICES.aiTrailer} credits
                           </p>
                         )}
@@ -1637,7 +1637,7 @@ const ScriptUpload = () => {
                   className="space-y-5"
                 >
                   {/* Credits Balance Display */}
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                  <div className="bg-[#0d1520] border border-[#1c2a3a] rounded-xl p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-neutral-400">Your Credits Balance</p>

@@ -30,6 +30,7 @@ const TABS = [
     { key: "approvals", label: "Approvals", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "trailers", label: "AI Trailers", icon: "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375V5.625A1.125 1.125 0 016 4.5h12a1.125 1.125 0 011.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125h1.5" },
     { key: "pending-investors", label: "Investor Requests", icon: "M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" },
+    { key: "queries", label: "Queries", icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
 ];
 
 const Icon = ({ d, className = "w-5 h-5" }) => (
@@ -309,6 +310,7 @@ const AdminDashboard = () => {
     const [total, setTotal] = useState(0);
     const [pendingInvestors, setPendingInvestors] = useState([]);
     const [rejectModal, setRejectModal] = useState(null); // investor object
+    const [contacts, setContacts] = useState([]);
 
     // ─── Toast notification system ───
     const [toast, setToast] = useState(null);
@@ -388,6 +390,11 @@ const AdminDashboard = () => {
                 case "pending-investors": {
                     const { data } = await adminApi.get(`/admin/investors/pending?page=${page}`);
                     setPendingInvestors(data.investors); setTotalPages(data.totalPages); setTotal(data.total);
+                    break;
+                }
+                case "queries": {
+                    const { data } = await adminApi.get(`/admin/queries?page=${page}`);
+                    setContacts(data.submissions); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
             }
@@ -822,6 +829,55 @@ const AdminDashboard = () => {
                                 </table>
                             </div>
                         )}
+                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
+                    </div>
+                );
+
+            case "queries":
+                return (
+                    <div>
+                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>
+                            Contact Queries
+                            <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({total})</span>
+                        </h2>
+                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                            {["Name", "Email", "Reason", "Message", "Date"].map((h) => (
+                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                        {contacts.map((c) => (
+                                            <tr key={c._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
+                                                <td className={`px-5 py-3.5 text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{c.name}</td>
+                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{c.email}</td>
+                                                <td className="px-5 py-3.5">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                                        c.reason === "doubt" ? "bg-blue-100 text-blue-700" :
+                                                        c.reason === "team" ? "bg-purple-100 text-purple-700" :
+                                                        c.reason === "general" ? "bg-gray-100 text-gray-600" :
+                                                        "bg-amber-100 text-amber-700"
+                                                    }`}>
+                                                        {c.reason === "doubt" ? "Question" : c.reason === "team" ? "Join Team" : c.reason === "general" ? "Feedback" : "Email"}
+                                                    </span>
+                                                </td>
+                                                <td className={`px-5 py-3.5 text-sm max-w-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                                                    <p className="line-clamp-2">{c.message}</p>
+                                                </td>
+                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>{new Date(c.createdAt).toLocaleDateString()}</td>
+                                            </tr>
+                                        ))}
+                                        {contacts.length === 0 && (
+                                            <tr><td colSpan={5} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No queries yet</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
                     </div>
                 );

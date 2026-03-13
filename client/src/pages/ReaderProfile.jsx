@@ -5,7 +5,7 @@ import { BookOpen, Heart, MessageSquare, Pencil, ArrowLeft, X, Camera, Save, Loa
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
-import ScriptCard from "../components/ScriptCard";
+import ProjectCard from "../components/ProjectCard";
 import ReviewCard from "../components/ReviewCard";
 
 /* ── Edit Profile Modal ─────────────────────────────── */
@@ -509,7 +509,7 @@ const ReaderProfile = () => {
               <motion.div key="read" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 {readScripts.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {readScripts.map((s) => <ScriptCard key={s._id} script={s} />)}
+                    {readScripts.map((s) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
                   </div>
                 ) : (
                   <EmptyState
@@ -526,7 +526,7 @@ const ReaderProfile = () => {
               <motion.div key="favorites" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 {favorites.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {favorites.map((s) => <ScriptCard key={s._id} script={s} />)}
+                    {favorites.map((s) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
                   </div>
                 ) : (
                   <EmptyState

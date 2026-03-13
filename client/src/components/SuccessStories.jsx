@@ -6,38 +6,38 @@ const SuccessStories = () => {
     {
       type: "creator",
       name: "Sarah Chen",
-      role: "Screenplay Writer",
+      role: "Screenplay Writer, Los Angeles",
       image: "SC",
-      story: "My sci-fi script was rejected 47 times until I uploaded it to Ckript. The AI trailer got 2K views, and within two weeks, a producer optioned it for $5,000. Now I'm in talks with a production company.",
-      metric: "From unknown to optioned in 2 weeks",
-      tagline: "The AI trailer changed everything"
+      story: "I'd been circling the industry for four years with a sci-fi spec that kept getting passed on. After uploading to Ckript, the AI-generated trailer framed it in a way I never could in a pitch deck. A producer reached out within ten days and we closed an option deal shortly after. It's now in active development.",
+      metric: "Optioned within 2 weeks of upload",
+      tagline: "The platform did what four years of networking couldn't"
     },
     {
       type: "producer",
       name: "Marcus Williams",
-      role: "Independent Producer",
+      role: "Independent Producer, New York",
       image: "MW",
-      story: "Before Ckript, finding scripts meant reading thousands of submissions. Now I get 5-10 hand-picked scripts weekly matched to my production style. I optioned 3 scripts in the first month.",
-      metric: "5-10 perfect matches per week",
-      tagline: "Stop searching. Start finding."
+      story: "My development slate was stalling because discovery was broken — I was buried in cold submissions that didn't fit what I was actually making. Ckript's matching surfaced writers whose voice and genre aligned with my body of work. I optioned three scripts in the first month alone and now have a pipeline I actually trust.",
+      metric: "3 scripts optioned in the first month",
+      tagline: "A development pipeline I can finally rely on"
     },
     {
       type: "investor",
-      name: "Dr. Priya Kapoor",
-      role: "Film & Content Investor",
+      name: "Priya Kapoor",
+      role: "Film & Media Investor, London",
       image: "PK",
-      story: "As an investor, I wanted access to pre-packaged opportunities. Ckript's Domain Packages gave me curated collections of scripts by genre and budget. I've already invested in 2 promising projects.",
-      metric: "Invested in 2 projects in 3 months",
-      tagline: "Opportunities don't come knocking anymore"
+      story: "I allocate a portion of my portfolio to early-stage content IP, but sourcing credible opportunities has always been the bottleneck. Ckript changed that — curated collections organised by genre, budget, and commercial potential mean I can evaluate projects with real context. I've committed to two projects already and I'm actively reviewing a third.",
+      metric: "2 investment commitments in under 3 months",
+      tagline: "Structured deal flow for a space that's never had it"
     },
     {
       type: "actor",
       name: "James Rodriguez",
-      role: "Aspiring Actor",
+      role: "Actor, Miami",
       image: "JR",
-      story: "Through Ckript's audition feature, I performed for 3 scripts in my genre. A producer loved my take and attached me to a project that's now in development. That's my big break.",
-      metric: "From unknown to attached talent",
-      tagline: "Auditions lead to careers"
+      story: "I wasn't looking for auditions in the traditional sense — I wanted to be attached to projects at the script stage, before casting even opened. Ckript lets you do exactly that. I submitted self-tapes for three projects that matched my type and one of them came back with an offer. That project is now in pre-production and I'm on it.",
+      metric: "Attached to a production before casting opened",
+      tagline: "The entry point I'd been waiting for"
     }
   ];
 
@@ -56,9 +56,6 @@ const SuccessStories = () => {
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 tracking-tight">
             Stories of Real Success
           </h2>
-          <p className="text-[#8896a7] text-base">
-            See how creators, producers, and industry professionals are transforming their careers on Ckript
-          </p>
         </motion.div>
 
         {/* Testimonial grid — 2x2 with varied card feel */}

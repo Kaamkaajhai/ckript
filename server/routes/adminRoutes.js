@@ -24,6 +24,7 @@ import {
     approveInvestor,
     rejectInvestor,
 } from "../controllers/adminController.js";
+import { getContactSubmissions } from "../controllers/contactController.js";
 
 const router = express.Router();
 
@@ -64,5 +65,8 @@ router.post("/login-as/:userId", loginAsUser);
 router.get("/investors/pending", getPendingInvestors);
 router.put("/investors/:id/approve", approveInvestor);
 router.put("/investors/:id/reject", rejectInvestor);
+
+// Contact Queries
+router.get("/queries", getContactSubmissions);
 
 export default router;

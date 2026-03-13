@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import ProjectCard from "../components/ProjectCard";
 
-/* ── Constants ─────────────────────────────────────── */
+/* â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */ 
 const GENRES = [
   "Thriller","Drama","Comedy","Sci-Fi","Horror","Romance",
   "Action","Mystery","Fantasy","Animation","Crime","Adventure",
@@ -21,9 +22,9 @@ const CONTENT_TYPES = [
 ];
 const BUDGETS = [
   { key: "micro", label: "Micro (<$10k)" },
-  { key: "low", label: "Low ($10k–$100k)" },
-  { key: "mid", label: "Mid ($100k–$1M)" },
-  { key: "high", label: "High ($1M–$10M)" },
+  { key: "low", label: "Low ($10kâ€“$100k)" },
+  { key: "mid", label: "Mid ($100kâ€“$1M)" },
+  { key: "high", label: "High ($1Mâ€“$10M)" },
   { key: "blockbuster", label: "Blockbuster (>$10M)" },
 ];
 const PREMIUM_OPTIONS = [
@@ -33,14 +34,14 @@ const PREMIUM_OPTIONS = [
 ];
 const budgetLabel = { micro: "Micro", low: "Low", mid: "Mid", high: "High", blockbuster: "Blockbuster" };
 
-/* ── Sort Tabs — merged from all 3 sections ───────── */
+/* â”€â”€ Sort Tabs â€” merged from all 3 sections â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const SORT_TABS = [
   { key: "platform",  label: "Top Ranked", desc: "Ranked by overall platform score",            icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   { key: "score",     label: "AI Score",   desc: "Ranked by script quality score",              icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
   { key: "views",     label: "Most Viewed",desc: "Ranked by total views",                       icon: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z" },
 ];
 
-/* ── Small UI helpers ─────────────────────────────── */
+/* â”€â”€ Small UI helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ease = [0.25, 0.46, 0.45, 0.94];
 
 const FilterIcon = () => (
@@ -59,7 +60,7 @@ const XIcon = () => (
   </svg>
 );
 
-/* ── Rank Badge ────────────────────────────────────── */
+/* â”€â”€ Rank Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const RankBadge = ({ rank, dark }) => {
   const medals = {
     1: { bg: "from-amber-400 to-yellow-300", text: "text-amber-900", shadow: "shadow-amber-400/40" },
@@ -83,7 +84,7 @@ const RankBadge = ({ rank, dark }) => {
   );
 };
 
-/* ── Pill ─────────────────────────────────────────── */
+/* â”€â”€ Pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const Pill = ({ active, onClick, children, dark }) => (
   <button
     onClick={onClick}
@@ -106,7 +107,7 @@ const FilterSection = ({ label, children, dark }) => (
   </div>
 );
 
-/* ── Skeleton ────────────────────────────────────── */
+/* â”€â”€ Skeleton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const SkeletonCard = ({ dark }) => (
   <div className={`rounded-2xl overflow-hidden border ${dark ? "bg-[#0d1926] border-[#1a2e47]" : "bg-white border-gray-100"}`}>
     <div className={`h-[200px] animate-pulse ${dark ? "bg-[#162236]" : "bg-gray-100"}`} />
@@ -117,9 +118,9 @@ const SkeletonCard = ({ dark }) => (
   </div>
 );
 
-/* ══════════════════════════════════════════════════════
-   MAIN COMPONENT — Top List (merged)
-══════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   MAIN COMPONENT â€” Top List (merged)
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 const TopList = () => {
   const { isDarkMode: dark } = useDarkMode();
 
@@ -129,9 +130,9 @@ const TopList = () => {
     header:      dark ? "text-gray-100" : "text-gray-900",
     sub:         dark ? "text-gray-400" : "text-gray-400",
     divider:     dark ? "border-[#1a2e47]" : "border-gray-100",
-    stat:        dark ? "bg-white/[0.04] border-[#1a2e47]" : "bg-[#1e3a5f]/[0.05] border-transparent",
-    statLabel:   dark ? "text-gray-400" : "text-gray-400",
-    statValue:   dark ? "text-cyan-300" : "text-[#1e3a5f]",
+    stat:        dark ? "bg-white/[0.04] border-[#1a2e47]" : "bg-gray-50 border-gray-200",
+    statLabel:   dark ? "text-[#8896a7]" : "text-gray-500",
+    statValue:   dark ? "text-white" : "text-gray-800",
     filterPanel: dark ? "bg-[#0d1926] border-[#1a2e47]" : "bg-white border-gray-100",
     sortActive:  "bg-[#1e3a5f] text-white shadow-lg shadow-[#1e3a5f]/30",
     sortIdle:    dark ? "bg-white/[0.04] text-gray-300 border-[#1d3454] hover:bg-white/[0.08] hover:text-gray-200" : "bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:text-gray-700 hover:shadow-sm",
@@ -146,7 +147,7 @@ const TopList = () => {
     iconMuted:   dark ? "text-gray-500" : "text-gray-300",
   };
 
-  /* ── State ── */
+  /* â”€â”€ State â”€â”€ */
   const [scripts, setScripts]           = useState([]);
   const [loading, setLoading]           = useState(true);
   const [sortBy, setSortBy]             = useState("platform");
@@ -188,7 +189,7 @@ const TopList = () => {
     setLoading(false);
   };
 
-  /* ── Metrics ── */
+  /* â”€â”€ Metrics â”€â”€ */
   const getMetric = (script) => {
     if (sortBy === "platform")  { const v = Math.round(script.platformScore || 0);   return { value: v, pct: Math.min(v, 100) }; }
     if (sortBy === "score")     { const v = script.scriptScore?.overall || 0;         return { value: v, pct: Math.min(v, 100) }; }
@@ -215,7 +216,7 @@ const TopList = () => {
 
   const activeTab = SORT_TABS.find((t) => t.key === sortBy) || SORT_TABS[0];
 
-  /* ── Loading ── */
+  /* â”€â”€ Loading â”€â”€ */
   if (loading && scripts.length === 0) return (
     <div className="max-w-6xl mx-auto">
       <div className="mb-6">
@@ -231,7 +232,7 @@ const TopList = () => {
   return (
     <div className="max-w-6xl mx-auto">
 
-      {/* ═══════ HEADER ═══════ */}
+      {/* â•â•â•â•â•â•â• HEADER â•â•â•â•â•â•â• */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -268,7 +269,7 @@ const TopList = () => {
         </div>
       </motion.div>
 
-      {/* ═══════ SORT TABS + FILTERS ═══════ */}
+      {/* â•â•â•â•â•â•â• SORT TABS + FILTERS â•â•â•â•â•â•â• */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -343,7 +344,7 @@ const TopList = () => {
           )}
         </div>
 
-        {/* ── Filter panel ── */}
+        {/* â”€â”€ Filter panel â”€â”€ */}
         <AnimatePresence>
           {filtersOpen && (
             <motion.div
@@ -394,7 +395,7 @@ const TopList = () => {
         </AnimatePresence>
       </motion.div>
 
-      {/* ═══════ CONTENT ═══════ */}
+      {/* â•â•â•â•â•â•â• CONTENT â•â•â•â•â•â•â• */}
       {scripts.length === 0 && !loading ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
@@ -418,9 +419,7 @@ const TopList = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {scripts.map((script, index) => {
-            const metric   = getMetric(script);
-            const hasCover = !!script.coverImage;
-            const rank     = index + 1;
+            const rank = index + 1;
             return (
               <motion.div
                 key={script._id || index}
@@ -428,116 +427,7 @@ const TopList = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04, duration: 0.32, ease }}
               >
-                <Link
-                  to={`/script/${script._id}`}
-                  className={`group block rounded-2xl overflow-hidden transition-all duration-300 border ${t.card} ${t.cardShadow} hover:-translate-y-1`}
-                >
-                  {/* ── Cover ── */}
-                  <div className="relative h-[200px] bg-gradient-to-br from-[#091a2f] via-[#0f2d52] to-[#1a4a7a] overflow-hidden">
-                    {hasCover ? (
-                      <>
-                        <img
-                          src={resolveImg(script.coverImage)}
-                          alt={script.title}
-                          className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#091a2f]/80 via-[#091a2f]/20 to-transparent" />
-                      </>
-                    ) : (
-                      <>
-                        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full border border-white/[0.04]" />
-                        <div className="absolute top-16 -right-4 w-20 h-20 rounded-full border border-white/[0.03]" />
-                        <div className="absolute bottom-12 -left-4 w-24 h-24 rounded-full border border-white/[0.03]" />
-                        <div className="absolute top-6 right-6 flex flex-col gap-1.5 items-end">
-                          <div className="w-10 h-[2px] rounded-full bg-white/10" />
-                          <div className="w-6 h-[2px] rounded-full bg-white/[0.06]" />
-                          <div className="w-8 h-[2px] rounded-full bg-white/[0.04]" />
-                        </div>
-                        <div className="absolute inset-0 flex flex-col justify-center items-center text-center px-6">
-                          <h4 className="text-lg font-extrabold text-white leading-tight line-clamp-2 tracking-tight mb-2">{script.title}</h4>
-                          <p className="text-[11px] text-white/40 line-clamp-2 leading-relaxed font-medium">
-                            {script.logline || script.description || script.synopsis || "No description available"}
-                          </p>
-                        </div>
-                      </>
-                    )}
-
-                    <RankBadge rank={rank} dark={dark} />
-
-                    {(script.primaryGenre || script.genre) && (
-                      <span className="absolute top-3 right-3 text-[10px] font-bold text-white/90 bg-white/15 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/10">
-                        {script.primaryGenre || script.genre}
-                      </span>
-                    )}
-
-                    {script.premium ? (
-                      <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-amber-500/90 backdrop-blur-sm rounded-lg shadow-lg">
-                        <span className="text-[11px] font-extrabold text-white">${script.price}</span>
-                      </div>
-                    ) : (
-                      <div className="absolute bottom-3 right-3 px-2.5 py-1 bg-emerald-500/80 backdrop-blur-sm rounded-lg">
-                        <span className="text-[10px] font-bold text-white">Free</span>
-                      </div>
-                    )}
-
-                    <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
-                      <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur flex items-center justify-center border border-white/20 overflow-hidden">
-                        {script.creator?.profileImage ? (
-                          <img src={resolveImg(script.creator.profileImage)} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-[9px] font-bold text-white">{script.creator?.name?.charAt(0)?.toUpperCase()}</span>
-                        )}
-                      </div>
-                      <span className="text-[11px] font-semibold text-white/80 drop-shadow">{script.creator?.name || "Unknown"}</span>
-                    </div>
-                  </div>
-
-                  {/* ── Info ── */}
-                  <div className="p-4">
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${t.sub}`}>{activeTab.label}</span>
-                        <span className={`text-[13px] font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-800"}`}>{metric.value}</span>
-                      </div>
-                      <div className={`h-1.5 rounded-full overflow-hidden ${t.metricBar}`}>
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${metric.pct}%` }}
-                          transition={{ duration: 0.6, delay: index * 0.04 + 0.2, ease: "easeOut" }}
-                          className="h-full rounded-full bg-gradient-to-r from-[#1e3a5f] to-[#3a7bd5]"
-                        />
-                      </div>
-                    </div>
-                    <div className={`border-t ${t.divider} mb-3`} />
-                    <div className="flex items-center justify-between">
-                      <div className={`flex items-center gap-1 ${t.statPill}`}>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        <span className="text-[11px] font-semibold tabular-nums">{(script.views || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        {script.scriptScore?.overall > 0 && (
-                          <div className="flex items-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10.868 2.884c-.321-.772-1.415-.772-1.736 0l-1.83 4.401-4.753.381c-.833.067-1.171 1.107-.536 1.651l3.62 3.102-1.106 4.637c-.194.813.691 1.456 1.405 1.02L10 15.591l4.069 2.485c.713.436 1.598-.207 1.404-1.02l-1.106-4.637 3.62-3.102c.635-.544.297-1.584-.536-1.65l-4.752-.382-1.831-4.401z" clipRule="evenodd" />
-                            </svg>
-                            <span className={`text-[11px] font-semibold tabular-nums ${t.statPill}`}>{script.scriptScore.overall}</span>
-                          </div>
-                        )}
-                        {script.pageCount && (
-                          <div className={`flex items-center gap-1 ${t.statPill}`}>
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                            </svg>
-                            <span className="text-[11px] font-semibold tabular-nums">{script.pageCount}p</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+                <ProjectCard project={script} userName={script.creator?.name || "Unknown"} />
               </motion.div>
             );
           })}

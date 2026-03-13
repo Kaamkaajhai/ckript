@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import ProjectCard from "../components/ProjectCard";
 
 /* ── Genre emoji ── */
 const GE = {
@@ -476,9 +477,9 @@ const InvestorHome = () => {
                     to="/search"
                     dark={dark}
                   />
-                  <HRow>
-                    {scripts.map((s, i) => <ScriptPoster key={s._id} script={s} idx={i} dark={dark} />)}
-                  </HRow>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {scripts.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
+                  </div>
                   <div className={`mt-10 h-px ${sep}`} />
                 </Fade>
               ))}
@@ -494,11 +495,9 @@ const InvestorHome = () => {
                     }
                     title="Trending Now" count={trending.length}
                     sub="Most viewed & unlocked this month" to="/search" dark={dark} />
-                  <HRow>
-                    {trending.map((s, i) => (
-                      <ScriptPoster key={s._id} script={s} idx={i} rank={i + 1} dark={dark} />
-                    ))}
-                  </HRow>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {trending.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
+                  </div>
                   <div className={`mt-10 h-px ${sep}`} />
                 </Fade>
               )}
@@ -514,9 +513,9 @@ const InvestorHome = () => {
                     }
                     title="New Releases" count={newRel.length}
                     sub="Uploaded in the last 30 days" to="/search" dark={dark} />
-                  <HRow>
-                    {newRel.map((s, i) => <ScriptPoster key={s._id} script={s} idx={i} dark={dark} />)}
-                  </HRow>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {newRel.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
+                  </div>
                   <div className={`mt-10 h-px ${sep}`} />
                 </Fade>
               )}
@@ -532,9 +531,9 @@ const InvestorHome = () => {
                     }
                     title="Explore" count={explore.length}
                     sub="Outside your usual interests" to="/search" dark={dark} />
-                  <HRow>
-                    {explore.map((s, i) => <ScriptPoster key={s._id} script={s} idx={i} dark={dark} />)}
-                  </HRow>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {explore.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
+                  </div>
                 </Fade>
               )}
 

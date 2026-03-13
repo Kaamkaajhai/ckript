@@ -1,115 +1,139 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Film, ShieldCheck, ChevronRight } from "lucide-react";
+import { ShieldCheck, ChevronRight } from "lucide-react";
+import BrandLogo from "../components/BrandLogo";
 
-const LAST_UPDATED = "February 24, 2026";
-const EFFECTIVE_DATE = "February 24, 2026";
+const LAST_UPDATED = "March 12, 2026";
+const EFFECTIVE_DATE = "March 12, 2026";
 
 const sections = [
   {
+    id: "scope",
+    title: "1. Scope of This Privacy Policy",
+    text: "This Privacy Policy explains how Ckript collects, uses, stores, shares, and protects personal information when you access or use our website, applications, products, and related services. It applies to visitors, registered users, writers, producers, investors, creative professionals, and any other person who interacts with the platform. By using the platform, you acknowledge that you have read this Privacy Policy and understand how your information is handled.",
+  },
+  {
     id: "information-we-collect",
-    title: "1. Information We Collect",
+    title: "2. Information We Collect",
     content: [
       {
-        subtitle: "Information You Provide Directly",
-        text: "When you register, complete onboarding, or contact us, we collect information such as your name, email address, password (stored in encrypted form), professional background, portfolio content (scripts, loglines, cover art), and payment information (processed securely by Stripe — we never store raw card details).",
+        subtitle: "Information You Provide",
+        text: "We collect information you provide directly to us, including your name, email address, login credentials, profile details, portfolio information, social or professional links, scripts, loglines, images, trailers, messages, support requests, and any other content you submit through the platform.",
       },
       {
-        subtitle: "Content You Upload",
-        text: "Scripts, trailers, images, and other creative materials you submit to the platform are stored securely. You retain full ownership of all content you upload (see Section 7).",
+        subtitle: "Transaction and Payment Information",
+        text: "If you purchase a subscription, credits, or other paid services, payment processing is handled by third-party payment providers such as Razorpay. We may receive billing-related details such as payment status, transaction identifiers, partial card metadata, plan type, invoices, and refund status, but we do not store full card numbers or CVV data on our servers.",
       },
       {
-        subtitle: "Usage Data",
-        text: "We automatically collect certain technical data when you use Ckript, including your IP address, browser type and version, pages visited, time spent on pages, referring URLs, and device identifiers. This helps us improve platform performance and user experience.",
+        subtitle: "Usage and Device Information",
+        text: "We automatically collect technical and usage information such as IP address, browser type, operating system, device identifiers, approximate location inferred from IP address, access times, referring URLs, pages viewed, actions taken within the platform, crash data, and performance diagnostics.",
       },
       {
-        subtitle: "Communications",
-        text: "If you contact us via email or our contact form, we retain those communications to respond to your enquiry and improve our support processes.",
+        subtitle: "Communications and Support Data",
+        text: "When you contact us by email, contact form, chat, or other channels, we collect the information contained in those communications and any related follow-up records for support, compliance, and service improvement purposes.",
       },
     ],
   },
   {
     id: "how-we-use",
-    title: "2. How We Use Your Information",
+    title: "3. How We Use Your Information",
     bullets: [
-      "To create and manage your account and deliver platform services",
-      "To match writers, creators, and industry professionals using our AI-powered matching engine",
-      "To process subscription payments and unlock transactions through Stripe",
-      "To send you transactional emails (account verification, payment receipts, important notices)",
-      "To send optional platform updates and newsletters — you may unsubscribe at any time",
-      "To moderate content and enforce our community guidelines",
-      "To analyse platform usage and improve features",
-      "To comply with applicable legal obligations",
+      "To create, verify, administer, and secure user accounts",
+      "To provide marketplace, discovery, messaging, matching, and script-related services",
+      "To process subscriptions, credits, purchases, payouts, invoices, and related records",
+      "To operate AI-assisted tools, recommendations, rankings, summaries, and related product features",
+      "To communicate with you about your account, transactions, service updates, and support requests",
+      "To personalize content, improve usability, troubleshoot issues, and monitor platform performance",
+      "To detect, prevent, investigate, and respond to fraud, abuse, unauthorized access, and other security incidents",
+      "To enforce our Terms of Service, other platform policies, and contractual rights",
+      "To comply with legal, regulatory, tax, accounting, and law enforcement obligations",
+      "To send marketing or promotional communications where permitted by law and subject to your preferences",
     ],
   },
   {
+    id: "legal-bases",
+    title: "4. Legal Bases for Processing",
+    text: "Where applicable law requires a legal basis for processing personal data, we generally rely on one or more of the following: performance of a contract with you, our legitimate interests in operating and improving the platform, compliance with legal obligations, protection of vital interests, and your consent where consent is required. If we rely on consent, you may withdraw it at any time, although prior processing remains lawful.",
+  },
+  {
     id: "sharing",
-    title: "3. Sharing of Information",
+    title: "5. How We Share Information",
     content: [
       {
-        subtitle: "With Other Users",
-        text: "Your public profile, portfolio content, and scripts marked as visible are accessible to verified industry professionals on the platform. You control visibility settings for each piece of content from your dashboard.",
+        subtitle: "With Other Users and Business Counterparties",
+        text: "Profile information, scripts, project materials, and related metadata that you choose to publish or share may be visible to other users, potential buyers, collaborators, or industry professionals through the platform according to your settings, activity, and transaction choices.",
       },
       {
         subtitle: "With Service Providers",
-        text: "We share limited data with trusted third-party providers who help us operate the platform — including Stripe (payments), cloud hosting providers, and email delivery services. These providers are bound by data processing agreements and may not use your data for their own purposes.",
+        text: "We share information with vendors and service providers that perform services on our behalf, including hosting, infrastructure, analytics, payment processing providers such as Razorpay, customer support, email delivery, authentication, storage, and security services. These providers are permitted to process information only as necessary to provide services to us or as otherwise required by law.",
       },
       {
-        subtitle: "Legal Requirements",
-        text: "We may disclose your information if required to do so by law, court order, or governmental authority, or if we reasonably believe disclosure is necessary to protect the rights, property, or safety of Ckript, our users, or others.",
+        subtitle: "For Legal, Safety, and Compliance Reasons",
+        text: "We may disclose information where required by law, subpoena, court order, regulatory request, or governmental authority, or where we believe in good faith that disclosure is reasonably necessary to protect rights, safety, property, users, the public, or the integrity of the platform.",
       },
       {
         subtitle: "Business Transfers",
-        text: "In the event of a merger, acquisition, or sale of all or substantially all of our assets, your information may be transferred. We will notify you of any such change in ownership or control.",
+        text: "We may share or transfer information as part of an actual or proposed merger, acquisition, financing, asset sale, bankruptcy, reorganization, or similar corporate transaction, subject to customary confidentiality and legal protections.",
       },
     ],
   },
   {
     id: "cookies",
-    title: "4. Cookies & Tracking Technologies",
-    text: "We use cookies and similar tracking technologies to maintain your session, remember preferences, and gather analytics data. You can control cookies through your browser settings; however, disabling certain cookies may affect platform functionality. We use analytics tools to understand aggregate usage patterns — this data is anonymised and not linked to individual identities.",
+    title: "6. Cookies and Similar Technologies",
+    text: "We use cookies, local storage, pixels, session tokens, and similar technologies to authenticate users, remember preferences, measure engagement, prevent fraud, and improve the platform. You may control certain cookies through your browser or device settings, but disabling essential technologies may affect functionality, security, or access to parts of the service.",
+  },
+  {
+    id: "third-party-services",
+    title: "7. Third-Party Services and Links",
+    text: "The platform may integrate with or link to third-party services, websites, plug-ins, payment processors such as Razorpay, social platforms, analytics tools, and embedded content. We do not control those third parties and are not responsible for their privacy practices. Your interactions with third-party services are governed by their own terms and privacy notices.",
   },
   {
     id: "data-retention",
-    title: "5. Data Retention",
-    text: "We retain your personal data for as long as your account is active or as needed to provide services. If you delete your account, we will delete or anonymise your personal data within 30 days, except where we are required to retain it for legal, regulatory, or legitimate business reasons (such as transaction records required for tax compliance). Uploaded content (scripts, trailers) will be removed upon account deletion unless another user holds an active option on that content.",
+    title: "8. Data Retention",
+    text: "We retain personal information for as long as reasonably necessary to provide the platform, maintain business and financial records, resolve disputes, enforce agreements, comply with legal obligations, and protect our legitimate interests. Retention periods may vary depending on the type of information, the nature of the relationship, the sensitivity of the data, legal requirements, and whether the information is needed for security or evidentiary purposes. When information is no longer required, we will delete it, anonymize it, or securely archive it where deletion is not immediately feasible.",
   },
   {
     id: "security",
-    title: "6. Data Security",
-    text: "We implement industry-standard security measures to protect your information, including TLS encryption for data in transit, bcrypt hashing for passwords, and access controls limiting who within Ckript can access personal data. While we take all reasonable precautions, no method of transmission over the internet or electronic storage is 100% secure. We encourage you to use a strong, unique password and enable any additional security features we offer.",
+    title: "9. Data Security",
+    text: "We use reasonable technical, administrative, and organizational safeguards designed to protect personal information, including encryption in transit, password protection, access restrictions, monitoring, and security review processes. However, no storage system or method of transmission over the internet is completely secure, and we cannot guarantee absolute security. You are responsible for maintaining the confidentiality of your credentials and notifying us promptly of suspected unauthorized access.",
+  },
+  {
+    id: "international-transfers",
+    title: "10. International Data Transfers",
+    text: "Your information may be processed or stored in countries other than the country in which you reside, including countries where data protection laws may differ. Where required by law, we take steps designed to provide appropriate safeguards for cross-border transfers, including contractual protections or other lawful transfer mechanisms.",
   },
   {
     id: "your-rights",
-    title: "7. Your Rights & Choices",
+    title: "11. Your Rights and Choices",
     bullets: [
-      "Access: You may request a copy of the personal data we hold about you",
-      "Correction: You may update incorrect or incomplete information via your profile settings",
-      "Deletion: You may request deletion of your account and associated personal data",
-      "Portability: You may request an export of your data in a commonly used format",
-      "Objection: You may object to certain types of processing, including direct marketing",
-      "Withdrawal of Consent: Where processing is based on consent, you may withdraw consent at any time without affecting prior processing",
+      "Access information we hold about you, subject to lawful limitations and verification requirements",
+      "Request correction of inaccurate or incomplete personal information",
+      "Request deletion of personal information where applicable law provides that right",
+      "Request a portable copy of certain information in a commonly used format where required by law",
+      "Object to or request restriction of certain processing activities, including some direct marketing uses",
+      "Withdraw consent where processing is based on consent",
+      "Manage some account details, communication preferences, and visibility settings directly through your profile or account controls",
     ],
-    footer: "To exercise any of these rights, contact us at info.ckript@gmail.com. We will respond within 30 days.",
+    footer: "To exercise available privacy rights, contact us at info.ckript@gmail.com. We may need to verify your identity before responding, and we may decline requests where permitted by law.",
   },
   {
-    id: "content-ownership",
-    title: "8. Content Ownership",
-    text: "You retain full copyright and ownership of all scripts, loglines, trailers, and other creative materials you submit to Ckript. By uploading content, you grant Ckript a limited, non-exclusive, royalty-free licence to display, distribute, and promote your content within the platform and in marketing materials. This licence terminates when you remove your content or close your account.",
+    id: "marketing",
+    title: "12. Marketing Communications",
+    text: "We may send newsletters, promotional messages, product updates, event announcements, and other marketing communications where permitted by law. You can opt out of non-essential marketing communications at any time by using the unsubscribe link in the message or by contacting us. Even if you opt out of marketing, we may still send service-related, transactional, or legal notices.",
   },
   {
     id: "children",
-    title: "9. Children's Privacy",
-    text: "Ckript is not directed to individuals under the age of 18. We do not knowingly collect personal information from minors. If we become aware that a minor has provided us with personal information, we will take steps to delete such information promptly. If you believe a minor has registered on our platform, please contact us immediately.",
+    title: "13. Children's Privacy",
+    text: "The platform is intended for adults and is not directed to children. We do not knowingly collect personal information from anyone under the age of 18. If you believe that a minor has provided personal information to us in violation of this policy, contact us and we will take appropriate steps to investigate and, where appropriate, delete the information.",
   },
   {
     id: "changes",
-    title: "10. Changes to This Policy",
-    text: "We may update this Privacy Policy from time to time. We will notify you of material changes via email or a prominent notice on the platform at least 14 days before the changes take effect. Continued use of the platform after the effective date constitutes acceptance of the updated policy.",
+    title: "14. Changes to This Privacy Policy",
+    text: "We may update this Privacy Policy from time to time to reflect changes in our services, operations, legal obligations, or privacy practices. When we make material changes, we will revise the effective date and may provide notice through the platform, by email, or through other reasonable means. Your continued use of the platform after the updated policy becomes effective indicates your acceptance of the revised policy to the extent permitted by law.",
   },
   {
     id: "contact",
-    title: "11. Contact Us",
+    title: "15. Contact Us",
     text: null,
     contactBlock: true,
   },
@@ -126,12 +150,7 @@ export default function PrivacyPolicy() {
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-slate-950/80 backdrop-blur-md border-b border-slate-700/50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <Film className="w-7 h-7 text-cyan-400" />
-            <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-              Ckript
-            </span>
-          </Link>
+          <BrandLogo className="h-9 w-auto" />
           <Link
             to="/"
             className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-cyan-400 transition"
@@ -170,13 +189,15 @@ export default function PrivacyPolicy() {
             </span>
           </div>
           <p className="mt-6 text-gray-400 text-base leading-relaxed border-l-2 border-cyan-500/30 pl-4">
-            Ckript ("we", "our", or "us") is committed to protecting your privacy. This policy
-            explains how we collect, use, disclose, and safeguard your personal information when
-            you use our platform at{" "}
+            Ckript ("Ckript," "we," "our," or "us") is committed to handling personal
+            information responsibly and transparently. This Privacy Policy describes what
+            information we collect, why we collect it, how we use and disclose it, and the
+            choices available to you when you use our platform at{" "}
             <a href="https://ckript.com" className="text-cyan-400 hover:underline">
               ckript.com
             </a>
-            . Please read it carefully.
+            . It should be read together with our Terms of Service and any additional notices
+            presented at the point of collection.
           </p>
         </motion.div>
 

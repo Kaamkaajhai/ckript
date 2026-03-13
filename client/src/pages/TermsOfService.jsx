@@ -2,150 +2,177 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Film, FileText, ChevronRight } from "lucide-react";
 
-const LAST_UPDATED = "February 24, 2026";
-const EFFECTIVE_DATE = "February 24, 2026";
+const LAST_UPDATED = "March 12, 2026";
+const EFFECTIVE_DATE = "March 12, 2026";
 
 const sections = [
   {
     id: "acceptance",
     title: "1. Acceptance of Terms",
-    text: "By accessing or using the Ckript platform (\"Platform\"), you confirm that you are at least 18 years of age, have read and understood these Terms of Service (\"Terms\"), and agree to be legally bound by them. If you do not agree to these Terms, you must not access or use the Platform. These Terms apply to all users including writers, creators, producers, directors, investors, and other industry professionals.",
+    text: "These Terms of Service govern your access to and use of the Ckript website, applications, tools, content, paid services, AI-enabled features, marketplace functionality, and any related products or services we make available. By accessing or using the platform, you represent that you are legally capable of entering into a binding agreement, are at least 18 years old, and agree to be bound by these Terms and all incorporated policies. If you do not agree, you must not access or use the platform.",
+  },
+  {
+    id: "eligibility",
+    title: "2. Eligibility and Business Use",
+    text: "The platform is intended for professional or aspiring professional use in the creative and entertainment industries. You may use the platform only if doing so is lawful in your jurisdiction and consistent with these Terms. If you access the platform on behalf of a company, studio, production house, agency, or other legal entity, you represent that you have authority to bind that entity to these Terms.",
   },
   {
     id: "account",
-    title: "2. Account Registration & Security",
+    title: "3. Account Registration and Security",
     bullets: [
       "You must provide accurate, current, and complete information during registration",
       "You are responsible for maintaining the confidentiality of your account credentials",
-      "You must notify us immediately at info.ckript@gmail.com if you suspect unauthorised access to your account",
+      "You must notify us immediately at info.ckript@gmail.com if you suspect unauthorized access to your account",
       "You may not create accounts on behalf of others without their explicit consent",
       "One person may not maintain more than one active account without prior written permission from Ckript",
-      "Ckript reserves the right to suspend or terminate accounts that violate these Terms",
+      "We may suspend, restrict, or terminate accounts that violate these Terms or create risk for the platform or other users",
     ],
   },
   {
     id: "platform-use",
-    title: "3. Platform Usage & Acceptable Conduct",
+    title: "4. Platform Use and Acceptable Conduct",
     content: [
       {
         subtitle: "Permitted Use",
-        text: "You may use the Platform to publish, discover, and transact around creative content (scripts, treatments, pitches) for entertainment industry purposes, including engaging with our AI-powered features and matchmaking services.",
+        text: "Subject to these Terms, you may use the platform to create an account, publish or review eligible creative materials, communicate with other users, evaluate opportunities, purchase services, and access tools intended to support discovery, collaboration, and business activity in the entertainment industry.",
       },
       {
         subtitle: "Prohibited Conduct",
-        text: "You must not: upload content you do not own or have rights to; impersonate any person or entity; engage in harassment, abuse, or hate speech; attempt to gain unauthorised access to any part of the Platform; use automated bots or scrapers; circumvent payment or access controls; use the Platform for any unlawful purpose; or interfere with the integrity or performance of the Platform.",
+        text: "You must not: upload content you do not own or control; infringe intellectual property or privacy rights; misrepresent your identity, authority, or affiliations; scrape or harvest data without permission; reverse engineer or probe the platform; bypass access, payment, or security controls; transmit malware or harmful code; engage in harassment, deception, spam, or unlawful activity; or use the platform in a way that could damage, disable, overburden, or impair the service or other users.",
       },
       {
         subtitle: "Content Standards",
-        text: "All content posted on Ckript must be original, legally owned by you, and comply with applicable laws. Content that is defamatory, obscene, or infringes any third-party intellectual property rights is strictly prohibited and will be removed.",
+        text: "You are solely responsible for content you upload, share, submit, license, or otherwise make available through the platform. Content must be lawful, accurate in all material respects, and must not be defamatory, fraudulent, obscene, threatening, exploitative, or otherwise objectionable. We may remove or restrict content at our discretion where we believe it violates these Terms, applicable law, or the safety and integrity of the platform.",
       },
     ],
   },
   {
     id: "intellectual-property",
-    title: "4. Intellectual Property",
+    title: "5. Intellectual Property and Content Rights",
     content: [
       {
         subtitle: "Your Content",
-        text: "You retain full ownership of all creative materials you upload to Ckript — including scripts, loglines, synopses, trailers, and images. By submitting content, you grant Ckript a non-exclusive, worldwide, royalty-free licence to display, distribute, and promote your content within the Platform and in our marketing communications. This licence is limited strictly to facilitating the Platform's operation and ends when you remove the content or close your account.",
+        text: "You retain ownership of the scripts, treatments, loglines, synopses, trailers, images, and other materials you submit, subject to any rights you grant through transactions or separate agreements. By uploading or submitting content, you grant Ckript a non-exclusive, worldwide, royalty-free license to host, store, reproduce, display, distribute, format, and otherwise use that content as reasonably necessary to operate, improve, secure, market, and provide the platform and related services. This license continues only for so long as reasonably necessary for those purposes, subject to applicable retention obligations and active transactions.",
       },
       {
         subtitle: "Ckript Platform",
-        text: "All Platform technology, design, branding, software, and non-user-generated content are and remain the exclusive intellectual property of Ckript. You may not reproduce, modify, reverse-engineer, or create derivative works from our Platform without prior written consent.",
+        text: "The platform, including its software, code, design, branding, interfaces, workflows, databases, AI configuration, logos, trademarks, and non-user content, is owned by or licensed to Ckript and is protected by intellectual property and other applicable laws. Except for the limited rights expressly granted in these Terms, no rights are transferred to you.",
       },
       {
-        subtitle: "DMCA / Copyright Infringement",
-        text: "If you believe your copyright has been infringed by content on the Platform, please send a notice to info.ckript@gmail.com including a description of the work, the allegedly infringing URL, and your contact information. We will respond promptly.",
+        subtitle: "Infringement Notices",
+        text: "If you believe content on the platform infringes your copyright or other intellectual property rights, send a notice to info.ckript@gmail.com with sufficient detail for us to identify the work, the allegedly infringing material, the basis of your claim, and your contact details. We may investigate and act as we consider appropriate.",
       },
     ],
   },
   {
+    id: "transactions",
+    title: "6. Marketplace Transactions and Independent Dealings",
+    text: "Ckript may provide tools that help users discover scripts, request access, negotiate opportunities, place option holds, purchase credits, unlock content, or otherwise interact for commercial purposes. Unless expressly stated otherwise in a separate written agreement, Ckript is not a party to negotiations, option arrangements, licensing agreements, production agreements, employment relationships, or other contracts formed between users. Users are solely responsible for conducting due diligence, obtaining legal advice, and documenting their own transactions.",
+  },
+  {
     id: "payments",
-    title: "5. Subscription Plans & Payments",
+    title: "7. Pricing, Payments, Credits, and Taxes",
     content: [
       {
-        subtitle: "Subscription Plans",
-        text: "Ckript offers free and paid subscription tiers. Paid subscriptions are billed on a monthly basis and automatically renew until cancelled. Prices are displayed in USD and may be updated with at least 30 days' notice.",
+        subtitle: "Fees and Billing",
+        text: "Certain features of the platform may require payment, including subscriptions, credits, unlocks, evaluations, promotional services, AI-assisted services, or other paid offerings. Unless otherwise stated, fees are quoted in the currency displayed at checkout and are due in advance. Recurring plans renew automatically until canceled in accordance with the applicable billing terms.",
       },
       {
-        subtitle: "Unlock Transactions",
-        text: "Industry professionals may pay to unlock full scripts. Upon a successful unlock, 100% of the unlock fee is credited to the creator's account. Ckript charges a platform service fee separate from the unlock fee as described on the pricing page.",
+        subtitle: "Credits, Unlocks, and Platform Economics",
+        text: "Credits, unlocks, access fees, creator allocations, payout mechanics, commissions, and service charges may be governed by pricing pages, onboarding materials, transaction flows, or separate product terms published on the platform. We may revise pricing, features, and allocation structures prospectively, subject to applicable law.",
       },
       {
         subtitle: "Refund Policy",
-        text: "Monthly subscription fees are non-refundable after billing. One-time service fees (professional evaluations, AI trailer generation) are non-refundable once processing has begun. If you believe you were charged in error, contact us within 7 days at info.ckript@gmail.com.",
+        text: "Except where required by law or expressly stated otherwise, fees are non-refundable once billed or once processing of the purchased service has begun. If you believe you were charged in error, contact info.ckript@gmail.com promptly with supporting details. Any goodwill refund, credit, or reversal will be at our discretion unless otherwise required by law.",
       },
       {
         subtitle: "Payment Processing",
-        text: "All payments are processed securely by Stripe. Ckript does not store card details. By providing payment information, you agree to Stripe's terms of service.",
+        text: "Payments may be processed by third-party payment providers such as Razorpay. By providing a payment method, you authorize the applicable provider and Ckript, as relevant, to charge the applicable fees, taxes, adjustments, and any authorized recurring amounts. You are responsible for applicable taxes, duties, levies, and similar governmental charges unless expressly stated otherwise.",
       },
     ],
   },
   {
     id: "option-hold",
-    title: "6. Option Hold & Exclusivity",
-    text: "When a producer places an Option Hold on a script, the script becomes exclusively reserved for that producer for the agreed option period. During this period, the writer agrees not to enter into conflicting agreements with other parties for that script. Option Hold terms, duration, and compensation are agreed between parties within the Platform. Ckript facilitates but is not a party to any option agreement and bears no liability for disputes arising from such agreements.",
+    title: "8. Option Holds and Exclusivity Tools",
+    text: "If the platform offers option hold, reservation, exclusivity, or similar workflow tools, those tools are intended to support user-managed commercial activity. The commercial terms, duration, exclusivity obligations, compensation, due diligence, and enforceability of any deal remain the responsibility of the participating users unless Ckript expressly agrees otherwise in writing. Ckript does not guarantee that any listing, hold, or transaction will result in a completed deal or enforceable contract.",
   },
   {
     id: "ai-features",
-    title: "7. AI-Powered Features",
-    text: "Ckript provides AI-powered features including script analysis, trailer generation, and smart matching. These features are provided 'as-is' for informational and creative assistance purposes only. AI-generated suggestions, scores, and matches are automated outputs and do not constitute professional legal, financial, or creative advice. Ckript does not guarantee the accuracy, completeness, or fitness for purpose of any AI-generated output. You use these features at your own discretion.",
+    title: "9. AI-Powered Features",
+    text: "The platform may provide AI-generated analysis, recommendations, summaries, scores, edits, trailers, matching signals, search assistance, or other automated outputs. These outputs are probabilistic, may be incomplete or inaccurate, and are provided for informational and workflow assistance purposes only. You are responsible for reviewing all AI-generated output before relying on, publishing, sharing, or acting on it. AI output does not constitute legal, financial, investment, employment, production, or other professional advice, and we make no guarantee of specific business or creative outcomes.",
   },
   {
     id: "privacy",
-    title: "8. Privacy",
+    title: "10. Privacy",
     text: "Our collection and use of your personal information is governed by our Privacy Policy, which is incorporated into these Terms by reference. By using the Platform, you consent to the data practices described in our Privacy Policy.",
   },
   {
+    id: "third-party-services",
+    title: "11. Third-Party Services",
+    text: "The platform may rely on or integrate with third-party services, including payment processors such as Razorpay, hosting providers, analytics vendors, communication tools, social networks, and external websites. We do not control third-party services and are not responsible for their availability, functionality, security, or policies. Your use of third-party services is governed by the terms and policies of those third parties.",
+  },
+  {
     id: "termination",
-    title: "9. Termination",
+    title: "12. Suspension and Termination",
     content: [
       {
         subtitle: "Termination by You",
-        text: "You may delete your account at any time from your account settings. Upon deletion, your personal data will be removed within 30 days, subject to our data retention obligations. Cancelling a paid subscription stops future billing but does not refund any current billing period.",
+        text: "You may stop using the platform at any time. If account deletion or subscription cancellation functionality is available, you may use those tools subject to any active obligations, pending transactions, billing commitments, or legal retention requirements. Cancellation of a recurring plan prevents future renewal charges but does not automatically entitle you to a refund for the current billing period unless required by law.",
       },
       {
         subtitle: "Termination by Ckript",
-        text: "We reserve the right to suspend or permanently terminate your account if you breach these Terms, engage in conduct harmful to other users or the Platform, or for any other reason at our sole discretion with or without notice for serious violations. We will endeavour to provide reasonable notice for non-urgent terminations.",
+        text: "We may suspend, restrict, disable, remove content from, or terminate your access to the platform if we believe you have violated these Terms, created legal exposure, failed to pay applicable fees, infringed rights, harmed other users, interfered with operations, or created security, fraud, reputational, or compliance risk. We may act with or without prior notice where the situation reasonably requires it.",
       },
     ],
   },
   {
     id: "disclaimers",
-    title: "10. Disclaimers & Limitation of Liability",
+    title: "13. Disclaimers and Limitation of Liability",
     content: [
       {
         subtitle: "Platform Availability",
-        text: "Ckript provides the Platform on an 'as available' basis. We do not warrant uninterrupted or error-free service and may perform maintenance or updates that temporarily affect availability.",
+        text: "The platform is provided on an \"as is\" and \"as available\" basis. To the fullest extent permitted by law, we disclaim all warranties, whether express, implied, statutory, or otherwise, including implied warranties of merchantability, fitness for a particular purpose, title, non-infringement, and any warranties arising from course of dealing or usage of trade. We do not warrant uninterrupted availability, security, error-free operation, or that defects will always be corrected.",
       },
       {
         subtitle: "No Guarantee of Deals or Success",
-        text: "Ckript facilitates connections between creators and industry professionals but does not guarantee any deal, option, sale, production, or career outcome. Results vary and depend entirely on third-party decisions outside Ckript's control.",
+        text: "Ckript facilitates visibility, workflow, and industry interaction, but does not guarantee exposure, responses, script options, sales, funding, production, employment, investments, meetings, collaborations, or any other result. Outcomes depend on factors beyond our control, including user conduct, market conditions, and third-party decisions.",
       },
       {
         subtitle: "Limitation of Liability",
-        text: "To the fullest extent permitted by applicable law, Ckript and its officers, directors, employees, and affiliates shall not be liable for any indirect, incidental, consequential, punitive, or special damages arising from your use of or inability to use the Platform, even if advised of the possibility of such damages. Our total aggregate liability to you shall not exceed the amounts paid by you to Ckript in the 12 months preceding the claim.",
+        text: "To the fullest extent permitted by law, Ckript and its affiliates, officers, directors, employees, contractors, licensors, and agents will not be liable for any indirect, incidental, consequential, special, exemplary, punitive, or loss-of-profit damages, or for any loss of data, goodwill, opportunity, business, or revenue arising out of or related to the platform, user conduct, transactions between users, or these Terms, even if advised of the possibility of such damages. To the fullest extent permitted by law, our total aggregate liability for all claims arising out of or relating to the platform or these Terms will not exceed the greater of the amount you paid to Ckript in the 12 months before the event giving rise to the claim or USD 100.",
       },
     ],
   },
   {
     id: "indemnification",
-    title: "11. Indemnification",
-    text: "You agree to indemnify, defend, and hold harmless Ckript and its affiliates, officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, and expenses (including reasonable attorney's fees) arising out of or relating to your use of the Platform, your content, your violation of these Terms, or your violation of any rights of a third party.",
+    title: "14. Indemnification",
+    text: "You agree to defend, indemnify, and hold harmless Ckript and its affiliates, officers, directors, employees, contractors, licensors, and agents from and against any claims, actions, liabilities, damages, judgments, losses, costs, and expenses, including reasonable legal fees, arising out of or related to your content, your use of the platform, your transactions or dealings with other users, your violation of these Terms, or your violation of any applicable law or third-party right.",
   },
   {
     id: "governing-law",
-    title: "12. Governing Law & Dispute Resolution",
-    text: "These Terms shall be governed by and construed in accordance with applicable laws. Any disputes arising out of or relating to these Terms or your use of the Platform shall first be attempted to be resolved through good-faith negotiation. If unresolved, disputes will be submitted to binding arbitration. You waive any right to participate in a class action lawsuit or class-wide arbitration against Ckript.",
+    title: "15. Governing Law and Dispute Resolution",
+    text: "These Terms and any dispute arising out of or relating to the platform or these Terms will be governed by the laws applicable to the contracting Ckript entity and the jurisdiction specified in any mandatory legal notice or separate agreement, without regard to conflict of law rules. Before starting formal proceedings, the parties agree to attempt to resolve disputes through good-faith discussions. To the fullest extent permitted by law, any claim must be brought in an individual capacity and not as part of a class, collective, representative, or private attorney general action.",
+  },
+  {
+    id: "general",
+    title: "16. General Terms",
+    bullets: [
+      "We may modify, suspend, or discontinue any part of the platform at any time, with or without notice",
+      "Our failure to enforce a provision of these Terms is not a waiver of that provision",
+      "If any provision is found unenforceable, the remaining provisions will remain in effect to the fullest extent permitted by law",
+      "You may not assign or transfer your rights or obligations under these Terms without our prior written consent",
+      "We may assign these Terms as part of a merger, acquisition, reorganization, or sale of assets",
+      "These Terms, together with incorporated policies and any additional written terms for specific services, form the entire agreement between you and Ckript regarding the platform",
+    ],
   },
   {
     id: "changes",
-    title: "13. Changes to These Terms",
-    text: "We may revise these Terms at any time. For material changes, we will provide at least 14 days' notice via email or a prominent notice on the Platform before the new Terms take effect. Continued use of the Platform following the effective date constitutes your acceptance of the revised Terms. We encourage you to review these Terms periodically.",
+    title: "17. Changes to These Terms",
+    text: "We may revise these Terms from time to time to reflect changes to the platform, applicable law, business practices, or risk allocation. When changes are material, we may provide notice through the platform, by email, or by other reasonable means and will update the effective date at the top of this page. Your continued use of the platform after the updated Terms become effective constitutes your acceptance of the revised Terms to the extent permitted by law.",
   },
   {
     id: "contact",
-    title: "14. Contact Us",
+    title: "18. Contact Us",
     contactBlock: true,
   },
 ];
@@ -205,9 +232,10 @@ export default function TermsOfService() {
             </span>
           </div>
           <p className="mt-6 text-gray-400 text-base leading-relaxed border-l-2 border-blue-500/30 pl-4">
-            These Terms of Service govern your use of the Ckript platform operated by Ckript.
-            Please read these Terms carefully before using our services. By creating an account
-            or accessing the Platform, you agree to be bound by these Terms.
+            These Terms of Service set out the legal rules that apply to your access to and use
+            of the Ckript platform, including user accounts, paid features, marketplace tools,
+            communications, and AI-enabled services. Please read them carefully before using the
+            platform because they affect your legal rights and responsibilities.
           </p>
         </motion.div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+﻿import { useEffect, useState, useContext } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import api from "../services/api";
@@ -9,12 +9,12 @@ import EditProfileModal from "../components/EditProfileModal";
 import BankDetails from "../components/BankDetails";
 import Transactions from "../components/Transactions";
 
-/* ── Helper components ── */
+/* â”€â”€ Helper components â”€â”€ */
 
 const SectionCard = ({ title, icon, badge, dark, children }) => (
   <div
     className={`rounded-2xl p-6 border transition-colors ${dark
-      ? "bg-[#0d1829] border-white/[0.06]"
+      ? "bg-[#0d1520] border-white/[0.06]"
       : "bg-white border-gray-200/70 shadow-sm"
       }`}
   >
@@ -60,9 +60,9 @@ const InfoRow = ({ label, value, dark }) => (
   </div>
 );
 
-/* ═══════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── DeleteProjectButton ── */
+/* â”€â”€ DeleteProjectButton â”€â”€ */
 const DeleteProjectButton = ({ dark, onConfirm, title }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -98,7 +98,7 @@ const DeleteProjectButton = ({ dark, onConfirm, title }) => {
           onClick={() => setShowConfirm(false)}
         >
           <div
-            className={`rounded-2xl shadow-2xl max-w-sm w-full p-6 border ${dark ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200"
+            className={`rounded-2xl shadow-2xl max-w-sm w-full p-6 border ${dark ? "bg-[#0d1520] border-white/[0.06]" : "bg-white border-gray-200"
               }`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -234,7 +234,7 @@ const Profile = () => {
     return `http://localhost:5001${url}`;
   };
 
-  /* ── Loading ── */
+  /* â”€â”€ Loading â”€â”€ */
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[60vh]">
@@ -248,7 +248,7 @@ const Profile = () => {
     );
   }
 
-  /* ── Not found ── */
+  /* â”€â”€ Not found â”€â”€ */
   if (!profile) {
     return (
       <div className="flex flex-col justify-center items-center h-[60vh] gap-3">
@@ -280,16 +280,16 @@ const Profile = () => {
     );
   }
 
-  /* ═══════════════════════════════════════
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      Design tokens
-     ═══════════════════════════════════════ */
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
   const t = {
     card: dark
-      ? "bg-[#0d1829] border-white/[0.06]"
+      ? "bg-[#0d1520] border-white/[0.06]"
       : "bg-white border-gray-200/70 shadow-sm",
     coverFrom: dark ? "from-[#0a1628]" : "from-[#1e3a5f]",
     coverTo: dark ? "to-[#162d4a]" : "to-[#2d5a8e]",
-    avatarRing: dark ? "ring-[#0d1829]" : "ring-white",
+    avatarRing: dark ? "ring-[#0d1520]" : "ring-white",
     avatarGrad: dark
       ? "from-[#1a3557] to-[#0f2439]"
       : "from-[#1e3a5f] to-[#2d5a8e]",
@@ -340,19 +340,19 @@ const Profile = () => {
     emptyP: dark ? "text-white/25" : "text-gray-400",
   };
 
-  /* ════════════════════════════════════
+  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
      RENDER
-     ════════════════════════════════════ */
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
   return (
     <div className="max-w-3xl mx-auto space-y-5">
-      {/* ──────── PROFILE CARD ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ PROFILE CARD â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
         className={`rounded-2xl border transition-colors relative ${t.card}`}
       >
-        {/* Cover gradient — no overflow-hidden so avatar is never clipped */}
+        {/* Cover gradient â€” no overflow-hidden so avatar is never clipped */}
         <div
           className={`h-36 sm:h-44 rounded-t-2xl relative bg-gradient-to-r ${t.coverFrom} ${t.coverTo}`}
         >
@@ -375,7 +375,7 @@ const Profile = () => {
             }}
           />
 
-          {/* Edit / Follow button — pinned top-right of the cover */}
+          {/* Edit / Follow button â€” pinned top-right of the cover */}
           <div className="absolute top-4 right-4 z-10">
             {isOwnProfile ? (
               <button
@@ -431,7 +431,7 @@ const Profile = () => {
               )}
             </div>
 
-            {/* Name, badges, email, bio — beside avatar */}
+            {/* Name, badges, email, bio â€” beside avatar */}
             <div className="flex-1 min-w-0 pb-1">
               <div className="flex items-center gap-2.5 mb-1 flex-wrap">
                 <h1
@@ -489,8 +489,8 @@ const Profile = () => {
             {[
               ...(profile.role !== "investor" ? [{ value: scripts.length, label: "Projects" }] : []),
               ...(profile.role === "investor" ? [
-                { value: `₹${(profile.wallet?.balance || 0).toLocaleString()}`, label: "Balance", isStr: true },
-                { value: `₹${(profile.wallet?.totalEarnings || 0).toLocaleString()}`, label: "Total Invested", isStr: true },
+                { value: `â‚¹${(profile.wallet?.balance || 0).toLocaleString()}`, label: "Balance", isStr: true },
+                { value: `â‚¹${(profile.wallet?.totalEarnings || 0).toLocaleString()}`, label: "Total Invested", isStr: true },
                 { value: profile.subscription?.scriptScoreCredits || 0, label: "Credits" },
               ] : []),
               { value: profile.followers.length, label: "Followers" },
@@ -512,7 +512,7 @@ const Profile = () => {
         </div>
       </motion.div>
 
-      {/* ──────── TABS ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex items-center gap-2">
         {[
           ...(profile.role !== "investor" ? [{ key: "projects", label: "Projects", count: scripts.length }] : []),
@@ -554,7 +554,7 @@ const Profile = () => {
         ))}
       </div>
 
-      {/* ──────── PROJECTS TAB ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ PROJECTS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "projects" && profile.role !== "investor" && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -616,7 +616,7 @@ const Profile = () => {
         </motion.div>
       )}
 
-      {/* ──────── ABOUT TAB ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ ABOUT TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "about" && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -750,7 +750,7 @@ const Profile = () => {
             </SectionCard>
           )}
 
-          {/* ──────── INVESTOR-SPECIFIC SECTIONS ──────── */}
+          {/* â”€â”€â”€â”€â”€â”€â”€â”€ INVESTOR-SPECIFIC SECTIONS â”€â”€â”€â”€â”€â”€â”€â”€ */}
           {profile.role === "investor" && (
             <>
               {/* Row 1: Professional Info + External Links */}
@@ -836,7 +836,7 @@ const Profile = () => {
                 </SectionCard>
               </div>
 
-              {/* Investment Mandates — full width */}
+              {/* Investment Mandates â€” full width */}
               <SectionCard
                 dark={dark}
                 title="Investment Mandates"
@@ -1087,7 +1087,7 @@ const Profile = () => {
         </motion.div>
       )}
 
-      {/* ──────── PURCHASED SCRIPTS TAB ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ PURCHASED SCRIPTS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "purchased" && isOwnProfile && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
           {purchasedScripts.length === 0 ? (
@@ -1114,7 +1114,7 @@ const Profile = () => {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04 }}
-                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all group cursor-pointer ${dark ? "bg-[#0d1829] border-white/[0.06] hover:border-white/[0.12] hover:bg-[#112030]" : "bg-white border-gray-200 hover:border-blue-200 hover:shadow-md shadow-sm"}`}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all group cursor-pointer ${dark ? "bg-[#0d1520] border-white/[0.06] hover:border-white/[0.12] hover:bg-[#112030]" : "bg-white border-gray-200 hover:border-blue-200 hover:shadow-md shadow-sm"}`}
                 >
                   {/* Thumbnail */}
                   <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 ${dark ? "bg-[#1a2d47]" : "bg-gray-100"}`}>
@@ -1152,7 +1152,7 @@ const Profile = () => {
                       Purchased
                     </span>
                     {script.price > 0 && (
-                      <span className={`text-[12px] font-bold ${dark ? "text-white/30" : "text-gray-400"}`}>₹{script.price}</span>
+                      <span className={`text-[12px] font-bold ${dark ? "text-white/30" : "text-gray-400"}`}>â‚¹{script.price}</span>
                     )}
                     <svg className={`w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity ${dark ? "text-white/30" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -1165,7 +1165,7 @@ const Profile = () => {
         </motion.div>
       )}
 
-      {/* ──────── SETTINGS TAB ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ SETTINGS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "settings" && isOwnProfile && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-3">
           {settingsMsg && (
@@ -1248,7 +1248,7 @@ const Profile = () => {
                   <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Preferred Genres</p>
                   {profile.preferences?.genres?.length > 0 ? (<div className="flex flex-wrap gap-1.5">{profile.preferences.genres.map((g, i) => (<span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${t.genreChip}`}>{g}</span>))}</div>) : (<p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No genres selected</p>)}
                 </div>
-                <InfoRow dark={dark} label="Budget Range" value={profile.preferences?.budgetRange ? `₹${(profile.preferences.budgetRange.min || 0).toLocaleString()} – ₹${(profile.preferences.budgetRange.max || 0).toLocaleString()}` : <span className={`italic font-normal ${dark ? "text-white/20" : "text-gray-300"}`}>Not set</span>} />
+                <InfoRow dark={dark} label="Budget Range" value={profile.preferences?.budgetRange ? `â‚¹${(profile.preferences.budgetRange.min || 0).toLocaleString()} â€“ â‚¹${(profile.preferences.budgetRange.max || 0).toLocaleString()}` : <span className={`italic font-normal ${dark ? "text-white/20" : "text-gray-300"}`}>Not set</span>} />
                 <div>
                   <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Content Types</p>
                   {profile.preferences?.contentTypes?.length > 0 ? (<div className="flex flex-wrap gap-1.5">{profile.preferences.contentTypes.map((ct, i) => (<span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border capitalize ${t.chip}`}>{ct.replace(/_/g, " ")}</span>))}</div>) : (<p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No content types selected</p>)}
@@ -1294,7 +1294,7 @@ const Profile = () => {
         </motion.div>
       )}
 
-      {/* ──────── FINANCIAL TAB ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ FINANCIAL TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {false && (() => {
         /* Gather scores from all scripts */
         const scored = scripts.filter(s => s.scriptScore?.overall);
@@ -1326,7 +1326,7 @@ const Profile = () => {
               </div>
             ) : (
               <>
-                {/* ── Overall Score Gauge + Summary ── */}
+                {/* â”€â”€ Overall Score Gauge + Summary â”€â”€ */}
                 <div className={`rounded-2xl border p-6 sm:p-8 ${t.card}`}>
                   <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
                     {/* Radial gauge */}
@@ -1346,7 +1346,7 @@ const Profile = () => {
                     <div className="flex-1 text-center sm:text-left">
                       <h3 className={`text-lg font-extrabold tracking-tight mb-1 ${dark ? "text-white" : "text-gray-900"}`}>Overall Performance</h3>
                       <p className={`text-sm mb-4 ${dark ? "text-white/40" : "text-gray-500"}`}>
-                        Based on {scored.length} evaluated {scored.length === 1 ? "project" : "projects"} — <span className="font-bold" style={{ color: scoreColorFn(overallAvg) }}>{scoreLabel(overallAvg)}</span>
+                        Based on {scored.length} evaluated {scored.length === 1 ? "project" : "projects"} â€” <span className="font-bold" style={{ color: scoreColorFn(overallAvg) }}>{scoreLabel(overallAvg)}</span>
                       </p>
                       <div className="grid grid-cols-3 gap-3">
                         {[{ label: "Best Score", value: Math.max(...scored.map(s => s.scriptScore.overall)) }, { label: "Latest", value: scored.sort((a, b) => new Date(b.scriptScore?.scoredAt || 0) - new Date(a.scriptScore?.scoredAt || 0))[0]?.scriptScore?.overall || 0 }, { label: "Projects", value: scored.length }].map(s => (
@@ -1360,7 +1360,7 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* ── Dimension Breakdown Bars ── */}
+                {/* â”€â”€ Dimension Breakdown Bars â”€â”€ */}
                 <div className={`rounded-2xl border p-6 ${t.card}`}>
                   <div className="flex items-center gap-2.5 mb-5">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.06]"}`}>
@@ -1386,7 +1386,7 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* ── Score Distribution ── */}
+                {/* â”€â”€ Score Distribution â”€â”€ */}
                 <div className={`rounded-2xl border p-6 ${t.card}`}>
                   <div className="flex items-center gap-2.5 mb-5">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.06]"}`}>
@@ -1414,7 +1414,7 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {/* ── Per-Project Score Cards ── */}
+                {/* â”€â”€ Per-Project Score Cards â”€â”€ */}
                 <div className={`rounded-2xl border p-6 ${t.card}`}>
                   <div className="flex items-center gap-2.5 mb-5">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.06]"}`}>
@@ -1436,7 +1436,7 @@ const Profile = () => {
                           <div className="flex-1 min-w-0">
                             <h4 className={`text-sm font-bold truncate ${dark ? "text-white" : "text-gray-900"}`}>{s.title}</h4>
                             <p className={`text-[11px] ${dark ? "text-white/30" : "text-gray-400"}`}>
-                              {s.format?.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} · {s.scriptScore.scoredAt ? new Date(s.scriptScore.scoredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                              {s.format?.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} Â· {s.scriptScore.scoredAt ? new Date(s.scriptScore.scoredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
                             </p>
                           </div>
                           <span className="text-[11px] font-bold px-2 py-1 rounded-lg" style={{ backgroundColor: `${scoreColorFn(s.scriptScore.overall)}15`, color: scoreColorFn(s.scriptScore.overall) }}>
@@ -1451,7 +1451,7 @@ const Profile = () => {
                                 <div className="h-full rounded-full" style={{ width: `${s.scriptScore[d] || 0}%`, backgroundColor: dimColors[d] }} />
                               </div>
                               <p className={`text-[9px] font-bold ${dark ? "text-white/30" : "text-gray-400"}`}>{dimLabels[d]}</p>
-                              <p className={`text-[11px] font-extrabold tabular-nums ${dark ? "text-white/60" : "text-gray-600"}`}>{s.scriptScore[d] || "—"}</p>
+                              <p className={`text-[11px] font-extrabold tabular-nums ${dark ? "text-white/60" : "text-gray-600"}`}>{s.scriptScore[d] || "â€”"}</p>
                             </div>
                           ))}
                         </div>
@@ -1465,7 +1465,7 @@ const Profile = () => {
         );
       })()}
 
-      {/* ──────── FINANCIAL TAB ──────── */}
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ FINANCIAL TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "financial" && isOwnProfile && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}

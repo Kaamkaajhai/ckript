@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useSearchParams } from "react-router-dom";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
+import ProjectCard from "../components/ProjectCard";
 
 /* ── Filter Constants ───────────────────────────────── */
 const GENRES = [
@@ -725,101 +726,16 @@ const Search = () => {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {results.scripts.map((script, i) => {
-                  const cover = getCoverImage(script);
-
-                  return (
-                    <motion.div
-                      key={script._id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04, duration: 0.3, ease }}
-                    >
-                      <Link
-                        to={`/script/${script._id}`}
-                        className={`block rounded-2xl border overflow-hidden transition-all duration-300 group ${t.projectCard}`}
-                      >
-                        {/* Cover */}
-                        <div className="relative h-40 overflow-hidden">
-                          {cover ? (
-                            <img src={cover} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                          ) : (
-                            <div className={`w-full h-full bg-gradient-to-br flex items-center justify-center ${t.projectEmptyCover}`}>
-                              <svg className={`w-8 h-8 ${t.projectEmptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                              </svg>
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-
-                          {/* Floating tags */}
-                          <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-                            {(script.genre || script.contentType) && (
-                              <span className="text-[10px] font-bold text-white/90 bg-white/15 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-white/10">
-                                {script.genre || script.contentType}
-                              </span>
-                            )}
-                            {script.premium && (
-                              <span className={`text-[10px] font-bold text-white px-2.5 py-1 rounded-lg shadow-sm ${dark ? "bg-blue-500" : "bg-[#1e3a5f]"}`}>
-                                ${script.price}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Creator at bottom */}
-                          <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/20 overflow-hidden">
-                              {script.creator?.profileImage ? (
-                                <img
-                                  src={script.creator.profileImage.startsWith("http") ? script.creator.profileImage : `http://localhost:5001${script.creator.profileImage}`}
-                                  alt="" className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-[9px] font-bold text-white">{script.creator?.name?.charAt(0)?.toUpperCase() || "?"}</span>
-                              )}
-                            </div>
-                            <span className="text-[11px] font-medium text-white/90 drop-shadow-sm">{script.creator?.name || "Unknown"}</span>
-                          </div>
-                        </div>
-
-                        {/* Body */}
-                        <div className="p-4">
-                          <h3 className={`text-[14px] font-bold leading-snug line-clamp-1 transition-colors mb-1.5 ${t.projectTitle}`}>
-                            {script.title}
-                          </h3>
-                          {script.description && (
-                            <p className={`text-[12px] leading-relaxed line-clamp-2 mb-3 ${t.projectDesc}`}>{script.description}</p>
-                          )}
-
-                          {/* Stats */}
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-1.5">
-                              <svg className={`w-3.5 h-3.5 ${t.projectStatIcon}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              <span className={`text-[11px] font-semibold tabular-nums ${t.projectStatValue}`}>{(script.viewCount || script.views || 0).toLocaleString()}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <svg className={`w-3.5 h-3.5 ${t.projectStatIcon}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                              </svg>
-                              <span className={`text-[11px] font-semibold tabular-nums ${t.projectStatValue}`}>{script.unlockCount || 0}</span>
-                            </div>
-                            {script.scriptScore?.overall > 0 && (
-                              <div className="flex items-center gap-1 ml-auto">
-                                <svg className={`w-3.5 h-3.5 ${t.projectScoreStar}`} fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                </svg>
-                                <span className={`text-[11px] font-bold tabular-nums ${t.projectScoreValue}`}>{script.scriptScore.overall}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
-                    </motion.div>
-                  );
-                })}
+                {results.scripts.map((script, i) => (
+                  <motion.div
+                    key={script._id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.3, ease }}
+                  >
+                    <ProjectCard project={script} userName={script.creator?.name || "Unknown"} />
+                  </motion.div>
+                ))}
               </div>
             </section>
           )}

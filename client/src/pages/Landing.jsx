@@ -57,9 +57,6 @@ const ContactSection = () => {
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2">
             We'd love to hear from you
           </h2>
-          <p className="text-[#8896a7] text-base max-w-lg">
-            Have a question, want to collaborate, or curious about joining the team? Drop us a message.
-          </p>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-start">
@@ -302,12 +299,12 @@ const Landing = () => {
                 Sign Up as Creator
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <a
-                href="#platform-innovations"
+              <Link
+                to="/investor-onboarding"
                 className="px-7 py-3.5 bg-transparent border border-[#1c2a3a] hover:border-[#2a3a4e] text-[#8896a7] hover:text-white rounded-lg font-semibold text-sm transition-colors"
               >
-                Learn More
-              </a>
+                Sign Up as Producer
+              </Link>
             </motion.div>
           </div>
 
@@ -348,9 +345,6 @@ const Landing = () => {
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3 tracking-tight">
               The Problem We Solve
             </h2>
-            <p className="text-[#8896a7] text-base leading-relaxed">
-              A fractured industry kept apart by walls that shouldn't exist.
-            </p>
           </motion.div>
 
           {/* Two problem cards */}
@@ -367,7 +361,7 @@ const Landing = () => {
                   <PenLine className="w-[18px] h-[18px] text-[#8896a7]" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a5a6e] mb-0.5">Side A</p>
+
                   <h3 className="text-lg font-bold text-white">For Creators</h3>
                 </div>
               </div>
@@ -399,7 +393,7 @@ const Landing = () => {
                   <TrendingUp className="w-[18px] h-[18px] text-[#8896a7]" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4a5a6e] mb-0.5">Side B</p>
+
                   <h3 className="text-lg font-bold text-white">For Industry Professionals</h3>
                 </div>
               </div>
@@ -435,19 +429,17 @@ const Landing = () => {
               <div>
                 <h3 className="text-2xl font-bold text-white mb-3">The Ckript Solution</h3>
                 <p className="text-[#8896a7] text-base leading-relaxed mb-6 max-w-2xl">
-                  A platform that instantly connects creators with decision-makers.
-                  Scripts are visualized through{" "}
-                  <span className="text-white font-medium">AI-generated trailers</span>, matched{" "}
-                  <span className="text-white font-medium">algorithmically</span>, and packaged with
-                  ready-to-cast talent.{" "}
-                  <span className="text-white font-medium">Everyone wins.</span>
+                  Ckript eliminates friction between creative talent and industry decision-makers.
+                  Scripts come to life through{" "}
+                  <span className="text-white font-medium">AI-generated visual trailers</span>, surface to the right buyers via{" "}
+                  <span className="text-white font-medium">intelligent algorithmic matching</span>, accelerating every stage of production.
                 </p>
 
                 <div className="flex flex-wrap gap-2">
                   {[
                     { icon: <Zap className="w-3.5 h-3.5" />, label: "AI-Powered Matching" },
                     { icon: <Film className="w-3.5 h-3.5" />, label: "Visual Script Previews" },
-                    { icon: <Users className="w-3.5 h-3.5" />, label: "Zero Gatekeepers" },
+                    { icon: <Users className="w-3.5 h-3.5" />, label: "Direct Industry Access" },
                     { icon: <TrendingUp className="w-3.5 h-3.5" />, label: "Real-time Analytics" },
                   ].map((f, i) => (
                     <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#151f2e] text-xs font-medium text-[#8896a7]">
@@ -536,13 +528,7 @@ const Landing = () => {
                 icon: Film,
                 role: "Producers & Directors",
                 desc: "Find production-ready scripts and talent fast.",
-                benefits: ["Browse visual trailers", "Auto-matched content", "Pre-auditioned talent attached", "30-day script options"]
-              },
-              {
-                icon: TrendingUp,
-                role: "Investors",
-                desc: "Access curated, pre-packaged investment opportunities.",
-                benefits: ["Curated Domain Packages", "Invest in pre-packaged deals", "Discover emerging talent", "Market trends & analytics"]
+                benefits: ["Browse visual trailers", "AI-matched scripts to your style", "Direct creator collaboration", "Streamlined option workflow"]
               },
               {
                 icon: BookOpen,

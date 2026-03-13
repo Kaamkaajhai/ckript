@@ -82,9 +82,6 @@ const FeaturesShowcase = () => {
           <h2 className="text-3xl sm:text-4xl font-bold mb-3 tracking-tight">
             Revolutionary Features That Change Everything
           </h2>
-          <p className="text-[#8896a7] text-base">
-            Seven innovations that transform how stories are discovered, protected, and monetized.
-          </p>
         </motion.div>
 
         {/* Layout: sidebar tabs + detail panel */}

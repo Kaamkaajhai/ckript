@@ -1,6 +1,8 @@
 import { useContext, useState } from "react";
+import { motion } from "framer-motion";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import { ArrowRight, AlertCircle, Clock, XCircle } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
 
@@ -15,10 +17,12 @@ const Login = () => {
   const [pendingApproval, setPendingApproval] = useState(false);
   const [accountRejected, setAccountRejected] = useState(false);
   const [rejectedMessage, setRejectedMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
     try {
       const userData = await login(email, password);
       
@@ -26,6 +30,7 @@ const Login = () => {
       if (userData?.requiresVerification) {
         setUserEmail(email);
         setShowOTPVerification(true);
+        setLoading(false);
         return;
       }
       
@@ -41,14 +46,17 @@ const Login = () => {
       const data = err.response?.data;
       if (data?.pendingApproval) {
         setPendingApproval(true);
+        setLoading(false);
         return;
       }
       if (data?.rejected) {
         setAccountRejected(true);
         setRejectedMessage(data.message || "Your investor account has been rejected. Please contact support.");
+        setLoading(false);
         return;
       }
       setError(data?.message || "Login failed");
+      setLoading(false);
     }
   };
 
@@ -92,23 +100,31 @@ const Login = () => {
   // Show pending approval screen for investors
   if (pendingApproval) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white px-6">
-        <div className="w-full max-w-md text-center">
-          <div className="w-20 h-20 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-amber-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+      <div className="min-h-screen bg-[#080e18] flex items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
+            <Clock className="w-8 h-8 text-amber-400" />
           </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Account Pending Approval</h2>
-          <p className="text-gray-500 text-[15px] leading-relaxed mb-6">
+          <h2 className="text-2xl font-bold text-white mb-3">Account Pending Approval</h2>
+          <p className="text-[#8896a7] text-sm leading-relaxed mb-6">
             Your investor account has been submitted and is currently under review.<br />
             You'll be able to log in once an admin approves your account.
           </p>
-          <p className="text-sm text-gray-400">Need help? Contact <a href="mailto:support@ckript.com" className="text-[#1e3a5f] font-semibold hover:underline">support@ckript.com</a></p>
-          <button onClick={() => setPendingApproval(false)} className="mt-6 text-sm text-gray-400 hover:text-gray-600 font-medium transition-colors">
+          <p className="text-xs text-[#4a5a6e]">
+            Need help?{" "}
+            <a href="mailto:info.ckript@gmail.com" className="text-[#8896a7] font-semibold hover:text-white transition-colors">
+              info.ckript@gmail.com
+            </a>
+          </p>
+          <button onClick={() => setPendingApproval(false)} className="mt-8 text-xs text-[#4a5a6e] hover:text-[#8896a7] font-medium transition-colors">
             &larr; Back to login
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -116,89 +132,168 @@ const Login = () => {
   // Show rejected screen for investors
   if (accountRejected) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white px-6">
-        <div className="w-full max-w-md text-center">
-          <div className="w-20 h-20 rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-red-500" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+      <div className="min-h-screen bg-[#080e18] flex items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-6">
+            <XCircle className="w-8 h-8 text-red-400" />
           </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 mb-3">Account Not Approved</h2>
-          <p className="text-gray-500 text-[15px] leading-relaxed mb-6">{rejectedMessage}</p>
-          <p className="text-sm text-gray-400">Contact <a href="mailto:support@ckript.com" className="text-[#1e3a5f] font-semibold hover:underline">support@ckript.com</a> for assistance.</p>
-          <button onClick={() => setAccountRejected(false)} className="mt-6 text-sm text-gray-400 hover:text-gray-600 font-medium transition-colors">
+          <h2 className="text-2xl font-bold text-white mb-3">Account Not Approved</h2>
+          <p className="text-[#8896a7] text-sm leading-relaxed mb-6">{rejectedMessage}</p>
+          <p className="text-xs text-[#4a5a6e]">
+            Contact{" "}
+            <a href="mailto:info.ckript@gmail.com" className="text-[#8896a7] font-semibold hover:text-white transition-colors">
+              info.ckript@gmail.com
+            </a>{" "}
+            for assistance.
+          </p>
+          <button onClick={() => setAccountRejected(false)} className="mt-8 text-xs text-[#4a5a6e] hover:text-[#8896a7] font-medium transition-colors">
             &larr; Back to login
           </button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left decorative panel */}
-      <div className="hidden lg:flex lg:w-[45%] bg-gradient-to-br from-[#0f1c2e] via-[#1e3a5f] to-[#2d5a8e] relative overflow-hidden items-center justify-center">
-        <div className="absolute inset-0 opacity-[0.04]" style={{backgroundImage:'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',backgroundSize:'32px 32px'}} />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        <div className="relative z-10 px-12 max-w-md">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight mb-4 leading-tight">Where stories find<br/>their audience.</h1>
-          <p className="text-blue-200/70 text-base leading-relaxed">Ckript connects writers, producers, and investors to bring creative projects to life.</p>
-          <div className="mt-12 flex items-center gap-4">
-            <div className="flex -space-x-2">
-              {['#4a6d8c','#6b8fad','#8ab0c8'].map((c,i)=>(
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-[#1e3a5f]" style={{backgroundColor:c}} />
-              ))}
-            </div>
-            <p className="text-sm text-blue-200/50 font-medium">Join 2,000+ creators</p>
-          </div>
+    <div className="min-h-screen bg-[#080e18] flex">
+
+      {/* ── Left decorative panel ── */}
+      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden flex-col items-start justify-between p-12 border-r border-[#151f2e]">
+        {/* Dot grid */}
+        <div
+          className="absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+            backgroundSize: "28px 28px",
+          }}
+        />
+        {/* Ambient glows */}
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-white/[0.025] rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-white/[0.025] rounded-full blur-3xl translate-x-1/4 translate-y-1/4 pointer-events-none" />
+
+        {/* Logo */}
+        <div className="relative z-10">
+          <BrandLogo className="h-10 w-auto" />
+        </div>
+
+        {/* Tagline */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="relative z-10 max-w-xs"
+        >
+          <h2 className="text-2xl font-bold text-white leading-snug tracking-tight mb-3">
+            Where stories find<br />their audience.
+          </h2>
+          <p className="text-[#4a5a6e] text-sm leading-relaxed">
+            The script discovery platform for creators and industry professionals.
+          </p>
+        </motion.div>
+
+        {/* Bottom copyright */}
+        <div className="relative z-10">
+          <p className="text-[11px] text-[#2a3a4e] font-medium">&copy; 2026 Ckript. All rights reserved.</p>
         </div>
       </div>
 
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center bg-white px-6">
-        <div className="w-full max-w-[400px]">
-          <div className="lg:hidden flex items-center gap-2.5 mb-10">
-            <BrandLogo className="h-10 w-auto" />
+      {/* ── Right form panel ── */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-[400px]"
+        >
+          {/* Mobile logo */}
+          <div className="lg:hidden mb-10">
+            <BrandLogo className="h-9 w-auto" />
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Welcome back</h2>
-            <p className="text-[15px] text-gray-400 mt-1.5 font-medium">Sign in to your account to continue</p>
+            <h1 className="text-xl font-bold text-white tracking-tight">Sign in</h1>
+            <p className="text-sm text-[#4a5a6e] mt-1.5">Enter your credentials to continue</p>
           </div>
 
           {error && (
-            <div className="mb-5 px-4 py-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-semibold flex items-center gap-2">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-5 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-medium flex items-center gap-2.5"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0" />
               {error}
-            </div>
+            </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[13px] font-semibold text-gray-600 mb-2">Email address</label>
-              <input type="email" placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-[#1e3a5f]/10 focus:bg-white transition-all duration-200"
-                value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <label className="block text-[11px] font-medium text-[#4a5a6e] mb-1.5">
+                Email address
+              </label>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                className="w-full px-4 py-3 bg-[#0d1520] border border-[#1c2a3a] rounded-xl text-sm text-white placeholder-[#2a3a4e] outline-none focus:border-[#374d63] focus:ring-1 focus:ring-[#374d63] transition-all duration-200"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-gray-600 mb-2">Password</label>
-              <input type="password" placeholder="••••••••"
-                className="w-full px-4 py-3 bg-gray-50/80 border border-gray-200 rounded-xl text-[15px] text-gray-800 placeholder-gray-400 outline-none focus:border-[#1e3a5f] focus:ring-2 focus:ring-[#1e3a5f]/10 focus:bg-white transition-all duration-200"
-                value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <label className="block text-[11px] font-medium text-[#4a5a6e] mb-1.5">
+                Password
+              </label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                className="w-full px-4 py-3 bg-[#0d1520] border border-[#1c2a3a] rounded-xl text-sm text-white placeholder-[#2a3a4e] outline-none focus:border-[#374d63] focus:ring-1 focus:ring-[#374d63] transition-all duration-200"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-            <button type="submit" className="w-full py-3 bg-[#1e3a5f] text-white rounded-xl text-[15px] font-bold hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5">
-              Sign in
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-2 py-3 bg-white hover:bg-gray-100 text-[#080e18] rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Signing in…
+                </>
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
-          <p className="mt-8 text-center text-[14px] text-gray-400 font-medium">
-            Don't have an account? <Link to="/join" className="text-[#1e3a5f] font-semibold hover:text-[#162d4a] transition-colors">Create one</Link>
-          </p>
-          <p className="mt-3 text-center">
-            <Link to="/" className="text-[13px] text-gray-400 hover:text-gray-600 font-medium transition-colors">&larr; Back to home</Link>
-          </p>
-        </div>
+          <div className="mt-6 pt-6 border-t border-[#151f2e] space-y-3 text-center">
+            <p className="text-sm text-[#4a5a6e]">
+              Don't have an account?{" "}
+              <Link to="/join" className="text-[#8896a7] font-semibold hover:text-white transition-colors">
+                Create one
+              </Link>
+            </p>
+            <p>
+              <Link to="/" className="text-xs text-[#2a3a4e] hover:text-[#4a5a6e] font-medium transition-colors">
+                &larr; Back to home
+              </Link>
+            </p>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

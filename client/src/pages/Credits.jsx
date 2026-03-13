@@ -165,7 +165,7 @@ const Credits = () => {
           : "text-orange-600 bg-orange-50";
       default:
         return dark
-          ? "text-blue-400 bg-blue-500/10"
+          ? "text-[#8896a7] bg-white/[0.06]"
           : "text-blue-600 bg-blue-50";
     }
   };
@@ -196,7 +196,7 @@ const Credits = () => {
         ? "from-purple-500/20 to-pink-500/10 text-purple-400"
         : "from-purple-50 to-pink-50 text-purple-600",
       scriptAnalysis: dark
-        ? "from-blue-500/20 to-cyan-500/10 text-blue-400"
+        ? "from-white/[0.04] to-white/[0.02] text-[#8896a7]"
         : "from-blue-50 to-cyan-50 text-blue-600",
       premiumReport: dark
         ? "from-emerald-500/20 to-teal-500/10 text-emerald-400"
@@ -283,7 +283,7 @@ const Credits = () => {
             animate={{ opacity: 1, y: 0 }}
             className={`relative overflow-hidden rounded-2xl border p-6 ${
               dark
-                ? "bg-gradient-to-br from-blue-600/15 via-purple-600/10 to-transparent border-blue-500/20"
+                ? "bg-[#0d1520] border-[#1c2a3a]"
                 : "bg-gradient-to-br from-blue-50 via-purple-50/50 to-white border-blue-200/60"
             }`}
           >
@@ -294,18 +294,18 @@ const Credits = () => {
               <div className="flex items-center gap-3 mb-4">
                 <div
                   className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-                    dark ? "bg-blue-500/20" : "bg-blue-100"
+                    dark ? "bg-white/[0.06]" : "bg-blue-100"
                   }`}
                 >
                   <Coins
                     className={`w-5 h-5 ${
-                      dark ? "text-blue-400" : "text-blue-600"
+                      dark ? "text-[#8896a7]" : "text-blue-600"
                     }`}
                   />
                 </div>
                 <span
                   className={`text-xs font-bold uppercase tracking-wider ${
-                    dark ? "text-blue-400/70" : "text-blue-600/70"
+                    dark ? "text-[#8896a7]/70" : "text-blue-600/70"
                   }`}
                 >
                   Available Balance
@@ -602,12 +602,12 @@ const Credits = () => {
                     tagline: "Deep AI intelligence dissects every layer of your script.",
                     credits: getCredits("scriptAnalysis", 30),
                     gradient: dark
-                      ? "from-blue-500/25 to-cyan-500/10 border-blue-500/20"
+                      ? "from-white/[0.04] to-white/[0.02] border-[#1c2a3a]"
                       : "from-blue-50 to-cyan-50 border-blue-200/70",
-                    iconColor: dark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600",
-                    badge: dark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700",
+                    iconColor: dark ? "bg-white/[0.06] text-[#8896a7]" : "bg-blue-100 text-blue-600",
+                    badge: dark ? "bg-white/[0.05] text-[#8896a7]" : "bg-blue-100 text-blue-700",
                     btnClass: dark
-                      ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/30"
+                      ? "bg-white/[0.06] hover:bg-white/[0.09] text-[#8896a7] border border-white/[0.08]"
                       : "bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20",
                     features: [
                       "Plot structure & pacing score",
@@ -785,7 +785,7 @@ const Credits = () => {
                   <button
                     onClick={() => navigate("/upload")}
                     className={`font-bold underline underline-offset-2 ${
-                      dark ? "text-blue-400" : "text-blue-600"
+                      dark ? "text-[#8896a7]" : "text-blue-600"
                     }`}
                   >
                     Start a new project

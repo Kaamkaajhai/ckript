@@ -177,8 +177,8 @@ const Sidebar = () => {
         to={item.path}
         onClick={() => setMobileOpen(false)}
         className={`group flex items-center gap-3.5 px-4 py-2.5 mx-2 rounded-xl text-[14px] font-semibold transition-all duration-200 relative ${active
-          ? isDarkMode ? "bg-blue-500/15 text-blue-400 font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
-          : isDarkMode ? "text-gray-400 hover:bg-[#132744] hover:text-gray-200" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
+          ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
+          : isDarkMode ? "text-[#8896a7] hover:bg-[#0d1520] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
           }`}
       >
         <Icon d={item.icon} />
@@ -190,7 +190,7 @@ const Sidebar = () => {
 
   const SectionLabel = ({ label }) => (
     <div className={`px-5 pt-4 pb-1`}>
-      <span className={`text-[11px] font-bold tracking-widest uppercase ${isDarkMode ? "text-gray-600" : "text-gray-300"}`}>{label}</span>
+      <span className={`text-[11px] font-bold tracking-widest uppercase ${isDarkMode ? "text-[#2a3a4e]" : "text-gray-300"}`}>{label}</span>
     </div>
   );
 
@@ -200,13 +200,13 @@ const Sidebar = () => {
         <BrandLogo className="h-9 w-auto" />
       </div>
 
-      <div className={`mx-3 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+      <div className={`mx-3 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
         {isInvestorRole && investorSections ? (
           investorSections.map((section, idx) => (
             <div key={section.label}>
-              {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>}
+              {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>}
               <SectionLabel label={section.label} />
               <div className="space-y-0.5">
                 {section.items.map((item) => <NavItem key={item.label} item={item} />)}
@@ -218,27 +218,27 @@ const Sidebar = () => {
             <div className="space-y-1">
               {mainNavItems.map((item) => <NavItem key={item.label} item={item} />)}
             </div>
-            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
             {actionItems.map((item) => <NavItem key={item.label} item={item} />)}
             {bottomNavItems.length > 0 && (
               <>
-                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
                 {bottomNavItems.map((item) => <NavItem key={item.label} item={item} />)}
               </>
             )}
             {!isReader && !isAdmin && !isInvestorRole && (
               <>
-                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
 
                 <button
                   onClick={() => setProjectsOpen(!projectsOpen)}
-                  className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}
+                  className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-[#2a3a4e] hover:text-[#8896a7]" : "text-gray-400 hover:text-gray-600"}`}
                 >
                   <svg className={`w-4 h-4 transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
                     fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
-                  <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>My Projects</span>
+                  <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-[#2a3a4e]" : "text-gray-400"}`}>My Projects</span>
                 </button>
 
                 {projectsOpen && (
@@ -246,13 +246,13 @@ const Sidebar = () => {
                     {myScripts.length > 0 ? (
                       myScripts.map((script) => (
                         <Link key={script._id} to={`/script/${script._id}`} onClick={() => setMobileOpen(false)}
-                          className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}>
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#2a4060]" : "bg-gray-300"}`}></div>
+                          className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-[#8896a7] hover:text-white" : "text-gray-500 hover:text-gray-700"}`}>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#1c2a3a]" : "bg-gray-300"}`}></div>
                           <span className="text-[15px] font-semibold truncate">{script.title}</span>
                         </Link>
                       ))
                     ) : (
-                      <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>No projects yet</p>
+                      <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-[#3a4a5e]" : "text-gray-400"}`}>No projects yet</p>
                     )}
                   </div>
                 )}
@@ -262,9 +262,9 @@ const Sidebar = () => {
         )}
       </nav>
 
-      <div className={`border-t p-3 ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}>
+      <div className={`border-t p-3 ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}>
         <button onClick={handleLogout}
-          className={`w-full px-3 py-2.5 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center gap-2.5 justify-center ${isDarkMode ? "text-gray-400 hover:text-gray-200 hover:bg-[#132744]" : "text-gray-400 hover:text-red-500 hover:bg-red-50/80"}`}>
+          className={`w-full px-3 py-2.5 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center gap-2.5 justify-center ${isDarkMode ? "text-[#8896a7] hover:text-red-400 hover:bg-[#0d1520]" : "text-gray-400 hover:text-red-500 hover:bg-red-50/80"}`}>
           <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           Log out
         </button>
@@ -274,14 +274,14 @@ const Sidebar = () => {
 
   return (
     <>
-      <aside className={`hidden lg:flex fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#0b1426] border-[#1a3050]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`hidden lg:flex fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <SidebarContent />
       </aside>
 
-      <aside className={`hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#0b1426] border-[#1a3050]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <div className="h-16 flex items-center justify-center">
           <Link to="/dashboard">
-            <svg className={`w-7 h-7 ${isDarkMode ? "text-blue-400" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <svg className={`w-7 h-7 ${isDarkMode ? "text-[#8896a7]" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           </Link>
@@ -292,21 +292,21 @@ const Sidebar = () => {
             return (
               <Link key={item.label} to={item.path} title={item.label}
                 className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${active
-                  ? isDarkMode ? "bg-blue-500/15 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
-                  : isDarkMode ? "text-gray-500 hover:bg-[#132744] hover:text-gray-300" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  ? isDarkMode ? "bg-[#0d1520] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
+                  : isDarkMode ? "text-[#4a5a6e] hover:bg-[#0d1520] hover:text-[#8896a7]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                   }`}>
                 <Icon d={item.icon} />
               </Link>
             );
           })}
-          <div className={`w-6 my-1 border-t ${isDarkMode ? "border-[#1a3050]" : "border-gray-100"}`}></div>
+          <div className={`w-6 my-1 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
           {actionItems.map((item) => {
             const active = isActive(item.path);
             return (
               <Link key={item.label} to={item.path} title={item.label}
                 className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${active
-                  ? isDarkMode ? "bg-blue-500/15 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
-                  : isDarkMode ? "text-gray-500 hover:bg-[#132744] hover:text-gray-300" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  ? isDarkMode ? "bg-[#0d1520] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
+                  : isDarkMode ? "text-[#4a5a6e] hover:bg-[#0d1520] hover:text-[#8896a7]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                   }`}>
                 <Icon d={item.icon} />
               </Link>
@@ -314,24 +314,24 @@ const Sidebar = () => {
           })}
         </nav>
         <div className="py-3 flex flex-col items-center gap-2">
-          <button onClick={() => navigate(`/profile/${user?._id || ""}`)}>
+        <button onClick={() => navigate(`/profile/${user?._id || ""}`)}>
             {user?.profileImage ? (
-              <img src={user.profileImage} alt={user.name} className={`w-9 h-9 rounded-full object-cover ring-1 ${isDarkMode ? "ring-[#1a3050]" : "ring-gray-200"}`} />
+              <img src={user.profileImage} alt={user.name} className={`w-9 h-9 rounded-full object-cover ring-1 ${isDarkMode ? "ring-[#1c2a3a]" : "ring-gray-200"}`} />
             ) : (
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${isDarkMode ? "bg-blue-500/20 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${isDarkMode ? "bg-[#0d1520] text-[#8896a7] ring-1 ring-[#1c2a3a]" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
                 {user?.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
             )}
           </button>
           <button onClick={handleLogout} title="Log out"
-            className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-gray-500 hover:text-gray-300 hover:bg-[#132744]" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}`}>
+            className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-[#4a5a6e] hover:text-[#8896a7] hover:bg-[#0d1520]" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}`}>
             <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </button>
         </div>
       </aside>
 
       <button onClick={() => setMobileOpen(true)}
-        className={`md:hidden fixed top-4 left-4 z-50 w-9 h-9 border rounded-lg flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#0f1d35] border-[#1a3050] text-gray-300" : "bg-white border-gray-200 text-gray-600"}`}>
+        className={`md:hidden fixed top-4 left-4 z-50 w-9 h-9 border rounded-lg flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#080e18] border-[#151f2e] text-[#8896a7]" : "bg-white border-gray-200 text-gray-600"}`}>
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
@@ -340,8 +340,8 @@ const Sidebar = () => {
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)}></div>
-          <aside className={`absolute left-0 top-0 h-full w-[260px] shadow-lg ${isDarkMode ? "bg-[#0b1426]" : "bg-white"}`}>
-            <button onClick={() => setMobileOpen(false)} className={`absolute top-4 right-3 ${isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}>
+          <aside className={`absolute left-0 top-0 h-full w-[260px] shadow-lg ${isDarkMode ? "bg-[#080e18]" : "bg-white"}`}>
+            <button onClick={() => setMobileOpen(false)} className={`absolute top-4 right-3 ${isDarkMode ? "text-[#4a5a6e] hover:text-white" : "text-gray-400 hover:text-gray-600"}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -351,19 +351,19 @@ const Sidebar = () => {
         </div>
       )}
 
-      <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#0b1426] border-[#1a3050]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
         {mobileItems.map((item) => {
           const active = isActive(item.path);
           return (
             <Link key={item.path} to={item.path}
               className={`flex flex-col items-center justify-center gap-0.5 w-14 h-12 transition-colors ${active
-                ? isDarkMode ? "text-blue-400" : "text-[#1e3a5f]"
-                : isDarkMode ? "text-gray-500" : "text-gray-400"
+                ? isDarkMode ? "text-white" : "text-[#1e3a5f]"
+                : isDarkMode ? "text-[#4a5a6e]" : "text-gray-400"
                 }`}>
               <Icon d={item.icon} size={`w-[22px] h-[22px] ${active ? "stroke-[2.2]" : ""}`} />
               <span className={`text-xs ${active
-                ? isDarkMode ? "font-extrabold text-blue-400" : "font-extrabold text-[#1e3a5f]"
-                : isDarkMode ? "font-bold text-gray-500" : "font-bold text-gray-400"
+                ? isDarkMode ? "font-extrabold text-white" : "font-extrabold text-[#1e3a5f]"
+                : isDarkMode ? "font-bold text-[#4a5a6e]" : "font-bold text-gray-400"
                 }`}>
                 {item.label}
               </span>
