@@ -10,6 +10,7 @@ import crypto from "crypto";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
+import { uploadToCloudinary } from "../config/cloudinary.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -871,29 +872,29 @@ export const createScriptPurchaseOrder = async (req, res) => {
   try {
     // Check if Razorpay is configured
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: "Payment system not configured. Please contact support.",
         error: "Razorpay credentials missing"
       });
     }
-    
+
     const { scriptId } = req.body;
-    
+
     const script = await Script.findById(scriptId).populate("creator", "name");
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
-    
+
     // Check if already purchased
     if (script.unlockedBy.includes(req.user._id)) {
       return res.status(400).json({ message: "You have already purchased this script" });
     }
-    
+
     // Check if trying to buy own script
     if (script.creator._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: "You cannot purchase your own script" });
     }
-    
+
     // Create Razorpay order
     const options = {
       amount: Math.round(script.price * 100), // Amount in paise (INR) or cents
@@ -907,10 +908,10 @@ export const createScriptPurchaseOrder = async (req, res) => {
         type: "script_purchase"
       }
     };
-    
+
     const razorpay = getRazorpay();
     const order = await razorpay.orders.create(options);
-    
+
     res.json({
       orderId: order.id,
       amount: order.amount,
@@ -934,69 +935,69 @@ export const createScriptPurchaseOrder = async (req, res) => {
 // @access  Private
 export const verifyScriptPurchase = async (req, res) => {
   try {
-    const { 
-      razorpay_order_id, 
-      razorpay_payment_id, 
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
       razorpay_signature,
-      scriptId 
+      scriptId
     } = req.body;
-    
+
     console.log("Script purchase verification:", { razorpay_order_id, razorpay_payment_id, scriptId });
-    
+
     // Check if Razorpay key secret is available
     if (!process.env.RAZORPAY_KEY_SECRET) {
       console.error("RAZORPAY_KEY_SECRET not found in environment");
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: "Payment system not configured",
-        success: false 
+        success: false
       });
     }
-    
+
     // Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(body.toString())
       .digest("hex");
-    
+
     const isAuthentic = expectedSignature === razorpay_signature;
-    
+
     if (!isAuthentic) {
       console.error("Signature verification failed");
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Payment verification failed - Invalid signature",
-        success: false 
+        success: false
       });
     }
-    
+
     // Payment verified successfully, unlock the script
     const script = await Script.findById(scriptId).populate("creator", "name email");
     if (!script) {
       console.error("Script not found:", scriptId);
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: "Script not found",
-        success: false 
+        success: false
       });
     }
-    
+
     // Check if already unlocked
     if (script.unlockedBy.includes(req.user._id)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Script already purchased",
-        success: false 
+        success: false
       });
     }
-    
-    // Unlock the script for the buyer
+
+    // Unlock the script for the buyer and mark as sold
     script.unlockedBy.push(req.user._id);
     await script.save();
-    
+
     const reference = `SCRIPT-PURCHASE-${razorpay_payment_id}`;
-    
+
     // Calculate platform fee and creator payout
     const platformFee = script.price * 0.10; // 10% platform fee
     const creatorPayout = script.price - platformFee;
-    
+
     // Create transaction record for buyer
     await Transaction.create({
       user: req.user._id,
@@ -1015,7 +1016,7 @@ export const verifyScriptPurchase = async (req, res) => {
         creatorPayout
       }
     });
-    
+
     // Credit the creator
     const creator = await User.findById(script.creator._id);
     if (!creator.wallet) {
@@ -1024,7 +1025,7 @@ export const verifyScriptPurchase = async (req, res) => {
     creator.wallet.balance += creatorPayout;
     creator.wallet.totalEarnings += creatorPayout;
     await creator.save();
-    
+
     // Create transaction record for creator (earnings)
     await Transaction.create({
       user: creator._id,
@@ -1042,7 +1043,7 @@ export const verifyScriptPurchase = async (req, res) => {
         originalAmount: script.price
       }
     });
-    
+
     // Notify the creator
     await Notification.create({
       user: script.creator._id,
@@ -1053,7 +1054,7 @@ export const verifyScriptPurchase = async (req, res) => {
     });
     
     console.log("Script purchase completed:", { scriptId, buyerId: req.user._id, amount: script.price });
-    
+
     res.json({
       success: true,
       message: "Script purchased successfully!",
@@ -1071,10 +1072,10 @@ export const verifyScriptPurchase = async (req, res) => {
     });
   } catch (error) {
     console.error("Script purchase verification error:", error);
-    res.status(500).json({ 
-      message: "Failed to verify payment", 
+    res.status(500).json({
+      message: "Failed to verify payment",
       error: error.message,
-      success: false 
+      success: false
     });
   }
 };
@@ -1086,19 +1087,19 @@ export const createScriptHoldOrder = async (req, res) => {
   try {
     // Check if Razorpay is configured
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: "Payment system not configured. Please contact support.",
         error: "Razorpay credentials missing"
       });
     }
-    
+
     const { scriptId } = req.body;
-    
+
     const script = await Script.findById(scriptId).populate("creator", "name");
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
-    
+
     // Check if already held
     if (script.holdStatus === "held") {
       return res.status(400).json({ message: "This script is already on hold by another party" });
@@ -1106,14 +1107,14 @@ export const createScriptHoldOrder = async (req, res) => {
     if (script.holdStatus === "sold") {
       return res.status(400).json({ message: "This script has been sold" });
     }
-    
+
     const user = await User.findById(req.user._id);
     if (!["investor", "producer", "director"].includes(user.role)) {
       return res.status(403).json({ message: "Only industry professionals can hold scripts" });
     }
-    
+
     const holdFee = script.holdFee || 200;
-    
+
     // Create Razorpay order
     const options = {
       amount: Math.round(holdFee * 100), // Amount in paise (INR) or cents
@@ -1128,10 +1129,10 @@ export const createScriptHoldOrder = async (req, res) => {
         type: "script_hold"
       }
     };
-    
+
     const razorpay = getRazorpay();
     const order = await razorpay.orders.create(options);
-    
+
     res.json({
       orderId: order.id,
       amount: order.amount,
@@ -1155,59 +1156,59 @@ export const createScriptHoldOrder = async (req, res) => {
 // @access  Private
 export const verifyScriptHold = async (req, res) => {
   try {
-    const { 
-      razorpay_order_id, 
-      razorpay_payment_id, 
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
       razorpay_signature,
-      scriptId 
+      scriptId
     } = req.body;
-    
+
     console.log("Script hold verification:", { razorpay_order_id, razorpay_payment_id, scriptId });
-    
+
     // Check if Razorpay key secret is available
     if (!process.env.RAZORPAY_KEY_SECRET) {
       console.error("RAZORPAY_KEY_SECRET not found in environment");
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: "Payment system not configured",
-        success: false 
+        success: false
       });
     }
-    
+
     // Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(body.toString())
       .digest("hex");
-    
+
     const isAuthentic = expectedSignature === razorpay_signature;
-    
+
     if (!isAuthentic) {
       console.error("Signature verification failed");
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Payment verification failed - Invalid signature",
-        success: false 
+        success: false
       });
     }
-    
+
     // Payment verified successfully, place hold on script
     const script = await Script.findById(scriptId).populate("creator", "name email");
     if (!script) {
       console.error("Script not found:", scriptId);
-      return res.status(404).json({ 
+      return res.status(404).json({
         message: "Script not found",
-        success: false 
+        success: false
       });
     }
-    
+
     // Double-check hold status
     if (script.holdStatus === "held") {
-      return res.status(400).json({ 
+      return res.status(400).json({
         message: "Script is already held",
-        success: false 
+        success: false
       });
     }
-    
+
     const user = await User.findById(req.user._id);
     const fee = script.holdFee || 200;
     const platformCut = fee * 0.10; // 10% platform fee
@@ -1235,7 +1236,7 @@ export const verifyScriptHold = async (req, res) => {
     await script.save();
 
     const reference = `SCRIPT-HOLD-${razorpay_payment_id}`;
-    
+
     // Create transaction record for holder (payment)
     await Transaction.create({
       user: req.user._id,
@@ -1255,7 +1256,7 @@ export const verifyScriptHold = async (req, res) => {
         creatorPayout
       }
     });
-    
+
     // Credit the creator
     const creator = await User.findById(script.creator._id);
     if (!creator.wallet) {
@@ -1264,7 +1265,7 @@ export const verifyScriptHold = async (req, res) => {
     creator.wallet.balance += creatorPayout;
     creator.wallet.totalEarnings += creatorPayout;
     await creator.save();
-    
+
     // Create transaction record for creator (earnings)
     await Transaction.create({
       user: creator._id,
@@ -1312,37 +1313,15 @@ export const verifyScriptHold = async (req, res) => {
     });
   } catch (error) {
     console.error("Script hold verification error:", error);
-    res.status(500).json({ 
-      message: "Failed to verify payment", 
+    res.status(500).json({
+      message: "Failed to verify payment",
       error: error.message,
-      success: false 
+      success: false
     });
   }
 };
 
-// ── Multer Configuration for Thumbnail & Trailer Uploads ──
-
-// Storage configuration for thumbnails
-const thumbnailStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "..", "uploads", "thumbnails"));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `thumb-${req.params.id || Date.now()}-${Date.now()}${ext}`);
-  },
-});
-
-// Storage configuration for trailers
-const trailerStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "..", "uploads", "trailers"));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `trailer-${req.params.id || Date.now()}-${Date.now()}${ext}`);
-  },
-});
+// ── Multer Configuration for Thumbnail & Trailer Uploads (Memory Storage → Cloudinary) ──
 
 // File filters
 const imageFileFilter = (req, file, cb) => {
@@ -1363,20 +1342,20 @@ const videoFileFilter = (req, file, cb) => {
   }
 };
 
-// Export multer upload instances
-export const uploadThumbnail = multer({ 
-  storage: thumbnailStorage, 
-  fileFilter: imageFileFilter, 
+// Export multer upload instances (memory storage for Cloudinary)
+export const uploadThumbnail = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: imageFileFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
-export const uploadTrailer = multer({ 
-  storage: trailerStorage, 
-  fileFilter: videoFileFilter, 
+export const uploadTrailer = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: videoFileFilter,
   limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
 
-// ── Upload Thumbnail Controller ──
+// ── Upload Thumbnail Controller (Cloudinary) ──
 export const uploadScriptThumbnail = async (req, res) => {
   try {
     if (!req.file) {
@@ -1394,15 +1373,21 @@ export const uploadScriptThumbnail = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can upload a thumbnail" });
     }
 
-    // Save the thumbnail path
-    const thumbnailUrl = `/uploads/thumbnails/${req.file.filename}`;
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(req.file.buffer, {
+      folder: "scriptbridge/thumbnails",
+      resource_type: "image",
+      public_id: `thumb-${scriptId}-${Date.now()}`,
+    });
+
+    const thumbnailUrl = result.secure_url;
     script.coverImage = thumbnailUrl;
     await script.save();
 
-    res.json({ 
-      message: "Thumbnail uploaded successfully", 
+    res.json({
+      message: "Thumbnail uploaded successfully",
       thumbnailUrl,
-      script 
+      script
     });
   } catch (error) {
     console.error("Thumbnail upload error:", error);
@@ -1410,7 +1395,7 @@ export const uploadScriptThumbnail = async (req, res) => {
   }
 };
 
-// ── Upload Trailer Controller ──
+// ── Upload Trailer Controller (Cloudinary) ──
 export const uploadScriptTrailer = async (req, res) => {
   try {
     if (!req.file) {
@@ -1428,18 +1413,24 @@ export const uploadScriptTrailer = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can upload a trailer" });
     }
 
-    // Save the uploaded trailer path (free, no credits required)
-    const trailerUrl = `/uploads/trailers/${req.file.filename}`;
+    // Upload to Cloudinary
+    const result = await uploadToCloudinary(req.file.buffer, {
+      folder: "scriptbridge/trailers",
+      resource_type: "video",
+      public_id: `trailer-${scriptId}-${Date.now()}`,
+    });
+
+    const trailerUrl = result.secure_url;
     script.uploadedTrailerUrl = trailerUrl;
     script.trailerSource = "uploaded";
     script.trailerStatus = "ready";
     await script.save();
 
-    res.json({ 
-      message: "Trailer uploaded successfully (free)", 
+    res.json({
+      message: "Trailer uploaded successfully (free)",
       trailerUrl,
       trailerSource: "uploaded",
-      script 
+      script
     });
   } catch (error) {
     console.error("Trailer upload error:", error);
