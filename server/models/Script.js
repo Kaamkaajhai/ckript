@@ -125,6 +125,86 @@ const scriptSchema = new mongoose.Schema({
     customInvestorTermsUpdatedAt: { type: Date },
   },
 
+  // Rights & Licensing Preferences (writer-defined at upload)
+  rightsLicensing: {
+    rightsType: {
+      type: String,
+      enum: ["full_rights_sale", "exclusive_license", "custom_negotiation_required"],
+      default: "custom_negotiation_required",
+    },
+    exclusivity: {
+      type: Boolean,
+      default: true,
+    },
+    modificationRights: {
+      type: String,
+      enum: [
+        "buyer_can_modify_freely",
+        "buyer_must_consult_writer",
+        "writer_retains_creative_approval_rights",
+      ],
+      default: "buyer_must_consult_writer",
+    },
+    paymentStructure: {
+      type: String,
+      enum: [
+        "one_time_upfront_payment",
+        "lower_upfront_plus_royalty_percent",
+        "revenue_sharing_model",
+        "custom_deal",
+      ],
+      default: "one_time_upfront_payment",
+    },
+    royaltySettings: {
+      percentage: { type: Number, default: 0 },
+      durationType: {
+        type: String,
+        enum: ["none", "years", "project_lifetime"],
+        default: "none",
+      },
+      durationYears: { type: Number, default: 0 },
+    },
+    timeBound: {
+      licenseDurationMonths: {
+        type: Number,
+        min: 0,
+        max: 120,
+        default: 0,
+      },
+      autoRevertToWriter: { type: Boolean, default: false },
+    },
+    negotiationMode: {
+      type: String,
+      enum: [
+        "fixed_terms_non_negotiable",
+        "open_to_discussion_after_purchase",
+        "ckript_not_involved",
+      ],
+      default: "fixed_terms_non_negotiable",
+    },
+    customConditions: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 5000,
+    },
+    legalAcknowledgement: {
+      ownershipConfirmed: { type: Boolean, default: false },
+      platformTermsAccepted: { type: Boolean, default: false },
+      exclusivityUnderstood: { type: Boolean, default: false },
+      acknowledgedAt: { type: Date },
+      ipAddress: { type: String, default: "" },
+    },
+    termsVersion: { type: String, default: "" },
+    termsVersionNumber: { type: Number, default: 1 },
+    lastUpdatedAt: { type: Date },
+  },
+  submissionSummaryPdf: {
+    url: { type: String, default: "" },
+    publicId: { type: String, default: "" },
+    generatedAt: { type: Date },
+  },
+
   premium: { type: Boolean, default: false },
   verifiedBadge: { type: Boolean, default: false },
   promotion: {
@@ -137,6 +217,12 @@ const scriptSchema = new mongoose.Schema({
   },
   price: { type: Number, default: 0 },
   isSold: { type: Boolean, default: false }, // true once any buyer purchases — hides script from all public listings
+  transactionStatus: {
+    type: String,
+    enum: ["available", "locked", "sold_licensed"],
+    default: "available",
+    index: true,
+  },
   purchaseRequestLocked: { type: Boolean, default: false },
   purchaseRequestLockedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   purchaseRequestLockedAt: { type: Date },

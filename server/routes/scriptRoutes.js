@@ -7,6 +7,8 @@ import {
   getLatestScripts, recordRead, toggleFavorite, getCategories,
   trackScriptInteraction,
   extractPdfText, saveDraft, deleteScript, getMyDrafts, getMyScripts, updateScript,
+  getScriptSubmissionSummaryPdf,
+  getPurchaseRequestAcceptancePdf,
   createScriptPurchaseOrder, verifyScriptPurchase,
   createScriptHoldOrder, verifyScriptHold,
   uploadThumbnail, uploadTrailer,
@@ -94,6 +96,8 @@ router.get("/categories", protect, getCategories);
 router.get("/investor-home", protect, getInvestorHomeFeed);
 router.get("/public/:id", getPublicScriptById);
 router.get("/path/:projectHeading/:writerUsername", protect, getScriptByPath);
+router.get("/:id/submission-summary-pdf", protect, getScriptSubmissionSummaryPdf);
+router.get("/purchase-request/:id/acceptance-pdf", protect, getPurchaseRequestAcceptancePdf);
 // Purchase request routes (must be before /:id)
 router.post("/purchase-request", protect, requestScriptPurchase);
 router.get("/purchase-requests/mine", protect, getMyPurchaseRequests);

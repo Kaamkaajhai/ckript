@@ -7,15 +7,20 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
 import Invoice from "../models/Invoice.js";
+import Agreement from "../models/Agreement.js";
 import {
   sendPurchaseRequestEmail,
   sendPurchaseApprovedEmail,
   sendPurchaseRejectedEmail,
 } from "../utils/emailService.js";
 import { generateAndSaveInvoicePdf } from "../utils/invoicePdf.js";
+import { generateAndUploadAgreementPdfs } from "../utils/agreementPdf.js";
+import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionPdf.js";
+import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { CREDIT_PRICES } from "./creditsController.js";
 import { buildScriptShareMeta } from "../utils/shareMeta.js";
+import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
 import { createRequire } from 'module';
 import Razorpay from "razorpay";
 import crypto from "crypto";
@@ -50,6 +55,7 @@ const getRazorpay = () => {
 const PUBLIC_SCRIPT_FILTER = {
   status: "published",
   isSold: { $ne: true },
+  transactionStatus: { $ne: "sold_licensed" },
   purchaseRequestLocked: { $ne: true },
   isDeleted: { $ne: true },
 };
@@ -60,6 +66,508 @@ const PROJECT_SPOTLIGHT_DURATION_DAYS = 30;
 const SCRIPT_UPLOAD_TERMS_VERSION = process.env.SCRIPT_UPLOAD_TERMS_VERSION || "2026-03-24";
 const MAX_CUSTOM_INVESTOR_TERMS_LENGTH = 3000;
 const SCRIPT_PURCHASE_PLATFORM_TAX_RATE = 0.05;
+const MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH = 5000;
+const LEGAL_MARKETPLACE_DISCLAIMER = "Please accept all required terms before continuing.";
+
+const RIGHTS_TYPE_LABELS = {
+  full_rights_sale: "Full Rights Sale (Ownership Transfer)",
+  exclusive_license: "Exclusive License",
+  custom_negotiation_required: "Custom Negotiation Required",
+};
+
+const MODIFICATION_RIGHTS_LABELS = {
+  buyer_can_modify_freely: "Buyer can modify freely",
+  buyer_must_consult_writer: "Buyer must consult writer before modification",
+  writer_retains_creative_approval_rights: "Writer retains creative approval rights",
+};
+
+const PAYMENT_STRUCTURE_LABELS = {
+  one_time_upfront_payment: "One-time upfront payment",
+  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
+  revenue_sharing_model: "Revenue sharing model",
+  custom_deal: "Custom deal",
+};
+
+const NEGOTIATION_MODE_LABELS = {
+  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
+  open_to_discussion_after_purchase: "Open to discussion after purchase",
+  ckript_not_involved: "Ckript not involved in negotiation",
+};
+
+const RIGHTS_TYPE_OPTIONS = new Set(Object.keys(RIGHTS_TYPE_LABELS));
+const MODIFICATION_RIGHTS_OPTIONS = new Set(Object.keys(MODIFICATION_RIGHTS_LABELS));
+const PAYMENT_STRUCTURE_OPTIONS = new Set(Object.keys(PAYMENT_STRUCTURE_LABELS));
+const NEGOTIATION_MODE_OPTIONS = new Set(Object.keys(NEGOTIATION_MODE_LABELS));
+const MIN_LICENSE_DURATION_MONTHS = 1;
+const MAX_LICENSE_DURATION_MONTHS = 120;
+
+const toBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "y"].includes(normalized)) return true;
+    if (["false", "0", "no", "n"].includes(normalized)) return false;
+  }
+  return Boolean(value);
+};
+
+const normalizeRightsLicensingInput = (incoming = {}, fallback = {}) => {
+  const nextRightsType = RIGHTS_TYPE_OPTIONS.has(incoming?.rightsType)
+    ? incoming.rightsType
+    : (RIGHTS_TYPE_OPTIONS.has(fallback?.rightsType) ? fallback.rightsType : "custom_negotiation_required");
+
+  const nextModificationRights = MODIFICATION_RIGHTS_OPTIONS.has(incoming?.modificationRights)
+    ? incoming.modificationRights
+    : (MODIFICATION_RIGHTS_OPTIONS.has(fallback?.modificationRights)
+      ? fallback.modificationRights
+      : "buyer_must_consult_writer");
+
+  const nextPaymentStructure = PAYMENT_STRUCTURE_OPTIONS.has(incoming?.paymentStructure)
+    ? incoming.paymentStructure
+    : (PAYMENT_STRUCTURE_OPTIONS.has(fallback?.paymentStructure)
+      ? fallback.paymentStructure
+      : "one_time_upfront_payment");
+
+  const nextNegotiationMode = NEGOTIATION_MODE_OPTIONS.has(incoming?.negotiationMode)
+    ? incoming.negotiationMode
+    : (NEGOTIATION_MODE_OPTIONS.has(fallback?.negotiationMode)
+      ? fallback.negotiationMode
+      : "fixed_terms_non_negotiable");
+
+  const requestedDurationRaw = Number(incoming?.timeBound?.licenseDurationMonths);
+  const fallbackDurationRaw = Number(fallback?.timeBound?.licenseDurationMonths);
+  const requestedDuration = Number.isFinite(requestedDurationRaw)
+    ? Math.max(0, Math.min(MAX_LICENSE_DURATION_MONTHS, Math.round(requestedDurationRaw)))
+    : 0;
+  const fallbackDuration = Number.isFinite(fallbackDurationRaw)
+    ? Math.max(0, Math.min(MAX_LICENSE_DURATION_MONTHS, Math.round(fallbackDurationRaw)))
+    : 0;
+  let licenseDurationMonths = 0;
+  if (nextRightsType === "exclusive_license") {
+    if (requestedDuration >= MIN_LICENSE_DURATION_MONTHS) {
+      licenseDurationMonths = requestedDuration;
+    } else if (fallbackDuration >= MIN_LICENSE_DURATION_MONTHS) {
+      licenseDurationMonths = fallbackDuration;
+    } else {
+      licenseDurationMonths = 12;
+    }
+  }
+
+  const rawCustomConditions = String(
+    incoming?.customConditions !== undefined
+      ? incoming?.customConditions
+      : (fallback?.customConditions || "")
+  ).trim();
+
+  const royaltyPercentageRaw = Number(
+    incoming?.royaltySettings?.percentage !== undefined
+      ? incoming?.royaltySettings?.percentage
+      : fallback?.royaltySettings?.percentage
+  );
+  const royaltyPercentage = Number.isFinite(royaltyPercentageRaw)
+    ? Math.min(100, Math.max(0, royaltyPercentageRaw))
+    : 0;
+
+  const requestedDurationType = String(
+    incoming?.royaltySettings?.durationType !== undefined
+      ? incoming?.royaltySettings?.durationType
+      : (fallback?.royaltySettings?.durationType || "none")
+  ).trim();
+  const royaltyDurationType = ["none", "years", "project_lifetime"].includes(requestedDurationType)
+    ? requestedDurationType
+    : "none";
+
+  const royaltyYearsRaw = Number(
+    incoming?.royaltySettings?.durationYears !== undefined
+      ? incoming?.royaltySettings?.durationYears
+      : fallback?.royaltySettings?.durationYears
+  );
+  const royaltyDurationYears = Number.isFinite(royaltyYearsRaw)
+    ? Math.max(0, Math.min(99, Math.round(royaltyYearsRaw)))
+    : 0;
+
+  const nextLegalAckIncoming = incoming?.legalAcknowledgement || {};
+  const nextLegalAckFallback = fallback?.legalAcknowledgement || {};
+
+  const normalized = {
+    rightsType: nextRightsType,
+    exclusivity: true,
+    modificationRights: nextModificationRights,
+    paymentStructure: nextPaymentStructure,
+    royaltySettings: {
+      percentage: royaltyPercentage,
+      durationType: royaltyDurationType,
+      durationYears: royaltyDurationType === "years" ? royaltyDurationYears : 0,
+    },
+    timeBound: {
+      licenseDurationMonths,
+      autoRevertToWriter: toBoolean(
+        incoming?.timeBound?.autoRevertToWriter,
+        toBoolean(fallback?.timeBound?.autoRevertToWriter, false)
+      ),
+    },
+    negotiationMode: nextNegotiationMode,
+    customConditions: rawCustomConditions.slice(0, MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH),
+    legalAcknowledgement: {
+      ownershipConfirmed: toBoolean(
+        nextLegalAckIncoming?.ownershipConfirmed,
+        toBoolean(nextLegalAckFallback?.ownershipConfirmed, false)
+      ),
+      platformTermsAccepted: toBoolean(
+        nextLegalAckIncoming?.platformTermsAccepted,
+        toBoolean(nextLegalAckFallback?.platformTermsAccepted, false)
+      ),
+      exclusivityUnderstood: toBoolean(
+        nextLegalAckIncoming?.exclusivityUnderstood,
+        toBoolean(nextLegalAckFallback?.exclusivityUnderstood, false)
+      ),
+      acknowledgedAt: nextLegalAckIncoming?.acknowledgedAt
+        || nextLegalAckFallback?.acknowledgedAt
+        || undefined,
+      ipAddress: String(nextLegalAckIncoming?.ipAddress || nextLegalAckFallback?.ipAddress || "").trim(),
+    },
+    termsVersion: String(incoming?.termsVersion || fallback?.termsVersion || SCRIPT_UPLOAD_TERMS_VERSION).trim(),
+    termsVersionNumber: Number(incoming?.termsVersionNumber || fallback?.termsVersionNumber || 1) || 1,
+    lastUpdatedAt: new Date(),
+  };
+
+  const isRoyaltyStructure = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(nextPaymentStructure);
+  if (!isRoyaltyStructure) {
+    normalized.royaltySettings = {
+      percentage: 0,
+      durationType: "none",
+      durationYears: 0,
+    };
+  }
+
+  return normalized;
+};
+
+const validateRightsLicensingPayload = (rightsLicensing = {}) => {
+  const errors = [];
+  if (!RIGHTS_TYPE_OPTIONS.has(rightsLicensing?.rightsType)) {
+    errors.push("Rights type is required.");
+  }
+  if (!MODIFICATION_RIGHTS_OPTIONS.has(rightsLicensing?.modificationRights)) {
+    errors.push("Modification rights selection is required.");
+  }
+  if (!PAYMENT_STRUCTURE_OPTIONS.has(rightsLicensing?.paymentStructure)) {
+    errors.push("Payment structure selection is required.");
+  }
+  if (!NEGOTIATION_MODE_OPTIONS.has(rightsLicensing?.negotiationMode)) {
+    errors.push("Negotiation mode selection is required.");
+  }
+
+  if (rightsLicensing?.rightsType === "exclusive_license") {
+    const durationMonths = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
+    if (!Number.isInteger(durationMonths)
+      || durationMonths < MIN_LICENSE_DURATION_MONTHS
+      || durationMonths > MAX_LICENSE_DURATION_MONTHS) {
+      errors.push(`Exclusive license requires duration between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`);
+    }
+  }
+
+  const isRoyaltyStructure = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(
+    rightsLicensing?.paymentStructure
+  );
+  if (isRoyaltyStructure) {
+    const pct = Number(rightsLicensing?.royaltySettings?.percentage || 0);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      errors.push("Royalty percentage must be between 0 and 100 for royalty-based structures.");
+    }
+  }
+
+  const ack = rightsLicensing?.legalAcknowledgement || {};
+  if (!ack?.ownershipConfirmed || !ack?.platformTermsAccepted || !ack?.exclusivityUnderstood) {
+    errors.push("Writer legal acknowledgement is required for rights and licensing preferences.");
+  }
+
+  return errors;
+};
+
+const buildRightsLabels = (rights = {}) => {
+  const durationMonths = Number(rights?.timeBound?.licenseDurationMonths || 0);
+  return {
+    rightsTypeLabel: RIGHTS_TYPE_LABELS[rights?.rightsType] || rights?.rightsType || "-",
+    modificationRightsLabel: MODIFICATION_RIGHTS_LABELS[rights?.modificationRights] || rights?.modificationRights || "-",
+    paymentStructureLabel: PAYMENT_STRUCTURE_LABELS[rights?.paymentStructure] || rights?.paymentStructure || "-",
+    negotiationModeLabel: NEGOTIATION_MODE_LABELS[rights?.negotiationMode] || rights?.negotiationMode || "-",
+    licenseDurationLabel:
+      rights?.rightsType === "exclusive_license"
+        ? (durationMonths ? `${durationMonths} months` : "Time-bound")
+        : "Not time-bound",
+  };
+};
+
+const getRequestIpAddress = (req) =>
+  String(req.ip || req.connection?.remoteAddress || req.headers?.["x-forwarded-for"] || "").trim();
+
+const getRequestUserAgent = (req) => String(req.get("user-agent") || "").trim();
+
+const sanitizePdfFileName = (value = "script-submission-summary") => {
+  const normalized = String(value || "script-submission-summary")
+    .replace(/[\\/]/g, "-")
+    .replace(/[^a-zA-Z0-9._ -]/g, "_")
+    .trim();
+  if (!normalized) return "script-submission-summary.pdf";
+  return normalized.toLowerCase().endsWith(".pdf") ? normalized : `${normalized}.pdf`;
+};
+
+const attachSubmissionSummaryPdfToScript = async ({ script, creator }) => {
+  if (!script?._id) return script;
+
+  const creatorDoc = creator?._id
+    ? creator
+    : await User.findById(script.creator).select("name email sid");
+
+  if (!creatorDoc) {
+    throw new Error("Writer record not found for submission PDF generation.");
+  }
+
+  const submissionSummaryPdf = await generateAndUploadScriptSubmissionPdf({
+    script,
+    creator: creatorDoc,
+  });
+
+  script.submissionSummaryPdf = {
+    url: submissionSummaryPdf.url || "",
+    publicId: submissionSummaryPdf.publicId || "",
+    generatedAt: submissionSummaryPdf.generatedAt || new Date(),
+  };
+  script.markModified("submissionSummaryPdf");
+  await script.save();
+  return script;
+};
+
+const attachPurchaseRequestAcceptancePdf = async ({
+  purchaseRequest,
+  script,
+  investor,
+  writer,
+  agreementPdfUrl = "",
+}) => {
+  if (!purchaseRequest?._id) return purchaseRequest;
+
+  const [scriptDoc, investorDoc, writerDoc] = await Promise.all([
+    script?._id ? script : Script.findById(purchaseRequest.script).select("title sid price"),
+    investor?._id ? investor : User.findById(purchaseRequest.investor).select("name email sid role"),
+    writer?._id ? writer : User.findById(purchaseRequest.writer).select("name email sid role"),
+  ]);
+
+  if (!scriptDoc || !investorDoc || !writerDoc) {
+    throw new Error("Unable to load purchase request PDF participants.");
+  }
+
+  const acceptancePdf = await generateAndUploadPurchaseRequestAcceptancePdf({
+    purchaseRequest,
+    script: scriptDoc,
+    investor: investorDoc,
+    writer: writerDoc,
+    agreementPdfUrl,
+  });
+
+  purchaseRequest.acceptancePdf = {
+    url: acceptancePdf.url || "",
+    publicId: acceptancePdf.publicId || "",
+    generatedAt: acceptancePdf.generatedAt || new Date(),
+  };
+  purchaseRequest.markModified("acceptancePdf");
+  await purchaseRequest.save();
+  return purchaseRequest;
+};
+
+const markScriptAsLocked = async (script, buyerId) => {
+  script.purchaseRequestLocked = true;
+  script.purchaseRequestLockedBy = buyerId;
+  script.purchaseRequestLockedAt = new Date();
+  script.transactionStatus = "locked";
+  await script.save();
+};
+
+const markScriptAsAvailable = async (script) => {
+  script.purchaseRequestLocked = false;
+  script.purchaseRequestLockedBy = null;
+  script.purchaseRequestLockedAt = null;
+  if (!script.isSold) {
+    script.transactionStatus = "available";
+  }
+  await script.save();
+};
+
+const buildAgreementTermsSnapshot = ({
+  script,
+  writerUser,
+  buyerUser,
+  purchaseRequest,
+  termsPolicy,
+  pricing,
+}) => {
+  const rights = normalizeRightsLicensingInput(script?.rightsLicensing || {});
+  const labels = buildRightsLabels(rights);
+  const now = new Date();
+  const licenseMonths = Number(rights?.timeBound?.licenseDurationMonths || 0);
+  const expiresAt =
+    rights?.rightsType === "exclusive_license" && licenseMonths > 0
+      ? new Date(now.getTime() + licenseMonths * 30 * 24 * 60 * 60 * 1000)
+      : null;
+
+  const royaltyTerms = rights?.royaltySettings?.percentage > 0
+    ? `${rights.royaltySettings.percentage}% (${rights.royaltySettings.durationType === "years"
+      ? `${rights.royaltySettings.durationYears} years`
+      : rights.royaltySettings.durationType === "project_lifetime"
+        ? "project lifetime"
+        : "no duration specified"
+    })`
+    : "Not applicable";
+
+  return {
+    script: {
+      scriptId: String(script?._id || ""),
+      sid: script?.sid || "",
+      title: script?.title || "",
+      genre: script?.genre || script?.primaryGenre || "",
+    },
+    writer: {
+      userId: String(writerUser?._id || script?.creator || ""),
+      sid: writerUser?.sid || "",
+      name: writerUser?.name || "",
+      email: writerUser?.email || "",
+    },
+    buyer: {
+      userId: String(buyerUser?._id || purchaseRequest?.investor || ""),
+      sid: buyerUser?.sid || "",
+      name: buyerUser?.name || "",
+      email: buyerUser?.email || "",
+      role: getPurchaseRequesterLabel(buyerUser || {}),
+    },
+    rights: {
+      ...rights,
+      ...labels,
+      exclusivityClause: "Exclusive transaction: no parallel sale/license while this agreement is active.",
+      licenseExpiryAt: expiresAt,
+      customConditions: rights?.customConditions || "",
+    },
+    payment: {
+      paymentStructure: rights?.paymentStructure,
+      paymentStructureLabel: labels.paymentStructureLabel,
+      baseAmount: pricing?.baseAmount || 0,
+      baseAmountLabel: `INR ${Number(pricing?.baseAmount || 0).toFixed(2)}`,
+      platformCharges: pricing?.platformTaxAmount || 0,
+      platformChargesLabel: `INR ${Number(pricing?.platformTaxAmount || 0).toFixed(2)} (${Number(pricing?.platformTaxPercent || 0)}%)`,
+      totalAmount: pricing?.totalAmount || pricing?.baseAmount || 0,
+      totalAmountLabel: `INR ${Number(pricing?.totalAmount || pricing?.baseAmount || 0).toFixed(2)}`,
+      royaltyTerms,
+    },
+    consentTimestamp: purchaseRequest?.termsAcceptance?.acceptedAt || now,
+    legalDisclaimer: LEGAL_MARKETPLACE_DISCLAIMER,
+    platformTermsVersion: termsPolicy?.version || "",
+    platformTermsTitle: termsPolicy?.title || "",
+    platformTermsContent: termsPolicy?.content || "",
+  };
+};
+
+const createAgreementForSettledPurchase = async ({
+  script,
+  purchaseRequest,
+  writerUser,
+  buyerUser,
+  pricing,
+  req,
+}) => {
+  const termsPolicy = await getCurrentPurchaseTermsPolicy();
+  const termsSnapshot = buildAgreementTermsSnapshot({
+    script,
+    writerUser,
+    buyerUser,
+    purchaseRequest,
+    termsPolicy,
+    pricing,
+  });
+
+  const expiresAt = termsSnapshot?.rights?.licenseExpiryAt || null;
+  const agreement = await Agreement.create({
+    script_id: script._id,
+    writer_id: purchaseRequest.writer,
+    buyer_id: purchaseRequest.investor,
+    terms_json: termsSnapshot,
+    status: "active",
+    terms_policy_version: termsPolicy?.version || "",
+    terms_policy_title: termsPolicy?.title || "",
+    expires_at: expiresAt,
+    activated_at: new Date(),
+    consent_logs: {
+      writer: {
+        acknowledgedAt:
+          script?.rightsLicensing?.legalAcknowledgement?.acknowledgedAt
+          || script?.legal?.timestamp
+          || script?.updatedAt
+          || script?.createdAt
+          || new Date(),
+        ipAddress: script?.rightsLicensing?.legalAcknowledgement?.ipAddress || script?.legal?.ipAddress || "",
+        userAgent: "",
+      },
+      buyer: {
+        acknowledgedAt: purchaseRequest?.termsAcceptance?.acceptedAt || new Date(),
+        ipAddress: purchaseRequest?.termsAcceptance?.acceptedIp || getRequestIpAddress(req),
+        userAgent: purchaseRequest?.termsAcceptance?.acceptedUserAgent || getRequestUserAgent(req),
+        acceptedPlatformTerms: Boolean(purchaseRequest?.termsAcceptance?.platformTermsAccepted),
+        acceptedWriterTerms: Boolean(purchaseRequest?.termsAcceptance?.writerTermsAccepted),
+        acceptedCustomWriterTerms: Boolean(purchaseRequest?.termsAcceptance?.customWriterTermsAccepted),
+      },
+      disclaimerAcknowledged: Boolean(purchaseRequest?.termsAcceptance?.legalDisclaimerAccepted),
+    },
+  });
+
+  const pdfResult = await generateAndUploadAgreementPdfs({ agreement });
+
+  agreement.writer_pdf_url = pdfResult?.writerPdfUrl || "";
+  agreement.buyer_pdf_url = pdfResult?.buyerPdfUrl || "";
+  await agreement.save();
+
+  return agreement;
+};
+
+const expireActiveExclusiveLicenses = async ({ scriptId } = {}) => {
+  const now = new Date();
+  const query = {
+    status: "active",
+    expires_at: { $lte: now },
+    "terms_json.rights.rightsType": "exclusive_license",
+    "terms_json.rights.timeBound.autoRevertToWriter": true,
+  };
+  if (scriptId) {
+    query.script_id = scriptId;
+  }
+
+  const expiredAgreements = await Agreement.find(query).lean();
+  if (!expiredAgreements.length) return;
+
+  const agreementIds = expiredAgreements.map((row) => row._id);
+  await Agreement.updateMany(
+    { _id: { $in: agreementIds } },
+    { $set: { status: "expired" } }
+  );
+
+  for (const row of expiredAgreements) {
+    const script = await Script.findById(row.script_id);
+    if (!script) continue;
+    if (script.isDeleted) continue;
+
+    const buyerId = String(row.buyer_id || "");
+    if (buyerId) {
+      script.unlockedBy = (script.unlockedBy || []).filter((id) => String(id) !== buyerId);
+      script.purchasedBy = (script.purchasedBy || []).filter((id) => String(id) !== buyerId);
+    }
+
+    script.isSold = false;
+    script.purchaseRequestLocked = false;
+    script.purchaseRequestLockedBy = null;
+    script.purchaseRequestLockedAt = null;
+    script.transactionStatus = "available";
+    await script.save();
+  }
+};
 
 const roundCurrencyAmount = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
@@ -442,11 +950,16 @@ const expireApprovedUnpaidRequests = async ({ scriptId, userId, force = false } 
     });
 
     if (!hasActiveRequests) {
-      await Script.findByIdAndUpdate(sid, {
-        purchaseRequestLocked: false,
-        purchaseRequestLockedBy: null,
-        purchaseRequestLockedAt: null,
-      });
+      const targetScript = await Script.findById(sid).select("isSold purchaseRequestLocked purchaseRequestLockedBy purchaseRequestLockedAt transactionStatus");
+      if (targetScript) {
+        targetScript.purchaseRequestLocked = false;
+        targetScript.purchaseRequestLockedBy = null;
+        targetScript.purchaseRequestLockedAt = null;
+        if (!targetScript.isSold) {
+          targetScript.transactionStatus = "available";
+        }
+        await targetScript.save();
+      }
     }
   }
 };
@@ -575,6 +1088,18 @@ export const saveDraft = async (req, res) => {
         };
       }
 
+      if (otherData.rightsLicensing !== undefined) {
+        const normalizedRights = normalizeRightsLicensingInput(
+          otherData.rightsLicensing || {},
+          script.rightsLicensing || {}
+        );
+        script.rightsLicensing = {
+          ...(script.rightsLicensing || {}),
+          ...normalizedRights,
+        };
+        script.markModified("rightsLicensing");
+      }
+
       await script.save();
       return res.json(script);
     }
@@ -594,6 +1119,13 @@ export const saveDraft = async (req, res) => {
         customInvestorTerms: nextCustomInvestorTerms,
         customInvestorTermsUpdatedAt: nextCustomInvestorTerms ? new Date() : undefined,
       };
+    }
+
+    if (safeOtherData.rightsLicensing !== undefined) {
+      safeOtherData.rightsLicensing = normalizeRightsLicensingInput(
+        safeOtherData.rightsLicensing || {},
+        {}
+      );
     }
 
     const newDraft = await Script.create({
@@ -716,10 +1248,26 @@ export const updateScript = async (req, res) => {
       formatOther,
       scriptUrl, description, synopsis, textContent, fileUrl,
       coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal,
+      rightsLicensing,
     } = req.body;
 
     if (!legal?.agreedToTerms) {
       return res.status(400).json({ message: "Script Upload Terms & Conditions acceptance is required." });
+    }
+
+    const normalizedRights = normalizeRightsLicensingInput(
+      rightsLicensing || script.rightsLicensing || {},
+      script.rightsLicensing || {}
+    );
+    normalizedRights.legalAcknowledgement = {
+      ...(normalizedRights.legalAcknowledgement || {}),
+      acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
+      ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
+    };
+
+    const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
+    if (rightsValidationErrors.length > 0) {
+      return res.status(400).json({ message: rightsValidationErrors[0] });
     }
 
     if (logline !== undefined && String(logline).trim().length > 50) {
@@ -806,9 +1354,17 @@ export const updateScript = async (req, res) => {
       };
     }
 
+    script.rightsLicensing = normalizedRights;
+    script.markModified("rightsLicensing");
+
     const wasPendingApproval = script.status === "pending_approval";
     script.status = "pending_approval";
     await script.save();
+    try {
+      await attachSubmissionSummaryPdfToScript({ script, creator: req.user });
+    } catch (pdfError) {
+      console.error("[updateScript] Failed to generate submission summary PDF:", pdfError.message);
+    }
 
     res.json(script);
 
@@ -883,6 +1439,7 @@ export const uploadScript = async (req, res) => {
       scriptUrl,
       services,
       legal,
+      rightsLicensing,
       // Legacy fields for backward compatibility
       description,
       synopsis,
@@ -925,6 +1482,18 @@ export const uploadScript = async (req, res) => {
     const customInvestorTerms = sanitizeCustomInvestorTerms(legal?.customInvestorTerms);
     if (customInvestorTerms.length > MAX_CUSTOM_INVESTOR_TERMS_LENGTH) {
       return res.status(400).json({ message: `Custom investor terms must be ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters or fewer.` });
+    }
+
+    const normalizedRights = normalizeRightsLicensingInput(rightsLicensing || {}, {});
+    normalizedRights.legalAcknowledgement = {
+      ...(normalizedRights.legalAcknowledgement || {}),
+      acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
+      ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
+    };
+
+    const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
+    if (rightsValidationErrors.length > 0) {
+      return res.status(400).json({ message: rightsValidationErrors[0] });
     }
 
     const isPremiumAccess = Boolean(isPremium || premium) && Number(price || 0) > 0;
@@ -1067,6 +1636,11 @@ export const uploadScript = async (req, res) => {
         customInvestorTermsUpdatedAt: customInvestorTerms ? new Date() : undefined,
       } : undefined,
 
+      rightsLicensing: {
+        ...normalizedRights,
+        termsVersion: normalizedRights.termsVersion || legal?.termsVersion || SCRIPT_UPLOAD_TERMS_VERSION,
+      },
+
       // AI Trailer status initialization
       trailerStatus: services?.aiTrailer ? "generating" : "none",
 
@@ -1098,6 +1672,12 @@ export const uploadScript = async (req, res) => {
       script = await existingDraft.save();
     } else {
       script = await Script.create(scriptData);
+    }
+
+    try {
+      script = await attachSubmissionSummaryPdfToScript({ script, creator });
+    } catch (pdfError) {
+      console.error("[uploadScript] Failed to generate submission summary PDF:", pdfError.message);
     }
 
     res.status(201).json(script);
@@ -1169,6 +1749,7 @@ export const uploadScript = async (req, res) => {
 export const getScripts = async (req, res) => {
   try {
     await expireApprovedUnpaidRequests();
+    await expireActiveExclusiveLicenses();
 
     const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
     const query = { ...PUBLIC_SCRIPT_FILTER };
@@ -1293,9 +1874,94 @@ export const getScripts = async (req, res) => {
   }
 };
 
+export const getScriptSubmissionSummaryPdf = async (req, res) => {
+  try {
+    const script = await Script.findById(req.params.id)
+      .select("title creator submissionSummaryPdf")
+      .lean();
+
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    const isOwner = String(script.creator || "") === req.user._id.toString();
+    const isAdmin = req.user.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Not authorized to access this submission PDF." });
+    }
+
+    const pdfUrl = String(script?.submissionSummaryPdf?.url || "").trim();
+    if (!pdfUrl) {
+      return res.status(404).json({ message: "Submission summary PDF not available." });
+    }
+
+    const pdfResponse = await fetch(pdfUrl);
+    if (!pdfResponse.ok) {
+      return res.status(502).json({ message: "Failed to fetch submission summary PDF from storage." });
+    }
+
+    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const shouldDownload = String(req.query.download || "") === "1";
+    const disposition = shouldDownload ? "attachment" : "inline";
+    const filename = sanitizePdfFileName(`${script.title || "script"}-submission-summary.pdf`);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
+    return res.send(fileBuffer);
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to load submission summary PDF." });
+  }
+};
+
+export const getPurchaseRequestAcceptancePdf = async (req, res) => {
+  try {
+    const purchaseRequest = await ScriptPurchaseRequest.findById(req.params.id)
+      .select("acceptancePdf investor writer script")
+      .lean();
+
+    if (!purchaseRequest) {
+      return res.status(404).json({ message: "Purchase request not found." });
+    }
+
+    const userId = req.user._id.toString();
+    const isBuyer = String(purchaseRequest.investor || "") === userId;
+    const isWriter = String(purchaseRequest.writer || "") === userId;
+    const isAdmin = req.user.role === "admin";
+
+    if (!isBuyer && !isWriter && !isAdmin) {
+      return res.status(403).json({ message: "Not authorized to access this acceptance PDF." });
+    }
+
+    const pdfUrl = String(purchaseRequest?.acceptancePdf?.url || "").trim();
+    if (!pdfUrl) {
+      return res.status(404).json({ message: "Acceptance PDF not available." });
+    }
+
+    const pdfResponse = await fetch(pdfUrl);
+    if (!pdfResponse.ok) {
+      return res.status(502).json({ message: "Failed to fetch acceptance PDF from storage." });
+    }
+
+    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const shouldDownload = String(req.query.download || "") === "1";
+    const disposition = shouldDownload ? "attachment" : "inline";
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `${disposition}; filename="purchase-request-${purchaseRequest._id}-acceptance.pdf"`
+    );
+    return res.send(fileBuffer);
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to load acceptance PDF." });
+  }
+};
+
 export const getScriptById = async (req, res) => {
   try {
     await expireApprovedUnpaidRequests({ scriptId: req.params.id });
+    await expireActiveExclusiveLicenses({ scriptId: req.params.id });
 
     const script = await Script.findById(req.params.id)
       .populate("creator", "name profileImage role bio followers username writerProfile.username")
@@ -1592,6 +2258,8 @@ export const getPublicScriptById = async (req, res) => {
       return res.status(400).json({ message: "Invalid script id" });
     }
 
+    await expireActiveExclusiveLicenses({ scriptId });
+
     const script = await Script.findById(scriptId)
       .populate("creator", "name profileImage role bio isPrivate isDeactivated writerProfile.username")
       .lean();
@@ -1708,6 +2376,7 @@ export const unlockScript = async (req, res) => {
     }
 
     await expireApprovedUnpaidRequests({ scriptId: script._id });
+    await expireActiveExclusiveLicenses({ scriptId: script._id });
 
     // Only investors, producers, directors, and industry professionals can unlock
     const allowedRoles = ['investor', 'producer', 'director', 'industry', 'professional'];
@@ -1722,26 +2391,9 @@ export const unlockScript = async (req, res) => {
       return res.status(400).json({ message: "You already have access to your own script" });
     }
 
-    if (!hasUserInIdArray(script.unlockedBy, req.user._id) && !hasUserInIdArray(script.purchasedBy, req.user._id)) {
-      script.unlockedBy.push(req.user._id);
-      script.purchasedBy = Array.isArray(script.purchasedBy) ? script.purchasedBy : [];
-      if (!hasUserInIdArray(script.purchasedBy, req.user._id)) {
-        script.purchasedBy.push(req.user._id);
-      }
-      script.isSold = true; // hide from all public listings once purchased
-      await script.save();
-
-      // Notify creator
-      const user = await User.findById(req.user._id);
-      await Notification.create({
-        user: script.creator,
-        type: "unlock",
-        from: req.user._id,
-        script: script._id,
-        message: `${user.name} unlocked your script "${script.title}" for ₹${script.price}`,
-      });
-    }
-    res.json({ message: "Script unlocked", script });
+    return res.status(409).json({
+      message: "Direct unlock is disabled. Submit a purchase request and complete legal acceptance in the payment flow.",
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -1774,6 +2426,10 @@ export const requestScriptPurchase = async (req, res) => {
       return res.status(400).json({ message: "You already have access to this script." });
     }
 
+    if (script.isSold || script.transactionStatus === "sold_licensed") {
+      return res.status(409).json({ message: "This script is no longer available for additional buyers." });
+    }
+
     await expireApprovedUnpaidRequests({ scriptId: script._id });
     const now = new Date();
     const activeApprovedClause = getApprovedUnpaidActiveClause(now);
@@ -1798,10 +2454,7 @@ export const requestScriptPurchase = async (req, res) => {
     if (existing) {
       const lockOwnerId = script.purchaseRequestLockedBy?.toString?.() || "";
       if (!script.purchaseRequestLocked || lockOwnerId !== req.user._id.toString()) {
-        script.purchaseRequestLocked = true;
-        script.purchaseRequestLockedBy = req.user._id;
-        script.purchaseRequestLockedAt = script.purchaseRequestLockedAt || existing.createdAt || new Date();
-        await script.save();
+        await markScriptAsLocked(script, req.user._id);
       }
       if (existing.status === "approved" && existing.paymentStatus !== "released" && Number(existing.amount || 0) > 0) {
         return res.status(400).json({ message: "Your request is already approved. Complete payment to unlock full script access." });
@@ -1824,10 +2477,7 @@ export const requestScriptPurchase = async (req, res) => {
       note: sanitizedNote,
     });
 
-    script.purchaseRequestLocked = true;
-    script.purchaseRequestLockedBy = req.user._id;
-    script.purchaseRequestLockedAt = new Date();
-    await script.save();
+    await markScriptAsLocked(script, req.user._id);
 
     const requesterType = getPurchaseRequesterLabel(investor);
 
@@ -1904,10 +2554,7 @@ export const approveScriptPurchase = async (req, res) => {
       purchaseRequest.settledAt = undefined;
       await purchaseRequest.save();
 
-      script.purchaseRequestLocked = true;
-      script.purchaseRequestLockedBy = investor._id;
-      script.purchaseRequestLockedAt = new Date();
-      await script.save();
+      await markScriptAsLocked(script, investor._id);
 
       await Notification.create({
         user: investor._id,
@@ -2035,6 +2682,7 @@ export const approveScriptPurchase = async (req, res) => {
     script.purchaseRequestLocked = false;
     script.purchaseRequestLockedBy = null;
     script.purchaseRequestLockedAt = null;
+    script.transactionStatus = "sold_licensed";
     await script.save();
 
     purchaseRequest.status = "approved";
@@ -2042,6 +2690,19 @@ export const approveScriptPurchase = async (req, res) => {
     purchaseRequest.paymentDueAt = undefined;
     purchaseRequest.settledAt = new Date();
     await purchaseRequest.save();
+
+    try {
+      await createAgreementForSettledPurchase({
+        script,
+        purchaseRequest,
+        writerUser: writer,
+        buyerUser: investor,
+        pricing: getScriptPurchasePricing(amountToRelease),
+        req,
+      });
+    } catch (agreementError) {
+      console.error("[Purchase] Agreement generation failed on legacy settlement path:", agreementError?.message || agreementError);
+    }
 
     // Notify investor in-app
     await Notification.create({
@@ -2222,6 +2883,9 @@ export const rejectScriptPurchase = async (req, res) => {
       script.purchaseRequestLocked = false;
       script.purchaseRequestLockedBy = null;
       script.purchaseRequestLockedAt = null;
+      if (!script.isSold) {
+        script.transactionStatus = "available";
+      }
       await script.save();
     }
 
@@ -3026,6 +3690,8 @@ export const createScriptPurchaseOrder = async (req, res) => {
       acceptedPlatformTerms,
       acceptedWriterTerms,
       acceptedCustomWriterTerms,
+      acceptedRightsSummary,
+      acceptedLegalDisclaimer,
     } = req.body;
 
     const script = await Script.findById(scriptId).populate("creator", "name");
@@ -3036,6 +3702,8 @@ export const createScriptPurchaseOrder = async (req, res) => {
       return res.status(410).json({ message: "This project was deleted by creator and is no longer available for new purchases." });
     }
 
+    await expireActiveExclusiveLicenses({ scriptId: script._id });
+
     // Check if already purchased
     if (hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id)) {
       return res.status(400).json({ message: "You already have full access to this script." });
@@ -3044,6 +3712,19 @@ export const createScriptPurchaseOrder = async (req, res) => {
     // Check if trying to buy own script
     if (script.creator._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: "You cannot purchase your own script" });
+    }
+
+    if (script.isSold || script.transactionStatus === "sold_licensed") {
+      return res.status(409).json({ message: "This script is no longer available for payment." });
+    }
+
+    if (script.purchaseRequestLocked) {
+      const lockOwnerId = script.purchaseRequestLockedBy?.toString?.() || "";
+      if (lockOwnerId && lockOwnerId !== req.user._id.toString()) {
+        return res.status(409).json({
+          message: "This script is currently locked in another transaction.",
+        });
+      }
     }
 
     const now = new Date();
@@ -3089,6 +3770,18 @@ export const createScriptPurchaseOrder = async (req, res) => {
       });
     }
 
+    if (!acceptedRightsSummary) {
+      return res.status(400).json({
+        message: "Accept rights summary before proceeding to payment.",
+      });
+    }
+
+    if (!acceptedLegalDisclaimer) {
+      return res.status(400).json({
+        message: LEGAL_MARKETPLACE_DISCLAIMER,
+      });
+    }
+
     const customInvestorTerms = sanitizeCustomInvestorTerms(script.legal?.customInvestorTerms);
     if (customInvestorTerms && !acceptedCustomWriterTerms) {
       return res.status(400).json({
@@ -3096,15 +3789,36 @@ export const createScriptPurchaseOrder = async (req, res) => {
       });
     }
 
+    const currentTermsPolicy = await getCurrentPurchaseTermsPolicy();
+    const normalizedRights = normalizeRightsLicensingInput(script.rightsLicensing || {}, {});
+    const rightsLabels = buildRightsLabels(normalizedRights);
+
     purchaseRequest.termsAcceptance = {
       platformTermsAccepted: true,
       writerTermsAccepted: true,
       customWriterTermsAccepted: Boolean(customInvestorTerms && acceptedCustomWriterTerms),
+      rightsSummaryAccepted: true,
+      legalDisclaimerAccepted: true,
       customWriterTermsSnapshot: customInvestorTerms,
+      rightsTermsSnapshot: {
+        ...normalizedRights,
+        ...rightsLabels,
+      },
+      termsPolicyVersion: currentTermsPolicy?.version || "",
       acceptedAt: new Date(),
       acceptedIp: req.ip || req.connection.remoteAddress || "",
+      acceptedUserAgent: getRequestUserAgent(req),
     };
     await purchaseRequest.save();
+
+    try {
+      await attachPurchaseRequestAcceptancePdf({
+        purchaseRequest,
+        script,
+      });
+    } catch (pdfError) {
+      console.error("[Purchase] Acceptance PDF generation failed during order creation:", pdfError?.message || pdfError);
+    }
 
     const baseAmount = Number(purchaseRequest.amount || script.price || 0);
     const pricing = getScriptPurchasePricing(Math.max(0, baseAmount));
@@ -3124,6 +3838,11 @@ export const createScriptPurchaseOrder = async (req, res) => {
         pricing,
         purchaseRequestId: purchaseRequest._id,
         paymentDueAt,
+        rightsSummary: {
+          ...rightsLabels,
+          exclusivity: "Exclusive transaction enforced",
+        },
+        legalDisclaimer: LEGAL_MARKETPLACE_DISCLAIMER,
         message: "No payment required. Confirm free access to unlock full script.",
       });
     }
@@ -3172,6 +3891,11 @@ export const createScriptPurchaseOrder = async (req, res) => {
       pricing,
       purchaseRequestId: purchaseRequest._id,
       paymentDueAt,
+      rightsSummary: {
+        ...rightsLabels,
+        exclusivity: "Exclusive transaction enforced",
+      },
+      legalDisclaimer: LEGAL_MARKETPLACE_DISCLAIMER,
     });
   } catch (error) {
     console.error("Razorpay order creation error:", error);
@@ -3538,6 +4262,8 @@ export const verifyScriptPurchase = async (req, res) => {
       });
     }
 
+    await expireActiveExclusiveLicenses({ scriptId: script._id });
+
     await expireApprovedUnpaidRequests({ scriptId: script._id });
 
     // Check if already unlocked
@@ -3545,6 +4271,13 @@ export const verifyScriptPurchase = async (req, res) => {
       return res.status(400).json({
         message: "Script already purchased",
         success: false
+      });
+    }
+
+    if (script.isSold || script.transactionStatus === "sold_licensed") {
+      return res.status(409).json({
+        message: "This script is already sold/licensed and unavailable for duplicate purchases.",
+        success: false,
       });
     }
 
@@ -3605,6 +4338,27 @@ export const verifyScriptPurchase = async (req, res) => {
       });
     }
 
+    if (!purchaseRequest?.termsAcceptance?.platformTermsAccepted || !purchaseRequest?.termsAcceptance?.writerTermsAccepted) {
+      return res.status(400).json({
+        message: "Required legal terms were not accepted for this purchase request.",
+        success: false,
+      });
+    }
+
+    if (!purchaseRequest?.termsAcceptance?.rightsSummaryAccepted) {
+      return res.status(400).json({
+        message: "Rights summary acceptance is missing for this request.",
+        success: false,
+      });
+    }
+
+    if (!purchaseRequest?.termsAcceptance?.legalDisclaimerAccepted) {
+      return res.status(400).json({
+        message: LEGAL_MARKETPLACE_DISCLAIMER,
+        success: false,
+      });
+    }
+
     const paymentDueAt = purchaseRequest.paymentDueAt
       ? new Date(purchaseRequest.paymentDueAt)
       : getApprovedPaymentDueAt(purchaseRequest.updatedAt || purchaseRequest.createdAt || now);
@@ -3621,14 +4375,28 @@ export const verifyScriptPurchase = async (req, res) => {
     const isFreeAccessRequest = baseAmount <= 0;
 
     if (isFreeAccessRequest) {
-      const hasAcceptedPlatformAndWriterTerms = Boolean(
+      const hasAcceptedCoreTerms = Boolean(
         purchaseRequest?.termsAcceptance?.platformTermsAccepted &&
         purchaseRequest?.termsAcceptance?.writerTermsAccepted
       );
 
-      if (!hasAcceptedPlatformAndWriterTerms) {
+      if (!hasAcceptedCoreTerms) {
         return res.status(400).json({
           message: "Accept Platform and Writer terms before confirming free access.",
+          success: false,
+        });
+      }
+
+      if (!purchaseRequest?.termsAcceptance?.rightsSummaryAccepted) {
+        return res.status(400).json({
+          message: "Accept rights summary before confirming free access.",
+          success: false,
+        });
+      }
+
+      if (!purchaseRequest?.termsAcceptance?.legalDisclaimerAccepted) {
+        return res.status(400).json({
+          message: LEGAL_MARKETPLACE_DISCLAIMER,
           success: false,
         });
       }
@@ -3764,6 +4532,7 @@ export const verifyScriptPurchase = async (req, res) => {
     script.purchaseRequestLocked = false;
     script.purchaseRequestLockedBy = null;
     script.purchaseRequestLockedAt = null;
+    script.transactionStatus = "sold_licensed";
     await script.save();
 
     purchaseRequest.frozenAmount = isFreeAccessRequest ? 0 : pricing.totalAmount;
@@ -3775,6 +4544,31 @@ export const verifyScriptPurchase = async (req, res) => {
     purchaseRequest.paymentGatewaySignature = isFreeAccessRequest ? undefined : razorpay_signature;
     purchaseRequest.settledAt = new Date();
     await purchaseRequest.save();
+
+    let agreementRecord = null;
+    try {
+      agreementRecord = await createAgreementForSettledPurchase({
+        script,
+        purchaseRequest,
+        writerUser: script.creator,
+        buyerUser: investorDoc || req.user,
+        pricing,
+        req,
+      });
+    } catch (agreementError) {
+      console.error("[Purchase] Agreement generation failed:", agreementError?.message || agreementError);
+    }
+
+    try {
+      await attachPurchaseRequestAcceptancePdf({
+        purchaseRequest,
+        script,
+        investor: investorDoc || req.user,
+        agreementPdfUrl: agreementRecord?.buyer_pdf_url || agreementRecord?.writer_pdf_url || "",
+      });
+    } catch (pdfError) {
+      console.error("[Purchase] Acceptance PDF refresh failed after settlement:", pdfError?.message || pdfError);
+    }
 
     let purchaseInvoice = null;
     if (!isFreeAccessRequest) {
@@ -3922,8 +4716,17 @@ export const verifyScriptPurchase = async (req, res) => {
         id: purchaseRequest._id,
         status: purchaseRequest.status,
         paymentStatus: purchaseRequest.paymentStatus,
+        acceptancePdfAvailable: Boolean(purchaseRequest?.acceptancePdf?.url),
       },
       invoice: purchaseInvoice || null,
+      agreement: agreementRecord
+        ? {
+            id: agreementRecord._id,
+            writerPdfUrl: agreementRecord.writer_pdf_url,
+            buyerPdfUrl: agreementRecord.buyer_pdf_url,
+            status: agreementRecord.status,
+          }
+        : null,
     });
   } catch (error) {
     console.error("Script purchase verification error:", error);

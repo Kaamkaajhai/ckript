@@ -5,6 +5,7 @@ import ScriptOption from "../models/ScriptOption.js";
 import ScriptPurchaseRequest from "../models/ScriptPurchaseRequest.js";
 import Transaction from "../models/Transaction.js";
 import Invoice from "../models/Invoice.js";
+import Agreement from "../models/Agreement.js";
 import Notification from "../models/Notification.js";
 import Message from "../models/Message.js";
 import ContactSubmission from "../models/ContactSubmission.js";
@@ -12,6 +13,11 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import { uploadToCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
+import {
+    createNewPurchaseTermsPolicyVersion,
+    getCurrentPurchaseTermsPolicy,
+    listPurchaseTermsPolicyVersions,
+} from "../utils/termsPolicyService.js";
 import {
     sendInvestorApprovalEmail,
     sendInvestorRejectionEmail,
@@ -1464,7 +1470,49 @@ export const getScriptDetail = async (req, res) => {
             .populate("unlockedBy", "name email role")
             .populate("platformScore.scoredBy", "name");
         if (!script) return res.status(404).json({ message: "Script not found" });
-        res.json(script);
+
+        const [settledPurchaseRequests, agreements] = await Promise.all([
+            ScriptPurchaseRequest.find({
+                script: script._id,
+                status: "approved",
+                paymentStatus: "released",
+            })
+                .populate("investor", "name email role sid")
+                .populate("writer", "name email role sid")
+                .sort({ settledAt: -1, updatedAt: -1, createdAt: -1 })
+                .lean(),
+            Agreement.find({ script_id: script._id })
+                .select("buyer_id writer_pdf_url buyer_pdf_url status createdAt")
+                .sort({ createdAt: -1 })
+                .lean(),
+        ]);
+
+        const agreementByBuyerId = new Map();
+        agreements.forEach((agreement) => {
+            const buyerId = agreement?.buyer_id?.toString?.();
+            if (buyerId && !agreementByBuyerId.has(buyerId)) {
+                agreementByBuyerId.set(buyerId, agreement);
+            }
+        });
+
+        const response = script.toObject();
+        response.settledPurchaseRequests = settledPurchaseRequests.map((request) => {
+            const buyerId = request?.investor?._id?.toString?.() || request?.investor?.toString?.() || "";
+            const agreement = agreementByBuyerId.get(buyerId) || null;
+            return {
+                ...request,
+                agreement: agreement
+                    ? {
+                        _id: agreement._id,
+                        status: agreement.status,
+                        writerPdfUrl: agreement.writer_pdf_url || "",
+                        buyerPdfUrl: agreement.buyer_pdf_url || "",
+                    }
+                    : null,
+            };
+        });
+
+        res.json(response);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -2020,6 +2068,157 @@ export const getAdminAlertSummary = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const getAdminAgreements = async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 20,
+            status,
+            writerId,
+            buyerId,
+            scriptId,
+        } = req.query;
+
+        const pageNumber = Math.max(Number(page) || 1, 1);
+        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+
+        const filter = {};
+        if (status) {
+            filter.status = String(status).trim();
+        }
+        if (writerId && mongoose.Types.ObjectId.isValid(writerId)) {
+            filter.writer_id = writerId;
+        }
+        if (buyerId && mongoose.Types.ObjectId.isValid(buyerId)) {
+            filter.buyer_id = buyerId;
+        }
+        if (scriptId && mongoose.Types.ObjectId.isValid(scriptId)) {
+            filter.script_id = scriptId;
+        }
+
+        const total = await Agreement.countDocuments(filter);
+        const agreements = await Agreement.find(filter)
+            .populate("script_id", "title sid genre")
+            .populate("writer_id", "name email sid")
+            .populate("buyer_id", "name email sid")
+            .sort({ createdAt: -1 })
+            .skip((pageNumber - 1) * pageLimit)
+            .limit(pageLimit)
+            .lean();
+
+        res.json({
+            agreements,
+            total,
+            page: pageNumber,
+            totalPages: Math.ceil(total / pageLimit),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Failed to load agreements." });
+    }
+};
+
+export const getAdminAgreementById = async (req, res) => {
+    try {
+        const agreement = await Agreement.findById(req.params.id)
+            .populate("script_id", "title sid genre")
+            .populate("writer_id", "name email sid")
+            .populate("buyer_id", "name email sid")
+            .lean();
+
+        if (!agreement) {
+            return res.status(404).json({ message: "Agreement not found." });
+        }
+
+        return res.json(agreement);
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Failed to load agreement." });
+    }
+};
+
+export const getAdminAgreementPdf = async (req, res) => {
+    try {
+        const party = normalizeString(req.query.party || "").toLowerCase();
+        if (!party || !["writer", "buyer"].includes(party)) {
+            return res.status(400).json({ message: "party query must be writer or buyer." });
+        }
+
+        const agreement = await Agreement.findById(req.params.id).lean();
+        if (!agreement) {
+            return res.status(404).json({ message: "Agreement not found." });
+        }
+
+        const targetUrl = party === "writer" ? agreement.writer_pdf_url : agreement.buyer_pdf_url;
+        if (!targetUrl || !/^https?:\/\//i.test(String(targetUrl))) {
+            return res.status(404).json({ message: "Agreement PDF not available." });
+        }
+
+        const pdfResponse = await fetch(targetUrl);
+        if (!pdfResponse.ok) {
+            return res.status(502).json({ message: "Failed to fetch agreement PDF from storage." });
+        }
+
+        const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+        const shouldDownload = String(req.query.download || "") === "1";
+        const disposition = shouldDownload ? "attachment" : "inline";
+
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader(
+            "Content-Disposition",
+            `${disposition}; filename="agreement-${agreement._id}-${party}.pdf"`
+        );
+
+        return res.send(fileBuffer);
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Failed to load agreement PDF." });
+    }
+};
+
+export const getAdminPurchaseTermsCurrent = async (_req, res) => {
+    try {
+        const current = await getCurrentPurchaseTermsPolicy();
+        res.json({
+            key: current?.key || "purchase_agreement",
+            version: current?.version || "",
+            title: current?.title || "",
+            content: current?.content || "",
+            effectiveAt: current?.effectiveAt || null,
+            isCurrent: Boolean(current?.isCurrent),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Failed to load current terms." });
+    }
+};
+
+export const getAdminPurchaseTermsVersions = async (_req, res) => {
+    try {
+        const versions = await listPurchaseTermsPolicyVersions();
+        res.json({ versions });
+    } catch (error) {
+        res.status(500).json({ message: error.message || "Failed to load terms versions." });
+    }
+};
+
+export const createAdminPurchaseTermsVersion = async (req, res) => {
+    try {
+        const { version, title, content } = req.body || {};
+
+        const created = await createNewPurchaseTermsPolicyVersion({
+            version,
+            title,
+            content,
+            updatedBy: req.user?._id,
+        });
+
+        res.status(201).json({
+            message: "Purchase terms version created.",
+            version: created,
+        });
+    } catch (error) {
+        const statusCode = /already exists|required/i.test(String(error?.message || "")) ? 400 : 500;
+        res.status(statusCode).json({ message: error.message || "Failed to create terms version." });
     }
 };
 

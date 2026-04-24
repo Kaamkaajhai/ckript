@@ -1,3 +1,26 @@
+// Helper functions for rights/license labels
+const RIGHTS_TYPE_LABELS = {
+  full_rights_sale: "Full Rights Sale (Ownership Transfer)",
+  exclusive_license: "Exclusive License",
+  custom_negotiation_required: "Custom Negotiation Required",
+};
+const MODIFICATION_LABELS = {
+  buyer_can_modify_freely: "Buyer can modify freely",
+  buyer_must_consult_writer: "Buyer must consult writer",
+  writer_retains_creative_approval_rights: "Writer retains creative approval rights",
+};
+const PAYMENT_LABELS = {
+  one_time_upfront_payment: "One-time upfront payment",
+  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
+  revenue_sharing_model: "Revenue sharing model",
+  custom_deal: "Custom deal",
+};
+const NEGOTIATION_LABELS = {
+  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
+  open_to_discussion_after_purchase: "Open to discussion after purchase",
+  ckript_not_involved: "Ckript not involved",
+};
+
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
@@ -204,6 +227,99 @@ const AdminScriptView = () => {
     doc.save(filename);
   };
 
+  const handleOpenSubmissionSummaryPdf = () => {
+    const pdfUrl = resolveMediaUrl(script?.submissionSummaryPdf?.url || "");
+    if (!pdfUrl) return;
+    window.open(pdfUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownloadSubmissionSummaryPdf = async () => {
+    if (!script?._id) return;
+
+    try {
+      const response = await adminApi.get(`/scripts/${script._id}/submission-summary-pdf?download=1`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const objectUrl = window.URL.createObjectURL(blob);
+      const safeTitle = String(script?.title || "script")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "script";
+
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${safeTitle}_submission_summary.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to download submission PDF.");
+    }
+  };
+
+  const openPdfBlob = (blob) => {
+    const objectUrl = window.URL.createObjectURL(blob);
+    window.open(objectUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 15000);
+  };
+
+  const downloadPdfBlob = (blob, filename) => {
+    const objectUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+  };
+
+  const handlePurchaseAcceptancePdf = async (requestId, title, action = "open") => {
+    if (!requestId) return;
+
+    try {
+      const response = await adminApi.get(`/scripts/purchase-request/${requestId}/acceptance-pdf${action === "download" ? "?download=1" : ""}`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const safeTitle = String(title || "purchase-request")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "purchase-request";
+
+      if (action === "download") {
+        downloadPdfBlob(blob, `${safeTitle}_buyer_acceptance.pdf`);
+        return;
+      }
+
+      openPdfBlob(blob);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to open buyer acceptance PDF.");
+    }
+  };
+
+  const handleAgreementPdf = async (agreementId, party = "buyer", action = "open") => {
+    if (!agreementId) return;
+
+    try {
+      const suffix = action === "download" ? "&download=1" : "";
+      const response = await adminApi.get(`/agreements/${agreementId}/pdf?party=${party}${suffix}`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const filename = `agreement_${agreementId}_${party}.pdf`;
+
+      if (action === "download") {
+        downloadPdfBlob(blob, filename);
+        return;
+      }
+
+      openPdfBlob(blob);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to open agreement PDF.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050b16] text-white flex items-center justify-center px-4">
@@ -232,6 +348,53 @@ const AdminScriptView = () => {
   return (
     <div className="min-h-screen bg-[#050b16] text-white px-4 py-6 sm:py-8">
       <div className="max-w-6xl mx-auto space-y-5">
+                {/* Rights & Licensing Section */}
+                <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Writer Rights & Licensing</p>
+                    <p className="text-xs text-white/60">Rights and licensing preferences set by the writer during script upload.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Rights Type</p>
+                      <p className="text-xs text-white/85">{RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || "-"}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Exclusivity</p>
+                      <p className="text-xs text-white/85">{script?.rightsLicensing?.exclusivity ? "Exclusive" : "Non-exclusive"}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">License Duration (months)</p>
+                      <p className="text-xs text-white/85">{script?.rightsLicensing?.timeBound?.licenseDurationMonths || "-"}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Modification Rights</p>
+                      <p className="text-xs text-white/85">{MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || "-"}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Payment Structure</p>
+                      <p className="text-xs text-white/85">{PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || "-"}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Royalty %</p>
+                      <p className="text-xs text-white/85">{script?.rightsLicensing?.royaltySettings?.percentage || 0}%</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Royalty Duration</p>
+                      <p className="text-xs text-white/85">{script?.rightsLicensing?.royaltySettings?.durationType === "years" ? `${script?.rightsLicensing?.royaltySettings?.durationYears} years` : (script?.rightsLicensing?.royaltySettings?.durationType === "project_lifetime" ? "Project lifetime" : "-")}</p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Negotiation Mode</p>
+                      <p className="text-xs text-white/85">{NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || "-"}</p>
+                    </div>
+                  </div>
+                  {script?.rightsLicensing?.customConditions && (
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mt-2">
+                      <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45 mb-2">Custom Conditions</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{script.rightsLicensing.customConditions}</p>
+                    </div>
+                  )}
+                </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <button
@@ -363,6 +526,109 @@ const AdminScriptView = () => {
             ) : (
               <p className="text-sm text-white/60">Writer did not add custom terms.</p>
             )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Legal PDF Records</p>
+            <p className="text-xs text-white/60">Dedicated admin section for saved writer terms PDFs and film industry professional acceptance PDFs.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-white/90">Writer Terms & Conditions PDF</p>
+                  <p className="text-xs text-white/55 mt-1">Saved from the writer side while uploading the script, including pricing, rights, licensing, and legal acceptance.</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleOpenSubmissionSummaryPdf}
+                    disabled={!script?.submissionSummaryPdf?.url}
+                    className="px-3 py-1.5 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Open Writer PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSubmissionSummaryPdf}
+                    disabled={!script?.submissionSummaryPdf?.url}
+                    className="px-3 py-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Download Writer PDF
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                <div className="rounded-xl border border-white/10 bg-[#0b1322] p-3.5">
+                  <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Status</p>
+                  <p className="text-xs text-white/85">{script?.submissionSummaryPdf?.url ? "Saved in admin records" : "Not available"}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-[#0b1322] p-3.5">
+                  <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Generated At</p>
+                  <p className="text-xs text-white/85">{formatDateTime(script?.submissionSummaryPdf?.generatedAt)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mb-4">
+                <p className="text-sm font-semibold text-white/90">Film Industry Professional Terms Acceptance PDFs</p>
+                <p className="text-xs text-white/55 mt-1">Saved after the investor / producer / director / professional accepts terms and conditions for full script access.</p>
+              </div>
+
+              {Array.isArray(script?.settledPurchaseRequests) && script.settledPurchaseRequests.length > 0 ? (
+                <div className="space-y-3">
+                  {script.settledPurchaseRequests.map((request) => (
+                    <div key={request._id} className="rounded-xl border border-white/10 bg-[#0b1322] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-white/90">{request?.investor?.name || "Buyer"}</p>
+                          <p className="text-xs text-white/55 mt-1">
+                            {request?.investor?.email || "-"} · {request?.investor?.role || "-"}
+                          </p>
+                          <p className="text-xs text-white/45 mt-1">
+                            Settled {formatDateTime(request?.settledAt || request?.updatedAt)} · {formatCurrency(request?.amount || 0)} INR
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handlePurchaseAcceptancePdf(request._id, script?.title, "open")}
+                            disabled={!request?.acceptancePdf?.url}
+                            className="px-3 py-1.5 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Open Accepted Terms PDF
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handlePurchaseAcceptancePdf(request._id, script?.title, "download")}
+                            disabled={!request?.acceptancePdf?.url}
+                            className="px-3 py-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Download Accepted Terms PDF
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAgreementPdf(request?.agreement?._id, "buyer", "open")}
+                            disabled={!request?.agreement?._id || !request?.agreement?.buyerPdfUrl}
+                            className="px-3 py-1.5 rounded-lg border border-violet-400/30 bg-violet-500/15 hover:bg-violet-500/25 text-violet-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Open Final Agreement
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-white/60">No film industry professional acceptance PDFs are available for this script yet.</p>
+              )}
+            </div>
           </div>
         </div>
 

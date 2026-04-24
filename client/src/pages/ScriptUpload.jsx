@@ -147,6 +147,7 @@ const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
 const MAX_TRAILER_SIZE = 250 * 1024 * 1024;
 const MAX_PDF_SIZE = 30 * 1024 * 1024;
 const MAX_CUSTOM_INVESTOR_TERMS_LENGTH = 3000;
+const MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH = 5000;
 
 const createImage = (url) => new Promise((resolve, reject) => {
   const image = new Image();
@@ -215,6 +216,156 @@ const STEPS = [
 ];
 
 const LEGAL_AGREEMENT = SCRIPT_UPLOAD_TERMS_TEXT;
+
+const RIGHTS_TYPE_OPTIONS = [
+  { value: "full_rights_sale", label: "Full Rights Sale (Ownership Transfer)" },
+  { value: "exclusive_license", label: "Exclusive License" },
+  { value: "custom_negotiation_required", label: "Custom Negotiation Required" },
+];
+
+const MODIFICATION_RIGHTS_OPTIONS = [
+  { value: "buyer_can_modify_freely", label: "Buyer can modify freely" },
+  { value: "buyer_must_consult_writer", label: "Buyer must consult writer" },
+  { value: "writer_retains_creative_approval_rights", label: "Writer retains creative approval rights" },
+];
+
+const PAYMENT_STRUCTURE_OPTIONS = [
+  { value: "one_time_upfront_payment", label: "One-time upfront payment" },
+  { value: "lower_upfront_plus_royalty_percent", label: "Lower upfront + royalty %" },
+  { value: "revenue_sharing_model", label: "Revenue sharing model" },
+  { value: "custom_deal", label: "Custom deal" },
+];
+
+const NEGOTIATION_MODE_OPTIONS = [
+  { value: "fixed_terms_non_negotiable", label: "Fixed terms (non-negotiable)" },
+  { value: "open_to_discussion_after_purchase", label: "Open to discussion after purchase" },
+  { value: "ckript_not_involved", label: "Ckript not involved" },
+];
+
+const RIGHTS_LABEL_MAP = Object.fromEntries(RIGHTS_TYPE_OPTIONS.map((option) => [option.value, option.label]));
+const MODIFICATION_LABEL_MAP = Object.fromEntries(MODIFICATION_RIGHTS_OPTIONS.map((option) => [option.value, option.label]));
+const PAYMENT_LABEL_MAP = Object.fromEntries(PAYMENT_STRUCTURE_OPTIONS.map((option) => [option.value, option.label]));
+const NEGOTIATION_LABEL_MAP = Object.fromEntries(NEGOTIATION_MODE_OPTIONS.map((option) => [option.value, option.label]));
+const LICENSE_DURATION_PRESET_MONTHS = [12, 18, 24];
+const MIN_LICENSE_DURATION_MONTHS = 1;
+const MAX_LICENSE_DURATION_MONTHS = 120;
+
+const createDefaultRightsLicensing = () => ({
+  rightsType: "exclusive_license",
+  exclusivity: true,
+  modificationRights: "buyer_must_consult_writer",
+  paymentStructure: "one_time_upfront_payment",
+  royaltySettings: {
+    percentage: 0,
+    durationType: "none",
+    durationYears: 0,
+  },
+  timeBound: {
+    licenseDurationMonths: 12,
+    autoRevertToWriter: true,
+  },
+  negotiationMode: "fixed_terms_non_negotiable",
+  customConditions: "",
+  legalAcknowledgement: {
+    ownershipConfirmed: false,
+    platformTermsAccepted: false,
+    exclusivityUnderstood: false,
+  },
+});
+
+const normalizeRightsLicensingState = (incoming = {}) => {
+  const defaults = createDefaultRightsLicensing();
+  const normalizedRightsType = RIGHTS_LABEL_MAP[incoming?.rightsType] ? incoming.rightsType : defaults.rightsType;
+  const normalizedPaymentStructure = PAYMENT_LABEL_MAP[incoming?.paymentStructure]
+    ? incoming.paymentStructure
+    : defaults.paymentStructure;
+  const requestedDurationRaw = Number(incoming?.timeBound?.licenseDurationMonths ?? defaults.timeBound.licenseDurationMonths);
+  const requestedDuration = Number.isFinite(requestedDurationRaw)
+    ? Math.max(0, Math.min(MAX_LICENSE_DURATION_MONTHS, Math.round(requestedDurationRaw)))
+    : defaults.timeBound.licenseDurationMonths;
+
+  return {
+    rightsType: normalizedRightsType,
+    exclusivity: true,
+    modificationRights: MODIFICATION_LABEL_MAP[incoming?.modificationRights]
+      ? incoming.modificationRights
+      : defaults.modificationRights,
+    paymentStructure: normalizedPaymentStructure,
+    royaltySettings: {
+      percentage: Number.isFinite(Number(incoming?.royaltySettings?.percentage))
+        ? Math.max(0, Math.min(100, Number(incoming.royaltySettings.percentage)))
+        : defaults.royaltySettings.percentage,
+      durationType: ["none", "years", "project_lifetime"].includes(incoming?.royaltySettings?.durationType)
+        ? incoming.royaltySettings.durationType
+        : defaults.royaltySettings.durationType,
+      durationYears: Number.isFinite(Number(incoming?.royaltySettings?.durationYears))
+        ? Math.max(0, Math.min(99, Math.round(Number(incoming.royaltySettings.durationYears))))
+        : defaults.royaltySettings.durationYears,
+    },
+    timeBound: {
+      licenseDurationMonths: requestedDuration,
+      autoRevertToWriter: incoming?.timeBound?.autoRevertToWriter !== undefined
+        ? Boolean(incoming.timeBound.autoRevertToWriter)
+        : defaults.timeBound.autoRevertToWriter,
+    },
+    negotiationMode: NEGOTIATION_LABEL_MAP[incoming?.negotiationMode]
+      ? incoming.negotiationMode
+      : defaults.negotiationMode,
+    customConditions: String(incoming?.customConditions || "").slice(0, MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH),
+    legalAcknowledgement: {
+      ownershipConfirmed: Boolean(incoming?.legalAcknowledgement?.ownershipConfirmed),
+      platformTermsAccepted: Boolean(incoming?.legalAcknowledgement?.platformTermsAccepted),
+      exclusivityUnderstood: Boolean(incoming?.legalAcknowledgement?.exclusivityUnderstood),
+    },
+  };
+};
+
+const getRightsValidationMessage = (rightsLicensing) => {
+  if (!RIGHTS_LABEL_MAP[rightsLicensing?.rightsType]) {
+    return "Rights type is required.";
+  }
+
+  if (!MODIFICATION_LABEL_MAP[rightsLicensing?.modificationRights]) {
+    return "Modification rights selection is required.";
+  }
+
+  if (!PAYMENT_LABEL_MAP[rightsLicensing?.paymentStructure]) {
+    return "Payment structure selection is required.";
+  }
+
+  if (!NEGOTIATION_LABEL_MAP[rightsLicensing?.negotiationMode]) {
+    return "Negotiation mode selection is required.";
+  }
+
+  if (rightsLicensing?.rightsType === "exclusive_license") {
+    const durationMonths = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
+    if (!Number.isInteger(durationMonths) || durationMonths < MIN_LICENSE_DURATION_MONTHS || durationMonths > MAX_LICENSE_DURATION_MONTHS) {
+      return `Exclusive license requires duration between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`;
+    }
+  }
+
+  const royaltyBased = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing?.paymentStructure);
+  if (royaltyBased) {
+    const pct = Number(rightsLicensing?.royaltySettings?.percentage || 0);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      return "Royalty percentage must be between 0 and 100 for royalty-based structures.";
+    }
+  }
+
+  if (!rightsLicensing?.legalAcknowledgement?.ownershipConfirmed) {
+    return "You must confirm script ownership rights.";
+  }
+
+  if (!rightsLicensing?.legalAcknowledgement?.platformTermsAccepted) {
+    return "You must confirm platform legal acknowledgement.";
+  }
+
+  if (!rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood) {
+    return "You must acknowledge exclusivity enforcement.";
+  }
+
+  return "";
+};
 
 const formatDuration = (seconds) => {
   const total = Math.max(0, Math.floor(seconds || 0));
@@ -297,6 +448,7 @@ const ScriptUpload = () => {
     agreedToTerms: false,
     customInvestorTerms: "",
   });
+  const [rightsLicensing, setRightsLicensing] = useState(() => createDefaultRightsLicensing());
 
   // Tags as comma-separated input
   const [tagsInput, setTagsInput] = useState("");
@@ -331,6 +483,30 @@ const ScriptUpload = () => {
     dialogues:    { label: "Dialogues",     min: 5,  max: 25, suggest: 10 },
     poet:         { label: "Poet",          min: 5,  max: 25, suggest: 10 },
     other:        { label: "Other",         min: 5,  max: 50, suggest: 10 },
+  };
+
+  const buildRightsPayload = () => {
+    const normalized = normalizeRightsLicensingState(rightsLicensing || {});
+    const royaltyBased = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(normalized.paymentStructure);
+
+    return {
+      ...normalized,
+      legalAcknowledgement: {
+        ...normalized.legalAcknowledgement,
+        platformTermsAccepted: Boolean(legal.agreedToTerms) && Boolean(normalized.legalAcknowledgement.platformTermsAccepted),
+      },
+      royaltySettings: royaltyBased
+        ? normalized.royaltySettings
+        : { percentage: 0, durationType: "none", durationYears: 0 },
+      timeBound: {
+        ...normalized.timeBound,
+        licenseDurationMonths: normalized.rightsType === "exclusive_license"
+          ? normalized.timeBound.licenseDurationMonths
+          : 0,
+      },
+      termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
+      lastUpdatedAt: new Date().toISOString(),
+    };
   };
 
   // Fetch credits balance on mount
@@ -392,6 +568,7 @@ const ScriptUpload = () => {
           agreedToTerms: Boolean(data?.legal?.agreedToTerms),
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         });
+        setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
       } catch {
         // proceed normally
       }
@@ -434,6 +611,7 @@ const ScriptUpload = () => {
           agreedToTerms: Boolean(data?.legal?.agreedToTerms),
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         }));
+        setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
         setFromDraft(true);
       } catch {
         // Draft not found, proceed normally
@@ -850,10 +1028,23 @@ const ScriptUpload = () => {
         return true;
 
       case 4:
-        // Services are already set, no validation needed
+        {
+          const rightsError = getRightsValidationMessage(buildRightsPayload());
+          if (rightsError) {
+            setError(rightsError);
+            return false;
+          }
+        }
         return true;
 
       case 5:
+        {
+          const rightsError = getRightsValidationMessage(buildRightsPayload());
+          if (rightsError) {
+            setError(rightsError);
+            return false;
+          }
+        }
         if (!legal.agreedToTerms) {
           setError("You must agree to the terms to continue.");
           return false;
@@ -923,6 +1114,7 @@ const ScriptUpload = () => {
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
+        rightsLicensing: buildRightsPayload(),
       };
 
       await api.post("/scripts/draft", payload);
@@ -957,6 +1149,32 @@ const ScriptUpload = () => {
     }
     setShowUnderReviewModal(false);
     navigate(postSubmitRedirectPath);
+  };
+
+  const downloadSubmissionSummaryPdf = async (targetScriptId, title) => {
+    if (!targetScriptId) return;
+
+    try {
+      const response = await api.get(`/scripts/${targetScriptId}/submission-summary-pdf?download=1`, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const objectUrl = window.URL.createObjectURL(blob);
+      const safeTitle = String(title || "script")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "script";
+
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${safeTitle}_submission_summary.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+    } catch (downloadError) {
+      console.error("Failed to auto-download submission summary PDF:", downloadError);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -1027,6 +1245,7 @@ const ScriptUpload = () => {
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
+        rightsLicensing: buildRightsPayload(),
         premium: isPremium && effectivePrice > 0,
         price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         // If this was created via the editor, attach the draftId so the backend updates/converts it
@@ -1064,6 +1283,7 @@ const ScriptUpload = () => {
       if (editId) {
         await api.put(`/scripts/${editId}`, payload);
         await uploadMediaForScript(editId, "updated");
+        await downloadSubmissionSummaryPdf(editId, payload.title);
         openUnderReviewModal(
           getScriptCanonicalPath({
             _id: editId,
@@ -1078,6 +1298,7 @@ const ScriptUpload = () => {
         const response = await api.post("/scripts/upload", payload);
         const newScriptId = response.data._id;
         await uploadMediaForScript(newScriptId, "created");
+        await downloadSubmissionSummaryPdf(newScriptId, payload.title);
 
         // Refresh credits balance after successful upload
         const { data: creditsData } = await api.get("/credits/balance");
@@ -2075,6 +2296,231 @@ const ScriptUpload = () => {
                     <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
                       <div className="flex items-center gap-2.5 mb-4">
                         <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
+                          <svg className={`w-4 h-4 ${isDarkMode ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m5.25-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <div>
+                          <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Rights & Licensing Preferences</h3>
+                          <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>These terms become the legal basis for buyer consent and generated agreements.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Rights Type</label>
+                          <select
+                            value={rightsLicensing.rightsType}
+                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, rightsType: e.target.value }))}
+                            className={inputCls}
+                          >
+                            {RIGHTS_TYPE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Modification Rights</label>
+                          <select
+                            value={rightsLicensing.modificationRights}
+                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, modificationRights: e.target.value }))}
+                            className={inputCls}
+                          >
+                            {MODIFICATION_RIGHTS_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Payment Structure</label>
+                          <select
+                            value={rightsLicensing.paymentStructure}
+                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, paymentStructure: e.target.value }))}
+                            className={inputCls}
+                          >
+                            {PAYMENT_STRUCTURE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Negotiation Mode</label>
+                          <select
+                            value={rightsLicensing.negotiationMode}
+                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, negotiationMode: e.target.value }))}
+                            className={inputCls}
+                          >
+                            {NEGOTIATION_MODE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {rightsLicensing.rightsType === "exclusive_license" && (
+                          <div>
+                            <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>License Duration</label>
+                            {(() => {
+                              const currentDuration = Number(rightsLicensing?.timeBound?.licenseDurationMonths || 12);
+                              const isCustomDuration = !LICENSE_DURATION_PRESET_MONTHS.includes(currentDuration);
+                              const customDurationFallback = isCustomDuration && currentDuration > 0 ? currentDuration : 30;
+
+                              return (
+                                <>
+                                  <select
+                                    value={isCustomDuration ? "custom" : String(currentDuration)}
+                                    onChange={(e) => {
+                                      const selected = e.target.value;
+                                      setRightsLicensing((prev) => normalizeRightsLicensingState({
+                                        ...prev,
+                                        timeBound: {
+                                          ...prev.timeBound,
+                                          licenseDurationMonths: selected === "custom" ? customDurationFallback : Number(selected),
+                                        },
+                                      }));
+                                    }}
+                                    className={inputCls}
+                                  >
+                                    <option value="12">12 months</option>
+                                    <option value="18">18 months</option>
+                                    <option value="24">24 months</option>
+                                    <option value="custom">Custom duration...</option>
+                                  </select>
+
+                                  {isCustomDuration && (
+                                    <div className="mt-2">
+                                      <label className={`block text-[11px] font-semibold mb-1 ${labelCls}`}>Custom Duration (months)</label>
+                                      <input
+                                        type="number"
+                                        min={MIN_LICENSE_DURATION_MONTHS}
+                                        max={MAX_LICENSE_DURATION_MONTHS}
+                                        step="1"
+                                        value={currentDuration}
+                                        onChange={(e) => {
+                                          const nextRaw = Number(e.target.value);
+                                          const nextDuration = Number.isFinite(nextRaw)
+                                            ? Math.max(MIN_LICENSE_DURATION_MONTHS, Math.min(MAX_LICENSE_DURATION_MONTHS, Math.round(nextRaw)))
+                                            : MIN_LICENSE_DURATION_MONTHS;
+
+                                          setRightsLicensing((prev) => normalizeRightsLicensingState({
+                                            ...prev,
+                                            timeBound: {
+                                              ...prev.timeBound,
+                                              licenseDurationMonths: nextDuration,
+                                            },
+                                          }));
+                                        }}
+                                        className={inputCls}
+                                      />
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+
+                        {["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing.paymentStructure) && (
+                          <div>
+                            <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Royalty Percentage</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={rightsLicensing?.royaltySettings?.percentage ?? 0}
+                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                                ...prev,
+                                royaltySettings: {
+                                  ...prev.royaltySettings,
+                                  percentage: Number(e.target.value || 0),
+                                },
+                              }))}
+                              className={inputCls}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4">
+                        <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Custom Conditions (Optional)</label>
+                        <textarea
+                          rows={4}
+                          value={rightsLicensing.customConditions}
+                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                            ...prev,
+                            customConditions: e.target.value,
+                          }))}
+                          placeholder="Add any contract-sensitive conditions that buyers must acknowledge."
+                          className={`${inputCls} resize-y`}
+                        />
+                        <p className={`text-[11px] mt-1 text-right ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                          {String(rightsLicensing.customConditions || "").length}/{MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH}
+                        </p>
+                      </div>
+
+                      <div className={`mt-4 rounded-xl border px-3 py-3 ${isDarkMode ? "border-[#1b2e46] bg-[#07101c]" : "border-gray-200 bg-white"}`}>
+                        <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Rights Summary Preview</p>
+                        <p className={`text-sm font-semibold mt-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>{RIGHTS_LABEL_MAP[rightsLicensing.rightsType]}</p>
+                        <p className={`text-[12px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{MODIFICATION_LABEL_MAP[rightsLicensing.modificationRights]}</p>
+                        <p className={`text-[12px] ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{PAYMENT_LABEL_MAP[rightsLicensing.paymentStructure]}</p>
+                        <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700">
+                          EXCLUSIVE RIGHTS: this listing cannot be sold to multiple buyers once transaction is settled.
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 gap-2.5">
+                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed)}
+                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                              ...prev,
+                              legalAcknowledgement: {
+                                ...prev.legalAcknowledgement,
+                                ownershipConfirmed: e.target.checked,
+                              },
+                            }))}
+                            className="mt-0.5"
+                          />
+                          <span>I confirm I own or control all rights required for this listing.</span>
+                        </label>
+                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.platformTermsAccepted)}
+                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                              ...prev,
+                              legalAcknowledgement: {
+                                ...prev.legalAcknowledgement,
+                                platformTermsAccepted: e.target.checked,
+                              },
+                            }))}
+                            className="mt-0.5"
+                          />
+                          <span>I acknowledge these rights terms are governed under platform legal policies.</span>
+                        </label>
+                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood)}
+                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                              ...prev,
+                              legalAcknowledgement: {
+                                ...prev.legalAcknowledgement,
+                                exclusivityUnderstood: e.target.checked,
+                              },
+                            }))}
+                            className="mt-0.5"
+                          />
+                          <span>I understand exclusivity prevents parallel multi-buyer transactions.</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
+                      <div className="flex items-center gap-2.5 mb-4">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
                           <svg className={`w-4 h-4 ${isDarkMode ? "text-purple-300" : "text-purple-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h3.75A2.625 2.625 0 0116.5 4.875v1.5H7.5v-1.5A2.625 2.625 0 0110.125 2.25zM7.5 9h9m-9 0v8.625A2.625 2.625 0 0010.125 20.25h3.75A2.625 2.625 0 0016.5 17.625V9m-9 0h9" /></svg>
                         </div>
                         <div>
@@ -2304,27 +2750,6 @@ const ScriptUpload = () => {
                       </div>
                     </div>
 
-                    <div className={`rounded-xl px-4 py-4 mt-4 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                      <p className={`text-[12px] font-semibold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>
-                        Writer Custom Terms For Investors (Optional)
-                      </p>
-                      <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                        Add deal-specific terms investors must accept before they can pay for this script.
-                      </p>
-                      <textarea
-                        value={legal.customInvestorTerms}
-                        onChange={(e) => setLegal({
-                          ...legal,
-                          customInvestorTerms: e.target.value.slice(0, MAX_CUSTOM_INVESTOR_TERMS_LENGTH),
-                        })}
-                        rows={6}
-                        placeholder="Example: Payment grants non-exclusive reading rights only. Rights transfer requires a separate signed agreement."
-                        className={`mt-3 w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-colors resize-y ${isDarkMode ? "bg-[#050b14] border-[#182840] text-gray-200 placeholder:text-gray-600 focus:border-[#2a4a6e]" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:border-gray-400"}`}
-                      />
-                      <p className={`text-[11px] mt-2 text-right ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                        {String(legal.customInvestorTerms || "").length}/{MAX_CUSTOM_INVESTOR_TERMS_LENGTH}
-                      </p>
-                    </div>
                   </div>
 
                   <div className="flex gap-3 justify-between pt-2">

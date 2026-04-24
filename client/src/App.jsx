@@ -44,6 +44,7 @@ const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
+const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 
@@ -453,6 +454,10 @@ function App() {
               <Route
                 path="/admin/scripts/:id"
                 element={<AdminScriptView />}
+              />
+              <Route
+                path="/admin/agreements"
+                element={<AdminAgreements />}
               />
               <Route path="/:referralCode" element={<ReferralCodeRedirect />} />
             </Routes>

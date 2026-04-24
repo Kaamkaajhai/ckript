@@ -8,6 +8,31 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const BUYER_COMMISSION_RATE = 0.05;
 
+const RIGHTS_TYPE_LABELS = {
+  full_rights_sale: "Full Rights Sale (Ownership Transfer)",
+  exclusive_license: "Exclusive License",
+  custom_negotiation_required: "Custom Negotiation Required",
+};
+
+const MODIFICATION_RIGHTS_LABELS = {
+  buyer_can_modify_freely: "Buyer can modify freely",
+  buyer_must_consult_writer: "Buyer must consult writer",
+  writer_retains_creative_approval_rights: "Writer retains creative approval rights",
+};
+
+const PAYMENT_STRUCTURE_LABELS = {
+  one_time_upfront_payment: "One-time upfront payment",
+  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
+  revenue_sharing_model: "Revenue sharing model",
+  custom_deal: "Custom deal",
+};
+
+const NEGOTIATION_MODE_LABELS = {
+  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
+  open_to_discussion_after_purchase: "Open to discussion after purchase",
+  ckript_not_involved: "Ckript not involved",
+};
+
 const roundAmount = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
 const formatInr = (value) =>
@@ -63,6 +88,7 @@ export default function ScriptPaymentPage() {
   const [acceptPlatformTerms, setAcceptPlatformTerms] = useState(false);
   const [acceptWriterTerms, setAcceptWriterTerms] = useState(false);
   const [acceptCustomWriterTerms, setAcceptCustomWriterTerms] = useState(false);
+  const [acceptRightsSummary, setAcceptRightsSummary] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
   const [invoiceActionLoading, setInvoiceActionLoading] = useState(false);
   const scriptPath = getScriptCanonicalPath(script || { _id: id });
@@ -98,6 +124,16 @@ export default function ScriptPaymentPage() {
   const hasCustomWriterTerms = customWriterTerms.length > 0;
   const investorRoles = ["investor", "producer", "director", "industry", "professional"];
   const isInvestor = investorRoles.includes(user?.role);
+  const rightsTerms = script?.rightsLicensing || {};
+  const rightsTypeLabel = RIGHTS_TYPE_LABELS[rightsTerms?.rightsType] || "Not specified";
+  const modificationRightsLabel = MODIFICATION_RIGHTS_LABELS[rightsTerms?.modificationRights] || "Not specified";
+  const paymentStructureLabel = PAYMENT_STRUCTURE_LABELS[rightsTerms?.paymentStructure] || "Not specified";
+  const negotiationModeLabel = NEGOTIATION_MODE_LABELS[rightsTerms?.negotiationMode] || "Not specified";
+  const licenseDurationMonths = Number(rightsTerms?.timeBound?.licenseDurationMonths || 0);
+  const licenseDurationLabel = rightsTerms?.rightsType === "exclusive_license"
+    ? (licenseDurationMonths ? `${licenseDurationMonths} months` : "Time-bound")
+    : "Not time-bound";
+  const royaltyPercent = Number(rightsTerms?.royaltySettings?.percentage || 0);
 
   useEffect(() => {
     if (!requiresRazorpayPayment) {
@@ -114,7 +150,7 @@ export default function ScriptPaymentPage() {
         if (!cancelled) {
           setRazorpayReady(true);
         }
-      } catch (_error) {
+      } catch {
         if (!cancelled) {
           setRazorpayReady(false);
           setPaymentError("Payment gateway failed to load. Please disable blockers and retry.");
@@ -174,6 +210,32 @@ export default function ScriptPaymentPage() {
     }
   };
 
+  const downloadAcceptancePdf = async (purchaseRequestId) => {
+    if (!purchaseRequestId) return;
+
+    try {
+      const response = await api.get(`/scripts/purchase-request/${purchaseRequestId}/acceptance-pdf?download=1`, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const objectUrl = window.URL.createObjectURL(blob);
+      const safeTitle = String(script?.title || "script")
+        .replace(/[^a-z0-9]+/gi, "_")
+        .replace(/^_+|_+$/g, "") || "script";
+
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${safeTitle}_accepted_terms.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+    } catch (err) {
+      setPaymentError(err?.response?.data?.message || "Unable to download accepted terms PDF right now.");
+    }
+  };
+
   const handlePayment = async () => {
     if (!script?._id || processing) return;
 
@@ -181,6 +243,11 @@ export default function ScriptPaymentPage() {
 
     if (!acceptPlatformTerms || !acceptWriterTerms) {
       setPaymentError("Please accept both Platform and Writer Terms & Conditions before payment.");
+      return;
+    }
+
+    if (!acceptRightsSummary) {
+      setPaymentError("Please accept the rights and licensing summary before payment.");
       return;
     }
 
@@ -193,7 +260,7 @@ export default function ScriptPaymentPage() {
       try {
         await loadRazorpaySdk();
         setRazorpayReady(true);
-      } catch (_error) {
+      } catch {
         setPaymentError("Payment SDK is blocked or not ready. Please retry after enabling checkout.razorpay.com.");
         return;
       }
@@ -207,6 +274,8 @@ export default function ScriptPaymentPage() {
         acceptedPlatformTerms: acceptPlatformTerms,
         acceptedWriterTerms: acceptWriterTerms,
         acceptedCustomWriterTerms: hasCustomWriterTerms ? acceptCustomWriterTerms : false,
+        acceptedRightsSummary: acceptRightsSummary,
+        acceptedLegalDisclaimer: true,
       });
 
       if (orderData?.noPaymentRequired) {
@@ -225,8 +294,10 @@ export default function ScriptPaymentPage() {
           message: verifyData.message || "Free access confirmed. Full script access unlocked.",
           invoiceNumber: "",
           invoice: null,
+          purchaseRequestId: verifyData?.purchaseRequest?.id || orderData?.purchaseRequestId || "",
         });
         setScript((prev) => (prev ? { ...prev, isUnlocked: true } : prev));
+        await downloadAcceptancePdf(verifyData?.purchaseRequest?.id || orderData?.purchaseRequestId || "");
         setProcessing(false);
         return;
       }
@@ -259,8 +330,10 @@ export default function ScriptPaymentPage() {
               message: verifyData.message || "Payment successful. Full script access unlocked.",
               invoiceNumber: invoice?.invoiceNumber || "",
               invoice,
+              purchaseRequestId: verifyData?.purchaseRequest?.id || "",
             });
             setScript((prev) => (prev ? { ...prev, isUnlocked: true } : prev));
+            await downloadAcceptancePdf(verifyData?.purchaseRequest?.id || "");
             setProcessing(false);
 
             if (invoice?._id) {
@@ -421,6 +494,23 @@ export default function ScriptPaymentPage() {
               <p className={`text-[11px] font-bold uppercase tracking-wider mb-3 ${t.muted}`}>Terms & Conditions</p>
               <div className="space-y-3.5 text-sm">
                 <div className={`rounded-lg border p-3 ${isDarkMode ? "border-white/[0.1] bg-white/[0.02]" : "border-gray-200 bg-white"}`}>
+                  <p className={`font-semibold mb-1.5 ${t.title}`}>Rights & Licensing Summary</p>
+                  <div className={`space-y-1.5 text-xs ${t.sub}`}>
+                    <p><span className="font-semibold">Rights Type:</span> {rightsTypeLabel}</p>
+                    <p><span className="font-semibold">Modification Rights:</span> {modificationRightsLabel}</p>
+                    <p><span className="font-semibold">Payment Structure:</span> {paymentStructureLabel}</p>
+                    <p><span className="font-semibold">Negotiation:</span> {negotiationModeLabel}</p>
+                    <p><span className="font-semibold">License Duration:</span> {licenseDurationLabel}</p>
+                    {royaltyPercent > 0 && (
+                      <p><span className="font-semibold">Royalty:</span> {royaltyPercent}%</p>
+                    )}
+                  </div>
+                  <p className="mt-2 rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700">
+                    EXCLUSIVE RIGHTS ENFORCEMENT: once this agreement is settled, parallel buyer sales are blocked.
+                  </p>
+                </div>
+
+                <div className={`rounded-lg border p-3 ${isDarkMode ? "border-white/[0.1] bg-white/[0.02]" : "border-gray-200 bg-white"}`}>
                   <p className={`font-semibold mb-1.5 ${t.title}`}>Platform Terms & Conditions</p>
                   <p className={t.sub}>
                     Platform usage, payment rules, and dispute handling apply to this transaction.
@@ -469,6 +559,15 @@ export default function ScriptPaymentPage() {
                   className="mt-0.5"
                 />
                 <span>I agree to the Writer Terms & Conditions.</span>
+              </label>
+              <label className={`flex items-start gap-2.5 text-sm ${t.sub}`}>
+                <input
+                  type="checkbox"
+                  checked={acceptRightsSummary}
+                  onChange={(e) => setAcceptRightsSummary(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>I have reviewed and accept the writer-defined rights and licensing summary.</span>
               </label>
               {hasCustomWriterTerms && (
                 <label className={`flex items-start gap-2.5 text-sm ${t.sub}`}>
@@ -531,6 +630,15 @@ export default function ScriptPaymentPage() {
                       className={`px-5 py-2.5 rounded-xl text-sm font-semibold border transition ${t.btnSecondary}`}
                     >
                       Open Invoice
+                    </button>
+                  )}
+                  {successInfo.purchaseRequestId && (
+                    <button
+                      type="button"
+                      onClick={() => downloadAcceptancePdf(successInfo.purchaseRequestId)}
+                      className={`px-5 py-2.5 rounded-xl text-sm font-semibold border transition ${t.btnSecondary}`}
+                    >
+                      Download Accepted Terms PDF
                     </button>
                   )}
                 <button

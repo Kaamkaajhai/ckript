@@ -40,6 +40,12 @@ import {
     rejectBankDetailReview,
     unblockBankDetailUpdates,
     getAdminAlertSummary,
+    getAdminAgreements,
+    getAdminAgreementById,
+    getAdminAgreementPdf,
+    getAdminPurchaseTermsCurrent,
+    getAdminPurchaseTermsVersions,
+    createAdminPurchaseTermsVersion,
     getDiscountCodes,
     createDiscountCode,
     updateDiscountCode,
@@ -110,6 +116,14 @@ router.get("/bank-details/reviews", getBankDetailReviews);
 router.put("/bank-details/reviews/:id/approve", approveBankDetailReview);
 router.put("/bank-details/reviews/:id/reject", rejectBankDetailReview);
 router.put("/bank-details/reviews/:id/unblock", unblockBankDetailUpdates);
+
+// Legal agreements and terms management
+router.get("/agreements", getAdminAgreements);
+router.get("/agreements/:id", getAdminAgreementById);
+router.get("/agreements/:id/pdf", getAdminAgreementPdf);
+router.get("/legal/terms/current", getAdminPurchaseTermsCurrent);
+router.get("/legal/terms/versions", getAdminPurchaseTermsVersions);
+router.post("/legal/terms/versions", createAdminPurchaseTermsVersion);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);

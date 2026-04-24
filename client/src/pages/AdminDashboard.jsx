@@ -2680,7 +2680,13 @@ const AdminDashboard = () => {
                         <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>Investor Purchases<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
                         <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false}
                             actions={(s) => (
-                                <div className="flex flex-wrap gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <a
+                                        href={`/admin/scripts/${s._id}`}
+                                        className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-500/10 transition-colors"
+                                    >
+                                        View
+                                    </a>
                                     {s.unlockedBy?.map((u) => (
                                         <span key={u._id || u} className={`text-xs font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-700"}`}>
                                             {u.name || "Investor"}
@@ -4546,6 +4552,13 @@ const AdminDashboard = () => {
                         <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600 px-2">Navigation</p>
                     </div>
                     <nav className="flex-1 px-2 pb-4 space-y-0.5">
+                        <a
+                            href="/admin/agreements"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-semibold text-gray-400 hover:bg-[#132744] hover:text-gray-200 transition-all"
+                        >
+                            <Icon d="M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 3h1.5A2.25 2.25 0 0115 5.25v1.5A2.25 2.25 0 0113.5 9h-3A2.25 2.25 0 019 6.75v-1.5zM4.5 10.5h15m-15 4.5h15m-15 4.5h9" className="w-4 h-4" />
+                            <span className="flex-1 text-left">Agreements</span>
+                        </a>
                         {TABS.map((tab) => (
                             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all ${activeTab === tab.key
@@ -4567,6 +4580,12 @@ const AdminDashboard = () => {
                 {/* Mobile tab bar */}
                 <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#1a3050] bg-[#0b1628]/95 backdrop-blur-md">
                     <div className="flex overflow-x-auto gap-1 p-1.5">
+                        <a
+                            href="/admin/agreements"
+                            className="whitespace-nowrap px-3 py-2 rounded-lg text-xs font-bold text-gray-500"
+                        >
+                            Agreements
+                        </a>
                         {TABS.map((tab) => (
                             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                                 className={`whitespace-nowrap px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === tab.key

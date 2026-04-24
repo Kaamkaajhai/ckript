@@ -86,6 +86,12 @@ const sanitizeEmail = (email) => {
   return email.trim().toLowerCase();
 };
 
+const normalizeOptionalDate = (value) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+};
+
 const normalizeOtpInput = (otp) => String(otp || "").trim();
 
 const isValidOtpInput = (otp) => /^\d{6}$/.test(otp);
@@ -539,7 +545,7 @@ const isValidPassword = (password) => {
 
 export const join = async (req, res) => {
   console.log('Join request received:', req.body);
-  let { name, email, password, role, phone, address, username, referralCode } = req.body;
+  let { name, email, password, role, phone, address, username, referralCode, dateOfBirth } = req.body;
   try {
     // Validate required fields
     if (!name || !email || !password) {
@@ -602,8 +608,15 @@ export const join = async (req, res) => {
     const requiresContactDetails = CONTACT_REQUIRED_ROLES.has(role);
     const normalizedPhone = normalizeInputValue(phone);
     const normalizedAddress = normalizeAddressPayload(address);
+    const hasContactPayload = Boolean(normalizedPhone || normalizedAddress || dateOfBirth);
+    const shouldValidateAndPersistContactDetails = requiresContactDetails || hasContactPayload;
+    const normalizedDateOfBirth = normalizeOptionalDate(dateOfBirth);
 
-    if (requiresContactDetails) {
+    if (dateOfBirth !== undefined && dateOfBirth !== null && dateOfBirth !== "" && !normalizedDateOfBirth) {
+      return res.status(400).json({ message: "Please provide a valid date of birth" });
+    }
+
+    if (shouldValidateAndPersistContactDetails) {
       if (!normalizedPhone) {
         return res.status(400).json({ message: "Phone number is required" });
       }
@@ -749,8 +762,9 @@ export const join = async (req, res) => {
       password, 
       role,
       referredBy: referrerUser?._id,
-      phone: requiresContactDetails ? phone : undefined,
-      address: requiresContactDetails ? address : undefined,
+      phone: shouldValidateAndPersistContactDetails ? phone : undefined,
+      address: shouldValidateAndPersistContactDetails ? address : undefined,
+      dateOfBirth: normalizedDateOfBirth,
       writerProfile: normalizedUsername ? { username: normalizedUsername } : undefined,
       emailVerified: skipEmailVerification, // Auto-verify if skipping email
       emailVerificationToken: skipEmailVerification ? undefined : hashOTP(otp),

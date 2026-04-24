@@ -38,6 +38,8 @@ import adminRoutes from "./routes/adminRoutes.js";
 import scriptPitchRoutes from "./routes/scriptPitchRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import legalRoutes from "./routes/legalRoutes.js";
+import agreementRoutes from "./routes/agreementRoutes.js";
 import {
   applyGlobalSecurity,
   apiLimiter,
@@ -332,6 +334,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api/script-pitches", scriptPitchRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.use("/api/legal", legalRoutes);
+app.use("/api/agreements", agreementRoutes);
 
 export default app;
 

@@ -845,6 +845,46 @@ html.dark-mode .script-content img {
   transition: border-color 0.2s ease;
 }
 
+/* Contract & licensing panel */
+.contract-licensing-panel {
+  min-height: 22rem;
+  max-height: min(70vh, 42rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
+    #0c1527;
+}
+
+.contract-licensing-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.contract-licensing-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.contract-licensing-panel::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #36557c, #223854);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.contract-licensing-panel::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #4a6d97, #294769);
+}
+
+@media (max-width: 640px) {
+  .contract-licensing-panel {
+    min-height: 18rem;
+    max-height: 60vh;
+    padding-right: 1rem;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    ONBOARDING THEME — Landing Palette Alignment
    ═══════════════════════════════════════════════════════════ */

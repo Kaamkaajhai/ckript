@@ -28,7 +28,7 @@ const scriptPurchaseRequestSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["wallet", "razorpay", "manual"],
+      enum: ["wallet", "razorpay", "manual", "free_access"],
       default: "wallet",
     },
     paymentStatus: {
@@ -67,9 +67,19 @@ const scriptPurchaseRequestSchema = new mongoose.Schema(
       platformTermsAccepted: { type: Boolean, default: false },
       writerTermsAccepted: { type: Boolean, default: false },
       customWriterTermsAccepted: { type: Boolean, default: false },
+      rightsSummaryAccepted: { type: Boolean, default: false },
+      legalDisclaimerAccepted: { type: Boolean, default: false },
       customWriterTermsSnapshot: { type: String, default: "" },
+      rightsTermsSnapshot: { type: mongoose.Schema.Types.Mixed, default: {} },
+      termsPolicyVersion: { type: String, default: "" },
       acceptedAt: { type: Date },
       acceptedIp: { type: String, default: "" },
+      acceptedUserAgent: { type: String, default: "" },
+    },
+    acceptancePdf: {
+      url: { type: String, default: "" },
+      publicId: { type: String, default: "" },
+      generatedAt: { type: Date },
     },
   },
   { timestamps: true }

@@ -1,3 +1,25 @@
+// Helper functions for rights/license labels
+const RIGHTS_TYPE_LABELS = {
+  full_rights_sale: "Full Rights Sale (Ownership Transfer)",
+  exclusive_license: "Exclusive License",
+  custom_negotiation_required: "Custom Negotiation Required",
+};
+const MODIFICATION_LABELS = {
+  buyer_can_modify_freely: "Buyer can modify freely",
+  buyer_must_consult_writer: "Buyer must consult writer",
+  writer_retains_creative_approval_rights: "Writer retains creative approval rights",
+};
+const PAYMENT_LABELS = {
+  one_time_upfront_payment: "One-time upfront payment",
+  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
+  revenue_sharing_model: "Revenue sharing model",
+  custom_deal: "Custom deal",
+};
+const NEGOTIATION_LABELS = {
+  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
+  open_to_discussion_after_purchase: "Open to discussion after purchase",
+  ckript_not_involved: "Ckript not involved",
+};
 import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -64,6 +86,9 @@ const ScriptDetail = () => {
   const activeScriptId = script?._id || id;
   const pendingRequestBaseAmount = Number(script?.myPendingRequest?.amount || script?.price || 0);
   const pendingRequestCheckoutTotal = getBuyerCheckoutTotal(pendingRequestBaseAmount);
+  const writerCustomConditions = String(script?.legal?.customInvestorTerms || "").trim();
+  const hasWriterCustomConditions = writerCustomConditions.length > 0;
+  const canViewWriterCustomConditions = Boolean(!script?.isCreator && script?.canPurchase);
 
   const scriptShare = {
     url: script?.shareMeta?.url || (script?._id ? `${browserOrigin}/share/project/${script._id}` : ""),
@@ -1066,7 +1091,58 @@ const ScriptDetail = () => {
               <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6 lg:gap-8">
 
                 {/* Left column */}
+
                 <div className="flex-1 min-w-0 space-y-4">
+                  {/* Contract & Licensing Terms - Horizontal Section */}
+                  <div className="contract-licensing-panel rounded-2xl border p-5 sm:p-6 mb-5 bg-[#0c1527]">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] mb-4 text-white/60">Contract & Licensing Terms</p>
+                    <div className="flex flex-wrap gap-x-8 gap-y-3">
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Rights Type</span>
+                        <span className="text-xs font-semibold text-white/90">{RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Exclusivity</span>
+                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.exclusivity ? "Exclusive" : "Non-exclusive"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">License Duration (months)</span>
+                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.timeBound?.licenseDurationMonths || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Modification Rights</span>
+                        <span className="text-xs font-semibold text-white/90">{MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Payment Structure</span>
+                        <span className="text-xs font-semibold text-white/90">{PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || "-"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Royalty %</span>
+                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.royaltySettings?.percentage || 0}%</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Royalty Duration</span>
+                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.royaltySettings?.durationType === "years" ? `${script?.rightsLicensing?.royaltySettings?.durationYears} years` : (script?.rightsLicensing?.royaltySettings?.durationType === "project_lifetime" ? "Project lifetime" : "-")}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Negotiation Mode</span>
+                        <span className="text-xs font-semibold text-white/90">{NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || "-"}</span>
+                      </div>
+                      {script?.rightsLicensing?.customConditions && (
+                        <div className="col-span-full">
+                          <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Custom Conditions</span>
+                          <span className="text-xs whitespace-pre-wrap text-white/90">{script.rightsLicensing.customConditions}</span>
+                        </div>
+                      )}
+                      <div className="col-span-full">
+                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Terms Version</span>
+                        <span className="text-xs text-white/80">{script?.rightsLicensing?.termsVersion || script?.legal?.termsVersion || "-"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Project Overview and rest below */}
                   <div className={`rounded-2xl border p-5 sm:p-6 ${t.card}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-3 ${t.label}`}>Project Overview</p>
                     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1317,6 +1393,23 @@ const ScriptDetail = () => {
                           </div>
                         </button>
                       )
+                    )}
+
+                    {canViewWriterCustomConditions && (
+                      <div className={`w-full px-3 py-3 rounded-xl border ${t.inset}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 ${t.label}`}>
+                          Writer Custom Conditions
+                        </p>
+                        {hasWriterCustomConditions ? (
+                          <p className={`text-[12px] leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto sidebar-scroll pr-1 ${t.sub}`}>
+                            {writerCustomConditions}
+                          </p>
+                        ) : (
+                          <p className={`text-[12px] ${t.muted}`}>
+                            Writer has not added custom conditions for film industry professionals.
+                          </p>
+                        )}
+                      </div>
                     )}
 
                     {/* Already Purchased Badge + Message Writer CTA */}
@@ -2327,6 +2420,22 @@ const ScriptDetail = () => {
               <p className={`text-2xl font-bold mt-1 ${t.title}`}>{script.price > 0 ? `₹${getBuyerCheckoutTotal(script.price).toLocaleString("en-IN")}` : "Free"}</p>
               {script.price > 0 && <p className={`text-xs ${t.muted} mt-0.5`}>Includes 5% platform commission • Request first • Pay after writer approval • Access unlocks immediately after successful payment.</p>}
             </div>
+            {canViewWriterCustomConditions && (
+              <div className={`rounded-xl border px-4 py-3 mb-4 ${t.inset}`}>
+                <p className={`text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 ${t.label}`}>
+                  Writer Custom Conditions
+                </p>
+                {hasWriterCustomConditions ? (
+                  <p className={`text-xs leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto sidebar-scroll pr-1 ${t.sub}`}>
+                    {writerCustomConditions}
+                  </p>
+                ) : (
+                  <p className={`text-xs ${t.muted}`}>
+                    Writer has not added custom conditions for film industry professionals.
+                  </p>
+                )}
+              </div>
+            )}
             <button
               onClick={handleRequestPurchase}
               disabled={requestLoading}

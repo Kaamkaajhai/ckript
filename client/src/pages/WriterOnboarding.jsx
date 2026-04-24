@@ -711,6 +711,16 @@ const WriterOnboarding = () => {
         email: sanitizedEmail,
         password: accountData.password,
         role: "creator",
+        dateOfBirth: accountData.dateOfBirth,
+        phone: accountData.phone,
+        address: {
+          street,
+          city,
+          state,
+          zipCode,
+          country,
+          formatted: formattedAddress,
+        },
         referralCode: normalizedReferralCode,
       };
 
