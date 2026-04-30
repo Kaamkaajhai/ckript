@@ -83,11 +83,7 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-brand-logo {
-  filter:
-    brightness(0) saturate(100%)
-    invert(78%) sepia(20%) saturate(721%) hue-rotate(354deg)
-    brightness(92%) contrast(88%)
-    drop-shadow(0 10px 28px rgba(147, 197, 253, 0.18)) !important;
+  filter: drop-shadow(0 4px 12px rgba(147, 197, 253, 0.12)) !important;
 }
 
 .luxury-homepage .luxury-nav-link,
@@ -790,9 +786,7 @@ body.luxury-homepage-body #root {
   .luxury-homepage .luxury-feature-tab[data-active="true"] {
     transform: translateY(-2px);
   }
-}
 
-@media (max-width: 767px) {
   .luxury-homepage .luxury-hero {
     min-height: auto;
     padding-top: 7.5rem;
@@ -802,7 +796,7 @@ body.luxury-homepage-body #root {
   .luxury-homepage .luxury-hero-layout {
     grid-template-columns: 1fr;
     min-height: auto;
-    gap: 2.5rem;
+    gap: 3rem;
   }
 
   .luxury-homepage .luxury-hero-copy {
@@ -810,13 +804,19 @@ body.luxury-homepage-body #root {
   }
 
   .luxury-homepage .luxury-hero-title {
-    max-width: 8ch;
+    max-width: 100%;
   }
 
   .luxury-homepage .luxury-hero-subtitle {
     max-width: 100%;
   }
 
+  .luxury-homepage .luxury-hero-visual {
+    min-height: 28rem;
+  }
+}
+
+@media (max-width: 767px) {
   .luxury-homepage .luxury-hero-visual {
     min-height: 20rem;
   }
@@ -837,16 +837,5 @@ body.luxury-homepage-body #root {
   .luxury-homepage .luxury-form-surface,
   .luxury-homepage .luxury-surface-card {
     border-radius: 10px !important;
-  }
-}
-
-@media (max-width: 1120px) {
-  .luxury-homepage .luxury-hero-layout {
-    grid-template-columns: minmax(0, 28rem) minmax(22rem, 1fr);
-    gap: 2rem;
-  }
-
-  .luxury-homepage .luxury-hero-visual {
-    min-height: 28rem;
   }
 }
