@@ -168,8 +168,8 @@ const PublicProfile = () => {
               </Link>
             </div>
 
-            <div className="mt-5 space-y-3">
-              <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+            <div className={`mt-5 rounded-3xl border p-6 sm:p-8 space-y-6 divide-y ${dark ? "bg-[#0d1520] border-[#1a3050] divide-white/[0.06]" : "bg-white border-gray-200 shadow-sm divide-gray-100"}`}>
+              <div className="pt-6 first:pt-0">
                 <div className="flex items-center gap-3 mb-3">
                   <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -184,7 +184,7 @@ const PublicProfile = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                <div className="pt-6 first:pt-0">
                   <div className="flex items-center gap-3 mb-3">
                     <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -198,7 +198,7 @@ const PublicProfile = () => {
                   </span>
                 </div>
 
-                <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                <div className="pt-6 first:pt-0">
                   <div className="flex items-center gap-3 mb-3">
                     <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -216,7 +216,7 @@ const PublicProfile = () => {
               </div>
 
               {Array.isArray(profile.skills) && profile.skills.length > 0 && (
-                <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                <div className="pt-6 first:pt-0">
                   <div className="flex items-center gap-3 mb-3">
                     <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -240,7 +240,7 @@ const PublicProfile = () => {
 
               {writerProfilePublic && profile.writerProfile && (
                 <>
-                  <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <div className="pt-6 first:pt-0">
                     <div className="flex items-center gap-3 mb-3">
                       <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -279,7 +279,7 @@ const PublicProfile = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                    <div className="pt-6 first:pt-0">
                       <h3 className={`text-[18px] font-extrabold mb-3 ${dark ? "text-white" : "text-gray-900"}`}>Genres</h3>
                       {Array.isArray(profile.writerProfile.genres) && profile.writerProfile.genres.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
@@ -292,7 +292,7 @@ const PublicProfile = () => {
                       )}
                     </div>
 
-                    <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                    <div className="pt-6 first:pt-0">
                       <h3 className={`text-[18px] font-extrabold mb-3 ${dark ? "text-white" : "text-gray-900"}`}>Specialized Tags</h3>
                       {Array.isArray(profile.writerProfile.specializedTags) && profile.writerProfile.specializedTags.length > 0 ? (
                         <div className="flex flex-wrap gap-2">
@@ -307,7 +307,7 @@ const PublicProfile = () => {
                   </div>
 
                   {writerPublicLinks.length > 0 && (
-                    <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                    <div className="pt-6 first:pt-0">
                       <h3 className={`text-[18px] font-extrabold mb-3 ${dark ? "text-white" : "text-gray-900"}`}>Public Links</h3>
                       <div className="flex flex-wrap gap-2">
                         {writerPublicLinks.map((item) => (
@@ -329,7 +329,7 @@ const PublicProfile = () => {
 
               {String(profile.role || "").toLowerCase() === "investor" && (
                 <>
-                  <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <div className="pt-6 first:pt-0">
                     <div className="flex items-center gap-3 mb-3">
                       <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -363,7 +363,7 @@ const PublicProfile = () => {
                     </div>
                   </div>
 
-                  <div className={`rounded-3xl border p-5 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <div className="pt-6 first:pt-0">
                     <div className="flex items-center gap-3 mb-3">
                       <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
