@@ -194,7 +194,7 @@ const AdminScriptView = () => {
   const coverImageUrl = resolveMediaUrl(script?.coverImage || "");
   const trailerThumbnailUrl = resolveMediaUrl(script?.trailerThumbnail || "");
   const trailerVideoUrl = resolveMediaUrl(script?.uploadedTrailerUrl || script?.trailerUrl || "");
-  const accessMode = script?.premium && Number(script?.price || 0) > 0 ? "Premium Access" : "Free Public Access";
+  const accessMode = "Premium Access";
   const optionalServices = [
     {
       key: "hosting",

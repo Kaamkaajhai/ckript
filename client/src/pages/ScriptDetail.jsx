@@ -1463,12 +1463,12 @@ const ScriptDetail = () => {
                             >
                               {pendingRequestBaseAmount > 0
                                 ? `Pay & Get Full Script — ₹${pendingRequestCheckoutTotal.toLocaleString("en-IN")}`
-                                : "Confirm Free Access"}
+                                : "Confirm Access"}
                             </button>
                             <p className="text-[11px] text-amber-700/90 text-center">
                               {pendingRequestBaseAmount > 0
                                 ? "Includes 5% platform commission • Payment window: 72 hours after approval."
-                                : "Approval granted. Confirm Free Access to unlock full script."}
+                                : "Approval granted. Confirm Access to unlock full script."}
                             </p>
                           </div>
                         ) : (
@@ -2372,7 +2372,7 @@ const ScriptDetail = () => {
                                       </svg>
                                       {Number(myPendingRequest?.amount || script.price || 0) > 0
                                         ? "Approved — Complete Payment to Unlock"
-                                        : "Approved — Confirm Free Access to Unlock"}
+                                        : "Approved — Confirm Access to Unlock"}
                                     </div>
                                     <button
                                       onClick={() => navigate(`/script/${script._id}/pay`)}
@@ -2380,12 +2380,12 @@ const ScriptDetail = () => {
                                     >
                                       {pendingRequestBaseAmount > 0
                                         ? `Pay Now — ₹${pendingRequestCheckoutTotal.toLocaleString("en-IN")}`
-                                        : "Confirm Free Access"}
+                                        : "Confirm Access"}
                                     </button>
                                     <p className={`text-xs ${t.muted}`}>
                                       {pendingRequestBaseAmount > 0
                                         ? "Includes 5% platform commission • Payment window: 72 hours after approval."
-                                        : "Approval granted. Confirm Free Access to unlock instantly."}
+                                        : "Approval granted. Confirm Access to unlock instantly."}
                                     </p>
                                   </div>
                                 ) : (
@@ -2456,7 +2456,7 @@ const ScriptDetail = () => {
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-sm font-semibold truncate ${t.title}`}>{pr.investor?.name}</p>
                                   <p className={`text-xs ${t.muted}`}>
-                                    {pr.amount > 0 ? `₹${pr.amount} offered` : "Free access request"}
+                                    {`₹${pr.amount} offered`}
                                     {" · "}
                                     {new Date(pr.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                                   </p>

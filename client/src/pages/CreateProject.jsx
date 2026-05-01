@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useContext, useRef } from "react";
+import { useState, useEffect, useCallback, useContext, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -884,7 +884,7 @@ const CreateProject = () => {
 
   // Step 4: Script pricing
   const BUYER_COMMISSION_RATE = 0.05; // 5%
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(true);
   const [scriptPrice, setScriptPrice] = useState(10);
   const effectivePrice = isPremium ? Number(scriptPrice) || 0 : 0;
   const buyerCommissionAmount = Math.round(effectivePrice * BUYER_COMMISSION_RATE * 100) / 100;
@@ -1517,15 +1517,15 @@ const CreateProject = () => {
   const publishSummaryRows = [
     {
       item: "Script Access Fee",
-      detail: isPremium ? "Premium reader purchase model" : "Public free access model",
+      detail: "Premium reader purchase model",
       type: "Revenue Setting",
-      amount: isPremium ? formatCurrency(effectivePrice) : "Free",
+      amount: formatCurrency(effectivePrice),
     },
     {
       item: `Platform Commission (${Math.round(BUYER_COMMISSION_RATE * 100)}%)`,
-      detail: isPremium ? "Added on top of the script access fee at checkout" : "No commission on free access",
+      detail: "Added on top of the script access fee at checkout",
       type: "Platform Commission",
-      amount: isPremium ? formatCurrency(buyerCommissionAmount) : formatCurrency(0),
+      amount: formatCurrency(buyerCommissionAmount),
     },
     {
       item: "Optional Services",
@@ -1537,15 +1537,15 @@ const CreateProject = () => {
     },
     {
       item: "Film Industry Professional Pays at Checkout",
-      detail: isPremium ? "Script fee + platform commission" : "Not applicable for free access",
+      detail: "Script fee + platform commission",
       type: "Checkout Total",
-      amount: isPremium ? formatCurrency(buyerTotalPayable) : formatCurrency(0),
+      amount: formatCurrency(buyerTotalPayable),
     },
     {
       item: "Projected Writer Payout",
-      detail: isPremium ? "Writer receives full script access fee" : "No payout on free access",
+      detail: "Writer receives full script access fee",
       type: "Future Earnings",
-      amount: isPremium ? formatCurrency(writerPayout) : formatCurrency(0),
+      amount: formatCurrency(writerPayout),
     },
   ];
 
@@ -2894,70 +2894,26 @@ const CreateProject = () => {
                   <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 space-y-4 min-[420px]:space-y-5 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
                     <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
                       <div>
-                        <h3 className={`text-[15px] min-[420px]:text-base font-bold mt-0.5 ${dark ? "text-white" : "text-gray-900"}`}>Access & Monetization</h3>
-                        <p className={`text-[11px] min-[420px]:text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>Choose Free Access for public reading, or switch to Premium Access to unlock pricing and rights-based selling.</p>
+                        <h3 className={`text-[15px] min-[420px]:text-base font-bold mt-0.5 ${dark ? "text-white" : "text-gray-900"}`}>Monetization</h3>
+                        <p className={`text-[11px] min-[420px]:text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>Set your pricing and rights-based selling terms.</p>
                       </div>
-                      <div className={`w-full min-[460px]:w-auto px-3 py-2 rounded-xl text-left min-[460px]:text-right ${dark ? "bg-white/[0.04] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-[10px] font-semibold uppercase tracking-wide ${dark ? "text-gray-500" : "text-gray-400"}`}>Selected Access</p>
-                        <p className={`text-sm font-bold mt-1 ${isPremium ? dark ? "text-emerald-300" : "text-emerald-700" : dark ? "text-blue-300" : "text-blue-700"}`}>{isPremium ? "Premium Access" : "Free Public Access"}</p>
-                      </div>
+                      
                     </div>
 
-                    <div className={`grid grid-cols-1 min-[446px]:grid-cols-2 gap-2.5 min-[420px]:gap-3 p-1.5 rounded-2xl ${dark ? "bg-white/[0.04]" : "bg-white border border-gray-200"}`}>
-                      <button type="button" onClick={() => setIsPremium(false)}
-                        className={`text-left rounded-xl px-3.5 min-[420px]:px-4 py-3.5 min-[420px]:py-4 border transition-all ${!isPremium
-                          ? dark ? "bg-[#122338] border-[#24456b] text-white shadow-lg shadow-black/20" : "bg-[#1e3a5f] border-[#1e3a5f] text-white shadow-sm"
-                          : dark ? "border-transparent text-gray-400 hover:bg-white/[0.04]" : "border-transparent text-gray-600 hover:bg-gray-50"
-                        }`}>
-                        <div className="flex items-center gap-2 min-[420px]:gap-2.5">
-                          <div className={`w-8 h-8 min-[420px]:w-9 min-[420px]:h-9 rounded-xl flex items-center justify-center ${!isPremium ? "bg-white/15" : dark ? "bg-white/[0.06]" : "bg-blue-50"}`}>
-                            <svg className="w-3.5 h-3.5 min-[420px]:w-4 min-[420px]:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                          </div>
-                          <div>
-                            <p className="text-[15px] min-[420px]:text-sm font-bold">Free Access</p>
-                            <p className={`text-[10px] min-[420px]:text-[11px] leading-snug ${!isPremium ? "text-white/80" : dark ? "text-gray-500" : "text-gray-500"}`}>Fully readable for all users</p>
-                          </div>
-                        </div>
-                      </button>
+                    
 
-                      <button type="button" onClick={() => setIsPremium(true)}
-                        className={`text-left rounded-xl px-3.5 min-[420px]:px-4 py-3.5 min-[420px]:py-4 border transition-all ${isPremium
-                          ? dark ? "bg-emerald-600/15 border-emerald-500/40 text-white shadow-lg shadow-black/20" : "bg-emerald-600 border-emerald-600 text-white shadow-sm"
-                          : dark ? "border-transparent text-gray-400 hover:bg-white/[0.04]" : "border-transparent text-gray-600 hover:bg-gray-50"
-                        }`}>
-                        <div className="flex items-center gap-2 min-[420px]:gap-2.5">
-                          <div className={`w-8 h-8 min-[420px]:w-9 min-[420px]:h-9 rounded-xl flex items-center justify-center ${isPremium ? "bg-white/15" : dark ? "bg-white/[0.06]" : "bg-emerald-50"}`}>
-                            <svg className="w-3.5 h-3.5 min-[420px]:w-4 min-[420px]:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                          </div>
-                          <div>
-                            <p className="text-[15px] min-[420px]:text-sm font-bold">Premium Access</p>
-                            <p className={`text-[10px] min-[420px]:text-[11px] leading-snug ${isPremium ? "text-white/80" : dark ? "text-gray-500" : "text-gray-500"}`}>Turn on pricing and rights setup</p>
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-
-                    <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${isPremium ? dark ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-emerald-50 border border-emerald-100" : dark ? "bg-amber-500/8 border border-amber-400/20" : "bg-amber-50 border border-amber-100"}`}>
-                      <svg className={`w-4 h-4 mt-0.5 shrink-0 ${isPremium ? dark ? "text-emerald-300" : "text-emerald-600" : dark ? "text-amber-300" : "text-amber-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                    <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${dark ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-emerald-50 border border-emerald-100"}`}>
+                      <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? "text-emerald-300" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                       <div>
-                        <p className={`text-sm font-semibold ${dark ? "text-white" : "text-gray-900"}`}>{isPremium ? "Premium is active" : "Want to sell this script?"}</p>
-                        <p className={`text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{isPremium ? "Set your asking price below, then review the rights terms before publishing." : "Switch to Premium Access to add a paid price and define the rights you want to offer buyers."}</p>
+                        <p className={`text-sm font-semibold ${dark ? "text-white" : "text-gray-900"}`}>Monetization is active</p>
+                        <p className={`text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>Set your asking amount below, then review the rights terms before publishing.</p>
                       </div>
                     </div>
 
-                    {!isPremium ? (
-                      <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${dark ? "bg-blue-500/8 border border-blue-500/15" : "bg-blue-50 border border-blue-100"}`}>
-                        <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? "text-blue-300" : "text-blue-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-                        <div>
-                          <p className={`text-sm font-semibold ${dark ? "text-white" : "text-gray-900"}`}>Public discovery mode</p>
-                          <p className={`text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>Your full script is readable to all users. No paid access or buyer-rights pricing is applied in this mode.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
+                    <div className="space-y-4">
                         <div>
                           <div className={`rounded-xl p-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                            <label className={`block text-[11px] font-bold uppercase tracking-[0.14em] mb-2 ${dark ? "text-gray-500" : "text-gray-400"}`}>Set Price</label>
+                            <label className={`block text-[11px] font-bold uppercase tracking-[0.14em] mb-2 ${dark ? "text-gray-500" : "text-gray-400"}`}>Set Amount</label>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                               <div className="relative w-full sm:w-40">
                                 <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold ${dark ? "text-gray-400" : "text-gray-500"}`}>₹</span>
@@ -2972,12 +2928,7 @@ const CreateProject = () => {
                                   className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${dark ? "bg-white/[0.04] border-emerald-500/50 text-white focus:border-emerald-500" : "bg-white border-emerald-300 text-gray-900 focus:border-emerald-500"}`}
                                 />
                               </div>
-                              <p className={`text-[12px] ${dark ? "text-gray-500" : "text-gray-500"}`}>Set your asking price here. Buyers can review your rights terms below before moving ahead.</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                              <p className={`text-[12px] ${dark ? "text-gray-500" : "text-gray-500"}`}>Set your asking amount here. Buyers can review your rights terms below before moving ahead.</p></div></div></div></div>
 
                     <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
                       <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zm9-3.758a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -3030,10 +2981,23 @@ const CreateProject = () => {
                                     {service.locked && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{service.key === "hosting" ? "Included" : "Already Bought"}</span>}
                                   </div>
                                 </div>
-                                <div className="hidden min-[416px]:block text-right shrink-0">
+                                <div className="hidden min-[416px]:flex flex-col items-end justify-start gap-1.5 shrink-0">
                                   <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>{service.price}</p>
                                   {!service.locked && (
-                                    <p className={`text-[11px] mt-1 ${services[service.key] ? dark ? "text-emerald-300" : "text-emerald-700" : dark ? "text-gray-500" : "text-gray-500"}`}>{services[service.key] ? "Selected" : "Optional"}</p>
+                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
+                                      services[service.key] 
+                                        ? dark ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
+                                        : dark ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
+                                    }`}>
+                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
+                                        services[service.key]
+                                          ? dark ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
+                                          : dark ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
+                                      }`}>
+                                        {services[service.key] && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                      </div>
+                                      <p className="text-[10px] font-bold uppercase tracking-wider">{services[service.key] ? "Selected" : "Select"}</p>
+                                    </div>
                                   )}
                                   {service.locked && service.key !== "hosting" && (
                                     <p className={`text-[11px] mt-1 ${dark ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
@@ -3042,14 +3006,27 @@ const CreateProject = () => {
                               </div>
                               <p className={`text-[12px] mt-1.5 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{service.desc}</p>
                               <div className="mt-2 min-[416px]:hidden flex items-center justify-between gap-2">
-                                <p className={`text-[13px] font-bold ${dark ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                {!service.locked && (
-                                  <p className={`text-[11px] ${services[service.key] ? dark ? "text-emerald-300" : "text-emerald-700" : dark ? "text-gray-500" : "text-gray-500"}`}>{services[service.key] ? "Selected" : "Optional"}</p>
-                                )}
+                                  <p className={`text-[13px] font-bold ${dark ? "text-white" : "text-gray-900"}`}>{service.price}</p>
+                                  {!service.locked && (
+                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
+                                      services[service.key] 
+                                        ? dark ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
+                                        : dark ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
+                                    }`}>
+                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
+                                        services[service.key]
+                                          ? dark ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
+                                          : dark ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
+                                      }`}>
+                                        {services[service.key] && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                      </div>
+                                      <p className="text-[10px] font-bold uppercase tracking-wider">{services[service.key] ? "Selected" : "Select"}</p>
+                                    </div>
+                                  )}
                                   {service.locked && service.key !== "hosting" && (
                                     <p className={`text-[11px] ${dark ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
                                   )}
-                              </div>
+                                </div>
                             </div>
                           </div>
                         </button>
