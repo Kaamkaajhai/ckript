@@ -18,9 +18,9 @@ import { getProfileCanonicalPath } from "../utils/profilePath";
 
 /* â”€â”€ Helper components â”€â”€ */
 
-const SectionCard = ({ title, icon, badge, dark, children }) => (
+const SectionCard = ({ title, icon, badge, dark, noBox, children }) => (
   <div
-    className={`rounded-2xl p-4 sm:p-6 border transition-colors ${dark
+    className={noBox ? "" : `rounded-2xl p-4 sm:p-6 border transition-colors ${dark
       ? "bg-[#0d1520] border-white/[0.06]"
       : "bg-white border-gray-200/70 shadow-sm"
       }`}
@@ -102,8 +102,6 @@ const normalizePublicShareUrl = (rawUrl = "", fallbackUrl = "") => {
     .replace(/\/profile\/([^/?#]+)/i, "/share/profile/$1")
     .replace(/\/script\/([^/?#]+)/i, "/share/project/$1");
 };
-
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 /* â”€â”€ DeleteProjectButton â”€â”€ */
 const DeleteProjectButton = ({ dark, onConfirm, title }) => {
@@ -1230,7 +1228,7 @@ const Profile = () => {
         >
           {scripts.length === 0 ? (
             <div
-              className={`rounded-2xl border py-20 text-center transition-colors ${t.card}`}
+              className={`py-20 text-center transition-colors`}
             >
               <div
                 className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}
@@ -1290,7 +1288,7 @@ const Profile = () => {
           transition={{ duration: 0.2 }}
         >
           {bookmarkedScripts.length === 0 ? (
-            <div className={`rounded-2xl border py-20 text-center transition-colors ${t.card}`}>
+            <div className={`py-20 text-center transition-colors`}>
               <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
                 <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h13.5a.75.75 0 01.75.75v15.69a.75.75 0 01-1.219.594L12 16.34l-6.281 5.194a.75.75 0 01-1.219-.594V5.25a.75.75 0 01.75-.75z" />
@@ -1323,42 +1321,46 @@ const Profile = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="space-y-3"
+          className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}
         >
           {/* Bio */}
-          <SectionCard
-            dark={dark}
-            title="About"
-            icon={
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                />
-              </svg>
-            }
-          >
-            <p className={`text-[14px] leading-relaxed ${t.aboutText}`}>
-              {profile.bio || (
-                <span className={`italic ${t.aboutEmpty}`}>
-                  No bio added yet.
-                </span>
-              )}
-            </p>
-          </SectionCard>
+          <div className="pb-6 first:pt-0 last:pb-0">
+            <SectionCard
+              dark={dark}
+              title="About"
+              noBox
+              icon={
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                  />
+                </svg>
+              }
+            >
+              <p className={`text-[14px] leading-relaxed mt-2 ${t.aboutText}`}>
+                {profile.bio || (
+                  <span className={`italic ${t.aboutEmpty}`}>
+                    No bio added yet.
+                  </span>
+                )}
+              </p>
+            </SectionCard>
+          </div>
 
           {/* Role + Contact */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="py-6 first:pt-0 last:pb-0 grid grid-cols-1 sm:grid-cols-2 gap-6">
             <SectionCard
               dark={dark}
               title="Role"
+              noBox
               icon={
                 <svg
                   className="w-4 h-4"
@@ -1375,16 +1377,19 @@ const Profile = () => {
                 </svg>
               }
             >
-              <span
-                className={`inline-flex px-3 py-1.5 rounded-lg text-[13px] font-bold border ${t.roleTag}`}
-              >
-                {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
-              </span>
+              <div className="mt-2">
+                <span
+                  className={`inline-flex px-3 py-1.5 rounded-lg text-[13px] font-bold border ${t.roleTag}`}
+                >
+                  {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
+                </span>
+              </div>
             </SectionCard>
 
             <SectionCard
               dark={dark}
               title={isOwnProfile ? "Contact" : "Member Info"}
+              noBox
               icon={
                 <svg
                   className="w-4 h-4"
@@ -1401,71 +1406,76 @@ const Profile = () => {
                 </svg>
               }
             >
-              {isOwnProfile && (
-                <p className={`text-[13px] font-medium ${t.contactTxt}`}>
-                  {profile.email}
-                </p>
-              )}
-              {memberSince && (
-                <p
-                  className={`text-[12px] font-medium ${t.contactSub} ${isOwnProfile ? "mt-1.5" : ""
-                    }`}
-                >
-                  Member since {memberSince}
-                </p>
-              )}
+              <div className="mt-2 space-y-1.5">
+                {isOwnProfile && (
+                  <p className={`text-[13px] font-medium ${t.contactTxt}`}>
+                    {profile.email}
+                  </p>
+                )}
+                {memberSince && (
+                  <p
+                    className={`text-[12px] font-medium ${t.contactSub}`}
+                  >
+                    Member since {memberSince}
+                  </p>
+                )}
+              </div>
             </SectionCard>
           </div>
 
           {/* Skills */}
-          {profile.skills?.length > 0 && (
-            <SectionCard
-              dark={dark}
-              title="Skills & Expertise"
-              icon={
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
-                  />
-                </svg>
-              }
-            >
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill, i) => (
-                  <span
-                    key={i}
-                    className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.chip}`}
+          {profile.skills?.length > 0 && !isWriter(profile.role) && (
+            <div className="py-6 first:pt-0 last:pb-0">
+              <SectionCard
+                dark={dark}
+                title="Skills & Expertise"
+                noBox
+                icon={
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
                   >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </SectionCard>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"
+                    />
+                  </svg>
+                }
+              >
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {profile.skills.map((skill, i) => (
+                    <span
+                      key={i}
+                      className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.chip}`}
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </SectionCard>
+            </div>
           )}
 
-          {/* â”€â”€â”€â”€â”€â”€â”€â”€ INVESTOR-SPECIFIC SECTIONS â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* INVESTOR-SPECIFIC SECTIONS */}
           {profile.role === "investor" && (
             <>
               {/* Professional Info */}
-              <div className="grid grid-cols-1 gap-3">
+              <div className="py-6 first:pt-0 last:pb-0">
                 <SectionCard
                   dark={dark}
                   title="Professional Info"
+                  noBox
                   icon={
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
                     </svg>
                   }
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-3 mt-2">
                     <InfoRow dark={dark} label="Company" value={profile.industryProfile?.company || <span className={`italic ${dark ? "text-white/20" : "text-gray-300"}`}>Not set</span>} />
                     <InfoRow dark={dark} label="Job Title" value={profile.industryProfile?.jobTitle || <span className={`italic ${dark ? "text-white/20" : "text-gray-300"}`}>Not set</span>} />
                     <InfoRow
@@ -1479,221 +1489,238 @@ const Profile = () => {
                 </SectionCard>
               </div>
 
-              {/* Investment Mandates â€” full width */}
-              <SectionCard
-                dark={dark}
-                title="Investment Mandates"
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-                  </svg>
-                }
-              >
-                <div className="space-y-4">
-                  {/* Genres */}
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Preferred Genres</p>
-                    {profile.industryProfile?.mandates?.genres?.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {profile.industryProfile.mandates.genres.map((g, i) => (
-                          <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{g}</span>
+              {/* Investment Mandates — full width */}
+              <div className="py-6 first:pt-0 last:pb-0">
+                <SectionCard
+                  dark={dark}
+                  title="Investment Mandates"
+                  noBox
+                  icon={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                    </svg>
+                  }
+                >
+                  <div className="space-y-4 mt-2">
+                    {/* Genres */}
+                    <div>
+                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Preferred Genres</p>
+                      {profile.industryProfile?.mandates?.genres?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.industryProfile.mandates.genres.map((g, i) => (
+                            <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{g}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No genres selected</p>
+                      )}
+                    </div>
+                    {/* Formats */}
+                    <div>
+                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Formats</p>
+                      {profile.industryProfile?.mandates?.formats?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.industryProfile.mandates.formats.map((f, i) => (
+                            <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" : "bg-cyan-50 text-cyan-700 border-cyan-200"}`}>{f}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No formats selected</p>
+                      )}
+                    </div>
+                    {/* Budget Tiers */}
+                    <div>
+                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Budget Tiers</p>
+                      {profile.industryProfile?.mandates?.budgetTiers?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.industryProfile.mandates.budgetTiers.map((b, i) => (
+                            <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border capitalize ${dark ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{b}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No budget tiers selected</p>
+                      )}
+                    </div>
+                    {/* Hooks */}
+                    <div>
+                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Looking For</p>
+                      {profile.industryProfile?.mandates?.specificHooks?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.industryProfile.mandates.specificHooks.map((h, i) => (
+                            <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-purple-50 text-purple-700 border-purple-200"}`}>{h}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No hooks specified</p>
+                      )}
+                    </div>
+                    {/* Excluded */}
+                    {profile.industryProfile?.mandates?.excludeGenres?.length > 0 && (
+                      <div>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Excluded Genres</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {profile.industryProfile.mandates.excludeGenres.map((g, i) => (
+                            <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-red-50 text-red-600 border-red-200"}`}>{g}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </SectionCard>
+              </div>
+            </>
+          )}
+
+          {/* Writer-specific sections */}
+          {isWriter(profile.role) && profile.writerProfile && (
+            <>
+              {/* Writer Info + WGA Status */}
+              <div className="py-6 first:pt-0 last:pb-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Writer Info Card */}
+                <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+                  <SectionCard
+                    dark={dark}
+                    title="Writer Profile"
+                    noBox
+                    badge={profile.writerProfile.plan === "paid" ? <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${dark ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-amber-50 border-amber-200 text-amber-700"}`}>PRO</span> : null}
+                    icon={
+                      <svg className={`w-4 h-4`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                      </svg>
+                    }
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                      <div className={`rounded-xl p-4 ${t.subtleBg}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-white/25" : "text-gray-400"}`}>Representation</p>
+                        <p className={`text-[14px] font-bold capitalize ${dark ? "text-white/80" : "text-gray-800"}`}>
+                          {(profile.writerProfile.representationStatus || "unrepresented").replace(/_/g, " & ")}
+                        </p>
+                        {profile.writerProfile.agencyName && (
+                          <p className={`text-[12px] mt-1 ${dark ? "text-white/40" : "text-gray-500"}`}>{profile.writerProfile.agencyName}</p>
+                        )}
+                      </div>
+                      {profile.writerProfile.legalName && (
+                        <div className={`rounded-xl p-4 ${t.subtleBg}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-white/25" : "text-gray-400"}`}>Legal Name</p>
+                          <p className={`text-[14px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>{profile.writerProfile.legalName}</p>
+                        </div>
+                      )}
+                      {memberSince && (
+                        <div className={`rounded-xl p-4 ${t.subtleBg}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-white/25" : "text-gray-400"}`}>Career Since</p>
+                          <p className={`text-[14px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>{memberSince}</p>
+                        </div>
+                      )}
+                    </div>
+                  </SectionCard>
+                </div>
+
+                {/* WGA Status Card */}
+                <div className="col-span-1">
+                  <SectionCard
+                    dark={dark}
+                    title="Guild Memberships"
+                    noBox
+                    icon={
+                      <svg className={`w-4 h-4`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                      </svg>
+                    }
+                  >
+                    <div className="mt-2 space-y-2">
+                      <div className={`px-3 py-2 rounded-lg text-[12px] font-bold border flex items-center justify-between ${profile.writerProfile.wgaMember ? t.wgaYes : t.wgaNo}`}>
+                        <span>WGA</span>
+                        <span>{profile.writerProfile.wgaMember ? "Verified" : "None"}</span>
+                      </div>
+                      <div className={`px-3 py-2 rounded-lg text-[12px] font-bold border flex items-center justify-between ${profile.writerProfile.sgaMember ? t.wgaYes : t.wgaNo}`}>
+                        <span>SWA</span>
+                        <span>{profile.writerProfile.sgaMember ? "Verified" : "None"}</span>
+                      </div>
+                    </div>
+                  </SectionCard>
+                </div>
+              </div>
+
+              {/* Genres + Specialized Tags */}
+              <div className="py-6 first:pt-0 last:pb-0 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Genres */}
+                <SectionCard
+                  dark={dark}
+                  title="Genres"
+                  noBox
+                  badge={<span className={`text-[11px] font-semibold tabular-nums ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.writerProfile.genres?.length || 0}</span>}
+                  icon={
+                    <svg className={`w-4 h-4`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125" />
+                    </svg>
+                  }
+                >
+                  <div className="mt-2">
+                    {profile.writerProfile.genres?.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {profile.writerProfile.genres.map((genre, i) => (
+                          <span key={i} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.genreChip}`}>
+                            {genre}
+                          </span>
                         ))}
                       </div>
                     ) : (
                       <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No genres selected</p>
                     )}
                   </div>
-                  {/* Formats */}
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Formats</p>
-                    {profile.industryProfile?.mandates?.formats?.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {profile.industryProfile.mandates.formats.map((f, i) => (
-                          <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" : "bg-cyan-50 text-cyan-700 border-cyan-200"}`}>{f}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No formats selected</p>
-                    )}
-                  </div>
-                  {/* Budget Tiers */}
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Budget Tiers</p>
-                    {profile.industryProfile?.mandates?.budgetTiers?.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {profile.industryProfile.mandates.budgetTiers.map((b, i) => (
-                          <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border capitalize ${dark ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{b}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No budget tiers selected</p>
-                    )}
-                  </div>
-                  {/* Hooks */}
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Looking For</p>
-                    {profile.industryProfile?.mandates?.specificHooks?.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {profile.industryProfile.mandates.specificHooks.map((h, i) => (
-                          <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-purple-500/10 text-purple-400 border-purple-500/20" : "bg-purple-50 text-purple-700 border-purple-200"}`}>{h}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No hooks specified</p>
-                    )}
-                  </div>
-                  {/* Excluded */}
-                  {profile.industryProfile?.mandates?.excludeGenres?.length > 0 && (
-                    <div>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Excluded Genres</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {profile.industryProfile.mandates.excludeGenres.map((g, i) => (
-                          <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dark ? "bg-red-500/10 text-red-400 border-red-500/20" : "bg-red-50 text-red-600 border-red-200"}`}>{g}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </SectionCard>
-            </>
-          )}
-
-          {/* Writer-specific sections */}
-          {/* Writer-specific sections — Bento Grid */}
-          {isWriter(profile.role) && profile.writerProfile && (
-            <>
-              {/* Bento Grid Row 1: Writer Info + WGA Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {/* Writer Info Card */}
-                <div className={`profile-bento-card rounded-2xl p-6 border col-span-1 sm:col-span-1 lg:col-span-2 ${t.bentoCard}`}>
-                  <div className="flex items-center gap-2.5 mb-4">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${dark ? "bg-[#1e3a5f]/30" : "bg-[#1e3a5f]/[0.06]"}`}>
-                      <svg className={`w-4.5 h-4.5 ${dark ? "text-[#7aafff]" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                      </svg>
-                    </div>
-                    <h3 className={`text-[14px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>Writer Profile</h3>
-                    {profile.writerProfile.plan === "paid" && (
-                      <span className={`ml-auto px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${dark ? "bg-amber-500/10 border-amber-500/20 text-amber-400" : "bg-amber-50 border-amber-200 text-amber-700"}`}>PRO</span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className={`rounded-xl p-4 ${t.subtleBg}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-white/25" : "text-gray-400"}`}>Representation</p>
-                      <p className={`text-[14px] font-bold capitalize ${dark ? "text-white/80" : "text-gray-800"}`}>
-                        {(profile.writerProfile.representationStatus || "unrepresented").replace(/_/g, " & ")}
-                      </p>
-                      {profile.writerProfile.agencyName && (
-                        <p className={`text-[12px] mt-1 ${dark ? "text-white/40" : "text-gray-500"}`}>{profile.writerProfile.agencyName}</p>
-                      )}
-                    </div>
-                    {profile.writerProfile.legalName && (
-                      <div className={`rounded-xl p-4 ${t.subtleBg}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-white/25" : "text-gray-400"}`}>Legal Name</p>
-                        <p className={`text-[14px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>{profile.writerProfile.legalName}</p>
-                      </div>
-                    )}
-                    {memberSince && (
-                      <div className={`rounded-xl p-4 ${t.subtleBg}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-white/25" : "text-gray-400"}`}>Career Since</p>
-                        <p className={`text-[14px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>{memberSince}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* WGA Status Card */}
-                <div className={`profile-bento-card rounded-2xl p-6 border flex flex-col items-center justify-center text-center ${t.bentoCard}`}>
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-3 ${(profile.writerProfile.wgaMember || profile.writerProfile.sgaMember)
-                    ? dark ? "bg-amber-500/10 border border-amber-500/20" : "bg-amber-50 border border-amber-200"
-                    : dark ? "bg-white/[0.04] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                    <svg className={`w-7 h-7 ${(profile.writerProfile.wgaMember || profile.writerProfile.sgaMember) ? dark ? "text-amber-400" : "text-amber-600" : dark ? "text-white/20" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                    </svg>
-                  </div>
-                  <p className={`text-[13px] font-bold mb-2 ${dark ? "text-white/70" : "text-gray-700"}`}>Guild Memberships</p>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    <span className={`px-3 py-1 rounded-lg text-[12px] font-bold border ${profile.writerProfile.wgaMember ? t.wgaYes : t.wgaNo}`}>
-                      WGA: {profile.writerProfile.wgaMember ? "Verified" : "Not a Member"}
-                    </span>
-                    <span className={`px-3 py-1 rounded-lg text-[12px] font-bold border ${profile.writerProfile.sgaMember ? t.wgaYes : t.wgaNo}`}>
-                      SWA: {profile.writerProfile.sgaMember ? "Verified" : "Not a Member"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bento Grid Row 2: Genres + Specialized Tags */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Genres */}
-                <div className={`profile-bento-card rounded-2xl p-6 border ${t.bentoCard}`}>
-                  <div className="flex items-center gap-2.5 mb-4">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05] text-white/40" : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/50"}`}>
-                      <svg className={`w-4 h-4 ${dark ? "text-white/40" : "text-[#1e3a5f]/50"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125" />
-                      </svg>
-                    </div>
-                    <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Genres</h3>
-                    <span className={`ml-auto text-[11px] font-semibold tabular-nums ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.writerProfile.genres?.length || 0}</span>
-                  </div>
-                  {profile.writerProfile.genres?.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {profile.writerProfile.genres.map((genre, i) => (
-                        <span key={i} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.genreChip}`}>
-                          {genre}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No genres selected</p>
-                  )}
-                </div>
+                </SectionCard>
 
                 {/* Specialized Tags */}
-                <div className={`profile-bento-card rounded-2xl p-6 border ${t.bentoCard}`}>
-                  <div className="flex items-center gap-2.5 mb-4">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05] text-white/40" : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/50"}`}>
-                      <svg className={`w-4 h-4 ${dark ? "text-white/40" : "text-[#1e3a5f]/50"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
-                      </svg>
-                    </div>
-                    <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Specialized Tags</h3>
-                    <span className={`ml-auto text-[11px] font-semibold tabular-nums ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.writerProfile.specializedTags?.length || 0}</span>
+                <SectionCard
+                  dark={dark}
+                  title="Specialized Tags"
+                  noBox
+                  badge={<span className={`text-[11px] font-semibold tabular-nums ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.writerProfile.specializedTags?.length || 0}</span>}
+                  icon={
+                    <svg className={`w-4 h-4`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+                    </svg>
+                  }
+                >
+                  <div className="mt-2">
+                    {profile.writerProfile.specializedTags?.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {profile.writerProfile.specializedTags.map((tag, i) => (
+                          <span key={i} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.chip}`}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No tags specified</p>
+                    )}
                   </div>
-                  {profile.writerProfile.specializedTags?.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {profile.writerProfile.specializedTags.map((tag, i) => (
-                        <span key={i} className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.chip}`}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No tags specified</p>
-                  )}
-                </div>
+                </SectionCard>
               </div>
 
               {/* Skills Matrix — full width */}
               {profile.skills?.length > 0 && (
-                <div className={`profile-bento-card rounded-2xl p-6 border ${t.bentoCard}`}>
-                  <div className="flex items-center gap-2.5 mb-4">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05] text-white/40" : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/50"}`}>
-                      <svg className={`w-4 h-4 ${dark ? "text-white/40" : "text-[#1e3a5f]/50"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <div className="py-6 first:pt-0 last:pb-0">
+                  <SectionCard
+                    dark={dark}
+                    title="Skills & Expertise"
+                    noBox
+                    badge={<span className={`text-[11px] font-semibold tabular-nums ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.skills.length}</span>}
+                    icon={
+                      <svg className={`w-4 h-4`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                       </svg>
+                    }
+                  >
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {profile.skills.map((skill, i) => (
+                        <div key={i} className={`rounded-lg px-4 py-3 text-center cursor-default border ${dark ? "bg-white/[0.03] border-white/[0.06]" : "bg-gray-50 border-gray-200/60"}`}>
+                          <p className={`text-[12px] font-bold ${dark ? "text-white/65" : "text-gray-700"}`}>{skill}</p>
+                        </div>
+                      ))}
                     </div>
-                    <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Skills & Expertise</h3>
-                    <span className={`ml-auto text-[11px] font-semibold tabular-nums ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.skills.length}</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {profile.skills.map((skill, i) => (
-                      <div key={i} className={`rounded-lg px-4 py-3 text-center cursor-default border ${dark ? "bg-white/[0.03] border-white/[0.06]" : "bg-gray-50 border-gray-200/60"}`}>
-                        <p className={`text-[12px] font-bold ${dark ? "text-white/65" : "text-gray-700"}`}>{skill}</p>
-                      </div>
-                    ))}
-                  </div>
+                  </SectionCard>
                 </div>
               )}
 
@@ -1701,30 +1728,33 @@ const Profile = () => {
               {isOwnProfile &&
                 (profile.writerProfile.diversity?.gender ||
                   profile.writerProfile.diversity?.ethnicity) && (
-                  <div className={`profile-bento-card rounded-2xl p-6 border relative ${t.bentoCard}`}>
-                    <div className="flex items-center gap-2.5 mb-4">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.05] text-white/40" : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/50"}`}>
-                        <svg className={`w-4 h-4 ${dark ? "text-white/40" : "text-[#1e3a5f]/50"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <div className="py-6 first:pt-0 last:pb-0">
+                    <SectionCard
+                      dark={dark}
+                      title="Diversity Information"
+                      noBox
+                      badge={<span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${dark ? "bg-white/[0.04] text-white/25 border border-white/[0.06]" : "bg-gray-100 text-gray-400 border border-gray-200"}`}>Private</span>}
+                      icon={
+                        <svg className={`w-4 h-4`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                         </svg>
+                      }
+                    >
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {profile.writerProfile.diversity.gender && (
+                          <div className={`rounded-xl p-4 ${t.subtleBg}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1 ${dark ? "text-white/25" : "text-gray-400"}`}>Gender</p>
+                            <p className={`text-[14px] font-bold capitalize ${dark ? "text-white/70" : "text-gray-700"}`}>{profile.writerProfile.diversity.gender}</p>
+                          </div>
+                        )}
+                        {profile.writerProfile.diversity.ethnicity && (
+                          <div className={`rounded-xl p-4 ${t.subtleBg}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1 ${dark ? "text-white/25" : "text-gray-400"}`}>Ethnicity</p>
+                            <p className={`text-[14px] font-bold capitalize ${dark ? "text-white/70" : "text-gray-700"}`}>{profile.writerProfile.diversity.ethnicity}</p>
+                          </div>
+                        )}
                       </div>
-                      <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Diversity Information</h3>
-                      <span className={`ml-auto px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${dark ? "bg-white/[0.04] text-white/25 border border-white/[0.06]" : "bg-gray-100 text-gray-400 border border-gray-200"}`}>Private</span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {profile.writerProfile.diversity.gender && (
-                        <div className={`rounded-xl p-4 ${t.subtleBg}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1 ${dark ? "text-white/25" : "text-gray-400"}`}>Gender</p>
-                          <p className={`text-[14px] font-bold capitalize ${dark ? "text-white/70" : "text-gray-700"}`}>{profile.writerProfile.diversity.gender}</p>
-                        </div>
-                      )}
-                      {profile.writerProfile.diversity.ethnicity && (
-                        <div className={`rounded-xl p-4 ${t.subtleBg}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-1 ${dark ? "text-white/25" : "text-gray-400"}`}>Ethnicity</p>
-                          <p className={`text-[14px] font-bold capitalize ${dark ? "text-white/70" : "text-gray-700"}`}>{profile.writerProfile.diversity.ethnicity}</p>
-                        </div>
-                      )}
-                    </div>
+                    </SectionCard>
                   </div>
                 )}
             </>
@@ -1732,12 +1762,11 @@ const Profile = () => {
 
         </motion.div>
       )}
-
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ PURCHASED SCRIPTS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "purchased" && isOwnProfile && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
           {purchasedScripts.length === 0 ? (
-            <div className={`rounded-2xl border py-20 text-center transition-colors ${t.card}`}>
+            <div className={`py-20 text-center transition-colors`}>
               <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
                 <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -1748,7 +1777,7 @@ const Profile = () => {
               <a href="/search" className={`inline-block mt-5 px-5 py-2.5 rounded-xl text-[13px] font-bold transition ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75]" : "bg-[#1e3a5f] text-white hover:bg-[#254a75]"}`}>Browse Scripts</a>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="py-6 first:pt-0 last:pb-0 flex flex-col gap-4">
               <div className={`flex items-center justify-between px-1 mb-1`}>
                 <p className={`text-[13px] font-semibold ${dark ? "text-white/40" : "text-gray-400"}`}>{purchasedScripts.length} script{purchasedScripts.length !== 1 ? "s" : ""} purchased</p>
                 <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${dark ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" : "bg-emerald-50 text-emerald-600 border-emerald-200"}`}>Full Access</span>
@@ -1760,7 +1789,7 @@ const Profile = () => {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04 }}
-                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-all group cursor-pointer ${dark ? "bg-[#0d1520] border-white/[0.06] hover:border-white/[0.12] hover:bg-[#112030]" : "bg-white border-gray-200 hover:border-blue-200 hover:shadow-md shadow-sm"}`}
+                  className={`flex items-center gap-4 p-4 rounded-2xl transition-all group cursor-pointer ${dark ? "hover:bg-white/[0.03]" : "hover:bg-gray-50/80"}`}
                 >
                   {/* Thumbnail */}
                   <div className={`w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 ${dark ? "bg-[#1a2d47]" : "bg-gray-100"}`}>
@@ -1818,24 +1847,29 @@ const Profile = () => {
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ SETTINGS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "settings" && isOwnProfile && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-3">
-          {settingsMsg && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[13px] font-medium">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              {settingsMsg}
-              <button onClick={() => setSettingsMsg("")} className="ml-auto text-emerald-400/60 hover:text-emerald-400">&times;</button>
-            </div>
-          )}
-          {settingsErr && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] font-medium">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-              {settingsErr}
-              <button onClick={() => setSettingsErr("")} className="ml-auto text-red-400/60 hover:text-red-400">&times;</button>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
+          {(settingsMsg || settingsErr) && (
+            <div className="pb-6 flex flex-col gap-3">
+              {settingsMsg && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[13px] font-medium">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  {settingsMsg}
+                  <button onClick={() => setSettingsMsg("")} className="ml-auto text-emerald-400/60 hover:text-emerald-400">&times;</button>
+                </div>
+              )}
+              {settingsErr && (
+                <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[13px] font-medium">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+                  {settingsErr}
+                  <button onClick={() => setSettingsErr("")} className="ml-auto text-red-400/60 hover:text-red-400">&times;</button>
+                </div>
+              )}
             </div>
           )}
 
           {/* Account */}
-          <SectionCard dark={dark} title="Account" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}>
+          <div className="py-6 first:pt-0 last:pb-0">
+            <SectionCard dark={dark} noBox title="Account" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}>
             <div className="space-y-4">
               <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
                 <div>
@@ -1968,14 +2002,16 @@ const Profile = () => {
               </div>
             </div>
           </SectionCard>
+          </div>
 
           {isWriterUser && (
+            <div className="py-6 first:pt-0 last:pb-0">
             <SectionCard
-              dark={dark}
+              dark={dark} noBox
               title="Referral"
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25l1.72 3.486 3.848.559-2.784 2.714.657 3.832L12 17.034l-3.441 1.807.657-3.832-2.784-2.714 3.848-.559L12 8.25z" /></svg>}
             >
-              <div className="space-y-3">
+              <div className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
                 <p className={`text-[12px] ${dark ? "text-white/45" : "text-gray-500"}`}>
                   Share your referral link. If a writer signs up with your link or referral and verifies their account, both writers get 15 credits.
                 </p>
@@ -2018,10 +2054,12 @@ const Profile = () => {
                 </div>
               </div>
             </SectionCard>
+          </div>
           )}
 
           {/* Notification Preferences */}
-          <SectionCard dark={dark} title="Notification Preferences" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>}>
+          <div className="py-6 first:pt-0 last:pb-0">
+            <SectionCard dark={dark} noBox title="Notification Preferences" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>}>
             <div className="space-y-2.5">
               {[{ key: "smartMatchAlerts", label: "Smart Match Alerts", desc: "When a new script matches your mandates" }, { key: "holdAlerts", label: "Hold Alerts", desc: "Option hold status updates" }, { key: "viewAlerts", label: "View Alerts", desc: "When someone views your profile" }].map((pref) => (
                 <div key={pref.key} className={`flex items-center justify-between py-2.5 px-3 rounded-xl ${dark ? "bg-white/[0.02]" : "bg-gray-50/60"}`}>
@@ -2034,9 +2072,11 @@ const Profile = () => {
               ))}
             </div>
           </SectionCard>
+          </div>
 
           {/* Localization */}
-          <SectionCard dark={dark} title="Localization" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418" /></svg>}>
+          <div className="py-6 first:pt-0 last:pb-0">
+            <SectionCard dark={dark} noBox title="Localization" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418" /></svg>}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Language</p>
@@ -2054,9 +2094,11 @@ const Profile = () => {
               </div>
             </div>
           </SectionCard>
+          </div>
 
           {/* Blocked Users */}
-          <SectionCard dark={dark} title="Blocked Users" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-12.728 12.728M5.636 5.636l12.728 12.728" /></svg>}>
+          <div className="py-6 first:pt-0 last:pb-0">
+            <SectionCard dark={dark} noBox title="Blocked Users" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-12.728 12.728M5.636 5.636l12.728 12.728" /></svg>}>
             {blockedUsers.length === 0 ? (
               <p className={`text-[12px] italic ${dark ? "text-white/25" : "text-gray-400"}`}>No blocked users.</p>
             ) : (
@@ -2088,10 +2130,12 @@ const Profile = () => {
               </div>
             )}
           </SectionCard>
+          </div>
 
           {isWriterUser && (
+            <div className="py-6 first:pt-0 last:pb-0">
             <SectionCard
-              dark={dark}
+              dark={dark} noBox
               title="Deleted Projects"
               badge={`${deletedScripts.length}`}
               icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>}
@@ -2142,10 +2186,12 @@ const Profile = () => {
                 </div>
               )}
             </SectionCard>
+          </div>
           )}
 
           {/* Danger Zone */}
-          <SectionCard dark={dark} title="Danger Zone" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>}>
+          <div className="py-6 first:pt-0 last:pb-0">
+            <SectionCard dark={dark} noBox title="Danger Zone" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>}>
             <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-red-500/15 bg-red-500/[0.03]" : "border-red-100 bg-red-50/40"}`}>
               <div><p className={`text-[13px] font-semibold ${dark ? "text-red-400/80" : "text-red-600"}`}>Delete Account</p><p className={`text-[11px] ${dark ? "text-red-400/30" : "text-red-400"}`}>Permanently delete your account and all data</p></div>
               <button
@@ -2156,6 +2202,7 @@ const Profile = () => {
               </button>
             </div>
           </SectionCard>
+          </div>
 
           {showDeleteAccountModal && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 p-4 flex items-center justify-center" onClick={() => !deletingAccount && setShowDeleteAccountModal(false)}>
@@ -2217,7 +2264,7 @@ const Profile = () => {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
 
             {scored.length === 0 ? (
-              <div className={`rounded-2xl border py-20 text-center ${t.card}`}>
+              <div className={`py-20 text-center`}>
                 <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
                   <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
@@ -2327,7 +2374,7 @@ const Profile = () => {
                     <h3 className={`text-[13px] font-bold ${dark ? "text-white/70" : "text-gray-800"}`}>Project Scores</h3>
                     <span className={`ml-auto text-[11px] font-medium ${dark ? "text-white/25" : "text-gray-400"}`}>{scored.length} evaluated</span>
                   </div>
-                  <div className="space-y-3">
+                  <div className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
                     {scored.sort((a, b) => (b.scriptScore?.overall || 0) - (a.scriptScore?.overall || 0)).map((s, i) => (
                       <div key={s._id} className={`rounded-xl border p-4 transition-all hover:scale-[1.01] ${dark ? "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.1]" : "bg-gray-50/50 border-gray-100 hover:border-gray-200"}`}>
                         <div className="flex items-center gap-4 mb-3">

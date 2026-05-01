@@ -1701,7 +1701,7 @@ const ScriptDetail = () => {
 
             {/* ── Classification ───────────────────────────── */}
             {activeTab === "classification" && (
-              <motion.div key="classification" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+              <motion.div key="classification" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${isDarkMode ? "divide-white/[0.06]" : "divide-gray-100"}`}>
                 {[
                   { label: "Tones", items: cl.tones, color: isDarkMode ? "bg-white/[0.06] text-white/80 border border-white/[0.08]" : "bg-gray-100 text-gray-700 border border-gray-200" },
                   { label: "Themes", items: cl.themes, color: isDarkMode ? "bg-blue-500/10 text-blue-300 border border-blue-500/15" : "bg-blue-50 text-blue-700 border border-blue-200" },
@@ -1709,7 +1709,7 @@ const ScriptDetail = () => {
                 ]
                   .filter((c) => c.items?.length > 0)
                   .map((cat) => (
-                    <div key={cat.label} className={`rounded-xl border p-6 ${t.card}`}>
+                    <div key={cat.label} className="py-6 first:pt-0 last:pb-0">
                       <h3 className={`text-[13px] font-bold mb-3 ${t.title}`}>{cat.label}</h3>
                       <div className="flex flex-wrap gap-2">
                         {cat.items.map((item, i) => (
@@ -1720,7 +1720,7 @@ const ScriptDetail = () => {
                   ))}
 
                 {!cl.tones?.length && !cl.themes?.length && !cl.settings?.length && (
-                  <div className={`text-center py-12 rounded-xl border ${t.card}`}>
+                  <div className="text-center py-12">
                     <h3 className={`text-base font-bold mb-1 ${t.title}`}>No Classification Data</h3>
                     <p className={`text-sm ${t.muted}`}>
                       {isOwner ? "Add tones, themes, and settings when editing your script" : "Classification data hasn't been added yet"}

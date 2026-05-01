@@ -850,7 +850,6 @@ html.dark-mode .script-content img {
   min-height: 22rem;
   max-height: min(70vh, 42rem);
   overflow-y: auto;
-  overscroll-behavior: contain;
   scrollbar-gutter: stable;
   border-color: rgba(255, 255, 255, 0.08);
   background:
