@@ -291,7 +291,7 @@ export default function ScriptPaymentPage() {
         }
 
         setSuccessInfo({
-          message: verifyData.message || "Free access confirmed. Full script access unlocked.",
+          message: verifyData.message || "Payment confirmed. Full script access unlocked.",
           invoiceNumber: "",
           invoice: null,
           purchaseRequestId: verifyData?.purchaseRequest?.id || orderData?.purchaseRequestId || "",
