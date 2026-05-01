@@ -5,9 +5,11 @@ import BrandLogo from "../components/BrandLogo";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { formatCurrency } from "../utils/currency";
 import { getApiBaseUrl, getApiOrigin } from "../utils/apiOrigin";
+import { getScriptCompletionBadgeClasses, getScriptCompletionProgressText, getScriptCompletionStatusLabel, getScriptCompletionSummary } from "../utils/scriptCompletion";
 
 const API_ORIGIN = getApiOrigin();
 const API_BASE_URL = getApiBaseUrl();
+const MAX_ATTACHMENT_SIZE_BYTES = 250 * 1024 * 1024;
 
 // Admin-specific API — uses admin token from sessionStorage, separate from user session
 const adminApi = axios.create({ baseURL: API_BASE_URL });
@@ -327,6 +329,7 @@ const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, 
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Title</th>
                         {showCreator && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Creator</th>}
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Genre</th>
+                        <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Completion</th>
                         {showApprovalType && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Approval Type</th>}
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Status</th>
                         {showScore && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Score</th>}
@@ -349,6 +352,18 @@ const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, 
                                 </td>
                             )}
                             <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{s.genre || s.primaryGenre || "—"}</td>
+                            <td className="px-5 py-3.5">
+                                <div className="flex flex-col gap-1">
+                                    <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-bold ${getScriptCompletionBadgeClasses(s, isDark)}`}>
+                                        {getScriptCompletionStatusLabel(s)}
+                                    </span>
+                                    {getScriptCompletionProgressText(s) && (
+                                        <span className={`text-[11px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+                                            {getScriptCompletionProgressText(s)}
+                                        </span>
+                                    )}
+                                </div>
+                            </td>
                             {showApprovalType && (
                                 <td className="px-5 py-3.5">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${s.approvalRequestType === "edit_submission"
@@ -387,7 +402,7 @@ const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, 
                         </tr>
                     ))}
                     {scripts.length === 0 && (
-                        <tr><td colSpan={(showCreator ? 1 : 0) + (showApprovalType ? 1 : 0) + (showScore ? 1 : 0) + (actions ? 1 : 0) + 4} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No scripts found</td></tr>
+                        <tr><td colSpan={(showCreator ? 1 : 0) + (showApprovalType ? 1 : 0) + (showScore ? 1 : 0) + (actions ? 1 : 0) + 5} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No scripts found</td></tr>
                     )}
                 </tbody>
             </table>
@@ -638,6 +653,64 @@ const formatDuration = (seconds = 0) => {
     return `${hours}h ${minutes % 60}m`;
 };
 
+const formatDateTime = (value) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+};
+
+const formatRelativeTime = (value) => {
+    if (!value) return "Never";
+    const ts = new Date(value).getTime();
+    if (Number.isNaN(ts)) return "Never";
+
+    const diffMs = Date.now() - ts;
+    if (diffMs < 60 * 1000) return "Just now";
+
+    const diffMinutes = Math.floor(diffMs / (60 * 1000));
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return formatDateTime(value);
+};
+
+const formatPathLabel = (path = "") => {
+    const normalized = String(path || "").trim();
+    if (!normalized) return "No page captured";
+    if (normalized === "/") return "Home";
+
+    const cleaned = normalized
+        .replace(/^\/+/, "")
+        .split("?")[0]
+        .split("#")[0];
+
+    if (!cleaned) return "Home";
+
+    return cleaned
+        .split("/")
+        .filter(Boolean)
+        .map((segment) => segment.replace(/[-_]+/g, " ").trim())
+        .filter(Boolean)
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(" / ");
+};
+
+const getAnalyticsStatusTone = (statusKey, isDark) => {
+    const toneMap = {
+        live: isDark ? "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20" : "bg-emerald-100 text-emerald-700 border border-emerald-200",
+        recent: isDark ? "bg-blue-500/15 text-blue-300 border border-blue-400/20" : "bg-blue-100 text-blue-700 border border-blue-200",
+        today: isDark ? "bg-amber-500/15 text-amber-300 border border-amber-400/20" : "bg-amber-100 text-amber-700 border border-amber-200",
+        offline: isDark ? "bg-slate-500/15 text-slate-300 border border-slate-400/20" : "bg-slate-100 text-slate-700 border border-slate-200",
+    };
+
+    return toneMap[statusKey] || toneMap.offline;
+};
+
 const getTransactionMetadataValue = (transaction, key) => {
     const metadata = transaction?.metadata;
     if (!metadata) return "";
@@ -864,6 +937,8 @@ const AdminDashboard = () => {
     const [analyticsAnonymousDetailLoading, setAnalyticsAnonymousDetailLoading] = useState(false);
     const [analyticsUserDetail, setAnalyticsUserDetail] = useState(null);
     const [analyticsUserDetailLoading, setAnalyticsUserDetailLoading] = useState(false);
+    const [analyticsRegisteredSearch, setAnalyticsRegisteredSearch] = useState("");
+    const [analyticsRegisteredStatusFilter, setAnalyticsRegisteredStatusFilter] = useState("all");
     const [discountCodes, setDiscountCodes] = useState([]);
     const [discountCodeModal, setDiscountCodeModal] = useState(null); // null = closed, {} = create, {_id:...} = edit
     const [alertSummary, setAlertSummary] = useState({});
@@ -1100,7 +1175,7 @@ const AdminDashboard = () => {
             case "trailers":
                 return {
                     title: `${TABS.find((tab) => tab.key === activeTab)?.label || "Scripts"} (${scripts.length})`,
-                    lines: scripts.map((s, idx) => `${idx + 1}. ${s.title || "-"} | SID: ${s.sid || "-"} | Creator: ${getScriptCreatorName(s)} | Genre: ${s.genre || s.primaryGenre || "-"} | Status: ${s.status || "-"} | Score: ${s.scriptScore?.overall || s.platformScore?.overall || s.rating || "-"} | Date: ${formatExportDate(s.createdAt)}`),
+                    lines: scripts.map((s, idx) => `${idx + 1}. ${s.title || "-"} | SID: ${s.sid || "-"} | Creator: ${getScriptCreatorName(s)} | Genre: ${s.genre || s.primaryGenre || "-"} | Completion: ${getScriptCompletionSummary(s)} | Status: ${s.status || "-"} | Score: ${s.scriptScore?.overall || s.platformScore?.overall || s.rating || "-"} | Date: ${formatExportDate(s.createdAt)}`),
                 };
             case "payments":
                 return {
@@ -1322,7 +1397,7 @@ const AdminDashboard = () => {
                     const approvalLabel = s.status === "pending_approval" && s.approvalRequestType === "edit_submission"
                         ? "edit approval"
                         : (s.status || "-");
-                    return `${idx + 1}. ${s.title || "-"} | SID: ${s.sid || "-"} | Creator: ${getScriptCreatorName(s)} | Genre: ${s.genre || s.primaryGenre || "-"} | Status: ${approvalLabel} | Score: ${s.scriptScore?.overall || s.platformScore?.overall || s.rating || "-"} | Date: ${formatExportDate(s.createdAt)}`;
+                    return `${idx + 1}. ${s.title || "-"} | SID: ${s.sid || "-"} | Creator: ${getScriptCreatorName(s)} | Genre: ${s.genre || s.primaryGenre || "-"} | Completion: ${getScriptCompletionSummary(s)} | Status: ${approvalLabel} | Score: ${s.scriptScore?.overall || s.platformScore?.overall || s.rating || "-"} | Date: ${formatExportDate(s.createdAt)}`;
                 }),
             });
 
@@ -1532,6 +1607,8 @@ const AdminDashboard = () => {
                 sessionStorage.removeItem("admin-session");
                 setAuthorized(false);
                 showToast("Session expired. Please re-enter the access code.", "error");
+            } else {
+                showToast(err?.response?.data?.message || "Failed to load admin data", "error");
             }
         }
         setMessagesLoading(false);
@@ -1788,6 +1865,12 @@ const AdminDashboard = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
+        if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+            showToast("Attachment is too large. Maximum size is 250MB.", "error");
+            if (messageFileInputRef.current) messageFileInputRef.current.value = "";
+            return;
+        }
+
         setUploadingMessageAttachment(true);
         try {
             const formData = new FormData();
@@ -1984,6 +2067,13 @@ const AdminDashboard = () => {
     const handleAdminTrailerFileChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file || !trailerUploadTargetScript?._id) return;
+
+        if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+            showToast("Trailer must be 250MB or smaller.", "error");
+            if (trailerFileInputRef.current) trailerFileInputRef.current.value = "";
+            setTrailerUploadTargetScript(null);
+            return;
+        }
 
         const scriptId = trailerUploadTargetScript._id;
         setUploadingTrailerScriptId(scriptId);
@@ -3083,6 +3173,7 @@ const AdminDashboard = () => {
                                                 ref={messageFileInputRef}
                                                 type="file"
                                                 className="hidden"
+                                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip"
                                                 onChange={handleAdminAttachmentChange}
                                             />
 
@@ -3605,6 +3696,27 @@ const AdminDashboard = () => {
                 const selectedSessions = analyticsUserDetail?.sessions || [];
                 const selectedAuthEvents = analyticsUserDetail?.authEvents || [];
                 const selectedActions = analyticsUserDetail?.latestActions || [];
+                const selectedProjectSummary = analyticsUserDetail?.projectSummary || {};
+                const selectedLatestSession = analyticsUserDetail?.latestSession || null;
+                const registeredActivitySummary = registeredSummary.activitySummary || {};
+                const normalizedRegisteredSearch = analyticsRegisteredSearch.trim().toLowerCase();
+                const filteredRegisteredUsers = usersTimeline.filter((entry) => {
+                    const matchesSearchValue = !normalizedRegisteredSearch || [
+                        entry?.name,
+                        entry?.email,
+                        entry?.role,
+                        entry?.sid,
+                        entry?.latestPath,
+                        entry?.latestAction,
+                        entry?.projectSummary?.recentProjects?.map((project) => project?.title).join(" "),
+                    ].some((value) => String(value || "").toLowerCase().includes(normalizedRegisteredSearch));
+
+                    const statusKey = String(entry?.currentStatus?.key || "offline").toLowerCase();
+                    const matchesStatus = analyticsRegisteredStatusFilter === "all" || statusKey === analyticsRegisteredStatusFilter;
+
+                    return matchesSearchValue && matchesStatus;
+                });
+                const selectedStatusTone = getAnalyticsStatusTone(selectedUser?.currentStatus?.key, isDark);
 
                 const sectionButtonClass = (key) => (
                     `px-3 py-2 rounded-lg border text-xs font-bold transition-all ${analyticsSection === key
@@ -3877,9 +3989,9 @@ const AdminDashboard = () => {
                             <>
                                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                                     <StatCard isDark={isDark} label="Tracked Users" value={registeredSummary.totalUsers || 0} icon="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5z" color="bg-emerald-500/15 text-emerald-500" />
-                                    <StatCard isDark={isDark} label="Users Signed Up" value={authSummary.usersWithSignupEvent || 0} icon="M12 4.5v15m7.5-7.5h-15" color="bg-blue-500/15 text-blue-500" />
-                                    <StatCard isDark={isDark} label="Users Logged In" value={authSummary.usersWithLoginEvent || 0} icon="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6" color="bg-amber-500/15 text-amber-500" />
-                                    <StatCard isDark={isDark} label="Live Registered" value={live.activeRegisteredUsers || 0} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-purple-500/15 text-purple-500" />
+                                    <StatCard isDark={isDark} label="Live Right Now" value={live.activeRegisteredUsers || 0} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-emerald-500/15 text-emerald-500" />
+                                    <StatCard isDark={isDark} label="Active In 30 Min" value={registeredActivitySummary.activeInLast30Minutes || 0} icon="M11.25 6.75v5.25l3.75 2.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-blue-500/15 text-blue-500" />
+                                    <StatCard isDark={isDark} label="Users With Projects" value={registeredActivitySummary.usersWithProjects || 0} icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12" color="bg-purple-500/15 text-purple-500" />
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -3916,41 +4028,80 @@ const AdminDashboard = () => {
 
                                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
                                     <div className={`xl:col-span-2 rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
-                                                <thead>
-                                                    <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                                        {["User", "Last Active", "Sessions", "Action"].map((h) => (
-                                                            <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                                    {usersTimeline.slice(0, 80).map((entry) => (
-                                                        <tr key={String(entry.userId || entry.email)}>
-                                                            <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`}>
-                                                                <p className="font-semibold">{entry.name || "Unknown"}</p>
-                                                                <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{entry.email || "-"}</p>
-                                                            </td>
-                                                            <td className={`px-4 py-3 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{entry.lastActiveAt ? new Date(entry.lastActiveAt).toLocaleString() : "-"}</td>
-                                                            <td className={`px-4 py-3 text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>{entry.sessionCount || 0}</td>
-                                                            <td className="px-4 py-3">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => fetchAnalyticsUserDetail(String(entry.userId || ""))}
-                                                                    disabled={!entry.userId || analyticsUserDetailLoading}
-                                                                    className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
-                                                                >
-                                                                    View Details
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                    {usersTimeline.length === 0 && (
-                                                        <tr><td colSpan={4} className={`px-4 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No registered user activity yet</td></tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
+                                        <div className={`border-b px-4 py-4 ${isDark ? "border-[#1a3050]" : "border-gray-100"}`}>
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <div>
+                                                        <h3 className={`text-base font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Registered users radar</h3>
+                                                        <p className={`mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{filteredRegisteredUsers.length} visible user records</p>
+                                                    </div>
+                                                    <select
+                                                        value={analyticsRegisteredStatusFilter}
+                                                        onChange={(event) => setAnalyticsRegisteredStatusFilter(event.target.value)}
+                                                        className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#132744] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
+                                                    >
+                                                        <option value="all">All statuses</option>
+                                                        <option value="live">Live now</option>
+                                                        <option value="recent">Recently online</option>
+                                                        <option value="today">Active today</option>
+                                                        <option value="offline">Offline</option>
+                                                    </select>
+                                                </div>
+                                                <input
+                                                    value={analyticsRegisteredSearch}
+                                                    onChange={(event) => setAnalyticsRegisteredSearch(event.target.value)}
+                                                    placeholder="Search name, email, role, page, project..."
+                                                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${isDark ? "border-[#294468] bg-[#081221] text-gray-100 placeholder:text-gray-500" : "border-gray-200 bg-slate-50 text-gray-800 placeholder:text-gray-400"}`}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="max-h-[980px] space-y-3 overflow-y-auto p-4">
+                                            {filteredRegisteredUsers.length === 0 ? (
+                                                <div className={`rounded-2xl border border-dashed px-4 py-8 text-center text-sm ${isDark ? "border-[#294468] text-gray-500" : "border-gray-300 text-gray-500"}`}>No registered users match this filter.</div>
+                                            ) : (
+                                                filteredRegisteredUsers.slice(0, 120).map((entry) => (
+                                                    <button
+                                                        key={String(entry.userId || entry.email)}
+                                                        type="button"
+                                                        onClick={() => fetchAnalyticsUserDetail(String(entry.userId || ""))}
+                                                        disabled={!entry.userId || analyticsUserDetailLoading}
+                                                        className={`w-full rounded-2xl border p-4 text-left transition-all disabled:opacity-60 ${String(selectedUser?.id || "") === String(entry?.userId || "") ? (isDark ? "border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]" : "border-cyan-300 bg-cyan-50") : (isDark ? "border-[#1a3050] bg-[#0c172b] hover:border-[#335782] hover:bg-[#10203a]" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <div className="min-w-0">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <p className={`truncate text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{entry.name || "Unknown user"}</p>
+                                                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isDark ? "bg-white/10 text-gray-300" : "bg-slate-100 text-slate-700"}`}>{entry.role || "user"}</span>
+                                                                </div>
+                                                                <p className={`mt-1 truncate text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{entry.email || "-"} {entry.sid ? `| ${entry.sid}` : ""}</p>
+                                                            </div>
+                                                            <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${getAnalyticsStatusTone(entry?.currentStatus?.key, isDark)}`}>{entry?.currentStatus?.label || "Offline"}</span>
+                                                        </div>
+                                                        <div className="mt-3 grid grid-cols-2 gap-2">
+                                                            <div className={`rounded-xl px-3 py-2 ${isDark ? "bg-black/20" : "bg-slate-50"}`}>
+                                                                <p className={`text-[10px] uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-500"}`}>Last activity</p>
+                                                                <p className={`mt-1 text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{formatRelativeTime(entry?.lastActiveAt)}</p>
+                                                                <p className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>{formatDateTime(entry?.lastActiveAt)}</p>
+                                                            </div>
+                                                            <div className={`rounded-xl px-3 py-2 ${isDark ? "bg-black/20" : "bg-slate-50"}`}>
+                                                                <p className={`text-[10px] uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-500"}`}>Current focus</p>
+                                                                <p className={`mt-1 text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{formatPathLabel(entry?.latestPath)}</p>
+                                                                <p className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>{entry?.latestAction || "No action label"}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-blue-500/10 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{entry?.sessionCount || 0} sessions</span>
+                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-purple-500/10 text-purple-300" : "bg-purple-100 text-purple-700"}`}>{entry?.projectSummary?.totalProjects || 0} projects</span>
+                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-100 text-amber-700"}`}>{entry?.projectSummary?.pendingProjects || 0} pending</span>
+                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-emerald-500/10 text-emerald-300" : "bg-emerald-100 text-emerald-700"}`}>{entry?.projectSummary?.publishedProjects || 0} published</span>
+                                                        </div>
+                                                        {entry?.projectSummary?.recentProjects?.[0] && (
+                                                            <p className={`mt-3 text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Latest project: <span className={`${isDark ? "text-gray-200" : "text-gray-700"} font-semibold`}>{entry.projectSummary.recentProjects[0].title}</span></p>
+                                                        )}
+                                                    </button>
+                                                ))
+                                            )}
                                         </div>
                                     </div>
 
@@ -3961,10 +4112,27 @@ const AdminDashboard = () => {
                                             </div>
                                         ) : !analyticsUserDetail ? (
                                             <div className="py-20 text-center">
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Select a registered user to see full journey details.</p>
+                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Select a user from the radar to inspect their work, recent online footprint, and detailed activity trail.</p>
                                             </div>
                                         ) : (
                                             <div className="space-y-4">
+                                                <div className={`rounded-3xl border p-5 ${isDark ? "border-[#1f3454] bg-[radial-gradient(circle_at_top_left,_rgba(6,182,212,0.18),_transparent_32%),linear-gradient(180deg,_#101e37_0%,_#0b172a_100%)]" : "border-gray-200 bg-slate-50"}`}>
+                                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                                        <div className="min-w-0">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${selectedStatusTone}`}>{selectedUser?.currentStatus?.label || "Offline"}</span>
+                                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${isDark ? "bg-white/10 text-gray-300" : "bg-white text-slate-700 border border-slate-200"}`}>{selectedUser.role || "user"}</span>
+                                                            </div>
+                                                            <p className={`mt-3 text-sm ${isDark ? "text-cyan-100/90" : "text-slate-700"}`}>Last seen {formatRelativeTime(selectedSummary.lastActiveAt)} on <span className="font-semibold">{formatPathLabel(selectedUser.latestPath)}</span>{selectedUser.latestAction ? ` via ${selectedUser.latestAction}` : ""}.</p>
+                                                            <p className={`mt-2 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Joined {formatDateTime(selectedSummary.firstSeenAt)} | Last login {formatDateTime(selectedSummary.lastLoginAt)}</p>
+                                                        </div>
+                                                        <div className={`rounded-2xl border px-4 py-3 ${isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"}`}>
+                                                            <p className={`text-[11px] uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-500"}`}>Projects tracked</p>
+                                                            <p className={`mt-1 text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{selectedSummary.projectsTracked || 0}</p>
+                                                            <p className={`mt-1 text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{selectedProjectSummary.pendingProjects || 0} pending | {selectedProjectSummary.publishedProjects || 0} published</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <div className="flex items-center justify-between">
                                                     <div>
                                                         <h3 className={`text-base font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{selectedUser.name || "Unknown User"}</h3>
@@ -3984,6 +4152,37 @@ const AdminDashboard = () => {
                                                     <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedSummary.totalActions || 0}</p></div>
                                                     <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Page Visits</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedSummary.totalPageVisits || 0}</p></div>
                                                     <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Time Spent</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{formatDuration(selectedSummary.totalTimeSeconds || 0)}</p></div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                                                    <div className="rounded-lg border p-3">
+                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Project Summary</h4>
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Draft</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.draftProjects || 0}</p></div>
+                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Pending</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.pendingProjects || 0}</p></div>
+                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Published</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.publishedProjects || 0}</p></div>
+                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Rejected</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.rejectedProjects || 0}</p></div>
+                                                        </div>
+                                                        <div className="mt-3 flex flex-wrap gap-2">
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-purple-500/15 text-purple-300" : "bg-purple-100 text-purple-700"}`}>Trailer {selectedProjectSummary.aiTrailerProjects || 0}</span>
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>Evaluation {selectedProjectSummary.evaluationProjects || 0}</span>
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>Spotlight {selectedProjectSummary.spotlightProjects || 0}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded-lg border p-3">
+                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Latest Session</h4>
+                                                        {!selectedLatestSession ? (
+                                                            <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No session snapshot found.</p>
+                                                        ) : (
+                                                            <div className="space-y-2">
+                                                                <p className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{formatPathLabel(selectedLatestSession.entryPath)} to {formatPathLabel(selectedLatestSession.exitPath || selectedLatestSession.entryPath)}</p>
+                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{formatDuration(selectedLatestSession.durationSeconds || 0)} | {formatDateTime(selectedLatestSession.startedAt)}</p>
+                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{selectedLatestSession.location?.city || "Unknown"}, {selectedLatestSession.location?.country || "Unknown"}</p>
+                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{selectedLatestSession.device?.deviceType || "unknown"} / {selectedLatestSession.device?.browser || "Unknown"} / {selectedLatestSession.device?.os || "Unknown"}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">

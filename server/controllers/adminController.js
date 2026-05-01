@@ -149,8 +149,22 @@ const shouldQueueSpotlightAiTrailer = (script) => {
     return !isAdminUploadedTrailer(script);
 };
 
+const NON_DELETED_SCRIPT_FILTER = { $nin: [true, "true", 1] };
+const DELETED_SCRIPT_FILTER = { $in: [true, "true", 1] };
+const LIVE_SCRIPT_STATUSES = ["published", "approved"];
+const VISIBLE_ADMIN_SCRIPT_STATUSES = [...LIVE_SCRIPT_STATUSES, "pending_approval", "rejected"];
+
+const getActiveAdminScriptFilter = (extra = {}) => ({
+    isDeleted: NON_DELETED_SCRIPT_FILTER,
+    ...extra,
+});
+
+const getPendingApprovalScriptFilter = () => getActiveAdminScriptFilter({
+    status: "pending_approval",
+});
+
 const getAdminTrailerRequestFilter = () => ({
-    isDeleted: { $nin: [true, "true", 1] },
+    isDeleted: NON_DELETED_SCRIPT_FILTER,
     "services.aiTrailer": true,
     trailerStatus: { $in: ["requested", "generating"] },
 });
@@ -307,15 +321,15 @@ export const getStats = async (req, res) => {
         ] = await Promise.all([
             User.countDocuments({ role: { $ne: "admin" } }),
             Script.countDocuments(),
-            Script.countDocuments({ status: "published", isDeleted: { $ne: true } }),
-            Script.countDocuments({ isDeleted: true }),
-            Script.countDocuments({ status: "draft", isDeleted: { $ne: true } }),
-            Script.countDocuments({ status: "rejected", isDeleted: { $ne: true } }),
-            Script.countDocuments({ isSold: true, isDeleted: { $ne: true } }),
+            Script.countDocuments(getActiveAdminScriptFilter({ status: { $in: LIVE_SCRIPT_STATUSES } })),
+            Script.countDocuments({ isDeleted: DELETED_SCRIPT_FILTER }),
+            Script.countDocuments(getActiveAdminScriptFilter({ status: "draft" })),
+            Script.countDocuments(getActiveAdminScriptFilter({ status: "rejected" })),
+            Script.countDocuments(getActiveAdminScriptFilter({ isSold: true })),
             User.countDocuments({ role: "investor" }),
             User.countDocuments({ role: { $in: ["writer", "creator"] } }),
             User.countDocuments({ role: "reader" }),
-            Script.countDocuments({ status: "pending_approval" }),
+            Script.countDocuments(getPendingApprovalScriptFilter()),
             Script.countDocuments(getAdminTrailerRequestFilter()),
             Script.countDocuments({
                 $or: [
@@ -902,10 +916,10 @@ export const getScripts = async (req, res) => {
         const filter = {};
 
         if (normalizedStatus.toLowerCase() === "deleted") {
-            filter.isDeleted = true;
+            filter.isDeleted = DELETED_SCRIPT_FILTER;
         } else {
-            filter.isDeleted = { $ne: true };
-            filter.status = normalizedStatus || { $ne: "draft" };
+            filter.isDeleted = NON_DELETED_SCRIPT_FILTER;
+            filter.status = normalizedStatus || { $in: VISIBLE_ADMIN_SCRIPT_STATUSES };
         }
 
         if (search) {
@@ -921,6 +935,13 @@ export const getScripts = async (req, res) => {
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(Number(limit));
+        const normalizedScripts = scripts.map((script) => {
+            const scriptObject = typeof script?.toObject === "function" ? script.toObject() : script;
+            return scriptObject?.status === "approved"
+                ? { ...scriptObject, status: "published" }
+                : scriptObject;
+        });
+
         await Promise.all(
             scripts
                 .filter((script) => !script.sid)
@@ -929,7 +950,7 @@ export const getScripts = async (req, res) => {
                     await script.save();
                 })
         );
-        res.json({ scripts, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+        res.json({ scripts: normalizedScripts, total, page: Number(page), totalPages: Math.ceil(total / limit) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1163,7 +1184,7 @@ export const getReaderScores = async (req, res) => {
 export const getPendingScripts = async (req, res) => {
     try {
         const { page = 1, limit = 20 } = req.query;
-        const filter = { status: "pending_approval" };
+        const filter = getPendingApprovalScriptFilter();
         const total = await Script.countDocuments(filter);
         const scripts = await Script.find(filter)
             .populate("creator", "name email role profileImage")
@@ -1395,6 +1416,7 @@ export const uploadTrailerAsAdmin = async (req, res) => {
             folder: "scriptbridge/trailers",
             resource_type: "video",
             public_id: `admin-trailer-${script._id}-${Date.now()}`,
+            chunked: true,
         });
 
         const trailerUrl = uploadResult?.secure_url;
@@ -2041,7 +2063,7 @@ export const getAdminAlertSummary = async (req, res) => {
             Script.countDocuments({ "scriptScore.overall": { $exists: true, $ne: null } }),
             Script.countDocuments({ "platformScore.overall": { $exists: true, $ne: null } }),
             Script.countDocuments({ rating: { $gt: 0 }, reviewCount: { $gt: 0 } }),
-            Script.countDocuments({ status: "pending_approval" }),
+            Script.countDocuments(getPendingApprovalScriptFilter()),
             Script.countDocuments(getAdminTrailerRequestFilter()),
             User.countDocuments({ role: "investor", approvalStatus: "pending" }),
             User.countDocuments({

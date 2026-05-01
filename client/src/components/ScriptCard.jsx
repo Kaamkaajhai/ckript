@@ -4,6 +4,11 @@ import { motion } from "framer-motion";
 import { useDarkMode } from "../context/DarkModeContext";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import {
+  getScriptCompletionBadgeClasses,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
+import {
   Drama, Laugh, Crosshair, Skull, Heart, Flame, Atom, Wand2,
   Search, Clapperboard, Sparkles, ScrollText, Swords, Globe,
   Music, BookOpen, Eye
@@ -63,6 +68,9 @@ const ScriptCard = ({ script, index = 0 }) => {
   const views = script.views || 0;
   const hasPaidPrice = Boolean(script?.premium) && Number(script?.price || 0) > 0;
   const priceText = hasPaidPrice ? `\u20b9${Number(script.price).toLocaleString("en-IN")}` : "Free";
+  const completionLabel = getScriptCompletionStatusLabel(script);
+  const completionProgress = getScriptCompletionProgressText(script);
+  const completionBadgeCls = getScriptCompletionBadgeClasses(script, dark);
 
   return (
     <motion.div
@@ -132,6 +140,17 @@ const ScriptCard = ({ script, index = 0 }) => {
                 )}
               </div>
             )}
+
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className={`text-[9px] font-bold uppercase tracking-[0.1em] px-2 py-[2px] rounded ${completionBadgeCls}`}>
+                {completionLabel}
+              </span>
+              {completionProgress && (
+                <span className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>
+                  {completionProgress}
+                </span>
+              )}
+            </div>
 
             {/* Author */}
             <div className="flex items-center gap-2 mb-1">

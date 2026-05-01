@@ -5,6 +5,12 @@ import { AuthContext } from "../context/AuthContext";
 import publicApi from "../services/publicApi";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import {
+  getScriptCompletionBadgeClasses,
+  getScriptCompletionFuturePlans,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
 
 const PublicScript = () => {
   const { id } = useParams();
@@ -91,6 +97,9 @@ const PublicScript = () => {
   const evaluation = script.evaluation || null;
   const roles = Array.isArray(script.roles) ? script.roles : [];
   const creatorProfileKey = String(script?.creator?.username || "").trim().toLowerCase() || String(script?.creator?._id || "").trim();
+  const completionLabel = getScriptCompletionStatusLabel(script);
+  const completionProgress = getScriptCompletionProgressText(script);
+  const completionFuturePlans = getScriptCompletionFuturePlans(script);
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -135,6 +144,9 @@ const PublicScript = () => {
                   {script.formatOther || script.format}
                 </span>
               ) : null}
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${getScriptCompletionBadgeClasses(script, dark)}`}>
+                {completionLabel}
+              </span>
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${dark ? "bg-emerald-500/15 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>
                 Price: ₹{Number(script.price || 0).toLocaleString("en-IN")}
               </span>
@@ -182,7 +194,7 @@ const PublicScript = () => {
                     <p className={`text-sm ${dark ? "text-gray-300" : "text-gray-700"}`}>No logline available.</p>
                   )}
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div className={`rounded-xl border px-3 py-2 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
                       <p className={`text-[10px] uppercase font-bold tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Format</p>
                       <p className={`text-sm font-bold mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{script.formatOther || script.format || "-"}</p>
@@ -196,10 +208,21 @@ const PublicScript = () => {
                       <p className={`text-sm font-bold mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{script.pageCount || "-"}</p>
                     </div>
                     <div className={`rounded-xl border px-3 py-2 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                      <p className={`text-[10px] uppercase font-bold tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Completion</p>
+                      <p className={`text-sm font-bold mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{completionProgress ? `${completionLabel} · ${completionProgress}` : completionLabel}</p>
+                    </div>
+                    <div className={`rounded-xl border px-3 py-2 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
                       <p className={`text-[10px] uppercase font-bold tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Budget</p>
                       <p className={`text-sm font-bold mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{formatBudget(script.budget)}</p>
                     </div>
                   </div>
+
+                  {completionFuturePlans ? (
+                    <div className={`rounded-xl border px-3 py-3 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                      <p className={`text-[10px] uppercase font-bold tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Future Updates</p>
+                      <p className={`text-sm mt-1 leading-relaxed ${dark ? "text-gray-300" : "text-gray-700"}`}>{completionFuturePlans}</p>
+                    </div>
+                  ) : null}
 
                   {script.description ? (
                     <p className={`text-sm leading-relaxed ${dark ? "text-gray-300" : "text-gray-700"}`}>{script.description}</p>

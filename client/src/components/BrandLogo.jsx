@@ -2,22 +2,21 @@ import { Link } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 
-const BrandLogo = ({ className = "h-10 w-auto", title = "Ckript" }) => {
-  const logoSrc = "/ckript-logo-landscape-nobg.png";
+const BrandLogo = ({ className = "h-10 w-auto" }) => {
   const { user } = useContext(AuthContext);
 
-  const handleLogoClick = (e) => {
+  const handleClick = (e) => {
     if (!user) return;
     e.preventDefault();
-    window.location.reload();
+    window.location.href = "/";
   };
 
   return (
-    <Link to="/" onClick={handleLogoClick} className="inline-flex items-center" aria-label="Go to home page" title={title}>
+    <Link to="/" onClick={handleClick} className="flex items-center">
       <img
-        src={logoSrc}
-        alt="Ckript"
-        className={`${className} object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]`}
+        src="/ckript_logo_no_bg.PNG"
+        alt="Ckript Logo"
+        className={`${className} object-contain`}
       />
     </Link>
   );

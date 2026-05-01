@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import AnonymousVisitor from "../models/AnonymousVisitor.js";
 import UserActivity from "../models/UserActivity.js";
 import User from "../models/User.js";
+import Script from "../models/Script.js";
 
 const SESSION_LIMIT = 40;
 const EVENT_LIMIT_PER_SESSION = 400;
@@ -13,6 +14,9 @@ const USER_AUTH_EVENT_LIMIT = 160;
 const USER_SESSION_EVENT_LIMIT = 500;
 const USER_SESSION_PAGE_LIMIT = 240;
 const USER_SESSION_CLICK_LIMIT = 400;
+const LIVE_WINDOW_MS = 5 * 60 * 1000;
+const RECENT_WINDOW_MS = 30 * 60 * 1000;
+const DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const parseDate = (value) => {
   if (!value) return new Date();
@@ -878,6 +882,146 @@ const parseDeviceKey = (key = "") => {
   }
 };
 
+const getTimeValue = (value) => {
+  const date = value ? new Date(value) : null;
+  const ts = date?.getTime?.() || 0;
+  return Number.isFinite(ts) ? ts : 0;
+};
+
+const pickLatestTimestamp = (...values) => {
+  const validValues = values.filter(Boolean);
+  if (validValues.length === 0) return null;
+
+  return validValues.reduce((latest, current) => (
+    getTimeValue(current) > getTimeValue(latest) ? current : latest
+  ), validValues[0]);
+};
+
+const getRegisteredUserStatus = (lastActiveAt) => {
+  const ageMs = Date.now() - getTimeValue(lastActiveAt);
+
+  if (ageMs <= LIVE_WINDOW_MS) return { key: "live", label: "Live now" };
+  if (ageMs <= RECENT_WINDOW_MS) return { key: "recent", label: "Recently online" };
+  if (ageMs <= DAY_WINDOW_MS) return { key: "today", label: "Active today" };
+  return { key: "offline", label: "Offline" };
+};
+
+const buildProjectSummary = (scripts = []) => {
+  const safeScripts = Array.isArray(scripts) ? scripts : [];
+  const statusCounts = safeScripts.reduce((acc, script) => {
+    const status = String(script?.status || "draft").toLowerCase();
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {
+    draft: 0,
+    pending_approval: 0,
+    published: 0,
+    rejected: 0,
+  });
+
+  return {
+    totalProjects: safeScripts.length,
+    draftProjects: statusCounts.draft || 0,
+    pendingProjects: statusCounts.pending_approval || 0,
+    publishedProjects: statusCounts.published || 0,
+    rejectedProjects: statusCounts.rejected || 0,
+    soldProjects: safeScripts.filter((script) => Boolean(script?.isSold)).length,
+    aiTrailerProjects: safeScripts.filter((script) => Boolean(script?.services?.aiTrailer)).length,
+    evaluationProjects: safeScripts.filter((script) => Boolean(script?.services?.evaluation)).length,
+    spotlightProjects: safeScripts.filter((script) => Boolean(script?.services?.spotlight)).length,
+    recentProjects: [...safeScripts]
+      .sort((a, b) => getTimeValue(b?.updatedAt || b?.createdAt) - getTimeValue(a?.updatedAt || a?.createdAt))
+      .slice(0, 4)
+      .map((script) => ({
+        _id: script?._id,
+        sid: script?.sid || "",
+        title: script?.title || "Untitled project",
+        status: script?.status || "draft",
+        genre: script?.genre || script?.primaryGenre || "",
+        contentType: script?.contentType || "",
+        updatedAt: script?.updatedAt || script?.createdAt || null,
+        isSold: Boolean(script?.isSold),
+      })),
+  };
+};
+
+const getLatestSessionSnapshot = (sessions = []) => {
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
+  const latestSession = [...safeSessions]
+    .sort((a, b) => getTimeValue(b?.endedAt || b?.startedAt) - getTimeValue(a?.endedAt || a?.startedAt))[0];
+
+  if (!latestSession) return null;
+
+  return {
+    sessionId: latestSession.sessionId || "",
+    startedAt: latestSession.startedAt || null,
+    endedAt: latestSession.endedAt || null,
+    durationSeconds: Number(latestSession.durationSeconds || 0),
+    entryPath: latestSession.entryPath || "",
+    exitPath: latestSession.exitPath || "",
+    location: latestSession.location || {},
+    device: latestSession.device || {},
+  };
+};
+
+const getLatestUserActivitySignal = (activity = {}) => {
+  const logs = Array.isArray(activity?.activityLogs) ? activity.activityLogs : [];
+  const sessions = Array.isArray(activity?.sessions) ? activity.sessions : [];
+  const latestSession = getLatestSessionSnapshot(sessions);
+
+  const latestLog = [...logs]
+    .sort((a, b) => getTimeValue(b?.timestamp) - getTimeValue(a?.timestamp))[0];
+
+  const latestSessionAction = sessions
+    .flatMap((session) => (session?.actions || []).map((action) => ({
+      ...action,
+      sessionId: session?.sessionId || "",
+    })))
+    .sort((a, b) => getTimeValue(b?.timestamp) - getTimeValue(a?.timestamp))[0];
+
+  const latestPage = sessions
+    .flatMap((session) => (session?.pages || []).map((page) => ({
+      ...page,
+      sessionId: session?.sessionId || "",
+      sessionStartedAt: session?.startedAt || null,
+    })))
+    .sort((a, b) => getTimeValue(pickLatestTimestamp(b?.exitedAt, b?.enteredAt, b?.sessionStartedAt)) - getTimeValue(pickLatestTimestamp(a?.exitedAt, a?.enteredAt, a?.sessionStartedAt)))[0];
+
+  const latestActionAt = pickLatestTimestamp(
+    latestLog?.timestamp,
+    latestSessionAction?.timestamp,
+    latestPage?.exitedAt,
+    latestPage?.enteredAt,
+    activity?.lastActiveAt
+  );
+
+  const latestPath = sanitizeText(
+    latestLog?.page
+      || latestSessionAction?.path
+      || latestPage?.path
+      || latestSession?.exitPath
+      || latestSession?.entryPath
+      || "",
+    300
+  );
+
+  const latestAction = sanitizeText(
+    latestLog?.action
+      || latestSessionAction?.action
+      || latestSessionAction?.eventType
+      || latestLog?.eventType
+      || "",
+    120
+  );
+
+  return {
+    latestPath,
+    latestAction,
+    latestActionAt,
+    latestSession,
+  };
+};
+
 const buildCsv = ({ visitors, users }) => {
   const visitorHeader = [
     "type",
@@ -925,8 +1069,26 @@ export const getAdminAnalytics = async (req, res) => {
   try {
     const [visitors, registeredActivities] = await Promise.all([
       AnonymousVisitor.find({}).lean(),
-      UserActivity.find({}).populate("userId", "_id name email phone").lean(),
+      UserActivity.find({}).populate("userId", "_id name email phone sid role createdAt").lean(),
     ]);
+
+    const trackedUserIds = registeredActivities
+      .map((activity) => activity?.userId?._id)
+      .filter(Boolean);
+
+    const scripts = trackedUserIds.length > 0
+      ? await Script.find({ creator: { $in: trackedUserIds } })
+        .select("_id sid creator title status genre primaryGenre contentType isSold services createdAt updatedAt")
+        .lean()
+      : [];
+
+    const scriptsByCreator = scripts.reduce((acc, script) => {
+      const creatorId = script?.creator?.toString?.();
+      if (!creatorId) return acc;
+      if (!acc.has(creatorId)) acc.set(creatorId, []);
+      acc.get(creatorId).push(script);
+      return acc;
+    }, new Map());
 
     const totalVisitors = visitors.length;
     const returningVisitors = visitors.filter((visitor) => visitor.isReturning).length;
@@ -1038,11 +1200,17 @@ export const getAdminAnalytics = async (req, res) => {
 
     let totalLoginEvents = 0;
     let totalSignupEvents = 0;
+    const roleBreakdown = {};
 
     const registeredUsers = registeredActivities
       .map((activity) => {
         const sessionList = Array.isArray(activity.sessions) ? activity.sessions : [];
         const authEvents = Array.isArray(activity.authEvents) ? activity.authEvents : [];
+        const userId = activity.userId?._id?.toString?.() || "";
+        const userRole = String(activity.userId?.role || "").trim().toLowerCase() || "unknown";
+        const projectSummary = buildProjectSummary(scriptsByCreator.get(userId) || []);
+        const activitySignal = getLatestUserActivitySignal(activity);
+        const status = getRegisteredUserStatus(activity.lastActiveAt);
 
         const deviceSet = new Set();
         const locationSet = new Set();
@@ -1058,14 +1226,18 @@ export const getAdminAnalytics = async (req, res) => {
         const signupEvents = authEvents.filter((event) => String(event.type || "").toLowerCase().includes("signup")).length;
         totalLoginEvents += loginEvents;
         totalSignupEvents += signupEvents;
+        roleBreakdown[userRole] = (roleBreakdown[userRole] || 0) + 1;
 
         return {
           userId: activity.userId?._id,
+          sid: activity.userId?.sid || "",
           name: activity.userId?.name || "Unknown",
           email: activity.email || activity.userId?.email || "",
+          role: activity.userId?.role || "",
           phone: activity.phone || activity.userId?.phone || "",
           phoneMasked: maskPhone(activity.phone || activity.userId?.phone || ""),
           anonymousId: activity.anonymousId || "",
+          currentStatus: status,
           lastActiveAt: activity.lastActiveAt,
           activityCount: Array.isArray(activity.activityLogs) ? activity.activityLogs.length : 0,
           sessionCount: sessionList.length,
@@ -1074,9 +1246,14 @@ export const getAdminAnalytics = async (req, res) => {
           loginEvents,
           signupEvents,
           lastAuthEventAt: authEvents.length ? authEvents[authEvents.length - 1].timestamp : null,
+          latestPath: activitySignal.latestPath,
+          latestAction: activitySignal.latestAction,
+          latestActionAt: activitySignal.latestActionAt,
+          latestSession: activitySignal.latestSession,
+          projectSummary,
         };
       })
-      .sort((a, b) => new Date(b.lastActiveAt || 0).getTime() - new Date(a.lastActiveAt || 0).getTime());
+      .sort((a, b) => getTimeValue(b.lastActiveAt) - getTimeValue(a.lastActiveAt));
 
     const recentAuthEvents = registeredActivities
       .flatMap((activity) => {
@@ -1093,18 +1270,36 @@ export const getAdminAnalytics = async (req, res) => {
           metadata: event.metadata,
         }));
       })
-      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+      .sort((a, b) => getTimeValue(b.timestamp) - getTimeValue(a.timestamp))
       .slice(0, 120);
+
+    const recentlyOnlineUsers = registeredUsers
+      .filter((user) => ["live", "recent", "today"].includes(user.currentStatus?.key))
+      .slice(0, 8);
 
     const liveActivity = {
       activeAnonymousUsers: visitors.filter((visitor) => {
-        const ts = new Date(visitor.lastEventAt || 0).getTime();
-        return Date.now() - ts <= 5 * 60 * 1000;
+        const ts = getTimeValue(visitor.lastEventAt);
+        return Date.now() - ts <= LIVE_WINDOW_MS;
       }).length,
       activeRegisteredUsers: registeredUsers.filter((user) => {
-        const ts = new Date(user.lastActiveAt || 0).getTime();
-        return Date.now() - ts <= 5 * 60 * 1000;
+        const ts = getTimeValue(user.lastActiveAt);
+        return Date.now() - ts <= LIVE_WINDOW_MS;
       }).length,
+    };
+
+    const registeredActivitySummary = {
+      activeInLast30Minutes: registeredUsers.filter((user) => {
+        const ts = getTimeValue(user.lastActiveAt);
+        return Date.now() - ts <= RECENT_WINDOW_MS;
+      }).length,
+      activeInLast24Hours: registeredUsers.filter((user) => {
+        const ts = getTimeValue(user.lastActiveAt);
+        return Date.now() - ts <= DAY_WINDOW_MS;
+      }).length,
+      usersWithProjects: registeredUsers.filter((user) => (user.projectSummary?.totalProjects || 0) > 0).length,
+      usersWithPendingProjects: registeredUsers.filter((user) => (user.projectSummary?.pendingProjects || 0) > 0).length,
+      usersWithDraftProjects: registeredUsers.filter((user) => (user.projectSummary?.draftProjects || 0) > 0).length,
     };
 
     if (String(req.query.format || "").toLowerCase() === "csv") {
@@ -1130,6 +1325,9 @@ export const getAdminAnalytics = async (req, res) => {
       registeredUsers: {
         totalUsers: registeredUsers.length,
         users: registeredUsers,
+        roleBreakdown,
+        activitySummary: registeredActivitySummary,
+        recentlyOnlineUsers,
         authSummary: {
           totalLoginEvents,
           totalSignupEvents,
@@ -1282,7 +1480,13 @@ export const getAdminAnalyticsUserDetail = async (req, res) => {
       return res.status(400).json({ message: "userId is required." });
     }
 
-    const activity = await UserActivity.findOne({ userId }).populate("userId", "_id name email phone sid role").lean();
+    const [activity, userScripts] = await Promise.all([
+      UserActivity.findOne({ userId }).populate("userId", "_id name email phone sid role createdAt").lean(),
+      Script.find({ creator: userId })
+        .select("_id sid title status genre primaryGenre contentType isSold services createdAt updatedAt")
+        .lean(),
+    ]);
+
     if (!activity) {
       return res.status(404).json({ message: "No analytics data found for this user yet." });
     }
@@ -1290,6 +1494,9 @@ export const getAdminAnalyticsUserDetail = async (req, res) => {
     const sessions = Array.isArray(activity.sessions) ? activity.sessions : [];
     const logs = Array.isArray(activity.activityLogs) ? activity.activityLogs : [];
     const authEvents = Array.isArray(activity.authEvents) ? activity.authEvents : [];
+    const projectSummary = buildProjectSummary(userScripts);
+    const currentStatus = getRegisteredUserStatus(activity.lastActiveAt);
+    const activitySignal = getLatestUserActivitySignal(activity);
 
     const pageAggregateMap = new Map();
     const deviceMap = new Map();
@@ -1331,7 +1538,7 @@ export const getAdminAnalyticsUserDetail = async (req, res) => {
       .sort((a, b) => b.visits - a.visits);
 
     const latestActions = [...logs]
-      .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
+      .sort((a, b) => getTimeValue(b.timestamp) - getTimeValue(a.timestamp))
       .slice(0, 300);
 
     return res.status(200).json({
@@ -1342,6 +1549,10 @@ export const getAdminAnalyticsUserDetail = async (req, res) => {
         email: activity.email || activity.userId?.email || "",
         phoneMasked: maskPhone(activity.phone || activity.userId?.phone || ""),
         role: activity.userId?.role || "",
+        currentStatus,
+        latestPath: activitySignal.latestPath,
+        latestAction: activitySignal.latestAction,
+        latestActionAt: activitySignal.latestActionAt,
       },
       summary: {
         totalSessions: sessions.length,
@@ -1354,7 +1565,10 @@ export const getAdminAnalyticsUserDetail = async (req, res) => {
         signupAt: activity.signupAt,
         firstLoginAt: activity.firstLoginAt,
         lastLoginAt: activity.lastLoginAt,
+        projectsTracked: projectSummary.totalProjects || 0,
       },
+      projectSummary,
+      latestSession: activitySignal.latestSession,
       devices: [...deviceMap.entries()]
         .map(([deviceKey, count]) => {
           const deviceInfo = parseDeviceKey(deviceKey);
@@ -1368,9 +1582,9 @@ export const getAdminAnalyticsUserDetail = async (req, res) => {
       locations: [...locationMap.entries()]
         .map(([location, count]) => ({ location, count }))
         .sort((a, b) => b.count - a.count),
-      authEvents: [...authEvents].sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()),
+      authEvents: [...authEvents].sort((a, b) => getTimeValue(b.timestamp) - getTimeValue(a.timestamp)),
       pages,
-      sessions: [...sessions].sort((a, b) => new Date(b.startedAt || 0).getTime() - new Date(a.startedAt || 0).getTime()),
+      sessions: [...sessions].sort((a, b) => getTimeValue(b.startedAt) - getTimeValue(a.startedAt)),
       latestActions,
     });
   } catch (error) {

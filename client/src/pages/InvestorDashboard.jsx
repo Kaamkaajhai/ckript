@@ -8,6 +8,11 @@ import { useDarkMode } from "../context/DarkModeContext";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import {
+  getScriptCompletionBadgeClasses,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
 
 /* ── Fade wrapper ────────────────────────────────────────────── */
 const Fade = ({ children, delay = 0, className = "" }) => (
@@ -783,6 +788,16 @@ const ScriptSection = ({ dark, navigate, title, sub, iconBg, iconColor, iconD, s
             <p className={`text-[11px] font-medium ${dark ? "text-gray-500" : "text-gray-400"}`}>
               {script.genre}{script.creator?.name ? ` · ${script.creator.name}` : ""}
             </p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getScriptCompletionBadgeClasses(script, dark)}`}>
+                {getScriptCompletionStatusLabel(script)}
+              </span>
+              {getScriptCompletionProgressText(script) && (
+                <span className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>
+                  {getScriptCompletionProgressText(script)}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {matched && (

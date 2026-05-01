@@ -32,6 +32,7 @@ const FORMAT_LABELS = {
   short_film: "Short Film",
   web_series: "Web Series",
   limited_series: "Limited Series",
+  fiction_novel: "Fiction Novel",
   documentary: "Documentary",
   drama_school: "Drama School",
   anime: "Anime",
@@ -193,7 +194,7 @@ const AdminScriptView = () => {
   const coverImageUrl = resolveMediaUrl(script?.coverImage || "");
   const trailerThumbnailUrl = resolveMediaUrl(script?.trailerThumbnail || "");
   const trailerVideoUrl = resolveMediaUrl(script?.uploadedTrailerUrl || script?.trailerUrl || "");
-  const accessMode = script?.premium && Number(script?.price || 0) > 0 ? "Premium Access" : "Free Public Access";
+  const accessMode = "Premium Access";
   const optionalServices = [
     {
       key: "hosting",

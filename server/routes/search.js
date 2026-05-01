@@ -148,7 +148,7 @@ router.get("/suggestions", authMiddleware, async (req, res) => {
 
     const [scripts, users] = await Promise.all([
       Script.find({ title: regex })
-        .select("title genre coverImage creator readsCount scriptScore")
+        .select("title genre coverImage creator readsCount scriptScore scriptCompletion")
         .populate("creator", "name profileImage")
         .sort({ readsCount: -1 })
         .limit(5)
@@ -170,7 +170,7 @@ router.get("/suggestions", authMiddleware, async (req, res) => {
 router.get("/trending", async (req, res) => {
   try {
     const trendingScripts = await Script.find({ isPublished: true })
-      .select("title genre readsCount scriptScore coverImage creator")
+      .select("title genre readsCount scriptScore coverImage creator scriptCompletion")
       .populate("creator", "name")
       .sort({ readsCount: -1, scriptScore: -1 })
       .limit(8)

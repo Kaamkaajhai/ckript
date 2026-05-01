@@ -10,6 +10,12 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { Film } from "lucide-react";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import {
+  getScriptCompletionBadgeClasses,
+  getScriptCompletionFuturePlans,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
 
 const ScriptReader = () => {
   const { id } = useParams();
@@ -38,6 +44,10 @@ const ScriptReader = () => {
     if (url.startsWith("http") || url.startsWith("data:")) return url;
     return `http://localhost:5002${url}`;
   };
+
+  const completionLabel = getScriptCompletionStatusLabel(script || {});
+  const completionProgress = getScriptCompletionProgressText(script || {});
+  const completionFuturePlans = getScriptCompletionFuturePlans(script || {});
 
   useEffect(() => {
     fetchScript();
@@ -204,6 +214,8 @@ const ScriptReader = () => {
             <div className="flex flex-wrap gap-2 mb-4">
               {script.genre && <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide ${dark ? "bg-white/[0.06] text-gray-300" : "bg-gray-100 text-gray-500"}`}>{script.genre}</span>}
               {script.contentType && <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide ${dark ? "bg-white/[0.06] text-gray-300" : "bg-gray-100 text-gray-500"}`}>{script.contentType.replace(/_/g, " ")}</span>}
+              <span className={`px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide ${getScriptCompletionBadgeClasses(script, dark)}`}>{completionLabel}</span>
+              {completionProgress && <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${dark ? "bg-white/[0.04] text-gray-400" : "bg-gray-50 text-gray-500 border border-gray-100"}`}>{completionProgress}</span>}
             </div>
 
             {/* Title */}
@@ -288,6 +300,12 @@ const ScriptReader = () => {
                 <p className={`leading-relaxed font-medium whitespace-pre-line ${dark ? "text-gray-300" : "text-gray-600"}`}>{script.synopsis}</p>
               ) : (
                 <p className="text-gray-400 italic">No synopsis available for this script.</p>
+              )}
+              {completionFuturePlans && (
+                <div className={`mt-5 rounded-xl border p-4 ${dark ? "bg-white/[0.03] border-white/[0.08]" : "bg-gray-50 border-gray-200"}`}>
+                  <p className={`text-[10px] font-bold uppercase tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Future Updates</p>
+                  <p className={`mt-1 text-sm leading-relaxed ${dark ? "text-gray-300" : "text-gray-700"}`}>{completionFuturePlans}</p>
+                </div>
               )}
             </div>
 
@@ -895,6 +913,7 @@ const ScriptReader = () => {
                   { label: "Genre", value: script.genre },
                   { label: "Content Type", value: script.contentType?.replace(/_/g, " ") },
                   { label: "Format", value: script.format?.replace(/_/g, " ") },
+                  { label: "Completion", value: completionProgress ? `${completionLabel} · ${completionProgress}` : completionLabel, preserveCase: true },
                   { label: "Pages", value: script.pageCount },
                   { label: "Budget", value: script.budget },
                   { label: "Uploaded", value: script.createdAt ? new Date(script.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : null },

@@ -1,6 +1,8 @@
 import { v2 as cloudinary } from "cloudinary";
+import { Readable } from "stream";
 
 let isCloudinaryConfigured = false;
+const DEFAULT_CHUNK_SIZE = 20 * 1024 * 1024;
 
 const ensureCloudinaryConfigured = () => {
   if (isCloudinaryConfigured) return true;
@@ -45,6 +47,27 @@ const uploadToCloudinaryRemote = async (buffer, options = {}) => {
   });
 };
 
+const uploadToCloudinaryChunkedRemote = async (buffer, options = {}) => {
+  const uploadOptions = {
+    folder: options.folder || "scriptbridge/misc",
+    resource_type: options.resource_type || "auto",
+    chunk_size: options.chunk_size || DEFAULT_CHUNK_SIZE,
+  };
+
+  if (options.public_id) {
+    uploadOptions.public_id = options.public_id;
+  }
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_chunked_stream(uploadOptions, (error, result) => {
+      if (error) return reject(error);
+      return resolve(result);
+    });
+
+    Readable.from(buffer).pipe(stream).on("error", reject);
+  });
+};
+
 const deleteFromCloudinaryRemote = async (publicId, options = {}) => {
   const destroyOptions = {
     resource_type: options.resource_type || "image",
@@ -60,6 +83,10 @@ export const uploadToCloudinary = async (buffer, options = {}) => {
 
   if (!ensureCloudinaryConfigured()) {
     throw new Error("Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.");
+  }
+
+  if (options.chunked) {
+    return uploadToCloudinaryChunkedRemote(buffer, options);
   }
 
   return uploadToCloudinaryRemote(buffer, options);

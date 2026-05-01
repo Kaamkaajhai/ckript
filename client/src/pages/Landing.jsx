@@ -1,5 +1,5 @@
-import { lazy, Suspense, useContext, useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Film,
@@ -19,21 +19,19 @@ import {
 import api from "../services/api";
 import BrandLogo from "../components/BrandLogo";
 import MarketingHeader from "../components/MarketingHeader";
-import { AuthContext } from "../context/AuthContext";
-import homeImg1 from "../assets/home-img1.jpeg";
-import homeImg2 from "../assets/home-img2.jpeg";
-import homeImg3 from "../assets/home-img3.jpeg";
+import heroImage from "../assets/image_2.png";
+import "./landing-luxury.css";
 
 const FeaturesShowcase = lazy(() => import("../components/FeaturesShowcase"));
 
 /* ─────────────────────────────────────────────
-   Fonts — Fraunces (display) + Inter (body)
+   Fonts — Playfair Display (display) + Inter (body)
    ───────────────────────────────────────────── */
 const FontInjection = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,700&family=Inter:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700;800&display=swap');
 
-    .font-display { font-family: 'Fraunces', Georgia, serif; font-optical-sizing: auto; }
+    .font-display { font-family: 'Playfair Display', Georgia, serif; font-optical-sizing: auto; }
     .font-body    { font-family: 'Inter', system-ui, sans-serif; }
 
     .grain::before {
@@ -61,10 +59,22 @@ const FontInjection = () => (
 );
 
 const contactReasons = [
-  { value: "doubt",   label: "I have a question",       icon: HelpCircle },
-  { value: "team",    label: "I want to join the team", icon: Briefcase },
-  { value: "general", label: "General feedback",        icon: MessageSquare },
-  { value: "email",   label: "Just say hello",          icon: Mail },
+  { value: "doubt", label: "I have a question", icon: HelpCircle },
+  { value: "team", label: "I want to join the team", icon: Briefcase },
+  { value: "general", label: "General feedback", icon: MessageSquare },
+  { value: "email", label: "Just say hello", icon: Mail },
+];
+
+const heroSceneNotes = [
+  { text: "INT. UNKNOWN - NIGHT", className: "luxury-hero-note luxury-hero-note--slug", style: { top: "18%", left: "8%" } },
+  { text: "A wind.", className: "luxury-hero-note", style: { top: "4%", left: "28%" } },
+  { text: "A silhouette.", className: "luxury-hero-note", style: { top: "30%", left: "34%" } },
+  { text: "Darkness.", className: "luxury-hero-note", style: { top: "12%", right: "16%" } },
+  { text: "Silence.", className: "luxury-hero-note", style: { top: "34%", right: "8%" } },
+  { text: "The world holds its breath.", className: "luxury-hero-note", style: { top: "52%", left: "42%" } },
+  { text: "Then-light.", className: "luxury-hero-note", style: { top: "52%", right: "4%" } },
+  { text: "Somewhere,", className: "luxury-hero-note", style: { bottom: "20%", left: "14%" } },
+  { text: "a story is born.", className: "luxury-hero-note", style: { bottom: "2%", left: "30%" } },
 ];
 
 /* ─────────────────────────────────────────────
@@ -96,7 +106,7 @@ const ContactSection = () => {
   };
 
   return (
-    <section className="relative py-24 sm:py-32 px-4 sm:px-6 bg-[#F8FAFC] overflow-hidden">
+    <section className="luxury-section luxury-contact-section relative py-24 sm:py-32 px-4 sm:px-6 bg-[#F8FAFC] overflow-hidden">
       <div className="relative max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -105,14 +115,14 @@ const ContactSection = () => {
           transition={{ duration: 0.6 }}
           className="mb-14 sm:mb-16 max-w-2xl"
         >
-          <p className="font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-5">
+          <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-5">
             Contact
           </p>
-          <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl text-[#111827] leading-[1.05] tracking-tight">
+          <h2 className="luxury-section-title font-display text-4xl sm:text-5xl lg:text-6xl text-[#111827] leading-[1.05] tracking-tight">
             We'd love to hear<br />
             <em className="font-medium">from you.</em>
           </h2>
-          <p className="font-body text-[#6B7280] text-base sm:text-lg mt-5 leading-relaxed">
+          <p className="luxury-body-copy font-body text-[#6B7280] text-base sm:text-lg mt-5 leading-relaxed">
             Got a question? An idea? A complaint? A coffee recommendation? Drop us a line —
             we read everything.
           </p>
@@ -132,29 +142,29 @@ const ContactSection = () => {
                 key={value}
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, reason: value }))}
-                className={`flex items-center gap-4 px-5 py-4 rounded-2xl border-2 text-left transition-all duration-200
+                data-selected={form.reason === value}
+                className={`luxury-contact-option flex items-center gap-4 px-5 py-4 rounded-2xl border-2 text-left transition-all duration-200
                   ${form.reason === value
                     ? "border-[#6366F1] bg-white text-black shadow-[0_8px_24px_rgba(79,70,229,0.12)]"
                     : "border-[#E5E7EB] bg-white text-black hover:border-[#D1D5DB] hover:bg-[#F9FAFB]"
                   }`}
               >
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                  form.reason === value ? "bg-[#6366F1] text-white" : "bg-[#F3F4F6] text-black"
-                }`}>
+                <div className={`luxury-contact-option-icon w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${form.reason === value ? "bg-[#6366F1] text-white" : "bg-[#F3F4F6] text-black"
+                  }`}>
                   <Icon className="w-4 h-4" />
                 </div>
-                <span className="font-body text-sm font-medium text-black">{label}</span>
+                <span className="font-body text-sm font-medium">{label}</span>
                 {form.reason === value && (
-                  <CheckCircle className="w-4 h-4 text-[#6366F1] ml-auto shrink-0" />
+                  <CheckCircle className="w-4 h-4 text-[#D4AF77] ml-auto shrink-0" />
                 )}
               </button>
             ))}
 
-            <div className="mt-4 px-5 py-4 rounded-2xl bg-white border border-[#E5E7EB]">
-              <p className="font-body text-xs text-[#6B7280] mb-1">Or email us directly</p>
+            <div className="luxury-inline-surface mt-4 px-5 py-4 rounded-2xl bg-white border border-[#E5E7EB]">
+              <p className="luxury-body-copy font-body text-xs text-[#6B7280] mb-1">Or email us directly</p>
               <a
                 href="mailto:info.ckript@gmail.com"
-                className="font-display text-lg text-[#111827] hover:underline transition-colors break-all"
+                className="luxury-inline-link font-display text-lg text-[#111827] hover:underline transition-colors break-all"
               >
                 info.ckript@gmail.com
               </a>
@@ -169,7 +179,7 @@ const ContactSection = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="lg:col-span-3"
           >
-            <div className="bg-white rounded-3xl p-6 sm:p-10 shadow-[0_20px_60px_rgba(17,24,39,0.08)] border border-[#E5E7EB]">
+            <div className="luxury-form-surface bg-white rounded-3xl p-6 sm:p-10 shadow-[0_20px_60px_rgba(17,24,39,0.08)] border border-[#E5E7EB]">
               <AnimatePresence mode="wait">
                 {submitted ? (
                   <motion.div
@@ -179,13 +189,13 @@ const ContactSection = () => {
                     exit={{ opacity: 0 }}
                     className="flex flex-col items-center justify-center text-center py-12 gap-4"
                   >
-                    <div className="w-16 h-16 rounded-full bg-[#F3F4F6] flex items-center justify-center">
+                    <div className="luxury-icon-shell luxury-icon-shell--gold w-16 h-16 rounded-full bg-[#F3F4F6] flex items-center justify-center">
                       <CheckCircle className="w-8 h-8 text-[#111827]" />
                     </div>
-                    <h3 className="font-display text-3xl text-[#111827]">
+                    <h3 className="luxury-modal-title font-display text-3xl text-[#111827]">
                       Message <em>sent.</em>
                     </h3>
-                    <p className="font-body text-[#6B7280] text-sm max-w-xs">
+                    <p className="luxury-body-copy font-body text-[#6B7280] text-sm max-w-xs">
                       Thanks for reaching out. We'll get back to you within 24 hours.
                     </p>
                     <button
@@ -194,7 +204,7 @@ const ContactSection = () => {
                         setSubmitError("");
                         setForm({ reason: "", name: "", email: "", message: "" });
                       }}
-                      className="mt-3 font-body text-sm font-medium text-[#111827] underline underline-offset-4 decoration-[#9CA3AF] hover:decoration-[#111827]"
+                      className="luxury-inline-link mt-3 font-body text-sm font-medium text-[#111827] underline underline-offset-4 decoration-[#9CA3AF] hover:decoration-[#111827]"
                     >
                       Send another
                     </button>
@@ -210,7 +220,7 @@ const ContactSection = () => {
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div className="flex flex-col gap-2">
-                        <label className="font-body text-xs font-semibold text-[#111827]">
+                        <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
                           Your name
                         </label>
                         <input
@@ -219,11 +229,11 @@ const ContactSection = () => {
                           onChange={handleChange}
                           required
                           placeholder="Jane Doe"
-                          className="bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
+                          className="luxury-field-input bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
                         />
                       </div>
                       <div className="flex flex-col gap-2">
-                        <label className="font-body text-xs font-semibold text-[#111827]">
+                        <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
                           Your email
                         </label>
                         <input
@@ -233,13 +243,13 @@ const ContactSection = () => {
                           onChange={handleChange}
                           required
                           placeholder="jane@example.com"
-                          className="bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
+                          className="luxury-field-input bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
                         />
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="font-body text-xs font-semibold text-[#111827]">
+                      <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
                         What's this about?
                       </label>
                       <select
@@ -247,8 +257,8 @@ const ContactSection = () => {
                         value={form.reason}
                         onChange={handleChange}
                         required
-                        className="contact-reason-select bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-black text-sm focus:outline-none focus:border-[#111827] focus:bg-white transition-all appearance-none cursor-pointer"
-                        style={{ color: "#000000" }}
+                        className="luxury-field-input contact-reason-select bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-black text-sm focus:outline-none focus:border-[#111827] focus:bg-white transition-all appearance-none cursor-pointer"
+                        style={{ color: "#F5F2EB" }}
                       >
                         <option value="" disabled style={{ color: "#000000", backgroundColor: "#ffffff" }}>Pick a topic…</option>
                         {contactReasons.map(({ value, label }) => (
@@ -258,7 +268,7 @@ const ContactSection = () => {
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="font-body text-xs font-semibold text-[#111827]">
+                      <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
                         Your message
                       </label>
                       <textarea
@@ -268,12 +278,12 @@ const ContactSection = () => {
                         required
                         rows={5}
                         placeholder="Tell us what's on your mind…"
-                        className="bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] resize-none focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
+                        className="luxury-field-input bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] resize-none focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
                       />
                     </div>
 
                     {submitError && (
-                      <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 font-body text-sm text-red-700">
+                      <div className="luxury-feedback-danger rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 font-body text-sm text-red-700">
                         {submitError}
                       </div>
                     )}
@@ -281,7 +291,7 @@ const ContactSection = () => {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="group flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] font-body font-semibold text-white text-sm transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="luxury-cta luxury-cta--gold luxury-cta--wide group flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] font-body font-semibold text-white text-sm transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {loading ? (
                         <>
@@ -313,10 +323,10 @@ const ContactSection = () => {
    Landing Page
    ───────────────────────────────────────────── */
 const Landing = () => {
+  const shouldReduceMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showInvestorReviewPopup, setShowInvestorReviewPopup] = useState(false);
   const [activeProcessStep, setActiveProcessStep] = useState(0);
-  const { user } = useContext(AuthContext);
 
   const reviewStatus = useMemo(() => {
     const value = (searchParams.get("investorReview") || "").toLowerCase();
@@ -333,6 +343,16 @@ const Landing = () => {
       setShowInvestorReviewPopup(true);
     }
   }, [reviewStatus]);
+
+  useEffect(() => {
+    document.documentElement.classList.add("luxury-homepage-html");
+    document.body.classList.add("luxury-homepage-body");
+
+    return () => {
+      document.documentElement.classList.remove("luxury-homepage-html");
+      document.body.classList.remove("luxury-homepage-body");
+    };
+  }, []);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -377,7 +397,7 @@ const Landing = () => {
   ];
 
   return (
-    <div className="font-body bg-[#0F172A] text-[#F9FAFB] overflow-x-hidden">
+    <div className="luxury-homepage font-body bg-[#0F172A] text-[#F9FAFB] overflow-x-hidden">
       <FontInjection />
 
       {/* ══════════════════════════════════════
@@ -389,7 +409,7 @@ const Landing = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center px-5"
+            className="luxury-modal-backdrop fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center px-5"
             onClick={closeInvestorReviewPopup}
           >
             <motion.div
@@ -397,17 +417,17 @@ const Landing = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.96 }}
               transition={{ duration: 0.3 }}
-              className="relative w-full max-w-md bg-[#1F2937] rounded-3xl p-8 shadow-2xl border border-[#374151]"
+              className="luxury-modal relative w-full max-w-md bg-[#1F2937] rounded-3xl p-8 shadow-2xl border border-[#374151]"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={closeInvestorReviewPopup}
-                className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-[#CBD5E1] transition-colors"
+                className="luxury-modal-close absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-[#CBD5E1] transition-colors"
               >
                 <XCircle className="w-4 h-4" />
               </button>
 
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/10">
+              <div className="luxury-modal-icon w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/10">
                 {reviewStatus === "pending" ? (
                   <Clock3 className="w-6 h-6 text-[#F9FAFB]" />
                 ) : (
@@ -415,7 +435,7 @@ const Landing = () => {
                 )}
               </div>
 
-              <h3 className="font-display text-2xl sm:text-3xl text-[#F9FAFB] leading-tight mb-3">
+              <h3 className="luxury-modal-title font-display text-2xl sm:text-3xl text-[#F9FAFB] leading-tight mb-3">
                 {reviewStatus === "pending" ? (
                   <>Your profile is <em>under review</em></>
                 ) : (
@@ -423,7 +443,7 @@ const Landing = () => {
                 )}
               </h3>
 
-              <p className="font-body text-sm text-[#CBD5E1] leading-relaxed mb-6">
+              <p className="luxury-modal-copy font-body text-sm text-[#CBD5E1] leading-relaxed mb-6">
                 {reviewStatus === "pending"
                   ? "Our team is reviewing your investor profile. Expect a decision within 2–3 days — we'll email you the moment it's approved."
                   : rejectedNote
@@ -431,17 +451,17 @@ const Landing = () => {
                     : "Your investor profile was not approved. Reach out and we'll walk you through next steps."}
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-5 border-t border-[#374151]">
+              <div className="luxury-modal-actions flex flex-col sm:flex-row gap-3 pt-5 border-t border-[#374151]">
                 <a
                   href="mailto:info.ckript@gmail.com"
-                  className="font-body text-xs font-medium text-[#CBD5E1] hover:text-white transition-colors break-all"
+                  className="luxury-inline-link font-body text-xs font-medium text-[#CBD5E1] hover:text-white transition-colors break-all"
                 >
                   info.ckript@gmail.com
                 </a>
                 <Link
                   to="/login"
                   onClick={closeInvestorReviewPopup}
-                  className="sm:ml-auto bg-[#6366F1] text-white font-body text-xs font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4F46E5] transition-colors text-center"
+                  className="luxury-cta luxury-cta--gold sm:ml-auto bg-[#6366F1] text-white font-body text-xs font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4F46E5] transition-colors text-center"
                 >
                   Open Login →
                 </Link>
@@ -459,84 +479,118 @@ const Landing = () => {
       {/* ══════════════════════════════════════
           HERO — simple, left-aligned, big headline
           ══════════════════════════════════════ */}
-      <section className="relative min-h-[90vh] flex items-center overflow-hidden grain pt-28 pb-20">
+      <section className="luxury-hero relative min-h-[90vh] flex items-center overflow-hidden grain pt-28 pb-20">
         {/* Background */}
         <div className="absolute inset-0">
           <img
-            src={homeImg1}
+            src={heroImage}
             alt=""
-            className="w-full h-full object-cover opacity-40"
+            className="luxury-hero-image w-full h-full object-cover opacity-40"
             loading="eager"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0F172A] via-[#0F172A]/80 to-[#0F172A]/30" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A]/70 via-transparent to-transparent" />
+          <div className="luxury-hero-spotlight absolute inset-0" />
+          <div className="luxury-hero-dust absolute inset-0" />
+          <div className="luxury-hero-beam absolute inset-y-0 right-[12%] w-[34%]" />
+          <div className="luxury-hero-overlay--primary absolute inset-0 bg-gradient-to-r from-[#0F172A] via-[#0F172A]/80 to-[#0F172A]/30" />
+          <div className="luxury-hero-overlay--secondary absolute inset-0 bg-gradient-to-t from-[#0F172A]/70 via-transparent to-transparent" />
+          <div className="luxury-hero-overlay--vignette absolute inset-0" />
         </div>
 
         <div className="relative z-10 w-full px-6 sm:px-10 lg:px-16">
-          <div className="max-w-[1400px] mx-auto">
-            <div className="max-w-5xl">
+          <div className="luxury-hero-layout max-w-[1480px] mx-auto">
+            <div className="luxury-hero-copy">
 
-              {/* Headline */}
               <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.05 }}
-                className="font-display text-[#F9FAFB] mb-8"
+                transition={{ duration: 0.8, delay: 0.08 }}
+                className="luxury-hero-title font-display text-[#F9FAFB] mb-8"
                 style={{
-                  fontSize: 'clamp(2.75rem, 7.5vw, 7.5rem)',
-                  lineHeight: '0.95',
-                  letterSpacing: '-0.035em',
+                  fontSize: "clamp(3.2rem, 7vw, 7.6rem)",
+                  lineHeight: "0.93",
+                  letterSpacing: "-0.04em",
                   fontWeight: 600,
                 }}
               >
-                Your Ideas<br />
-                Deserve <em className="italic" style={{ fontWeight: 600 }}>More</em><br />
-                Than Rejection.
+                <span className="whitespace-nowrap">From Script,</span><br />
+                to Screen.
               </motion.h1>
 
-              {/* Subtitle */}
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.25 }}
-                className="font-body text-[#CBD5E1] leading-relaxed max-w-2xl mb-10"
-                style={{ fontSize: 'clamp(1rem, 1.3vw, 1.2rem)' }}
+                transition={{ duration: 0.7, delay: 0.22 }}
+                className="luxury-hero-subtitle font-body text-[#CBD5E1] leading-relaxed mb-10"
+                style={{ fontSize: "clamp(1rem, 1.25vw, 1.18rem)" }}
               >
-                Ckript is where writers meet the people who actually finance films.
-                Upload your script, watch AI cut your trailer, get matched with industry professionals
-                and investors looking for stories like yours.
+                Ckript transforms raw story worlds into cinematic momentum.
+                Upload your script, shape a trailer, and bring producers and investors into the same atmosphere as your idea.
               </motion.p>
 
-              {/* CTAs */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.4 }}
-                className="flex flex-col sm:flex-row gap-3"
+                transition={{ duration: 0.7, delay: 0.36 }}
+                className="luxury-hero-actions flex flex-col sm:flex-row gap-4"
               >
                 <Link
                   to="/writer-onboarding"
-                  className="group flex items-center justify-center gap-2 bg-[#6366F1] text-white font-body text-sm font-semibold px-8 py-4 rounded-full hover:bg-[#4F46E5] transition-all duration-300 hover:shadow-[0_10px_30px_rgba(79,70,229,0.4)]"
+                  className="luxury-cta luxury-hero-primary-cta group flex items-center justify-center gap-2 bg-white text-black font-body text-sm font-semibold px-8 py-4 rounded-full hover:bg-gray-100 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(255,255,255,0.2)]"
                 >
-                  I'm a writer
+                  Start with your script
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
                   to="/producer-director-onboarding"
-                  className="group flex items-center justify-center gap-2 bg-white/10 border border-white/25 text-[#F8FAFC] font-body text-sm font-semibold px-8 py-4 rounded-full hover:bg-white/20 hover:border-white/40 transition-all duration-300 backdrop-blur-sm"
+                  className="luxury-hero-secondary-link group inline-flex items-center gap-2 font-body text-xs sm:text-sm font-semibold whitespace-nowrap"
                 >
-                  I'm an Industry Professional
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  Start as Industry Professional
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
                 </Link>
               </motion.div>
             </div>
+
+            <motion.div
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.9, delay: 0.18 }}
+              className="luxury-hero-visual"
+            >
+              <div className="luxury-hero-constellation">
+                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--a" />
+                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--b" />
+                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--c" />
+                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--d" />
+                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--e" />
+                <span className="luxury-hero-star" style={{ top: "6%", left: "30%", "--star-delay": "0s" }} />
+                <span className="luxury-hero-star" style={{ top: "22%", left: "24%", "--star-delay": "0.8s" }} />
+                <span className="luxury-hero-star" style={{ top: "46%", left: "18%", "--star-delay": "1.6s" }} />
+                <span className="luxury-hero-star" style={{ top: "48%", left: "48%", "--star-delay": "2.3s" }} />
+                <span className="luxury-hero-star" style={{ top: "33%", left: "76%", "--star-delay": "1.1s" }} />
+                <span className="luxury-hero-star" style={{ top: "58%", left: "84%", "--star-delay": "2.8s" }} />
+                <span className="luxury-hero-star" style={{ top: "78%", left: "22%", "--star-delay": "1.9s" }} />
+                <span className="luxury-hero-star" style={{ top: "92%", left: "40%", "--star-delay": "3.2s" }} />
+
+                {heroSceneNotes.map((note, index) => (
+                  <span
+                    key={note.text}
+                    className={note.className}
+                    style={{ ...note.style, "--note-delay": `${index * 0.45}s` }}
+                  >
+                    {note.text}
+                  </span>
+                ))}
+              </div>
+            </motion.div>
           </div>
+
+
         </div>
       </section>
       {/* ══════════════════════════════════════
           MARQUEE — dark transition strip
           ══════════════════════════════════════ */}
-      <div className="relative bg-[#0F172A] text-[#CBD5E1] py-5 overflow-hidden border-t border-b border-white/10">
+      <div className="luxury-marquee relative bg-[#0F172A] text-[#CBD5E1] py-5 overflow-hidden border-t border-b border-white/10">
         <div className="flex whitespace-nowrap marquee-track">
           {Array.from({ length: 2 }).map((_, groupIdx) => (
             <div key={groupIdx} className="flex items-center gap-10 pr-10">
@@ -554,7 +608,7 @@ const Landing = () => {
               ].map((item, i) => (
                 <span
                   key={`${groupIdx}-${i}`}
-                  className="font-display text-xl italic font-medium"
+                  className="luxury-marquee-item font-display text-xl italic font-medium"
                 >
                   {item}
                 </span>
@@ -567,7 +621,7 @@ const Landing = () => {
       {/* ══════════════════════════════════════
           THE PROBLEM — light section
           ══════════════════════════════════════ */}
-      <section className="relative pt-24 pb-10 sm:pt-32 sm:pb-14 px-4 sm:px-8 bg-[#F8FAFC] overflow-hidden">
+      <section className="luxury-section luxury-problem-section relative pt-24 pb-10 sm:pt-32 sm:pb-14 px-4 sm:px-8 bg-[#F8FAFC] overflow-hidden">
         <div className="relative max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -576,10 +630,10 @@ const Landing = () => {
             transition={{ duration: 0.6 }}
             className="mb-16 sm:mb-20 max-w-3xl"
           >
-            <p className="font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-5">
+            <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-5">
               The problem
             </p>
-            <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl text-[#111827] leading-[1.05] tracking-tight font-medium">
+            <h2 className="luxury-section-title font-display text-4xl sm:text-5xl lg:text-6xl text-[#111827] leading-[1.05] tracking-tight font-medium">
               The film industry is <em>broken</em><br />
               on both sides of the page.
             </h2>
@@ -592,16 +646,16 @@ const Landing = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
+              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
             >
-              <div className="w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
+              <div className="luxury-icon-shell luxury-icon-shell--gold w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
                 <PenLine className="w-5 h-5 text-[#111827]" />
               </div>
 
-              <p className="font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
+              <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
                 If you're a writer
               </p>
-              <h3 className="font-display text-3xl sm:text-4xl text-[#111827] mb-6 leading-tight font-medium">
+              <h3 className="luxury-section-title font-display text-3xl sm:text-4xl text-[#111827] mb-6 leading-tight font-medium">
                 Brilliant pages,<br />
                 <em className="text-[#6B7280]">no audience.</em>
               </h3>
@@ -613,7 +667,7 @@ const Landing = () => {
                   "No real way to reach industry professionals who'd actually fund you",
                   "Your best story ages while you wait for permission",
                 ].map((line, i) => (
-                  <li key={i} className="flex gap-3 font-body text-sm sm:text-base text-[#6B7280] leading-relaxed">
+                  <li key={i} className="luxury-body-copy flex gap-3 font-body text-sm sm:text-base text-[#6B7280] leading-relaxed">
                     <span className="text-[#9CA3AF] shrink-0 mt-0.5">→</span>
                     {line}
                   </li>
@@ -622,7 +676,7 @@ const Landing = () => {
 
               <Link
                 to="/writer-onboarding"
-                className="group inline-flex items-center gap-2 font-body text-sm font-semibold text-[#111827] border-b border-[#111827] pb-1 hover:gap-3 transition-all"
+                className="luxury-text-link group inline-flex items-center gap-2 font-body text-sm font-semibold text-[#111827] border-b border-[#111827] pb-1 hover:gap-3 transition-all"
               >
                 Start as a writer
                 <ArrowRight className="w-4 h-4" />
@@ -635,16 +689,16 @@ const Landing = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
+              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
             >
-              <div className="w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
+              <div className="luxury-icon-shell w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
                 <TrendingUp className="w-5 h-5 text-[#111827]" />
               </div>
 
-              <p className="font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
+              <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
                 If you're in the industry
               </p>
-              <h3 className="font-display text-3xl sm:text-4xl text-[#111827] mb-6 leading-tight font-medium">
+              <h3 className="luxury-section-title font-display text-3xl sm:text-4xl text-[#111827] mb-6 leading-tight font-medium">
                 Too much noise,<br />
                 <em className="text-[#6B7280]">too little signal.</em>
               </h3>
@@ -654,9 +708,9 @@ const Landing = () => {
                   "Thousands of unfiltered submissions, no way to find the gems",
                   "No preview of tone or vision before reading 110 pages",
                   "Discovery is slow, expensive, and built on who-you-know",
-                  "The next big film is out there — and you're missing it",
+                  "The next big film is out there and you're missing it",
                 ].map((line, i) => (
-                  <li key={i} className="flex gap-3 font-body text-sm sm:text-base text-[#6B7280] leading-relaxed">
+                  <li key={i} className="luxury-body-copy flex gap-3 font-body text-sm sm:text-base text-[#6B7280] leading-relaxed">
                     <span className="text-[#9CA3AF] shrink-0 mt-0.5">→</span>
                     {line}
                   </li>
@@ -665,7 +719,7 @@ const Landing = () => {
 
               <Link
                 to="/producer-director-onboarding"
-                className="group inline-flex items-center gap-2 font-body text-sm font-semibold text-[#111827] border-b border-[#111827] pb-1 hover:gap-3 transition-all"
+                className="luxury-text-link group inline-flex items-center gap-2 font-body text-sm font-semibold text-[#111827] border-b border-[#111827] pb-1 hover:gap-3 transition-all"
               >
                 Start as an Industry Professional
                 <ArrowRight className="w-4 h-4" />
@@ -678,23 +732,27 @@ const Landing = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative mt-16 sm:mt-20 max-w-5xl mx-auto text-center overflow-hidden rounded-3xl border border-white/20 shadow-[0_20px_60px_rgba(15,23,42,0.35)]"
+            className="luxury-cinematic-panel relative mt-16 sm:mt-20 max-w-6xl mx-auto overflow-hidden rounded-[2rem] border border-[#E2C38B]/35 shadow-[0_28px_80px_rgba(15,23,42,0.26)]"
           >
             <img
-              src={homeImg2}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover object-center opacity-90"
+              src="/enter-ckript-cover.png"
+              alt="Illustrated Ckript workspace connecting writers, producers, and investors"
+              className="luxury-cinematic-panel__image absolute inset-0 w-full h-full object-cover object-center"
               loading="eager"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0F172A]/60 via-[#111827]/50 to-[#0F172A]/70" />
+            <div className="luxury-cinematic-panel__glow absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(250,224,174,0.28),transparent_34%)]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#120E09]/72 via-[#1B1611]/36 to-[#0F172A]/14" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#120E09]/68 via-transparent to-[#0F172A]/16" />
 
-            <div className="relative z-10 max-w-3xl mx-auto px-6 py-20 sm:px-10 sm:py-24">
-              <p className="font-body text-xs font-semibold uppercase tracking-wider text-white mb-4 [text-shadow:0_1px_8px_rgba(0,0,0,0.55)]">
-                Enter Ckript
-              </p>
-              <p className="font-display text-2xl sm:text-3xl lg:text-4xl text-white italic leading-relaxed font-medium [text-shadow:0_2px_14px_rgba(0,0,0,0.65)]">
-                "We cut the gatekeepers and the fog. Writers get seen. Industry professionals get clarity. Everyone gets back to making films."
-              </p>
+            <div className="relative z-10 min-h-[420px] sm:min-h-[500px] flex items-end">
+              <div className="max-w-3xl px-6 py-10 text-left sm:px-10 sm:py-12 lg:px-14">
+                <p className="luxury-badge luxury-badge--premium inline-flex items-center rounded-full border border-[#F6E4B8]/35 bg-[#120E09]/38 px-3 py-1.5 font-body text-xs font-semibold uppercase tracking-[0.22em] text-[#F8E7C2] backdrop-blur-sm">
+                  Enter Ckript
+                </p>
+                <p className="luxury-cinematic-quote mt-5 max-w-2xl font-display text-2xl sm:text-3xl lg:text-[2.85rem] text-white italic leading-[1.18] font-medium [text-shadow:0_4px_22px_rgba(0,0,0,0.45)]">
+                  "We cut the gatekeepers and the fog. Writers get seen. Industry professionals get clarity. Everyone gets back to making films."
+                </p>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -705,9 +763,9 @@ const Landing = () => {
           ══════════════════════════════════════ */}
       <Suspense
         fallback={
-          <section className="py-20 px-6 bg-[#F8FAFC]" aria-label="Loading features">
+          <section className="luxury-section py-20 px-6 bg-[#F8FAFC]" aria-label="Loading features">
             <div className="max-w-7xl mx-auto">
-              <div className="font-body text-sm text-[#6B7280]">Loading features…</div>
+              <div className="luxury-body-copy font-body text-sm text-[#6B7280]">Loading features…</div>
             </div>
           </section>
         }
@@ -718,88 +776,122 @@ const Landing = () => {
       {/* ══════════════════════════════════════
           HOW IT WORKS — dark with cinematic background
           ══════════════════════════════════════ */}
-      <section className="relative py-24 sm:py-32 px-4 sm:px-8 bg-[#0F172A] grain overflow-hidden">
-        <div className="absolute inset-0">
-          <img
-            src={homeImg2}
-            alt=""
-            className="w-full h-full object-cover opacity-40"
-            loading="lazy"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0F172A] via-[#0F172A]/55 to-[#0F172A]" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0F172A]/85 via-[#0F172A]/30 to-[#0F172A]/85" />
+      <section className="luxury-section luxury-process-section relative py-24 sm:py-32 px-4 sm:px-8 overflow-hidden bg-[#0A0A0B]">
+        <div className="absolute inset-0 opacity-80">
+          <div className="absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] [background-size:120px_120px]" />
         </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto">
+        <div className="relative z-10 max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="mb-16 sm:mb-20 max-w-3xl"
+            className="mb-16 sm:mb-20 max-w-3xl mx-auto text-center"
           >
-            <p className="font-body text-xs font-semibold uppercase tracking-wider text-[#94A3B8] mb-5">
+            <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-[0.28em] text-white/60 mb-5">
               How it works
             </p>
-            <h2 className="font-display text-4xl sm:text-5xl lg:text-6xl text-[#F9FAFB] leading-[1.05] tracking-tight font-medium">
-              Four steps. <em>One story.</em>
+            <h2 className="luxury-section-title font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-[1.02] tracking-tight font-medium">
+              Four steps. <em className="text-white/70">One story.</em>
             </h2>
-            <p className="font-body text-base sm:text-lg text-[#CBD5E1] mt-5 max-w-xl leading-relaxed">
-              From the first line on the page to the moment you get paid — here's how Ckript
+            <p className="luxury-body-copy luxury-body-copy--light font-body text-base sm:text-lg text-[#CBD5E1] mt-5 max-w-2xl mx-auto leading-relaxed">
+              From the first line on the page to the moment you get paid, here's how Ckript
               takes your script from idea to industry.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="relative max-w-5xl mx-auto">
+            <div className="luxury-process-line absolute left-5 top-0 bottom-0 w-px bg-white/10 md:left-1/2 md:-translate-x-1/2" />
             {processSteps.map((item, index) => {
               const isActive = index === activeProcessStep;
               const Icon = item.icon;
+              const isLeft = index % 2 === 0;
               return (
-                <motion.button
+                <motion.div
                   key={item.step}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  onClick={() => setActiveProcessStep(index)}
-                  className={`group relative text-left p-7 rounded-3xl border backdrop-blur-md transition-all duration-500 ${
-                    isActive
-                      ? "bg-white/10 border-[#6366F1]/60 shadow-[0_20px_50px_rgba(79,70,229,0.25)]"
-                      : "bg-white/5 border-white/10 hover:bg-white/8 hover:border-white/20"
-                  }`}
+                  className={`relative grid md:grid-cols-2 gap-6 md:gap-12 items-center ${index !== processSteps.length - 1 ? "mb-10 md:mb-7" : ""
+                    }`}
                 >
-                  <div className="flex items-start justify-between mb-8">
-                    <span
-                      className={`font-display text-6xl leading-none font-medium transition-colors duration-500 ${
-                        isActive ? "text-[#A5B4FC]" : "text-white/20"
-                      }`}
-                    >
-                      {item.step}
-                    </span>
+                  <div className={`hidden md:flex ${isLeft ? "justify-end pr-14" : "justify-start pl-14 md:order-3"}`}>
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-500 ${
-                        isActive
-                          ? "bg-[#6366F1] text-white"
-                          : "bg-white/10 text-[#CBD5E1] group-hover:bg-white/15"
-                      }`}
+                      data-active={isActive}
+                      className={`luxury-process-orb relative flex h-16 w-16 items-center justify-center rounded-2xl border transition-all duration-500 ${isActive
+                          ? "border-white/30 bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+                          : "border-white/5 bg-transparent"
+                        }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className={`relative z-10 w-7 h-7 transition-colors duration-500 ${isActive ? "text-white" : "text-white/40"}`} />
                     </div>
                   </div>
 
-                  <h3 className="font-display text-2xl text-[#F9FAFB] mb-3 leading-tight font-medium">
-                    {item.title}
-                  </h3>
-                  <p className="font-body text-sm text-[#CBD5E1] leading-relaxed">
-                    {item.desc}
-                  </p>
+                  <div className="absolute left-5 top-1/2 -translate-x-1/2 -translate-y-1/2 md:left-1/2 md:z-20">
+                    <button
+                      type="button"
+                      onClick={() => setActiveProcessStep(index)}
+                      data-active={isActive}
+                      className={`luxury-step-dot flex h-10 w-10 items-center justify-center rounded-full border text-[11px] font-semibold transition-all duration-500 ${isActive
+                          ? "border-white bg-white text-black"
+                          : "border-white/20 bg-[#0A0A0B] text-white/50"
+                        }`}
+                      aria-label={`Highlight step ${item.step}`}
+                    >
+                      {item.step}
+                    </button>
+                  </div>
 
-                  <div
-                    className={`absolute bottom-0 left-7 right-7 h-0.5 bg-[#6366F1] rounded-full transition-all duration-500 ${
-                      isActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
-                    }`}
-                  />
-                </motion.button>
+                  <motion.button
+                    type="button"
+                    onClick={() => setActiveProcessStep(index)}
+                    data-active={isActive}
+                    className={`luxury-process-card group relative ml-12 text-left p-5 sm:p-6 rounded-2xl border transition-all duration-500 md:ml-0 ${isLeft ? "md:order-2" : "md:order-1"
+                      } ${isActive
+                        ? "bg-white/[0.04] border-white/20"
+                        : "bg-transparent border-white/5 hover:border-white/15 hover:bg-white/[0.02]"
+                      }`}
+                  >
+                    <div className="relative z-10 flex items-start gap-4 sm:gap-5">
+                      <div
+                        className={`luxury-process-card-icon md:hidden shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-500 ${isActive
+                            ? "border-white/20 bg-white/10 text-white"
+                            : "border-white/5 bg-transparent text-white/40"
+                          }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-4">
+                          <span
+                            data-active={isActive}
+                            className={`luxury-process-label font-body text-[11px] font-semibold uppercase tracking-[0.24em] transition-colors duration-500 ${isActive ? "text-white" : "text-white/40"
+                              }`}
+                          >
+                            Step {item.step}
+                          </span>
+                          <div
+                            data-active={isActive}
+                            className={`luxury-process-mini-icon hidden sm:flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-500 ${isActive
+                                ? "border-white/20 bg-white/10 text-white"
+                                : "border-white/5 bg-transparent text-white/40"
+                              }`}
+                          >
+                            <Icon className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <h3 className="luxury-section-title mt-3 font-display text-2xl sm:text-[2rem] text-[#F9FAFB] leading-tight font-medium">
+                          {item.title}
+                        </h3>
+                        <p className="luxury-body-copy luxury-body-copy--light mt-3 font-body text-sm sm:text-[15px] text-[#CBD5E1] leading-relaxed max-w-md">
+                          {item.desc}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.button>
+                </motion.div>
               );
             })}
           </div>
@@ -813,7 +905,7 @@ const Landing = () => {
           >
             <Link
               to="/join"
-              className="group inline-flex items-center gap-2 bg-[#6366F1] text-white font-body text-sm font-semibold px-8 py-4 rounded-full hover:bg-[#4F46E5] transition-all duration-300 hover:shadow-[0_10px_30px_rgba(79,70,229,0.4)]"
+              className="luxury-cta luxury-cta--gold luxury-cta--sheen group inline-flex items-center gap-2 bg-[linear-gradient(135deg,#0EA5E9,#2563EB)] text-white font-body text-sm font-semibold px-8 py-4 rounded-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(14,165,233,0.38)]"
             >
               Start your story
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -830,34 +922,34 @@ const Landing = () => {
       {/* ══════════════════════════════════════
           FOOTER
           ══════════════════════════════════════ */}
-      <footer className="relative bg-[#0F172A] border-t border-white/10 py-12 px-4 sm:px-8">
+      <footer className="luxury-footer relative bg-[#0F172A] border-t border-white/10 py-12 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
-              <BrandLogo className="h-7 w-auto" />
-              <span className="font-body text-xs text-[#94A3B8]">
-                © 2026 Ckript. All rights reserved.
+              <BrandLogo className="luxury-brand-logo h-7 w-auto" />
+              <span className="luxury-footer-copy font-body text-xs text-[#94A3B8]">
+                &copy; 2026 Ckript. All rights reserved.
               </span>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-7 font-body text-sm text-[#94A3B8]">
-              <Link to="/about" className="hover:text-white transition-colors">
+              <Link to="/about" className="luxury-footer-link hover:text-white transition-colors">
                 About
               </Link>
-              <Link to="/privacy-policy" className="hover:text-white transition-colors">
+              <Link to="/privacy-policy" className="luxury-footer-link hover:text-white transition-colors">
                 Privacy
               </Link>
-              <Link to="/terms-of-service" className="hover:text-white transition-colors">
+              <Link to="/terms-of-service" className="luxury-footer-link hover:text-white transition-colors">
                 Terms
               </Link>
-              <Link to="/contact" className="hover:text-white transition-colors">
+              <Link to="/contact" className="luxury-footer-link hover:text-white transition-colors">
                 Contact
               </Link>
               <a
                 href="https://www.linkedin.com/company/ckript/?viewAsMember=true"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-white transition-colors"
+                className="luxury-footer-link hover:text-white transition-colors"
               >
                 LinkedIn
               </a>

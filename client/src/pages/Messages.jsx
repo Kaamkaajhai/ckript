@@ -62,6 +62,7 @@ const formatFileSize = (bytes = 0) => {
 
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 const REACTION_HIDE_DELAY_MS = 900;
+const MAX_ATTACHMENT_SIZE_BYTES = 250 * 1024 * 1024;
 
 /* ═══════════════════════════════════════════════════════════════
    MESSAGES PAGE
@@ -467,6 +468,12 @@ const Messages = () => {
     if (!file) return;
 
     setSendError("");
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      setSendError("Attachment is too large. Maximum size is 250MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setUploadingAttachment(true);
     try {
       const formData = new FormData();
@@ -496,6 +503,7 @@ const Messages = () => {
         await api.post(`/scripts/${scriptId}/trailer-feedback`, {
           action,
           note: action === "revision_requested" ? "Writer requested a better trailer version" : "",
+          trailerUrl: msg.fileUrl || "",
         });
       } catch (err) {
         setSendError(err.response?.data?.message || "Failed to update trailer status.");
@@ -1033,6 +1041,7 @@ const Messages = () => {
                     ref={fileInputRef}
                     type="file"
                     className="hidden"
+                    accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip"
                     onChange={handleAttachmentChange}
                   />
                   <button

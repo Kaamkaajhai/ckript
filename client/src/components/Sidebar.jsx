@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useContext, useState, useEffect } from "react";
+import { Fragment, useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
 import ConfirmDialog from "./ConfirmDialog";
+import ReferralShareCard from "./ReferralShareCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
@@ -256,6 +257,12 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
     </div>
   );
 
+  const SidebarReferralCard = () => (
+    <div className="px-3 pt-2 pb-1">
+      <ReferralShareCard dark={isDarkMode} compact />
+    </div>
+  );
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="px-5 h-16 flex items-center shrink-0">
@@ -271,21 +278,36 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
               {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>}
               <SectionLabel label={section.label} />
               <div className="space-y-0.5">
-                {section.items.map((item) => <NavItem key={item.label} item={item} />)}
+                {section.items.map((item) => (
+                  <Fragment key={item.label}>
+                    <NavItem item={item} />
+                    {item.path === profilePath && <SidebarReferralCard />}
+                  </Fragment>
+                ))}
               </div>
             </div>
           ))
         ) : (
           <>
             <div className="space-y-1">
-              {mainNavItems.map((item) => <NavItem key={item.label} item={item} />)}
+              {mainNavItems.map((item) => (
+                <Fragment key={item.label}>
+                  <NavItem item={item} />
+                  {item.path === profilePath && <SidebarReferralCard />}
+                </Fragment>
+              ))}
             </div>
             <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
             {actionItems.map((item) => <NavItem key={item.label} item={item} />)}
             {bottomNavItems.length > 0 && (
               <>
                 <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
-                {bottomNavItems.map((item) => <NavItem key={item.label} item={item} />)}
+                {bottomNavItems.map((item) => (
+                  <Fragment key={item.label}>
+                    <NavItem item={item} />
+                    {item.path === profilePath && <SidebarReferralCard />}
+                  </Fragment>
+                ))}
               </>
             )}
             {!isReader && !isAdmin && !isInvestorRole && (

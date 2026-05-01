@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Send, CheckCircle2, MessageSquare, Briefcase, HelpCircle, PhoneCall, Clock3 } from "lucide-react";
 import api from "../services/api";
 import MarketingHeader from "../components/MarketingHeader";
-import { useDarkMode } from "../context/DarkModeContext";
+
+const FontInjection = () => (
+	<style>{`
+		@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700&display=swap');
+
+		.font-display { font-family: 'Playfair Display', Georgia, serif; }
+		.font-body { font-family: 'Inter', system-ui, sans-serif; }
+	`}</style>
+);
 
 const contactReasons = [
   { value: "doubt", label: "Question or Clarification", icon: HelpCircle },
@@ -15,23 +23,14 @@ const contactReasons = [
 ];
 
 const ContactPage = () => {
-  const { isDarkMode } = useDarkMode();
   const [form, setForm] = useState({ reason: "", otherReason: "", name: "", email: "", message: "" });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  const theme = {
-    page: isDarkMode ? "bg-[#060d16] text-white" : "bg-[#f4f7fb] text-gray-900",
-    panel: "bg-white border-gray-200 shadow-[0_14px_40px_rgba(15,23,42,0.08)]",
-    input: "bg-[#f8fbff] border-gray-300 text-[#0f2745] placeholder:text-[#8298b3]",
-    subtle: "text-gray-600",
-    headingSubtle: isDarkMode ? "text-[#6b7a8d]" : "text-gray-500",
-    card: isDarkMode
-      ? "bg-[#0a1523] border-[#1f3349]"
-      : "bg-[#f8fbff] border-gray-200",
-    cardActive: isDarkMode ? "bg-[#11243a] border-[#396087] text-white" : "bg-[#edf5ff] border-[#a8c5e9] text-[#183a62]",
-  };
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -71,51 +70,65 @@ const ContactPage = () => {
   };
 
   return (
-    <div className={`min-h-screen ${theme.page}`}>
+    <div className="relative min-h-screen overflow-x-hidden bg-[#0A0A0B] text-white font-body">
+      <FontInjection />
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_0%,rgba(255,255,255,0.03),transparent_28%),radial-gradient(circle_at_84%_22%,rgba(255,255,255,0.02),transparent_20%)]" />
+      </div>
+
       <MarketingHeader />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-24 sm:pt-28 pb-8 sm:pb-12">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-28 sm:pt-36 pb-16 sm:pb-24">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.28 }}
-          className="mb-7 sm:mb-9"
+          transition={{ duration: 0.45 }}
+          className="mb-10 sm:mb-14 text-center"
         >
-          <p className={`text-xs font-bold tracking-[0.16em] uppercase mb-2 ${theme.headingSubtle}`}>Contact</p>
-          <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Talk to the Ckript Team</h1>
+          <p className="flex w-full justify-center text-center px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-white/60 mb-5">
+            Contact
+          </p>
+          <h1 className="font-display text-4xl leading-[1.02] tracking-tight sm:text-5xl lg:text-6xl text-white font-medium">
+            Talk to the <span className="text-[#BAE6FD]">Ckript</span> Team
+          </h1>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] gap-5 sm:gap-7">
-          <section className="space-y-4">
-            <div className={`rounded-2xl border px-4 py-4 ${theme.card}`}>
-              <p className={`text-[11px] uppercase tracking-[0.14em] font-bold mb-3 ${theme.headingSubtle}`}>Direct Contact</p>
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-8 sm:gap-12 lg:gap-16 items-start">
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="space-y-6"
+          >
+            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur-md">
+              <p className="text-[11px] uppercase tracking-[0.14em] font-bold mb-4 text-white/50">Direct Contact</p>
 
               <div className="space-y-3">
                 <a
                   href="mailto:info.ckript@gmail.com"
-                  className={`flex items-center gap-2.5 text-sm font-semibold rounded-lg px-2.5 py-2 border transition-colors ${isDarkMode ? "border-[#24374d] hover:bg-white/[0.03]" : "border-gray-200 hover:bg-white"}`}
+                  className="flex items-center gap-3 text-sm font-medium rounded-xl px-4 py-3 border border-white/5 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
                 >
-                  <Mail className="w-4 h-4 shrink-0" />
+                  <Mail className="w-4 h-4 shrink-0 text-[#BAE6FD]" />
                   <span className="break-all">info.ckript@gmail.com</span>
                 </a>
 
                 <a
                   href="tel:+917986950853"
-                  className={`flex items-center gap-2.5 text-sm font-semibold rounded-lg px-2.5 py-2 border transition-colors ${isDarkMode ? "border-[#24374d] hover:bg-white/[0.03]" : "border-gray-200 hover:bg-white"}`}
+                  className="flex items-center gap-3 text-sm font-medium rounded-xl px-4 py-3 border border-white/5 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
                 >
-                  <PhoneCall className="w-4 h-4 shrink-0" />
+                  <PhoneCall className="w-4 h-4 shrink-0 text-[#BAE6FD]" />
                   <span>+91 7986950853</span>
                 </a>
 
-                <div className={`flex items-center gap-2.5 text-xs rounded-lg px-2.5 py-2 border ${isDarkMode ? "border-[#24374d] text-[#8ea1b8]" : "border-gray-200 text-gray-600"}`}>
+                <div className="flex items-center gap-3 text-xs rounded-xl px-4 py-3 border border-white/5 bg-white/[0.01] text-white/60">
                   <Clock3 className="w-4 h-4 shrink-0" />
                   <span>Mon to Sat, 10:00 AM to 7:00 PM IST</span>
                 </div>
               </div>
             </div>
 
-            <div className={`rounded-2xl border p-2.5 ${theme.card}`}>
-              <p className={`text-[11px] uppercase tracking-[0.14em] font-bold px-2 py-1 mb-1 ${theme.headingSubtle}`}>Choose Topic</p>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur-md">
+              <p className="text-[11px] uppercase tracking-[0.14em] font-bold mb-4 text-white/50">Choose Topic</p>
               <div className="space-y-2">
                 {contactReasons.map(({ value, label, icon: Icon }) => {
                   const active = form.reason === value;
@@ -128,32 +141,39 @@ const ContactPage = () => {
                         reason: value,
                         otherReason: value === "other" ? prev.otherReason : "",
                       }))}
-                      className={`w-full text-left rounded-xl border px-3.5 py-3 transition-colors flex items-center gap-2.5 ${active ? theme.cardActive : theme.card}`}
+                      className={`w-full text-left rounded-xl border px-4 py-3 transition-all duration-300 flex items-center gap-3 ${active ? "bg-white/[0.08] border-white/20 text-white" : "bg-white/[0.01] border-white/5 text-white/70 hover:bg-white/[0.04]"}`}
                     >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span className="text-sm font-semibold">{label}</span>
+                      <Icon className={`w-4 h-4 shrink-0 ${active ? "text-[#BAE6FD]" : ""}`} />
+                      <span className="text-sm font-medium">{label}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
-          </section>
+          </motion.section>
 
-          <section className={`rounded-2xl sm:rounded-3xl border p-5 sm:p-7 text-gray-900 ${theme.panel}`}>
+          <motion.section 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="rounded-3xl border border-white/10 bg-[#0F172A]/80 backdrop-blur-xl p-6 sm:p-10 shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#BAE6FD] to-transparent opacity-30"></div>
+            
             <AnimatePresence mode="wait">
               {submitted ? (
                 <motion.div
                   key="contact-success"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="min-h-[360px] flex flex-col items-center justify-center text-center"
+                  className="min-h-[440px] flex flex-col items-center justify-center text-center"
                 >
-                  <div className={`w-14 h-14 rounded-2xl mb-4 flex items-center justify-center ${isDarkMode ? "bg-emerald-500/12" : "bg-emerald-50"}`}>
-                    <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+                  <div className="w-16 h-16 rounded-full mb-6 flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                   </div>
-                  <h2 className="text-2xl font-bold mb-2">Message sent</h2>
-                  <p className={`text-sm max-w-sm ${theme.subtle}`}>
+                  <h2 className="font-display text-3xl font-medium mb-4 text-white">Message received.</h2>
+                  <p className="text-base max-w-md text-white/60 mb-8 leading-relaxed">
                     Thank you for reaching out. Our team will review your request and get back to you shortly.
                   </p>
                   <button
@@ -161,7 +181,7 @@ const ContactPage = () => {
                       setSubmitted(false);
                       setForm({ reason: "", otherReason: "", name: "", email: "", message: "" });
                     }}
-                    className={`mt-5 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors ${isDarkMode ? "border-[#2a4159] hover:bg-[#102237]" : "border-gray-300 hover:bg-gray-50"}`}
+                    className="px-6 py-3 rounded-xl text-sm font-medium border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
                   >
                     Send another message
                   </button>
@@ -173,53 +193,53 @@ const ContactPage = () => {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   onSubmit={handleSubmit}
-                  className="space-y-5"
+                  className="space-y-6"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-1 border-b border-transparent sm:border-b-0">
-                    <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Send a Message</h2>
-                    <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${theme.headingSubtle}`}>Secure Contact Form</span>
+                  <div className="pb-4 border-b border-white/10">
+                    <h2 className="font-display text-2xl font-medium tracking-tight mb-2">Send a Message</h2>
+                    <p className="text-sm text-white/50">Secure contact form directly to our team.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <label className="space-y-1 block">
-                      <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${theme.headingSubtle}`}>Full name</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <label className="space-y-2 block">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">Full name</span>
                       <input
                         name="name"
                         value={form.name}
                         onChange={handleChange}
                         required
-                        className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#3f74aa]/35 ${theme.input}`}
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-blue-500/50 focus:bg-white/[0.02] transition-colors"
                         placeholder="Jane Doe"
                       />
                     </label>
-                    <label className="space-y-1 block">
-                      <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${theme.headingSubtle}`}>Email address</span>
+                    <label className="space-y-2 block">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">Email address</span>
                       <input
                         type="email"
                         name="email"
                         value={form.email}
                         onChange={handleChange}
                         required
-                        className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#3f74aa]/35 ${theme.input}`}
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-blue-500/50 focus:bg-white/[0.02] transition-colors"
                         placeholder="jane@example.com"
                       />
                     </label>
                   </div>
 
-                  <label className="space-y-1 block">
-                    <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${theme.headingSubtle}`}>Reason</span>
+                  <label className="space-y-2 block">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">Reason</span>
                     <select
                       name="reason"
                       value={form.reason}
                       onChange={handleChange}
                       required
-                      className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#3f74aa]/35 ${theme.input}`}
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white outline-none focus:border-blue-500/50 focus:bg-white/[0.02] transition-colors appearance-none cursor-pointer"
                     >
-                      <option value="" disabled>
+                      <option value="" disabled className="bg-[#0F172A] text-white/50">
                         Select a reason
                       </option>
                       {contactReasons.map((reason) => (
-                        <option key={reason.value} value={reason.value}>
+                        <option key={reason.value} value={reason.value} className="bg-[#0F172A] text-white">
                           {reason.label}
                         </option>
                       ))}
@@ -227,34 +247,34 @@ const ContactPage = () => {
                   </label>
 
                   {form.reason === "other" && (
-                    <label className="space-y-1 block">
-                      <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${theme.headingSubtle}`}>What is Other?</span>
+                    <label className="space-y-2 block">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">Please Specify</span>
                       <input
                         name="otherReason"
                         value={form.otherReason}
                         onChange={handleChange}
                         required
-                        className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#3f74aa]/35 ${theme.input}`}
-                        placeholder="Please specify your topic"
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white placeholder:text-white/30 outline-none focus:border-blue-500/50 focus:bg-white/[0.02] transition-colors"
+                        placeholder="E.g., Partnership Inquiry"
                       />
                     </label>
                   )}
 
-                  <label className="space-y-1 block">
-                    <span className={`text-xs font-semibold uppercase tracking-[0.08em] ${theme.headingSubtle}`}>Message</span>
+                  <label className="space-y-2 block">
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">Message</span>
                     <textarea
                       name="message"
                       value={form.message}
                       onChange={handleChange}
                       required
                       rows={5}
-                      className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none resize-none focus:ring-2 focus:ring-[#3f74aa]/35 ${theme.input}`}
-                      placeholder="Tell us your question, issue, or request"
+                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white placeholder:text-white/30 outline-none resize-none focus:border-blue-500/50 focus:bg-white/[0.02] transition-colors"
+                      placeholder="Tell us your question, issue, or request..."
                     />
                   </label>
 
                   {error && (
-                    <div className="rounded-lg border px-3.5 py-2.5 text-sm border-red-200 bg-red-50 text-red-700">
+                    <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                       {error}
                     </div>
                   )}
@@ -262,7 +282,7 @@ const ContactPage = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#1e3a5f] hover:bg-[#234a78] text-white text-sm font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(37,99,235,0.3)] mt-2"
                   >
                     {loading ? (
                       <>
@@ -270,26 +290,26 @@ const ContactPage = () => {
                           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3" />
                           <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" />
                         </svg>
-                        Sending
+                        Sending...
                       </>
                     ) : (
                       <>
-                        <Send className="w-4 h-4" />
                         Send Message
+                        <Send className="w-4 h-4" />
                       </>
                     )}
                   </button>
                 </motion.form>
               )}
             </AnimatePresence>
-          </section>
+          </motion.section>
         </div>
       </main>
 
-      <footer className="py-8 sm:py-10 px-4 sm:px-6 border-t border-[#151f2e] bg-[#080e18]">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs sm:text-sm text-[#4a5a6e] text-center sm:text-left">&copy; 2026 Ckript. All rights reserved.</p>
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4 sm:gap-6 text-xs sm:text-sm text-[#4a5a6e]">
+      <footer className="relative z-10 py-10 border-t border-white/10 bg-[#0A0A0B]">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <p className="text-xs sm:text-sm text-white/40 text-center sm:text-left">&copy; 2026 Ckript. All rights reserved.</p>
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-6 text-xs sm:text-sm text-white/40">
             <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
             <Link to="/terms-of-service" className="hover:text-white transition-colors">T and C</Link>
             <Link to="/contact" className="hover:text-white transition-colors">Contact</Link>

@@ -33,6 +33,12 @@ import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import {
+  getScriptCompletionBadgeClasses,
+  getScriptCompletionFuturePlans,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
 
 const BUYER_COMMISSION_RATE = 0.05;
 const getBuyerCheckoutTotal = (baseAmount) => {
@@ -794,6 +800,7 @@ const ScriptDetail = () => {
       tv_pilot_halfhour: "TV Pilot (Half Hour)",
       short_film: "Short Film",
       web_series: "Web Series",
+      fiction_novel: "Fiction Novel",
       play: "Play",
       songs: "Songs",
       standup_comedy: "Standup Comedy",
@@ -974,6 +981,9 @@ const ScriptDetail = () => {
   const evaluationPending = !score?.overall && (script?.evaluationStatus === "requested" || hasEvaluationService);
   const cl = script.classification || {};
   const ci = script.contentIndicators || {};
+  const completionLabel = getScriptCompletionStatusLabel(script);
+  const completionProgress = getScriptCompletionProgressText(script);
+  const completionFuturePlans = getScriptCompletionFuturePlans(script);
   const publishedAtValue = script?.publishedAt || script?.createdAt;
 
   const tabs = [
@@ -1127,6 +1137,9 @@ const ScriptDetail = () => {
                         {cl.secondaryGenre}
                       </span>
                     )}
+                    <span className={`px-2.5 py-1 backdrop-blur-md rounded-lg text-[11px] font-semibold ${getScriptCompletionBadgeClasses(script, isDarkMode)}`}>
+                      {completionLabel}
+                    </span>
                   </div>
                   <div className="flex gap-2">
                     <span className={`px-2.5 py-1 rounded-lg text-[11px] font-medium ${isDarkMode ? "bg-black/30 text-white/80" : "bg-white/80 text-gray-600 border border-gray-200"}`}>
@@ -1212,6 +1225,9 @@ const ScriptDetail = () => {
                       {(script.primaryGenre || script.genre) && (
                         <span className={`px-2.5 py-1 rounded-lg border ${t.chip}`}>{script.primaryGenre || script.genre}</span>
                       )}
+                      <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${getScriptCompletionBadgeClasses(script, isDarkMode)}`}>
+                        {completionProgress ? `${completionLabel} · ${completionProgress}` : completionLabel}
+                      </span>
                       <span className={`px-2.5 py-1 rounded-lg border ${t.chip}`}>{script.views || 0} views</span>
                     </div>
 
@@ -1265,6 +1281,23 @@ const ScriptDetail = () => {
                       )}
                     </div>
                   )}
+
+                  <div className={`rounded-2xl border p-5 sm:p-6 ${t.card}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-3 ${t.label}`}>Completion Status</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold ${getScriptCompletionBadgeClasses(script, isDarkMode)}`}>
+                        {completionLabel}
+                      </span>
+                      {completionProgress && (
+                        <span className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border ${t.chip}`}>
+                          {completionProgress}
+                        </span>
+                      )}
+                    </div>
+                    {completionFuturePlans && (
+                      <p className={`mt-3 text-sm leading-relaxed whitespace-pre-wrap ${t.sub}`}>{completionFuturePlans}</p>
+                    )}
+                  </div>
 
                   {(ci.bechdelTest || ci.basedOnTrueStory || ci.adaptation || script.tags?.length > 0) && (
                     <div className={`rounded-2xl border p-5 sm:p-6 ${t.card}`}>
@@ -1430,12 +1463,12 @@ const ScriptDetail = () => {
                             >
                               {pendingRequestBaseAmount > 0
                                 ? `Pay & Get Full Script — ₹${pendingRequestCheckoutTotal.toLocaleString("en-IN")}`
-                                : "Confirm Free Access"}
+                                : "Confirm Access"}
                             </button>
                             <p className="text-[11px] text-amber-700/90 text-center">
                               {pendingRequestBaseAmount > 0
                                 ? "Includes 5% platform commission • Payment window: 72 hours after approval."
-                                : "Approval granted. Confirm Free Access to unlock full script."}
+                                : "Approval granted. Confirm Access to unlock full script."}
                             </p>
                           </div>
                         ) : (
@@ -1649,6 +1682,7 @@ const ScriptDetail = () => {
                       { label: "Primary Genre", value: cl.primaryGenre || script.primaryGenre || script.genre },
                       { label: "Views", value: Number(script.views || 0).toLocaleString("en-IN") },
                       { label: "Secondary Genre", value: cl.secondaryGenre },
+                      { label: "Completion", value: completionProgress ? `${completionLabel} · ${completionProgress}` : completionLabel },
                       { label: "Page Count", value: script.pageCount },
                       { label: "Budget Level", value: fmtBudget(script.budget) },
                       { label: "Published", value: formatDateTime(publishedAtValue) },
@@ -1667,7 +1701,7 @@ const ScriptDetail = () => {
 
             {/* ── Classification ───────────────────────────── */}
             {activeTab === "classification" && (
-              <motion.div key="classification" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+              <motion.div key="classification" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${isDarkMode ? "divide-white/[0.06]" : "divide-gray-100"}`}>
                 {[
                   { label: "Tones", items: cl.tones, color: isDarkMode ? "bg-white/[0.06] text-white/80 border border-white/[0.08]" : "bg-gray-100 text-gray-700 border border-gray-200" },
                   { label: "Themes", items: cl.themes, color: isDarkMode ? "bg-blue-500/10 text-blue-300 border border-blue-500/15" : "bg-blue-50 text-blue-700 border border-blue-200" },
@@ -1675,7 +1709,7 @@ const ScriptDetail = () => {
                 ]
                   .filter((c) => c.items?.length > 0)
                   .map((cat) => (
-                    <div key={cat.label} className={`rounded-xl border p-6 ${t.card}`}>
+                    <div key={cat.label} className="py-6 first:pt-0 last:pb-0">
                       <h3 className={`text-[13px] font-bold mb-3 ${t.title}`}>{cat.label}</h3>
                       <div className="flex flex-wrap gap-2">
                         {cat.items.map((item, i) => (
@@ -1686,7 +1720,7 @@ const ScriptDetail = () => {
                   ))}
 
                 {!cl.tones?.length && !cl.themes?.length && !cl.settings?.length && (
-                  <div className={`text-center py-12 rounded-xl border ${t.card}`}>
+                  <div className="text-center py-12">
                     <h3 className={`text-base font-bold mb-1 ${t.title}`}>No Classification Data</h3>
                     <p className={`text-sm ${t.muted}`}>
                       {isOwner ? "Add tones, themes, and settings when editing your script" : "Classification data hasn't been added yet"}
@@ -2338,7 +2372,7 @@ const ScriptDetail = () => {
                                       </svg>
                                       {Number(myPendingRequest?.amount || script.price || 0) > 0
                                         ? "Approved — Complete Payment to Unlock"
-                                        : "Approved — Confirm Free Access to Unlock"}
+                                        : "Approved — Confirm Access to Unlock"}
                                     </div>
                                     <button
                                       onClick={() => navigate(`/script/${script._id}/pay`)}
@@ -2346,12 +2380,12 @@ const ScriptDetail = () => {
                                     >
                                       {pendingRequestBaseAmount > 0
                                         ? `Pay Now — ₹${pendingRequestCheckoutTotal.toLocaleString("en-IN")}`
-                                        : "Confirm Free Access"}
+                                        : "Confirm Access"}
                                     </button>
                                     <p className={`text-xs ${t.muted}`}>
                                       {pendingRequestBaseAmount > 0
                                         ? "Includes 5% platform commission • Payment window: 72 hours after approval."
-                                        : "Approval granted. Confirm Free Access to unlock instantly."}
+                                        : "Approval granted. Confirm Access to unlock instantly."}
                                     </p>
                                   </div>
                                 ) : (
@@ -2422,7 +2456,7 @@ const ScriptDetail = () => {
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-sm font-semibold truncate ${t.title}`}>{pr.investor?.name}</p>
                                   <p className={`text-xs ${t.muted}`}>
-                                    {pr.amount > 0 ? `₹${pr.amount} offered` : "Free access request"}
+                                    {`₹${pr.amount} offered`}
                                     {" · "}
                                     {new Date(pr.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                                   </p>

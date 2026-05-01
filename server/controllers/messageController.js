@@ -39,7 +39,7 @@ const isAllowedAttachmentMime = (mimetype = "") => {
 
 const rawUploadMessageAttachment = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 25 * 1024 * 1024 },
+  limits: { fileSize: 250 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (isAllowedAttachmentMime(file?.mimetype)) return cb(null, true);
     return cb(new Error("Unsupported file type. Please upload image, video, audio, PDF, Office, text, CSV, or ZIP files."));
@@ -52,7 +52,7 @@ export const uploadMessageAttachment = (req, res, next) => {
 
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(413).json({ message: "Attachment is too large. Maximum size is 25MB." });
+        return res.status(413).json({ message: "Attachment is too large. Maximum size is 250MB." });
       }
       return res.status(400).json({ message: err.message || "Attachment upload failed." });
     }
@@ -207,6 +207,7 @@ export const uploadAttachment = async (req, res) => {
       folder: "scriptbridge/messages",
       resource_type: "auto",
       public_id: `message-${Date.now()}-${baseName}`,
+      chunked: req.file.mimetype?.startsWith("video/") || req.file.size > 15 * 1024 * 1024,
       originalFilename: req.file.originalname,
       mimeType: req.file.mimetype,
     });

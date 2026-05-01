@@ -10,6 +10,12 @@ import { formatCurrency } from "../utils/currency";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
+import {
+  SCRIPT_COMPLETION_OPTIONS,
+  buildScriptCompletionPayload,
+  createScriptCompletionFormState,
+  getScriptCompletionValidationMessage,
+} from "../utils/scriptCompletion";
 
 // Format options
 const formats = [
@@ -439,6 +445,7 @@ const ScriptUpload = () => {
     primaryGenre: "",
     logline: "",
     synopsis: "",
+    ...createScriptCompletionFormState(),
   });
 
   // Classification data
@@ -475,7 +482,7 @@ const ScriptUpload = () => {
   // Script pricing
   const PRICE_PRESETS = [5, 10, 15, 25, 50];
   const BUYER_COMMISSION_RATE = 0.05;
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(true);
   const [scriptPrice, setScriptPrice] = useState(10);
   const [customPriceInput, setCustomPriceInput] = useState("");
   const [useCustomPrice, setUseCustomPrice] = useState(false);
@@ -585,6 +592,7 @@ const ScriptUpload = () => {
           pageCount: data.pageCount ? String(data.pageCount) : "",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || data.genre || "",
           synopsis: data.synopsis || data.description || "",
+          ...createScriptCompletionFormState(data?.scriptCompletion || {}),
         });
         setTagsInput((data.tags || []).join(", "));
         setClassification({
@@ -642,6 +650,7 @@ const ScriptUpload = () => {
           pageCount: data.pageCount ? String(data.pageCount) : "",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || "",
           synopsis: data.synopsis || data.description || "",
+          ...createScriptCompletionFormState(data?.scriptCompletion || {}),
         }));
         if (Array.isArray(data.roles)) {
           setRoles(data.roles.map((role) => ({
@@ -1015,6 +1024,15 @@ const ScriptUpload = () => {
     };
   }, [step]);
 
+  // Scroll to top on step change
+  useEffect(() => {
+    const scrollToTop = () => {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    };
+    const frameId = window.requestAnimationFrame(scrollToTop);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [step]);
+
   // Calculate total price
   const calculateTotal = () => {
     const getServiceCharge = (serviceKey, enabled) => {
@@ -1060,6 +1078,13 @@ const ScriptUpload = () => {
         if (formData.logline && formData.logline.length > 50) {
           setError("Logline must be 50 characters or less.");
           return false;
+        }
+        {
+          const completionError = getScriptCompletionValidationMessage(formData);
+          if (completionError) {
+            setError(completionError);
+            return false;
+          }
         }
         if (!formData.synopsis || !formData.synopsis.trim()) {
           setError("Synopsis is required.");
@@ -1300,6 +1325,7 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        scriptCompletion: buildScriptCompletionPayload(formData),
         // Send script URL only when we have a remote file URL.
         ...(isHttpUrl(uploadedFile?.url)
           ? { scriptUrl: uploadedFile.url }
@@ -1452,14 +1478,14 @@ const ScriptUpload = () => {
     {
       item: "Script Access Fee",
       type: "Revenue Setting",
-      detail: isPremium ? "Premium reader purchase model" : "Public free access model",
-      amount: isPremium ? formatCurrency(effectivePrice) : "Free",
+      detail: "Premium reader purchase model",
+      amount: formatCurrency(effectivePrice),
     },
     {
       item: `Platform Commission (${Math.round(BUYER_COMMISSION_RATE * 100)}%)`,
       type: "Platform Commission",
-      detail: isPremium ? "Added on top of the script access fee at checkout" : "No commission on free access",
-      amount: isPremium ? formatCurrency(buyerCommissionAmount) : formatCurrency(0),
+      detail: "Added on top of the script access fee at checkout",
+      amount: formatCurrency(buyerCommissionAmount),
     },
     {
       item: "Optional Services",
@@ -1470,14 +1496,14 @@ const ScriptUpload = () => {
     {
       item: "Film Industry Professional Pays at Checkout",
       type: "Checkout Total",
-      detail: isPremium ? "Script fee + platform commission" : "Not applicable for free access",
-      amount: isPremium ? formatCurrency(buyerTotalPayable) : formatCurrency(0),
+      detail: "Script fee + platform commission",
+      amount: formatCurrency(buyerTotalPayable),
     },
     {
       item: "Projected Writer Payout",
       type: "Future Earnings",
-      detail: isPremium ? "Writer receives full script access fee" : "No payout on free access",
-      amount: isPremium ? formatCurrency(writerPayout) : formatCurrency(0),
+      detail: "Writer receives full script access fee",
+      amount: formatCurrency(writerPayout),
     },
   ];
 
@@ -1676,6 +1702,86 @@ const ScriptUpload = () => {
                         </option>
                       ))}
                     </select>
+                  </div>
+
+                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <div className="flex flex-col gap-1">
+                      <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
+                      <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                        Let buyers and admins know whether this is a full script, partially complete, or still ongoing.
+                      </p>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <div className="lg:col-span-2">
+                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
+                          Completion Status
+                        </label>
+                        <select
+                          name="completionStatus"
+                          value={formData.completionStatus}
+                          onChange={handleChange}
+                          className={inputCls}
+                        >
+                          {SCRIPT_COMPLETION_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className={`mt-1 text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                          {SCRIPT_COMPLETION_OPTIONS.find((option) => option.value === formData.completionStatus)?.helper}
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
+                          Completed Chapters/Parts
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          name="completedParts"
+                          value={formData.completedParts}
+                          onChange={handleChange}
+                          placeholder="4"
+                          className={inputCls}
+                        />
+                      </div>
+
+                      <div>
+                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
+                          Total Planned Chapters/Parts
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          name="totalParts"
+                          value={formData.totalParts}
+                          onChange={handleChange}
+                          placeholder="10"
+                          className={inputCls}
+                        />
+                      </div>
+
+                      <div className="lg:col-span-2">
+                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
+                          Future Update Note <span className="text-neutral-500">(optional)</span>
+                        </label>
+                        <textarea
+                          name="futurePlans"
+                          value={formData.futurePlans}
+                          onChange={handleChange}
+                          rows={3}
+                          maxLength={300}
+                          placeholder="Example: Episodes 5-8 are still being written and will be uploaded later."
+                          className={`${inputCls} resize-none`}
+                        />
+                        <p className="text-xs text-neutral-500 mt-1 text-right">
+                          {String(formData.futurePlans || "").length}/300
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
@@ -2220,76 +2326,25 @@ const ScriptUpload = () => {
                     <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 space-y-4 min-[420px]:space-y-5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
                       <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
                         <div>
-                          <h3 className={`text-[15px] min-[420px]:text-base font-bold mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Access & Monetization</h3>
-                          <p className={`text-[11px] min-[420px]:text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Choose Free Access for public reading, or switch to Premium Access to unlock pricing and rights-based selling.</p>
+                          <h3 className={`text-[15px] min-[420px]:text-base font-bold mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Monetization</h3>
+                          <p className={`text-[11px] min-[420px]:text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Set your pricing and rights-based selling terms.</p>
                         </div>
-                        <div className={`w-full min-[460px]:w-auto px-3 py-2 rounded-xl text-left min-[460px]:text-right ${isDarkMode ? "bg-white/[0.04] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                          <p className={`text-[10px] font-semibold uppercase tracking-wide ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Selected Access</p>
-                          <p className={`text-sm font-bold mt-1 ${isPremium ? isDarkMode ? "text-emerald-300" : "text-emerald-700" : isDarkMode ? "text-blue-300" : "text-blue-700"}`}>{isPremium ? "Premium Access" : "Free Public Access"}</p>
-                        </div>
+                        
                       </div>
 
-                      <div className={`grid grid-cols-1 min-[446px]:grid-cols-2 gap-2.5 min-[420px]:gap-3 p-1.5 rounded-2xl ${isDarkMode ? "bg-white/[0.04]" : "bg-white border border-gray-200"}`}>
-                        <button
-                          type="button"
-                          onClick={() => setIsPremium(false)}
-                          className={`text-left rounded-xl px-3.5 min-[420px]:px-4 py-3.5 min-[420px]:py-4 border transition-all ${!isPremium
-                            ? isDarkMode ? "bg-[#122338] border-[#24456b] text-white shadow-lg shadow-black/20" : "bg-[#1e3a5f] border-[#1e3a5f] text-white shadow-sm"
-                            : isDarkMode ? "border-transparent text-gray-400 hover:bg-white/[0.04]" : "border-transparent text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-[420px]:gap-2.5">
-                            <div className={`w-8 h-8 min-[420px]:w-9 min-[420px]:h-9 rounded-xl flex items-center justify-center ${!isPremium ? "bg-white/15" : isDarkMode ? "bg-white/[0.06]" : "bg-blue-50"}`}>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                            </div>
-                            <div>
-                              <p className="text-[15px] min-[420px]:text-sm font-bold">Free Access</p>
-                              <p className={`text-[10px] min-[420px]:text-[11px] leading-snug ${!isPremium ? "text-white/80" : isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Fully readable for all users</p>
-                            </div>
-                          </div>
-                        </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setIsPremium(true)}
-                          className={`text-left rounded-xl px-3.5 min-[420px]:px-4 py-3.5 min-[420px]:py-4 border transition-all ${isPremium
-                            ? isDarkMode ? "bg-emerald-600/15 border-emerald-500/40 text-white shadow-lg shadow-black/20" : "bg-emerald-600 border-emerald-600 text-white shadow-sm"
-                            : isDarkMode ? "border-transparent text-gray-400 hover:bg-white/[0.04]" : "border-transparent text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 min-[420px]:gap-2.5">
-                            <div className={`w-8 h-8 min-[420px]:w-9 min-[420px]:h-9 rounded-xl flex items-center justify-center ${isPremium ? "bg-white/15" : isDarkMode ? "bg-white/[0.06]" : "bg-emerald-50"}`}>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                            </div>
-                            <div>
-                              <p className="text-[15px] min-[420px]:text-sm font-bold">Premium Access</p>
-                              <p className={`text-[10px] min-[420px]:text-[11px] leading-snug ${isPremium ? "text-white/80" : isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Turn on pricing and rights setup</p>
-                            </div>
-                          </div>
-                        </button>
+                      <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${isDarkMode ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-emerald-50 border border-emerald-100"}`}>
+                      <svg className={`w-4 h-4 mt-0.5 shrink-0 ${isDarkMode ? "text-emerald-300" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                      <div>
+                        <p className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Monetization is active</p>
+                        <p className={`text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Set your asking amount below, then review the rights terms before publishing.</p>
                       </div>
+                    </div>
 
-                      <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${isPremium ? isDarkMode ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-emerald-50 border border-emerald-100" : isDarkMode ? "bg-amber-500/8 border border-amber-400/20" : "bg-amber-50 border border-amber-100"}`}>
-                        <svg className={`w-4 h-4 mt-0.5 shrink-0 ${isPremium ? isDarkMode ? "text-emerald-300" : "text-emerald-600" : isDarkMode ? "text-amber-300" : "text-amber-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-                        <div>
-                          <p className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{isPremium ? "Premium is active" : "Want to sell this script?"}</p>
-                          <p className={`text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{isPremium ? "Set your asking price below, then review the rights terms before publishing." : "Switch to Premium Access to add a paid price and define the rights you want to offer buyers."}</p>
-                        </div>
-                      </div>
-
-                      {!isPremium ? (
-                        <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${isDarkMode ? "bg-blue-500/8 border border-blue-500/15" : "bg-blue-50 border border-blue-100"}`}>
-                          <svg className={`w-4 h-4 mt-0.5 shrink-0 ${isDarkMode ? "text-blue-300" : "text-blue-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-                          <div>
-                            <p className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Public discovery mode</p>
-                            <p className={`text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Your full script is readable to all users. No paid access or buyer-rights pricing is applied in this mode.</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
+                      <div className="space-y-4">
                           <div>
                             <div className={`rounded-xl p-4 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                              <label className={`block text-[11px] font-bold uppercase tracking-[0.14em] mb-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Set Price</label>
+                              <label className={`block text-[11px] font-bold uppercase tracking-[0.14em] mb-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Set Amount</label>
                               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                                 <div className="relative w-full sm:w-40">
                                   <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>₹</span>
@@ -2308,12 +2363,7 @@ const ScriptUpload = () => {
                                     className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${isDarkMode ? "bg-white/[0.04] border-emerald-500/50 text-white focus:border-emerald-500" : "bg-white border-emerald-300 text-gray-900 focus:border-emerald-500"}`}
                                   />
                                 </div>
-                                <p className={`text-[12px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Set your asking price here. Buyers can review your rights terms below before moving ahead.</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                                <p className={`text-[12px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Set your asking amount here. Buyers can review your rights terms below before moving ahead.</p></div></div></div></div>
 
                       <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
                         <svg className={`w-4 h-4 mt-0.5 shrink-0 ${isDarkMode ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zm9-3.758a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -2429,21 +2479,47 @@ const ScriptUpload = () => {
                                       )}
                                     </div>
                                   </div>
-                                  <div className="hidden min-[416px]:block text-right shrink-0">
-                                    <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                    {!service.locked && (
-                                      <p className={`text-[11px] mt-1 ${service.enabled ? isDarkMode ? "text-emerald-300" : "text-emerald-700" : isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{service.enabled ? "Selected" : "Optional"}</p>
-                                    )}
-                                    {service.locked && service.key !== "hosting" && (
-                                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                    )}
-                                  </div>
+                                  <div className="hidden min-[416px]:flex flex-col items-end justify-start gap-1.5 shrink-0">
+                                  <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.price}</p>
+                                  {!service.locked && (
+                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
+                                      service.enabled 
+                                        ? isDarkMode ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
+                                        : isDarkMode ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
+                                    }`}>
+                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
+                                        service.enabled
+                                          ? isDarkMode ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
+                                          : isDarkMode ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
+                                      }`}>
+                                        {service.enabled && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                      </div>
+                                      <p className="text-[10px] font-bold uppercase tracking-wider">{service.enabled ? "Selected" : "Select"}</p>
+                                    </div>
+                                  )}
+                                  {service.locked && service.key !== "hosting" && (
+                                    <p className={`text-[11px] mt-1 ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
+                                  )}
+                                </div>
                                 </div>
                                 <p className={`text-[12px] mt-1.5 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{service.desc}</p>
                                 <div className="mt-2 min-[416px]:hidden flex items-center justify-between gap-2">
                                   <p className={`text-[13px] font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.price}</p>
                                   {!service.locked && (
-                                    <p className={`text-[11px] ${service.enabled ? isDarkMode ? "text-emerald-300" : "text-emerald-700" : isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{service.enabled ? "Selected" : "Optional"}</p>
+                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
+                                      service.enabled 
+                                        ? isDarkMode ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
+                                        : isDarkMode ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
+                                    }`}>
+                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
+                                        service.enabled
+                                          ? isDarkMode ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
+                                          : isDarkMode ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
+                                      }`}>
+                                        {service.enabled && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                      </div>
+                                      <p className="text-[10px] font-bold uppercase tracking-wider">{service.enabled ? "Selected" : "Select"}</p>
+                                    </div>
                                   )}
                                   {service.locked && service.key !== "hosting" && (
                                     <p className={`text-[11px] ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
@@ -2848,7 +2924,7 @@ const ScriptUpload = () => {
                     </div>
                     <div className={`rounded-xl px-4 py-4 ${isDarkMode ? "bg-purple-500/10 border border-purple-500/15" : "bg-purple-50 border border-purple-100"}`}>
                       <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-purple-300" : "text-purple-700"}`}>Writer / Premium Sale</p>
-                      <p className={`text-xl font-black mt-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{isPremium ? formatCurrency(writerPayout) : formatCurrency(0)}</p>
+                      <p className={`text-xl font-black mt-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{formatCurrency(writerPayout)}</p>
                       <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Writer gets full script fee per paid purchase</p>
                     </div>
                   </div>

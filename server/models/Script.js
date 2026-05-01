@@ -30,6 +30,16 @@ const scriptSchema = new mongoose.Schema({
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload
+  scriptCompletion: {
+    status: {
+      type: String,
+      enum: ["complete", "partial", "ongoing"],
+      default: "complete",
+    },
+    completedParts: { type: Number, min: 0, default: 0 },
+    totalParts: { type: Number, min: 0, default: 0 },
+    futurePlans: { type: String, trim: true, maxlength: 300, default: "" },
+  },
   coverImage: { type: String },
   genre: { type: String },
   contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup", "songs", "standup_comedy", "dialogues", "poet"], default: "movie" },
@@ -53,6 +63,7 @@ const scriptSchema = new mongoose.Schema({
       "short_film",
       "web_series",
       "limited_series",
+      "fiction_novel",
       "documentary",
       "drama_school",
       "anime",

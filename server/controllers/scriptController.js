@@ -27,8 +27,9 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import multer from "multer";
 import path from "path";
+import { promises as fs } from "fs";
 import { fileURLToPath } from "url";
-import { uploadToCloudinary } from "../config/cloudinary.js";
+import { uploadToCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import {
   buildInvestorFeed,
   trackInvestorInteraction,
@@ -36,6 +37,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ADMIN_APPROVAL_ARCHIVE_DIR = process.env.ADMIN_APPROVAL_ARCHIVE_DIR || "C:\\Users\\yashc\\OneDrive\\ckript-data\\c-s";
 
 // Lazy initialization of Razorpay
 let razorpayInstance = null;
@@ -53,8 +55,10 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
+const PUBLISHED_SCRIPT_STATUSES = ["published", "approved"];
+
 const PUBLIC_SCRIPT_FILTER = {
-  status: "published",
+  status: { $in: PUBLISHED_SCRIPT_STATUSES },
   isSold: { $ne: true },
   transactionStatus: { $ne: "sold_licensed" },
   isDeleted: { $ne: true },
@@ -67,6 +71,7 @@ const SCRIPT_UPLOAD_TERMS_VERSION = process.env.SCRIPT_UPLOAD_TERMS_VERSION || "
 const MAX_CUSTOM_INVESTOR_TERMS_LENGTH = 3000;
 const SCRIPT_PURCHASE_PLATFORM_TAX_RATE = 0.05;
 const MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH = 5000;
+const MAX_SCRIPT_COMPLETION_FUTURE_PLANS_LENGTH = 300;
 const LEGAL_MARKETPLACE_DISCLAIMER = "Please accept all required terms before continuing.";
 
 const RIGHTS_TYPE_LABELS = {
@@ -98,8 +103,131 @@ const RIGHTS_TYPE_OPTIONS = new Set(Object.keys(RIGHTS_TYPE_LABELS));
 const MODIFICATION_RIGHTS_OPTIONS = new Set(Object.keys(MODIFICATION_RIGHTS_LABELS));
 const PAYMENT_STRUCTURE_OPTIONS = new Set(Object.keys(PAYMENT_STRUCTURE_LABELS));
 const NEGOTIATION_MODE_OPTIONS = new Set(Object.keys(NEGOTIATION_MODE_LABELS));
+const SCRIPT_COMPLETION_STATUS_OPTIONS = new Set(["complete", "partial", "ongoing"]);
 const MIN_LICENSE_DURATION_MONTHS = 1;
 const MAX_LICENSE_DURATION_MONTHS = 120;
+
+const sanitizeArchiveSegment = (value = "", fallback = "item") => {
+  const normalized = String(value || "")
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized || fallback;
+};
+
+const inferArchiveExtension = ({ url = "", contentType = "" } = {}) => {
+  const normalizedType = String(contentType || "").toLowerCase();
+  if (normalizedType.includes("pdf")) return ".pdf";
+  if (normalizedType.includes("msword")) return ".doc";
+  if (normalizedType.includes("officedocument.wordprocessingml")) return ".docx";
+  if (normalizedType.startsWith("text/plain")) return ".txt";
+
+  try {
+    const pathname = new URL(String(url || "")).pathname || "";
+    const ext = path.extname(pathname);
+    if (ext) return ext.toLowerCase();
+  } catch {
+    // Ignore invalid URLs and fall through to plain text.
+  }
+
+  return ".txt";
+};
+
+const fetchArchivePdfBuffer = async (script) => {
+  const remoteUrl = String(script?.fileUrl || "").trim();
+  if (remoteUrl) {
+    try {
+      const response = await fetch(remoteUrl);
+      if (response.ok) {
+        const contentType = response.headers.get("content-type") || "";
+        const extension = inferArchiveExtension({ url: remoteUrl, contentType });
+        if (extension === ".pdf") {
+          return Buffer.from(await response.arrayBuffer());
+        }
+      }
+    } catch (error) {
+      console.error("[fetchArchivePdfBuffer] Remote file download failed:", error?.message || error);
+    }
+  }
+
+  const summaryPublicId = String(script?.submissionSummaryPdf?.publicId || "").trim();
+  const summaryUrl = String(script?.submissionSummaryPdf?.url || "").trim();
+
+  if (summaryPublicId) {
+    try {
+      const signedUrl = buildPrivateDownloadUrl(summaryPublicId, "pdf", {
+        resource_type: "raw",
+        type: "upload",
+        expires_at: Math.floor(Date.now() / 1000) + 10 * 60,
+        attachment: false,
+      });
+      const response = await fetch(signedUrl);
+      if (response.ok) {
+        return Buffer.from(await response.arrayBuffer());
+      }
+    } catch (error) {
+      console.error("[fetchArchivePdfBuffer] Submission summary PDF download by publicId failed:", error?.message || error);
+    }
+  }
+
+  if (summaryUrl) {
+    try {
+      const response = await fetch(summaryUrl);
+      if (response.ok) {
+        return Buffer.from(await response.arrayBuffer());
+      }
+    } catch (error) {
+      console.error("[fetchArchivePdfBuffer] Submission summary PDF download by url failed:", error?.message || error);
+    }
+  }
+
+  return null;
+};
+
+const archiveScriptSubmissionForAdmin = async ({ script, writer, approvalSource = "" }) => {
+  if (!script?._id) return null;
+
+  const archiveRoot = path.resolve(ADMIN_APPROVAL_ARCHIVE_DIR);
+  const writerName = sanitizeArchiveSegment(writer?.name || writer?.email || "unknown-writer", "unknown-writer");
+  const titleSegment = sanitizeArchiveSegment(script?.title || "untitled-script", "untitled-script");
+  const approvalType = sanitizeArchiveSegment(script?.approvalRequestType || "submission", "submission");
+  const scriptId = sanitizeArchiveSegment(script._id.toString(), "script");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const folderName = `${timestamp}__${writerName}__${titleSegment}__${scriptId}__${approvalType}`;
+  const targetDir = path.join(archiveRoot, folderName);
+
+  await fs.mkdir(targetDir, { recursive: true });
+
+  const metadata = {
+    archivedAt: new Date().toISOString(),
+    archiveSource: approvalSource,
+    scriptId: script._id.toString(),
+    sid: script.sid || "",
+    title: script.title || "",
+    writerId: writer?._id?.toString?.() || script?.creator?.toString?.() || "",
+    writerName: writer?.name || "",
+    writerEmail: writer?.email || "",
+    status: script.status || "",
+    approvalRequestType: script.approvalRequestType || "",
+    fileUrl: script.fileUrl || "",
+    projectSource: script.projectSource || "",
+  };
+
+  await fs.writeFile(
+    path.join(targetDir, "metadata.json"),
+    JSON.stringify(metadata, null, 2),
+    "utf8"
+  );
+
+  const pdfBuffer = await fetchArchivePdfBuffer(script);
+  if (!pdfBuffer || pdfBuffer.length === 0) {
+    throw new Error(`Unable to create PDF archive for script ${scriptId}`);
+  }
+
+  const archiveName = sanitizePdfFileName(titleSegment);
+  await fs.writeFile(path.join(targetDir, archiveName), pdfBuffer);
+  return { targetDir, archiveName, mode: "pdf" };
+};
 
 const toBoolean = (value, fallback = false) => {
   if (value === undefined || value === null) return fallback;
@@ -110,6 +238,94 @@ const toBoolean = (value, fallback = false) => {
     if (["false", "0", "no", "n"].includes(normalized)) return false;
   }
   return Boolean(value);
+};
+
+const toNonNegativeInteger = (value, fallback = 0) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.max(0, Math.round(num));
+};
+
+const normalizeScriptCompletionInput = (incoming = {}, fallback = {}) => {
+  const fallbackStatus = SCRIPT_COMPLETION_STATUS_OPTIONS.has(fallback?.status)
+    ? fallback.status
+    : "complete";
+  const nextStatus = SCRIPT_COMPLETION_STATUS_OPTIONS.has(incoming?.status)
+    ? incoming.status
+    : fallbackStatus;
+
+  let completedParts = incoming?.completedParts !== undefined
+    ? toNonNegativeInteger(incoming.completedParts, 0)
+    : toNonNegativeInteger(fallback?.completedParts, 0);
+  let totalParts = incoming?.totalParts !== undefined
+    ? toNonNegativeInteger(incoming.totalParts, 0)
+    : toNonNegativeInteger(fallback?.totalParts, 0);
+
+  if (totalParts > 0 && completedParts > totalParts) {
+    completedParts = totalParts;
+  }
+
+  if (nextStatus === "complete") {
+    if (totalParts > 0 && completedParts === 0) {
+      completedParts = totalParts;
+    } else if (completedParts > 0 && totalParts === 0) {
+      totalParts = completedParts;
+    }
+  }
+
+  return {
+    status: nextStatus,
+    completedParts,
+    totalParts,
+    futurePlans: String(
+      incoming?.futurePlans !== undefined
+        ? incoming.futurePlans
+        : (fallback?.futurePlans || "")
+    ).trim().slice(0, MAX_SCRIPT_COMPLETION_FUTURE_PLANS_LENGTH),
+  };
+};
+
+const validateScriptCompletionPayload = (scriptCompletion = {}) => {
+  const errors = [];
+  const status = String(scriptCompletion?.status || "").trim();
+
+  if (status && !SCRIPT_COMPLETION_STATUS_OPTIONS.has(status)) {
+    errors.push("Script completion status is invalid.");
+  }
+
+  const completedRaw = scriptCompletion?.completedParts;
+  if (completedRaw !== undefined && completedRaw !== null && completedRaw !== "") {
+    const completedNum = Number(completedRaw);
+    if (!Number.isInteger(completedNum) || completedNum < 0) {
+      errors.push("Completed chapters/parts must be a whole number.");
+    }
+  }
+
+  const totalRaw = scriptCompletion?.totalParts;
+  if (totalRaw !== undefined && totalRaw !== null && totalRaw !== "") {
+    const totalNum = Number(totalRaw);
+    if (!Number.isInteger(totalNum) || totalNum < 0) {
+      errors.push("Total planned chapters/parts must be a whole number.");
+    }
+  }
+
+  if (
+    completedRaw !== undefined && completedRaw !== null && completedRaw !== ""
+    && totalRaw !== undefined && totalRaw !== null && totalRaw !== ""
+  ) {
+    const completedNum = Number(completedRaw);
+    const totalNum = Number(totalRaw);
+    if (Number.isInteger(completedNum) && Number.isInteger(totalNum) && totalNum > 0 && completedNum > totalNum) {
+      errors.push("Completed chapters/parts cannot exceed the total planned parts.");
+    }
+  }
+
+  if (String(scriptCompletion?.futurePlans || "").trim().length > MAX_SCRIPT_COMPLETION_FUTURE_PLANS_LENGTH) {
+    errors.push(`Future update note must be ${MAX_SCRIPT_COMPLETION_FUTURE_PLANS_LENGTH} characters or fewer.`);
+  }
+
+  return errors;
 };
 
 const normalizeRightsLicensingInput = (incoming = {}, fallback = {}) => {
@@ -1106,6 +1322,17 @@ export const saveDraft = async (req, res) => {
         };
         script.markModified("classification");
       }
+      if (otherData.scriptCompletion !== undefined) {
+        const completionErrors = validateScriptCompletionPayload(otherData.scriptCompletion || {});
+        if (completionErrors.length > 0) {
+          return res.status(400).json({ message: completionErrors[0] });
+        }
+        script.scriptCompletion = normalizeScriptCompletionInput(
+          otherData.scriptCompletion || {},
+          script.scriptCompletion || {}
+        );
+        script.markModified("scriptCompletion");
+      }
 
       if (otherData.legal !== undefined) {
         const incomingLegal = otherData.legal || {};
@@ -1203,6 +1430,17 @@ export const saveDraft = async (req, res) => {
       );
     }
 
+    if (safeOtherData.scriptCompletion !== undefined) {
+      const completionErrors = validateScriptCompletionPayload(safeOtherData.scriptCompletion || {});
+      if (completionErrors.length > 0) {
+        return res.status(400).json({ message: completionErrors[0] });
+      }
+      safeOtherData.scriptCompletion = normalizeScriptCompletionInput(
+        safeOtherData.scriptCompletion || {},
+        {}
+      );
+    }
+
     const newDraft = await Script.create({
       creator: req.user._id,
       title: title || "Untitled Draft",
@@ -1295,7 +1533,7 @@ export const getMyScripts = async (req, res) => {
   try {
     const scripts = await Script.find({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } })
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator createdAt publishedAt")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator createdAt publishedAt scriptCompletion")
       .populate("creator", "name profileImage")
       .lean();
     res.json(scripts);
@@ -1328,6 +1566,7 @@ export const updateScript = async (req, res) => {
       scriptUrl, description, synopsis, textContent, fileUrl,
       coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal,
       rightsLicensing,
+      scriptCompletion,
       // Publishing layer
       targetIndustry,
       publishingDetails,
@@ -1350,6 +1589,13 @@ export const updateScript = async (req, res) => {
     const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
     if (rightsValidationErrors.length > 0) {
       return res.status(400).json({ message: rightsValidationErrors[0] });
+    }
+
+    const completionValidationErrors = validateScriptCompletionPayload(
+      scriptCompletion || script.scriptCompletion || {}
+    );
+    if (completionValidationErrors.length > 0) {
+      return res.status(400).json({ message: completionValidationErrors[0] });
     }
 
     if (logline !== undefined && String(logline).trim().length > 50) {
@@ -1420,6 +1666,14 @@ export const updateScript = async (req, res) => {
         spotlight: services.spotlight ?? script.services?.spotlight ?? false,
       };
       script.markModified("services");
+    }
+
+    if (scriptCompletion !== undefined) {
+      script.scriptCompletion = normalizeScriptCompletionInput(
+        scriptCompletion || {},
+        script.scriptCompletion || {}
+      );
+      script.markModified("scriptCompletion");
     }
 
     if (legal?.agreedToTerms !== undefined) {
@@ -1530,6 +1784,14 @@ export const updateScript = async (req, res) => {
     (async () => {
       const tasks = [];
 
+      tasks.push(
+        archiveScriptSubmissionForAdmin({
+          script,
+          writer: req.user,
+          approvalSource: "update-script",
+        })
+      );
+
       if (!wasPendingApproval) {
         tasks.push(
           notifyAdminWorkflowEvent({
@@ -1599,6 +1861,7 @@ export const uploadScript = async (req, res) => {
       services,
       legal,
       rightsLicensing,
+      scriptCompletion,
       // Publishing layer
       targetIndustry,
       publishingDetails,
@@ -1656,6 +1919,11 @@ export const uploadScript = async (req, res) => {
     const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
     if (rightsValidationErrors.length > 0) {
       return res.status(400).json({ message: rightsValidationErrors[0] });
+    }
+
+    const completionValidationErrors = validateScriptCompletionPayload(scriptCompletion || {});
+    if (completionValidationErrors.length > 0) {
+      return res.status(400).json({ message: completionValidationErrors[0] });
     }
 
     const isPremiumAccess = Boolean(isPremium || premium) && Number(price || 0) > 0;
@@ -1741,6 +2009,7 @@ export const uploadScript = async (req, res) => {
       textContent,
       fileUrl: scriptUrl || fileUrl,
       pageCount,
+      scriptCompletion: normalizeScriptCompletionInput(scriptCompletion || {}, {}),
       coverImage,
       genre: genre || classification?.primaryGenre,
       contentType: getContentTypeFromFormat(format, contentType),
@@ -1883,6 +2152,11 @@ export const uploadScript = async (req, res) => {
     // Run non-critical tasks post-response to keep submit API fast.
     (async () => {
       const tasks = [
+        archiveScriptSubmissionForAdmin({
+          script,
+          writer: creator,
+          approvalSource: "upload-script",
+        }),
         notifyAdminWorkflowEvent({
           title: "Writer Project Submitted For Approval",
           section: "approvals",
@@ -2506,6 +2780,7 @@ export const getPublicScriptById = async (req, res) => {
         adaptation: Boolean(script.contentIndicators?.adaptation),
         adaptationSource: script.contentIndicators?.adaptationSource || "",
       },
+      scriptCompletion: normalizeScriptCompletionInput(script.scriptCompletion || {}, {}),
       evaluation: script.scriptScore?.overall
         ? {
             overall: Number(script.scriptScore.overall || 0),
@@ -5484,7 +5759,8 @@ export const requestScriptAITrailer = async (req, res) => {
 export const submitTrailerFeedback = async (req, res) => {
   try {
     const scriptId = req.params.id;
-    const { action, note } = req.body || {};
+    const { action, note, trailerUrl: requestedTrailerUrlRaw } = req.body || {};
+    const requestedTrailerUrl = String(requestedTrailerUrlRaw || "").trim();
 
     if (!["approved", "revision_requested"].includes(action)) {
       return res.status(400).json({ message: "action must be approved or revision_requested" });
@@ -5499,8 +5775,25 @@ export const submitTrailerFeedback = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can submit trailer feedback" });
     }
 
-    if (!script.trailerUrl) {
+    const aiTrailerUrl = String(script.trailerUrl || "").trim();
+    const uploadedTrailerUrl = String(script.uploadedTrailerUrl || "").trim();
+    const hasAnyKnownTrailer = Boolean(aiTrailerUrl || uploadedTrailerUrl || requestedTrailerUrl);
+
+    if (!hasAnyKnownTrailer) {
       return res.status(400).json({ message: "No AI trailer available for feedback" });
+    }
+
+    if (requestedTrailerUrl) {
+      const shouldUseUploadedTrailer =
+        script.trailerSource === "uploaded" || (!aiTrailerUrl && Boolean(uploadedTrailerUrl));
+
+      if (shouldUseUploadedTrailer) {
+        script.uploadedTrailerUrl = requestedTrailerUrl;
+        script.trailerSource = "uploaded";
+      } else {
+        script.trailerUrl = requestedTrailerUrl;
+        script.trailerSource = "ai";
+      }
     }
 
     script.trailerWriterFeedback = {

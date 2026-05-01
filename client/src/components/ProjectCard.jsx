@@ -7,6 +7,11 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import SocialShareButton from "./SocialShareButton";
+import {
+  getScriptCompletionBadgeClasses,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
 
 const FORMAT_LABEL = {
   feature: "Feature Film",
@@ -17,6 +22,7 @@ const FORMAT_LABEL = {
   tv_pilot: "TV Pilot",
   tv_serial: "TV Serial",
   limited_series: "Limited Series",
+  fiction_novel: "Fiction Novel",
   webseries: "Web Series",
   web_series: "Web Series",
   documentary: "Documentary",
@@ -33,6 +39,7 @@ const FORMAT_LABEL = {
 const STATUS = {
   pending_approval: { label: "In Review", dot: "bg-amber-400",   dk: "text-amber-400",   lt: "text-amber-600" },
   rejected:         { label: "Rejected",  dot: "bg-rose-400",    dk: "text-rose-400",    lt: "text-rose-600"  },
+  approved:         { label: "Published", dot: "bg-emerald-400", dk: "text-emerald-400", lt: "text-emerald-600" },
   published:        { label: "Published", dot: "bg-emerald-400", dk: "text-emerald-400", lt: "text-emerald-600" },
   draft:            { label: "Draft",     dot: "bg-[#4a5a6e]",   dk: "text-[#4a5a6e]",  lt: "text-gray-400"  },
 };
@@ -44,7 +51,7 @@ const ProjectCard = ({ project, userName }) => {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [coverError, setCoverError] = useState(false);
 
-  const isClickable  = project?.status === "published";
+  const isClickable  = project?.status === "published" || project?.status === "approved";
   const genre        = project?.primaryGenre || project?.genre || null;
   const format       = project?.format === "other"
     ? (project?.formatOther || FORMAT_LABEL.other)
@@ -53,6 +60,9 @@ const ProjectCard = ({ project, userName }) => {
   const views        = project?.views ?? 0;
   const rating       = project?.rating ?? 0;
   const reads        = project?.readsCount ?? 0;
+  const completionLabel = getScriptCompletionStatusLabel(project);
+  const completionProgress = getScriptCompletionProgressText(project);
+  const completionBadgeCls = getScriptCompletionBadgeClasses(project, dark);
   const isWriterOrInvestorViewer = user?.role === "writer" || user?.role === "creator" || user?.role === "investor";
   const status       = STATUS[project?.status] || STATUS.draft;
   const coverImage   = project?.coverImage || null;
@@ -77,7 +87,7 @@ const ProjectCard = ({ project, userName }) => {
       || 0
   );
   const showVerifiedBadge = Boolean(project?.verifiedBadge || project?.promotion?.spotlightActive || hasSpotlightPurchase);
-  const isPublished = project?.status === "published";
+  const isPublished = project?.status === "published" || project?.status === "approved";
   const timelineDate = isPublished
     ? (project?.publishedAt || project?.createdAt)
     : project?.createdAt;
@@ -319,8 +329,16 @@ const ProjectCard = ({ project, userName }) => {
         </p>
 
         {/* Tags */}
-        {(genre || format) && (
+        {(genre || format || completionLabel) && (
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <span className={`text-[10px] font-semibold tracking-wide px-2.5 py-1 rounded-lg ${completionBadgeCls}`}>
+              {completionLabel}
+            </span>
+            {completionProgress && (
+              <span className={`text-[10px] font-medium tracking-wide px-2.5 py-1 rounded-lg ${dark ? "bg-[#111e2d] text-[#6f859a]" : "bg-gray-50 text-gray-500 border border-gray-100"}`}>
+                {completionProgress}
+              </span>
+            )}
             {genre && (
               <span className={`text-[10px] font-semibold tracking-wide px-2.5 py-1 rounded-lg ${
                 dark ? "bg-[#111e2d] text-[#8896a7]" : "bg-gray-100 text-gray-600"
