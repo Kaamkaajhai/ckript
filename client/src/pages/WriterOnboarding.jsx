@@ -341,6 +341,31 @@ const WriterOnboarding = () => {
           }
         : {
             ...EMPTY_MEMBERSHIP_REVIEW,
+
+      const handleOpenMembershipProof = async (event, membershipType, fallbackUrl) => {
+        event.preventDefault();
+        const normalizedType = String(membershipType || "").toLowerCase();
+        if (!["wga", "swa"].includes(normalizedType)) return;
+
+        try {
+          const { data } = await api.get("/onboarding/writer-membership-proof/access-url", {
+            params: { membershipType: normalizedType },
+          });
+          const accessUrl = data?.url || fallbackUrl;
+          if (accessUrl) {
+            window.open(accessUrl, "_blank", "noopener,noreferrer");
+          } else {
+            setError("Proof link unavailable");
+          }
+        } catch (err) {
+          console.error(err);
+          if (fallbackUrl) {
+            window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+            return;
+          }
+          setError(err?.response?.data?.message || "Failed to open proof");
+        }
+      };
             requested: false,
           };
 
@@ -1082,6 +1107,7 @@ const WriterOnboarding = () => {
       ← Back
     </button>
   );
+
 
   // Show OTP verification screen if needed
   if (showOTPVerification) {

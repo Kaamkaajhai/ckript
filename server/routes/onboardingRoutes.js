@@ -11,7 +11,8 @@ import {
   getOnboardingStatus,
   updateProfessionalIdentity,
   completeIndustryOnboarding,
-  updateMandates
+  updateMandates,
+  getWriterMembershipProofAccessUrl
 } from "../controllers/onboardingController.js";
 import protect from "../middleware/authMiddleware.js";
 
@@ -30,6 +31,7 @@ router.post("/verify-email", verifyEmail);
 // Writer onboarding routes
 router.put("/writer-profile", updateWriterProfile);
 router.post("/writer-membership-proof", uploadWriterMembershipProofFile, submitWriterMembershipProof);
+router.get("/writer-membership-proof/access-url", getWriterMembershipProofAccessUrl);
 router.post("/upload-script", uploadScript);
 router.post("/complete", completeOnboarding);
 

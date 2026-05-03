@@ -3,7 +3,7 @@ import Script from "../models/Script.js";
 import Subscription from "../models/Subscription.js";
 import Notification from "../models/Notification.js";
 import multer from "multer";
-import { uploadToCloudinary } from "../config/cloudinary.js";
+import { uploadToCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import { sendOTPEmail, sendWriterSignupCreditsEmail } from "../utils/emailService.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import {
@@ -38,6 +38,14 @@ const MEMBERSHIP_FILE_MIME_TYPES = new Set([
   "image/webp",
 ]);
 const WRITER_SIGNUP_BONUS_CREDITS = 180;
+
+const getCloudinaryResourceTypeFromUrl = (url = "") => {
+  const normalized = String(url || "");
+  if (normalized.includes("/image/upload/")) return "image";
+  if (normalized.includes("/video/upload/")) return "video";
+  if (normalized.includes("/raw/upload/")) return "raw";
+  return "";
+};
 
 const buildWriterSignupCreditTransaction = (amount = WRITER_SIGNUP_BONUS_CREDITS) => ({
   type: "bonus",
@@ -293,16 +301,60 @@ export const submitWriterMembershipProof = async (req, res) => {
   }
 };
 
+// @desc    Get a signed access URL for the current writer's membership proof
+// @route   GET /api/onboarding/writer-membership-proof/access-url?membershipType=wga|swa
+// @access  Private
+export const getWriterMembershipProofAccessUrl = async (req, res) => {
+  try {
+    const membershipType = normalizeString(req.query?.membershipType).toLowerCase();
+    if (!["wga", "swa"].includes(membershipType)) {
+      return res.status(400).json({ message: "membershipType must be 'wga' or 'swa'" });
+    }
+
+    const user = await User.findById(req.user._id).lean();
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const entry = user?.writerProfile?.membershipVerification?.[membershipType] || {};
+    const proofUrl = normalizeString(entry?.proofUrl);
+    const proofPublicId = normalizeString(entry?.proofPublicId);
+    const proofMimeType = normalizeString(entry?.proofMimeType).toLowerCase();
+
+    if (!proofUrl && !proofPublicId) {
+      return res.status(404).json({ message: "Proof file not found" });
+    }
+
+    if (proofMimeType !== "application/pdf" || !proofPublicId) {
+      return res.json({ url: proofUrl });
+    }
+
+    const expiresAt = Math.floor(Date.now() / 1000) + 10 * 60;
+    const resourceType = getCloudinaryResourceTypeFromUrl(proofUrl) || "raw";
+    const signedUrl = buildPrivateDownloadUrl(proofPublicId, "pdf", {
+      resource_type: resourceType,
+      type: "upload",
+      expires_at: expiresAt,
+      attachment: false,
+    });
+
+    return res.json({ url: signedUrl });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: error.message || "Failed to build proof access URL" });
+  }
+};
+
 // @desc    Update writer profile (Phase 2: Identity)
 // @route   PUT /api/onboarding/writer-profile
 // @access  Private
 export const updateWriterProfile = async (req, res) => {
   try {
-    const { 
+    const {
       username,
-      bio, 
-      representationStatus, 
-      agencyName, 
+      bio,
+      representationStatus,
+      agencyName,
       wgaMember,
       sgaMember,
       diversity,
@@ -314,7 +366,7 @@ export const updateWriterProfile = async (req, res) => {
       phone,
       address,
     } = req.body;
-    
+
     const user = await User.findById(req.user._id);
     
     if (!user) {
