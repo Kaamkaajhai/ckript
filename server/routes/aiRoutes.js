@@ -6,6 +6,7 @@ import {
 	generateScriptScore,
 	correctScriptText,
 	aiWritingAssist,
+	generateProseSample,
 } from "../controllers/aiController.js";
 
 const router = express.Router();
@@ -16,6 +17,9 @@ router.get("/trailer-status/:scriptId", protect, getTrailerStatus);
 
 // Script Score
 router.post("/script-score", protect, generateScriptScore);
+
+// AI Prose Sample (Publishing)
+router.post("/prose-sample", protect, generateProseSample);
 
 // Script grammar correction
 router.post("/correct-script-text", protect, correctScriptText);

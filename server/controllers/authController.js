@@ -103,9 +103,9 @@ const buildVerificationResponse = (email) => ({
   resendCooldownSeconds: getOTPResendCooldownSeconds(),
 });
 
-const CONTACT_REQUIRED_ROLES = new Set(["reader", "investor"]);
+const CONTACT_REQUIRED_ROLES = new Set(["reader"]);
 const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
-const USERNAME_REQUIRED_ROLES = new Set(["investor"]);
+const USERNAME_REQUIRED_ROLES = new Set([]);
 const INDIA_COUNTRY_NAME = "India";
 const INDIA_ZIP_REGEX = /^\d{6}$/;
 const INTERNATIONAL_POSTAL_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9\s-]{2,11}$/;
@@ -545,7 +545,7 @@ const isValidPassword = (password) => {
 
 export const join = async (req, res) => {
   console.log('Join request received:', req.body);
-  let { name, email, password, role, phone, address, username, referralCode, dateOfBirth } = req.body;
+  let { name, email, password, role, phone, address, username, referralCode, dateOfBirth, subRole } = req.body;
   try {
     // Validate required fields
     if (!name || !email || !password) {
@@ -608,15 +608,15 @@ export const join = async (req, res) => {
     const requiresContactDetails = CONTACT_REQUIRED_ROLES.has(role);
     const normalizedPhone = normalizeInputValue(phone);
     const normalizedAddress = normalizeAddressPayload(address);
-    const hasContactPayload = Boolean(normalizedPhone || normalizedAddress || dateOfBirth);
-    const shouldValidateAndPersistContactDetails = requiresContactDetails || hasContactPayload;
+    const shouldValidatePhone = requiresContactDetails || Boolean(normalizedPhone);
+    const shouldValidateAddress = requiresContactDetails || Boolean(normalizedAddress);
     const normalizedDateOfBirth = normalizeOptionalDate(dateOfBirth);
 
     if (dateOfBirth !== undefined && dateOfBirth !== null && dateOfBirth !== "" && !normalizedDateOfBirth) {
       return res.status(400).json({ message: "Please provide a valid date of birth" });
     }
 
-    if (shouldValidateAndPersistContactDetails) {
+    if (shouldValidatePhone) {
       if (!normalizedPhone) {
         return res.status(400).json({ message: "Phone number is required" });
       }
@@ -624,7 +624,10 @@ export const join = async (req, res) => {
       if (!/^[+]?[\d\s\-().]{7,15}$/.test(normalizedPhone)) {
         return res.status(400).json({ message: "Please enter a valid phone number (e.g. +91 00000 00000)" });
       }
+      phone = normalizedPhone;
+    }
 
+    if (shouldValidateAddress) {
       if (!normalizedAddress) {
         return res.status(400).json({ message: "Address details are required" });
       }
@@ -663,7 +666,12 @@ export const join = async (req, res) => {
         country,
         formatted: formatted || buildFormattedAddress({ street, city, state, zipCode, country }),
       };
-      phone = normalizedPhone;
+    }
+
+    let industryProfile;
+    if (role === "professional") {
+      const normalizedSubRole = normalizeInputValue(subRole).toLowerCase();
+      industryProfile = normalizedSubRole ? { subRole: normalizedSubRole } : undefined;
     }
 
     if (normalizedUsername) {
@@ -717,6 +725,17 @@ export const join = async (req, res) => {
           userExists.phone = phone;
           userExists.address = address;
           userExists.markModified("address");
+        } else {
+          if (phone) userExists.phone = phone;
+          if (address) {
+            userExists.address = address;
+            userExists.markModified("address");
+          }
+        }
+        if (industryProfile?.subRole) {
+          if (!userExists.industryProfile) userExists.industryProfile = {};
+          userExists.industryProfile.subRole = industryProfile.subRole;
+          userExists.markModified("industryProfile");
         }
         if (normalizedUsername) {
           if (!userExists.writerProfile) userExists.writerProfile = {};
@@ -762,10 +781,11 @@ export const join = async (req, res) => {
       password, 
       role,
       referredBy: referrerUser?._id,
-      phone: shouldValidateAndPersistContactDetails ? phone : undefined,
-      address: shouldValidateAndPersistContactDetails ? address : undefined,
+      phone: shouldValidatePhone ? phone : undefined,
+      address: shouldValidateAddress ? address : undefined,
       dateOfBirth: normalizedDateOfBirth,
       writerProfile: normalizedUsername ? { username: normalizedUsername } : undefined,
+      industryProfile,
       emailVerified: skipEmailVerification, // Auto-verify if skipping email
       emailVerificationToken: skipEmailVerification ? undefined : hashOTP(otp),
       emailVerificationExpires: skipEmailVerification ? undefined : generateOTPExpiry(),

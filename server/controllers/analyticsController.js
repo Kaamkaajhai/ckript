@@ -213,15 +213,18 @@ const getOrCreateUserSession = (activity, sessionId, startedAt) => {
 const getOrCreateUserActivityDoc = async ({ userId, anonymousId, email, phone }) => {
   if (!userId) return null;
 
-  let activity = await UserActivity.findOne({ userId });
-  if (!activity) {
-    activity = new UserActivity({
-      userId,
-      anonymousId: anonymousId || "",
-      email: email || "",
-      phone: phone || "",
-    });
-  }
+  let activity = await UserActivity.findOneAndUpdate(
+    { userId },
+    {
+      $setOnInsert: {
+        userId,
+        anonymousId: anonymousId || "",
+        email: email || "",
+        phone: phone || "",
+      }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 
   if (anonymousId) activity.anonymousId = anonymousId;
   if (email) activity.email = email;
@@ -540,25 +543,22 @@ export const trackEvent = async (req, res) => {
     const safeDevice = buildSafeDevice(device, req);
     const clientLocation = buildSafeLocationFromClientGeo(clientGeo);
 
-    let visitor = await AnonymousVisitor.findOne({ anonymousId });
+    let visitor = await AnonymousVisitor.findOneAndUpdate(
+      { anonymousId },
+      {
+        $setOnInsert: {
+          anonymousId,
+          firstVisit: now,
+          sessions: [],
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
     const isReturningVisitor = detectReturningFlag(visitor, isReturning);
     const shouldUseIpLookup = !hasLocationSignal(clientLocation) && !hasLocationSignal(visitor?.location || {});
     const ipLocation = shouldUseIpLookup ? await fetchRoughLocation(ipAddress) : {};
     const location = pickBestLocation(clientLocation, visitor?.location, ipLocation);
-
-    if (!visitor) {
-      visitor = await AnonymousVisitor.create({
-        anonymousId,
-        ipAddress,
-        location,
-        device: safeDevice,
-        isReturning: isReturningVisitor,
-        firstVisit: now,
-        lastVisit: now,
-        lastEventAt: now,
-        sessions: [],
-      });
-    }
 
     visitor.ipAddress = ipAddress || visitor.ipAddress;
   visitor.device = safeDevice;
@@ -664,7 +664,7 @@ export const trackEvent = async (req, res) => {
 
     return res.status(200).json({ ok: true });
   } catch (error) {
-    return res.status(500).json({ message: error.message || "Failed to track event." });
+    return res.status(500).json({ message: error.message || "Failed to track event.", stack: error.stack });
   }
 };
 
@@ -701,25 +701,22 @@ export const trackSession = async (req, res) => {
     const safeDevice = buildSafeDevice(device, req);
     const clientLocation = buildSafeLocationFromClientGeo(clientGeo);
 
-    let visitor = await AnonymousVisitor.findOne({ anonymousId });
+    let visitor = await AnonymousVisitor.findOneAndUpdate(
+      { anonymousId },
+      {
+        $setOnInsert: {
+          anonymousId,
+          firstVisit: sessionStart,
+          sessions: [],
+        }
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
     const isReturningVisitor = detectReturningFlag(visitor, isReturning);
     const shouldUseIpLookup = !hasLocationSignal(clientLocation) && !hasLocationSignal(visitor?.location || {});
     const ipLocation = shouldUseIpLookup ? await fetchRoughLocation(ipAddress) : {};
     const location = pickBestLocation(clientLocation, visitor?.location, ipLocation);
-
-    if (!visitor) {
-      visitor = await AnonymousVisitor.create({
-        anonymousId,
-        ipAddress,
-        location,
-        device: safeDevice,
-        isReturning: isReturningVisitor,
-        firstVisit: sessionStart,
-        lastVisit: sessionStart,
-        lastEventAt: sessionStart,
-        sessions: [],
-      });
-    }
 
     visitor.ipAddress = ipAddress || visitor.ipAddress;
   visitor.device = safeDevice;

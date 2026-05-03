@@ -75,9 +75,19 @@ const scriptSchema = new mongoose.Schema({
       "dialogues",
       "poet",
       "other",
+      // Publishing formats
+      "fiction_novel",
+      "non_fiction",
+      "novella",
+      "short_story_collection",
+      "poetry",
+      "screenplay",
+      "novel",
+      "hybrid",
     ],
     default: "feature_film"
   },
+  styleMedium: { type: String, trim: true, maxlength: 120 },
   formatOther: { type: String, trim: true, maxlength: 120 },
   primaryGenre: { type: String },
   subGenres: [{ type: String }],
@@ -319,6 +329,115 @@ const scriptSchema = new mongoose.Schema({
   budget: { type: String, enum: ["micro", "low", "medium", "high", "blockbuster"] },
   // Admin approval
   rejectionReason: { type: String },
+
+  // ── Publishing Layer ────────────────────────────────────────────────────────
+  // Which industry verticals this script targets
+  targetIndustry: [{
+    type: String,
+    enum: ["film", "publishing"],
+  }],
+
+  // Full publishing metadata (only meaningful when targetIndustry includes "publishing")
+  publishingDetails: {
+    enabled: { type: Boolean, default: false },
+
+    // Story format (multi-select)
+    storyFormat: [{ type: String, enum: ["screenplay", "novel_ready", "adaptation_ready"] }],
+
+    // Writing style (multi-select)
+    writingStyle: [{ type: String, enum: ["descriptive", "dialogue_driven", "literary", "commercial"] }],
+
+    // Target reading audience (multi-select)
+    targetAudience: [{ type: String, enum: ["young_adult", "adult", "mass_market", "niche_literary"] }],
+
+    // Free-text estimated word count range e.g. "60,000 – 90,000 words"
+    estimatedWordCount: { type: String, trim: true, maxlength: 60 },
+
+    // Series potential (single-select)
+    seriesPotential: {
+      type: String,
+      enum: ["standalone", "trilogy", "multi_part_universe"],
+    },
+
+    // Book pitch (200–400 words narrative pitch for publishers)
+    bookPitch: { type: String, trim: true, maxlength: 2500 },
+
+    // AI-generated prose sample (optional, saved after writer approves)
+    proseSample: { type: String, trim: true, maxlength: 5000 },
+    proseSampleGeneratedAt: { type: Date },
+
+    // Which portion of the script publishers can preview before purchase
+    previewContent: {
+      type: String,
+      enum: ["first_5_pages", "sample_chapter", "none"],
+      default: "none",
+    },
+
+    // Whether the writer is opting to sell publishing rights
+    sellPublishingRights: { type: Boolean, default: false },
+
+    // Publishing rights
+    publishingRights: {
+      // Rights bundle preset for simplified UX
+      rightsBundle: {
+        type: String,
+        enum: ["basic", "full", "custom"],
+        default: "custom",
+      },
+
+      // Core rights (Book + Digital + Audio)
+      bookPublishing: { type: Boolean, default: false },
+      digitalPublishing: { type: Boolean, default: false },
+      audiobookRights: { type: Boolean, default: false },
+
+      // Territory
+      territory: [{ type: String, enum: ["worldwide", "india_only", "specific_regions"] }],
+      territorySpecific: { type: String, trim: true, maxlength: 300 }, // when specific_regions selected
+
+      // Language rights
+      languages: [{ type: String, enum: ["english", "hindi", "regional", "all_languages"] }],
+
+      // Adaptation rights
+      adaptationIncluded: { type: Boolean, default: false },
+      adaptationRights: [{
+        type: String,
+        enum: ["film_rights", "web_series_rights", "tv_rights", "remake_rights", "cross_media_rights"],
+      }],
+
+      // Exclusivity
+      exclusivity: {
+        type: String,
+        enum: ["exclusive", "non_exclusive"],
+        default: "non_exclusive",
+      },
+
+      // Duration (free text: "5 years", "10 years", "perpetual")
+      durationYears: { type: String, trim: true, maxlength: 60 },
+
+      // Payment type
+      paymentType: {
+        type: String,
+        enum: ["one_time_upfront", "royalty_based", "advance_plus_royalty"],
+        default: "one_time_upfront",
+      },
+      royaltyPercentage: { type: Number, default: 0 },
+      advanceAmount: { type: Number, default: 0 },
+
+      // Modification rights
+      modificationRights: {
+        type: String,
+        enum: ["buyer_can_freely_modify", "buyer_must_consult_writer", "no_major_changes_allowed", "writer_approval_required"],
+        default: "buyer_must_consult_writer",
+      },
+
+      // Negotiation mode
+      negotiationMode: {
+        type: String,
+        enum: ["fixed_terms", "open_to_negotiation"],
+        default: "fixed_terms",
+      },
+    },
+  },
 }, { timestamps: true });
 
 // Indexes for fast queries

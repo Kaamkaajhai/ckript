@@ -1,10 +1,19 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useDarkMode } from "../context/DarkModeContext";
+import { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { getProfileCanonicalPath } from "../utils/profilePath";
 
 const NewProject = () => {
   const { isDarkMode: dark } = useDarkMode();
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
+  const profileEditPath = getProfileCanonicalPath(user, {
+    viewerId: user?._id,
+    viewerRole: user?.role,
+  });
 
   const cards = [
     {
@@ -63,8 +72,28 @@ const NewProject = () => {
         </p>
       </motion.div>
 
+      {!profileComplete && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`mb-6 rounded-2xl border p-5 text-center ${
+            dark ? "bg-[#101e30] border-[#333] text-gray-300" : "bg-white border-gray-200 text-gray-700 shadow-sm"
+          }`}
+        >
+          <h2 className={`text-lg font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>Complete your profile first</h2>
+          <p className="text-sm mb-4">Project creation and uploads unlock once your profile completion reaches 100%.</p>
+          <button
+            type="button"
+            onClick={() => navigate(profileEditPath)}
+            className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-[#1e3a5f] text-white text-sm font-bold hover:bg-[#162d4a] transition"
+          >
+            Complete Profile
+          </button>
+        </motion.div>
+      )}
+
       {/* Cards */}
-      <div className="grid md:grid-cols-2 gap-5">
+      <div className={`grid md:grid-cols-2 gap-5 ${profileComplete ? "" : "pointer-events-none opacity-45"}`}>
         {cards.map((card, i) => (
           <motion.div
             key={card.key}

@@ -655,6 +655,94 @@ Dramatically improve ALL dialogue in the following script text: make every conve
 Profoundly enhance the emotional depth of the following script text: strengthen character motivations with specific backstory hints, add layers of vulnerability, internal conflict, and unspoken tension. Deepen interpersonal dynamics — show what characters feel through actions, micro-expressions, and loaded silences. Heighten emotional stakes by adding moments of tenderness, fear, hope, or heartbreak. Add new emotional beats — a lingering look, a hand that trembles, a voice that cracks. Develop the emotional subtext so readers feel the weight of every scene. Expand thin emotional moments into rich, affecting passages. Keep the plot structure and character names intact while making every scene resonate on a human level.`,
 };
 
+export const generateProseSample = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const script = await Script.findById(scriptId);
+
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+    if (script.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can generate a prose sample" });
+    }
+
+    const sourceText = script.textContent || script.fullContent || script.synopsis || script.description;
+    if (!sourceText) {
+      return res.status(400).json({ message: "Script has no content to convert." });
+    }
+
+    // Check credits
+    const user = await User.findById(req.user._id);
+    const requiredCredits = CREDIT_PRICES.AI_PROSE || 20;
+    const userBalance = user.credits?.balance || 0;
+
+    if (userBalance < requiredCredits) {
+      return res.status(402).json({
+        message: `Insufficient credits. AI Prose Sample generation requires ${requiredCredits} credits.`,
+        requiresCredits: true,
+        required: requiredCredits,
+        balance: userBalance,
+        shortfall: requiredCredits - userBalance
+      });
+    }
+
+    // Deduct credits
+    user.credits.balance -= requiredCredits;
+    user.credits.totalSpent += requiredCredits;
+    user.credits.transactions.push({
+      type: "spent",
+      amount: -requiredCredits,
+      description: `AI Prose Sample for "${script.title}"`,
+      reference: `PROSE-${Date.now().toString(36).toUpperCase()}`,
+      createdAt: new Date()
+    });
+    await user.save();
+
+    // Take the first ~500 words
+    const words = sourceText.split(/\s+/);
+    const sampleSource = words.slice(0, 500).join(" ");
+
+    const prompt = `You are a bestselling novelist adapting a screenplay into a novel.
+Convert the following screenplay scene(s) into rich, literary prose (3rd person).
+Keep the tone, character names, and core actions, but expand the scene with vivid descriptions, internal thoughts, and atmospheric details suitable for a novel.
+Aim for a length of around 300-500 words.
+
+Return STRICT JSON with this exact shape:
+{
+  "proseSample": "string (the generated prose text)"
+}
+
+Screenplay text:
+${sampleSource}`;
+
+    let payload;
+    let usedFallback = false;
+    try {
+      payload = await generateJsonWithGoogleAI({
+        prompt,
+        temperature: 0.6,
+        maxOutputTokens: 2000,
+      });
+    } catch (aiError) {
+      usedFallback = true;
+      payload = {
+        proseSample: "AI prose generation is currently unavailable. Please try again later.",
+      };
+    }
+
+    const proseSample = String(payload?.proseSample || "").trim();
+
+    res.json({
+      message: "Prose sample generated successfully",
+      proseSample,
+      usedFallback,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
 export const aiWritingAssist = async (req, res) => {
   try {
     const { text, action, customInstruction } = req.body;

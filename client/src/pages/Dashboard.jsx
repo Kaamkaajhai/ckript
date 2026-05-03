@@ -128,6 +128,10 @@ const CreatorDashboard = ({ user, dark }) => {
     viewerId: user?._id,
     viewerRole: user?.role,
   });
+  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
+  const projectActionClass = profileComplete
+    ? ""
+    : "opacity-60 cursor-not-allowed hover:translate-y-0 hover:shadow-sm";
 
   return (
     <div className="bg-white min-h-full relative max-[640px]:-mx-4 max-[640px]:-mt-4">
@@ -153,14 +157,14 @@ const CreatorDashboard = ({ user, dark }) => {
                 </h1>
               </div>
               <div className="grid grid-cols-2 max-[650px]:grid-cols-1 gap-2 w-full min-[520px]:w-full sm:w-auto sm:min-w-[360px]">
-              <Link to="/create-project" state={{ startFresh: true }}
-                className={`inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold transition-all duration-200 shadow-sm hover:-translate-y-0.5 w-full max-w-full min-w-0 ${dark ? 'bg-white/[0.04] text-[#8896a7] hover:bg-white/[0.07] ring-1 ring-white/[0.06]' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
+              <Link to={profileComplete ? "/create-project" : profileEditPath} state={profileComplete ? { startFresh: true } : undefined}
+                className={`inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold transition-all duration-200 shadow-sm hover:-translate-y-0.5 w-full max-w-full min-w-0 ${projectActionClass} ${dark ? 'bg-white/[0.04] text-[#8896a7] hover:bg-white/[0.07] ring-1 ring-white/[0.06]' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                 <span className="max-[650px]:hidden">Create Project</span>
                 <span className="hidden max-[650px]:inline">Create</span>
               </Link>
-              <Link to="/upload"
-                className="inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 bg-[#1e3a5f] text-white rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 w-full max-w-full min-w-0">
+              <Link to={profileComplete ? "/upload" : profileEditPath}
+                className={`inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 bg-[#1e3a5f] text-white rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 w-full max-w-full min-w-0 ${projectActionClass}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
                 <span className="max-[650px]:hidden">Upload Project</span>
                 <span className="hidden max-[650px]:inline">Upload</span>

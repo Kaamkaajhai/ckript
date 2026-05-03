@@ -190,6 +190,7 @@ export const CREDIT_PRICES = {
   PREMIUM_REPORT: 20,       // 20 credits for premium report
   CONSULTATION: 50,         // 50 credits for consultation booking
   AI_GRAMMAR: 5,            // 5 credits for AI grammar fix
+  AI_PROSE: 20,             // 20 credits for AI prose sample generation
 };
 
 // @desc    Get all credit packages

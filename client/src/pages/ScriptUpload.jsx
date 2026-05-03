@@ -8,6 +8,7 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { formatCurrency } from "../utils/currency";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import { getProfileCanonicalPath } from "../utils/profilePath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
   SCRIPT_COMPLETION_OPTIONS,
@@ -1425,6 +1426,31 @@ const ScriptUpload = () => {
           <div className="text-5xl mb-4">🚫</div>
           <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
           <p className="text-sm text-neutral-400">Only creators can upload scripts. Switch to a creator account.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
+  const profileEditPath = getProfileCanonicalPath(user, {
+    viewerId: user?._id,
+    viewerRole: user?.role,
+  });
+
+  if (!profileComplete) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 max-w-md text-center shadow-sm">
+          <h2 className="text-xl font-bold text-[#1e3a5f] mb-2">Complete Your Profile</h2>
+          <p className="text-sm text-gray-600 mb-5">
+            You can upload projects once your profile completion reaches 100%.
+          </p>
+          <Link
+            to={profileEditPath}
+            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#1e3a5f] text-white text-sm font-bold hover:bg-[#162d4a] transition"
+          >
+            Complete Profile
+          </Link>
         </div>
       </div>
     );

@@ -17,6 +17,7 @@ import { AuthContext } from "../context/AuthContext";
 import { Image as ImageIcon, Film, CheckCircle2, Move, ZoomIn, RotateCw } from "lucide-react";
 import api from "../services/api";
 import { formatCurrency } from "../utils/currency";
+import { getProfileCanonicalPath } from "../utils/profilePath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
   SCRIPT_COMPLETION_OPTIONS,
@@ -29,41 +30,46 @@ const DRAFT_ENDPOINT = `${(import.meta.env.VITE_API_URL || "http://localhost:500
 const LOCAL_WORKING_DRAFT_KEY = "create-project-working-draft-v1";
 
 /* -- Constants --------------------------------------- */
-const formats = [
-  { value: "feature", label: "Feature Film", icon: "FILM" },
-  { value: "tv_1hour", label: "TV 1-Hour", icon: "TV" },
-  { value: "tv_halfhour", label: "TV Half-Hour", icon: "TV" },
-  { value: "short", label: "Short Film", icon: "SHORT" },
+const filmFormats = [
+  { value: "feature_film", label: "Feature Film", icon: "FILM" },
+  { value: "short_film", label: "Short Film", icon: "SHORT" },
+  { value: "web_series", label: "Web Series", icon: "SERIES" },
+  { value: "tv_1hour", label: "TV Series (1 hr)", icon: "TV" },
+  { value: "tv_halfhour", label: "TV Series (30 min)", icon: "TV" },
   { value: "limited_series", label: "Limited Series", icon: "SERIES" },
   { value: "documentary", label: "Documentary", icon: "DOC" },
-  { value: "web_series", label: "Web Series", icon: "SERIES" },
-  { value: "drama_school", label: "Drama School", icon: "DOC" },
-  { value: "anime", label: "Anime", icon: "TV" },
-  { value: "movie", label: "Movie", icon: "FILM" },
-  { value: "tv_serial", label: "TV Serial", icon: "TV" },
-  { value: "cartoon", label: "Cartoon", icon: "SHORT" },
-  { value: "songs", label: "Songs", icon: "DOC" },
-  { value: "standup_comedy", label: "Standup Comedy", icon: "DOC" },
-  { value: "dialogues", label: "Dialogues", icon: "DOC" },
-  { value: "poet", label: "Poet", icon: "DOC" },
-  { value: "other", label: "Other", icon: "DOC" },
 ];
+
+const publishingFormats = [
+  { value: "fiction_novel", label: "Fiction Novel", icon: "DOC" },
+  { value: "non_fiction", label: "Non-fiction", icon: "DOC" },
+  { value: "novella", label: "Novella", icon: "DOC" },
+  { value: "short_story_collection", label: "Short Story Collection", icon: "DOC" },
+  { value: "poetry", label: "Poetry", icon: "DOC" },
+];
+
+const styleOptions = [
+  "Live Action",
+  "Animation",
+  "Anime",
+  "Experimental"
+];
+
+const allFormats = [...filmFormats, ...publishingFormats];
+
 const CONTENT_TYPE_BY_FORMAT = {
-  movie: "movie",
-  feature: "movie",
+  feature_film: "movie",
+  short_film: "short_film",
+  web_series: "web_series",
   tv_1hour: "tv_series",
   tv_halfhour: "tv_series",
   limited_series: "tv_series",
-  tv_serial: "tv_series",
-  short: "short_film",
-  web_series: "web_series",
   documentary: "documentary",
-  anime: "anime",
-  cartoon: "anime",
-  songs: "songs",
-  standup_comedy: "standup_comedy",
-  dialogues: "dialogues",
-  poet: "poet",
+  fiction_novel: "book",
+  non_fiction: "book",
+  novella: "book",
+  short_story_collection: "book",
+  poetry: "book",
 };
 
 const getContentTypeFromFormat = (format) => CONTENT_TYPE_BY_FORMAT[format] || "movie";
@@ -593,6 +599,11 @@ const CreateProject = () => {
   const shouldStartFresh = !draftId && (
     Boolean(location.state?.startFresh) || new URLSearchParams(location.search).get("fresh") === "1"
   );
+  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
+  const profileEditPath = getProfileCanonicalPath(user, {
+    viewerId: user?._id,
+    viewerRole: user?.role,
+  });
   const agreementRef = useRef(null);
   const reviewRedirectTimerRef = useRef(null);
 
@@ -632,9 +643,17 @@ const CreateProject = () => {
   const [preGrammarContent, setPreGrammarContent] = useState(null); // for undo
   const [showUndoBar, setShowUndoBar] = useState(false);
 
+  // AI Prose Sample Generation
+  const PROSE_COST = 20;
+  const [showProseModal, setShowProseModal] = useState(false);
+  const [proseCreditBalance, setProseCreditBalance] = useState(null);
+  const [proseCreditLoading, setProseCreditLoading] = useState(false);
+  const [proseLoading, setProseLoading] = useState(false);
+
   // Step 2: Details
   const [formData, setFormData] = useState({
-    format: "feature",
+    format: "feature_film",
+    styleMedium: "",
     formatOther: "",
     primaryGenre: "",
     logline: "",
@@ -642,6 +661,33 @@ const CreateProject = () => {
     writer: "",
     companyName: "",
     ...createScriptCompletionFormState(),
+  });
+
+  // Publishing Layer State
+  const [targetFilm, setTargetFilm] = useState(true);
+  const [targetPublishing, setTargetPublishing] = useState(false);
+  const [publishingDetails, setPublishingDetails] = useState({
+    storyFormat: [],
+    writingStyle: [],
+    targetAudience: [],
+    estimatedWordCount: "",
+    seriesPotential: "",
+    bookPitch: "",
+    proseSample: "",
+    previewContent: "none",
+    publishingRights: {
+      bookPublishing: false,
+      digitalPublishing: false,
+      audiobookRights: false,
+      territory: [],
+      languages: [],
+      adaptationRights: [],
+      exclusivity: "non_exclusive",
+      durationYears: "",
+      paymentType: "one_time_upfront",
+      modificationRights: "buyer_must_consult_writer",
+      rightsBundle: "custom",
+    }
   });
 
   // File Upload State
@@ -981,6 +1027,7 @@ const CreateProject = () => {
       }
       if (editor && data.textContent) editor.commands.setContent(data.textContent);
       if (data.format) setFormData(f => ({ ...f, format: data.format }));
+      if (data.styleMedium !== undefined) setFormData(f => ({ ...f, styleMedium: data.styleMedium || "" }));
       if (data.formatOther !== undefined) setFormData(f => ({ ...f, formatOther: data.formatOther || "" }));
       if (data.pageCount) setFormData(f => ({ ...f, pageCount: String(data.pageCount) }));
       if (data.classification?.primaryGenre || data.genre) setFormData(f => ({ ...f, primaryGenre: data.classification?.primaryGenre || data.genre || "" }));
@@ -1015,6 +1062,35 @@ const CreateProject = () => {
         customInvestorTerms: data?.legal?.customInvestorTerms || "",
       }));
       setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+
+      // Hydrate Publishing Layer
+      if (data?.targetIndustry) {
+        const hasPublishing = data.targetIndustry.includes("publishing");
+        setTargetPublishing(hasPublishing);
+        setTargetFilm(!hasPublishing);
+      } else {
+        setTargetFilm(true);
+        setTargetPublishing(false);
+      }
+      
+      if (data?.publishingDetails) {
+        setPublishingDetails(prev => ({
+          ...prev,
+          enabled: Boolean(data.publishingDetails.enabled),
+          storyFormat: Array.isArray(data.publishingDetails.storyFormat) ? data.publishingDetails.storyFormat : [],
+          writingStyle: Array.isArray(data.publishingDetails.writingStyle) ? data.publishingDetails.writingStyle : [],
+          targetAudience: Array.isArray(data.publishingDetails.targetAudience) ? data.publishingDetails.targetAudience : [],
+          estimatedWordCount: data.publishingDetails.estimatedWordCount || "",
+          seriesPotential: data.publishingDetails.seriesPotential || "",
+          bookPitch: data.publishingDetails.bookPitch || "",
+          proseSample: data.publishingDetails.proseSample || "",
+          previewContent: data.publishingDetails.previewContent || "none",
+          publishingRights: data.publishingDetails.publishingRights ? {
+            ...prev.publishingRights,
+            ...data.publishingDetails.publishingRights
+          } : prev.publishingRights
+        }));
+      }
       lastDraftSignatureRef.current = `${(data.title || "Untitled Draft").trim()}::${String(data.textContent || "").length}:${String(data.textContent || "").slice(0, 120)}:${String(data.textContent || "").slice(-120)}`;
       setSaved(true);
       setShowDrafts(false);
@@ -1029,6 +1105,8 @@ const CreateProject = () => {
       textContent: editor.getHTML(),
       companyName: String(formData.companyName || "").trim(),
       format: formData.format,
+      styleMedium: targetFilm ? formData.styleMedium : undefined,
+      contentType: getContentTypeFromFormat(formData.format),
       formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
       logline: formData.logline,
       synopsis: formData.synopsis,
@@ -1048,9 +1126,14 @@ const CreateProject = () => {
         customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
       },
       rightsLicensing: buildRightsPayload(),
+      targetIndustry: [
+        ...(targetFilm ? ["film"] : []),
+        ...(targetPublishing ? ["publishing"] : [])
+      ],
+      publishingDetails,
       ...(scriptId ? { scriptId } : {}),
     };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, editor, estimatedPages, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title]);
+  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, editor, estimatedPages, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails]);
 
   const getDraftSignature = useCallback((payload) => {
     if (!payload) return "";
@@ -1067,6 +1150,7 @@ const CreateProject = () => {
   }, []);
 
   const queueKeepaliveDraftSave = useCallback((reason = "close") => {
+    if (!profileComplete) return false;
     if (scriptId && loadedScriptStatus !== "draft") return false;
 
     const payload = buildDraftPayload();
@@ -1098,11 +1182,12 @@ const CreateProject = () => {
 
     lastDraftSignatureRef.current = signature;
     return true;
-  }, [buildDraftPayload, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
+  }, [buildDraftPayload, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, profileComplete, scriptId]);
 
   // Save draft
   const handleSave = useCallback(async (auto = false) => {
     if (!editor) return;
+    if (!profileComplete) return;
     if (auto && autoSaveInFlightRef.current) return;
     if (scriptId && loadedScriptStatus !== "draft") {
       if (editApprovalLocked && !auto) {
@@ -1143,7 +1228,7 @@ const CreateProject = () => {
         setSaving(false);
       }
     }
-  }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
+  }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, profileComplete, scriptId]);
 
   const clearLocalWorkingDraft = useCallback(() => {
     try {
@@ -1555,7 +1640,7 @@ const CreateProject = () => {
       value:
         formData.format === "other"
           ? (String(formData.formatOther || "").trim() || "Other")
-          : (formats.find((item) => item.value === formData.format)?.label || "Not selected"),
+          : (allFormats.find((item) => item.value === formData.format)?.label || "Not selected"),
     },
     { label: "Primary Genre", value: formData.primaryGenre || "Not selected" },
     { label: "Estimated Pages", value: `${estimatedPages} pages` },
@@ -1698,6 +1783,7 @@ const CreateProject = () => {
         description: formData.synopsis,
         companyName: String(formData.companyName || "").trim(),
         format: formData.format,
+        styleMedium: targetFilm ? formData.styleMedium : undefined,
         contentType: getContentTypeFromFormat(formData.format),
         formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
         pageCount: estimatedPages, textContent: editor.getHTML(), tags: tagsArr,
@@ -1723,6 +1809,11 @@ const CreateProject = () => {
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
         rightsLicensing: buildRightsPayload(),
+        targetIndustry: [
+          ...(targetFilm ? ["film"] : []),
+          ...(targetPublishing ? ["publishing"] : [])
+        ],
+        publishingDetails,
         premium: isPremium && effectivePrice > 0,
         price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         ...(scriptId ? { scriptId } : {}),
@@ -1851,6 +1942,65 @@ const CreateProject = () => {
     setPreGrammarContent(null);
   };
 
+  // Fetch credits for prose modal
+  const fetchProseCredits = useCallback(async () => {
+    setProseCreditLoading(true);
+    try {
+      const { data } = await api.get("/credits/balance");
+      setProseCreditBalance(data.balance || 0);
+    } catch {
+      setProseCreditBalance(0);
+    } finally {
+      setProseCreditLoading(false);
+    }
+  }, []);
+
+  const handleProseClick = () => {
+    if (!editor) return;
+    const plainText = editor.getText().trim();
+    if (!plainText || plainText.length < 50) {
+      setError("Write at least 50 characters of script text before generating a prose sample.");
+      return;
+    }
+    fetchProseCredits();
+    setShowProseModal(true);
+  };
+
+  const handleGenerateProse = async () => {
+    setShowProseModal(false);
+    if (!editor) return;
+    const plainText = editor.getText().trim();
+    if (!plainText) return;
+
+    setProseLoading(true);
+    setError("");
+
+    try {
+      const { data } = await api.post("/ai/prose-sample", { text: plainText });
+      const generatedProse = data?.proseSample?.trim();
+
+      if (generatedProse) {
+        setPublishingDetails(prev => ({ ...prev, proseSample: generatedProse }));
+        setSaved(false);
+      }
+
+      // Refresh balance
+      api.get("/credits/balance").then(({ data: d }) => {
+        setCreditsBalance(d.balance || 0);
+        setProseCreditBalance(d.balance || 0);
+      }).catch(() => {});
+    } catch (err) {
+      const msg = err.response?.data?.message || "Failed to generate prose sample.";
+      if (err.response?.status === 402) {
+        setProseCreditBalance(err.response.data?.balance ?? 0);
+        setShowProseModal(true);
+      }
+      setError(msg);
+    } finally {
+      setProseLoading(false);
+    }
+  };
+
   // Styling helpers
   const cardCls = `rounded-2xl border backdrop-blur-sm ${dark ? "bg-[#0d1520]/80 border-[#182840]" : "bg-white/90 border-gray-200 shadow-sm"}`;
   const inputCls = `w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 outline-none ${dark
@@ -1859,6 +2009,24 @@ const CreateProject = () => {
   const chipCls = (sel) => `px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${sel
     ? dark ? "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20" : "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20"
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
+  if (!profileComplete) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16">
+        <div className={`rounded-2xl border p-6 text-center ${dark ? "bg-[#0d1520] border-[#182840]" : "bg-white border-gray-200 shadow-sm"}`}>
+          <h1 className={`text-2xl font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>Complete Your Profile</h1>
+          <p className={`text-sm mb-5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
+            You can create projects once your profile completion reaches 100%.
+          </p>
+          <Link
+            to={profileEditPath}
+            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#1e3a5f] text-white text-sm font-bold hover:bg-[#162d4a] transition"
+          >
+            Complete Profile
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 max-[768px]:px-2.5 max-[420px]:px-1.5 py-4 overflow-x-hidden">
@@ -2118,6 +2286,144 @@ const CreateProject = () => {
                   }`}
                 >
                   Pay {GRAMMAR_COST} Credits & Fix
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* --- AI Prose Generation Modal (portal) --- */}
+      {showProseModal && createPortal(
+        <AnimatePresence>
+          <motion.div
+            key="prose-modal-bg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+            onClick={() => setShowProseModal(false)}
+          >
+            <motion.div
+              key="prose-modal"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: "spring", damping: 24, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
+                dark
+                  ? "bg-[#0a1120] border border-white/[0.08]"
+                  : "bg-white border border-gray-200"
+              }`}
+            >
+              {/* Header */}
+              <div className={`px-6 pt-6 pb-4 border-b ${
+                dark ? "border-white/[0.06]" : "border-gray-100"
+              }`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                    dark
+                      ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
+                      : "bg-emerald-50 border border-emerald-200"
+                  }`}>
+                    <span className="text-xs font-bold">AI</span>
+                  </div>
+                  <div>
+                    <h3 className={`text-base font-bold ${
+                      dark ? "text-white" : "text-gray-900"
+                    }`}>AI Prose Generator</h3>
+                    <p className={`text-[11px] ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Powered by Gemini AI</p>
+                  </div>
+                </div>
+                <p className={`text-xs leading-relaxed ${
+                  dark ? "text-neutral-400" : "text-gray-500"
+                }`}>
+                  Convert your script format into a novel-ready prose excerpt for publishers.
+                </p>
+              </div>
+
+              {/* Credit info */}
+              <div className="px-6 py-5 space-y-3">
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">₹</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Cost</span>
+                  </div>
+                  <span className={`text-sm font-bold ${
+                    dark ? "text-amber-300" : "text-amber-600"
+                  }`}>{PROSE_COST} credits</span>
+                </div>
+
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold">CR</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Your Balance</span>
+                  </div>
+                  {proseCreditLoading ? (
+                    <span className={`text-xs ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Loading...</span>
+                  ) : (
+                    <span className={`text-sm font-bold ${
+                      proseCreditBalance >= PROSE_COST
+                        ? dark ? "text-emerald-400" : "text-emerald-600"
+                        : "text-red-400"
+                    }`}>
+                      {proseCreditBalance ?? "-"} credits
+                    </span>
+                  )}
+                </div>
+
+                {!proseCreditLoading && proseCreditBalance !== null && proseCreditBalance < PROSE_COST && (
+                  <div className={`px-4 py-3 rounded-xl ${
+                    dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      dark ? "text-red-300" : "text-red-600"
+                    }`}>
+                      Not enough credits. You need {PROSE_COST - proseCreditBalance} more credit{PROSE_COST - proseCreditBalance > 1 ? "s" : ""} to use this feature.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Buttons */}
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowProseModal(false)}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    dark
+                      ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+                      : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateProse}
+                  disabled={proseCreditLoading || proseCreditBalance === null || proseCreditBalance < PROSE_COST}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
+                    dark
+                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
+                  }`}
+                >
+                  Pay {PROSE_COST} Credits & Generate
                 </button>
               </div>
             </motion.div>
@@ -2514,6 +2820,22 @@ const CreateProject = () => {
         {step === 2 && (
           <motion.div key="s2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
             <div className={`${cardCls} p-6 sm:p-8 space-y-5`}>
+              
+              {/* -- Target Industry Toggle -- */}
+              <div className={`rounded-xl border p-4 ${dark ? "bg-[#0d1520] border-[#1d3350]" : "bg-gray-50 border-gray-200"}`}>
+                <h3 className={`text-sm font-bold mb-3 ${dark ? "text-gray-200" : "text-gray-800"}`}>Make this script available for:</h3>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="targetIndustry" checked={targetFilm} onChange={() => { setTargetFilm(true); setTargetPublishing(false); setFormData(f => ({ ...f, format: "feature_film" })); }} className="w-4 h-4 text-[#1e3a5f] focus:ring-[#1e3a5f]" />
+                    <span className={`text-sm font-medium ${dark ? "text-gray-300" : "text-gray-700"}`}>Film & TV Industry</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="targetIndustry" checked={targetPublishing} onChange={() => { setTargetPublishing(true); setTargetFilm(false); setFormData(f => ({ ...f, format: "fiction_novel" })); }} className="w-4 h-4 text-[#1e3a5f] focus:ring-[#1e3a5f]" />
+                    <span className={`text-sm font-medium ${dark ? "text-gray-300" : "text-gray-700"}`}>Publishing Houses (Novel/Adaptation)</span>
+                  </label>
+                </div>
+              </div>
+
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Project Details</h2>
                 <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Tell us about your script so we can categorize it properly.</p>
@@ -2532,46 +2854,48 @@ const CreateProject = () => {
                 <div>
                   <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Format *</label>
                   <select name="format" value={formData.format} onChange={handleChange} className={inputCls}>
-                    {formats.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                    {(targetFilm ? filmFormats : publishingFormats).map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
                   </select>
-                  {formData.format === "other" && (
-                    <input
-                      type="text"
-                      name="formatOther"
-                      value={formData.formatOther}
-                      onChange={handleChange}
-                      required
-                      placeholder="Please specify format"
-                      className={`${inputCls} mt-2`}
-                    />
-                  )}
                 </div>
-                <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Estimated Pages</label>
-                  <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${dark ? "bg-white/[0.04] border border-[#1d3350]" : "bg-gray-50 border border-gray-200"}`}>
-                    <span className={`text-2xl font-bold ${pageStatus === "good" ? dark ? "text-green-400" : "text-green-600" : pageStatus === "short" ? dark ? "text-amber-400" : "text-amber-600" : dark ? "text-blue-400" : "text-[#1e3a5f]"}`}>{estimatedPages}</span>
-                    <div>
-                      <p className={`text-xs font-medium ${dark ? "text-gray-300" : "text-gray-600"}`}>pages</p>
-                      <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Auto-calculated from {wordCount} words</p>
+                {targetFilm && (
+                  <div>
+                    <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Style (Medium) <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span></label>
+                    <select name="styleMedium" value={formData.styleMedium} onChange={handleChange} className={inputCls}>
+                      <option value="">Select style...</option>
+                      {styleOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
+                {targetFilm && (
+                  <div>
+                    <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Estimated Pages</label>
+                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${dark ? "bg-white/[0.04] border border-[#1d3350]" : "bg-gray-50 border border-gray-200"}`}>
+                      <span className={`text-2xl font-bold ${pageStatus === "good" ? dark ? "text-green-400" : "text-green-600" : pageStatus === "short" ? dark ? "text-amber-400" : "text-amber-600" : dark ? "text-blue-400" : "text-[#1e3a5f]"}`}>{estimatedPages}</span>
+                      <div>
+                        <p className={`text-xs font-medium ${dark ? "text-gray-300" : "text-gray-600"}`}>pages</p>
+                        <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Auto-calculated from {wordCount} words</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
               {/* Format-aware page hint */}
-              <div className={`flex items-start gap-2.5 px-4 py-3 rounded-xl text-xs ${pageStatus === "good"
-                ? dark ? "bg-green-500/5 border border-green-500/10 text-green-400" : "bg-green-50 border border-green-100 text-green-700"
-                : pageStatus === "short"
-                  ? dark ? "bg-amber-500/5 border border-amber-500/10 text-amber-400" : "bg-amber-50 border border-amber-100 text-amber-700"
-                  : dark ? "bg-blue-500/5 border border-blue-500/10 text-blue-400" : "bg-[#1e3a5f]/[0.06] border border-[#1e3a5f]/15 text-[#1e3a5f]"
-                }`}>
-                <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-                <div>
-                  <p className="font-medium">{formatInfo.label}: typical range is {formatInfo.typical} pages</p>
-                  <p className={`mt-0.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                    {pageStatus === "good" ? "Your script length looks good for this format!"
-                      : pageStatus === "short" ? `Your script is shorter than typical. That's okay for early drafts - keep writing!`
-                        : `Your script exceeds the typical range. Consider trimming or changing the format.`}
-                  </p>
+              {targetFilm && (
+                <div className={`flex items-start gap-2.5 px-4 py-3 rounded-xl text-xs ${pageStatus === "good"
+                  ? dark ? "bg-green-500/5 border border-green-500/10 text-green-400" : "bg-green-50 border border-green-100 text-green-700"
+                  : pageStatus === "short"
+                    ? dark ? "bg-amber-500/5 border border-amber-500/10 text-amber-400" : "bg-amber-50 border border-amber-100 text-amber-700"
+                    : dark ? "bg-blue-500/5 border border-blue-500/10 text-blue-400" : "bg-[#1e3a5f]/[0.06] border border-[#1e3a5f]/15 text-[#1e3a5f]"
+                  }`}>
+                  <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                  <div>
+                    <p className="font-medium">{formatInfo.label}: typical range is {formatInfo.typical} pages</p>
+                    <p className={`mt-0.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>
+                      {pageStatus === "good" ? "Your script length looks good for this format!"
+                        : pageStatus === "short" ? `Your script is shorter than typical. That's okay for early drafts - keep writing!`
+                          : `Your script exceeds the typical range. Consider trimming or changing the format.`}
+                    </p>
+                  </div>
                 </div>
               </div>
               <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
@@ -2630,11 +2954,13 @@ const CreateProject = () => {
                   ))}
                 </div>
               </div>
-              <div>
-                <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Logline <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional, {formData.logline.length}/50)</span></label>
-                <textarea name="logline" value={formData.logline} onChange={handleChange} rows={3} maxLength={50} placeholder="A one-sentence summary of your story..."
-                  className={`${inputCls} resize-none`} />
-              </div>
+              {targetFilm && (
+                <div>
+                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Logline <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional, {formData.logline.length}/50)</span></label>
+                  <textarea name="logline" value={formData.logline} onChange={handleChange} rows={3} maxLength={50} placeholder="A one-sentence summary of your story..."
+                    className={`${inputCls} resize-none`} />
+                </div>
+              )}
               <div>
                 <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Synopsis *</label>
                 <textarea name="synopsis" value={formData.synopsis} onChange={handleChange} rows={4} placeholder="A longer synopsis of your script..."
@@ -2645,88 +2971,172 @@ const CreateProject = () => {
                 <input type="text" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="e.g. heist, ensemble, twist ending" className={inputCls} />
               </div>
 
-              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div>
-                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Role Studio</h3>
-                    <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Add cast roles with demographics and creative direction. Leave blank if not casting yet.</p>
+              {targetFilm && (
+                <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Role Studio</h3>
+                      <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Add cast roles with demographics and creative direction. Leave blank if not casting yet.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addRole}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`}
+                    >
+                      + Add Role
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={addRole}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`}
-                  >
-                    + Add Role
-                  </button>
-                </div>
 
-                {roles.length === 0 ? (
-                  <div className={`rounded-xl border border-dashed px-4 py-5 text-center ${dark ? "border-[#1d3350] text-gray-500" : "border-gray-300 text-gray-400"}`}>
-                    No roles added yet.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {roles.map((role, idx) => (
-                      <div key={`role-${idx}`} className={`rounded-xl border p-3 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-white"}`}>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className={`text-xs font-bold ${dark ? "text-gray-300" : "text-gray-700"}`}>Role {idx + 1}</p>
-                          <button
-                            type="button"
-                            onClick={() => removeRole(idx)}
-                            className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "text-red-300 border-red-500/30 hover:bg-red-500/10" : "text-red-600 border-red-200 hover:bg-red-50"}`}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <input
-                            type="text"
-                            value={role.characterName}
-                            onChange={(e) => updateRoleField(idx, "characterName", e.target.value)}
-                            placeholder="Character name"
-                            className={inputCls}
-                          />
-                          <input
-                            type="text"
-                            value={role.type}
-                            onChange={(e) => updateRoleField(idx, "type", e.target.value)}
-                            placeholder="Archetype (e.g. Lead, Antagonist)"
-                            className={inputCls}
-                          />
-                          <select value={role.gender} onChange={(e) => updateRoleField(idx, "gender", e.target.value)} className={inputCls}>
-                            {ROLE_GENDER_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
-                          </select>
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="number"
-                              min="0"
-                              placeholder="Min age"
-                              value={role.ageRange?.min ?? ""}
-                              onChange={(e) => updateRoleAge(idx, "min", e.target.value)}
-                              className={inputCls}
-                            />
-                            <input
-                              type="number"
-                              min="0"
-                              placeholder="Max age"
-                              value={role.ageRange?.max ?? ""}
-                              onChange={(e) => updateRoleAge(idx, "max", e.target.value)}
-                              className={inputCls}
-                            />
+                  {roles.length === 0 ? (
+                    <div className={`rounded-xl border border-dashed px-4 py-5 text-center ${dark ? "border-[#1d3350] text-gray-500" : "border-gray-300 text-gray-400"}`}>
+                      No roles added yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {roles.map((role, idx) => (
+                        <div key={`role-${idx}`} className={`rounded-xl border p-3 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-white"}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <p className={`text-xs font-bold ${dark ? "text-gray-300" : "text-gray-700"}`}>Role {idx + 1}</p>
+                            <button
+                              type="button"
+                              onClick={() => removeRole(idx)}
+                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "text-red-300 border-red-500/30 hover:bg-red-500/10" : "text-red-600 border-red-200 hover:bg-red-50"}`}
+                            >
+                              Remove
+                            </button>
                           </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <input
+                              type="text"
+                              value={role.characterName}
+                              onChange={(e) => updateRoleField(idx, "characterName", e.target.value)}
+                              placeholder="Character name"
+                              className={inputCls}
+                            />
+                            <input
+                              type="text"
+                              value={role.type}
+                              onChange={(e) => updateRoleField(idx, "type", e.target.value)}
+                              placeholder="Archetype (e.g. Lead, Antagonist)"
+                              className={inputCls}
+                            />
+                            <select value={role.gender} onChange={(e) => updateRoleField(idx, "gender", e.target.value)} className={inputCls}>
+                              {ROLE_GENDER_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
+                            </select>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="Min age"
+                                value={role.ageRange?.min ?? ""}
+                                onChange={(e) => updateRoleAge(idx, "min", e.target.value)}
+                                className={inputCls}
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                placeholder="Max age"
+                                value={role.ageRange?.max ?? ""}
+                                onChange={(e) => updateRoleAge(idx, "max", e.target.value)}
+                                className={inputCls}
+                              />
+                            </div>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={role.description}
+                            onChange={(e) => updateRoleField(idx, "description", e.target.value)}
+                            placeholder="Performance notes, emotional range, or casting vibe..."
+                            className={`${inputCls} mt-3 resize-none`}
+                          />
                         </div>
-                        <textarea
-                          rows={2}
-                          value={role.description}
-                          onChange={(e) => updateRoleField(idx, "description", e.target.value)}
-                          placeholder="Performance notes, emotional range, or casting vibe..."
-                          className={`${inputCls} mt-3 resize-none`}
-                        />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* -- Publishing Details Section -- */}
+              {/* -- Publishing Market Positioning Section -- */}
+              {targetPublishing && (
+                <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50"}`}>
+                  <div className="mb-4">
+                    <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Market Positioning</h3>
+                    <p className={`text-[11px] mt-1 ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>Provide important metadata for publishers.</p>
                   </div>
-                )}
-              </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Target Audience *</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Young Adult", "Adult", "Mass Market", "Niche / Literary"].map(f => (
+                          <button key={f} type="button" onClick={() => {
+                            setPublishingDetails(prev => {
+                              const curr = prev.targetAudience || [];
+                              return { ...prev, targetAudience: curr.includes(f) ? curr.filter(x => x !== f) : [...curr, f] };
+                            });
+                          }} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${publishingDetails.targetAudience?.includes(f) ? "bg-emerald-600 text-white border-emerald-600" : dark ? "border-emerald-500/30 text-emerald-400 hover:border-emerald-400" : "border-emerald-200 text-emerald-700 hover:bg-emerald-100"}`}>{f}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Writing Style <span className="font-normal text-[11px]">(optional)</span></label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Descriptive", "Dialogue-driven", "Literary", "Commercial"].map(f => (
+                          <button key={f} type="button" onClick={() => {
+                            setPublishingDetails(prev => {
+                              const curr = prev.writingStyle || [];
+                              return { ...prev, writingStyle: curr.includes(f) ? curr.filter(x => x !== f) : [...curr, f] };
+                            });
+                          }} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${publishingDetails.writingStyle?.includes(f) ? "bg-emerald-600 text-white border-emerald-600" : dark ? "border-emerald-500/30 text-emerald-400 hover:border-emerald-400" : "border-emerald-200 text-emerald-700 hover:bg-emerald-100"}`}>{f}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Estimated Book Length <span className="font-normal text-[11px]">(optional)</span></label>
+                      <input type="text" value={publishingDetails.estimatedWordCount} onChange={(e) => setPublishingDetails(p => ({ ...p, estimatedWordCount: e.target.value }))} placeholder="e.g. 60,000 - 90,000 words" className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* -- Advanced Publishing Details (Collapsed) -- */}
+              {targetPublishing && (
+                <details className={`rounded-2xl border overflow-hidden ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-white"}`}>
+                  <summary className={`px-4 py-4 cursor-pointer font-bold text-sm select-none hover:bg-black/5 transition-colors ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                    Advanced Publishing Details (Optional)
+                  </summary>
+                  <div className={`px-4 pb-5 space-y-4 border-t pt-4 ${dark ? "border-[#1d3350]" : "border-gray-200"}`}>
+                    <div>
+                      <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Series Potential</label>
+                      <select value={publishingDetails.seriesPotential} onChange={(e) => setPublishingDetails(p => ({ ...p, seriesPotential: e.target.value }))} className={inputCls}>
+                        <option value="">Select potential...</option>
+                        <option value="Standalone">Standalone</option>
+                        <option value="Trilogy">Trilogy</option>
+                        <option value="Multi-part universe">Multi-part universe</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className={`block text-sm font-medium ${dark ? "text-gray-300" : "text-gray-700"}`}>Prose Sample <span className="font-normal text-[11px]">(Novel-formatted excerpt)</span></label>
+                        <button
+                          type="button"
+                          onClick={handleProseClick}
+                          disabled={proseLoading}
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition flex items-center gap-1.5 ${dark ? "bg-white/[0.06] text-blue-300 border border-[#2a4a6a] hover:bg-white/[0.1]" : "bg-white border border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`}
+                        >
+                          <svg className={`w-3 h-3 ${proseLoading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                          {proseLoading ? "Generating..." : "AI Generate Prose"}
+                        </button>
+                      </div>
+                      <textarea rows={6} value={publishingDetails.proseSample || ""} onChange={(e) => setPublishingDetails(p => ({ ...p, proseSample: e.target.value }))} placeholder="A sample chapter or converted prose excerpt to demonstrate the writing quality..." className={`${inputCls} resize-y font-serif text-sm leading-relaxed`} />
+                    </div>
+                  </div>
+                </details>
+              )}
 
               {/* Media Uploads */}
               <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-white"}`}>
@@ -2788,73 +3198,75 @@ const CreateProject = () => {
                   </div>
 
                   {/* Trailer Upload */}
-                  <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
-                      Trailer Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                    </label>
-                    <input
-                      ref={trailerInputRef}
-                      type="file"
-                      accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
-                      onChange={(e) => {
-                        handleTrailerSelect(e.target.files?.[0]);
-                        e.target.value = "";
-                      }}
-                      className="hidden"
-                    />
+                  {targetFilm && (
+                    <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
+                      <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                        Trailer Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                      </label>
+                      <input
+                        ref={trailerInputRef}
+                        type="file"
+                        accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
+                        onChange={(e) => {
+                          handleTrailerSelect(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                        className="hidden"
+                      />
 
-                    {!trailerFile ? (
-                      <div onClick={() => trailerInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${dark ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                        <Film className={`w-8 h-8 mb-2 ${dark ? "text-[#1d3350]" : "text-gray-400"}`} />
-                        <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload High-Quality Trailer</p>
-                        <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM (Max 250MB)</p>
-                      </div>
-                    ) : (
-                      <div className={`border rounded-xl p-3 space-y-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                        <div className="relative overflow-hidden rounded-lg">
-                          <video
-                            src={trailerPreviewUrl}
-                            controls
-                            preload="metadata"
-                            className="w-full h-44 object-contain bg-black"
-                          />
+                      {!trailerFile ? (
+                        <div onClick={() => trailerInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${dark ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
+                          <Film className={`w-8 h-8 mb-2 ${dark ? "text-[#1d3350]" : "text-gray-400"}`} />
+                          <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload High-Quality Trailer</p>
+                          <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM (Max 250MB)</p>
                         </div>
+                      ) : (
+                        <div className={`border rounded-xl p-3 space-y-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                          <div className="relative overflow-hidden rounded-lg">
+                            <video
+                              src={trailerPreviewUrl}
+                              controls
+                              preload="metadata"
+                              className="w-full h-44 object-contain bg-black"
+                            />
+                          </div>
 
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
-                            <CheckCircle2 className="w-6 h-6 text-green-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-bold truncate ${dark ? "text-green-400" : "text-green-700"}`}>{trailerFile.name}</p>
-                            <p className={`text-[10px] ${dark ? "text-green-500/80" : "text-green-600/80"}`}>
-                              {(trailerFile.size / 1024 / 1024).toFixed(1)} MB
-                              {trailerMetaLoading ? " - reading video info..." : trailerMeta ? ` - ${formatDuration(trailerMeta.duration)} - ${trailerMeta.width}x${trailerMeta.height}` : ""}
-                            </p>
-                            <p className={`text-[10px] mt-1 ${dark ? "text-green-500/80" : "text-green-700/80"}`}>Original quality will be preserved on upload.</p>
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => trailerInputRef.current?.click()}
-                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                            >
-                              Replace
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTrailerFile(null);
-                                setError("");
-                              }}
-                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                            >
-                              Remove
-                            </button>
+                          <div className="flex items-start gap-3">
+                            <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
+                              <CheckCircle2 className="w-6 h-6 text-green-500" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-bold truncate ${dark ? "text-green-400" : "text-green-700"}`}>{trailerFile.name}</p>
+                              <p className={`text-[10px] ${dark ? "text-green-500/80" : "text-green-600/80"}`}>
+                                {(trailerFile.size / 1024 / 1024).toFixed(1)} MB
+                                {trailerMetaLoading ? " - reading video info..." : trailerMeta ? ` - ${formatDuration(trailerMeta.duration)} - ${trailerMeta.width}x${trailerMeta.height}` : ""}
+                              </p>
+                              <p className={`text-[10px] mt-1 ${dark ? "text-green-500/80" : "text-green-700/80"}`}>Original quality will be preserved on upload.</p>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => trailerInputRef.current?.click()}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                              >
+                                Replace
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTrailerFile(null);
+                                  setError("");
+                                }}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                              >
+                                Remove
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2954,7 +3366,7 @@ const CreateProject = () => {
                       {[
                         { key: "hosting", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" /></svg>, name: "Hosting & Discovery", price: "FREE", desc: "Marketplace listing and public discovery", locked: true },
                         { key: "spotlight", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l1.838 1.783a.75.75 0 00.384.2l2.53.36a.75.75 0 01.607.51l.806 2.435a.75.75 0 00.286.37l2.108 1.498a.75.75 0 010 1.227l-2.108 1.498a.75.75 0 00-.286.37l-.806 2.435a.75.75 0 01-.607.51l-2.53.36a.75.75 0 00-.384.2l-1.838 1.783a.75.75 0 01-1.04 0l-1.838-1.783a.75.75 0 00-.384-.2l-2.53-.36a.75.75 0 01-.607-.51l-.806-2.435a.75.75 0 00-.286-.37L2.92 11.882a.75.75 0 010-1.227L5.028 9.157a.75.75 0 00.286-.37l.806-2.435a.75.75 0 01.607-.51l2.53-.36a.75.75 0 00.384-.2L11.48 3.5z" /></svg>, name: "Activate Spotlight", price: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight ? "Already bought" : `${SERVICE_PRICES.spotlight} credits`, desc: "Verified badge, evaluation + trailer service, and featured top placement", locked: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight },
-                        { key: "aiTrailer", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>, name: "AI Concept Trailer", price: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "Already bought" : `${SERVICE_PRICES.aiTrailer} credits`, desc: "60-second cinematic teaser", badge: "BETA", locked: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer },
+                        ...(targetFilm ? [{ key: "aiTrailer", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>, name: "AI Concept Trailer", price: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "Already bought" : `${SERVICE_PRICES.aiTrailer} credits`, desc: "60-second cinematic teaser", badge: "BETA", locked: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer }] : []),
                         { key: "evaluation", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08" /></svg>, name: "Professional Evaluation", price: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation ? "Already bought" : `${SERVICE_PRICES.evaluation} credits`, desc: "Reader scorecard with strengths and weaknesses", locked: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation },
                       ].map((service) => (
                         <button
@@ -3056,7 +3468,8 @@ const CreateProject = () => {
                     )}
                   </div>
 
-                  <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
+                  {targetFilm && (
+                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
                     <div className="flex items-center gap-2.5 mb-4">
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
                         <svg className={`w-4 h-4 ${dark ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m5.25-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -3279,7 +3692,268 @@ const CreateProject = () => {
                         <span>I understand exclusivity enforcement for settled transactions.</span>
                       </label>
                     </div>
-                  </div>
+                    </div>
+                  )}
+
+                  {targetPublishing && (
+                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50/60"}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dark ? "bg-emerald-500/10" : "bg-emerald-100"}`}>
+                            <svg className={`w-4 h-4 ${dark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          </div>
+                          <div>
+                            <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Publishing Rights</h3>
+                            <p className={`text-[11px] ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>Do you want to sell publishing rights?</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" checked={publishingDetails.sellPublishingRights || false} onChange={(e) => setPublishingDetails(p => ({ ...p, sellPublishingRights: e.target.checked }))} />
+                          <div className={`w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${dark ? "bg-gray-700 peer-checked:bg-emerald-500" : "bg-gray-200 peer-checked:bg-emerald-500"}`}></div>
+                        </label>
+                      </div>
+
+                      {publishingDetails.sellPublishingRights && (
+                        <div className={`mt-5 pt-5 border-t ${dark ? "border-emerald-500/20" : "border-emerald-200"}`}>
+                          <h4 className={`text-[11px] font-bold uppercase tracking-widest mb-3 ${dark ? "text-emerald-500" : "text-emerald-700"}`}>Auto-fill Presets</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                            <button type="button" onClick={() => {
+                              setPublishingDetails(p => ({
+                                ...p,
+                                publishingRights: {
+                                  ...p.publishingRights,
+                                  rightsBundle: "basic",
+                                  exclusivity: "non_exclusive",
+                                  digitalPublishing: true,
+                                  bookPublishing: false,
+                                  audiobookRights: false,
+                                  adaptationIncluded: false,
+                                  territory: ["worldwide"],
+                                  languages: ["all_languages"],
+                                  durationYears: "3 years",
+                                  paymentType: "royalty_based",
+                                  negotiationMode: "fixed_terms"
+                                }
+                              }))
+                            }} 
+                              className={`rounded-xl p-4 text-left transition-all border ${publishingDetails.publishingRights?.rightsBundle === "basic" ? dark ? "bg-emerald-600/20 border-emerald-500" : "bg-emerald-100 border-emerald-600" : dark ? "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                              <h4 className={`text-sm font-bold ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Basic Entry</h4>
+                              <p className={`text-[10px] mt-1 ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>Digital-only, non-exclusive, 3 years.</p>
+                            </button>
+                            <button type="button" onClick={() => {
+                              setPublishingDetails(p => ({
+                                ...p,
+                                publishingRights: {
+                                  ...p.publishingRights,
+                                  rightsBundle: "full",
+                                  exclusivity: "exclusive",
+                                  digitalPublishing: true,
+                                  bookPublishing: true,
+                                  audiobookRights: true,
+                                  adaptationIncluded: true,
+                                  territory: ["worldwide"],
+                                  languages: ["all_languages"],
+                                  durationYears: "perpetual",
+                                  paymentType: "advance_plus_royalty",
+                                  negotiationMode: "open_to_negotiation"
+                                }
+                              }))
+                            }} 
+                              className={`rounded-xl p-4 text-left transition-all border ${publishingDetails.publishingRights?.rightsBundle === "full" ? dark ? "bg-emerald-600/20 border-emerald-500" : "bg-emerald-100 border-emerald-600" : dark ? "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                              <h4 className={`text-sm font-bold ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Full Traditional</h4>
+                              <p className={`text-[10px] mt-1 ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>All formats, exclusive, long-term.</p>
+                            </button>
+                            <button type="button" onClick={() => {
+                              setPublishingDetails(p => ({
+                                ...p,
+                                publishingRights: {
+                                  ...p.publishingRights,
+                                  rightsBundle: "custom",
+                                }
+                              }))
+                            }} 
+                              className={`rounded-xl p-4 text-left transition-all border ${publishingDetails.publishingRights?.rightsBundle === "custom" ? dark ? "bg-emerald-600/20 border-emerald-500" : "bg-emerald-100 border-emerald-600" : dark ? "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
+                              <h4 className={`text-sm font-bold ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Custom Setup</h4>
+                              <p className={`text-[10px] mt-1 ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>Build your own rights configuration.</p>
+                            </button>
+                          </div>
+
+                          <div className="space-y-6">
+                            {/* 1. Rights Scope */}
+                            <div>
+                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>1. Rights Scope</h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Rights Type</label>
+                                  <select value={publishingDetails.publishingRights?.exclusivity || "non_exclusive"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, exclusivity: e.target.value } }))} className={inputCls}>
+                                    <option value="exclusive">Exclusive</option>
+                                    <option value="non_exclusive">Non-Exclusive</option>
+                                  </select>
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Formats Included</label>
+                                  <div className="flex flex-wrap gap-4 mt-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={publishingDetails.publishingRights?.bookPublishing || false} onChange={e => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, bookPublishing: e.target.checked } }))} /> Print</label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={publishingDetails.publishingRights?.digitalPublishing || false} onChange={e => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, digitalPublishing: e.target.checked } }))} /> Digital (eBook)</label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={publishingDetails.publishingRights?.audiobookRights || false} onChange={e => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, audiobookRights: e.target.checked } }))} /> Audio (Audiobook)</label>
+                                  </div>
+                                </div>
+                                <div className="sm:col-span-3">
+                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Adaptation Rights (Film/TV)</label>
+                                  <div className="flex gap-4 mt-2">
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="adaptationIncluded" checked={publishingDetails.publishingRights?.adaptationIncluded === true} onChange={() => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, adaptationIncluded: true } }))} /> Included</label>
+                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="adaptationIncluded" checked={publishingDetails.publishingRights?.adaptationIncluded !== true} onChange={() => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, adaptationIncluded: false } }))} /> Not Included</label>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 2. Territory & Language */}
+                            <div>
+                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>2. Territory & Language</h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Territory</label>
+                                  <select value={(publishingDetails.publishingRights?.territory && publishingDetails.publishingRights.territory[0]) || "worldwide"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, territory: [e.target.value] } }))} className={inputCls}>
+                                    <option value="worldwide">Worldwide</option>
+                                    <option value="specific_regions">Specific Regions</option>
+                                    <option value="india_only">India Only</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Language Rights</label>
+                                  <select value={(publishingDetails.publishingRights?.languages && publishingDetails.publishingRights.languages[0]) || "all_languages"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, languages: [e.target.value] } }))} className={inputCls}>
+                                    <option value="all_languages">All Languages</option>
+                                    <option value="english">English Only</option>
+                                    <option value="hindi">Hindi Only</option>
+                                    <option value="regional">Regional Languages</option>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 3. Duration */}
+                            <div>
+                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>3. License Duration</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {["3 years", "5 years", "10 years", "perpetual"].map(dur => (
+                                  <button key={dur} type="button" onClick={() => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, durationYears: dur } }))} className={`px-4 py-2 rounded-lg text-[13px] font-semibold border transition-all ${publishingDetails.publishingRights?.durationYears === dur ? "bg-emerald-600 text-white border-emerald-600" : dark ? "border-[#1d3350] text-gray-400 hover:border-[#2a4a6a]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                                    {dur.charAt(0).toUpperCase() + dur.slice(1)}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* 4. Payment Structure */}
+                            <div>
+                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>4. Payment Structure</h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div className="sm:col-span-2 lg:col-span-1">
+                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Payment Type</label>
+                                  <select value={publishingDetails.publishingRights?.paymentType || "one_time_upfront"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, paymentType: e.target.value } }))} className={inputCls}>
+                                    <option value="one_time_upfront">One-time Buyout</option>
+                                    <option value="royalty_based">Royalty-based</option>
+                                    <option value="advance_plus_royalty">Advance + Royalty</option>
+                                  </select>
+                                </div>
+                                {["royalty_based", "advance_plus_royalty"].includes(publishingDetails.publishingRights?.paymentType) && (
+                                  <div>
+                                    <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Royalty % (Optional)</label>
+                                    <div className="relative">
+                                      <input type="number" min="0" max="100" placeholder="e.g. 15" value={publishingDetails.publishingRights?.royaltyPercentage || ""} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, royaltyPercentage: Number(e.target.value) } }))} className={inputCls} />
+                                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+                                    </div>
+                                  </div>
+                                )}
+                                {publishingDetails.publishingRights?.paymentType === "advance_plus_royalty" && (
+                                  <div>
+                                    <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Advance (Optional)</label>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
+                                      <input type="number" min="0" placeholder="e.g. 50000" value={publishingDetails.publishingRights?.advanceAmount || ""} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, advanceAmount: Number(e.target.value) } }))} className={`${inputCls} pl-8`} />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* 5 & 6. Control and Deal Mode */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>5. Creative Control</h4>
+                                <select value={publishingDetails.publishingRights?.modificationRights || "buyer_must_consult_writer"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, modificationRights: e.target.value } }))} className={inputCls}>
+                                  <option value="buyer_can_freely_modify">Publisher can modify freely</option>
+                                  <option value="buyer_must_consult_writer">Must consult writer</option>
+                                  <option value="writer_approval_required">Writer approval required</option>
+                                </select>
+                              </div>
+                              <div>
+                                <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>6. Negotiation Mode</h4>
+                                <select value={publishingDetails.publishingRights?.negotiationMode || "fixed_terms"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, negotiationMode: e.target.value } }))} className={inputCls}>
+                                  <option value="fixed_terms">Fixed terms</option>
+                                  <option value="open_to_negotiation">Open to negotiation</option>
+                                </select>
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+                      )}
+
+                      <div className={`mt-5 pt-5 border-t ${dark ? "border-emerald-500/20" : "border-emerald-200"}`}>
+                        <h4 className={`text-[11px] font-bold uppercase tracking-widest mb-3 ${dark ? "text-emerald-500" : "text-emerald-700"}`}>
+                          Rights Acknowledgements
+                        </h4>
+                        <div className="grid grid-cols-1 gap-2.5">
+                          <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed)}
+                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                                ...prev,
+                                legalAcknowledgement: {
+                                  ...prev.legalAcknowledgement,
+                                  ownershipConfirmed: e.target.checked,
+                                },
+                              }))}
+                              className="mt-0.5"
+                            />
+                            <span>I confirm I own or control all rights required for this listing.</span>
+                          </label>
+                          <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(rightsLicensing?.legalAcknowledgement?.platformTermsAccepted)}
+                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                                ...prev,
+                                legalAcknowledgement: {
+                                  ...prev.legalAcknowledgement,
+                                  platformTermsAccepted: e.target.checked,
+                                },
+                              }))}
+                              className="mt-0.5"
+                            />
+                            <span>I acknowledge these rights terms under platform legal policy.</span>
+                          </label>
+                          <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood)}
+                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
+                                ...prev,
+                                legalAcknowledgement: {
+                                  ...prev.legalAcknowledgement,
+                                  exclusivityUnderstood: e.target.checked,
+                                },
+                              }))}
+                              className="mt-0.5"
+                            />
+                            <span>I understand exclusivity enforcement for settled transactions.</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
                     <div className="flex items-center gap-2.5 mb-4">

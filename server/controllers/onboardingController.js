@@ -905,6 +905,7 @@ export const verifyEmail = async (req, res) => {
     user.emailVerified = true;
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
+    if (!user.writerProfile) user.writerProfile = {};
     user.writerProfile.onboardingStep = Math.max(user.writerProfile.onboardingStep, 1);
     await user.save();
     

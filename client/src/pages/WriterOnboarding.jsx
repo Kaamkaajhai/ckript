@@ -1,4 +1,4 @@
-import { useState, useContext, useRef, useEffect } from "react";
+﻿import { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
@@ -9,14 +9,11 @@ import {
   Upload, 
   CheckCircle, 
   ArrowRight, 
-  ArrowLeft,
   Mail,
   Lock,
   User,
   AlertCircle,
-  MapPin,
   Phone,
-  Calendar,
   Link as LinkIcon,
   Instagram,
   Twitter,
@@ -26,6 +23,7 @@ import {
   ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import "./onboarding-theme.css";
 
 
 // Comprehensive email validation
@@ -33,7 +31,7 @@ const isValidEmail = (email) => {
   if (!email || typeof email !== 'string') return false;
   email = email.trim().toLowerCase();
   if (email.length > 254 || email.length < 5) return false;
-  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   if (!emailRegex.test(email)) return false;
   const parts = email.split('@');
   if (parts.length !== 2) return false;
@@ -74,7 +72,6 @@ const DEFAULT_ACCOUNT_DATA = {
   email: "",
   referralCode: "",
   password: "",
-  confirmPassword: "",
   address: "",
   phone: "",
   role: "creator"
@@ -195,6 +192,7 @@ const WRITER_TERMS_ROUTE = "/terms-conditions?tab=writer";
 const PRIVACY_POLICY_VERSION = "registration-privacy-v2026-03-24";
 const REGISTRATION_PRIVACY_ROUTE = "/registration-privacy-policy";
 const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
+const MotionDiv = motion.div;
 const GENDER_OPTIONS = [
   "Male",
   "Female",
@@ -261,14 +259,13 @@ const WriterOnboarding = () => {
   
   const [currentStep, setCurrentStep] = useState(() => {
     const step = Number(initialDraft?.currentStep);
-    return Number.isInteger(step) && step >= 1 && step <= 4 ? step : 1;
+    return Number.isInteger(step) && step >= 1 && step <= 9 ? step : 1;
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [phoneError, setPhoneError] = useState("");
-  const [addressError, setAddressError] = useState("");
-  const [zipLookupLoading, setZipLookupLoading] = useState(false);
-  const [dobError, setDobError] = useState("");
+  const [, setAddressError] = useState("");
+  const [, setZipLookupLoading] = useState(false);
   const [usernameError, setUsernameError] = useState("");
   const [usernameStatus, setUsernameStatus] = useState({ state: "idle", message: "" });
   const [openRepSections, setOpenRepSections] = useState(() => ({
@@ -294,7 +291,7 @@ const WriterOnboarding = () => {
     ...DEFAULT_ADDRESS_FIELDS,
     ...(initialDraft?.addressFields || {}),
   }));
-  const [isOutsideIndia, setIsOutsideIndia] = useState(() => {
+  const [isOutsideIndia] = useState(() => {
     const draftCountry = String(initialDraft?.addressFields?.country || INDIA_COUNTRY_NAME).trim().toLowerCase();
     return Boolean(draftCountry) && draftCountry !== "india";
   });
@@ -320,10 +317,8 @@ const WriterOnboarding = () => {
   const [showTagError, setShowTagError] = useState(false);
 
   // Step 4: Legal & Checkout
-  const [agreementScrolled, setAgreementScrolled] = useState(Boolean(initialDraft?.agreementScrolled));
   const [agreementAccepted, setAgreementAccepted] = useState(Boolean(initialDraft?.agreementAccepted));
-  const agreementRef = useRef(null);
-  const [selectedPlan, setSelectedPlan] = useState("free");
+  const [selectedPlan] = useState("free");
   const [privacyPolicyAccepted, setPrivacyPolicyAccepted] = useState(false);
   const zipLookupRequestRef = useRef(0);
   const usernameCheckRequestRef = useRef(0);
@@ -395,7 +390,6 @@ const WriterOnboarding = () => {
     const safeAccountData = {
       ...accountData,
       password: "",
-      confirmPassword: "",
     };
 
     const draft = {
@@ -411,7 +405,6 @@ const WriterOnboarding = () => {
       writerProfile,
       selectedGenres,
       nuancedTags,
-      agreementScrolled,
       agreementAccepted,
     };
 
@@ -420,7 +413,6 @@ const WriterOnboarding = () => {
     accountData,
     addressFields,
     agreementAccepted,
-    agreementScrolled,
     currentStep,
     nuancedTags,
     openRepSections,
@@ -632,11 +624,54 @@ const WriterOnboarding = () => {
   }, [accountData.referralCode]);
 
   const steps = [
-    { num: 1, title: "Account" },
-    { num: 2, title: "Profile" },
-    { num: 3, title: "Tags" },
-    { num: 4, title: "Checkout" }
+    { num: 1, title: "Name" },
+    { num: 2, title: "Contact" },
+    { num: 3, title: "Password" },
+    { num: 4, title: "Username" },
+    { num: 5, title: "About" },
+    { num: 6, title: "Guilds" },
+    { num: 7, title: "Links" },
+    { num: 8, title: "Tags" },
+    { num: 9, title: "Terms" },
   ];
+
+  const TOTAL_STEPS = 9;
+  const progressPercent = Math.round((currentStep / TOTAL_STEPS) * 100);
+
+  const handleSubStepContinue = useCallback((e) => {
+    if (e) e.preventDefault();
+    setError(""); setEmailError(""); setPhoneError(""); setUsernameError("");
+    switch (currentStep) {
+      case 1:
+        if (!accountData.name.trim()) { setError("Please enter your name"); return; }
+        setCurrentStep(2);
+        break;
+      case 2:
+        if (!isValidEmail(accountData.email.trim().toLowerCase())) { setEmailError("Please enter a valid email"); return; }
+        if (!accountData.phone.trim()) { setPhoneError("Phone number is required"); return; }
+        if (!/^[+]?[\d\s\-().]{7,15}$/.test(accountData.phone)) { setPhoneError("Enter a valid phone number"); return; }
+        setCurrentStep(3);
+        break;
+      case 4: {
+        const u = String(writerProfile.username || "").trim().toLowerCase();
+        if (!u) { setUsernameError("Username is required"); return; }
+        if (!USERNAME_PATTERN.test(u)) { setUsernameError("Use 3-30 lowercase letters, numbers, or _"); return; }
+        if (usernameStatus.state === "checking") { setUsernameError("Checking availability..."); return; }
+        if (usernameStatus.state === "unavailable") { setUsernameError("Username is taken"); return; }
+        setCurrentStep(5);
+        break;
+      }
+      case 5:
+        if (!writerProfile.diversity.gender?.trim() || !writerProfile.diversity.nationality?.trim()) {
+          setError("Gender and nationality are required"); return;
+        }
+        setCurrentStep(6);
+        break;
+      case 6: setCurrentStep(7); break;
+      case 8: setCurrentStep(9); break;
+      default: setCurrentStep(prev => Math.min(prev + 1, TOTAL_STEPS));
+    }
+  }, [currentStep, accountData, writerProfile, usernameStatus.state]);
 
   // Handle account creation and email verification
   const handleAccountCreation = async (e) => {
@@ -644,49 +679,13 @@ const WriterOnboarding = () => {
     setError("");
     setPhoneError("");
     setAddressError("");
-    setDobError("");
     setEmailError("");
-
-    if (!accountData.dateOfBirth) {
-      setDobError("Date of birth is required");
-      return;
-    }
 
     if (!accountData.phone) {
       setPhoneError("Phone number is required");
       return;
     }
 
-    const street = addressFields.street.trim();
-    const city = addressFields.city.trim();
-    const state = addressFields.state.trim();
-    const zipCode = addressFields.zipCode.trim();
-    const country = isOutsideIndia ? addressFields.country.trim() : INDIA_COUNTRY_NAME;
-
-    if (!street || !city || !state || !zipCode || !country) {
-      setAddressError("Street, city, state, postal code, and country are required");
-      return;
-    }
-
-    if (!isOutsideIndia) {
-      if (!INDIA_ZIP_REGEX.test(zipCode)) {
-        setAddressError("ZIP code must be exactly 6 digits");
-        return;
-      }
-    } else if (!INTERNATIONAL_POSTAL_REGEX.test(zipCode)) {
-      setAddressError("Enter a valid postal code (3-12 letters, numbers, spaces, or hyphen)");
-      return;
-    }
-
-    const cityStatePattern = /^[a-zA-Z][a-zA-Z\s.'-]{1,}$/;
-    if (!cityStatePattern.test(city) || !cityStatePattern.test(state)) {
-      setAddressError("Enter a valid city and state name");
-      return;
-    }
-
-    const formattedAddress = isOutsideIndia
-      ? `${street}, ${city}, ${state}, ${zipCode}, ${country}`
-      : `${street}, ${city}, ${state}, ${zipCode}`;
     const phoneRegex = /^[+]?[\d\s\-().]{7,15}$/;
     if (!phoneRegex.test(accountData.phone)) {
       setPhoneError("Please enter a valid phone number (e.g. +91 00000 00000)");
@@ -709,12 +708,6 @@ const WriterOnboarding = () => {
       return;
     }
     
-    // Check password confirmation
-    if (accountData.password !== accountData.confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
     const normalizedReferralCode = normalizeReferralInput(accountData.referralCode);
     if (normalizedReferralCode && referralStatus.state === "invalid") {
       setError("Referral code or username not found");
@@ -723,29 +716,13 @@ const WriterOnboarding = () => {
     
     setLoading(true);
     try {
-      // Validate ZIP, state and city consistency for India addresses.
-      if (!isOutsideIndia) {
-        await api.post("/auth/validate-address", {
-          address: formattedAddress,
-        });
-      }
-
       // Create account using AuthContext join function
       const joinPayload = {
         name: accountData.name,
         email: sanitizedEmail,
         password: accountData.password,
         role: "creator",
-        dateOfBirth: accountData.dateOfBirth,
         phone: accountData.phone,
-        address: {
-          street,
-          city,
-          state,
-          zipCode,
-          country,
-          formatted: formattedAddress,
-        },
         referralCode: normalizedReferralCode,
       };
 
@@ -791,7 +768,7 @@ const WriterOnboarding = () => {
     setUser(userData);
     setShowOTPVerification(false);
     // Move to next step
-    setCurrentStep(2);
+    setCurrentStep(4);
   };
 
   const handleBackToSignup = () => {
@@ -802,6 +779,13 @@ const WriterOnboarding = () => {
       resendCooldownSeconds: undefined,
       startCooldownOnMount: false,
     });
+  };
+
+  const handleFinishLater = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(WRITER_ONBOARDING_DRAFT_KEY);
+    }
+    navigate("/dashboard");
   };
 
   const handleEmailVerification = async (e) => {
@@ -878,12 +862,24 @@ const WriterOnboarding = () => {
     setLoading(true);
     
     try {
-      const response = await api.put("/onboarding/writer-profile", {
+      const writerProfilePayload = {
         ...writerProfile,
         username: normalizedUsername,
-        dateOfBirth: accountData.dateOfBirth,
         phone: accountData.phone,
-        address: {
+      };
+
+      if (accountData.dateOfBirth) {
+        writerProfilePayload.dateOfBirth = accountData.dateOfBirth;
+      }
+
+      if (
+        addressFields.street ||
+        addressFields.city ||
+        addressFields.state ||
+        addressFields.zipCode ||
+        (isOutsideIndia && addressFields.country)
+      ) {
+        writerProfilePayload.address = {
           street: addressFields.street,
           city: addressFields.city,
           state: addressFields.state,
@@ -892,8 +888,10 @@ const WriterOnboarding = () => {
           formatted: isOutsideIndia
             ? `${addressFields.street}, ${addressFields.city}, ${addressFields.state}, ${addressFields.zipCode}, ${addressFields.country}`
             : `${addressFields.street}, ${addressFields.city}, ${addressFields.state}, ${addressFields.zipCode}`,
-        },
-      });
+        };
+      }
+
+      const response = await api.put("/onboarding/writer-profile", writerProfilePayload);
 
       const latestWriterProfile = response?.data?.user?.writerProfile
         ? mergeWriterProfile(response.data.user.writerProfile)
@@ -906,7 +904,7 @@ const WriterOnboarding = () => {
           swa: membershipProofFiles.swa,
         };
         setMembershipProofFiles({ wga: null, swa: null });
-        setCurrentStep(3); // Move to tags step
+        setCurrentStep(8); // Move to tags step
 
         const hasQueuedUploads = Boolean(
           (writerProfile.wgaMember && queuedProofFiles.wga) ||
@@ -1047,7 +1045,7 @@ const WriterOnboarding = () => {
 
   const handleTagsSubmit = (e) => {
     e.preventDefault();
-    setCurrentStep(4);
+    setCurrentStep(9);
   };
 
   const handleFinalSubmit = async (e) => {
@@ -1087,1138 +1085,36 @@ const WriterOnboarding = () => {
 
 
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
-        if (!verificationSent) {
-          return (
-            <form onSubmit={handleAccountCreation} className="space-y-6">
-              <h2 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Create Writer Account</h2>
-              <p className="text-sm text-gray-600">Join the Ckript community</p>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    value={accountData.name}
-                    onChange={(e) => setAccountData({...accountData, name: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                    placeholder="John Doe"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="date"
-                    value={accountData.dateOfBirth}
-                    onChange={(e) => setAccountData({...accountData, dateOfBirth: e.target.value})}
-                    className={`w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent ${accountData.dateOfBirth ? "text-gray-900" : "text-gray-400"}`}
-                    max={new Date().toISOString().split('T')[0]}
-                    required
-                  />
-                </div>
-                {dobError && (
-                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle size={12} /> {dobError}
-                  </p>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="email"
-                    value={accountData.email}
-                    onChange={(e) => setAccountData({...accountData, email: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                    placeholder="writer@example.com"
-                    required
-                  />
-                </div>
-              </div>
+  const MotionCard = motion.div;
+  const cardAnim = { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -16 }, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } };
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Referral code (optional)
-                </label>
-                <input
-                  type="text"
-                  value={accountData.referralCode}
-                  onChange={(e) => {
-                    const nextReferral = e.target.value.slice(0, REFERRAL_MAX_LENGTH);
-                    setAccountData({ ...accountData, referralCode: nextReferral });
-                    setError("");
-                  }}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                  placeholder="Enter referral code"
-                />
-                {accountData.referralCode ? (
-                  <p className={`mt-1.5 text-xs flex items-center gap-1 ${
-                    referralStatus.state === "valid"
-                      ? "text-emerald-600"
-                      : referralStatus.state === "invalid"
-                        ? "text-red-500"
-                        : referralStatus.state === "warning"
-                          ? "text-amber-600"
-                          : "text-gray-500"
-                  }`}>
-                    <AlertCircle size={12} /> {referralStatus.message}
-                  </p>
-                ) : null}
-              </div>
+  const PwReq = ({ ok, text }) => (
+    <div className={`ob-pw-req ${ok ? "ob-pw-req--pass" : "ob-pw-req--fail"}`}>
+      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={ok ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} /></svg>
+      {text}
+    </div>
+  );
 
-              <div className="rounded-xl border border-gray-200 bg-white/80 p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <MapPin className="text-gray-500" size={16} />
-                  <label className="text-sm font-semibold text-gray-800">Address Details</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAddressFields((prev) => ({
-                        ...prev,
-                        country: isOutsideIndia ? INDIA_COUNTRY_NAME : "",
-                        zipCode: "",
-                        city: "",
-                        state: "",
-                      }));
-                      setIsOutsideIndia((prev) => !prev);
-                      setAddressError("");
-                      setZipLookupLoading(false);
-                    }}
-                    className={`ml-auto inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                      isOutsideIndia
-                        ? "border-black bg-black text-white"
-                        : "border-black bg-white text-black hover:bg-gray-100"
-                    }`}
-                  >
-                    {isOutsideIndia && (
-                      <svg className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                    {isOutsideIndia ? "Outside India Enabled" : "Outside India"}
-                  </button>
-                </div>
+  const ErrorBox = ({ msg }) => msg ? <div className="ob-error-box"><AlertCircle size={14} className="shrink-0" />{msg}</div> : null;
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {isOutsideIndia && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Country</label>
-                      <input
-                        type="text"
-                        value={addressFields.country}
-                        onChange={(e) => {
-                          setAddressFields({ ...addressFields, country: e.target.value });
-                          setAddressError("");
-                        }}
-                        className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                        placeholder="United Kingdom"
-                        required
-                      />
-                    </div>
-                  )}
+  const FinishLaterBtn = () => currentStep >= 4 ? (
+    <button type="button" onClick={handleFinishLater} className="ob-btn ob-btn-finish">I'll finish later →</button>
+  ) : null;
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                      {isOutsideIndia ? "Postal Code" : "ZIP Code"}
-                    </label>
-                    <input
-                      type="text"
-                      inputMode={isOutsideIndia ? "text" : "numeric"}
-                      maxLength={isOutsideIndia ? 12 : 6}
-                      value={addressFields.zipCode}
-                      onChange={(e) => {
-                        const nextPostalValue = isOutsideIndia
-                          ? e.target.value.replace(/[^a-zA-Z0-9\s-]/g, "").slice(0, 12)
-                          : e.target.value.replace(/\D/g, "").slice(0, 6);
-                        setAddressFields({ ...addressFields, zipCode: nextPostalValue });
-                        setAddressError("");
-                      }}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                      placeholder={isOutsideIndia ? "SW1A 1AA" : "400001"}
-                      required
-                    />
-                  </div>
+  const BackBtn = ({ to }) => (
+    <button type="button" onClick={() => { setError(""); setCurrentStep(to); }} className="ob-btn ob-btn-ghost" style={{ width: "auto", padding: "0 20px" }}>
+      ← Back
+    </button>
+  );
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">State</label>
-                    <input
-                      type="text"
-                      value={addressFields.state}
-                      onChange={(e) => {
-                        setAddressFields({ ...addressFields, state: e.target.value });
-                        setAddressError("");
-                      }}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                      placeholder={isOutsideIndia ? "State / Province" : "Maharashtra"}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1.5">City</label>
-                    <input
-                      type="text"
-                      value={addressFields.city}
-                      onChange={(e) => {
-                        setAddressFields({ ...addressFields, city: e.target.value });
-                        setAddressError("");
-                      }}
-                      className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                      placeholder={isOutsideIndia ? "London" : "Mumbai"}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Street Address</label>
-                  <input
-                    type="text"
-                    value={addressFields.street}
-                    onChange={(e) => {
-                      setAddressFields({ ...addressFields, street: e.target.value });
-                      setAddressError("");
-                    }}
-                    className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                    placeholder="House/Flat, Street, Area"
-                    required
-                  />
-                </div>
-
-                {zipLookupLoading && !isOutsideIndia && (
-                  <p className="text-[11px] text-gray-500">Looking up ZIP code and auto-filling city/state...</p>
-                )}
-
-                {isOutsideIndia && (
-                  <p className="text-[11px] text-gray-500">Enter country and postal code exactly as used in your region.</p>
-                )}
-
-                {addressError && (
-                  <p className="text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle size={12} /> {addressError}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="tel"
-                    value={accountData.phone}
-                    onChange={(e) => { setAccountData({...accountData, phone: e.target.value}); setPhoneError(""); }}
-                    className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:border-transparent text-gray-900 ${
-                      phoneError ? "border-red-400 focus:ring-red-200" : "border-gray-200 focus:ring-[#1a365d]"
-                    }`}
-                    placeholder="+91 00000 00000"
-                    required
-                  />
-                </div>
-                {phoneError && (
-                  <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle size={12} /> {phoneError}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="password"
-                    value={accountData.password}
-                    onChange={(e) => {
-                      setAccountData({...accountData, password: e.target.value});
-                      if (!showPasswordReqs) setShowPasswordReqs(true);
-                    }}
-                    onFocus={() => setShowPasswordReqs(true)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-                {showPasswordReqs && (
-                  <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-[11px] font-semibold text-gray-600 mb-2">Password Requirements:</p>
-                    <div className="space-y-1">
-                      {(() => {
-                        const validation = validatePassword(accountData.password);
-                        return (
-                          <>
-                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.length ? 'text-green-600' : 'text-gray-500'}`}>
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.length ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                              </svg>
-                              At least 8 characters
-                            </div>
-                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.uppercase ? 'text-green-600' : 'text-gray-500'}`}>
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.uppercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                              </svg>
-                              One uppercase letter (A-Z)
-                            </div>
-                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.lowercase ? 'text-green-600' : 'text-gray-500'}`}>
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.lowercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                              </svg>
-                              One lowercase letter (a-z)
-                            </div>
-                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.number ? 'text-green-600' : 'text-gray-500'}`}>
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.number ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                              </svg>
-                              One number (0-9)
-                            </div>
-                            <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.special ? 'text-green-600' : 'text-gray-500'}`}>
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d={validation.special ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                              </svg>
-                              One special character (!@#$%^&*)
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="password"
-                    value={accountData.confirmPassword}
-                    onChange={(e) => setAccountData({...accountData, confirmPassword: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
-              </div>
-              
-              {emailError && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-                  {emailError}
-                </div>
-              )}
-              
-              {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-                  {error}
-                </div>
-              )}
-              
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-[#0f2544] text-white py-2.5 rounded-lg hover:bg-[#1a365d] transition font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? "Creating Account..." : "Create Account"}
-                <ArrowRight size={16} />
-              </button>
-            </form>
-          );
-        } else {
-          return (
-            <form onSubmit={handleEmailVerification} className="space-y-6">
-              <h2 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Verify Your Email</h2>
-              <p className="text-gray-600">
-                We've sent a 6-digit code to <strong>{accountData.email}</strong>
-              </p>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Verification Code
-                </label>
-                <input
-                  type="text"
-                  value={verificationCode}
-                  onChange={(e) => setVerificationCode(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-center text-2xl tracking-widest text-gray-900"
-                  placeholder="000000"
-                  maxLength={6}
-                  required
-                />
-              </div>
-              
-              {error && (
-                <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-                  {error}
-                </div>
-              )}
-              
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-[#1e3a5f] text-white py-3 rounded-lg font-semibold hover:bg-[#162d4a] transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? "Verifying..." : "Verify Email"}
-                <ArrowRight size={20} />
-              </button>
-            </form>
-          );
-        }
-      
-      case 2:
-        return (
-          <form onSubmit={handleWriterProfile} className="space-y-6">
-            <h2 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Tell Us About Yourself</h2>
-            <p className="text-gray-600">Help industry professionals discover you</p>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-medium text-sm">@</span>
-                <input
-                  type="text"
-                  value={writerProfile.username}
-                  onChange={(e) => {
-                    setWriterProfile({
-                      ...writerProfile,
-                      username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                    });
-                    if (usernameError) setUsernameError("");
-                  }}
-                  className={`w-full pl-7 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900 ${
-                    usernameError || usernameStatus.state === "unavailable" || usernameStatus.state === "invalid"
-                      ? "border-red-400"
-                      : usernameStatus.state === "available"
-                        ? "border-emerald-400"
-                        : "border-gray-200"
-                  }`}
-                  placeholder="e.g. john_doe"
-                  required
-                />
-              </div>
-              {!usernameError && usernameStatus.message && (
-                <p className={`mt-1.5 text-xs flex items-center gap-1 ${
-                  usernameStatus.state === "available"
-                    ? "text-emerald-600"
-                    : usernameStatus.state === "unavailable" || usernameStatus.state === "invalid" || usernameStatus.state === "error"
-                      ? "text-red-500"
-                      : "text-gray-500"
-                }`}>
-                  <AlertCircle size={12} /> {usernameStatus.message}
-                </p>
-              )}
-              {usernameError && (
-                <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-                  <AlertCircle size={12} /> {usernameError}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bio <span className="text-xs font-normal text-gray-500">(Max 500 characters)</span>
-              </label>
-              <textarea
-                value={writerProfile.bio}
-                onChange={(e) => setWriterProfile({...writerProfile, bio: e.target.value})}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent resize-none text-gray-900"
-                rows={4}
-                maxLength={500}
-                placeholder="Tell us about your background, voice, and experience..."
-                required
-              />
-              <p className="text-sm text-gray-500 mt-1">{writerProfile.bio.length}/500</p>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className={`p-3 rounded-lg border-2 transition ${
-                writerProfile.wgaMember
-                  ? "border-[#0f2544] bg-[#0f2544]/5"
-                  : "border-gray-200"
-              }`}>
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(writerProfile.wgaMember)}
-                    onChange={(e) => handleMembershipToggle("wga", e.target.checked)}
-                    className="w-4 h-4 text-[#1a365d] border-gray-300 rounded focus:ring-[#1a365d] accent-[#0f2544]"
-                  />
-                  <span className={`text-sm font-semibold ${writerProfile.wgaMember ? "text-gray-900" : "text-gray-700"}`}>I am a WGA member</span>
-                </label>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getMembershipStatusMeta(writerProfile.membershipVerification?.wga?.status).className}`}>
-                    {getMembershipStatusMeta(writerProfile.membershipVerification?.wga?.status).label}
-                  </span>
-                </div>
-                {writerProfile.wgaMember && writerProfile.membershipVerification?.wga?.status !== "approved" && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-xs text-gray-600">Upload your WGA certificate or proof (PDF, JPG, PNG, WebP)</p>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.webp"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setMembershipProofFiles((prev) => ({ ...prev, wga: file }));
-                      }}
-                      className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-[#0f2544] file:text-white file:font-semibold"
-                    />
-                    {membershipProofFiles.wga && (
-                      <p className="text-xs text-emerald-700 font-medium">Selected: {membershipProofFiles.wga.name}</p>
-                    )}
-                    {!membershipProofFiles.wga && writerProfile.membershipVerification?.wga?.proofUrl && (
-                      <a
-                        href={writerProfile.membershipVerification.wga.proofUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(event) => handleOpenMembershipProof(event, "wga", writerProfile.membershipVerification.wga.proofUrl)}
-                        className="text-xs font-semibold text-[#1a365d] hover:underline"
-                      >
-                        View latest uploaded proof
-                      </a>
-                    )}
-                    {writerProfile.membershipVerification?.wga?.status === "rejected" && writerProfile.membershipVerification?.wga?.adminNote && (
-                      <p className="text-xs text-red-600">Admin note: {writerProfile.membershipVerification.wga.adminNote}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className={`p-3 rounded-lg border-2 transition ${
-                writerProfile.sgaMember
-                  ? "border-[#0f2544] bg-[#0f2544]/5"
-                  : "border-gray-200"
-              }`}>
-                <label className="flex items-center gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(writerProfile.sgaMember)}
-                    onChange={(e) => handleMembershipToggle("swa", e.target.checked)}
-                    className="w-4 h-4 text-[#1a365d] border-gray-300 rounded focus:ring-[#1a365d] accent-[#0f2544]"
-                  />
-                  <span className={`text-sm font-semibold ${writerProfile.sgaMember ? "text-gray-900" : "text-gray-700"}`}>I am a SWA member</span>
-                </label>
-                <div className="mt-2 flex items-center gap-2">
-                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getMembershipStatusMeta(writerProfile.membershipVerification?.swa?.status).className}`}>
-                    {getMembershipStatusMeta(writerProfile.membershipVerification?.swa?.status).label}
-                  </span>
-                </div>
-                {writerProfile.sgaMember && writerProfile.membershipVerification?.swa?.status !== "approved" && (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-xs text-gray-600">Upload your SWA certificate or proof (PDF, JPG, PNG, WebP)</p>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png,.webp"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        setMembershipProofFiles((prev) => ({ ...prev, swa: file }));
-                      }}
-                      className="block w-full text-xs text-gray-600 file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-[#0f2544] file:text-white file:font-semibold"
-                    />
-                    {membershipProofFiles.swa && (
-                      <p className="text-xs text-emerald-700 font-medium">Selected: {membershipProofFiles.swa.name}</p>
-                    )}
-                    {!membershipProofFiles.swa && writerProfile.membershipVerification?.swa?.proofUrl && (
-                      <a
-                        href={writerProfile.membershipVerification.swa.proofUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(event) => handleOpenMembershipProof(event, "swa", writerProfile.membershipVerification.swa.proofUrl)}
-                        className="text-xs font-semibold text-[#1a365d] hover:underline"
-                      >
-                        View latest uploaded proof
-                      </a>
-                    )}
-                    {writerProfile.membershipVerification?.swa?.status === "rejected" && writerProfile.membershipVerification?.swa?.adminNote && (
-                      <p className="text-xs text-red-600">Admin note: {writerProfile.membershipVerification.swa.adminNote}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Diversity Information
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Gender and Nationality are required.
-              </p>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gender
-                  </label>
-                  <select
-                    value={writerProfile.diversity.gender}
-                    onChange={(e) => setWriterProfile({
-                      ...writerProfile, 
-                      diversity: {...writerProfile.diversity, gender: e.target.value}
-                    })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                    required
-                  >
-                    <option value="">Select gender</option>
-                    {GENDER_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nationality
-                  </label>
-                  <select
-                    value={writerProfile.diversity.nationality}
-                    onChange={(e) => setWriterProfile({
-                      ...writerProfile, 
-                      diversity: {...writerProfile.diversity, nationality: e.target.value}
-                    })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                    required
-                  >
-                    <option value="">Select nationality</option>
-                    {NATIONALITY_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Links & Social Media <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Portfolio / Website</label>
-                  <div className="relative">
-                    <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="url" value={writerProfile.links.portfolio}
-                      onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, portfolio: e.target.value}})}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                      placeholder="https://yourwebsite.com" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Instagram</label>
-                    <div className="relative">
-                      <Instagram className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                      <input type="url" value={writerProfile.links.instagram}
-                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, instagram: e.target.value}})}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                        placeholder="https://instagram.com/..." />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Twitter / X</label>
-                    <div className="relative">
-                      <Twitter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                      <input type="url" value={writerProfile.links.twitter}
-                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, twitter: e.target.value}})}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                        placeholder="https://x.com/..." />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn</label>
-                    <div className="relative">
-                      <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                      <input type="url" value={writerProfile.links.linkedin}
-                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, linkedin: e.target.value}})}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                        placeholder="https://linkedin.com/in/..." />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Facebook</label>
-                    <div className="relative">
-                      <Facebook className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                      <input type="url" value={writerProfile.links.facebook}
-                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, facebook: e.target.value}})}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                        placeholder="https://facebook.com/..." />
-                    </div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">IMDb</label>
-                    <div className="relative">
-                      <Film className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                      <input type="url" value={writerProfile.links.imdb}
-                        onChange={(e) => setWriterProfile({...writerProfile, links: {...writerProfile.links, imdb: e.target.value}})}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                        placeholder="https://imdb.com/name/..." />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Accomplishments */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Accomplishments <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Role / Credit</label>
-                <select
-                  value={writerProfile.accomplishments[0] || ""}
-                  onChange={(e) => setWriterProfile({...writerProfile, accomplishments: e.target.value ? [e.target.value] : []})}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                >
-                  <option value="">Optional — select a credit</option>
-                  <option value="co-executive-producer">Co-Executive Producer</option>
-                  <option value="co-producer">Co-Producer</option>
-                  <option value="executive-producer">Executive Producer</option>
-                  <option value="executive-story-editor">Executive Story Editor</option>
-                  <option value="producer">Producer</option>
-                  <option value="showrunner">Showrunner</option>
-                  <option value="staff-writer">Staff Writer</option>
-                  <option value="story-editor">Story Editor</option>
-                  <option value="supervising-producer">Supervising Producer</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Representation */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Representation <span className="text-sm font-normal text-gray-500">(Optional)</span></h3>
-
-              {[
-                {
-                  key: "filmTv",
-                  label: "Film & TV Writer Representation",
-                  placeholders: {
-                    agency: "e.g., CAA, WME, UTA",
-                    agent: "e.g., Priya Mehta",
-                    managementCompany: "e.g., Anonymous Content",
-                    manager: "e.g., Rahul Khanna",
-                    lawFirm: "e.g., Loeb & Loeb",
-                    lawyer: "e.g., Neha Sinha",
-                  },
-                },
-                {
-                  key: "theater",
-                  label: "Theater Representation",
-                  placeholders: {
-                    agency: "e.g., Paradigm Theatrical",
-                    agent: "e.g., Aaron Clarke",
-                    managementCompany: "e.g., Stage Door Management",
-                    manager: "e.g., Maria Lopez",
-                    lawFirm: "e.g., Schreck Rose Dapello",
-                    lawyer: "e.g., David Lin",
-                  },
-                },
-                {
-                  key: "literary",
-                  label: "Literary Representation",
-                  placeholders: {
-                    agency: "e.g., Writers House",
-                    agent: "e.g., Sarah Reed",
-                    managementCompany: "e.g., Literary Collective",
-                    manager: "e.g., Tom Bennett",
-                    lawFirm: "e.g., Frankfurt Kurnit",
-                    lawyer: "e.g., Kavya Rao",
-                  },
-                },
-              ].map(({ key, label, placeholders }) => (
-                <div key={key} className="mb-3 border border-gray-200 rounded-lg overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => setOpenRepSections(prev => ({ ...prev, [key]: !prev[key] }))}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition text-left"
-                  >
-                    <span className="text-sm font-semibold text-gray-800">{label}</span>
-                    <ChevronDown
-                      size={18}
-                      className={`text-gray-500 transition-transform duration-200 ${openRepSections[key] ? "rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {openRepSections[key] && (
-                    <div className="grid grid-cols-2 gap-4 p-4">
-                      {[
-                        { field: "agency", label: "Agency" },
-                        { field: "agent", label: "Agent" },
-                        { field: "managementCompany", label: "Management Company" },
-                        { field: "manager", label: "Manager" },
-                        { field: "lawFirm", label: "Law Firm" },
-                        { field: "lawyer", label: "Lawyer" }
-                      ].map(({ field, label: fieldLabel }) => (
-                        <div key={field}>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">{fieldLabel}</label>
-                          <input
-                            type="text"
-                            value={writerProfile.representation[key][field]}
-                            onChange={(e) => setWriterProfile({
-                              ...writerProfile,
-                              representation: {
-                                ...writerProfile.representation,
-                                [key]: { ...writerProfile.representation[key], [field]: e.target.value }
-                              }
-                            })}
-                            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent text-gray-900"
-                            placeholder={placeholders[field] || "Enter details"}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Privacy */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Privacy</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Please note that unless you choose otherwise in your privacy settings, your demographic information will be searchable on the website.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
-                  writerProfile.demographicPrivacy === "searchable"
-                    ? "border-[#0f2544] bg-[#0f2544]/5"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}>
-                  <input
-                    type="radio"
-                    name="demographicPrivacy"
-                    value="searchable"
-                    checked={writerProfile.demographicPrivacy === "searchable"}
-                    onChange={() => setWriterProfile({...writerProfile, demographicPrivacy: "searchable"})}
-                    className="mt-0.5 accent-[#0f2544]"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">Use in search filtering</p>
-                  </div>
-                </label>
-
-                <label className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition ${
-                  writerProfile.demographicPrivacy === "private"
-                    ? "border-[#0f2544] bg-[#0f2544]/5"
-                    : "border-gray-200 hover:border-gray-300"
-                }`}>
-                  <input
-                    type="radio"
-                    name="demographicPrivacy"
-                    value="private"
-                    checked={writerProfile.demographicPrivacy === "private"}
-                    onChange={() => setWriterProfile({...writerProfile, demographicPrivacy: "private"})}
-                    className="mt-0.5 accent-[#0f2544]"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">Keep private</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-            
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            {membershipUploadNotice && (
-              <div className="bg-amber-50 text-amber-700 p-4 rounded-lg">
-                {membershipUploadNotice}
-              </div>
-            )}
-            
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(1)}
-                className="px-6 py-2.5 border border-slate-300 bg-white !text-black rounded-lg font-semibold hover:bg-slate-50 hover:border-slate-400 hover:!text-black transition flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-              >
-                <ArrowLeft size={20} className="!text-black" />
-                Back
-              </button>
-              <button
-                type="submit"
-                disabled={loading || usernameStatus.state === "checking"}
-                className="flex-1 bg-[#0f2544] text-white py-2.5 rounded-lg hover:bg-[#1a365d] transition font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? "Saving..." : "Continue"}
-                <ArrowRight size={20} />
-              </button>
-            </div>
-          </form>
-        );
-      
-      case 3:
-        return (
-          <form onSubmit={handleTagsSubmit} className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Select Your Genres & Tags</h2>
-              <p className="text-gray-600 mt-2">Help us match you with the right opportunities</p>
-            </div>
-
-            {/* Genre Selection - Card Grid */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Primary Genres (Select all that apply)
-              </label>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {genreOptions.map((genre) => (
-                  <button
-                    key={genre}
-                    type="button"
-                    onClick={() => toggleGenre(genre)}
-                    className={`px-4 py-3 rounded-lg font-medium text-sm transition-all border-2 ${
-                      selectedGenres.includes(genre)
-                        ? 'bg-[#0f2544] text-white !text-white border-[#0f2544]'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#1a365d]'
-                    }`}
-                  >
-                    {genre}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Nuanced Tags - Selectable Chips */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Specialized Tags (Select up to 5)
-              </label>
-              <p className="text-xs text-gray-500 mb-3">
-                Choose themes, tones, or settings you specialize in
-              </p>
-              
-              {/* Error Message */}
-              <AnimatePresence>
-                {showTagError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center gap-2 mb-3 text-red-600 text-sm bg-red-50 p-3 rounded-lg"
-                  >
-                    <AlertCircle size={16} />
-                    <span>Please choose your top 5 only.</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Selectable Tag Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-80 overflow-y-auto p-2 border border-gray-200 rounded-lg bg-gray-50">
-                {allNuancedTags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleNuancedTag(tag)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all border ${
-                      nuancedTags.includes(tag)
-                        ? 'bg-[#0f2544] text-white !text-white border-[#0f2544]'
-                        : 'bg-white text-gray-700 border-gray-200 hover:border-[#1a365d]'
-                    }`}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-
-              <p className="text-xs text-gray-500 mt-3 flex items-center justify-between">
-                <span>{nuancedTags.length}/5 tags selected</span>
-                {nuancedTags.length > 0 && (
-                  <span className="font-medium text-[#0f2544]">
-                    Selected: {nuancedTags.join(', ')}
-                  </span>
-                )}
-              </p>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(2)}
-                className="px-6 py-2.5 border border-slate-300 bg-white !text-black rounded-lg font-semibold hover:bg-slate-50 hover:border-slate-400 hover:!text-black transition flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-              >
-                <ArrowLeft size={20} className="!text-black" />
-                Back
-              </button>
-              <button
-                type="submit"
-                className="flex-1 bg-[#0f2544] text-white py-2.5 rounded-lg hover:bg-[#1a365d] transition font-semibold text-sm flex items-center justify-center gap-2"
-              >
-                {membershipUploadsInProgress ? "Continue (Uploading proof...)" : "Continue"}
-                <ArrowRight size={20} />
-              </button>
-            </div>
-          </form>
-        );
-
-      case 4:
-        return (
-          <form onSubmit={handleFinalSubmit} className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Final Review</h2>
-              <p className="text-gray-600 mt-2">Hosting is free. Review and accept terms to complete setup.</p>
-            </div>
-
-            <div className="bg-white border-2 border-gray-200 rounded-xl p-5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-gray-900">Hosting Plan</h3>
-                <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-3 py-1 text-xs font-semibold">
-                  Free
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mt-2">Your script hosting is free with no subscription required.</p>
-            </div>
-
-            {/* Legal Agreement */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Legal Agreements
-              </label>
-              
-              <div className="border-2 border-gray-200 rounded-lg p-4 text-sm text-gray-700 bg-gray-50">
-                <p className="leading-relaxed mb-4">
-                  Please review our Terms and Conditions and Privacy Policy before completing your registration. This applies to your content and data.
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                  <Link
-                    to={WRITER_TERMS_ROUTE}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#0f2544] text-white hover:bg-[#1a365d] transition font-semibold flex-1"
-                  >
-                    Open Terms & Conditions
-                    <ArrowRight size={16} />
-                  </Link>
-                  <Link
-                    to={REGISTRATION_PRIVACY_ROUTE}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#0f2544] text-white hover:bg-[#1a365d] transition font-semibold flex-1"
-                  >
-                    Open Privacy Policy
-                    <ArrowRight size={16} />
-                  </Link>
-                </div>
-
-                <div className="space-y-3 mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-start">
-                    <input
-                      type="checkbox"
-                      id="agreement"
-                      checked={agreementAccepted}
-                      onChange={(e) => setAgreementAccepted(e.target.checked)}
-                      className="w-5 h-5 border-gray-300 rounded focus:ring-[#1e3a5f] mt-0.5"
-                      style={{ accentColor: '#1e3a5f' }}
-                    />
-                    <label
-                      htmlFor="agreement"
-                      className="ml-3 text-sm font-medium text-gray-900"
-                    >
-                      I have read and agree to the Writer Onboard Terms and Conditions
-                    </label>
-                  </div>
-                  <div className="flex items-start">
-                    <input
-                      type="checkbox"
-                      id="privacy-policy"
-                      checked={privacyPolicyAccepted}
-                      onChange={(e) => setPrivacyPolicyAccepted(e.target.checked)}
-                      className="w-5 h-5 border-gray-300 rounded focus:ring-[#1e3a5f] mt-0.5"
-                      style={{ accentColor: '#1e3a5f' }}
-                    />
-                    <label
-                      htmlFor="privacy-policy"
-                      className="ml-3 text-sm font-medium text-gray-900"
-                    >
-                      I have read and agree to the Registration Privacy Policy
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-col sm:flex-row justify-between text-xs text-gray-400">
-                  <span>Terms version: {WRITER_TERMS_VERSION}</span>
-                  <span>Privacy policy version: {PRIVACY_POLICY_VERSION}</span>
-                </div>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            {membershipUploadNotice && (
-              <div className="bg-amber-50 text-amber-700 p-4 rounded-lg">
-                {membershipUploadNotice}
-              </div>
-            )}
-
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(3)}
-                className="px-6 py-2.5 border border-slate-300 bg-white !text-black rounded-lg font-semibold hover:bg-slate-50 hover:border-slate-400 hover:!text-black transition flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
-              >
-                <ArrowLeft size={20} className="!text-black" />
-                Back
-              </button>
-              <button
-                type="submit"
-                disabled={loading || !agreementAccepted || !privacyPolicyAccepted}
-                className="flex-1 bg-[#1e3a5f] text-white py-3 rounded-lg font-semibold hover:bg-[#162d4a] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loading ? "Processing..." : "Complete Setup"}
-                <CheckCircle size={20} />
-              </button>
-            </div>
-          </form>
-        );
-
-      
-      default:
-        return null;
-    }
-  };
 
   // Show OTP verification screen if needed
   if (showOTPVerification) {
     return (
-      <OTPVerification 
-        email={userEmail} 
-        onSuccess={handleOTPSuccess} 
+      <OTPVerification
+        email={userEmail}
+        onSuccess={handleOTPSuccess}
         onBack={handleBackToSignup}
         otpExpirySeconds={otpConfig.otpExpirySeconds}
         initialResendCooldownSeconds={otpConfig.resendCooldownSeconds}
@@ -2229,91 +1125,315 @@ const WriterOnboarding = () => {
   }
 
   return (
-    <div className="writer-onboarding-page min-h-screen !bg-[#080e18] pt-2 pb-8 px-3 sm:px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-4 sm:mb-3">
-          <div className="flex items-center justify-center mb-1">
-            <div className="w-14 h-14 sm:w-20 sm:h-20 bg-[#0d1520] border border-[#1a2433] rounded-xl flex items-center justify-center shadow-lg shadow-black/25">
-              <FileText className="text-white" size={32} strokeWidth={1.5} />
-            </div>
-          </div>
-          <p className="text-sm sm:text-base text-white font-medium">Writer Onboarding</p>
+    <div className="ob-page">
+      {/* Progress bar */}
+      <div className="ob-progress-wrap">
+        <div className="ob-progress-track">
+          <div className="ob-progress-fill" style={{ width: `${progressPercent}%` }} />
         </div>
-        
-        {/* Progress Steps */}
-        <div className="mb-6 sm:mb-8">
-          <div className="grid grid-cols-4 gap-2 sm:hidden">
-            {steps.map((step) => {
-              const isActive = currentStep === step.num;
-              const isComplete = currentStep > step.num;
+        <div className="ob-progress-meta">
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.8rem", color: "#F9FAFB", fontWeight: 600 }}>Ckript</span>
+          <span style={{ fontSize: "0.7rem", color: "#6B7280", fontWeight: 500 }}>Step {currentStep} of {TOTAL_STEPS}</span>
+        </div>
+      </div>
 
-              return (
-                <div key={step.num} className="flex flex-col items-center gap-1">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition text-[11px] font-semibold ${
-                    isComplete
-                      ? 'bg-[#1e3a5f] border-[#1e3a5f] text-white'
-                      : isActive
-                        ? 'bg-[#0f2544] border-[#0f2544] text-white'
-                        : 'bg-white border-gray-300 text-gray-400'
-                  }`}>
-                    {isComplete ? '✓' : step.num}
-                  </div>
-                  <span className={`text-[11px] font-semibold ${
-                    isComplete || isActive ? 'text-white' : 'text-slate-300'
-                  }`}>
-                    {step.title}
-                  </span>
+      {/* Content area */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "80px 16px 40px", minHeight: "100dvh" }}>
+        <AnimatePresence mode="wait">
+
+          {/* Step 1: Name */}
+          {currentStep === 1 && (
+            <MotionCard key="s1" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">What's your <em>name</em>?</h1>
+              <p className="ob-subtitle">Let's start with the basics.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Full Name</label>
+                <div style={{ position: "relative" }}>
+                  <User size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                  <input autoFocus type="text" className="ob-input" style={{ paddingLeft: 40 }} placeholder="e.g. Rahul Sharma" value={accountData.name} onChange={(e) => setAccountData({ ...accountData, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && handleSubStepContinue(e)} required />
                 </div>
-              );
-            })}
-          </div>
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+              </div>
+              <div className="ob-footer-links" style={{ marginTop: 20 }}>Already have an account? <Link to="/login" className="ob-link">Sign in</Link></div>
+            </MotionCard>
+          )}
 
-          <div className="hidden sm:flex items-center justify-between">
-            {steps.map((step, index) => {
-              const isActive = currentStep === step.num;
-              const isComplete = currentStep > step.num;
-              
-              return (
-                <div key={step.num} className="flex items-center flex-1">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition text-xs font-semibold ${
-                    isComplete 
-                      ? 'bg-[#1e3a5f] border-[#1e3a5f] text-white' 
-                      : isActive 
-                        ? 'bg-[#0f2544] border-[#0f2544] text-white' 
-                        : 'bg-white border-gray-300 text-gray-400'
-                  }`}>
-                    {isComplete ? '✓' : step.num}
+          {/* Step 2: Contact */}
+          {currentStep === 2 && (
+            <MotionCard key="s2" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">How do we <em>reach</em> you?</h1>
+              <p className="ob-subtitle">Your email for verification and phone for account security.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Email Address</label>
+                <div style={{ position: "relative" }}>
+                  <Mail size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                  <input autoFocus type="email" className={`ob-input ${emailError ? "ob-input--error" : ""}`} style={{ paddingLeft: 40 }} placeholder="writer@example.com" value={accountData.email} onChange={(e) => { setAccountData({ ...accountData, email: e.target.value }); setEmailError(""); }} required />
+                </div>
+                {emailError && <p className="ob-hint ob-hint--err">{emailError}</p>}
+              </div>
+              <div className="ob-field">
+                <label className="ob-label">Phone Number</label>
+                <div style={{ position: "relative" }}>
+                  <Phone size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                  <input type="tel" className={`ob-input ${phoneError ? "ob-input--error" : ""}`} style={{ paddingLeft: 40 }} placeholder="+91 00000 00000" value={accountData.phone} onChange={(e) => { setAccountData({ ...accountData, phone: e.target.value }); setPhoneError(""); }} required />
+                </div>
+                {phoneError && <p className="ob-hint ob-hint--err">{phoneError}</p>}
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+                <BackBtn to={1} />
+              </div>
+            </MotionCard>
+          )}
+
+          {/* Step 3: Password + Referral -> Create Account */}
+          {currentStep === 3 && (
+            <MotionCard key="s3" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Secure your <em>account</em></h1>
+              <p className="ob-subtitle">Choose a strong password to protect your account.</p>
+              <ErrorBox msg={error} />
+              <form onSubmit={handleAccountCreation}>
+                <div className="ob-field">
+                  <label className="ob-label">Password</label>
+                  <div style={{ position: "relative" }}>
+                    <Lock size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                    <input autoFocus type="password" className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
                   </div>
-                  <div className="ml-2 hidden sm:block">
-                    <div className={`text-xs font-semibold ${
-                      isComplete || isActive ? 'text-white' : 'text-slate-300'
-                    }`}>
-                      {step.title}
+                  {showPasswordReqs && (() => { const v = validatePassword(accountData.password); return (
+                    <div className="ob-pw-reqs">
+                      <PwReq ok={v.length} text="At least 8 characters" />
+                      <PwReq ok={v.uppercase} text="One uppercase letter (A-Z)" />
+                      <PwReq ok={v.lowercase} text="One lowercase letter (a-z)" />
+                      <PwReq ok={v.number} text="One number (0-9)" />
+                      <PwReq ok={v.special} text="One special character (!@#$%^&*)" />
                     </div>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-2 md:mx-4 ${
-                      isComplete ? 'bg-[#1e3a5f]' : 'bg-gray-300'
-                    }`} />
+                  ); })()}
+                </div>
+                <div className="ob-field">
+                  <label className="ob-label">Referral Code <span style={{ opacity: 0.5, textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
+                  <input type="text" className="ob-input" placeholder="Enter referral code or username" value={accountData.referralCode} onChange={(e) => { setAccountData({ ...accountData, referralCode: e.target.value.slice(0, REFERRAL_MAX_LENGTH) }); setError(""); }} />
+                  {accountData.referralCode && (
+                    <p className={`ob-hint ${referralStatus.state === "valid" ? "ob-hint--ok" : referralStatus.state === "invalid" ? "ob-hint--err" : referralStatus.state === "warning" ? "ob-hint--warn" : ""}`}>{referralStatus.message}</p>
                   )}
                 </div>
-              );
-            })}
-          </div>
-        </div>
-        
-        {/* Form Container */}
-        <motion.div
-          key={currentStep}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-          className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 md:p-8 border border-gray-100"
-        >
-          {renderStep()}
-        </motion.div>
+                <ErrorBox msg={emailError} />
+                <div className="ob-actions">
+                  <button type="submit" disabled={loading} className="ob-btn ob-btn-primary">{loading ? "Creating account..." : <><span>Create Account</span> <ArrowRight size={16} /></>}</button>
+                  <BackBtn to={2} />
+                </div>
+              </form>
+            </MotionCard>
+          )}
+
+          {/* Step 4: Username */}
+          {currentStep === 4 && (
+            <MotionCard key="s4" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Pick a <em>username</em></h1>
+              <p className="ob-subtitle">This is how other users will find you on Ckript.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Username</label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 14, top: 13, color: "#6B7280", fontSize: "0.9375rem", fontWeight: 500 }}>@</span>
+                  <input autoFocus type="text" className={`ob-input ${usernameError || usernameStatus.state === "unavailable" ? "ob-input--error" : ""}`} style={{ paddingLeft: 34 }} placeholder="e.g. rahul_writes" value={writerProfile.username} onChange={(e) => { setWriterProfile({ ...writerProfile, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }); if (usernameError) setUsernameError(""); }} onKeyDown={(e) => e.key === "Enter" && handleSubStepContinue(e)} required />
+                </div>
+                {usernameError && <p className="ob-hint ob-hint--err">{usernameError}</p>}
+                {!usernameError && usernameStatus.message && (
+                  <p className={`ob-hint ${usernameStatus.state === "available" ? "ob-hint--ok" : usernameStatus.state === "unavailable" || usernameStatus.state === "invalid" ? "ob-hint--err" : ""}`}>{usernameStatus.message}</p>
+                )}
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+                <FinishLaterBtn />
+              </div>
+            </MotionCard>
+          )}
+
+          {/* Step 5: About */}
+          {currentStep === 5 && (
+            <MotionCard key="s5" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Tell us about <em>yourself</em></h1>
+              <p className="ob-subtitle">A few details to help others discover your work.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Short Bio</label>
+                <textarea className="ob-input ob-textarea" placeholder="Screenwriter based in Mumbai with a love for noir thrillers..." value={writerProfile.bio} onChange={(e) => setWriterProfile({ ...writerProfile, bio: e.target.value })} rows={3} />
+              </div>
+              <div className="ob-row">
+                <div className="ob-field">
+                  <label className="ob-label">Gender *</label>
+                  <select className="ob-input ob-select" value={writerProfile.diversity.gender} onChange={(e) => setWriterProfile({ ...writerProfile, diversity: { ...writerProfile.diversity, gender: e.target.value } })} required>
+                    <option value="">Select</option>
+                    {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div className="ob-field">
+                  <label className="ob-label">Nationality *</label>
+                  <select className="ob-input ob-select" value={writerProfile.diversity.nationality} onChange={(e) => setWriterProfile({ ...writerProfile, diversity: { ...writerProfile.diversity, nationality: e.target.value } })} required>
+                    <option value="">Select</option>
+                    {NATIONALITY_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="ob-field">
+                <label className="ob-label">Date of Birth <span style={{ opacity: 0.5, textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
+                <input type="date" className="ob-input" value={accountData.dateOfBirth} onChange={(e) => setAccountData({ ...accountData, dateOfBirth: e.target.value })} style={{ colorScheme: "dark" }} />
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+                <div className="ob-actions-row"><BackBtn to={4} /><FinishLaterBtn /></div>
+              </div>
+            </MotionCard>
+          )}
+
+          {/* Step 6: Guild Memberships */}
+          {currentStep === 6 && (
+            <MotionCard key="s6" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Guild <em>memberships</em></h1>
+              <p className="ob-subtitle">Are you a member of any writer's guild? Optional — you can skip.</p>
+              <ErrorBox msg={error} />
+              <div className={`ob-toggle-row ${writerProfile.wgaMember ? "ob-toggle-row--active" : ""}`} onClick={() => handleMembershipToggle("wga", !writerProfile.wgaMember)}>
+                <div><div style={{ color: "#F9FAFB", fontSize: "0.875rem", fontWeight: 600 }}>WGA Member</div><div style={{ color: "#6B7280", fontSize: "0.75rem", marginTop: 2 }}>Writers Guild of America</div></div>
+                <input type="checkbox" className="ob-checkbox" checked={writerProfile.wgaMember} onChange={() => {}} />
+              </div>
+              {writerProfile.wgaMember && (
+                <div className="ob-field" style={{ marginTop: 8, marginBottom: 16 }}>
+                  <label className="ob-label">WGA Proof Document</label>
+                  <label className="ob-upload-zone">
+                    <input type="file" style={{ display: "none" }} accept="image/*,.pdf" onChange={(e) => setMembershipProofFiles(prev => ({ ...prev, wga: e.target.files?.[0] || null }))} />
+                    <Upload size={16} style={{ marginRight: 8 }} />{membershipProofFiles.wga ? membershipProofFiles.wga.name : "Upload proof (image or PDF)"}
+                  </label>
+                </div>
+              )}
+              <div className={`ob-toggle-row ${writerProfile.sgaMember ? "ob-toggle-row--active" : ""}`} onClick={() => handleMembershipToggle("sga", !writerProfile.sgaMember)}>
+                <div><div style={{ color: "#F9FAFB", fontSize: "0.875rem", fontWeight: 600 }}>SWA Member</div><div style={{ color: "#6B7280", fontSize: "0.75rem", marginTop: 2 }}>Screenwriters Association (India)</div></div>
+                <input type="checkbox" className="ob-checkbox" checked={writerProfile.sgaMember} onChange={() => {}} />
+              </div>
+              {writerProfile.sgaMember && (
+                <div className="ob-field" style={{ marginTop: 8 }}>
+                  <label className="ob-label">SWA Proof Document</label>
+                  <label className="ob-upload-zone">
+                    <input type="file" style={{ display: "none" }} accept="image/*,.pdf" onChange={(e) => setMembershipProofFiles(prev => ({ ...prev, swa: e.target.files?.[0] || null }))} />
+                    <Upload size={16} style={{ marginRight: 8 }} />{membershipProofFiles.swa ? membershipProofFiles.swa.name : "Upload proof (image or PDF)"}
+                  </label>
+                </div>
+              )}
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">{writerProfile.wgaMember || writerProfile.sgaMember ? "Continue" : "Skip"} <ArrowRight size={16} /></button>
+                <div className="ob-actions-row"><BackBtn to={5} /><FinishLaterBtn /></div>
+              </div>
+            </MotionCard>
+          )}
+
+          {/* Step 7: Links -> triggers profile save */}
+          {currentStep === 7 && (
+            <MotionCard key="s7" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Your online <em>presence</em></h1>
+              <p className="ob-subtitle">Add your portfolio and social links — all optional.</p>
+              <ErrorBox msg={error} />
+              {membershipUploadNotice && <div className="ob-error-box" style={{ background: "rgba(120,80,0,0.2)", borderColor: "rgba(251,191,36,0.3)", color: "#FBBF24" }}>{membershipUploadNotice}</div>}
+              <form onSubmit={handleWriterProfile}>
+                <div className="ob-field">
+                  <label className="ob-label">Portfolio / Website</label>
+                  <input type="url" className="ob-input" placeholder="https://yourportfolio.com" value={writerProfile.links.portfolio} onChange={(e) => setWriterProfile({ ...writerProfile, links: { ...writerProfile.links, portfolio: e.target.value } })} />
+                </div>
+                <div className="ob-row">
+                  <div className="ob-field">
+                    <label className="ob-label"><Instagram size={12} style={{ display: "inline", marginRight: 4 }} />Instagram</label>
+                    <input type="url" className="ob-input" placeholder="https://instagram.com/..." value={writerProfile.links.instagram} onChange={(e) => setWriterProfile({ ...writerProfile, links: { ...writerProfile.links, instagram: e.target.value } })} />
+                  </div>
+                  <div className="ob-field">
+                    <label className="ob-label"><Twitter size={12} style={{ display: "inline", marginRight: 4 }} />Twitter / X</label>
+                    <input type="url" className="ob-input" placeholder="https://x.com/..." value={writerProfile.links.twitter} onChange={(e) => setWriterProfile({ ...writerProfile, links: { ...writerProfile.links, twitter: e.target.value } })} />
+                  </div>
+                </div>
+                <div className="ob-row">
+                  <div className="ob-field">
+                    <label className="ob-label"><Linkedin size={12} style={{ display: "inline", marginRight: 4 }} />LinkedIn</label>
+                    <input type="url" className="ob-input" placeholder="https://linkedin.com/in/..." value={writerProfile.links.linkedin} onChange={(e) => setWriterProfile({ ...writerProfile, links: { ...writerProfile.links, linkedin: e.target.value } })} />
+                  </div>
+                  <div className="ob-field">
+                    <label className="ob-label"><Film size={12} style={{ display: "inline", marginRight: 4 }} />IMDB</label>
+                    <input type="url" className="ob-input" placeholder="https://imdb.com/name/..." value={writerProfile.links.imdb} onChange={(e) => setWriterProfile({ ...writerProfile, links: { ...writerProfile.links, imdb: e.target.value } })} />
+                  </div>
+                </div>
+                <div className="ob-actions">
+                  <button type="submit" disabled={loading} className="ob-btn ob-btn-primary">{loading ? "Saving profile..." : <><span>Save & Continue</span> <ArrowRight size={16} /></>}</button>
+                  <div className="ob-actions-row"><BackBtn to={6} /><FinishLaterBtn /></div>
+                </div>
+              </form>
+            </MotionCard>
+          )}
+
+          {/* Step 8: Tags */}
+          {currentStep === 8 && (
+            <MotionCard key="s8" {...cardAnim} className="ob-card" style={{ maxWidth: 600 }}>
+              <h1 className="ob-title">What do you <em>write</em>?</h1>
+              <p className="ob-subtitle">Select genres you love and up to 5 story tags.</p>
+              <ErrorBox msg={error} />
+              <form onSubmit={handleTagsSubmit}>
+                <div className="ob-field">
+                  <label className="ob-label">Genres</label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {genreOptions.map(g => (<button key={g} type="button" onClick={() => toggleGenre(g)} className={`ob-chip ${selectedGenres.includes(g) ? "ob-chip--active" : ""}`}>{g}</button>))}
+                  </div>
+                </div>
+                <div className="ob-divider" />
+                <div className="ob-field">
+                  <label className="ob-label">Story Tags <span style={{ opacity: 0.5, textTransform: "none", fontWeight: 400 }}>(max 5)</span></label>
+                  {showTagError && <p className="ob-hint ob-hint--err" style={{ marginBottom: 8 }}>Maximum of 5 tags allowed</p>}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 200, overflowY: "auto" }}>
+                    {allNuancedTags.map(t => (<button key={t} type="button" onClick={() => toggleNuancedTag(t)} className={`ob-chip ${nuancedTags.includes(t) ? "ob-chip--active" : ""}`}>{t}</button>))}
+                  </div>
+                </div>
+                <div className="ob-actions">
+                  <button type="submit" className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+                  <div className="ob-actions-row"><BackBtn to={7} /><FinishLaterBtn /></div>
+                </div>
+              </form>
+            </MotionCard>
+          )}
+
+          {/* Step 9: Terms & Complete */}
+          {currentStep === 9 && (
+            <MotionCard key="s9" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Almost <em>there</em>!</h1>
+              <p className="ob-subtitle">Review and accept our terms to complete your writer setup.</p>
+              <ErrorBox msg={error} />
+              {membershipUploadNotice && <div className="ob-error-box" style={{ background: "rgba(120,80,0,0.2)", borderColor: "rgba(251,191,36,0.3)", color: "#FBBF24" }}>{membershipUploadNotice}</div>}
+              <form onSubmit={handleFinalSubmit}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+                  <Link to={WRITER_TERMS_ROUTE} target="_blank" rel="noopener noreferrer" className="ob-btn ob-btn-ghost" style={{ flex: 1, fontSize: "0.75rem", height: 40 }}>Terms & Conditions <ArrowRight size={12} /></Link>
+                  <Link to={REGISTRATION_PRIVACY_ROUTE} target="_blank" rel="noopener noreferrer" className="ob-btn ob-btn-ghost" style={{ flex: 1, fontSize: "0.75rem", height: 40 }}>Privacy Policy <ArrowRight size={12} /></Link>
+                </div>
+                <div className="ob-divider" />
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                    <input type="checkbox" className="ob-checkbox" checked={agreementAccepted} onChange={(e) => setAgreementAccepted(e.target.checked)} style={{ marginTop: 2 }} />
+                    <span style={{ fontSize: "0.8125rem", color: "#CBD5E1", lineHeight: 1.5 }}>I have read and agree to the Writer Onboard Terms and Conditions</span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                    <input type="checkbox" className="ob-checkbox" checked={privacyPolicyAccepted} onChange={(e) => setPrivacyPolicyAccepted(e.target.checked)} style={{ marginTop: 2 }} />
+                    <span style={{ fontSize: "0.8125rem", color: "#CBD5E1", lineHeight: 1.5 }}>I have read and agree to the Registration Privacy Policy</span>
+                  </label>
+                </div>
+                <div className="ob-actions">
+                  <button type="submit" disabled={loading || !agreementAccepted || !privacyPolicyAccepted} className="ob-btn ob-btn-primary">{loading ? "Processing..." : <><CheckCircle size={16} /> Complete Setup</>}</button>
+                  <div className="ob-actions-row"><BackBtn to={8} /><FinishLaterBtn /></div>
+                </div>
+                <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", fontSize: "0.65rem", color: "#4B5563" }}>
+                  <span>Terms: {WRITER_TERMS_VERSION}</span>
+                  <span>Privacy: {PRIVACY_POLICY_VERSION}</span>
+                </div>
+              </form>
+            </MotionCard>
+          )}
+
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -9,21 +9,30 @@ import {
   Link as LinkIcon,
   CheckCircle, 
   ArrowRight, 
-  ArrowLeft,
   RotateCcw,
   Mail,
   Lock,
   User,
   AlertCircle,
-  Shield
+  Shield,
+  Phone
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import BrandLogo from "../components/BrandLogo";
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
+const MotionDiv = motion.div;
+const PHONE_PATTERN = /^[+]?[\d\s\-().]{7,15}$/;
+const validatePassword = (password) => ({
+  length: password.length >= 8,
+  uppercase: /[A-Z]/.test(password),
+  lowercase: /[a-z]/.test(password),
+  number: /[0-9]/.test(password),
+  special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+});
 
 const IndustryOnboarding = () => {
-  const { join } = useContext(AuthContext);
+  const { join, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const getDefaultMandates = () => ({
@@ -42,8 +51,8 @@ const IndustryOnboarding = () => {
   const [accountData, setAccountData] = useState({
     name: "",
     email: "",
+    phone: "",
     password: "",
-    confirmPassword: "",
     role: "professional",
     subRole: ""
   });
@@ -81,13 +90,6 @@ const IndustryOnboarding = () => {
     { num: 2, title: "Identity" },
     { num: 3, title: "Mandates" },
     { num: 4, title: "Complete" }
-  ];
-
-  const subRoleOptions = [
-    { value: "producer", label: "Producer / Executive" },
-    { value: "agent", label: "Agent / Manager" },
-    { value: "director", label: "Director" },
-    { value: "actor", label: "Actor / Talent" }
   ];
 
   const formatOptions = [
@@ -134,34 +136,33 @@ const IndustryOnboarding = () => {
     e.preventDefault();
     setError("");
     
-    if (!accountData.subRole) {
-      setError("Please select your professional role");
+    if (!PHONE_PATTERN.test(accountData.phone)) {
+      setError("Please enter a valid phone number (e.g. +91 00000 00000)");
       return;
     }
     
-    if (accountData.password !== accountData.confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    
-    if (accountData.password.length < 6) {
-      setError("Password must be at least 6 characters");
+    const passwordCheck = validatePassword(accountData.password);
+    if (!Object.values(passwordCheck).every(Boolean)) {
+      setError("Password must be at least 8 characters and include uppercase, lowercase, number, and special character");
       return;
     }
     
     setLoading(true);
     try {
-      await join({
+      const response = await join({
         name: accountData.name,
-        email: accountData.email,
+        email: accountData.email.trim().toLowerCase(),
+        phone: accountData.phone,
         password: accountData.password,
         role: "professional",
-        subRole: accountData.subRole
+        subRole: accountData.subRole,
       });
       
-      // Send verification email
-      await api.post("/onboarding/send-verification");
-      setVerificationSent(true);
+      if (response?.requiresVerification) {
+        setVerificationSent(true);
+      } else if (response?.token) {
+        setCurrentStep(2);
+      }
       setError("");
     } catch (err) {
       setError(err.response?.data?.message || "Account creation failed");
@@ -176,11 +177,14 @@ const IndustryOnboarding = () => {
     setError("");
     
     try {
-      const response = await api.post("/onboarding/verify-email", {
-        code: verificationCode
+      const response = await api.post("/auth/verify-otp", {
+        email: accountData.email.trim().toLowerCase(),
+        otp: verificationCode,
       });
       
-      if (response.data.success) {
+      if (response.data?.token) {
+        setUser(response.data);
+        localStorage.setItem("user", JSON.stringify(response.data));
         setCurrentStep(2);
       }
     } catch (err) {
@@ -313,6 +317,10 @@ const IndustryOnboarding = () => {
     }
   };
 
+  const handleFinishLater = () => {
+    navigate("/dashboard");
+  };
+
   // Toggle handlers
   const toggleFormat = (format) => {
     setMandates(prev => ({
@@ -382,29 +390,7 @@ const IndustryOnboarding = () => {
             <form onSubmit={handleAccountCreation} className="space-y-6">
               <div>
                 <h2 className="text-2xl font-extrabold text-[#0a1628] tracking-tight">Industry Professional Account</h2>
-                <p className="text-sm text-gray-600 mt-2">Join as a verified industry professional</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Professional Role *
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {subRoleOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setAccountData({...accountData, subRole: option.value})}
-                      className={`p-3 rounded-lg border-2 text-sm font-medium transition ${
-                        accountData.subRole === option.value
-                          ? 'border-[#0f2544] bg-[#f0f4f8]'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-sm text-gray-600 mt-2">Create your account now. Professional details can be added later.</p>
               </div>
               
               <div>
@@ -426,7 +412,7 @@ const IndustryOnboarding = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Work Email *
+                  Email
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -446,6 +432,23 @@ const IndustryOnboarding = () => {
                   </p>
                 )}
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="tel"
+                    value={accountData.phone}
+                    onChange={(e) => setAccountData({...accountData, phone: e.target.value})}
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    placeholder="+91 00000 00000"
+                    required
+                  />
+                </div>
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -462,23 +465,9 @@ const IndustryOnboarding = () => {
                     required
                   />
                 </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="password"
-                    value={accountData.confirmPassword}
-                    onChange={(e) => setAccountData({...accountData, confirmPassword: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Use at least 8 characters with uppercase, lowercase, number, and special character.
+                </p>
               </div>
               
               {error && (
@@ -694,11 +683,10 @@ const IndustryOnboarding = () => {
             <div className="flex gap-4">
               <button
                 type="button"
-                onClick={() => setCurrentStep(1)}
+                onClick={handleFinishLater}
                 className="px-6 py-2.5 border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 transition flex items-center gap-2"
               >
-                <ArrowLeft size={20} />
-                Back
+                Finish later
               </button>
               <button
                 type="submit"
@@ -852,11 +840,10 @@ const IndustryOnboarding = () => {
             <div className="flex gap-4">
               <button
                 type="button"
-                onClick={() => setCurrentStep(2)}
+                onClick={handleFinishLater}
                 className="px-6 py-2.5 border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 transition flex items-center gap-2"
               >
-                <ArrowLeft size={20} />
-                Back
+                Finish later
               </button>
               <button
                 type="button"
@@ -951,11 +938,10 @@ const IndustryOnboarding = () => {
             <div className="flex gap-4">
               <button
                 type="button"
-                onClick={() => setCurrentStep(3)}
+                onClick={handleFinishLater}
                 className="px-6 py-2.5 border border-gray-200 rounded-lg font-semibold hover:bg-gray-50 transition flex items-center gap-2"
               >
-                <ArrowLeft size={20} />
-                Back
+                Finish later
               </button>
               <button
                 type="submit"
@@ -1022,7 +1008,7 @@ const IndustryOnboarding = () => {
         </div>
         
         {/* Form Container */}
-        <motion.div
+        <MotionDiv
           key={currentStep}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -1031,7 +1017,7 @@ const IndustryOnboarding = () => {
           className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100"
         >
           {renderStep()}
-        </motion.div>
+        </MotionDiv>
       </div>
     </div>
   );
