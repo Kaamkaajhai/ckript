@@ -1,4 +1,4 @@
-import { useState, useContext, useRef, useEffect } from "react";
+﻿import { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
@@ -21,6 +21,7 @@ import {
   Phone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import "./onboarding-theme.css";
 
 
 // Comprehensive email validation
@@ -250,7 +251,7 @@ const InvestorOnboarding = () => {
 
   const [currentStep, setCurrentStep] = useState(() => {
     const step = Number(initialDraft?.currentStep);
-    return Number.isInteger(step) && step >= 1 && step <= 4 ? step : 1;
+    return Number.isInteger(step) && step >= 1 && step <= 8 ? step : 1;
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -405,11 +406,63 @@ const InvestorOnboarding = () => {
   }, [investorProfile.username]);
 
   const steps = [
-    { num: 1, title: "Account" },
-    { num: 2, title: "Profile" },
-    { num: 3, title: "Preferences" },
-    { num: 4, title: "Complete" },
+    { num: 1, title: "Name" },
+    { num: 2, title: "Contact" },
+    { num: 3, title: "Password" },
+    { num: 4, title: "Identity" },
+    { num: 5, title: "About" },
+    { num: 6, title: "Credits" },
+    { num: 7, title: "Discover" },
+    { num: 8, title: "Terms" },
   ];
+
+  const TOTAL_STEPS = 8;
+  const progressPercent = Math.round((currentStep / TOTAL_STEPS) * 100);
+
+  const handleSubStepContinue = useCallback((e) => {
+    if (e) e.preventDefault();
+    setError(""); setEmailError(""); setPhoneError(""); setUsernameError("");
+    setRoleFocusError(""); setJobTitleError(""); setFirmNameError(""); setIdentityError(""); setBioError("");
+    switch (currentStep) {
+      case 1:
+        if (!accountData.name.trim()) { setError("Please enter your name"); return; }
+        setCurrentStep(2);
+        break;
+      case 2:
+        if (!isValidEmail(accountData.email.trim().toLowerCase())) { setEmailError("Please enter a valid email"); return; }
+        if (!accountData.phone.trim()) { setPhoneError("Phone number is required"); return; }
+        if (!PHONE_REGEX.test(accountData.phone)) { setPhoneError("Enter a valid phone number"); return; }
+        setCurrentStep(3);
+        break;
+      case 4: {
+        const u = String(investorProfile.username || "").trim().toLowerCase();
+        if (!u) { setUsernameError("Username is required"); return; }
+        if (!USERNAME_PATTERN.test(u)) { setUsernameError("Use 3-30 lowercase letters, numbers, or _"); return; }
+        if (usernameStatus.state === "checking") { setUsernameError("Checking..."); return; }
+        if (usernameStatus.state === "unavailable") { setUsernameError("Username taken"); return; }
+        const r = normalizeIndustryRole(investorProfile.subRole);
+        if (!r || !INDUSTRY_ROLE_VALUE_SET.has(r)) { setRoleFocusError("Role focus is required"); return; }
+        if (!investorProfile.jobTitle?.trim()) { setJobTitleError("Job title is required"); return; }
+        if (!investorProfile.company?.trim()) { setFirmNameError("Production house / firm is required"); return; }
+        setCurrentStep(5);
+        break;
+      }
+      case 5:
+        if (!investorProfile.gender?.trim() || !investorProfile.nationality?.trim()) { setIdentityError("Gender and nationality required"); return; }
+        if (!investorProfile.bio?.trim()) { setBioError("Bio is required"); return; }
+        setCurrentStep(6);
+        break;
+      case 6: setCurrentStep(7); break;
+      default: setCurrentStep(prev => Math.min(prev + 1, TOTAL_STEPS));
+    }
+  }, [currentStep, accountData, investorProfile, usernameStatus.state]);
+
+  const handleFinishLater = () => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(INVESTOR_ONBOARDING_DRAFT_KEY);
+    }
+    navigate("/dashboard");
+  };
 
   const investmentRanges = [
     { value: "under_50k", label: "Under ₹50L" },
@@ -485,7 +538,7 @@ const InvestorOnboarding = () => {
         setShowOTPVerification(true);
       } else if (response?.token) {
         // Direct login (shouldn't happen with new flow)
-        setCurrentStep(2);
+        setCurrentStep(4);
       }
 
       setError("");
@@ -508,7 +561,7 @@ const InvestorOnboarding = () => {
       localStorage.setItem("user", JSON.stringify(userData));
     }
     setShowOTPVerification(false);
-    setCurrentStep(2);
+    setCurrentStep(4);
   };
 
   const handleBackToSignup = () => {
@@ -528,7 +581,7 @@ const InvestorOnboarding = () => {
     setError("");
     try {
       const res = await api.post("/onboarding/verify-email", { code: verificationCode });
-      if (res.data.success) setCurrentStep(2);
+      if (res.data.success) setCurrentStep(4);
     } catch (err) {
       setError(err.response?.data?.message || "Verification failed");
     } finally {
@@ -789,7 +842,7 @@ const InvestorOnboarding = () => {
         investmentRange: investorProfile.investmentRange,
       });
 
-      setCurrentStep(3);
+      setCurrentStep(7);
     } catch (err) {
       setError(err.response?.data?.message || "Profile update failed");
     } finally {
@@ -807,7 +860,7 @@ const InvestorOnboarding = () => {
         preferredGenres: selectedGenres,
         preferredFormats: selectedFormats,
       });
-      setCurrentStep(4);
+      setCurrentStep(8);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save preferences");
     } finally {
@@ -860,6 +913,7 @@ const InvestorOnboarding = () => {
     </button>
   );
 
+
   // Show OTP verification screen if needed
   if (showOTPVerification) {
     return (
@@ -875,835 +929,325 @@ const InvestorOnboarding = () => {
     );
   }
 
+  const MotionCard = motion.div;
+  const cardAnim = { initial: { opacity: 0, y: 24 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -16 }, transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } };
+
+  const PwReq = ({ ok, text }) => (
+    <div className={`ob-pw-req ${ok ? "ob-pw-req--pass" : "ob-pw-req--fail"}`}>
+      <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={ok ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} /></svg>
+      {text}
+    </div>
+  );
+
+  const ErrorBox = ({ msg }) => msg ? <div className="ob-error-box"><AlertCircle size={14} className="shrink-0" />{msg}</div> : null;
+
+  const FinishLaterBtn = () => currentStep >= 4 ? (
+    <button type="button" onClick={handleFinishLater} className="ob-btn ob-btn-finish">I'll finish later →</button>
+  ) : null;
+
+  const BackBtn = ({ to }) => (
+    <button type="button" onClick={() => { setError(""); setCurrentStep(to); }} className="ob-btn ob-btn-ghost" style={{ width: "auto", padding: "0 20px" }}>
+      ← Back
+    </button>
+  );
+
   return (
-    <div className="investor-onboarding-page min-h-screen !bg-[#080e18] flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
-        {/* Logo */}
-        <div className="text-center mb-3">
-          <div className="flex items-center justify-center mb-1">
-            <div className="w-20 h-20 bg-[#0d1520] border border-[#1a2433] rounded-xl flex items-center justify-center shadow-lg shadow-black/25">
-              <Users className="text-white" size={40} strokeWidth={1.5} />
-            </div>
-          </div>
-          <p className="text-sm text-gray-600">Industry Professional Onboarding</p>
+    <div className="ob-page">
+      {/* Progress bar */}
+      <div className="ob-progress-wrap">
+        <div className="ob-progress-track">
+          <div className="ob-progress-fill" style={{ width: `${progressPercent}%` }} />
         </div>
+        <div className="ob-progress-meta">
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "0.8rem", color: "#F9FAFB", fontWeight: 600 }}>Ckript</span>
+          <span style={{ fontSize: "0.7rem", color: "#6B7280", fontWeight: 500 }}>Step {currentStep} of {TOTAL_STEPS}</span>
+        </div>
+      </div>
 
-        {/* Steps */}
-        <div className="flex items-center justify-center mb-8">
-          {steps.map((step, i) => (
-            <div key={step.num} className="flex items-center">
-              <div className="flex flex-col items-center gap-1.5">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${currentStep > step.num
-                      ? "bg-[#1e3a5f] border-[#1e3a5f] text-white"
-                      : currentStep === step.num
-                        ? "bg-white border-[#1e3a5f] text-[#1e3a5f]"
-                        : "bg-white border-gray-200 text-gray-300"
-                    }`}
-                >
-                  {currentStep > step.num ? <CheckCircle size={14} /> : step.num}
+      {/* Content area */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", padding: "80px 16px 40px", minHeight: "100dvh" }}>
+        <AnimatePresence mode="wait">
+
+          {/* Step 1: Name */}
+          {currentStep === 1 && (
+            <MotionCard key="s1" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">What's your <em>name</em>?</h1>
+              <p className="ob-subtitle">Let's start with the basics.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Full Name</label>
+                <div style={{ position: "relative" }}>
+                  <User size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                  <input autoFocus type="text" className="ob-input" style={{ paddingLeft: 40 }} placeholder="e.g. Rajesh Kumar" value={accountData.name} onChange={(e) => setAccountData({ ...accountData, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && handleSubStepContinue(e)} required />
                 </div>
-                <span className={`text-[10px] font-bold ${currentStep === step.num ? "text-[#1e3a5f]" : "text-gray-300"}`}>
-                  {step.title}
-                </span>
               </div>
-              {i < steps.length - 1 && (
-                <div className={`w-14 h-0.5 mb-5 mx-1 transition-all ${currentStep > step.num ? "bg-[#1e3a5f]" : "bg-gray-200"}`} />
-              )}
-            </div>
-          ))}
-        </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+              </div>
+              <div className="ob-footer-links" style={{ marginTop: 20 }}>Already have an account? <Link to="/login" className="ob-link">Sign in</Link></div>
+            </MotionCard>
+          )}
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <AnimatePresence mode="wait">
-
-            {/* ── Step 1: Account ── */}
-            {currentStep === 1 && (
-              <MotionDiv key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="px-8 pt-7 pb-2 border-b border-gray-50">
-                  <h2 className="text-xl font-black text-gray-900">Create your account</h2>
-                  <p className="text-gray-400 text-sm font-medium mt-1">Join as a producer/director and discover projects worth backing</p>
+          {/* Step 2: Contact */}
+          {currentStep === 2 && (
+            <MotionCard key="s2" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">How do we <em>reach</em> you?</h1>
+              <p className="ob-subtitle">Your email for verification and phone for account security.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Email Address</label>
+                <div style={{ position: "relative" }}>
+                  <Mail size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                  <input autoFocus type="email" className={`ob-input ${emailError ? "ob-input--error" : ""}`} style={{ paddingLeft: 40 }} placeholder="producer@example.com" value={accountData.email} onChange={(e) => { setAccountData({ ...accountData, email: e.target.value }); setEmailError(""); }} required />
                 </div>
+                {emailError && <p className="ob-hint ob-hint--err">{emailError}</p>}
+              </div>
+              <div className="ob-field">
+                <label className="ob-label">Phone Number</label>
+                <div style={{ position: "relative" }}>
+                  <Phone size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                  <input type="tel" className={`ob-input ${phoneError ? "ob-input--error" : ""}`} style={{ paddingLeft: 40 }} placeholder="+91 00000 00000" value={accountData.phone} onChange={(e) => { setAccountData({ ...accountData, phone: e.target.value }); setPhoneError(""); }} required />
+                </div>
+                {phoneError && <p className="ob-hint ob-hint--err">{phoneError}</p>}
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+                <BackBtn to={1} />
+              </div>
+            </MotionCard>
+          )}
 
-                {!verificationSent ? (
-                  <form onSubmit={handleAccountCreation} className="p-8 space-y-5">
-                    <div>
-                      <label className={labelClass}>Full Name</label>
-                      <div className="relative">
-                        <User size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="text"
-                          placeholder="Your full name"
-                          value={accountData.name}
-                          onChange={(e) => setAccountData({ ...accountData, name: e.target.value })}
-                          className={`${inputClass} pl-10`}
-                          required
-                        />
-                      </div>
+          {/* Step 3: Password -> Create Account */}
+          {currentStep === 3 && (
+            <MotionCard key="s3" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Secure your <em>account</em></h1>
+              <p className="ob-subtitle">Choose a strong password to protect your account.</p>
+              <ErrorBox msg={error} />
+              <form onSubmit={handleAccountCreation}>
+                <div className="ob-field">
+                  <label className="ob-label">Password</label>
+                  <div style={{ position: "relative" }}>
+                    <Lock size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
+                    <input autoFocus type="password" className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
+                  </div>
+                  {showPasswordReqs && (() => { const v = validatePassword(accountData.password); return (
+                    <div className="ob-pw-reqs">
+                      <PwReq ok={v.length} text="At least 8 characters" />
+                      <PwReq ok={v.uppercase} text="One uppercase letter (A-Z)" />
+                      <PwReq ok={v.lowercase} text="One lowercase letter (a-z)" />
+                      <PwReq ok={v.number} text="One number (0-9)" />
+                      <PwReq ok={v.special} text="One special character (!@#$%^&*)" />
                     </div>
-                    <div>
-                      <label className={labelClass}>Email Address</label>
-                      <div className="relative">
-                        <Mail size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="email"
-                          placeholder="you@example.com"
-                          value={accountData.email}
-                          onChange={(e) => setAccountData({ ...accountData, email: e.target.value })}
-                          className={`${inputClass} pl-10`}
-                          required
-                        />
-                      </div>
-                    </div>
+                  ); })()}
+                </div>
+                <div className="ob-actions">
+                  <button type="submit" disabled={loading} className="ob-btn ob-btn-primary">{loading ? "Creating account..." : <><span>Create Account</span> <ArrowRight size={16} /></>}</button>
+                  <BackBtn to={2} />
+                </div>
+              </form>
+            </MotionCard>
+          )}
 
-                    <div>
-                      <label className={labelClass}>Phone Number</label>
-                      <div className="relative">
-                        <Phone size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="tel"
-                          placeholder="+91 00000 00000"
-                          value={accountData.phone}
-                          onChange={(e) => {
-                            setAccountData({ ...accountData, phone: e.target.value });
-                            setPhoneError("");
-                          }}
-                          className={`${inputClass} pl-10 ${phoneError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                          required
-                        />
-                      </div>
-                      {phoneError && (
-                        <p className="mt-1.5 text-xs font-semibold text-red-600">{phoneError}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <label className={labelClass}>Password</label>
-                        <div className="relative">
-                          <Lock size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                          <input
-                            type="password"
-                            placeholder="Min. 8 chars"
-                            value={accountData.password}
-                            onChange={(e) => {
-                              setAccountData({ ...accountData, password: e.target.value });
-                              if (!showPasswordReqs) setShowPasswordReqs(true);
-                            }}
-                            onFocus={() => setShowPasswordReqs(true)}
-                            className={`${inputClass} pl-10`}
-                            required
-                          />
-                        </div>
-                        {showPasswordReqs && (
-                          <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="text-[11px] font-semibold text-gray-600 mb-2">Password Requirements:</p>
-                            <div className="space-y-1">
-                              {(() => {
-                                const validation = validatePassword(accountData.password);
-                                return (
-                                  <>
-                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.length ? 'text-green-600' : 'text-gray-500'}`}>
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.length ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                                      </svg>
-                                      At least 8 characters
-                                    </div>
-                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.uppercase ? 'text-green-600' : 'text-gray-500'}`}>
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.uppercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                                      </svg>
-                                      One uppercase letter (A-Z)
-                                    </div>
-                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.lowercase ? 'text-green-600' : 'text-gray-500'}`}>
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.lowercase ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                                      </svg>
-                                      One lowercase letter (a-z)
-                                    </div>
-                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.number ? 'text-green-600' : 'text-gray-500'}`}>
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.number ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                                      </svg>
-                                      One number (0-9)
-                                    </div>
-                                    <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${validation.special ? 'text-green-600' : 'text-gray-500'}`}>
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d={validation.special ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"} />
-                                      </svg>
-                                      One special character (!@#$%^&*)
-                                    </div>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {emailError && (
-                      <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
-                        <AlertCircle size={15} className="text-red-400 shrink-0" />
-                        <p className="text-sm font-semibold text-red-600">{emailError}</p>
-                      </div>
-                    )}
-
-                    {error && (
-                      <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
-                        <AlertCircle size={15} className="text-red-400 shrink-0" />
-                        <p className="text-sm font-semibold text-red-600">{error}</p>
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="w-full h-11 bg-[#1e3a5f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#162d4a] transition-all disabled:opacity-60"
-                    >
-                      {loading ? "Creating account..." : <>Create Account <ArrowRight size={16} /></>}
-                    </button>
-
-                    <p className="text-center text-xs text-gray-400 font-medium">
-                      Already have an account?{" "}
-                      <a href="/login" className="text-[#1e3a5f] font-bold hover:underline">Sign in</a>
-                    </p>
-                  </form>
-                ) : (
-                  <form onSubmit={handleEmailVerification} className="p-8 space-y-5">
-                    <div className="flex items-center gap-3 px-4 py-3.5 bg-blue-50 border border-blue-100 rounded-xl">
-                      <Mail size={16} className="text-blue-500 shrink-0" />
-                      <p className="text-sm font-semibold text-blue-700">Verification code sent to <span className="font-black">{accountData.email}</span></p>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Verification Code</label>
-                      <input
-                        type="text"
-                        placeholder="Enter 6-digit code"
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value)}
-                        className={`${inputClass} text-center text-xl font-black tracking-[0.3em]`}
-                        maxLength={6}
-                        required
-                      />
-                    </div>
-
-                    {error && (
-                      <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
-                        <AlertCircle size={15} className="text-red-400 shrink-0" />
-                        <p className="text-sm font-semibold text-red-600">{error}</p>
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={loading || verificationCode.length < 6}
-                      className="w-full h-11 bg-[#1e3a5f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#162d4a] transition-all disabled:opacity-60"
-                    >
-                      {loading ? "Verifying..." : <>Verify Email <ArrowRight size={16} /></>}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={async () => { await api.post("/onboarding/send-verification").catch(() => { }); }}
-                      className="w-full text-sm text-gray-400 hover:text-[#1e3a5f] font-semibold transition-colors"
-                    >
-                      Resend code
-                    </button>
-                  </form>
+          {/* Step 4: Industry Identity */}
+          {currentStep === 4 && (
+            <MotionCard key="s4" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Your industry <em>identity</em></h1>
+              <p className="ob-subtitle">Tell us about your role in the entertainment industry.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Username</label>
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 14, top: 13, color: "#6B7280", fontSize: "0.9375rem", fontWeight: 500 }}>@</span>
+                  <input autoFocus type="text" className={`ob-input ${usernameError || usernameStatus.state === "unavailable" ? "ob-input--error" : ""}`} style={{ paddingLeft: 34 }} placeholder="e.g. rajesh_films" value={investorProfile.username} onChange={(e) => { setInvestorProfile({ ...investorProfile, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }); if (usernameError) setUsernameError(""); }} required />
+                </div>
+                {usernameError && <p className="ob-hint ob-hint--err">{usernameError}</p>}
+                {!usernameError && usernameStatus.message && (
+                  <p className={`ob-hint ${usernameStatus.state === "available" ? "ob-hint--ok" : usernameStatus.state === "unavailable" || usernameStatus.state === "invalid" ? "ob-hint--err" : ""}`}>{usernameStatus.message}</p>
                 )}
-              </MotionDiv>
-            )}
-
-            {/* ── Step 2: Investor Profile ── */}
-            {currentStep === 2 && (
-              <MotionDiv key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="px-8 pt-7 pb-2 border-b border-gray-50">
-                  <h2 className="text-xl font-black text-gray-900">Industry Professional profile</h2>
-                  <p className="text-gray-400 text-sm font-medium mt-1">Tell writers and creators about your production focus</p>
+              </div>
+              <div className="ob-field">
+                <label className="ob-label">Role Focus *</label>
+                <select className="ob-input ob-select" value={investorProfile.subRole} onChange={(e) => { setInvestorProfile({ ...investorProfile, subRole: e.target.value }); setRoleFocusError(""); }} required>
+                  <option value="">Select your role</option>
+                  {INDUSTRY_ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+                {roleFocusError && <p className="ob-hint ob-hint--err">{roleFocusError}</p>}
+              </div>
+              <div className="ob-row">
+                <div className="ob-field">
+                  <label className="ob-label">Job Title *</label>
+                  <input type="text" className="ob-input" placeholder="e.g. Creative Producer" value={investorProfile.jobTitle} onChange={(e) => { setInvestorProfile({ ...investorProfile, jobTitle: e.target.value }); setJobTitleError(""); }} required />
+                  {jobTitleError && <p className="ob-hint ob-hint--err">{jobTitleError}</p>}
                 </div>
-                <form onSubmit={handleInvestorProfile} className="p-8 space-y-5">
-                  <div>
-                    <label className={labelClass}>Username</label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-3 text-gray-300 font-medium text-sm">@</span>
-                      <input
-                        type="text"
-                        placeholder="e.g. investor_yash"
-                        value={investorProfile.username}
-                        onChange={(e) => {
-                          setInvestorProfile({
-                            ...investorProfile,
-                            username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
-                          });
-                          if (usernameError) setUsernameError("");
-                        }}
-                        className={`${inputClass} pl-8 ${usernameError || usernameStatus.state === "unavailable" || usernameStatus.state === "invalid" ? "border-red-400 focus:border-red-400 focus:ring-red-100" : usernameStatus.state === "available" ? "border-emerald-400" : ""}`}
-                        required
-                      />
-                    </div>
-                    {!usernameError && usernameStatus.message && (
-                      <p className={`mt-1.5 text-xs flex items-center gap-1 ${usernameStatus.state === "available" ? "text-emerald-600" : usernameStatus.state === "unavailable" || usernameStatus.state === "invalid" || usernameStatus.state === "error" ? "text-red-500" : "text-gray-500"}`}>
-                        <AlertCircle size={12} /> {usernameStatus.message}
-                      </p>
-                    )}
-                    {usernameError && (
-                      <p className="mt-1.5 text-xs font-semibold text-red-500">{usernameError}</p>
-                    )}
+                <div className="ob-field">
+                  <label className="ob-label">Production House / Firm *</label>
+                  <input type="text" className="ob-input" placeholder="e.g. Dharma Productions" value={investorProfile.company} onChange={(e) => { setInvestorProfile({ ...investorProfile, company: e.target.value }); setFirmNameError(""); }} required />
+                  {firmNameError && <p className="ob-hint ob-hint--err">{firmNameError}</p>}
+                </div>
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+                <FinishLaterBtn />
+              </div>
+            </MotionCard>
+          )}
+
+          {/* Step 5: About */}
+          {currentStep === 5 && (
+            <MotionCard key="s5" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Tell us about <em>yourself</em></h1>
+              <p className="ob-subtitle">A few more details for your producer profile.</p>
+              <ErrorBox msg={error} />
+              <div className="ob-field">
+                <label className="ob-label">Short Bio *</label>
+                <textarea className="ob-input ob-textarea" placeholder="Producer with 10+ years in Bollywood. Passionate about untold stories..." value={investorProfile.bio} onChange={(e) => { setInvestorProfile({ ...investorProfile, bio: e.target.value }); setBioError(""); }} rows={3} required />
+                {bioError && <p className="ob-hint ob-hint--err">{bioError}</p>}
+              </div>
+              <div className="ob-row">
+                <div className="ob-field">
+                  <label className="ob-label">Gender *</label>
+                  <select className="ob-input ob-select" value={investorProfile.gender} onChange={(e) => { setInvestorProfile({ ...investorProfile, gender: e.target.value }); setIdentityError(""); }} required>
+                    <option value="">Select</option>
+                    {INVESTOR_GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div className="ob-field">
+                  <label className="ob-label">Nationality *</label>
+                  <select className="ob-input ob-select" value={investorProfile.nationality} onChange={(e) => { setInvestorProfile({ ...investorProfile, nationality: e.target.value }); setIdentityError(""); }} required>
+                    <option value="">Select</option>
+                    {INVESTOR_NATIONALITY_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </div>
+              </div>
+              {identityError && <p className="ob-hint ob-hint--err" style={{ marginBottom: 12 }}>{identityError}</p>}
+              <div className="ob-field">
+                <label className="ob-label">Investment Range <span style={{ opacity: 0.5, textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
+                <select className="ob-input ob-select" value={investorProfile.investmentRange} onChange={(e) => setInvestorProfile({ ...investorProfile, investmentRange: e.target.value })}>
+                  <option value="">Select range</option>
+                  {investmentRanges.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
+                <div className="ob-actions-row"><BackBtn to={4} /><FinishLaterBtn /></div>
+              </div>
+            </MotionCard>
+          )}
+
+          {/* Step 6: Notable Credits -> triggers profile save */}
+          {currentStep === 6 && (
+            <MotionCard key="s6" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Notable <em>credits</em></h1>
+              <p className="ob-subtitle">Share your previous work and notable credits. Optional — you can skip.</p>
+              <ErrorBox msg={error} />
+              {creditUploadNotice && <div className="ob-error-box" style={{ background: "rgba(120,80,0,0.2)", borderColor: "rgba(251,191,36,0.3)", color: "#FBBF24" }}>{creditUploadNotice}</div>}
+              <form onSubmit={handleProfile}>
+                <div className="ob-field">
+                  <label className="ob-label">Previous Credits</label>
+                  <textarea className="ob-input ob-textarea" placeholder="List films, shows, or projects you've been involved with..." value={investorProfile.previousCredits} onChange={(e) => setInvestorProfile({ ...investorProfile, previousCredits: e.target.value })} rows={3} />
+                </div>
+                <div className="ob-field">
+                  <label className="ob-label">Social Links <span style={{ opacity: 0.5, textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
+                  <div className="ob-row" style={{ marginBottom: 8 }}>
+                    <input type="url" className="ob-input" placeholder="LinkedIn URL" value={investorProfile.linkedinUrl} onChange={(e) => setInvestorProfile({ ...investorProfile, linkedinUrl: e.target.value })} />
+                    <input type="url" className="ob-input" placeholder="IMDB URL" value={investorProfile.imdbUrl} onChange={(e) => setInvestorProfile({ ...investorProfile, imdbUrl: e.target.value })} />
                   </div>
-
-                  <div>
-                    <label className={labelClass}>Role Focus</label>
-                    <div className="relative">
-                      <Briefcase size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                      <select
-                        value={normalizeIndustryRole(investorProfile.subRole)}
-                        onChange={(e) => {
-                          const nextSubRole = e.target.value;
-                          setInvestorProfile((prev) => ({
-                            ...prev,
-                            subRole: nextSubRole,
-                            subRoleOther: nextSubRole === "other" ? prev.subRoleOther : "",
-                          }));
-                          if (roleFocusError) setRoleFocusError("");
-                        }}
-                        className={`${inputClass} pl-10 pr-10 appearance-none ${roleFocusError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                        required
-                      >
-                        <option value="">Select role focus</option>
-                        {INDUSTRY_ROLE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                      <svg
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={2}
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                    {roleFocusError && (
-                      <p className="mt-1.5 text-xs font-semibold text-red-500">{roleFocusError}</p>
-                    )}
-
-                    {normalizeIndustryRole(investorProfile.subRole) === "other" && (
-                      <div className="mt-2">
-                        <input
-                          type="text"
-                          placeholder="Please specify your role focus"
-                          value={investorProfile.subRoleOther}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, subRoleOther: e.target.value });
-                            if (roleFocusError) setRoleFocusError("");
-                          }}
-                          maxLength={80}
-                          className={`${inputClass} ${roleFocusError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                          required
-                        />
-                      </div>
-                    )}
+                  <div className="ob-row">
+                    <input type="url" className="ob-input" placeholder="Instagram URL" value={investorProfile.instagramUrl} onChange={(e) => setInvestorProfile({ ...investorProfile, instagramUrl: e.target.value })} />
+                    <input type="url" className="ob-input" placeholder="Twitter / X URL" value={investorProfile.twitterUrl} onChange={(e) => setInvestorProfile({ ...investorProfile, twitterUrl: e.target.value })} />
                   </div>
-
-                  <div>
-                    <label className={labelClass}>Job Title</label>
-                    <div className="relative">
-                      <Briefcase size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                      <input
-                        type="text"
-                        placeholder="e.g. Creative Producer"
-                        value={investorProfile.jobTitle}
-                        onChange={(e) => {
-                          setInvestorProfile({ ...investorProfile, jobTitle: e.target.value });
-                          if (jobTitleError) setJobTitleError("");
-                        }}
-                        className={`${inputClass} pl-10 ${jobTitleError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                        required
-                      />
-                    </div>
-                    {jobTitleError && (
-                      <p className="mt-1.5 text-xs font-semibold text-red-500">{jobTitleError}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Production House / Firm Name</label>
-                    <div className="relative">
-                      <Briefcase size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                      <input
-                        type="text"
-                        placeholder="e.g. YATU Productions"
-                        value={investorProfile.company}
-                        onChange={(e) => {
-                          setInvestorProfile({ ...investorProfile, company: e.target.value });
-                          if (firmNameError) setFirmNameError("");
-                        }}
-                        className={`${inputClass} pl-10 ${firmNameError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                        required
-                      />
-                    </div>
-                    {firmNameError && (
-                      <p className="mt-1.5 text-xs font-semibold text-red-500">{firmNameError}</p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className={labelClass}>Gender</label>
-                      <div className="relative">
-                        <User size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <select
-                          value={investorProfile.gender}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, gender: e.target.value });
-                            if (identityError) setIdentityError("");
-                          }}
-                          className={`${inputClass} pl-10 pr-10 appearance-none ${identityError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                          required
-                        >
-                          <option value="">Select gender</option>
-                          {INVESTOR_GENDER_OPTIONS.map((option) => (
-                            <option key={option} value={option}>{option}</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={16} className="absolute right-3.5 top-3.5 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>Nationality</label>
-                      <div className="relative">
-                        <Globe size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <select
-                          value={investorProfile.nationality}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, nationality: e.target.value });
-                            if (identityError) setIdentityError("");
-                          }}
-                          className={`${inputClass} pl-10 pr-10 appearance-none ${identityError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : ""}`}
-                          required
-                        >
-                          <option value="">Select nationality</option>
-                          {INVESTOR_NATIONALITY_OPTIONS.map((option) => (
-                            <option key={option} value={option}>{option}</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={16} className="absolute right-3.5 top-3.5 text-gray-400 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
-                  {identityError && (
-                    <p className="-mt-1 text-xs font-semibold text-red-500">{identityError}</p>
-                  )}
-
-                  <div>
-                    <label className={labelClass}>Typical Project Budget Range</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {investmentRanges.map((r) => (
-                        <ChipButton
-                          key={r.value}
-                          label={r.label}
-                          active={investorProfile.investmentRange === r.value}
-                          onClick={() => setInvestorProfile({ ...investorProfile, investmentRange: r.value })}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Portfolio / Showreel URL <span className="normal-case text-gray-300 font-medium">(optional)</span></label>
-                    <div className="relative">
-                      <Globe size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                      <input
-                        type="url"
-                        placeholder="https://yourshowreel.com"
-                        value={investorProfile.portfolioUrl}
-                        onChange={(e) => {
-                          setInvestorProfile({ ...investorProfile, portfolioUrl: e.target.value });
-                          if (socialLinkError) setSocialLinkError("");
-                        }}
-                        className={`${inputClass} pl-10`}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Online Presence <span className="normal-case text-gray-300 font-medium">(optional)</span></label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="relative">
-                        <Globe size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="url"
-                          placeholder="https://linkedin.com/in/yourname"
-                          value={investorProfile.linkedInUrl}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, linkedInUrl: e.target.value });
-                            if (socialLinkError) setSocialLinkError("");
-                          }}
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <FileText size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="url"
-                          placeholder="https://imdb.com/name/..."
-                          value={investorProfile.imdbUrl}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, imdbUrl: e.target.value });
-                            if (socialLinkError) setSocialLinkError("");
-                          }}
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <Instagram size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="url"
-                          placeholder="https://instagram.com/yourhandle"
-                          value={investorProfile.instagramUrl}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, instagramUrl: e.target.value });
-                            if (socialLinkError) setSocialLinkError("");
-                          }}
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <Twitter size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="url"
-                          placeholder="https://x.com/yourhandle"
-                          value={investorProfile.twitterUrl}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, twitterUrl: e.target.value });
-                            if (socialLinkError) setSocialLinkError("");
-                          }}
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-
-                      <div className="relative sm:col-span-2">
-                        <Globe size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="url"
-                          placeholder="https://facebook.com/yourpage"
-                          value={investorProfile.facebookUrl}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, facebookUrl: e.target.value });
-                            if (socialLinkError) setSocialLinkError("");
-                          }}
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-
-                      <div className="relative sm:col-span-2">
-                        <Globe size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="url"
-                          placeholder="https://youtube.com/@yourchannel"
-                          value={investorProfile.youtubeUrl}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, youtubeUrl: e.target.value });
-                            if (socialLinkError) setSocialLinkError("");
-                          }}
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-
-                      <div className="relative sm:col-span-2">
-                        <Globe size={15} className="absolute left-3.5 top-3.5 text-gray-300" />
-                        <input
-                          type="url"
-                          placeholder="https://yourproductionhouse.com"
-                          value={investorProfile.websiteUrl}
-                          onChange={(e) => {
-                            setInvestorProfile({ ...investorProfile, websiteUrl: e.target.value });
-                            if (socialLinkError) setSocialLinkError("");
-                          }}
-                          className={`${inputClass} pl-10`}
-                        />
-                      </div>
-                    </div>
-                    {socialLinkError ? (
-                      <p className="mt-1.5 text-xs font-semibold text-red-500">{socialLinkError}</p>
-                    ) : (
-                      <p className="mt-1.5 text-xs text-gray-400">Add as many links as you want. Use full URLs including http:// or https://</p>
-                    )}
-                    <p className="mt-1 text-xs text-gray-500">
-                      Privacy note: these links are private and are not visible to users, writers, or other industry professionals.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Notable Credits <span className="normal-case text-gray-300 font-medium">(optional)</span></label>
-                    <textarea
-                      rows={3}
-                      placeholder="Share key projects, films, episodes, or awards"
-                      value={investorProfile.previousCredits}
-                      onChange={(e) => setInvestorProfile({ ...investorProfile, previousCredits: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-[14px] font-medium focus:outline-none focus:border-[#1e3a5f]/40 focus:ring-2 focus:ring-[#1e3a5f]/5 transition-all bg-gray-50 text-gray-900 placeholder:text-gray-400 resize-none"
-                    />
-
-                    <div className="mt-3 space-y-2">
-                      <label className={labelClass}>Attach Credit Files <span className="normal-case text-gray-300 font-medium">(optional)</span></label>
-                      <input
-                        type="file"
-                        multiple
-                        accept={NOTABLE_CREDIT_ACCEPT}
-                        onChange={handleNotableCreditFileSelection}
-                        className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-[#1e3a5f] file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white hover:file:bg-[#162d4a]"
-                      />
-                      <p className="text-xs text-gray-400">
-                        Upload images, PDFs, or videos (up to {MAX_NOTABLE_CREDIT_UPLOAD_FILES} at once, max {MAX_NOTABLE_CREDIT_TOTAL_FILES} total). Files upload immediately after selection.
-                      </p>
-
-                      {pendingCreditFiles.length > 0 && (
-                        <div className="rounded-lg border border-blue-100 bg-blue-50 p-2.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Selected For Upload</p>
-                          <ul className="mt-1.5 space-y-1">
-                            {pendingCreditFiles.map((file) => (
-                              <li key={`${file.name}-${file.lastModified}`} className="text-xs text-blue-800 break-all">
-                                {file.name}
-                              </li>
-                            ))}
-                          </ul>
+                  {socialLinkError && <p className="ob-hint ob-hint--err">{socialLinkError}</p>}
+                </div>
+                <div className="ob-field">
+                  <label className="ob-label">Credit Attachments</label>
+                  {creditAttachmentError && <p className="ob-hint ob-hint--err" style={{ marginBottom: 8 }}>{creditAttachmentError}</p>}
+                  <label className="ob-upload-zone">
+                    <input type="file" style={{ display: "none" }} multiple accept={NOTABLE_CREDIT_ALLOWED_EXTENSIONS.join(",")} onChange={handleNotableCreditFileSelection} />
+                    <FileText size={16} style={{ marginRight: 8 }} />Upload images, PDFs, or videos
+                  </label>
+                  {(creditAttachments.length > 0 || pendingCreditFiles.length > 0) && (
+                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {creditAttachments.map(a => (
+                        <div key={a.attachmentId} className="ob-chip ob-chip--active" style={{ gap: 6 }}>
+                          {a.originalName || "file"}
+                          <button type="button" onClick={() => handleRemoveCreditAttachment(a.attachmentId)} style={{ background: "none", border: "none", color: "#F87171", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
                         </div>
-                      )}
-
-                      {creditAttachments.length > 0 && (
-                        <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-2.5">
-                          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Uploaded Files</p>
-                          <ul className="mt-1.5 space-y-1">
-                            {creditAttachments.map((item, index) => (
-                              <li key={`${item?.publicId || item?.url || "uploaded"}-${index}`} className="flex items-start justify-between gap-2 text-xs text-emerald-800 break-all">
-                                <a
-                                  href={item?.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(event) => handleOpenNotableCreditAttachment(event, item)}
-                                  className="underline underline-offset-2 hover:text-emerald-700"
-                                >
-                                  {item?.fileName || `Attachment ${index + 1}`}
-                                </a>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveNotableCreditAttachment(item)}
-                                  disabled={creditUploadInProgress || removingCreditAttachmentId === String(item?.publicId || item?.url || "")}
-                                  className="shrink-0 font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {removingCreditAttachmentId === String(item?.publicId || item?.url || "") ? "Removing..." : "Remove"}
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {creditAttachmentError && (
-                        <p className="text-xs font-semibold text-red-500">{creditAttachmentError}</p>
-                      )}
-                      {!creditAttachmentError && creditUploadNotice && (
-                        <p className="text-xs font-semibold text-emerald-600">{creditUploadNotice}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Bio</label>
-                    <textarea
-                      rows={3}
-                      placeholder="Brief background on your creative and production experience..."
-                      value={investorProfile.bio}
-                      onChange={(e) => {
-                        setInvestorProfile({ ...investorProfile, bio: e.target.value });
-                        if (bioError) setBioError("");
-                      }}
-                      className={`w-full px-4 py-3 border rounded-xl text-[14px] font-medium focus:outline-none focus:ring-2 transition-all bg-gray-50 text-gray-900 placeholder:text-gray-400 resize-none ${bioError ? "border-red-400 focus:border-red-400 focus:ring-red-100" : "border-gray-200 focus:border-[#1e3a5f]/40 focus:ring-[#1e3a5f]/5"}`}
-                      required
-                    />
-                    {bioError && (
-                      <p className="mt-1.5 text-xs font-semibold text-red-500">{bioError}</p>
-                    )}
-                  </div>
-
-                  {error && (
-                    <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
-                      <AlertCircle size={15} className="text-red-400 shrink-0" />
-                      <p className="text-sm font-semibold text-red-600">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 pt-1">
-                    <button type="button" onClick={() => setCurrentStep(1)}
-                      className="h-11 px-5 rounded-xl border border-gray-200 text-black font-bold text-sm flex items-center gap-1.5 hover:border-gray-300 hover:text-black transition-all">
-                      <ArrowLeft size={15} /> Back
-                    </button>
-                    <button type="submit" disabled={loading || creditUploadInProgress}
-                      className="flex-1 h-11 bg-[#1e3a5f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#162d4a] transition-all disabled:opacity-60">
-                      {loading ? "Saving..." : creditUploadInProgress ? "Uploading files..." : <>Continue <ArrowRight size={16} /></>}
-                    </button>
-                  </div>
-                </form>
-              </MotionDiv>
-            )}
-
-            {/* ── Step 3: Preferences ── */}
-            {currentStep === 3 && (
-              <MotionDiv key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="px-8 pt-7 pb-2 border-b border-gray-50">
-                  <h2 className="text-xl font-black text-gray-900">Project preferences</h2>
-                  <p className="text-gray-400 text-sm font-medium mt-1">Help us match you with the right projects</p>
-                </div>
-                <form onSubmit={handlePreferences} className="p-8 space-y-6">
-                  <div>
-                    <label className={labelClass}>Preferred Genres</label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {genreOptions.map((g) => (
-                        <ChipButton key={g} label={g} active={selectedGenres.includes(g)} onClick={() => toggle(selectedGenres, setSelectedGenres, g)} />
+                      ))}
+                      {pendingCreditFiles.map((f, i) => (
+                        <div key={`pending-${i}`} className="ob-chip" style={{ opacity: 0.6 }}>{f.name} (uploading...)</div>
                       ))}
                     </div>
-                  </div>
-
-                  <div>
-                    <label className={labelClass}>Preferred Formats</label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {FORMAT_OPTIONS.map((f) => (
-                        <ChipButton
-                          key={f.value}
-                          label={f.label}
-                          active={selectedFormats.includes(f.value)}
-                          onClick={() => toggle(selectedFormats, setSelectedFormats, f.value)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {error && (
-                    <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
-                      <AlertCircle size={15} className="text-red-400 shrink-0" />
-                      <p className="text-sm font-semibold text-red-600">{error}</p>
-                    </div>
                   )}
-
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setCurrentStep(2)}
-                      className="h-11 px-5 rounded-xl border border-gray-200 text-black font-bold text-sm flex items-center gap-1.5 hover:border-gray-300 hover:text-black transition-all">
-                      <ArrowLeft size={15} /> Back
-                    </button>
-                    <button type="submit" disabled={loading}
-                      className="flex-1 h-11 bg-[#1e3a5f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#162d4a] transition-all disabled:opacity-60">
-                      {loading ? "Saving..." : <>Continue <ArrowRight size={16} /></>}
-                    </button>
-                  </div>
-                </form>
-              </MotionDiv>
-            )}
-
-            {/* ── Step 4: Legal & Complete ── */}
-            {currentStep === 4 && (
-              <MotionDiv key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
-                <div className="px-8 pt-7 pb-2 border-b border-gray-50">
-                  <h2 className="text-xl font-black text-gray-900">Producer/Director Agreement</h2>
-                  <p className="text-gray-400 text-sm font-medium mt-1">Please read and accept the terms before accessing the platform</p>
                 </div>
-                <div className="p-8 space-y-5">
-                  <div className="border border-gray-100 rounded-xl p-5 bg-gray-50 text-sm text-gray-600">
-                    <p className="font-black text-gray-700 mb-2">Legal Agreements</p>
-                    <p className="mb-4">
-                      Please review our Terms and Conditions and Privacy Policy before completing your registration.
-                    </p>
-                    
-                    <div className="flex flex-col sm:flex-row gap-3 mb-5">
-                      <Link
-                        to={INVESTOR_TERMS_ROUTE}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition-all font-bold text-sm flex-1"
-                      >
-                        Open Terms & Conditions
-                        <ArrowRight size={14} />
-                      </Link>
-                      <Link
-                        to={REGISTRATION_PRIVACY_ROUTE}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition-all font-bold text-sm flex-1"
-                      >
-                        Open Privacy Policy
-                        <ArrowRight size={14} />
-                      </Link>
-                    </div>
+                <div className="ob-actions">
+                  <button type="submit" disabled={loading || creditUploadInProgress} className="ob-btn ob-btn-primary">{loading ? "Saving profile..." : <><span>Save & Continue</span> <ArrowRight size={16} /></>}</button>
+                  <div className="ob-actions-row"><BackBtn to={5} /><FinishLaterBtn /></div>
+                </div>
+              </form>
+            </MotionCard>
+          )}
 
-                    <div className="space-y-4 pt-4 border-t border-gray-200">
-                      <label className="flex items-center gap-3 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={agreementAccepted}
-                          onChange={(e) => setAgreementAccepted(e.target.checked)}
-                          className="w-5 h-5 rounded border-gray-300"
-                          style={{ accentColor: "#1e3a5f" }}
-                        />
-                        <span className="text-sm font-semibold text-gray-700">
-                          I have read and agree to the Investor Registration Terms and Conditions
-                        </span>
-                      </label>
-
-                      <label className="flex items-center gap-3 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={privacyPolicyAccepted}
-                          onChange={(e) => setPrivacyPolicyAccepted(e.target.checked)}
-                          className="w-5 h-5 rounded border-gray-300"
-                          style={{ accentColor: "#1e3a5f" }}
-                        />
-                        <span className="text-sm font-semibold text-gray-700">
-                          I have read and agree to the Registration Privacy Policy
-                        </span>
-                      </label>
-                    </div>
-
-                    <div className="mt-5 flex flex-col sm:flex-row justify-between text-xs text-gray-400">
-                      <span>Terms version: {INVESTOR_TERMS_VERSION}</span>
-                      <span>Privacy policy version: {PRIVACY_POLICY_VERSION}</span>
-                    </div>
-                  </div>
-
-                  {error && (
-                    <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-100 rounded-xl">
-                      <AlertCircle size={15} className="text-red-400 shrink-0" />
-                      <p className="text-sm font-semibold text-red-600">{error}</p>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setCurrentStep(3)}
-                      className="h-11 px-5 rounded-xl border border-gray-200 text-black font-bold text-sm flex items-center gap-1.5 hover:border-gray-300 hover:text-black transition-all">
-                      <ArrowLeft size={15} /> Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleComplete}
-                      disabled={!agreementAccepted || !privacyPolicyAccepted || loading}
-                      className="flex-1 h-11 bg-[#1e3a5f] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-[#162d4a] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {loading ? "Completing..." : <>
-                        <TrendingUp size={16} /> Enter Platform
-                      </>}
-                    </button>
+          {/* Step 7: Genre & Format Preferences */}
+          {currentStep === 7 && (
+            <MotionCard key="s7" {...cardAnim} className="ob-card" style={{ maxWidth: 600 }}>
+              <h1 className="ob-title">What scripts <em>interest</em> you?</h1>
+              <p className="ob-subtitle">Select genres and formats to tailor your discovery feed.</p>
+              <ErrorBox msg={error} />
+              <form onSubmit={handlePreferences}>
+                <div className="ob-field">
+                  <label className="ob-label">Genres</label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {genreOptions.map(g => (<button key={g} type="button" onClick={() => toggle(selectedGenres, setSelectedGenres, g)} className={`ob-chip ${selectedGenres.includes(g) ? "ob-chip--active" : ""}`}>{g}</button>))}
                   </div>
                 </div>
-              </MotionDiv>
-            )}
+                <div className="ob-divider" />
+                <div className="ob-field">
+                  <label className="ob-label">Preferred Formats</label>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {FORMAT_OPTIONS.map(f => (<button key={f.value} type="button" onClick={() => toggle(selectedFormats, setSelectedFormats, f.value)} className={`ob-chip ${selectedFormats.includes(f.value) ? "ob-chip--active" : ""}`}>{f.label}</button>))}
+                  </div>
+                </div>
+                <div className="ob-actions">
+                  <button type="submit" disabled={loading} className="ob-btn ob-btn-primary">{loading ? "Saving..." : <><span>Continue</span> <ArrowRight size={16} /></>}</button>
+                  <div className="ob-actions-row"><BackBtn to={6} /><FinishLaterBtn /></div>
+                </div>
+              </form>
+            </MotionCard>
+          )}
 
-          </AnimatePresence>
-        </div>
+          {/* Step 8: Terms & Complete */}
+          {currentStep === 8 && (
+            <MotionCard key="s8" {...cardAnim} className="ob-card">
+              <h1 className="ob-title">Almost <em>there</em>!</h1>
+              <p className="ob-subtitle">Review and accept our terms to enter the platform.</p>
+              <ErrorBox msg={error} />
+              <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+                <Link to={INVESTOR_TERMS_ROUTE} target="_blank" rel="noopener noreferrer" className="ob-btn ob-btn-ghost" style={{ flex: 1, fontSize: "0.75rem", height: 40 }}>Terms & Conditions <ArrowRight size={12} /></Link>
+                <Link to={REGISTRATION_PRIVACY_ROUTE} target="_blank" rel="noopener noreferrer" className="ob-btn ob-btn-ghost" style={{ flex: 1, fontSize: "0.75rem", height: 40 }}>Privacy Policy <ArrowRight size={12} /></Link>
+              </div>
+              <div className="ob-divider" />
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 20 }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                  <input type="checkbox" className="ob-checkbox" checked={agreementAccepted} onChange={(e) => setAgreementAccepted(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span style={{ fontSize: "0.8125rem", color: "#CBD5E1", lineHeight: 1.5 }}>I have read and agree to the Investor Registration Terms and Conditions</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
+                  <input type="checkbox" className="ob-checkbox" checked={privacyPolicyAccepted} onChange={(e) => setPrivacyPolicyAccepted(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span style={{ fontSize: "0.8125rem", color: "#CBD5E1", lineHeight: 1.5 }}>I have read and agree to the Registration Privacy Policy</span>
+                </label>
+              </div>
+              <div className="ob-actions">
+                <button type="button" onClick={handleComplete} disabled={!agreementAccepted || !privacyPolicyAccepted || loading} className="ob-btn ob-btn-primary">{loading ? "Completing..." : <><TrendingUp size={16} /> Enter Platform</>}</button>
+                <div className="ob-actions-row"><BackBtn to={7} /><FinishLaterBtn /></div>
+              </div>
+              <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", fontSize: "0.65rem", color: "#4B5563" }}>
+                <span>Terms: {INVESTOR_TERMS_VERSION}</span>
+                <span>Privacy: {PRIVACY_POLICY_VERSION}</span>
+              </div>
+            </MotionCard>
+          )}
+
+        </AnimatePresence>
       </div>
     </div>
   );
