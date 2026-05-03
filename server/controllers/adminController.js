@@ -1702,6 +1702,46 @@ export const getPendingWriterMembershipReviews = async (req, res) => {
     }
 };
 
+export const getWriterMembershipProofAccessUrl = async (req, res) => {
+    try {
+        const membershipType = normalizeString(req.params.membershipType).toLowerCase();
+        if (!MEMBERSHIP_TYPE_CONFIG[membershipType]) {
+            return res.status(400).json({ message: "Invalid membership type. Use 'wga' or 'swa'." });
+        }
+
+        const user = await User.findOne({ _id: req.params.id, role: { $in: Array.from(WRITER_ROLE_SET) } }).lean();
+        if (!user) {
+            return res.status(404).json({ message: "Writer not found" });
+        }
+
+        const entry = user?.writerProfile?.membershipVerification?.[membershipType] || {};
+        const proofUrl = normalizeString(entry?.proofUrl);
+        const proofPublicId = normalizeString(entry?.proofPublicId);
+        const proofMimeType = normalizeString(entry?.proofMimeType).toLowerCase();
+
+        if (!proofUrl && !proofPublicId) {
+            return res.status(404).json({ message: "Proof file not found" });
+        }
+
+        if (proofMimeType !== "application/pdf" || !proofPublicId) {
+            return res.json({ url: proofUrl });
+        }
+
+        const expiresAt = Math.floor(Date.now() / 1000) + 10 * 60;
+        const resourceType = getCloudinaryResourceTypeFromUrl(proofUrl) || "raw";
+        const signedUrl = buildPrivateDownloadUrl(proofPublicId, "pdf", {
+            resource_type: resourceType,
+            type: "upload",
+            expires_at: expiresAt,
+            attachment: false,
+        });
+
+        return res.json({ url: signedUrl });
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Failed to build proof access URL" });
+    }
+};
+
 export const approveInvestor = async (req, res) => {
     try {
         const user = await User.findOne({ _id: req.params.id, role: "investor" });

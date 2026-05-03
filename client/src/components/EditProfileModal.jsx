@@ -319,6 +319,31 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
     }
   };
 
+  const handleOpenMembershipProof = async (event, membershipType, fallbackUrl) => {
+    event.preventDefault();
+    const normalizedType = String(membershipType || "").toLowerCase();
+    if (!["wga", "swa"].includes(normalizedType)) return;
+
+    try {
+      const { data } = await api.get("/onboarding/writer-membership-proof/access-url", {
+        params: { membershipType: normalizedType },
+      });
+      const accessUrl = data?.url || fallbackUrl;
+      if (accessUrl) {
+        window.open(accessUrl, "_blank", "noopener,noreferrer");
+      } else {
+        setError("Proof link unavailable");
+      }
+    } catch (err) {
+      console.error(err);
+      if (fallbackUrl) {
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      setError(err?.response?.data?.message || "Failed to open proof");
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1030,7 +1055,13 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                       <p className="text-xs text-emerald-500 font-semibold">Selected: {membershipProofFiles.wga.name}</p>
                     )}
                     {!membershipProofFiles.wga && membershipVerification?.wga?.proofUrl && (
-                      <a href={membershipVerification.wga.proofUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-blue-500 hover:underline">
+                      <a
+                        href={membershipVerification.wga.proofUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(event) => handleOpenMembershipProof(event, "wga", membershipVerification.wga.proofUrl)}
+                        className="text-xs font-semibold text-blue-500 hover:underline"
+                      >
                         View latest uploaded proof
                       </a>
                     )}
@@ -1075,7 +1106,13 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                       <p className="text-xs text-emerald-500 font-semibold">Selected: {membershipProofFiles.swa.name}</p>
                     )}
                     {!membershipProofFiles.swa && membershipVerification?.swa?.proofUrl && (
-                      <a href={membershipVerification.swa.proofUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-blue-500 hover:underline">
+                      <a
+                        href={membershipVerification.swa.proofUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(event) => handleOpenMembershipProof(event, "swa", membershipVerification.swa.proofUrl)}
+                        className="text-xs font-semibold text-blue-500 hover:underline"
+                      >
                         View latest uploaded proof
                       </a>
                     )}
