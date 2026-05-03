@@ -32,6 +32,7 @@ import {
     deleteScriptAsAdmin,
     getPendingInvestors,
     getPendingWriterMembershipReviews,
+    getWriterMembershipProofAccessUrl,
     approveInvestor,
     rejectInvestor,
     reviewWriterMembership,
@@ -105,6 +106,7 @@ router.post("/login-as/:userId", loginAsUser);
 // Investor Approval
 router.get("/investors/pending", getPendingInvestors);
 router.get("/writer-membership/pending", getPendingWriterMembershipReviews);
+router.get("/writer-membership/:id/:membershipType/access-url", getWriterMembershipProofAccessUrl);
 router.put("/investors/:id/approve", approveInvestor);
 router.put("/investors/:id/reject", rejectInvestor);
 

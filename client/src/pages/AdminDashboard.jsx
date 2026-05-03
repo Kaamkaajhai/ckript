@@ -2220,6 +2220,31 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleOpenMembershipProof = async (event, userId, membershipType, fallbackUrl) => {
+        event.preventDefault();
+        if (!userId) return;
+
+        const normalizedType = String(membershipType || "").toLowerCase();
+        if (!["wga", "swa"].includes(normalizedType)) return;
+
+        try {
+            const { data } = await adminApi.get(`/admin/writer-membership/${userId}/${normalizedType}/access-url`);
+            const accessUrl = data?.url || fallbackUrl;
+            if (accessUrl) {
+                window.open(accessUrl, "_blank", "noopener,noreferrer");
+                return;
+            }
+            showToast("Proof link unavailable", "error");
+        } catch (err) {
+            console.error(err);
+            if (fallbackUrl) {
+                window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+                return;
+            }
+            showToast(err?.response?.data?.message || "Failed to open proof", "error");
+        }
+    };
+
     // ─── Discount Code Handlers ───
     const handleSaveDiscountCode = async (formData) => {
         try {
@@ -3398,6 +3423,7 @@ const AdminDashboard = () => {
                                                                             href={item.proofUrl}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
+                                                                            onClick={(event) => handleOpenMembershipProof(event, review._id, item.type, item.proofUrl)}
                                                                             className="text-xs font-bold text-blue-500 hover:text-blue-400"
                                                                         >
                                                                             {item.label} proof

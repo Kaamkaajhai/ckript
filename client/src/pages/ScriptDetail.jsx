@@ -951,6 +951,7 @@ const ScriptDetail = () => {
   const resolvedHeroImage = resolveImage(heroImage);
   const showCoverPlaceholder = !resolvedHeroImage || coverError;
   const spotlightEndsAt = script?.promotion?.spotlightEndAt ? new Date(script.promotion.spotlightEndAt) : null;
+  const isApprovedOrPublished = ["published", "approved"].includes(String(script?.status || ""));
   const spotlightActive = Boolean(spotlightEndsAt && spotlightEndsAt >= new Date());
   const spotlightPendingApproval = Boolean(script?.promotion?.pendingSpotlightActivation && script?.status !== "published");
   const spotlightPaidAtUpload = Number(script?.billing?.spotlightCreditsChargedAtUpload || 0) > 0;
@@ -1284,16 +1285,9 @@ const ScriptDetail = () => {
 
                   <div className={`rounded-2xl border p-5 sm:p-6 ${t.card}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-3 ${t.label}`}>Completion Status</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold ${getScriptCompletionBadgeClasses(script, isDarkMode)}`}>
-                        {completionLabel}
-                      </span>
-                      {completionProgress && (
-                        <span className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border ${t.chip}`}>
-                          {completionProgress}
-                        </span>
-                      )}
-                    </div>
+                    <p className={`text-sm font-semibold ${t.sub}`}>
+                      {completionProgress ? `${completionLabel} - ${completionProgress}` : completionLabel}
+                    </p>
                     {completionFuturePlans && (
                       <p className={`mt-3 text-sm leading-relaxed whitespace-pre-wrap ${t.sub}`}>{completionFuturePlans}</p>
                     )}
@@ -1612,10 +1606,16 @@ const ScriptDetail = () => {
                     <div className={`rounded-2xl p-4 border ${t.priceSub}`}>
                       <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${t.label}`}>Active Services</p>
                       <div className="space-y-1.5">
-                        {script.services.hosting && (
+                        {script.services.hosting && isApprovedOrPublished && (
                           <div className="flex items-center gap-2 text-xs">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                             <span className={`font-medium ${t.sub}`}>Hosted &amp; Searchable</span>
+                          </div>
+                        )}
+                        {script.services.hosting && !isApprovedOrPublished && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            <span className={`font-medium ${t.sub}`}>Hosting under review</span>
                           </div>
                         )}
                         {script.services.evaluation && (
