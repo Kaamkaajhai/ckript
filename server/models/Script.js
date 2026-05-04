@@ -1,5 +1,11 @@
 import mongoose from "mongoose";
 
+const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer"];
+const normalizeCollaboratorRole = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return VALID_COLLABORATOR_ROLES.includes(normalized) ? normalized : "editor";
+};
+
 const createSid = (prefix) => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let token = "";
@@ -17,9 +23,39 @@ const roleSchema = new mongoose.Schema({
   gender: { type: String },
 }, { _id: true });
 
+const collaboratorSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  role: { type: String, enum: ["editor", "merger", "viewer"], required: true, default: "editor", set: normalizeCollaboratorRole },
+  accessLevel: {
+    type: String,
+    enum: ["full_access", "content_only"],
+    default: "full_access",
+  },
+  invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  inviteToken: { type: String, default: null },
+  inviteExpiresAt: { type: Date, default: null },
+  status: {
+    type: String,
+    enum: ["pending", "accepted", "rejected"],
+    default: "pending",
+  },
+  joinedAt: { type: Date, default: null },
+  isActive: { type: Boolean, default: true },
+}, { _id: true });
+
+collaboratorSchema.pre("validate", function normalizeRole() {
+  this.role = normalizeCollaboratorRole(this.role);
+});
+
 const scriptSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  collabVisibility: {
+    type: String,
+    enum: ["private", "open"],
+    default: "private",
+  },
+  collaborators: [collaboratorSchema],
   title: { type: String, required: true },
   companyName: { type: String, trim: true, maxlength: 120 },
   logline: { type: String }, // Max 50 chars hook for compact cards
@@ -228,6 +264,12 @@ const scriptSchema = new mongoose.Schema({
   purchaseRequestLockedAt: { type: Date },
   unlockedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   purchasedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  history: [{
+    content: { type: String, default: "" },
+    savedAt: { type: Date, default: Date.now },
+    savedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    prId: { type: mongoose.Schema.Types.ObjectId, ref: "PullRequest", default: null },
+  }],
   isDeleted: { type: Boolean, default: false, index: true },
   deletedAt: { type: Date },
   // AI Trailer (Text-to-Trailer)
@@ -321,5 +363,12 @@ scriptSchema.index({ status: 1, views: -1 });
 scriptSchema.index({ status: 1, "scriptScore.overall": -1 });
 scriptSchema.index({ status: 1, genre: 1, views: -1 });
 scriptSchema.index({ status: 1, contentType: 1, views: -1 });
+
+scriptSchema.virtual("can_request_collab").get(function canRequestCollab() {
+  return this.collabVisibility === "open";
+});
+
+scriptSchema.set("toJSON", { virtuals: true });
+scriptSchema.set("toObject", { virtuals: true });
 
 export default mongoose.model("Script", scriptSchema);

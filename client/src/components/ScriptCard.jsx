@@ -108,6 +108,11 @@ const ScriptCard = ({ script, index = 0 }) => {
                     + Featured
                   </span>
                 )}
+                {script?.collabVisibility === "open" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-[3px] rounded-md text-[9px] font-bold tracking-wide uppercase bg-emerald-500 text-white">
+                    Open Collab
+                  </span>
+                )}
               </div>
               {/* Right: rating */}
               {rating > 0 && (

@@ -218,17 +218,24 @@ const ProjectCard = ({ project, userName }) => {
 
         {/* Status — top-left */}
         <div className="absolute top-3 left-3">
-          <span className={`inline-flex items-center gap-1.5 text-[9px] font-bold tracking-[0.13em] uppercase px-2.5 py-1.5 rounded-lg backdrop-blur-sm ${
-            dark
-              ? "bg-[#0b2440]/70 text-white/85 border border-[#7ea8d2]/30"
-              : "bg-white/85 text-[#23476c] border border-[#bed2ea]/90 shadow-sm"
-          }`}>
-            <span className="relative flex h-[6px] w-[6px]">
-              <span className={`absolute inline-flex h-full w-full rounded-full opacity-50 ${status.dot} ${project?.status === "published" ? "animate-ping" : ""}`} />
-              <span className={`relative inline-flex h-[6px] w-[6px] rounded-full ${status.dot}`} />
+          <div className="flex flex-col items-start gap-1.5">
+            <span className={`inline-flex items-center gap-1.5 text-[9px] font-bold tracking-[0.13em] uppercase px-2.5 py-1.5 rounded-lg backdrop-blur-sm ${
+              dark
+                ? "bg-[#0b2440]/70 text-white/85 border border-[#7ea8d2]/30"
+                : "bg-white/85 text-[#23476c] border border-[#bed2ea]/90 shadow-sm"
+            }`}>
+              <span className="relative flex h-[6px] w-[6px]">
+                <span className={`absolute inline-flex h-full w-full rounded-full opacity-50 ${status.dot} ${project?.status === "published" ? "animate-ping" : ""}`} />
+                <span className={`relative inline-flex h-[6px] w-[6px] rounded-full ${status.dot}`} />
+              </span>
+              {status.label}
             </span>
-            {status.label}
-          </span>
+            {project?.collabVisibility === "open" && (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.13em] text-white">
+                Open • Request Collab
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Bookmark — top-right */}

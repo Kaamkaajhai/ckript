@@ -40,6 +40,8 @@ import invoiceRoutes from "./routes/invoiceRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
 import agreementRoutes from "./routes/agreementRoutes.js";
+import collabRoutes from "./routes/collab.routes.js";
+import { registerCollabSocket } from "./socket/collab.socket.js";
 import {
   applyGlobalSecurity,
   apiLimiter,
@@ -186,7 +188,9 @@ const createRealtimeServer = () => {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select("_id role isDeactivated isFrozen");
+      const user = await User.findById(decoded.id).select(
+        "_id name writerProfile.username role isDeactivated isFrozen"
+      );
       if (!user) {
         return next(new Error("Not authorized"));
       }
@@ -198,6 +202,8 @@ const createRealtimeServer = () => {
       socket.user = {
         _id: user._id.toString(),
         role: user.role,
+        name: user.name || "",
+        writerProfile: user.writerProfile || {},
       };
 
       return next();
@@ -277,6 +283,9 @@ const createRealtimeServer = () => {
     });
   });
 
+  app.set("io", io);
+  registerCollabSocket(io);
+
   return server;
 };
 
@@ -336,11 +345,29 @@ app.use("/api/script-pitches", scriptPitchRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
+app.use("/api/collab", collabRoutes);
 
 export default app;
 
 if (!isVercel) {
-  const server = createRealtimeServer();
-  const PORT = process.env.PORT || 5002;
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  const requestedPort = Number(process.env.PORT) || 5002;
+
+  const startServer = (port) => {
+    const server = createRealtimeServer();
+
+    server.once("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        const fallbackPort = port + 1;
+        console.warn(`Port ${port} is already in use. Retrying on port ${fallbackPort}.`);
+        startServer(fallbackPort);
+        return;
+      }
+
+      throw error;
+    });
+
+    server.listen(port, () => console.log(`Server running on port ${port}`));
+  };
+
+  startServer(requestedPort);
 }

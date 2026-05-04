@@ -266,8 +266,8 @@ const Profile = () => {
       if (tabInitializedForProfileRef.current !== data.user._id) {
         const role = String(data.user.role || "").toLowerCase();
         const isInvestorProfile = role === "investor";
-        const isWriterProfile = isWriter(role);
-        setActiveTab(isInvestorProfile || isWriterProfile ? "about" : "projects");
+        const nextScripts = (data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted);
+        setActiveTab(isInvestorProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about"));
         tabInitializedForProfileRef.current = data.user._id;
       }
     } catch (error) {
