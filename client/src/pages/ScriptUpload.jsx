@@ -398,6 +398,7 @@ const ScriptUpload = () => {
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
   const editId = searchParams.get("edit");
+  const branchMode = searchParams.get("branch") === "1";
   const [step, setStep] = useState(1);
   const [fromDraft, setFromDraft] = useState(false);
   const [scriptId, setScriptId] = useState(null);
@@ -435,6 +436,15 @@ const ScriptUpload = () => {
   const [thumbnailApplying, setThumbnailApplying] = useState(false);
   const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
   const [postSubmitRedirectPath, setPostSubmitRedirectPath] = useState("/dashboard");
+  const [isContentOnlyEditMode, setIsContentOnlyEditMode] = useState(false);
+  const [isEditModeResolving, setIsEditModeResolving] = useState(Boolean(editId));
+  const [originalEditContent, setOriginalEditContent] = useState("");
+  const [branchUpdatedAt, setBranchUpdatedAt] = useState("");
+
+  useEffect(() => {
+    if (!branchMode || !editId) return;
+    navigate(`/script/${editId}/branch/edit`, { replace: true });
+  }, [branchMode, editId, navigate]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -552,10 +562,16 @@ const ScriptUpload = () => {
 
   // Load existing published script when entering edit mode
   useEffect(() => {
-    if (!editId) return;
+    if (!editId) {
+      setIsEditModeResolving(false);
+      return;
+    }
     const load = async () => {
       try {
-        const { data } = await api.get(`/scripts/${editId}`);
+        const [{ data }, branchResponse] = await Promise.all([
+          api.get(`/scripts/${editId}`),
+          branchMode ? api.get(`/collab/${editId}/branch`).catch(() => null) : Promise.resolve(null),
+        ]);
         const isEditApprovalPending = data?.status === "pending_approval" && data?.approvalRequestType === "edit_submission";
         const purchasedFromHistory = {
           evaluation: Boolean(
@@ -578,7 +594,18 @@ const ScriptUpload = () => {
         if (isEditApprovalPending) {
           setError("This script edit is already in admin review. You can edit again after approval or rejection.");
         }
-        setTextContent(data.textContent || "");
+        const contentOnlyMode = Boolean(branchMode || (data?.isCollaborator && data?.canEditMetadata === false));
+        setIsContentOnlyEditMode(contentOnlyMode);
+        if (contentOnlyMode) {
+          setStep(3);
+        }
+        const branchData = branchResponse?.data?.branch || null;
+        const initialContent = branchMode
+          ? (branchData?.content || "")
+          : (data.textContent || "");
+        setTextContent(initialContent);
+        setOriginalEditContent(initialContent);
+        setBranchUpdatedAt(branchData?.updatedAt || "");
         setExistingUploadedFile(data.fileUrl ? {
           name: getFileNameFromUrl(data.fileUrl),
           size: null,
@@ -628,10 +655,12 @@ const ScriptUpload = () => {
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
       } catch {
         // proceed normally
+      } finally {
+        setIsEditModeResolving(false);
       }
     };
     load();
-  }, [editId]);
+  }, [branchMode, editId]);
 
   // Load draft when coming from Create Project editor
   useEffect(() => {
@@ -1147,6 +1176,7 @@ const ScriptUpload = () => {
 
   // Handle next step
   const handleNext = () => {
+    if (isContentOnlyEditMode) return;
     if (!validateStep(step)) return;
     if (step < 5) {
       setStep(step + 1);
@@ -1156,6 +1186,7 @@ const ScriptUpload = () => {
 
   // Handle back step
   const handleBack = () => {
+    if (isContentOnlyEditMode) return;
     if (step > 1) {
       setStep(step - 1);
       setError("");
@@ -1271,16 +1302,16 @@ const ScriptUpload = () => {
       return;
     }
 
-    if (!validateStep(5)) return;
+    if (!isContentOnlyEditMode) {
+      if (!validateStep(5)) return;
 
-    const isEditingExistingScript = Boolean(editId);
-
-    // Edits should not re-charge previously purchased add-ons.
-    if (!isEditingExistingScript) {
-      const creditsNeeded = calculateTotal();
-      if (creditsNeeded > creditsBalance) {
-        setError(`Insufficient credits. You need ${creditsNeeded} credits but have ${creditsBalance}. Please purchase more credits.`);
-        return;
+      const isEditingExistingScript = Boolean(editId);
+      if (!isEditingExistingScript) {
+        const creditsNeeded = calculateTotal();
+        if (creditsNeeded > creditsBalance) {
+          setError(`Insufficient credits. You need ${creditsNeeded} credits but have ${creditsBalance}. Please purchase more credits.`);
+          return;
+        }
       }
     }
 
@@ -1292,6 +1323,28 @@ const ScriptUpload = () => {
     setLoading(true);
 
     try {
+      if (branchMode && editId) {
+        const { data } = await api.patch(`/collab/${editId}/branch`, {
+          content: textContent,
+        });
+        setOriginalEditContent(data?.branch?.content || textContent);
+        setBranchUpdatedAt(data?.branch?.updatedAt || "");
+        window.alert("Branch saved successfully.");
+        navigate(`/script/${editId}/collaborate/pull-requests`);
+        return;
+      }
+
+      if (isContentOnlyEditMode && editId) {
+        await api.post(`/collab/${editId}/revisions`, {
+          baseContent: originalEditContent,
+          content: textContent,
+          sectionRef: "textContent",
+        });
+        window.alert("Revision submitted for review. The owner can now approve or reject it.");
+        navigate(`/script/${editId}`);
+        return;
+      }
+
       const tagsArr = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
 
       // Build payload according to specification
@@ -1378,7 +1431,12 @@ const ScriptUpload = () => {
       };
 
       if (editId) {
-        await api.put(`/scripts/${editId}`, payload);
+        const { data } = await api.put(`/scripts/${editId}`, payload);
+        if (data?.revisionSubmitted) {
+          window.alert(data.message || "Revision submitted for review. The owner can now approve and merge it.");
+          navigate(`/script/${editId}`);
+          return;
+        }
         await uploadMediaForScript(editId, "updated");
         await downloadSubmissionSummaryPdf(editId, payload.title);
         openUnderReviewModal(
@@ -1431,13 +1489,24 @@ const ScriptUpload = () => {
     );
   }
 
+  if (isEditModeResolving) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className={`w-10 h-10 border-[3px] rounded-full animate-spin ${isDarkMode ? "border-white/[0.12] border-t-white/70" : "border-gray-200 border-t-[#1e3a5f]"}`} />
+          <p className={`text-sm font-medium ${isDarkMode ? "text-neutral-400" : "text-gray-500"}`}>Loading editor...</p>
+        </div>
+      </div>
+    );
+  }
+
   const profileComplete = Boolean(user?.profileCompletion?.isComplete);
   const profileEditPath = getProfileCanonicalPath(user, {
     viewerId: user?._id,
     viewerRole: user?.role,
   });
 
-  if (!profileComplete) {
+  if (!editId && !profileComplete) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 max-w-md text-center shadow-sm">
@@ -1506,6 +1575,9 @@ const ScriptUpload = () => {
       amount: formatCurrency(writerPayout),
     },
   ];
+  const visibleSteps = isContentOnlyEditMode
+    ? [{ num: 3, label: "Script Content", shortLabel: "Content", desc: "Update script body only" }]
+    : STEPS;
 
   return (
     <div className="max-w-3xl mx-auto px-4 max-[640px]:px-2 max-[420px]:px-1.5 py-6 max-[640px]:py-4">
@@ -1513,8 +1585,18 @@ const ScriptUpload = () => {
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <div>
-            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>{editId ? "Edit Your Project" : "Add Your Project"}</h1>
-            <p className="text-sm text-neutral-500">{editId ? "Update your script details and republish" : "Complete the 5-step wizard to publish your script"}</p>
+            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>
+              {isContentOnlyEditMode ? "Edit Script Content" : editId ? "Edit Your Project" : "Add Your Project"}
+            </h1>
+            <p className="text-sm text-neutral-500">
+              {branchMode
+                ? `Editing your branch in isolated draft mode.${branchUpdatedAt ? " Your latest saved branch is loaded." : ""}`
+                : isContentOnlyEditMode
+                ? "This access level only allows updating the script body."
+                : editId
+                ? "Update your script details and republish"
+                : "Complete the 5-step wizard to publish your script"}
+            </p>
           </div>
         </div>
 
@@ -1523,7 +1605,7 @@ const ScriptUpload = () => {
           {/* Mobile layout */}
           <div className="hidden max-[640px]:block">
             <div className="flex items-start justify-between gap-1">
-              {STEPS.map((s) => (
+              {visibleSteps.map((s) => (
                 <button
                   key={`mobile-step-${s.num}`}
                   onClick={() => s.num < step && setStep(s.num)}
@@ -1557,7 +1639,7 @@ const ScriptUpload = () => {
 
           {/* Tablet and desktop layout */}
           <div className="max-[640px]:hidden flex items-center">
-            {STEPS.map((s, i) => (
+            {visibleSteps.map((s, i) => (
               <div key={s.num} className="flex items-center flex-1 min-w-0">
                 <button
                   onClick={() => s.num < step && setStep(s.num)}
@@ -1586,7 +1668,7 @@ const ScriptUpload = () => {
                     <p className={`hidden min-[768px]:block text-[10px] mt-0.5 ${isDarkMode ? "text-neutral-600" : "text-gray-400"}`}>{s.desc}</p>
                   </div>
                 </button>
-                {i < STEPS.length - 1 && (
+                {i < visibleSteps.length - 1 && (
                   <div className={`flex-1 h-[2px] mx-3 rounded-full ${step > s.num
                     ? isDarkMode ? "bg-emerald-500/40" : "bg-emerald-300"
                     : isDarkMode ? "bg-white/[0.06]" : "bg-gray-200"
@@ -2158,152 +2240,172 @@ const ScriptUpload = () => {
 
                   </div>
 
-                  <div className={`rounded-2xl border p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-white"}`}>
-                    <div className="mb-4">
-                      <h3 className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>Visual Assets</h3>
-                      <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Add a cover image and trailer to improve profile quality and discovery.</p>
-                    </div>
+                  {!isContentOnlyEditMode && (
+                    <div className={`rounded-2xl border p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-white"}`}>
+                      <div className="mb-4">
+                        <h3 className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>Visual Assets</h3>
+                        <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Add a cover image and trailer to improve profile quality and discovery.</p>
+                      </div>
 
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t ${isDarkMode ? "border-white/[0.06]" : "border-gray-100"}`}>
-                    {/* Thumbnail Upload */}
-                    <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                      <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                        Script Thumbnail <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                      </label>
-                      {!thumbnailFile ? (
-                        <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                          <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                          <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload & Adjust Cover</p>
-                          <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG, WEBP (Max 5MB)</p>
+                      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t ${isDarkMode ? "border-white/[0.06]" : "border-gray-100"}`}>
+                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
+                          <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                            Script Thumbnail <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                          </label>
+                          {!thumbnailFile ? (
+                            <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
+                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
+                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload & Adjust Cover</p>
+                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG, WEBP (Max 5MB)</p>
+                              <input
+                                ref={thumbnailInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                onChange={(e) => {
+                                  handleThumbnailSelect(e.target.files?.[0]);
+                                  e.target.value = "";
+                                }}
+                                className="hidden"
+                              />
+                            </div>
+                          ) : (
+                            <div className={`border rounded-xl p-3 flex items-center gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                              <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
+                                <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openThumbnailEditor(thumbnailFile)}
+                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                                >
+                                  Adjust
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setThumbnailFile(null);
+                                    setError("");
+                                  }}
+                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
+                          <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                            Trailer Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                          </label>
                           <input
-                            ref={thumbnailInputRef}
+                            ref={trailerInputRef}
                             type="file"
-                            accept="image/jpeg,image/png,image/webp"
+                            accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
                             onChange={(e) => {
-                              handleThumbnailSelect(e.target.files?.[0]);
+                              handleTrailerSelect(e.target.files?.[0]);
                               e.target.value = "";
                             }}
                             className="hidden"
                           />
+
+                          {!trailerFile ? (
+                            <div onClick={() => trailerInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
+                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36A.75.75 0 0 1 21.75 8.8v6.4a.75.75 0 0 1-1.28.53l-4.72-2.36m-1.5 3.98V6.67A2.25 2.25 0 0 0 12 4.42H4.5a2.25 2.25 0 0 0-2.25 2.25v10.66A2.25 2.25 0 0 0 4.5 19.58H12a2.25 2.25 0 0 0 2.25-2.25Z" /></svg>
+                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload High-Quality Trailer</p>
+                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM (Max 250MB)</p>
+                            </div>
+                          ) : (
+                            <div className={`border rounded-xl p-3 space-y-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                              <div className="relative overflow-hidden rounded-lg">
+                                <video
+                                  src={trailerPreviewUrl}
+                                  controls
+                                  preload="metadata"
+                                  className="w-full h-44 object-contain bg-black"
+                                />
+                              </div>
+
+                              <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
+                                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{trailerFile.name}</p>
+                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>
+                                    {(trailerFile.size / 1024 / 1024).toFixed(1)} MB
+                                    {trailerMetaLoading ? " - reading video info..." : trailerMeta ? ` - ${formatDuration(trailerMeta.duration)} - ${trailerMeta.width}x${trailerMeta.height}` : ""}
+                                  </p>
+                                  <p className={`text-[10px] mt-1 ${isDarkMode ? "text-green-500/80" : "text-green-700/80"}`}>Original quality will be preserved on upload.</p>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => trailerInputRef.current?.click()}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                                  >
+                                    Replace
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTrailerFile(null);
+                                      setTrailerOption("none");
+                                      setError("");
+                                    }}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className={`border rounded-xl p-3 flex items-center gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                          <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
-                            <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
-                          </div>
-                          <div className="flex flex-col gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => openThumbnailEditor(thumbnailFile)}
-                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                            >
-                              Adjust
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setThumbnailFile(null);
-                                setError("");
-                              }}
-                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </div>
-
-                    {/* Trailer Upload */}
-                    <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                      <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                        Trailer Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                      </label>
-                      <input
-                        ref={trailerInputRef}
-                        type="file"
-                        accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
-                        onChange={(e) => {
-                          handleTrailerSelect(e.target.files?.[0]);
-                          e.target.value = "";
-                        }}
-                        className="hidden"
-                      />
-
-                      {!trailerFile ? (
-                        <div onClick={() => trailerInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                          <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36A.75.75 0 0 1 21.75 8.8v6.4a.75.75 0 0 1-1.28.53l-4.72-2.36m-1.5 3.98V6.67A2.25 2.25 0 0 0 12 4.42H4.5a2.25 2.25 0 0 0-2.25 2.25v10.66A2.25 2.25 0 0 0 4.5 19.58H12a2.25 2.25 0 0 0 2.25-2.25Z" /></svg>
-                          <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload High-Quality Trailer</p>
-                          <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM (Max 250MB)</p>
-                        </div>
-                      ) : (
-                        <div className={`border rounded-xl p-3 space-y-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                          <div className="relative overflow-hidden rounded-lg">
-                            <video
-                              src={trailerPreviewUrl}
-                              controls
-                              preload="metadata"
-                              className="w-full h-44 object-contain bg-black"
-                            />
-                          </div>
-
-                          <div className="flex items-start gap-3">
-                            <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
-                              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{trailerFile.name}</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>
-                                {(trailerFile.size / 1024 / 1024).toFixed(1)} MB
-                                {trailerMetaLoading ? " - reading video info..." : trailerMeta ? ` - ${formatDuration(trailerMeta.duration)} - ${trailerMeta.width}x${trailerMeta.height}` : ""}
-                              </p>
-                              <p className={`text-[10px] mt-1 ${isDarkMode ? "text-green-500/80" : "text-green-700/80"}`}>Original quality will be preserved on upload.</p>
-                            </div>
-                            <div className="flex flex-col gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => trailerInputRef.current?.click()}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                              >
-                                Replace
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setTrailerFile(null);
-                                  setTrailerOption("none");
-                                  setError("");
-                                }}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                    </div>
-                  </div>
-                  </div>
+                  )}
 
                   <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className={`px-6 py-2.5 rounded-xl text-sm transition ${isDarkMode ? "border border-white/[0.08] text-neutral-400 hover:bg-white/[0.05]" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className={`px-6 py-2.5 rounded-xl text-sm font-medium transition ${isDarkMode ? "bg-white text-black hover:bg-neutral-200" : "bg-[#1e3a5f] text-white hover:bg-[#22456f]"}`}
-                    >
-                      Next →
-                    </button>
+                    {isContentOnlyEditMode ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => navigate(-1)}
+                          className={`px-6 py-2.5 rounded-xl text-sm transition ${isDarkMode ? "border border-white/[0.08] text-neutral-400 hover:bg-white/[0.05]" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className={`px-6 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-60 ${isDarkMode ? "bg-white text-black hover:bg-neutral-200" : "bg-[#1e3a5f] text-white hover:bg-[#22456f]"}`}
+                        >
+                          {loading ? "Saving..." : "Update Content"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleBack}
+                          className={`px-6 py-2.5 rounded-xl text-sm transition ${isDarkMode ? "border border-white/[0.08] text-neutral-400 hover:bg-white/[0.05]" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+                        >
+                          ← Back
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleNext}
+                          className={`px-6 py-2.5 rounded-xl text-sm font-medium transition ${isDarkMode ? "bg-white text-black hover:bg-neutral-200" : "bg-[#1e3a5f] text-white hover:bg-[#22456f]"}`}
+                        >
+                          Next →
+                        </button>
+                      </>
+                    )}
                   </div>
                 </motion.div>
               )}

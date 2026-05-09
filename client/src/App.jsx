@@ -12,6 +12,7 @@ import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/la
 const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
+const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
@@ -19,6 +20,7 @@ const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
 const Login = lazy(() => import("./pages/Login"));
 const Join = lazy(() => import("./pages/Join"));
+const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
 const WriterOnboarding = lazy(() => import("./pages/WriterOnboarding"));
 const InvestorOnboarding = lazy(() => import("./pages/InvestorOnboarding"));
@@ -29,6 +31,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ScriptUpload = lazy(() => import("./pages/ScriptUpload"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
+const BranchEditor = lazy(() => import("./pages/BranchEditor"));
 const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
@@ -52,6 +55,8 @@ const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
   () => import("./pages/Login"),
   () => import("./pages/Join"),
+  () => import("./pages/AcceptInvite"),
+  () => import("./pages/CollaborationHub"),
   () => import("./pages/Dashboard"),
   () => import("./pages/Profile"),
 ];
@@ -169,6 +174,17 @@ function SingleSegmentProfileOrReferralRoute() {
   );
 }
 
+function CollaborationRedirect() {
+  const [searchParams] = useSearchParams();
+  const scriptId = String(searchParams.get("scriptId") || "").trim();
+
+  if (!scriptId) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <Navigate to={`/script/${scriptId}/collaborate/overview`} replace />;
+}
+
 function App() {
   useEffect(() => {
     const preload = () => {
@@ -226,6 +242,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/join" element={<RoleSelection />} />
               <Route path="/signup" element={<Join />} />
+              <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/share/profile/:id" element={<PublicProfile />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
               <Route path="/writer-onboarding" element={<WriterOnboarding />} />
@@ -362,6 +379,34 @@ function App() {
                   <PrivateRoute>
                     <MainLayout>
                       <Search />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/collaborate"
+                element={
+                  <PrivateRoute>
+                    <CollaborationRedirect />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/script/:scriptId/branch/edit"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <BranchEditor />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/script/:scriptId/collaborate/*"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <CollaborationHub />
                     </MainLayout>
                   </PrivateRoute>
                 }
