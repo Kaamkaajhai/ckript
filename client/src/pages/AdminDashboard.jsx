@@ -202,6 +202,54 @@ const StatCard = ({ label, value, icon, color, isDark }) => (
     </div>
 );
 
+const BroadcastComposer = ({
+    isDark,
+    audienceLabel,
+    title,
+    content,
+    onTitleChange,
+    onContentChange,
+    onSend,
+    sending = false,
+}) => (
+    <div className={`rounded-2xl border p-4 sm:p-5 mb-5 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+        <div className="flex flex-col gap-4">
+            <div>
+                <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                    Broadcast to {audienceLabel}
+                </h3>
+                <p className={`mt-1 text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+                    Sends a ckript email and in-platform notification to every active {audienceLabel.toLowerCase()}.
+                </p>
+            </div>
+            <input
+                type="text"
+                value={title}
+                onChange={(event) => onTitleChange(event.target.value)}
+                placeholder={`Title for ${audienceLabel}`}
+                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+            />
+            <textarea
+                rows={5}
+                value={content}
+                onChange={(event) => onContentChange(event.target.value)}
+                placeholder={`Write the message you want all ${audienceLabel.toLowerCase()} to receive`}
+                className={`w-full rounded-xl border px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+            />
+            <div className="flex justify-end">
+                <button
+                    type="button"
+                    onClick={onSend}
+                    disabled={sending || !title.trim() || !content.trim()}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-blue-500/15 text-blue-200 hover:bg-blue-500/25" : "bg-[#1e3a5f] text-white hover:bg-[#162d4a]"}`}
+                >
+                    {sending ? "Sending..." : `Send to ${audienceLabel}`}
+                </button>
+            </div>
+        </div>
+    </div>
+);
+
 // ─── User Table ───
 const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfreezeUser, onGrantCredits, onDeleteUser, userActionLoading = "" }) => {
     const hasRowActions = Boolean(onLoginAs || onViewUser || onFreezeUser || onUnfreezeUser || onGrantCredits || onDeleteUser);
@@ -975,6 +1023,12 @@ const AdminDashboard = () => {
     const [trailerUploadTargetScript, setTrailerUploadTargetScript] = useState(null);
     const [uploadingTrailerScriptId, setUploadingTrailerScriptId] = useState("");
     const [deletingScriptId, setDeletingScriptId] = useState("");
+    const [writerBroadcastTitle, setWriterBroadcastTitle] = useState("");
+    const [writerBroadcastContent, setWriterBroadcastContent] = useState("");
+    const [filmBroadcastTitle, setFilmBroadcastTitle] = useState("");
+    const [filmBroadcastContent, setFilmBroadcastContent] = useState("");
+    const [scriptBroadcastTitle, setScriptBroadcastTitle] = useState("");
+    const [scriptBroadcastContent, setScriptBroadcastContent] = useState("");
 
     // ─── Toast notification system ───
     const [toast, setToast] = useState(null);
@@ -984,6 +1038,66 @@ const AdminDashboard = () => {
     const showToast = (message, type = "success") => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
+    };
+
+    const handleSendAudienceBroadcast = async (audience) => {
+        const broadcastConfigByAudience = {
+            writers: {
+                title: writerBroadcastTitle,
+                content: writerBroadcastContent,
+                audienceLabel: "writers",
+                reset: () => {
+                    setWriterBroadcastTitle("");
+                    setWriterBroadcastContent("");
+                },
+            },
+            "film-professionals": {
+                title: filmBroadcastTitle,
+                content: filmBroadcastContent,
+                audienceLabel: "film professionals",
+                reset: () => {
+                    setFilmBroadcastTitle("");
+                    setFilmBroadcastContent("");
+                },
+            },
+            "script-uploaders": {
+                title: scriptBroadcastTitle,
+                content: scriptBroadcastContent,
+                audienceLabel: "script uploaders",
+                reset: () => {
+                    setScriptBroadcastTitle("");
+                    setScriptBroadcastContent("");
+                },
+            },
+        };
+        const broadcastConfig = broadcastConfigByAudience[audience];
+
+        if (!broadcastConfig) {
+            showToast("Unsupported broadcast audience.", "error");
+            return;
+        }
+
+        const { title, content, audienceLabel, reset } = broadcastConfig;
+
+        if (!title.trim() || !content.trim()) {
+            showToast(`Please enter both title and content for the ${audienceLabel} broadcast.`, "error");
+            return;
+        }
+
+        const loadingKey = `broadcast:${audience}`;
+        try {
+            setUserActionLoading(loadingKey);
+            const { data } = await adminApi.post(`/admin/broadcast/${audience}`, {
+                title: title.trim(),
+                content: content.trim(),
+            });
+            showToast(data?.message || `Broadcast sent to ${audienceLabel}.`);
+            reset();
+        } catch (err) {
+            showToast(err?.response?.data?.message || `Failed to send ${audienceLabel} broadcast`, "error");
+        } finally {
+            setUserActionLoading("");
+        }
     };
 
     const openAdminDialog = ({
@@ -2739,6 +2853,30 @@ const AdminDashboard = () => {
                                 <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredUsers.length : total})</span>
                             </h2>
                         </div>
+                        {activeTab === "writers" && (
+                            <BroadcastComposer
+                                isDark={isDark}
+                                audienceLabel="Writers"
+                                title={writerBroadcastTitle}
+                                content={writerBroadcastContent}
+                                onTitleChange={setWriterBroadcastTitle}
+                                onContentChange={setWriterBroadcastContent}
+                                onSend={() => handleSendAudienceBroadcast("writers")}
+                                sending={userActionLoading === "broadcast:writers"}
+                            />
+                        )}
+                        {activeTab === "investors" && (
+                            <BroadcastComposer
+                                isDark={isDark}
+                                audienceLabel="Film Professionals"
+                                title={filmBroadcastTitle}
+                                content={filmBroadcastContent}
+                                onTitleChange={setFilmBroadcastTitle}
+                                onContentChange={setFilmBroadcastContent}
+                                onSend={() => handleSendAudienceBroadcast("film-professionals")}
+                                sending={userActionLoading === "broadcast:film-professionals"}
+                            />
+                        )}
                         <UserTable
                             users={filteredUsers}
                             isDark={isDark}
@@ -2760,6 +2898,16 @@ const AdminDashboard = () => {
                         <div className="flex items-center justify-between mb-5">
                             <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>All Scripts<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
                         </div>
+                        <BroadcastComposer
+                            isDark={isDark}
+                            audienceLabel="Script Uploaders"
+                            title={scriptBroadcastTitle}
+                            content={scriptBroadcastContent}
+                            onTitleChange={setScriptBroadcastTitle}
+                            onContentChange={setScriptBroadcastContent}
+                            onSend={() => handleSendAudienceBroadcast("script-uploaders")}
+                            sending={userActionLoading === "broadcast:script-uploaders"}
+                        />
                         <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true}
                             actions={(s) => (
                                 <div className="flex items-center gap-2">

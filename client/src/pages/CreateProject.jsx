@@ -17,7 +17,6 @@ import { AuthContext } from "../context/AuthContext";
 import { Image as ImageIcon, Film, CheckCircle2, Move, ZoomIn, RotateCw } from "lucide-react";
 import api from "../services/api";
 import { formatCurrency } from "../utils/currency";
-import { getProfileCanonicalPath } from "../utils/profilePath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
   SCRIPT_COMPLETION_OPTIONS,
@@ -599,11 +598,6 @@ const CreateProject = () => {
   const shouldStartFresh = !draftId && (
     Boolean(location.state?.startFresh) || new URLSearchParams(location.search).get("fresh") === "1"
   );
-  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
-  const profileEditPath = getProfileCanonicalPath(user, {
-    viewerId: user?._id,
-    viewerRole: user?.role,
-  });
   const agreementRef = useRef(null);
   const reviewRedirectTimerRef = useRef(null);
 
@@ -1150,7 +1144,6 @@ const CreateProject = () => {
   }, []);
 
   const queueKeepaliveDraftSave = useCallback((reason = "close") => {
-    if (!profileComplete) return false;
     if (scriptId && loadedScriptStatus !== "draft") return false;
 
     const payload = buildDraftPayload();
@@ -1182,12 +1175,11 @@ const CreateProject = () => {
 
     lastDraftSignatureRef.current = signature;
     return true;
-  }, [buildDraftPayload, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, profileComplete, scriptId]);
+  }, [buildDraftPayload, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
 
   // Save draft
   const handleSave = useCallback(async (auto = false) => {
     if (!editor) return;
-    if (!profileComplete) return;
     if (auto && autoSaveInFlightRef.current) return;
     if (scriptId && loadedScriptStatus !== "draft") {
       if (editApprovalLocked && !auto) {
@@ -1228,7 +1220,7 @@ const CreateProject = () => {
         setSaving(false);
       }
     }
-  }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, profileComplete, scriptId]);
+  }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
 
   const clearLocalWorkingDraft = useCallback(() => {
     try {
@@ -2009,25 +2001,6 @@ const CreateProject = () => {
   const chipCls = (sel) => `px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${sel
     ? dark ? "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20" : "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20"
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
-  if (!profileComplete) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <div className={`rounded-2xl border p-6 text-center ${dark ? "bg-[#0d1520] border-[#182840]" : "bg-white border-gray-200 shadow-sm"}`}>
-          <h1 className={`text-2xl font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>Complete Your Profile</h1>
-          <p className={`text-sm mb-5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
-            You can create projects once your profile completion reaches 100%.
-          </p>
-          <Link
-            to={profileEditPath}
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#1e3a5f] text-white text-sm font-bold hover:bg-[#162d4a] transition"
-          >
-            Complete Profile
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-5xl mx-auto px-4 max-[768px]:px-2.5 max-[420px]:px-1.5 py-4 overflow-x-hidden">
       {/* -- Header -------------------------------- */}

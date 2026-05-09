@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { BookOpen, ChevronRight, ChevronLeft, Clock } from "lucide-react";
 import { useDarkMode } from "../context/DarkModeContext";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 import api from "../services/api";
 
 const ContinueReading = () => {
@@ -100,7 +101,7 @@ const ContinueCard = ({ script, index, dark }) => {
       className="flex-none w-56"
     >
       <Link
-        to={`/reader/script/${script._id}`}
+        to={getScriptCanonicalPath(script)}
         className={`group flex gap-3 p-3 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 ${
           dark
             ? "bg-[#101e30] border-[#182840] hover:border-[#1d3350] hover:shadow-lg hover:shadow-[#020609]/30"

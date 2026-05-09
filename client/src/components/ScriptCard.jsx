@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useDarkMode } from "../context/DarkModeContext";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionProgressText,
@@ -79,7 +80,7 @@ const ScriptCard = ({ script, index = 0 }) => {
       transition={{ delay: index * 0.04, duration: 0.3 }}
       className="h-full"
     >
-      <Link to={`/reader/script/${script._id}`} className="group block h-full">
+      <Link to={getScriptCanonicalPath(script)} className="group block h-full">
         <div
           className={`
             rounded-2xl overflow-hidden flex flex-col h-full
@@ -114,6 +115,11 @@ const ScriptCard = ({ script, index = 0 }) => {
                 {script.isFeatured && (
                   <span className="inline-flex items-center gap-1 px-2 py-[3px] rounded-md text-[9px] font-bold tracking-wide uppercase bg-violet-600 text-white">
                     + Featured
+                  </span>
+                )}
+                {script?.collabVisibility === "open" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-[3px] rounded-md text-[9px] font-bold tracking-wide uppercase bg-emerald-500 text-white">
+                    Open Collab
                   </span>
                 )}
               </div>

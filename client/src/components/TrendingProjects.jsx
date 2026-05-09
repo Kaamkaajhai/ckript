@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 import ScriptCard from "./ScriptCard";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const SORT_TABS = [
   { key: "featured", label: "Featured" },
@@ -152,7 +153,7 @@ const TrendingProjects = () => {
                       </p>
                     )}
                     <Link
-                      to={`/reader/script/${hero._id}`}
+                      to={getScriptCanonicalPath(hero)}
                       className="inline-flex items-center gap-2.5 px-6 py-3 bg-white text-gray-900 rounded-xl font-bold text-base hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl hover:scale-105"
                     >
                       Read Now

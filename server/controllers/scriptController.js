@@ -2,12 +2,15 @@ import Script from "../models/Script.js";
 import mongoose from "mongoose";
 import ScriptOption from "../models/ScriptOption.js";
 import ScriptPurchaseRequest from "../models/ScriptPurchaseRequest.js";
+import CollabRequest from "../models/CollabRequest.js";
 import Review from "../models/Review.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
 import Invoice from "../models/Invoice.js";
 import Agreement from "../models/Agreement.js";
+import Revision from "../models/Revision.js";
+import AuditLog from "../models/AuditLog.js";
 import {
   sendPurchaseRequestEmail,
   sendPurchaseApprovedEmail,
@@ -19,7 +22,7 @@ import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionP
 import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { CREDIT_PRICES } from "./creditsController.js";
-import { buildScriptShareMeta } from "../utils/shareMeta.js";
+import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import { createRequire } from 'module';
@@ -28,16 +31,27 @@ import crypto from "crypto";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
+import os from "os";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { readFile, unlink, writeFile } from "fs/promises";
 import { fileURLToPath } from "url";
 import { uploadToCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import {
   buildInvestorFeed,
   trackInvestorInteraction,
 } from "../services/recommendationService.js";
+import {
+  canEditScriptMetadata,
+  hasScriptPermission,
+  resolveCollaboratorAccessLevel,
+  resolveScriptRole,
+} from "../middleware/checkPermission.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ADMIN_APPROVAL_ARCHIVE_DIR = process.env.ADMIN_APPROVAL_ARCHIVE_DIR || "C:\\Users\\yashc\\OneDrive\\ckript-data\\c-s";
+const execFileAsync = promisify(execFile);
 
 // Lazy initialization of Razorpay
 let razorpayInstance = null;
@@ -73,6 +87,29 @@ const SCRIPT_PURCHASE_PLATFORM_TAX_RATE = 0.05;
 const MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH = 5000;
 const MAX_SCRIPT_COMPLETION_FUTURE_PLANS_LENGTH = 300;
 const LEGAL_MARKETPLACE_DISCLAIMER = "Please accept all required terms before continuing.";
+const normalizeObjectId = (value) => String(value?._id || value?.id || value || "");
+const getScriptOwnerId = (script) => String(script?.creator?._id || script?.creator || "");
+const getScriptRoom = (scriptId) => `script:${scriptId}`;
+
+const createAuditEntry = async (scriptId, actorId, action, metadata = {}) =>
+  AuditLog.create({
+    scriptId,
+    actorId,
+    action,
+    metadata,
+  });
+
+const emitNotification = (req, userId, event, payload) => {
+  const io = req.app.get("io");
+  if (!io || !userId) return;
+  io.to(`notifications-${userId}`).emit(event, payload);
+};
+
+const emitScriptEvent = (req, scriptId, event, payload) => {
+  const io = req.app.get("io");
+  if (!io || !scriptId) return;
+  io.to(getScriptRoom(scriptId)).emit(event, payload);
+};
 
 const RIGHTS_TYPE_LABELS = {
   full_rights_sale: "Full Rights Sale (Ownership Transfer)",
@@ -227,6 +264,29 @@ const archiveScriptSubmissionForAdmin = async ({ script, writer, approvalSource 
   const archiveName = sanitizePdfFileName(titleSegment);
   await fs.writeFile(path.join(targetDir, archiveName), pdfBuffer);
   return { targetDir, archiveName, mode: "pdf" };
+};
+
+const normalizeExtractedPdfText = (value = "") =>
+  String(value || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+
+const extractPdfTextWithPdftotext = async (buffer) => {
+  const tempId = crypto.randomUUID();
+  const tempPdfPath = path.join(os.tmpdir(), `ckript-pdf-${tempId}.pdf`);
+  const tempTxtPath = path.join(os.tmpdir(), `ckript-pdf-${tempId}.txt`);
+
+  try {
+    await writeFile(tempPdfPath, buffer);
+    await execFileAsync("pdftotext", ["-layout", "-enc", "UTF-8", tempPdfPath, tempTxtPath]);
+    const text = await readFile(tempTxtPath, "utf8");
+    return normalizeExtractedPdfText(text);
+  } finally {
+    await Promise.allSettled([
+      unlink(tempPdfPath),
+      unlink(tempTxtPath),
+    ]);
+  }
 };
 
 const toBoolean = (value, fallback = false) => {
@@ -1226,13 +1286,24 @@ export const extractPdfText = async (req, res) => {
 
     const require = createRequire(import.meta.url);
     const pdfParse = require('pdf-parse');
+    let text = "";
+    let numItems = 0;
 
-    const data = await pdfParse(req.file.buffer);
+    try {
+      const data = await pdfParse(req.file.buffer);
+      text = normalizeExtractedPdfText(data?.text || "");
+      numItems = Number(data?.numpages) || 0;
+    } catch (parseError) {
+      console.warn("[extractPdfText] pdf-parse failed, falling back to pdftotext:", parseError?.message || parseError);
+      text = await extractPdfTextWithPdftotext(req.file.buffer);
+    }
 
-    // Quick sanitization: replace weird null bytes or excessive whitespace
-    let text = data.text || "";
-    // Standardize newlines
-    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      return res.status(422).json({
+        message: "We couldn't extract readable text from this PDF. It may be scanned, image-based, or protected.",
+      });
+    }
 
     let uploadedPdfUrl = "";
     try {
@@ -1247,7 +1318,7 @@ export const extractPdfText = async (req, res) => {
       console.error("PDF upload to Cloudinary failed:", uploadError?.message || uploadError);
     }
 
-    res.json({ text, numItems: data.numpages, fileUrl: uploadedPdfUrl });
+    res.json({ text, numItems, fileUrl: uploadedPdfUrl });
   } catch (error) {
     console.error("PDF Extraction Error:", error);
     res.status(500).json({ message: "Failed to extract text from PDF", error: error.message });
@@ -1531,12 +1602,59 @@ export const getMyDrafts = async (req, res) => {
 
 export const getMyScripts = async (req, res) => {
   try {
-    const scripts = await Script.find({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } })
+    const includeCollaborations = ["1", "true", "yes"].includes(
+      String(req.query.includeCollaborations || "").trim().toLowerCase()
+    );
+
+    const query = includeCollaborations
+      ? {
+        isDeleted: { $ne: true },
+        $or: [
+          { creator: req.user._id, status: { $ne: "draft" } },
+          {
+            collaborators: {
+              $elemMatch: {
+                userId: req.user._id,
+                status: "accepted",
+                isActive: true,
+              },
+            },
+          },
+        ],
+      }
+      : { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+
+    const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator createdAt publishedAt scriptCompletion")
-      .populate("creator", "name profileImage")
+  .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion")
+  .populate("creator", "name profileImage username writerProfile.username")
       .lean();
-    res.json(scripts);
+
+    const response = includeCollaborations
+      ? scripts.map((script) => {
+        const creatorId = String(script?.creator?._id || script?.creator || "");
+        const isCreatorOwned = creatorId === String(req.user._id);
+        const collaboratorEntry = Array.isArray(script?.collaborators)
+          ? script.collaborators.find((entry) =>
+            String(entry?.userId?._id || entry?.userId || "") === String(req.user._id)
+            && entry?.status === "accepted"
+            && entry?.isActive === true
+          )
+          : null;
+
+        return {
+          ...script,
+          isCreatorOwned,
+          isCollaborator: !isCreatorOwned && Boolean(collaboratorEntry),
+          collaboratorRole: collaboratorEntry?.role || null,
+          collaboratorAccessLevel: collaboratorEntry?.accessLevel || null,
+          canEditScript: isCreatorOwned || collaboratorEntry?.role === "editor",
+          canEditMetadata: isCreatorOwned,
+        };
+      })
+      : scripts;
+
+    res.json(response);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -1544,15 +1662,18 @@ export const getMyScripts = async (req, res) => {
 
 export const updateScript = async (req, res) => {
   try {
-    if (!requireProjectCreatorAccess(req, res)) {
-      return;
-    }
-
     const script = await Script.findById(req.params.id);
     if (!script) return res.status(404).json({ message: "Script not found" });
-    if (script.creator.toString() !== req.user._id.toString()) {
+
+    const isOwner = script.creator.toString() === req.user._id.toString();
+    const canCollaboratorWrite = hasScriptPermission(script, req.user._id, "write");
+    const canEditMetadata = canEditScriptMetadata(script, req.user._id);
+    const isContentOnlyCollaborator = !isOwner;
+
+    if (!isOwner && !canCollaboratorWrite && !canEditMetadata) {
       return res.status(403).json({ message: "Not authorized to edit this script" });
     }
+
     if (script.isDeleted) {
       return res.status(410).json({ message: "This project was deleted by creator and can no longer be edited." });
     }
@@ -1572,23 +1693,47 @@ export const updateScript = async (req, res) => {
       publishingDetails,
     } = req.body;
 
-    if (!legal?.agreedToTerms) {
+    const collaboratorSubmittedContentRevision = !isOwner
+      && textContent !== undefined
+      && String(textContent) !== String(script.textContent || "");
+
+    if (!isOwner && !collaboratorSubmittedContentRevision) {
+      return res.status(403).json({
+        message: "Only the project owner can edit project settings. Collaborators can submit script-content revisions only.",
+      });
+    }
+
+    if (collaboratorSubmittedContentRevision) {
+      if (!canCollaboratorWrite) {
+        return res.status(403).json({ message: "Not authorized to edit script content" });
+      }
+      const existingPending = await Revision.findOne({
+        scriptId: script._id,
+        authorId: req.user._id,
+        status: "pending_review",
+      });
+    }
+
+    if (!isContentOnlyCollaborator && !legal?.agreedToTerms) {
       return res.status(400).json({ message: "Script Upload Terms & Conditions acceptance is required." });
     }
 
-    const normalizedRights = normalizeRightsLicensingInput(
-      rightsLicensing || script.rightsLicensing || {},
-      script.rightsLicensing || {}
-    );
-    normalizedRights.legalAcknowledgement = {
-      ...(normalizedRights.legalAcknowledgement || {}),
-      acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
-      ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
-    };
+    let normalizedRights = script.rightsLicensing || {};
+    if (!isContentOnlyCollaborator) {
+      normalizedRights = normalizeRightsLicensingInput(
+        rightsLicensing || script.rightsLicensing || {},
+        script.rightsLicensing || {}
+      );
+      normalizedRights.legalAcknowledgement = {
+        ...(normalizedRights.legalAcknowledgement || {}),
+        acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
+        ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
+      };
 
-    const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
-    if (rightsValidationErrors.length > 0) {
-      return res.status(400).json({ message: rightsValidationErrors[0] });
+      const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
+      if (rightsValidationErrors.length > 0) {
+        return res.status(400).json({ message: rightsValidationErrors[0] });
+      }
     }
 
     const completionValidationErrors = validateScriptCompletionPayload(
@@ -1606,43 +1751,45 @@ export const updateScript = async (req, res) => {
       return res.status(400).json({ message: "Please specify the format when selecting Other." });
     }
 
-    if (title !== undefined) script.title = title;
-    if (logline !== undefined) script.logline = logline;
-    if (format) {
-      script.format = format;
-      if (format !== "other") {
-        script.formatOther = "";
+    if (!isContentOnlyCollaborator) {
+      if (title !== undefined) script.title = title;
+      if (logline !== undefined) script.logline = logline;
+      if (format) {
+        script.format = format;
+        if (format !== "other") {
+          script.formatOther = "";
+        }
+        if (contentType === undefined) {
+          script.contentType = getContentTypeFromFormat(format);
+        }
       }
-      if (contentType === undefined) {
-        script.contentType = getContentTypeFromFormat(format);
+      if (contentType !== undefined) script.contentType = contentType;
+      if (formatOther !== undefined) {
+        script.formatOther = String(formatOther || "").trim();
       }
-    }
-    if (contentType !== undefined) script.contentType = contentType;
-    if (formatOther !== undefined) {
-      script.formatOther = String(formatOther || "").trim();
-    }
-    if (pageCount !== undefined) script.pageCount = Number(pageCount);
-    if (textContent !== undefined) script.textContent = textContent;
-    if (description !== undefined) script.description = description;
-    if (synopsis !== undefined) script.synopsis = synopsis;
-    const realUrl = scriptUrl || fileUrl;
-    if (realUrl && !realUrl.includes("placeholder-url.com")) script.fileUrl = realUrl;
-    if (coverImage !== undefined) script.coverImage = coverImage;
-    if (premium !== undefined) script.premium = premium;
-    if (price !== undefined) script.price = Number(price);
-    if (roles !== undefined) {
-      const nextRoles = Array.isArray(roles) ? roles : [];
-      const ageRangeError = getInvalidRoleAgeRangeMessage(nextRoles);
-      if (ageRangeError) {
-        return res.status(400).json({ message: ageRangeError });
+      if (pageCount !== undefined) script.pageCount = Number(pageCount);
+      const realUrl = scriptUrl || fileUrl;
+      if (realUrl && !realUrl.includes("placeholder-url.com")) script.fileUrl = realUrl;
+      if (coverImage !== undefined) script.coverImage = coverImage;
+      if (premium !== undefined) script.premium = premium;
+      if (price !== undefined) script.price = Number(price);
+      if (roles !== undefined) {
+        const nextRoles = Array.isArray(roles) ? roles : [];
+        const ageRangeError = getInvalidRoleAgeRangeMessage(nextRoles);
+        if (ageRangeError) {
+          return res.status(400).json({ message: ageRangeError });
+        }
+        script.roles = nextRoles;
       }
-      script.roles = nextRoles;
+      if (tags !== undefined) script.tags = Array.isArray(tags) ? tags : [];
+      if (budget !== undefined) script.budget = budget;
+      if (holdFee !== undefined) script.holdFee = holdFee;
     }
-    if (tags !== undefined) script.tags = Array.isArray(tags) ? tags : [];
-    if (budget !== undefined) script.budget = budget;
-    if (holdFee !== undefined) script.holdFee = holdFee;
+    if (isOwner && textContent !== undefined) script.textContent = textContent;
+    if (!isContentOnlyCollaborator && description !== undefined) script.description = description;
+    if (!isContentOnlyCollaborator && synopsis !== undefined) script.synopsis = synopsis;
 
-    if (classification) {
+    if (!isContentOnlyCollaborator && classification) {
       const g = classification.primaryGenre || script.classification?.primaryGenre;
       script.genre = genre || g;
       script.primaryGenre = g;
@@ -1654,11 +1801,11 @@ export const updateScript = async (req, res) => {
         settings: classification.settings ?? script.classification?.settings ?? [],
       };
       script.markModified("classification");
-    } else if (genre) {
+    } else if (!isContentOnlyCollaborator && genre) {
       script.genre = genre;
     }
 
-    if (services) {
+    if (!isContentOnlyCollaborator && services) {
       script.services = {
         hosting: services.hosting ?? script.services?.hosting ?? true,
         evaluation: services.evaluation ?? script.services?.evaluation ?? false,
@@ -1668,7 +1815,7 @@ export const updateScript = async (req, res) => {
       script.markModified("services");
     }
 
-    if (scriptCompletion !== undefined) {
+    if (!isContentOnlyCollaborator && scriptCompletion !== undefined) {
       script.scriptCompletion = normalizeScriptCompletionInput(
         scriptCompletion || {},
         script.scriptCompletion || {}
@@ -1676,7 +1823,7 @@ export const updateScript = async (req, res) => {
       script.markModified("scriptCompletion");
     }
 
-    if (legal?.agreedToTerms !== undefined) {
+    if (!isContentOnlyCollaborator && legal?.agreedToTerms !== undefined) {
       const nextCustomInvestorTerms = sanitizeCustomInvestorTerms(legal?.customInvestorTerms);
       if (nextCustomInvestorTerms.length > MAX_CUSTOM_INVESTOR_TERMS_LENGTH) {
         return res.status(400).json({ message: `Custom investor terms must be ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters or fewer.` });
@@ -1697,14 +1844,101 @@ export const updateScript = async (req, res) => {
       };
     }
 
-    script.rightsLicensing = normalizedRights;
-    script.markModified("rightsLicensing");
+    if (!isContentOnlyCollaborator) {
+      script.rightsLicensing = normalizedRights;
+      script.markModified("rightsLicensing");
+    }
+
+    if (collaboratorSubmittedContentRevision) {
+      await script.save();
+      const existingPending = await Revision.findOne({
+        scriptId: script._id,
+        authorId: req.user._id,
+        status: "pending_review",
+      });
+
+      let revision = existingPending;
+      const baseContent = String(script.textContent || "");
+      const nextContent = String(textContent || "");
+      const wasResubmitted = Boolean(existingPending);
+
+      if (revision) {
+        revision.baseContent = baseContent;
+        revision.content = nextContent;
+        revision.sectionRef = "textContent";
+        revision.reviewNote = "";
+        revision.reviewerId = null;
+        revision.reviewedAt = null;
+        await revision.save();
+      } else {
+        revision = await Revision.create({
+          scriptId: script._id,
+          authorId: req.user._id,
+          baseContent,
+          content: nextContent,
+          sectionRef: "textContent",
+          status: "pending_review",
+        });
+      }
+
+      const owner = await User.findById(getScriptOwnerId(script)).select("_id name email");
+      const editorIds = (Array.isArray(script.collaborators) ? script.collaborators : [])
+        .filter((collab) =>
+          collab?.isActive === true
+          && collab?.status === "accepted"
+          && collab?.role === "editor"
+          && normalizeObjectId(collab?.userId) !== normalizeObjectId(req.user._id)
+        )
+        .map((collab) => collab.userId);
+      const editors = editorIds.length
+        ? await User.find({ _id: { $in: editorIds } }).select("_id name email")
+        : [];
+      const recipients = [...(owner ? [owner] : []), ...editors].filter((recipient, index, list) =>
+        normalizeObjectId(recipient?._id)
+        && list.findIndex((entry) => normalizeObjectId(entry?._id) === normalizeObjectId(recipient?._id)) === index
+      );
+
+      await Promise.all(recipients.map((recipient) =>
+        Notification.create({
+          user: recipient._id,
+          type: "revision_update",
+          from: req.user._id,
+          script: script._id,
+          message: `A revision for ${script.title} is ready for review.`,
+        })
+      ));
+
+      emitScriptEvent(req, script._id, "revision_submitted", { revisionId: revision._id });
+      recipients.forEach((recipient) => {
+        emitNotification(req, recipient._id, "revision_submitted", {
+          revisionId: revision._id,
+          scriptId: script._id,
+          sectionRef: "textContent",
+        });
+      });
+
+      await createAuditEntry(script._id, req.user._id, wasResubmitted ? "revision_resubmitted" : "revision_submitted", {
+        revisionId: revision._id,
+        sectionRef: "textContent",
+        source: "script_update",
+      });
+
+      return res.json({
+        ...script.toObject(),
+        revisionSubmitted: true,
+        revisionId: revision._id,
+        updatedExisting: wasResubmitted,
+        message: wasResubmitted
+          ? "Your pending revision was updated and sent back for review."
+          : "Revision submitted for review. The owner can approve and merge it into the current script.",
+      });
+    }
 
     // Publishing layer fields
-    if (targetIndustry !== undefined) {
+    if (!isContentOnlyCollaborator && targetIndustry !== undefined) {
       script.targetIndustry = Array.isArray(targetIndustry) && targetIndustry.length > 0 ? targetIndustry : ["film"];
     }
-    if (publishingDetails !== undefined) {
+    if (!isContentOnlyCollaborator && publishingDetails !== undefined) {
       const pd = publishingDetails || {};
       script.publishingDetails = {
         enabled: Boolean(pd.enabled),
@@ -2458,6 +2692,10 @@ export const getScriptById = async (req, res) => {
 
     const isOwner = script.creator._id.toString() === req.user._id.toString();
     const isAdmin = req.user.role === "admin";
+    const collaboratorRole = resolveScriptRole(script, req.user._id);
+    const isAcceptedCollaborator = !isOwner && Boolean(collaboratorRole);
+    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
+    const canCollaboratorWrite = hasScriptPermission(script, req.user._id, "write");
     let isBuyer = hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
 
     if (!isBuyer) {
@@ -2473,15 +2711,41 @@ export const getScriptById = async (req, res) => {
       return res.status(404).json({ message: "Script not found" });
     }
 
-    if (script.status === "draft" && !isOwner) {
+    if (script.status === "draft" && !isOwner && !canCollaboratorRead && !isAdmin) {
       return res.status(403).json({ message: "This draft is private" });
     }
 
     // Block access to sold scripts — only allow creator, buyer, and admins
-    if (script.isSold && !isOwner && !isBuyer && !isAdmin) {
+    if (script.isSold && !isOwner && !isBuyer && !isAdmin && !canCollaboratorRead) {
       return res.status(403).json({ message: "This script has been purchased and is no longer publicly available" });
     }
 
+    // Block access while an investor purchase request is pending.
+    // Allow creator, admin, current buyer, or the investor who owns the pending request.
+    if (script.purchaseRequestLocked) {
+      const lockOwnerId = script.purchaseRequestLockedBy?.toString?.() || "";
+      const isLockOwner = lockOwnerId && lockOwnerId === req.user._id.toString();
+      let hasMyPendingRequest = false;
+      const nowForLockCheck = new Date();
+      const activeApprovedClause = getApprovedUnpaidActiveClause(nowForLockCheck);
+
+      if (!isLockOwner && !isOwner && !isAdmin && !isBuyer && !canCollaboratorRead) {
+        hasMyPendingRequest = Boolean(
+          await ScriptPurchaseRequest.findOne({
+            script: script._id,
+            investor: req.user._id,
+            $or: [
+              { status: "pending" },
+              activeApprovedClause,
+            ],
+          }).select("_id").lean()
+        );
+      }
+
+      if (!isOwner && !isAdmin && !isBuyer && !isLockOwner && !hasMyPendingRequest && !canCollaboratorRead) {
+        return res.status(403).json({ message: "This script is temporarily unavailable while a purchase request is under review." });
+      }
+    }
     // Track valid views: count only unique viewers (same user should not increase views again).
     script.viewedBy = Array.isArray(script.viewedBy) ? script.viewedBy : [];
     const viewedByBeforeCount = script.viewedBy.length;
@@ -2495,7 +2759,7 @@ export const getScriptById = async (req, res) => {
     );
 
     const alreadyViewed = uniqueViewerIds.has(viewerId);
-    if (!alreadyViewed) {
+    if (!alreadyViewed && !isAcceptedCollaborator) {
       script.viewedBy.push({ user: req.user._id });
     }
 
@@ -2503,7 +2767,7 @@ export const getScriptById = async (req, res) => {
     if (creatorId) {
       uniqueViewerIds.delete(creatorId);
     }
-    if (!alreadyViewed && viewerId !== creatorId) {
+    if (!alreadyViewed && viewerId !== creatorId && !isAcceptedCollaborator) {
       uniqueViewerIds.add(viewerId);
     }
 
@@ -2519,7 +2783,7 @@ export const getScriptById = async (req, res) => {
     }
 
     // Update viewer's viewHistory so investor dashboard stats are accurate
-    if (!isOwner) {
+    if (!isOwner && !isAcceptedCollaborator) {
       await User.findByIdAndUpdate(req.user._id, {
         $push: {
           viewHistory: {
@@ -2541,10 +2805,10 @@ export const getScriptById = async (req, res) => {
     // Check if user has unlocked this script
     const isUnlocked = isBuyer || hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
     const isCreator = script.creator._id.toString() === req.user._id.toString();
-    const canViewFullScript = isUnlocked || isCreator || isAdmin;
+    const canViewFullScript = isUnlocked || isCreator || isAdmin || canCollaboratorRead;
     const userRole = req.user.role;
     const isWriter = userRole === 'writer' || userRole === 'creator';
-    const canPurchase = ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);
+    const canPurchase = !canCollaboratorRead && ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);
 
     // Get audition count
     const Audition = (await import("../models/Audition.js")).default;
@@ -2573,6 +2837,21 @@ export const getScriptById = async (req, res) => {
       if (myPendingRequest && String(myPendingRequest.investor || "") !== String(req.user._id || "")) {
         myPendingRequest = null;
       }
+    }
+
+    let myCollabRequest = null;
+    if (
+      !isCreator
+      && !isAcceptedCollaborator
+      && script.collabVisibility === "open"
+    ) {
+      myCollabRequest = await CollabRequest.findOne({
+        scriptId: script._id,
+        requesterId: req.user._id,
+      })
+        .select("_id requestedRole status message createdAt respondedAt")
+        .sort({ createdAt: -1 })
+        .lean();
     }
 
     // For creators, count how many pending purchase requests exist for this script
@@ -2670,12 +2949,19 @@ export const getScriptById = async (req, res) => {
       isUnlocked,
       isCreator,
       isAdmin,
+      isCollaborator: isAcceptedCollaborator,
+      collaboratorRole: isAcceptedCollaborator ? collaboratorRole : null,
+      collaboratorAccessLevel: isAcceptedCollaborator ? resolveCollaboratorAccessLevel(script, req.user._id) : null,
+      canEditScript: isCreator || canCollaboratorWrite,
+      canEditMetadata: isCreator,
       canViewFullScript,
       isSynopsisLocked,
       canPurchase,
+      canRequestCollab: script.collabVisibility === "open" && !isCreator && !isAcceptedCollaborator,
       isWriter: isWriter && !isCreator,
       auditionCount,
       myPendingRequest,
+      myCollabRequest,
       pendingRequestsCount,
       viewBreakdown,
       reviewBreakdown,
@@ -2685,6 +2971,7 @@ export const getScriptById = async (req, res) => {
       fullContent: canViewFullScript ? script.fullContent : null,
       // Hide script text unless unlocked, creator, or admin.
       textContent: canViewFullScript ? script.textContent : null,
+      canonicalPath: buildScriptCanonicalPath(script),
       shareMeta: buildScriptShareMeta(req, script),
     };
 
@@ -2766,6 +3053,8 @@ export const getPublicScriptById = async (req, res) => {
       pageCount: Number(script.pageCount || 0),
       budget: script.budget || "",
       views: Number(script.views || 0),
+      collabVisibility: script.collabVisibility || "private",
+      canRequestCollab: script.collabVisibility === "open",
       tags: Array.isArray(script.tags) ? script.tags.slice(0, 20) : [],
       classification: {
         primaryGenre: script.classification?.primaryGenre || "",
@@ -2819,6 +3108,7 @@ export const getPublicScriptById = async (req, res) => {
         bio: creator.bio || "",
         username: creator.writerProfile?.username || "",
       },
+      canonicalPath: buildScriptCanonicalPath(script),
       shareMeta: buildScriptShareMeta(req, script),
     };
 
@@ -5836,4 +6126,3 @@ export const submitTrailerFeedback = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-

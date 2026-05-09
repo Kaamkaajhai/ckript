@@ -261,15 +261,14 @@ const Profile = () => {
       setBlockedUsers(Array.isArray(data.user.blockedUsers) ? data.user.blockedUsers : []);
       setIsBlockedByCurrent(Boolean(data.user.blockedByCurrent));
       setBlockedByProfile(Boolean(data.user.blockedByProfile));
-      setIsFollowing(
-        data.user.followers.some((f) => f._id === currentUser?._id)
-      );
+      const followers = Array.isArray(data.user?.followers) ? data.user.followers : [];
+      setIsFollowing(followers.some((f) => f?._id === currentUser?._id));
 
       if (tabInitializedForProfileRef.current !== data.user._id) {
         const role = String(data.user.role || "").toLowerCase();
         const isInvestorProfile = role === "investor";
-        const isWriterProfile = isWriter(role);
-        setActiveTab(isInvestorProfile || isWriterProfile ? "about" : "projects");
+        const nextScripts = (data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted);
+        setActiveTab(isInvestorProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about"));
         tabInitializedForProfileRef.current = data.user._id;
       }
     } catch (error) {
@@ -1627,15 +1626,71 @@ const Profile = () => {
                       </svg>
                     }
                   >
-                    <div className="mt-2 space-y-2">
-                      <div className={`px-3 py-2 rounded-lg text-[12px] font-bold border flex items-center justify-between ${profile.writerProfile.wgaMember ? t.wgaYes : t.wgaNo}`}>
-                        <span>WGA</span>
-                        <span>{profile.writerProfile.wgaMember ? "Verified" : "None"}</span>
-                      </div>
-                      <div className={`px-3 py-2 rounded-lg text-[12px] font-bold border flex items-center justify-between ${profile.writerProfile.sgaMember ? t.wgaYes : t.wgaNo}`}>
-                        <span>SWA</span>
-                        <span>{profile.writerProfile.sgaMember ? "Verified" : "None"}</span>
-                      </div>
+                    <div className="mt-2 space-y-4">
+                      <p className={`text-[13px] leading-relaxed ${dark ? "text-white/40" : "text-gray-500"}`}>
+                        Manage your guild affiliations and access
+                      </p>
+
+                      <div className={`h-px ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`} />
+
+                      {[
+                        {
+                          key: "wga",
+                          label: "WGA",
+                          fullName: "Writers Guild of America",
+                          active: Boolean(profile.writerProfile.wgaMember),
+                          iconWrap: dark ? "bg-[#4f6cf5]/14 text-[#7f96ff]" : "bg-[#eef2ff] text-[#4f6cf5]",
+                          rowTone: profile.writerProfile.wgaMember ? t.wgaYes : t.wgaNo,
+                          icon: (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16 18a3 3 0 100-6 3 3 0 000 6zm-8 0a3 3 0 100-6 3 3 0 000 6zm8-6a4 4 0 10-3.999-4A4 4 0 0016 12zM8 12a4 4 0 10-3.999-4A4 4 0 008 12zm8 6c0-2.21-1.79-4-4-4m-4 4c0-2.21 1.79-4 4-4" />
+                            </svg>
+                          ),
+                        },
+                        {
+                          key: "swa",
+                          label: "SWA",
+                          fullName: "Screenwriters Association",
+                          active: Boolean(profile.writerProfile.sgaMember),
+                          iconWrap: dark ? "bg-emerald-500/14 text-emerald-300" : "bg-emerald-50 text-emerald-500",
+                          rowTone: profile.writerProfile.sgaMember ? t.wgaYes : t.wgaNo,
+                          icon: (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l5 3v6c0 4.25-2.4 7.49-5 9-2.6-1.51-5-4.75-5-9V6l5-3z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 12.25h4.5M12 8.75v7" />
+                            </svg>
+                          ),
+                        },
+                      ].map((membership) => (
+                        <div
+                          key={membership.key}
+                          className={`rounded-2xl border px-4 py-4 shadow-sm transition-colors ${dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-white border-gray-200/80"} ${membership.rowTone}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${membership.iconWrap}`}>
+                              {membership.icon}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-[14px] font-extrabold tracking-tight ${dark ? "text-white/85" : "text-gray-900"}`}>
+                                {membership.label}
+                              </p>
+                              <p className={`text-[12px] mt-0.5 truncate ${dark ? "text-white/40" : "text-gray-500"}`}>
+                                {membership.fullName}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className={`px-3 py-1 rounded-xl text-[12px] font-bold border ${membership.active ? membership.rowTone : dark ? "bg-white/[0.05] border-white/[0.06] text-white/50" : "bg-gray-100 border-gray-200 text-gray-500"}`}>
+                                {membership.active ? "Verified" : "None"}
+                              </span>
+                              <svg className={`w-4 h-4 ${dark ? "text-white/25" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </SectionCard>
                 </div>

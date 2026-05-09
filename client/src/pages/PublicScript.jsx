@@ -5,6 +5,7 @@ import { AuthContext } from "../context/AuthContext";
 import publicApi from "../services/publicApi";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import RequestCollabButton from "../components/collab/RequestCollabButton";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -100,6 +101,7 @@ const PublicScript = () => {
   const completionLabel = getScriptCompletionStatusLabel(script);
   const completionProgress = getScriptCompletionProgressText(script);
   const completionFuturePlans = getScriptCompletionFuturePlans(script);
+  const isOpenForCollab = script?.collabVisibility === "open";
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -150,6 +152,11 @@ const PublicScript = () => {
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${dark ? "bg-emerald-500/15 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>
                 Price: ₹{Number(script.price || 0).toLocaleString("en-IN")}
               </span>
+              {isOpenForCollab ? (
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${dark ? "bg-teal-500/15 text-teal-200" : "bg-teal-100 text-teal-700"}`}>
+                  Open for Collaboration • Request Collaboration
+                </span>
+              ) : null}
             </div>
 
             <div className={`mt-4 text-sm ${dark ? "text-gray-300" : "text-gray-700"}`}>
@@ -349,6 +356,15 @@ const PublicScript = () => {
               <div className="mt-6">
                 <h2 className={`text-sm uppercase tracking-wider font-extrabold ${dark ? "text-gray-200" : "text-gray-800"}`}>Trailer</h2>
                 <video className="mt-2 w-full rounded-xl border border-black/10" controls preload="metadata" src={trailerUrl} />
+              </div>
+            ) : null}
+
+            {isOpenForCollab ? (
+              <div className="mt-6">
+                <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${dark ? "text-teal-200" : "text-teal-700"}`}>
+                  Request Collaboration
+                </p>
+                <RequestCollabButton script={script} />
               </div>
             ) : null}
 
