@@ -23,6 +23,7 @@ const NEGOTIATION_LABELS = {
 import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { io } from "socket.io-client";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
@@ -40,8 +41,10 @@ import {
   getScriptCompletionProgressText,
   getScriptCompletionStatusLabel,
 } from "../utils/scriptCompletion";
+import { getApiBaseUrl } from "../utils/apiOrigin";
 
 const BUYER_COMMISSION_RATE = 0.05;
+const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 const getBuyerCheckoutTotal = (baseAmount) => {
   const base = Number(baseAmount || 0);
   return Math.round((base + base * BUYER_COMMISSION_RATE) * 100) / 100;
@@ -292,6 +295,37 @@ const ScriptDetail = () => {
     fetchReviews({ page: 1 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [script?._id, user?._id]);
+
+  useEffect(() => {
+    if (!user?.token || !activeScriptId) return undefined;
+
+    const socket = io(SOCKET_ORIGIN, {
+      auth: { token: user.token },
+    });
+
+    const handleCollaboratorRemoved = async (payload = {}) => {
+      if (String(payload.scriptId || "") !== String(activeScriptId)) return;
+      await fetchScript({ silent: true });
+      showNotice("Your collaboration access was removed.", "error");
+    };
+
+    const handleRoleOrMembershipChanged = async (payload = {}) => {
+      if (String(payload.scriptId || "") !== String(activeScriptId)) return;
+      await fetchScript({ silent: true });
+    };
+
+    socket.on("collaborator_removed", handleCollaboratorRemoved);
+    socket.on("collab_role_changed", handleRoleOrMembershipChanged);
+    socket.on("collab_membership_changed", handleRoleOrMembershipChanged);
+
+    return () => {
+      socket.off("collaborator_removed", handleCollaboratorRemoved);
+      socket.off("collab_role_changed", handleRoleOrMembershipChanged);
+      socket.off("collab_membership_changed", handleRoleOrMembershipChanged);
+      socket.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScriptId, user?.token]);
 
   useEffect(() => {
     if (activeTab !== "reviews" || !script?._id) return;
@@ -996,6 +1030,7 @@ const ScriptDetail = () => {
   const completionProgress = getScriptCompletionProgressText(script);
   const completionFuturePlans = getScriptCompletionFuturePlans(script);
   const publishedAtValue = script?.publishedAt || script?.createdAt;
+  const collaborationStats = script?.collaborationStats || {};
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -1665,6 +1700,19 @@ const ScriptDetail = () => {
                     {script?.sid && (
                       <p className={`text-[10px] font-semibold mt-1 ${t.sub}`}>SID: {script.sid}</p>
                     )}
+                  </div>
+                  <div className={`rounded-2xl p-4 border ${t.priceSub}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${t.label}`}>Collaboration</p>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={t.muted}>Writers worked on this script</span>
+                        <span className={`font-bold ${t.sub}`}>{Number(collaborationStats.totalWritersWorked || 1)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={t.muted}>Still working on it</span>
+                        <span className={`font-bold ${t.sub}`}>{Number(collaborationStats.activeWritersWorking || 1)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

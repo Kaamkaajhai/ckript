@@ -47,7 +47,8 @@ export default function InviteModal({ scriptId, onClose, onSuccess }) {
           >
             <option value="editor">Editor - can write and raise PRs</option>
             <option value="merger">Merger - can review and merge PRs only</option>
-            <option value="viewer">Viewer - read only</option>
+            <option value="viewer">Reader - read and comment only</option>
+            <option value="full_admin">Admin - full collaboration control</option>
           </select>
           <select
             value={form.accessLevel}

@@ -1016,6 +1016,85 @@ const getBlockedUserIdsForViewer = async (viewerId) => {
 const hasUserInIdArray = (arr = [], userId) =>
   Array.isArray(arr) && arr.some((id) => id?.toString?.() === userId?.toString?.());
 
+const getPublicCollaboratorRank = (entry) => {
+  if (!entry) return -1;
+  if (entry.isActive === true && entry.status === "accepted") return 2;
+  if (entry.status === "accepted") return 1;
+  return 0;
+};
+
+const getAcceptedCollaboratorSummaries = (script) => {
+  const bestByUserId = new Map();
+
+  (Array.isArray(script?.collaborators) ? script.collaborators : []).forEach((entry) => {
+    if (String(entry?.status || "").trim().toLowerCase() !== "accepted") return;
+
+    const userId = normalizeObjectId(entry?.userId);
+    if (!userId) return;
+
+    const current = bestByUserId.get(userId);
+    if (!current || getPublicCollaboratorRank(entry) >= getPublicCollaboratorRank(current)) {
+      bestByUserId.set(userId, entry);
+    }
+  });
+
+  return [...bestByUserId.values()].map((entry) => ({
+    userId: normalizeObjectId(entry?.userId),
+    name: String(
+      entry?.userId?.name
+      || entry?.userId?.writerProfile?.username
+      || entry?.userId?.username
+      || "Collaborator"
+    ).trim(),
+    role: String(entry?.role || "").trim().toLowerCase(),
+    accessLevel: String(entry?.accessLevel || "").trim().toLowerCase(),
+    isActive: entry?.isActive === true,
+    status: String(entry?.status || "").trim().toLowerCase(),
+    joinedAt: entry?.joinedAt || null,
+  }));
+};
+
+const getPublicCollaborationSummary = (script) => {
+  const creatorId = normalizeObjectId(script?.creator);
+  const creatorName = String(
+    script?.creator?.name
+    || script?.creator?.writerProfile?.username
+    || script?.creator?.username
+    || "Writer"
+  ).trim();
+
+  const acceptedCollaborators = getAcceptedCollaboratorSummaries(script);
+  const writersWorked = [
+    {
+      userId: creatorId,
+      name: creatorName,
+      role: "writer",
+      accessLevel: "full_access",
+      isActive: true,
+      status: "accepted",
+      isCreator: true,
+    },
+    ...acceptedCollaborators,
+  ];
+
+  return {
+    writersWorked,
+    activeWriters: writersWorked.filter((entry) => entry?.isCreator || entry?.isActive === true),
+  };
+};
+
+const getCollaborationStats = (script) => {
+  const acceptedCollaborators = getAcceptedCollaboratorSummaries(script);
+  const activeCollaborators = acceptedCollaborators.filter((entry) => entry?.isActive === true);
+
+  return {
+    totalWritersWorked: 1 + acceptedCollaborators.length,
+    activeWritersWorking: 1 + activeCollaborators.length,
+    acceptedCollaborators: acceptedCollaborators.length,
+    activeCollaborators: activeCollaborators.length,
+  };
+};
+
 const safeDecodePathSegment = (value = "") => {
   try {
     return decodeURIComponent(String(value || ""));
@@ -1373,6 +1452,12 @@ export const saveDraft = async (req, res) => {
         script.formatOther = String(otherData.formatOther || "").trim();
       }
       if (otherData.pageCount !== undefined) script.pageCount = Number(otherData.pageCount) || 0;
+      if (otherData.collabVisibility !== undefined) {
+        const normalizedCollabVisibility = String(otherData.collabVisibility || "").trim().toLowerCase();
+        if (["open", "private"].includes(normalizedCollabVisibility)) {
+          script.collabVisibility = normalizedCollabVisibility;
+        }
+      }
       if (otherData.primaryGenre !== undefined) script.primaryGenre = otherData.primaryGenre;
       if (otherData.tags !== undefined) script.tags = Array.isArray(otherData.tags) ? otherData.tags : [];
       if (otherData.roles !== undefined) {
@@ -1685,7 +1770,7 @@ export const updateScript = async (req, res) => {
       title, logline, format, pageCount, classification,
       formatOther,
       scriptUrl, description, synopsis, textContent, fileUrl,
-      coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal,
+      coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal, collabVisibility,
       rightsLicensing,
       scriptCompletion,
       // Publishing layer
@@ -1773,6 +1858,12 @@ export const updateScript = async (req, res) => {
       if (coverImage !== undefined) script.coverImage = coverImage;
       if (premium !== undefined) script.premium = premium;
       if (price !== undefined) script.price = Number(price);
+      if (collabVisibility !== undefined) {
+        const normalizedCollabVisibility = String(collabVisibility || "").trim().toLowerCase();
+        if (["open", "private"].includes(normalizedCollabVisibility)) {
+          script.collabVisibility = normalizedCollabVisibility;
+        }
+      }
       if (roles !== undefined) {
         const nextRoles = Array.isArray(roles) ? roles : [];
         const ageRangeError = getInvalidRoleAgeRangeMessage(nextRoles);
@@ -2094,6 +2185,7 @@ export const uploadScript = async (req, res) => {
       scriptUrl,
       services,
       legal,
+      collabVisibility,
       rightsLicensing,
       scriptCompletion,
       // Publishing layer
@@ -2253,6 +2345,9 @@ export const uploadScript = async (req, res) => {
       tags: tags || [],
       budget,
       holdFee: holdFee || 200,
+      collabVisibility: ["open", "private"].includes(String(collabVisibility || "").trim().toLowerCase())
+        ? String(collabVisibility).trim().toLowerCase()
+        : "private",
 
       // New fields from the 5-step wizard
       format: format || "feature_film",
@@ -2848,6 +2943,7 @@ export const getScriptById = async (req, res) => {
       myCollabRequest = await CollabRequest.findOne({
         scriptId: script._id,
         requesterId: req.user._id,
+        status: { $in: ["pending", "rejected"] },
       })
         .select("_id requestedRole status message createdAt respondedAt")
         .sort({ createdAt: -1 })
@@ -2946,6 +3042,7 @@ export const getScriptById = async (req, res) => {
 
     const response = {
       ...script.toObject(),
+      collaborationStats: getCollaborationStats(script),
       isUnlocked,
       isCreator,
       isAdmin,
@@ -3010,6 +3107,7 @@ export const getPublicScriptById = async (req, res) => {
 
     const script = await Script.findById(scriptId)
       .populate("creator", "name profileImage role bio isPrivate isDeactivated writerProfile.username")
+      .populate("collaborators.userId", "name username writerProfile.username")
       .lean();
 
     if (!script) {
@@ -3035,6 +3133,7 @@ export const getPublicScriptById = async (req, res) => {
     const synopsisTeaser = synopsis
       ? `${synopsis.slice(0, 320)}${synopsis.length > 320 ? "..." : ""}`
       : "";
+    const collaborationSummary = getPublicCollaborationSummary(script);
 
     const publicScript = {
       _id: script._id,
@@ -3100,6 +3199,8 @@ export const getPublicScriptById = async (req, res) => {
       trailerSource: script.trailerSource || "none",
       createdAt: script.createdAt,
       publishedAt: script.publishedAt,
+      collaborationStats: getCollaborationStats(script),
+      collaborationSummary,
       creator: {
         _id: creator._id,
         name: creator.name || "",
