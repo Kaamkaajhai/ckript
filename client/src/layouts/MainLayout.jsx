@@ -96,6 +96,15 @@ const MainLayout = ({ children }) => {
     setNotificationPopups((prev) => prev.filter((notification) => notification._id !== notificationId));
   }, [rememberPopupSeen]);
 
+  const dismissAllNotificationPopups = useCallback(() => {
+    const popupIds = notificationPopups
+      .map((notification) => notification?._id)
+      .filter(Boolean);
+
+    popupIds.forEach((notificationId) => rememberPopupSeen(notificationId));
+    setNotificationPopups([]);
+  }, [notificationPopups, rememberPopupSeen]);
+
   const syncNotificationState = useCallback((nextNotifications) => {
     const normalizedNotifications = Array.isArray(nextNotifications) ? nextNotifications : [];
     const unreadIds = new Set(
@@ -287,6 +296,7 @@ const MainLayout = ({ children }) => {
   };
 
   const handleNotifToggle = () => {
+    dismissAllNotificationPopups();
     if (!notifOpen) fetchNotificationSnapshot({ showLoader: true });
     setNotifOpen(!notifOpen);
     setDropdownOpen(false);
@@ -538,12 +548,12 @@ const MainLayout = ({ children }) => {
         />
       )}
 
-      <div className="pointer-events-none fixed top-[74px] right-2 sm:right-4 z-[120] w-[min(92vw,420px)]">
+      <div className="pointer-events-none fixed top-[78px] right-4 xl:right-6 z-[120] hidden lg:block w-[min(calc(100vw-2.5rem),28rem)]">
         <AnimatePresence initial={false}>
           {visibleNotificationPopups.map((notification, index) => (
             <div
               key={notification._id}
-              className="pointer-events-auto"
+              className="pointer-events-auto w-full"
               style={{
                 zIndex: 40 - index,
                 marginTop: index === 0 ? 0 : 14,
@@ -563,7 +573,7 @@ const MainLayout = ({ children }) => {
                   mass: 1.05,
                   delay: index * 0.18,
                 }}
-                className={`relative overflow-hidden rounded-[24px] border px-4 py-3.5 shadow-2xl backdrop-blur-2xl ${
+                className={`relative w-full overflow-hidden rounded-[24px] border px-4 py-4 shadow-2xl backdrop-blur-2xl ${
                   isDarkMode
                     ? "bg-[#07111d]/94 border-white/10 text-white shadow-black/45"
                     : "bg-white/92 border-white/70 text-gray-900 shadow-slate-300/70"
@@ -578,7 +588,7 @@ const MainLayout = ({ children }) => {
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className="min-w-0 flex-1 pr-1">
                         <p className={`text-[13px] font-bold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                           {getNotifTitle(notification.type)}
                         </p>
@@ -588,7 +598,7 @@ const MainLayout = ({ children }) => {
                       </div>
                       <button
                         onClick={() => dismissNotificationPopup(notification._id)}
-                        className={`w-7 h-7 rounded-xl flex items-center justify-center transition-colors ${
+                        className={`w-7 h-7 shrink-0 rounded-xl flex items-center justify-center transition-colors ${
                           isDarkMode ? "text-[#7f97b4] hover:bg-white/10 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                         }`}
                         aria-label="Dismiss notification popup"
@@ -613,11 +623,11 @@ const MainLayout = ({ children }) => {
                       )}
                     </p>
 
-                    <div className="mt-3 flex items-center justify-end gap-2">
+                    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
                       {!notification.read && (
                         <button
                           onClick={() => handleMarkOneRead(notification._id)}
-                          className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-colors ${
+                          className={`min-h-[38px] rounded-xl px-3.5 py-2 text-[11px] font-semibold transition-colors ${
                             isDarkMode ? "text-[#b4c4da] hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
                           }`}
                         >
@@ -626,7 +636,7 @@ const MainLayout = ({ children }) => {
                       )}
                       <button
                         onClick={() => openNotificationTarget(notification)}
-                        className={`px-3.5 py-1.5 rounded-xl text-[11px] font-semibold transition-colors ${
+                        className={`min-h-[38px] min-w-[88px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
                           isDarkMode
                             ? "bg-sky-500 !text-white hover:bg-sky-400"
                             : "bg-[#0f1d31] !text-white hover:bg-[#19314f]"
