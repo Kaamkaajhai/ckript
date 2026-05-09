@@ -1,5 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { io } from "socket.io-client";
 import api from "../../services/api";
+import { getApiBaseUrl } from "../../utils/apiOrigin";
+
+const ROLE_OPTIONS = [
+  { value: "editor", label: "Editor" },
+  { value: "merger", label: "Merger" },
+  { value: "viewer", label: "Viewer" },
+  { value: "full_admin", label: "Admin" },
+];
+const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 const ACCESS_LEVEL_OPTIONS = [
   { value: "full_access", label: "Full Access" },
@@ -19,8 +29,7 @@ export default function CollabRequestsInbox() {
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState("");
   const [requestAccessLevels, setRequestAccessLevels] = useState({});
-
-  const loadInbox = async () => {
+  const loadInbox = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await api.get("/collab/requests/inbox");
@@ -28,18 +37,50 @@ export default function CollabRequestsInbox() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadInbox();
-  }, []);
+  }, [loadInbox]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("user");
+    let token = "";
+
+    try {
+      token = JSON.parse(stored || "{}")?.token || "";
+    } catch {
+      token = "";
+    }
+
+    if (!token) return undefined;
+
+    const socket = io(SOCKET_ORIGIN, {
+      auth: { token },
+    });
+
+    const refreshInbox = () => {
+      loadInbox();
+    };
+
+    socket.on("collab_request", refreshInbox);
+    socket.on("collab_request_responded", refreshInbox);
+    socket.on("collab_membership_changed", refreshInbox);
+
+    return () => {
+      socket.off("collab_request", refreshInbox);
+      socket.off("collab_request_responded", refreshInbox);
+      socket.off("collab_membership_changed", refreshInbox);
+      socket.disconnect();
+    };
+  }, [loadInbox]);
 
   const respond = async (request, decision) => {
     try {
       setActingId(request._id);
+      setRequests((prev) => prev.filter((entry) => entry._id !== request._id));
       await api.post(`/collab/${request.scriptId}/request/${request._id}/respond`, {
         decision,
-        role: "editor",
         accessLevel: requestAccessLevels[request._id] || "full_access",
       });
       loadInbox();
@@ -63,11 +104,11 @@ export default function CollabRequestsInbox() {
                 <p className="font-semibold text-gray-900">{request.requesterId?.name}</p>
                 <p className="text-sm text-gray-500">{request.scriptTitle}</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">
-                  Wants to join as editor · {timeAgo(request.createdAt)}
+                  Wants to join as {(ROLE_OPTIONS.find((option) => option.value === request.requestedRole)?.label || "Editor").toLowerCase()} · {timeAgo(request.createdAt)}
                 </p>
               </div>
               <span className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600">
-                Editor
+                {ROLE_OPTIONS.find((option) => option.value === request.requestedRole)?.label || "Editor"}
               </span>
             </div>
             {request.message ? <p className="mt-3 text-sm text-gray-700">{request.message}</p> : null}

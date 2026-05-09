@@ -34,8 +34,8 @@ import {
 } from "../utils/merge.js";
 import { generateScriptPdf } from "../utils/generateScriptPdf.js";
 
-const VALID_COLLAB_ROLES = ["editor", "merger", "viewer"];
-const REQUESTABLE_ROLES = ["editor"];
+const VALID_COLLAB_ROLES = ["editor", "merger", "viewer", "full_admin"];
+const REQUESTABLE_ROLES = ["editor", "merger", "viewer", "full_admin"];
 const REVIEW_DECISIONS = ["approved", "rejected"];
 const REQUEST_DECISIONS = ["accepted", "rejected"];
 const PR_REVIEW_DECISIONS = ["approved", "rejected"];
@@ -78,6 +78,13 @@ const normalizeCollaboratorRoleInput = (value, fallback = "editor") => {
   const normalized = String(value || "").trim().toLowerCase();
   return VALID_COLLAB_ROLES.includes(normalized) ? normalized : fallback;
 };
+const COLLAB_ROLE_LABELS = {
+  editor: "Editor",
+  merger: "Merger",
+  viewer: "Viewer",
+  full_admin: "Admin",
+};
+const getCollabRoleLabel = (value) => COLLAB_ROLE_LABELS[normalizeCollaboratorRoleInput(value)] || "Editor";
 const CONTENT_ONLY_SECTION_FIELDS = new Set(["textContent", "fullContent"]);
 const FULL_ACCESS_SECTION_FIELDS = new Set(["textContent", "fullContent", "description", "synopsis", "logline"]);
 
@@ -546,7 +553,7 @@ export const requestCollab = async (req, res) => {
       return res.status(409).json({ error: "Already a collaborator" });
     }
 
-    const requestedRole = "editor";
+    const requestedRole = String(req.body?.requestedRole || "").trim().toLowerCase();
     if (!REQUESTABLE_ROLES.includes(requestedRole)) {
       return res.status(400).json({ error: "Invalid requested role" });
     }
@@ -567,6 +574,20 @@ export const requestCollab = async (req, res) => {
       requestedRole,
       message: sanitizeMessage(req.body?.message, 1000),
     });
+    const requestedRoleLabel = getCollabRoleLabel(requestedRole);
+
+    await createNotification({
+      userId: req.user._id,
+      type: "collab_update",
+      script: script._id,
+      message: `Your collaboration request for ${script.title} was sent as ${requestedRoleLabel}.`,
+    });
+
+    emitNotification(req, req.user._id, "collab_request_sent", {
+      requestId: collabRequest._id,
+      scriptId: script._id,
+      requestedRole,
+    });
 
     let emailResult = { success: false, skipped: true };
     try {
@@ -577,7 +598,7 @@ export const requestCollab = async (req, res) => {
           type: "collab_request",
           from: req.user._id,
           script: script._id,
-          message: `${req.user.name} requested ${requestedRole} access to ${script.title}.`,
+          message: `${req.user.name} requested ${requestedRoleLabel} access to ${script.title}.`,
         });
 
         emitNotification(req, owner._id, "collab_request", {
@@ -586,12 +607,19 @@ export const requestCollab = async (req, res) => {
           requestedRole,
         });
 
+        emitScriptEvent(req, script._id, "collab_request", {
+          requestId: collabRequest._id,
+          scriptId: script._id,
+          requesterId: normalizeObjectId(req.user._id),
+          requestedRole,
+        });
+
         try {
           emailResult = await sendEmailNotification({
             to: owner.email,
             subject: `New collaboration request for ${script.title}`,
-            html: `<p>${req.user.name} requested <strong>${requestedRole}</strong> access to <strong>${script.title}</strong>.</p>`,
-            text: `${req.user.name} requested ${requestedRole} access to ${script.title}.`,
+            html: `<p>${req.user.name} requested <strong>${requestedRoleLabel}</strong> access to <strong>${script.title}</strong>.</p>`,
+            text: `${req.user.name} requested ${requestedRoleLabel} access to ${script.title}.`,
           });
         } catch (emailError) {
           console.error("requestCollab email failed:", emailError.message);
@@ -647,11 +675,12 @@ export const respondToRequest = async (req, res) => {
     }
 
     if (decision === "accepted") {
-      const role = normalizeCollaboratorRoleInput(req.body?.role, "editor");
+      const role = String(collabRequest.requestedRole || "").trim().toLowerCase();
       const accessLevel = normalizeAccessLevel(req.body?.accessLevel);
       if (!VALID_COLLAB_ROLES.includes(role)) {
         return res.status(400).json({ error: "Invalid collaborator role" });
       }
+      const roleLabel = getCollabRoleLabel(role);
 
       const existingCollaborator = (script.collaborators || []).find(
         (collab) =>
@@ -685,10 +714,17 @@ export const respondToRequest = async (req, res) => {
         type: "collab_update",
         from: req.user._id,
         script: script._id,
-        message: `Your collaboration request for ${script.title} was accepted as ${role}.`,
+        message: `${req.user.name || "The writer"} approved your collaboration request for ${script.title} as ${roleLabel}.`,
       });
 
       emitNotification(req, collabRequest.requesterId._id, "collab_request_responded", {
+        requestId: collabRequest._id,
+        scriptId: script._id,
+        decision,
+        role,
+      });
+
+      emitScriptEvent(req, script._id, "collab_request_responded", {
         requestId: collabRequest._id,
         scriptId: script._id,
         decision,
@@ -721,10 +757,16 @@ export const respondToRequest = async (req, res) => {
       type: "collab_update",
       from: req.user._id,
       script: script._id,
-      message: `Your collaboration request for ${script.title} was rejected.`,
+      message: `${req.user.name || "The writer"} rejected your collaboration request for ${script.title}.`,
     });
 
     emitNotification(req, collabRequest.requesterId._id, "collab_request_responded", {
+      requestId: collabRequest._id,
+      scriptId: script._id,
+      decision,
+    });
+
+    emitScriptEvent(req, script._id, "collab_request_responded", {
       requestId: collabRequest._id,
       scriptId: script._id,
       decision,

@@ -16,6 +16,13 @@ const ACCESS_LEVEL_OPTIONS = [
   { value: "full_access", label: "Full Access" },
   { value: "content_only", label: "Content Only" },
 ];
+const ROLE_LABELS = {
+  editor: "Editor",
+  merger: "Merger",
+  viewer: "Viewer",
+  full_admin: "Admin",
+};
+const getRoleLabel = (value = "") => ROLE_LABELS[String(value || "").trim().toLowerCase()] || value || "Unknown";
 const getAccessLevelLabel = (value) => (
   value === "content_only" ? "Content Only" : "Full Access"
 );
@@ -442,6 +449,12 @@ export default function CollaborationHub() {
     Boolean(canLoadRoleScopedData && !pageError),
     {
       onCollabMembershipChanged: refreshCollabHub,
+      onCollabRequest: async () => {
+        await Promise.allSettled([refreshRequests(), refreshActivity()]);
+      },
+      onCollabRequestResponded: async () => {
+        await Promise.allSettled([refreshRequests(), refreshActivity(), refreshCollaborators()]);
+      },
       onPRRaised: async () => {
         setPrNotice({ type: "success", message: "A new pull request was raised." });
         await Promise.allSettled([refreshPrs(), refreshActivity()]);
@@ -558,14 +571,65 @@ export default function CollaborationHub() {
 
   const respondToRequest = async (request, decision) => {
     if (decision === "rejected" && !window.confirm("Reject this collaboration request?")) return;
+    const nextStatus = decision === "accepted" ? "accepted" : "rejected";
+    const assignedRole = String(request?.requestedRole || "").trim().toLowerCase();
+    const assignedAccessLevel = requestAccessLevels[request._id] || "full_access";
+    const previousRequests = requests;
+    const previousCollabData = collabData;
+
+    setRequests((prev) => prev.map((entry) => (
+      entry._id === request._id
+        ? {
+            ...entry,
+            status: nextStatus,
+            respondedAt: new Date().toISOString(),
+          }
+        : entry
+    )));
+
+    if (decision === "accepted" && request?.requesterId?._id) {
+      setCollabData((prev) => {
+        if (!prev) return prev;
+        const requesterId = String(request.requesterId._id);
+        const existing = Array.isArray(prev.collaborators) ? prev.collaborators : [];
+        const alreadyExists = existing.some((entry) => String(entry?.user?._id || entry?.userId || "") === requesterId);
+        if (alreadyExists) return prev;
+
+        return {
+          ...prev,
+          collaborators: [
+            ...existing,
+            {
+              _id: `optimistic-${request._id}`,
+              role: assignedRole,
+              accessLevel: assignedAccessLevel,
+              invitedBy: prev.ownerId || null,
+              status: "accepted",
+              joinedAt: new Date().toISOString(),
+              isActive: true,
+              user: {
+                _id: request.requesterId._id,
+                name: request.requesterId.name || "Unknown",
+                email: request.requesterId.email || "",
+                profileImage: request.requesterId.profileImage || "",
+              },
+            },
+          ],
+        };
+      });
+    }
+
     try {
       setBusyKey(`request:${request._id}:${decision}`);
       await api.post(`/collab/${scriptId}/request/${request._id}/respond`, {
         decision,
-        role: "editor",
         accessLevel: requestAccessLevels[request._id] || "full_access",
       });
       await Promise.all([refreshRequests(), refreshCollaborators()]);
+    } catch (error) {
+      setRequests(previousRequests);
+      setCollabData(previousCollabData);
+      window.alert(error?.response?.data?.error || "Failed to respond to request.");
     } finally {
       setBusyKey("");
     }
@@ -1069,7 +1133,7 @@ export default function CollaborationHub() {
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className={`text-base font-semibold ${titleTone}`}>{request.requesterId?.name || "Unknown"}</p>
-                              <p className={`text-sm ${muted}`}>Wants to join as: editor</p>
+                              <p className={`text-sm ${muted}`}>Wants to join as: {getRoleLabel(request.requestedRole)}</p>
                             </div>
                             <p className={`text-xs ${muted}`}>{timeAgo(request.createdAt)}</p>
                           </div>

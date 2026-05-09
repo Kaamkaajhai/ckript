@@ -89,7 +89,9 @@ const CreatorDashboard = ({ user, dark }) => {
     };
 
     socket.on("collab_membership_changed", refreshDashboard);
+    socket.on("collab_request", refreshDashboard);
     socket.on("collab_invite", refreshDashboard);
+    socket.on("collab_request_sent", refreshDashboard);
     socket.on("collab_request_responded", refreshDashboard);
     socket.on("collaborator_removed", refreshDashboard);
     socket.on("collab_role_changed", refreshDashboard);
