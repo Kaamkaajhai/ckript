@@ -8,7 +8,6 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { formatCurrency } from "../utils/currency";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
-import { getProfileCanonicalPath } from "../utils/profilePath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
   SCRIPT_COMPLETION_OPTIONS,
@@ -1495,31 +1494,6 @@ const ScriptUpload = () => {
         <div className="flex flex-col items-center gap-4">
           <div className={`w-10 h-10 border-[3px] rounded-full animate-spin ${isDarkMode ? "border-white/[0.12] border-t-white/70" : "border-gray-200 border-t-[#1e3a5f]"}`} />
           <p className={`text-sm font-medium ${isDarkMode ? "text-neutral-400" : "text-gray-500"}`}>Loading editor...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
-  const profileEditPath = getProfileCanonicalPath(user, {
-    viewerId: user?._id,
-    viewerRole: user?.role,
-  });
-
-  if (!editId && !profileComplete) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 max-w-md text-center shadow-sm">
-          <h2 className="text-xl font-bold text-[#1e3a5f] mb-2">Complete Your Profile</h2>
-          <p className="text-sm text-gray-600 mb-5">
-            You can upload projects once your profile completion reaches 100%.
-          </p>
-          <Link
-            to={profileEditPath}
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#1e3a5f] text-white text-sm font-bold hover:bg-[#162d4a] transition"
-          >
-            Complete Profile
-          </Link>
         </div>
       </div>
     );

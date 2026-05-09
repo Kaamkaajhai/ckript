@@ -13,7 +13,7 @@ import {
   isOTPExpired,
   verifyHashedOTP,
 } from "../utils/otpHelper.js";
-import { buildUserShareMeta, buildScriptShareMeta } from "../utils/shareMeta.js";
+import { buildUserCanonicalPath, buildUserShareMeta, buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
@@ -741,6 +741,7 @@ export const getPublicUserProfile = async (req, res) => {
           }
         : undefined,
       shareMeta: buildUserShareMeta(req, userForShareMeta),
+      canonicalPath: buildUserCanonicalPath(userForShareMeta),
     };
 
     const scripts = publicScripts.map((script) => {
@@ -752,6 +753,11 @@ export const getPublicUserProfile = async (req, res) => {
       return {
         ...script,
         synopsis: synopsisTeaser,
+        writerUsername: user.writerProfile?.username || "",
+        canonicalPath: buildScriptCanonicalPath({
+          ...script,
+          writerUsername: user.writerProfile?.username || "",
+        }),
         shareMeta: buildScriptShareMeta(req, script),
       };
     });
@@ -939,13 +945,24 @@ export const getUserProfile = async (req, res) => {
     userObj.blockedByCurrent = blockedByCurrent;
     userObj.blockedByProfile = blockedByProfile;
     userObj.shareMeta = buildUserShareMeta(req, userObj);
+    userObj.canonicalPath = buildUserCanonicalPath(userObj);
     userObj.profileCompletion = getProfileCompletion(userObj);
 
     const attachScriptShareMeta = (list = []) => list.map((scriptDoc) => {
       if (!scriptDoc) return scriptDoc;
       const scriptObj = typeof scriptDoc.toObject === "function" ? scriptDoc.toObject() : scriptDoc;
+      const fallbackWriterUsername =
+        String(userObj?.writerProfile?.username || "").trim() &&
+        String(scriptObj?.creator?._id || scriptObj?.creator || "") === String(userObj?._id || "")
+          ? String(userObj.writerProfile.username || "").trim()
+          : "";
       return {
         ...scriptObj,
+        writerUsername: scriptObj?.writerUsername || fallbackWriterUsername,
+        canonicalPath: buildScriptCanonicalPath({
+          ...scriptObj,
+          writerUsername: scriptObj?.writerUsername || fallbackWriterUsername,
+        }),
         shareMeta: buildScriptShareMeta(req, scriptObj),
       };
     });
@@ -1355,6 +1372,7 @@ export const updateUserProfile = async (req, res) => {
       bankDetails: sanitizedBankDetails,
       bankDetailsReview: sanitizedBankReview,
       shareMeta: buildUserShareMeta(req, user),
+      canonicalPath: buildUserCanonicalPath(user),
       profileCompletion: getProfileCompletion(user),
     });
   } catch (error) {

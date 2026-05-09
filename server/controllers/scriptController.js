@@ -22,7 +22,7 @@ import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionP
 import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { CREDIT_PRICES } from "./creditsController.js";
-import { buildScriptShareMeta } from "../utils/shareMeta.js";
+import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import { createRequire } from 'module';
@@ -1649,7 +1649,7 @@ export const getMyScripts = async (req, res) => {
           collaboratorRole: collaboratorEntry?.role || null,
           collaboratorAccessLevel: collaboratorEntry?.accessLevel || null,
           canEditScript: isCreatorOwned || collaboratorEntry?.role === "editor",
-          canEditMetadata: isCreatorOwned || collaboratorEntry?.accessLevel === "full_access",
+          canEditMetadata: isCreatorOwned,
         };
       })
       : scripts;
@@ -1667,10 +1667,10 @@ export const updateScript = async (req, res) => {
 
     const isOwner = script.creator.toString() === req.user._id.toString();
     const canCollaboratorWrite = hasScriptPermission(script, req.user._id, "write");
-    const canCollaboratorEditMetadata = canEditScriptMetadata(script, req.user._id);
-    const isContentOnlyCollaborator = !isOwner && !canCollaboratorEditMetadata;
+    const canEditMetadata = canEditScriptMetadata(script, req.user._id);
+    const isContentOnlyCollaborator = !isOwner;
 
-    if (!isOwner && !canCollaboratorWrite && !canCollaboratorEditMetadata) {
+    if (!isOwner && !canCollaboratorWrite && !canEditMetadata) {
       return res.status(403).json({ message: "Not authorized to edit this script" });
     }
 
@@ -1696,6 +1696,12 @@ export const updateScript = async (req, res) => {
     const collaboratorSubmittedContentRevision = !isOwner
       && textContent !== undefined
       && String(textContent) !== String(script.textContent || "");
+
+    if (!isOwner && !collaboratorSubmittedContentRevision) {
+      return res.status(403).json({
+        message: "Only the project owner can edit project settings. Collaborators can submit script-content revisions only.",
+      });
+    }
 
     if (collaboratorSubmittedContentRevision) {
       if (!canCollaboratorWrite) {
@@ -1929,10 +1935,10 @@ export const updateScript = async (req, res) => {
     }
 
     // Publishing layer fields
-    if (targetIndustry !== undefined) {
+    if (!isContentOnlyCollaborator && targetIndustry !== undefined) {
       script.targetIndustry = Array.isArray(targetIndustry) && targetIndustry.length > 0 ? targetIndustry : ["film"];
     }
-    if (publishingDetails !== undefined) {
+    if (!isContentOnlyCollaborator && publishingDetails !== undefined) {
       const pd = publishingDetails || {};
       script.publishingDetails = {
         enabled: Boolean(pd.enabled),
@@ -2947,7 +2953,7 @@ export const getScriptById = async (req, res) => {
       collaboratorRole: isAcceptedCollaborator ? collaboratorRole : null,
       collaboratorAccessLevel: isAcceptedCollaborator ? resolveCollaboratorAccessLevel(script, req.user._id) : null,
       canEditScript: isCreator || canCollaboratorWrite,
-      canEditMetadata: isCreator || canEditScriptMetadata(script, req.user._id),
+      canEditMetadata: isCreator,
       canViewFullScript,
       isSynopsisLocked,
       canPurchase,
@@ -2965,6 +2971,7 @@ export const getScriptById = async (req, res) => {
       fullContent: canViewFullScript ? script.fullContent : null,
       // Hide script text unless unlocked, creator, or admin.
       textContent: canViewFullScript ? script.textContent : null,
+      canonicalPath: buildScriptCanonicalPath(script),
       shareMeta: buildScriptShareMeta(req, script),
     };
 
@@ -3101,6 +3108,7 @@ export const getPublicScriptById = async (req, res) => {
         bio: creator.bio || "",
         username: creator.writerProfile?.username || "",
       },
+      canonicalPath: buildScriptCanonicalPath(script),
       shareMeta: buildScriptShareMeta(req, script),
     };
 

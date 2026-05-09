@@ -7,6 +7,7 @@ import useCollabSocket from "../hooks/useCollabSocket";
 import InviteModal from "../components/collab/InviteModal";
 import PullRequestDiffModal from "../components/collab/PullRequestDiffModal";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { getProfileCanonicalPath } from "../utils/profilePath";
 
 const REQUEST_TABS = ["pending", "accepted", "rejected"];
 const ACTIVITY_FILTERS = ["all", "invites", "requests", "revisions", "publishing"];
@@ -1075,7 +1076,7 @@ export default function CollaborationHub() {
                           {request.message ? <p className={`mt-3 text-sm leading-relaxed ${muted}`}>"{request.message}"</p> : null}
                           <div className="mt-4 flex flex-wrap items-center gap-3">
                             <Link
-                              to={`/profile/${request.requesterId?._id || ""}`}
+                              to={getProfileCanonicalPath(request.requesterId)}
                               className={`rounded-2xl border px-4 py-2 text-sm font-semibold ${isDarkMode ? "border-[#1c2a3a] text-white" : "border-gray-200 text-gray-700"}`}
                             >
                               View Profile
@@ -1184,15 +1185,6 @@ export default function CollaborationHub() {
                           className="rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
                         >
                           {editorLatestReviewedPr?.status === "rejected" ? "Edit and re-raise" : "Edit my branch"}
-                        </button>
-                      ) : null}
-                      {resolvedScriptId && collaboratorAccessLevel === "full_access" ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/upload?edit=${resolvedScriptId}`)}
-                          className={`rounded-2xl border px-4 py-2.5 text-sm font-semibold transition ${isDarkMode ? "bg-white/[0.05] border-[#1c2a3a] text-white hover:bg-white/[0.08]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
-                        >
-                          Edit Project Settings
                         </button>
                       ) : null}
                       {resolvedScriptId && editorOpenPr ? (

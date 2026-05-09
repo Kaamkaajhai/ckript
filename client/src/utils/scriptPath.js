@@ -16,11 +16,17 @@ const toUsernameSegment = (value = "") =>
     .replace(/[^a-z0-9_]+/g, "");
 
 export const getScriptCanonicalPath = (script = {}) => {
+  const readyPath = String(script?.canonicalPath || "").trim();
+  if (readyPath) {
+    return readyPath.startsWith("/") ? readyPath : `/${readyPath}`;
+  }
+
   const scriptId = String(script?._id || script?.id || "").trim();
   const projectHeading = toHeadingSegment(script?.title || script?.projectHeading || "");
   const writerUsername = toUsernameSegment(
     script?.creator?.writerProfile?.username ||
       script?.creator?.username ||
+      script?.creatorUsername ||
       script?.writerUsername ||
       ""
   );

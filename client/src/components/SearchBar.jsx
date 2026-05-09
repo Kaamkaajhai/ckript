@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const SearchBar = ({ className = "", variant = "hero" }) => {
   const { isDarkMode: dark } = useDarkMode();
@@ -64,7 +65,7 @@ const SearchBar = ({ className = "", variant = "hero" }) => {
           {suggestions.map((s) => (
             <button
               key={s._id}
-              onClick={() => { navigate(`/reader/script/${s._id}`); setOpen(false); setQuery(""); }}
+              onClick={() => { navigate(getScriptCanonicalPath(s)); setOpen(false); setQuery(""); }}
               className={`w-full px-4 py-3 flex items-center gap-3 transition-colors text-left border-b last:border-b-0 ${dark ? "hover:bg-white/[0.04] border-[#182840]" : "hover:bg-gray-50 border-gray-50"}`}
             >
               {s.coverImage ? (

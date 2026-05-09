@@ -63,9 +63,7 @@ export const canEditScriptContent = (script, userId) => {
 
 export const canEditScriptMetadata = (script, userId) => {
   const role = resolveScriptRole(script, userId);
-  if (role === "full_admin") return true;
-  if (!role) return false;
-  return resolveCollaboratorAccessLevel(script, userId) === COLLAB_ACCESS_LEVELS.FULL_ACCESS;
+  return role === "full_admin";
 };
 
 export const hasScriptPermission = (script, userId, action) => {

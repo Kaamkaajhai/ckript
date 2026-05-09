@@ -942,3 +942,56 @@ export const sendAdminMessageEmail = async (
     return { success: false, error: error.message };
   }
 };
+
+export const sendAdminBroadcastEmail = async (
+  email,
+  name,
+  { title = "Platform update", content = "", audienceLabel = "community", adminName = "ckript Admin", clientBaseUrl = "" } = {}
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+    const safeTitle = String(title || "Platform update").trim() || "Platform update";
+    const safeContent = String(content || "").trim();
+    const safeAudienceLabel = String(audienceLabel || "community").trim() || "community";
+    const safeAdminName = String(adminName || "ckript Admin").trim() || "ckript Admin";
+    const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
+    const htmlContent = safeContent
+      .split(/\r?\n/)
+      .map((line) => `<p style="margin:0 0 12px;">${line || "&nbsp;"}</p>`)
+      .join("");
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: safeTitle,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
+              <h2 style="margin:0; font-size:20px;">${safeTitle}</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
+              <p style="margin:0 0 12px;">${safeAdminName} shared an update for the ${safeAudienceLabel} on ckript.</p>
+              ${htmlContent || '<p style="margin:0 0 12px;">Please open your dashboard for the latest update.</p>'}
+              <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">Open ckript</a>
+              <p style="margin:16px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name || "there"},\n\n${safeAdminName} shared an update for the ${safeAudienceLabel} on ckript.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\nOpen ckript: ${dashboardUrl}\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending admin broadcast email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
