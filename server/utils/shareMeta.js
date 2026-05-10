@@ -1,5 +1,22 @@
 const trimTrailingSlash = (value = "") => String(value || "").replace(/\/+$/, "");
 
+const normalizeHeadingSegment = (value = "") =>
+  String(value || "")
+    .trim()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const normalizeUsernameSegment = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]+/g, "");
+
 const resolveClientBaseUrl = (req) => {
   const configured = trimTrailingSlash(process.env.CLIENT_URL || "");
   if (configured) return configured;
@@ -18,7 +35,7 @@ const resolveClientBaseUrl = (req) => {
 
 const getProfilePathByRole = (role, id, username = "") => {
   const normalizedRole = String(role || "").toLowerCase();
-  const normalizedUsername = String(username || "").trim().toLowerCase();
+  const normalizedUsername = normalizeUsernameSegment(username);
   const profileId = String(id || "").trim();
   const profileKey = normalizedUsername || profileId;
   if (!profileKey) return "/";
@@ -26,6 +43,35 @@ const getProfilePathByRole = (role, id, username = "") => {
   if (normalizedRole === "reader") return `/share/profile/${encodeURIComponent(profileKey)}`;
 
   return `/share/profile/${encodeURIComponent(profileKey)}`;
+};
+
+export const buildUserCanonicalPath = (user = {}) => {
+  const username = normalizeUsernameSegment(user?.writerProfile?.username || user?.username || "");
+  const userId = String(user?._id || user?.id || "").trim();
+
+  if (username) {
+    return `/${encodeURIComponent(username)}`;
+  }
+
+  return userId ? `/profile/${encodeURIComponent(userId)}` : "/profile";
+};
+
+export const buildScriptCanonicalPath = (script = {}) => {
+  const scriptId = String(script?._id || script?.id || "").trim();
+  const projectHeading = normalizeHeadingSegment(script?.title || script?.projectHeading || "");
+  const writerUsername = normalizeUsernameSegment(
+    script?.creator?.writerProfile?.username ||
+      script?.creator?.username ||
+      script?.writerUsername ||
+      script?.creatorUsername ||
+      ""
+  );
+
+  if (projectHeading && writerUsername) {
+    return `/${encodeURIComponent(projectHeading)}/${encodeURIComponent(writerUsername)}`;
+  }
+
+  return scriptId ? `/script/${encodeURIComponent(scriptId)}` : "/script";
 };
 
 export const buildUserShareMeta = (req, user = {}) => {

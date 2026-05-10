@@ -1,10 +1,13 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { io } from "socket.io-client";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
 import publicApi from "../services/publicApi";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import RequestCollabButton from "../components/collab/RequestCollabButton";
+import { getApiBaseUrl } from "../utils/apiOrigin";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -12,16 +15,56 @@ import {
   getScriptCompletionStatusLabel,
 } from "../utils/scriptCompletion";
 
+const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
+const ROLE_LABELS = {
+  writer: "Writer",
+  editor: "Editor",
+  merger: "Merger",
+  viewer: "Viewer",
+  full_admin: "Admin",
+};
+const getRoleLabel = (value = "") => ROLE_LABELS[String(value || "").trim().toLowerCase()] || value || "Collaborator";
+
 const PublicScript = () => {
   const { id } = useParams();
   const location = useLocation();
   const { isDarkMode: dark } = useDarkMode();
-  const { loading: authLoading } = useContext(AuthContext);
+  const { user, loading: authLoading } = useContext(AuthContext);
 
   const [script, setScript] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshingCollaborators, setRefreshingCollaborators] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("overview");
+
+  const fetchPublicScript = useCallback(async ({ silent = false } = {}) => {
+    if (!id) {
+      setLoading(false);
+      setError("Invalid project link.");
+      return;
+    }
+
+    try {
+      if (silent) {
+        setRefreshingCollaborators(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError("");
+      const { data } = await publicApi.get(`/scripts/public/${id}`);
+      setScript(data || null);
+    } catch (err) {
+      const apiMessage = err?.response?.data?.message;
+      setError(apiMessage || "This shared project is unavailable.");
+    } finally {
+      if (silent) {
+        setRefreshingCollaborators(false);
+      } else {
+        setLoading(false);
+      }
+    }
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,24 +75,16 @@ const PublicScript = () => {
       };
     }
 
-    const fetchPublicScript = async () => {
+    const loadInitialScript = async () => {
       try {
-        setLoading(true);
-        setError("");
-        const { data } = await publicApi.get(`/scripts/public/${id}`);
-        if (cancelled) return;
-        setScript(data || null);
-      } catch (err) {
-        if (cancelled) return;
-        const apiMessage = err?.response?.data?.message;
-        setError(apiMessage || "This shared project is unavailable.");
+        await fetchPublicScript();
       } finally {
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
       }
     };
 
     if (id) {
-      fetchPublicScript();
+      loadInitialScript();
     } else {
       setLoading(false);
       setError("Invalid project link.");
@@ -58,7 +93,66 @@ const PublicScript = () => {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, id]);
+  }, [authLoading, fetchPublicScript, id]);
+
+  useEffect(() => {
+    if (authLoading || !id) return undefined;
+
+    const refreshCollaborators = () => {
+      fetchPublicScript({ silent: true });
+    };
+
+    const intervalId = window.setInterval(refreshCollaborators, 5000);
+    const handleFocus = () => refreshCollaborators();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshCollaborators();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [authLoading, fetchPublicScript, id]);
+
+  useEffect(() => {
+    if (!user?.token || !script?._id) return undefined;
+
+    const socket = io(SOCKET_ORIGIN, {
+      auth: { token: user.token },
+    });
+    const refreshCollaborators = () => {
+      fetchPublicScript({ silent: true });
+    };
+
+    socket.on("connect", () => {
+      socket.emit("join_script", { scriptId: script._id });
+    });
+
+    socket.on("collab_membership_changed", (payload = {}) => {
+      if (String(payload.scriptId || "") === String(script._id)) {
+        refreshCollaborators();
+      }
+    });
+    socket.on("collaborator_removed", () => {
+      refreshCollaborators();
+    });
+    socket.on("collab_request_responded", (payload = {}) => {
+      if (String(payload.scriptId || "") === String(script._id)) {
+        refreshCollaborators();
+      }
+    });
+
+    return () => {
+      socket.emit("leave_script", { scriptId: script._id });
+      socket.disconnect();
+    };
+  }, [fetchPublicScript, script?._id, user?.token]);
 
   const loginLink = useMemo(() => {
     const next = `${location.pathname}${location.search || ""}`;
@@ -100,6 +194,11 @@ const PublicScript = () => {
   const completionLabel = getScriptCompletionStatusLabel(script);
   const completionProgress = getScriptCompletionProgressText(script);
   const completionFuturePlans = getScriptCompletionFuturePlans(script);
+  const isOpenForCollab = script?.collabVisibility === "open";
+  const collaborationStats = script?.collaborationStats || {};
+  const collaborationSummary = script?.collaborationSummary || {};
+  const writersWorked = Array.isArray(collaborationSummary?.writersWorked) ? collaborationSummary.writersWorked : [];
+  const activeWriters = Array.isArray(collaborationSummary?.activeWriters) ? collaborationSummary.activeWriters : [];
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -150,6 +249,11 @@ const PublicScript = () => {
               <span className={`px-3 py-1 rounded-full text-xs font-bold ${dark ? "bg-emerald-500/15 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>
                 Price: ₹{Number(script.price || 0).toLocaleString("en-IN")}
               </span>
+              {isOpenForCollab ? (
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${dark ? "bg-teal-500/15 text-teal-200" : "bg-teal-100 text-teal-700"}`}>
+                  Open for Collaboration • Request Collaboration
+                </span>
+              ) : null}
             </div>
 
             <div className={`mt-4 text-sm ${dark ? "text-gray-300" : "text-gray-700"}`}>
@@ -214,6 +318,64 @@ const PublicScript = () => {
                     <div className={`rounded-xl border px-3 py-2 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
                       <p className={`text-[10px] uppercase font-bold tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Budget</p>
                       <p className={`text-sm font-bold mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{formatBudget(script.budget)}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className={`rounded-xl border px-3 py-3 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                      <p className={`text-[10px] uppercase font-bold tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Writers Worked</p>
+                      <p className={`text-sm font-bold mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{Number(collaborationStats.totalWritersWorked || writersWorked.length || 1)}</p>
+                    </div>
+                    <div className={`rounded-xl border px-3 py-3 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                      <p className={`text-[10px] uppercase font-bold tracking-wider ${dark ? "text-gray-400" : "text-gray-500"}`}>Still Working</p>
+                      <p className={`text-sm font-bold mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{Number(collaborationStats.activeWritersWorking || activeWriters.length || 1)}</p>
+                    </div>
+                  </div>
+
+                  <div className={`rounded-2xl border p-4 transition-all duration-300 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className={`text-sm font-extrabold ${dark ? "text-white" : "text-gray-900"}`}>
+                          {writersWorked.length || 1} Writers Worked on this Script
+                        </p>
+                        <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-500"}`}>
+                          Roles stay synced live as collaborators are added, updated, or removed.
+                        </p>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-opacity duration-300 ${dark ? "bg-blue-500/15 text-blue-200" : "bg-blue-50 text-blue-700"} ${refreshingCollaborators ? "opacity-100" : "opacity-70"}`}>
+                        {refreshingCollaborators ? "Updating..." : "Live"}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      {writersWorked.map((entry) => (
+                        <div
+                          key={`${entry.userId || entry.name}-${entry.role}`}
+                          className={`flex items-center justify-between gap-3 rounded-2xl border px-3 py-2 transition-all duration-300 ${dark ? "border-white/10 bg-[#101b30]" : "border-gray-100 bg-[#f8fafc]"}`}
+                        >
+                          <p className={`text-sm font-semibold ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                            {entry.name || "Collaborator"}
+                          </p>
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${dark ? "bg-emerald-500/15 text-emerald-200" : "bg-emerald-50 text-emerald-700"}`}>
+                            {getRoleLabel(entry.role)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-5">
+                      <p className={`text-sm font-extrabold ${dark ? "text-white" : "text-gray-900"}`}>
+                        Currently Active Writers ({activeWriters.length || 1})
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {activeWriters.map((entry) => (
+                          <span
+                            key={`active-${entry.userId || entry.name}`}
+                            className={`rounded-full px-3 py-1.5 text-xs font-bold transition-all duration-300 ${dark ? "bg-white/10 text-gray-100" : "bg-gray-100 text-gray-800"}`}
+                          >
+                            {entry.name || "Collaborator"}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
@@ -349,6 +511,15 @@ const PublicScript = () => {
               <div className="mt-6">
                 <h2 className={`text-sm uppercase tracking-wider font-extrabold ${dark ? "text-gray-200" : "text-gray-800"}`}>Trailer</h2>
                 <video className="mt-2 w-full rounded-xl border border-black/10" controls preload="metadata" src={trailerUrl} />
+              </div>
+            ) : null}
+
+            {isOpenForCollab ? (
+              <div className="mt-6">
+                <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${dark ? "text-teal-200" : "text-teal-700"}`}>
+                  Request Collaboration
+                </p>
+                <RequestCollabButton script={script} />
               </div>
             ) : null}
 

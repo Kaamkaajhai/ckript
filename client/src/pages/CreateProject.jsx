@@ -17,7 +17,6 @@ import { AuthContext } from "../context/AuthContext";
 import { Image as ImageIcon, Film, CheckCircle2, Move, ZoomIn, RotateCw } from "lucide-react";
 import api from "../services/api";
 import { formatCurrency } from "../utils/currency";
-import { getProfileCanonicalPath } from "../utils/profilePath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
   SCRIPT_COMPLETION_OPTIONS,
@@ -599,11 +598,6 @@ const CreateProject = () => {
   const shouldStartFresh = !draftId && (
     Boolean(location.state?.startFresh) || new URLSearchParams(location.search).get("fresh") === "1"
   );
-  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
-  const profileEditPath = getProfileCanonicalPath(user, {
-    viewerId: user?._id,
-    viewerRole: user?.role,
-  });
   const agreementRef = useRef(null);
   const reviewRedirectTimerRef = useRef(null);
 
@@ -926,6 +920,7 @@ const CreateProject = () => {
   const [services, setServices] = useState({ hosting: true, evaluation: false, aiTrailer: false, spotlight: false });
   const [legal, setLegal] = useState({ agreedToTerms: false, customInvestorTerms: "" });
   const [rightsLicensing, setRightsLicensing] = useState(() => createDefaultRightsLicensing());
+  const [collabVisibility, setCollabVisibility] = useState("private");
   const [creditsBalance, setCreditsBalance] = useState(0);
 
   // Step 4: Script pricing
@@ -1062,6 +1057,7 @@ const CreateProject = () => {
         customInvestorTerms: data?.legal?.customInvestorTerms || "",
       }));
       setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+      setCollabVisibility(data?.collabVisibility === "open" ? "open" : "private");
 
       // Hydrate Publishing Layer
       if (data?.targetIndustry) {
@@ -1125,6 +1121,7 @@ const CreateProject = () => {
         termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
         customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
       },
+      collabVisibility,
       rightsLicensing: buildRightsPayload(),
       targetIndustry: [
         ...(targetFilm ? ["film"] : []),
@@ -1133,14 +1130,14 @@ const CreateProject = () => {
       publishingDetails,
       ...(scriptId ? { scriptId } : {}),
     };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, editor, estimatedPages, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails]);
+  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails]);
 
   const getDraftSignature = useCallback((payload) => {
     if (!payload) return "";
     const html = String(payload.textContent || "");
     const completion = payload.scriptCompletion || {};
     const classificationSignature = JSON.stringify(payload.classification || {});
-    return `${payload.title || ""}::${String(payload.companyName || "")}::${payload.format || ""}::${payload.primaryGenre || ""}::${payload.logline || ""}::${payload.synopsis || ""}::${completion.status || ""}::${completion.completedParts || 0}::${completion.totalParts || 0}::${completion.futurePlans || ""}::${classificationSignature}::${html.length}:${html.slice(0, 120)}:${html.slice(-120)}`;
+    return `${payload.title || ""}::${String(payload.companyName || "")}::${payload.format || ""}::${payload.primaryGenre || ""}::${payload.logline || ""}::${payload.synopsis || ""}::${payload.collabVisibility || "private"}::${completion.status || ""}::${completion.completedParts || 0}::${completion.totalParts || 0}::${completion.futurePlans || ""}::${classificationSignature}::${html.length}:${html.slice(0, 120)}:${html.slice(-120)}`;
   }, []);
 
   const hasMeaningfulDraft = useCallback((payload) => {
@@ -1150,7 +1147,6 @@ const CreateProject = () => {
   }, []);
 
   const queueKeepaliveDraftSave = useCallback((reason = "close") => {
-    if (!profileComplete) return false;
     if (scriptId && loadedScriptStatus !== "draft") return false;
 
     const payload = buildDraftPayload();
@@ -1182,12 +1178,11 @@ const CreateProject = () => {
 
     lastDraftSignatureRef.current = signature;
     return true;
-  }, [buildDraftPayload, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, profileComplete, scriptId]);
+  }, [buildDraftPayload, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
 
   // Save draft
   const handleSave = useCallback(async (auto = false) => {
     if (!editor) return;
-    if (!profileComplete) return;
     if (auto && autoSaveInFlightRef.current) return;
     if (scriptId && loadedScriptStatus !== "draft") {
       if (editApprovalLocked && !auto) {
@@ -1228,7 +1223,7 @@ const CreateProject = () => {
         setSaving(false);
       }
     }
-  }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, profileComplete, scriptId]);
+  }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
 
   const clearLocalWorkingDraft = useCallback(() => {
     try {
@@ -1260,6 +1255,7 @@ const CreateProject = () => {
     setServices({ hosting: true, evaluation: false, aiTrailer: false, spotlight: false });
     setLegal({ agreedToTerms: false, customInvestorTerms: "" });
     setRightsLicensing(createDefaultRightsLicensing());
+    setCollabVisibility("private");
     setIsPremium(false);
     setScriptPrice(10);
     setThumbnailFile(null);
@@ -1808,6 +1804,7 @@ const CreateProject = () => {
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
+        collabVisibility,
         rightsLicensing: buildRightsPayload(),
         targetIndustry: [
           ...(targetFilm ? ["film"] : []),
@@ -2009,25 +2006,6 @@ const CreateProject = () => {
   const chipCls = (sel) => `px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${sel
     ? dark ? "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20" : "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20"
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
-  if (!profileComplete) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <div className={`rounded-2xl border p-6 text-center ${dark ? "bg-[#0d1520] border-[#182840]" : "bg-white border-gray-200 shadow-sm"}`}>
-          <h1 className={`text-2xl font-bold mb-2 ${dark ? "text-white" : "text-gray-900"}`}>Complete Your Profile</h1>
-          <p className={`text-sm mb-5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
-            You can create projects once your profile completion reaches 100%.
-          </p>
-          <Link
-            to={profileEditPath}
-            className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#1e3a5f] text-white text-sm font-bold hover:bg-[#162d4a] transition"
-          >
-            Complete Profile
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-5xl mx-auto px-4 max-[768px]:px-2.5 max-[420px]:px-1.5 py-4 overflow-x-hidden">
       {/* -- Header -------------------------------- */}
@@ -4076,6 +4054,47 @@ const CreateProject = () => {
               </div>
 
               <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-teal-300" : "text-teal-700"}`}>Collaboration Visibility</p>
+                    <p className={`text-[12px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                      Choose whether this project stays private or accepts collaboration requests after publish.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold ${collabVisibility === "open"
+                    ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"
+                    : dark ? "bg-gray-700/40 text-gray-200" : "bg-gray-200 text-gray-700"
+                  }`}>
+                    {collabVisibility === "open" ? "Open for collaboration" : "Private workspace"}
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCollabVisibility("private")}
+                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "private"
+                      ? dark ? "border-[#4f86c6] bg-[#0f2238]" : "border-[#1e3a5f] bg-[#eef4fb]"
+                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Private workspace</p>
+                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Only invited collaborators can join.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCollabVisibility("open")}
+                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "open"
+                      ? dark ? "border-emerald-400 bg-emerald-500/10" : "border-emerald-600 bg-emerald-50"
+                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Open for collaboration</p>
+                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Writers can request editor, reader, merger, or admin access.</p>
+                  </button>
+                </div>
+              </div>
+
+              <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
                 <div className="flex items-start gap-2.5">
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${legal.agreedToTerms ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700" : dark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>
                     {legal.agreedToTerms ? (
@@ -4139,6 +4158,3 @@ const CreateProject = () => {
 };
 
 export default CreateProject;
-
-
-

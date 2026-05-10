@@ -5,6 +5,7 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import ProjectCard from "../components/ProjectCard";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 /* ── Genre emoji ── */
 const GE = {
@@ -186,7 +187,7 @@ const ScriptPoster = ({ script, idx = 0, rank, dark }) => {
       transition={{ delay: idx * 0.045, duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
       className="shrink-0 w-[152px] sm:w-[172px]"
     >
-      <Link to={`/reader/script/${script._id}`} className="group block">
+      <Link to={getScriptCanonicalPath(script)} className="group block">
 
         {/* ── Poster ── */}
         <div className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden mb-2.5 transition-all duration-300

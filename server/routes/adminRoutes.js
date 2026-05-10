@@ -51,6 +51,7 @@ import {
     createDiscountCode,
     updateDiscountCode,
     deleteDiscountCode,
+    sendAudienceBroadcast,
 } from "../controllers/adminController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
@@ -75,6 +76,7 @@ router.put("/users/:id/freeze", freezeUserAccount);
 router.put("/users/:id/unfreeze", unfreezeUserAccount);
 router.delete("/users/:id", deleteUserAccountAsAdmin);
 router.post("/users/:id/credits", grantCreditsToUser);
+router.post("/broadcast/:audience", sendAudienceBroadcast);
 
 // Scripts
 router.get("/scripts", getScripts);

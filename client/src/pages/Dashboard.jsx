@@ -2,13 +2,18 @@ import { useEffect, useState, useContext, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, AreaChart, Area } from "recharts";
+import { io } from "socket.io-client";
 import api from "../services/api";
 import ProjectCard from "../components/ProjectCard";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { getApiBaseUrl } from "../utils/apiOrigin";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 import InvestorDashboard from "./InvestorDashboard";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+
+const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 const Dashboard = () => {
   const { user, setUser } = useContext(AuthContext);
@@ -55,8 +60,10 @@ const Dashboard = () => {
 
 const CreatorDashboard = ({ user, dark }) => {
   const [myScripts, setMyScripts] = useState([]);
+  const [sharedScripts, setSharedScripts] = useState([]);
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState(null);
+  const [collabRequests, setCollabRequests] = useState([]);
   const [reviewTab, setReviewTab] = useState("ai");
   const [loading, setLoading] = useState(true);
   const [chartsReady, setChartsReady] = useState(false);
@@ -70,19 +77,47 @@ const CreatorDashboard = ({ user, dark }) => {
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  useEffect(() => {
+    if (!user?.token) return undefined;
+
+    const socket = io(SOCKET_ORIGIN, {
+      auth: { token: user.token },
+    });
+
+    const refreshDashboard = () => {
+      fetchData();
+    };
+
+    socket.on("collab_membership_changed", refreshDashboard);
+    socket.on("collab_request", refreshDashboard);
+    socket.on("collab_invite", refreshDashboard);
+    socket.on("collab_request_sent", refreshDashboard);
+    socket.on("collab_request_responded", refreshDashboard);
+    socket.on("collaborator_removed", refreshDashboard);
+    socket.on("collab_role_changed", refreshDashboard);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [user?.token]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [scriptsRes, statsRes, reviewsRes] = await Promise.allSettled([
-        api.get("/scripts/mine"),
+      const [scriptsRes, statsRes, reviewsRes, collabRes] = await Promise.allSettled([
+        api.get("/scripts/mine?includeCollaborations=1"),
         api.get("/dashboard"),
         api.get("/dashboard/reviews"),
+        api.get("/collab/requests/inbox"),
       ]);
 
       if (scriptsRes.status === "fulfilled") {
-        setMyScripts(scriptsRes.value.data);
+        const allScripts = Array.isArray(scriptsRes.value.data) ? scriptsRes.value.data : [];
+        setMyScripts(allScripts.filter((script) => !script?.isCollaborator));
+        setSharedScripts(allScripts.filter((script) => script?.isCollaborator));
       } else {
         setMyScripts([]);
+        setSharedScripts([]);
       }
 
       if (statsRes.status === "fulfilled") {
@@ -101,19 +136,14 @@ const CreatorDashboard = ({ user, dark }) => {
       } else {
         setReviews(null);
       }
+
+      if (collabRes.status === "fulfilled") {
+        setCollabRequests(collabRes.value.data?.requests || []);
+      } else {
+        setCollabRequests([]);
+      }
     } catch { } finally { setLoading(false); }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className={`w-10 h-10 border-[3px] rounded-full animate-spin ${dark ? 'border-[#1c2a3a] border-t-[#8896a7]' : 'border-gray-200 border-t-[#1e3a5f]'}`}></div>
-          <p className={`text-sm font-medium animate-pulse ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   const statCards = stats ? [
     { label: "Profile Views", value: stats.profileViews ?? stats.totalViews ?? 0 },
@@ -128,10 +158,34 @@ const CreatorDashboard = ({ user, dark }) => {
     viewerId: user?._id,
     viewerRole: user?.role,
   });
-  const profileComplete = Boolean(user?.profileCompletion?.isComplete);
-  const projectActionClass = profileComplete
-    ? ""
-    : "opacity-60 cursor-not-allowed hover:translate-y-0 hover:shadow-sm";
+  const projectActionClass = "";
+  const collaborationProjects = useMemo(() => (
+    myScripts.filter((script) => {
+      const acceptedCollaborators = Array.isArray(script?.collaborators)
+        ? script.collaborators.filter((entry) => entry?.isActive !== false && entry?.status === "accepted").length
+        : 0;
+      return script?.collabVisibility === "open" || acceptedCollaborators > 0;
+    })
+  ), [myScripts]);
+  const collabRequestsByScript = useMemo(() => (
+    collabRequests.reduce((acc, request) => {
+      const key = String(request?.scriptId || "");
+      if (!key) return acc;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {})
+  ), [collabRequests]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className={`w-10 h-10 border-[3px] rounded-full animate-spin ${dark ? 'border-[#1c2a3a] border-t-[#8896a7]' : 'border-gray-200 border-t-[#1e3a5f]'}`}></div>
+          <p className={`text-sm font-medium animate-pulse ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white min-h-full relative max-[640px]:-mx-4 max-[640px]:-mt-4">
@@ -157,13 +211,13 @@ const CreatorDashboard = ({ user, dark }) => {
                 </h1>
               </div>
               <div className="grid grid-cols-2 max-[650px]:grid-cols-1 gap-2 w-full min-[520px]:w-full sm:w-auto sm:min-w-[360px]">
-              <Link to={profileComplete ? "/create-project" : profileEditPath} state={profileComplete ? { startFresh: true } : undefined}
+              <Link to="/create-project" state={{ startFresh: true }}
                 className={`inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold transition-all duration-200 shadow-sm hover:-translate-y-0.5 w-full max-w-full min-w-0 ${projectActionClass} ${dark ? 'bg-white/[0.04] text-[#8896a7] hover:bg-white/[0.07] ring-1 ring-white/[0.06]' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                 <span className="max-[650px]:hidden">Create Project</span>
                 <span className="hidden max-[650px]:inline">Create</span>
               </Link>
-              <Link to={profileComplete ? "/upload" : profileEditPath}
+              <Link to="/upload"
                 className={`inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 bg-[#1e3a5f] text-white rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 w-full max-w-full min-w-0 ${projectActionClass}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
                 <span className="max-[650px]:hidden">Upload Project</span>
@@ -650,6 +704,168 @@ const CreatorDashboard = ({ user, dark }) => {
             </div>
           )}
         </div>
+
+        <div id="writer-collaboration" className="mb-8">
+          <div className="flex items-center gap-3 mb-5 sm:mb-6">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] flex items-center justify-center shadow-sm">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2a3 3 0 00-.356-1.429M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.496.122-.964.338-1.375m9.324 0A5.002 5.002 0 0012 13a5.002 5.002 0 00-4.662 3.625M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Collaboration</h2>
+              <p className={`text-sm font-medium ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Manage requests and jump into each project hub</p>
+            </div>
+          </div>
+
+          <div className={`rounded-2xl border shadow-sm overflow-hidden ${dark ? 'bg-[#101e30] border-[#182840]' : 'bg-white border-gray-100'}`}>
+            <div className={`px-4 sm:px-6 py-4 border-b ${dark ? 'border-[#182840]' : 'border-gray-100'}`}>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-[#0d1520] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Projects</p>
+                  <p className={`mt-1 text-xl font-extrabold ${dark ? 'text-white' : 'text-gray-900'}`}>{collaborationProjects.length}</p>
+                </div>
+                <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-[#0d1520] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Pending Requests</p>
+                  <p className={`mt-1 text-xl font-extrabold ${dark ? 'text-white' : 'text-gray-900'}`}>{collabRequests.length}</p>
+                </div>
+                <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-[#0d1520] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Open Projects</p>
+                  <p className={`mt-1 text-xl font-extrabold ${dark ? 'text-white' : 'text-gray-900'}`}>{collaborationProjects.filter((script) => script?.collabVisibility === "open").length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              {collaborationProjects.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {collaborationProjects.map((script) => {
+                    const activeCollaborators = Array.isArray(script?.collaborators)
+                      ? script.collaborators.filter((entry) => entry?.isActive !== false && entry?.status === "accepted").length
+                      : 0;
+                    const pendingCount = collabRequestsByScript[String(script._id)] || 0;
+
+                    return (
+                      <div key={script._id} className={`rounded-2xl border p-4 ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className={`text-[15px] font-bold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{script.title}</h3>
+                            <p className={`mt-1 text-sm ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>
+                              Visibility: {script?.collabVisibility === "open" ? "Open for requests" : "Private workspace"}
+                            </p>
+                          </div>
+                          {pendingCount > 0 ? (
+                            <span className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-full bg-[#1e3a5f] text-white text-xs font-extrabold">
+                              {pendingCount}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${dark ? 'bg-white/[0.06] text-[#c6d4e3]' : 'bg-white text-gray-700 border border-gray-200'}`}>
+                            {activeCollaborators} collaborators
+                          </span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${dark ? 'bg-white/[0.06] text-[#c6d4e3]' : 'bg-white text-gray-700 border border-gray-200'}`}>
+                            {pendingCount} pending requests
+                          </span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Link
+                            to={`/script/${script._id}/collaborate/overview`}
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#162d4a] transition-colors"
+                          >
+                            Open Collaboration Hub
+                          </Link>
+                          <Link
+                            to={getScriptCanonicalPath(script)}
+                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                          >
+                            View Script
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={`rounded-2xl border px-5 py-8 text-center ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
+                  <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-gray-800'}`}>No collaboration-enabled projects yet</p>
+                  <p className={`mt-1 text-sm ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>Open collaboration on a project or invite collaborators to make it appear here.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {sharedScripts.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-5 flex-wrap">
+              <h2 className={`text-[17px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Shared With Me</h2>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-[#8896a7] bg-white/[0.04]' : 'text-gray-400 bg-gray-100'}`}>{sharedScripts.length}</span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {sharedScripts.map((script) => {
+                const canEditScript = Boolean(script?.canEditScript);
+                const roleLabel = String(script?.collaboratorRole || "editor").replace(/^\w/, (char) => char.toUpperCase());
+                const statusLabel = String(script?.status || "draft").replace(/_/g, " ");
+
+                return (
+                  <div key={script._id} className={`rounded-2xl border p-4 sm:p-5 ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${dark ? 'text-[#8896a7]' : 'text-gray-400'}`}>Collaborator Access</p>
+                        <h3 className={`mt-1 text-[18px] font-bold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{script?.title || "Untitled Project"}</h3>
+                        <p className={`mt-1 text-sm ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>
+                          By {script?.creator?.name || "Unknown"} • {roleLabel}
+                        </p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${dark ? 'bg-white/[0.06] text-[#c6d4e3]' : 'bg-white text-gray-700 border border-gray-200'}`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+
+                    {script?.logline && (
+                      <p className={`mt-3 text-sm leading-6 ${dark ? 'text-[#c6d4e3]' : 'text-gray-600'}`}>{script.logline}</p>
+                    )}
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Link
+                        to={getScriptCanonicalPath(script)}
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#162d4a] transition-colors"
+                      >
+                        Open Script
+                      </Link>
+                      {canEditScript && (
+                        <Link
+                          to={`/script/${script._id}/branch/edit`}
+                          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                        >
+                          Edit Script
+                        </Link>
+                      )}
+                      {script?.canEditMetadata && (
+                        <Link
+                          to={`/upload?edit=${script._id}`}
+                          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                        >
+                          Edit Settings
+                        </Link>
+                      )}
+                      <Link
+                        to={`/script/${script._id}/collaborate/overview`}
+                        className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
+                      >
+                        Collaboration Hub
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Section heading */}
         <div className="flex items-center gap-2 mb-5 flex-wrap">

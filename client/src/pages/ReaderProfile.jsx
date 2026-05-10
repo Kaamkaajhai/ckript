@@ -10,6 +10,7 @@ import ReviewCard from "../components/ReviewCard";
 import SocialShareButton from "../components/SocialShareButton";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const normalizePublicShareUrl = (rawUrl = "", fallbackUrl = "") => {
   const candidate = String(rawUrl || fallbackUrl || "").trim();
@@ -671,7 +672,7 @@ const ReaderProfile = () => {
                       <div key={r._id} className="break-inside-avoid">
                         <div className={`rounded-2xl border shadow-sm p-5 hover:shadow-md transition-shadow ${dark ? "bg-[#101e30] border-[#182840]" : "bg-white border-gray-100"}`}>
                           {r.script && (
-                            <Link to={`/reader/script/${r.script._id || r.script}`} className={`flex items-center justify-between mb-4 pb-4 border-b group ${dark ? "border-[#182840]" : "border-gray-50"}`}>
+                            <Link to={getScriptCanonicalPath(r.script)} className={`flex items-center justify-between mb-4 pb-4 border-b group ${dark ? "border-[#182840]" : "border-gray-50"}`}>
                               <span className={`text-sm font-black group-hover:text-[#1e3a5f] transition-colors truncate pr-4 ${dark ? "text-gray-100" : "text-gray-900"}`}>
                                 {r.script.title || "View Script"}
                               </span>

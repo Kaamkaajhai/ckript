@@ -23,6 +23,7 @@ import {
     sendInvestorRejectionEmail,
     sendWriterMembershipDecisionEmail,
     sendAdminCreditsGrantedEmail,
+    sendAdminBroadcastEmail,
 } from "../utils/emailService.js";
 
 const buildChatId = (idA, idB) => {
@@ -52,6 +53,64 @@ const maskAccountNumber = (accountNumber = "") => {
 };
 
 const normalizeString = (value) => (typeof value === "string" ? value.trim() : "");
+const WRITER_ROLE_LIST = ["writer", "creator"];
+const FILM_PROFESSIONAL_ROLE_LIST = ["investor", "producer", "director", "industry", "professional"];
+const ACTIVE_USER_FILTER = {
+    isDeactivated: { $ne: true },
+    isFrozen: { $ne: true },
+};
+
+const buildBroadcastAudienceConfig = (audience = "") => {
+    const normalizedAudience = String(audience || "").trim().toLowerCase();
+    if (normalizedAudience === "writers") {
+        return {
+            key: "writers",
+            filter: {
+                role: { $in: WRITER_ROLE_LIST },
+                ...ACTIVE_USER_FILTER,
+            },
+            audienceLabel: "writers community",
+        };
+    }
+
+    if (normalizedAudience === "film-professionals") {
+        return {
+            key: "film-professionals",
+            filter: {
+                role: { $in: FILM_PROFESSIONAL_ROLE_LIST },
+                ...ACTIVE_USER_FILTER,
+                approvalStatus: "approved",
+            },
+            audienceLabel: "film industry professional community",
+        };
+    }
+
+    if (normalizedAudience === "script-uploaders") {
+        return {
+            key: "script-uploaders",
+            audienceLabel: "writers who uploaded scripts",
+            getRecipients: async () => {
+                const creatorIds = await Script.distinct("creator", {
+                    creator: { $exists: true, $ne: null },
+                });
+
+                if (!creatorIds.length) {
+                    return [];
+                }
+
+                return User.find({
+                    _id: { $in: creatorIds },
+                    role: { $in: WRITER_ROLE_LIST },
+                    ...ACTIVE_USER_FILTER,
+                })
+                    .select("_id name email")
+                    .lean();
+            },
+        };
+    }
+
+    return null;
+};
 
 const buildArchivedUserProfileSnapshot = (userDoc) => {
     const source = typeof userDoc?.toObject === "function"
@@ -796,6 +855,72 @@ export const grantCreditsToUser = async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+export const sendAudienceBroadcast = async (req, res) => {
+    try {
+        const audienceConfig = buildBroadcastAudienceConfig(req.params.audience);
+        if (!audienceConfig) {
+            return res.status(400).json({ message: "Invalid audience. Use 'writers', 'film-professionals', or 'script-uploaders'." });
+        }
+
+        const title = String(req.body?.title || "").trim();
+        const content = String(req.body?.content || "").trim();
+        if (!title) {
+            return res.status(400).json({ message: "Title is required" });
+        }
+        if (!content) {
+            return res.status(400).json({ message: "Content is required" });
+        }
+
+        const recipients = audienceConfig.getRecipients
+            ? await audienceConfig.getRecipients()
+            : await User.find(audienceConfig.filter)
+                .select("_id name email")
+                .lean();
+
+        if (recipients.length === 0) {
+            return res.status(404).json({ message: `No active ${audienceConfig.key} found` });
+        }
+
+        const notificationMessage = `${title}\n\n${content}`.trim();
+        await Notification.insertMany(
+            recipients.map((recipient) => ({
+                user: recipient._id,
+                type: "admin_alert",
+                from: req.user?._id,
+                message: notificationMessage,
+            })),
+            { ordered: false }
+        ).catch(() => null);
+
+        const emailRecipients = recipients.filter((recipient) => String(recipient?.email || "").trim());
+        const emailResults = await Promise.allSettled(
+            emailRecipients.map((recipient) =>
+                sendAdminBroadcastEmail(recipient.email, recipient.name, {
+                    title,
+                    content,
+                    audienceLabel: audienceConfig.audienceLabel,
+                    adminName: req.user?.name || "ckript Admin",
+                    clientBaseUrl: resolveClientOriginFromRequest(req),
+                })
+            )
+        );
+
+        const emailSent = emailResults.filter((result) => result.status === "fulfilled" && result.value?.success).length;
+        const emailFailed = emailResults.length - emailSent;
+
+        return res.json({
+            message: `Broadcast sent to ${recipients.length} ${audienceConfig.key}.`,
+            audience: audienceConfig.key,
+            notified: recipients.length,
+            emailAttempted: emailRecipients.length,
+            emailSent,
+            emailFailed,
+        });
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Failed to send broadcast" });
     }
 };
 

@@ -1,5 +1,7 @@
 import { useContext, useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { io } from "socket.io-client";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import Sidebar from "../components/Sidebar";
@@ -7,8 +9,16 @@ import BuyCreditsModal from "../components/BuyCreditsModal";
 import BrandLogo from "../components/BrandLogo";
 import ConfirmDialog from "../components/ConfirmDialog";
 import api from "../services/api";
+import { getApiOrigin } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+
+const SOCKET_ORIGIN = getApiOrigin() || (typeof window !== "undefined" ? window.location.origin : "");
+const POPUP_STACK_LIMIT = 4;
+const POPUP_STORAGE_LIMIT = 12;
+const NOTIFICATION_POLL_INTERVAL_MS = 30000;
+const NOTIFICATION_REFRESH_DEBOUNCE_MS = 350;
+const MotionDiv = motion.div;
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -22,12 +32,7 @@ const MainLayout = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [pendingPurchaseCount, setPendingPurchaseCount] = useState(0);
-  const [latestPendingPurchaseAt, setLatestPendingPurchaseAt] = useState("");
-  const [showPurchasePopup, setShowPurchasePopup] = useState(false);
-  const [showInvestorApprovalPopup, setShowInvestorApprovalPopup] = useState(false);
-  const [latestApprovedPurchaseNotification, setLatestApprovedPurchaseNotification] = useState(null);
-  const [showInvestorRejectedPopup, setShowInvestorRejectedPopup] = useState(false);
-  const [latestRejectedPurchaseNotification, setLatestRejectedPurchaseNotification] = useState(null);
+  const [notificationPopups, setNotificationPopups] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
   const [creditsBalance, setCreditsBalance] = useState(0);
@@ -36,6 +41,8 @@ const MainLayout = ({ children }) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
+  const notificationRefreshTimeoutRef = useRef(null);
+  const seenNotificationIdsRef = useRef(new Set());
   const showCreditSystem = Boolean(user) && user?.role !== "investor" && user?.role !== "reader";
   const topBarHomePath = user?.role === "reader" ? "/reader" : "/dashboard";
   const topBarHomeLabel = user?.role === "reader" ? "Reader Home" : "Dashboard";
@@ -53,12 +60,125 @@ const MainLayout = ({ children }) => {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const popupSeenStorageKey = user?._id ? `notification-popup-seen-${user._id}` : "";
+
+  const readSeenPopupIds = useCallback(() => {
+    if (!popupSeenStorageKey || typeof window === "undefined") return [];
+
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(popupSeenStorageKey) || "[]");
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }, [popupSeenStorageKey]);
+
+  const persistSeenPopupIds = useCallback((ids) => {
+    if (!popupSeenStorageKey || typeof window === "undefined") return;
+
+    sessionStorage.setItem(
+      popupSeenStorageKey,
+      JSON.stringify([...new Set(ids.filter(Boolean))].slice(-POPUP_STORAGE_LIMIT * 3))
+    );
+  }, [popupSeenStorageKey]);
+
+  const rememberPopupSeen = useCallback((notificationId) => {
+    if (!notificationId) return;
+
+    const nextIds = new Set(seenNotificationIdsRef.current);
+    nextIds.add(notificationId);
+    seenNotificationIdsRef.current = nextIds;
+    persistSeenPopupIds([...nextIds]);
+  }, [persistSeenPopupIds]);
+
+  const dismissNotificationPopup = useCallback((notificationId, { rememberSeen = true } = {}) => {
+    if (rememberSeen) rememberPopupSeen(notificationId);
+    setNotificationPopups((prev) => prev.filter((notification) => notification._id !== notificationId));
+  }, [rememberPopupSeen]);
+
+  const dismissAllNotificationPopups = useCallback(() => {
+    const popupIds = notificationPopups
+      .map((notification) => notification?._id)
+      .filter(Boolean);
+
+    popupIds.forEach((notificationId) => rememberPopupSeen(notificationId));
+    setNotificationPopups([]);
+  }, [notificationPopups, rememberPopupSeen]);
+
+  const syncNotificationState = useCallback((nextNotifications) => {
+    const normalizedNotifications = Array.isArray(nextNotifications) ? nextNotifications : [];
+    const unreadIds = new Set(
+      normalizedNotifications
+        .filter((notification) => notification?._id && !notification?.read)
+        .map((notification) => notification._id)
+    );
+
+    setNotifications(normalizedNotifications);
+    setUnreadCount(unreadIds.size);
+    setNotificationPopups((prev) => prev.filter((notification) => unreadIds.has(notification._id)));
+  }, []);
+
+  const enqueueNotificationPopups = useCallback((incomingNotifications) => {
+    const freshUnread = (Array.isArray(incomingNotifications) ? incomingNotifications : [])
+      .filter((notification) => (
+        notification?._id
+        && !notification?.read
+        && !seenNotificationIdsRef.current.has(notification._id)
+      ))
+      .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
+
+    if (!freshUnread.length) return;
+
+    setNotificationPopups((prev) => {
+      const existingIds = new Set(prev.map((notification) => notification._id));
+      const additions = freshUnread.filter((notification) => !existingIds.has(notification._id));
+      if (!additions.length) return prev;
+      return [...additions, ...prev].slice(0, POPUP_STORAGE_LIMIT);
+    });
+  }, []);
+
+  const fetchNotificationSnapshot = useCallback(async ({ showLoader = false } = {}) => {
+    if (showLoader) setNotifLoading(true);
+
+    try {
+      const { data } = await api.get("/notifications");
+      syncNotificationState(data);
+      enqueueNotificationPopups(data);
+    } catch {
+      // Keep the current notification state on transient failures.
+    } finally {
+      if (showLoader) setNotifLoading(false);
+    }
+  }, [enqueueNotificationPopups, syncNotificationState]);
+
+  const scheduleNotificationRefresh = useCallback(() => {
+    if (typeof window === "undefined" || notificationRefreshTimeoutRef.current) return;
+
+    notificationRefreshTimeoutRef.current = window.setTimeout(() => {
+      notificationRefreshTimeoutRef.current = null;
+      fetchNotificationSnapshot();
+    }, NOTIFICATION_REFRESH_DEBOUNCE_MS);
+  }, [fetchNotificationSnapshot]);
+
+  useEffect(() => {
+    seenNotificationIdsRef.current = new Set(readSeenPopupIds());
+    setNotificationPopups([]);
+  }, [readSeenPopupIds]);
+
+  useEffect(() => () => {
+    if (notificationRefreshTimeoutRef.current) {
+      window.clearTimeout(notificationRefreshTimeoutRef.current);
+    }
+  }, []);
+
   // Fetch unread count on mount and every 30s
   const fetchUnreadCount = useCallback(async () => {
     try {
       const { data } = await api.get("/notifications/unread-count");
       setUnreadCount(data.count);
-    } catch { }
+    } catch {
+      return;
+    }
   }, []);
 
   const fetchUnreadMessageCount = useCallback(async () => {
@@ -78,78 +198,17 @@ const MainLayout = ({ children }) => {
     const isWriter = ["writer", "creator"].includes(user?.role);
     if (!isWriter) {
       setPendingPurchaseCount(0);
-      setLatestPendingPurchaseAt("");
       return;
     }
 
     try {
       const { data } = await api.get("/scripts/purchase-requests/mine");
       const pendingRequests = Array.isArray(data) ? data.filter((r) => r.status === "pending") : [];
-      const pending = pendingRequests.length;
-      const latestAt = pendingRequests.reduce((latest, request) => {
-        const createdAt = request?.createdAt || "";
-        if (!createdAt) return latest;
-        return !latest || new Date(createdAt) > new Date(latest) ? createdAt : latest;
-      }, "");
-
-      setPendingPurchaseCount(pending);
-      setLatestPendingPurchaseAt(latestAt);
+      setPendingPurchaseCount(pendingRequests.length);
     } catch {
       setPendingPurchaseCount(0);
-      setLatestPendingPurchaseAt("");
     }
   }, [user?.role]);
-
-  const fetchInvestorPurchaseOutcomePopups = useCallback(async () => {
-    const isInvestor = ["investor", "producer", "director", "industry", "professional"].includes(user?.role);
-    if (!isInvestor || !user?._id) {
-      setLatestApprovedPurchaseNotification(null);
-      setShowInvestorApprovalPopup(false);
-      setLatestRejectedPurchaseNotification(null);
-      setShowInvestorRejectedPopup(false);
-      return;
-    }
-
-    try {
-      const { data } = await api.get("/notifications");
-      const unreadNotifications = Array.isArray(data) ? data.filter((n) => !n?.read) : [];
-      const approvedNotifications = unreadNotifications.filter((n) => n?.type === "purchase_approved");
-      const rejectedNotifications = unreadNotifications.filter((n) => n?.type === "purchase_rejected");
-
-      if (approvedNotifications.length === 0) {
-        setLatestApprovedPurchaseNotification(null);
-        setShowInvestorApprovalPopup(false);
-      } else {
-        const latest = approvedNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-        setLatestApprovedPurchaseNotification(latest);
-
-        const popupKey = `investor_purchase_approved_seen_${user._id}`;
-        const seenLatest = sessionStorage.getItem(popupKey) || "";
-        if (!seenLatest || new Date(latest.createdAt) > new Date(seenLatest)) {
-          setShowInvestorApprovalPopup(true);
-        }
-      }
-
-      if (rejectedNotifications.length === 0) {
-        setLatestRejectedPurchaseNotification(null);
-        setShowInvestorRejectedPopup(false);
-      } else {
-        const latestRejected = rejectedNotifications.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-        setLatestRejectedPurchaseNotification(latestRejected);
-
-        const popupKeyRejected = `investor_purchase_rejected_seen_${user._id}`;
-        const seenRejectedLatest = sessionStorage.getItem(popupKeyRejected) || "";
-        if (!seenRejectedLatest || new Date(latestRejected.createdAt) > new Date(seenRejectedLatest)) {
-          setShowInvestorRejectedPopup(true);
-        }
-      }
-    } catch {
-      setLatestApprovedPurchaseNotification(null);
-      setShowInvestorApprovalPopup(false);
-      setLatestRejectedPurchaseNotification(null);
-      setShowInvestorRejectedPopup(false);
-    }
-  }, [user?._id, user?.role]);
 
   const fetchCreditsBalance = useCallback(async () => {
     try {
@@ -165,7 +224,6 @@ const MainLayout = ({ children }) => {
       fetchUnreadCount(),
       fetchUnreadMessageCount(),
       fetchPendingPurchaseCount(),
-      fetchInvestorPurchaseOutcomePopups(),
     ];
 
     if (showCreditSystem) {
@@ -173,7 +231,7 @@ const MainLayout = ({ children }) => {
     }
 
     await Promise.allSettled(tasks);
-  }, [fetchCreditsBalance, fetchInvestorPurchaseOutcomePopups, fetchPendingPurchaseCount, fetchUnreadCount, fetchUnreadMessageCount, showCreditSystem]);
+  }, [fetchCreditsBalance, fetchPendingPurchaseCount, fetchUnreadCount, fetchUnreadMessageCount, showCreditSystem]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -200,38 +258,46 @@ const MainLayout = ({ children }) => {
   }, [location.pathname, location.search, navigate, showCreditSystem]);
 
   useEffect(() => {
-    const isWriter = ["writer", "creator"].includes(user?.role);
-    if (!isWriter || !user?._id || pendingPurchaseCount <= 0 || !latestPendingPurchaseAt) {
-      setShowPurchasePopup(false);
-      return;
-    }
+    if (!user?._id) return undefined;
 
-    const popupKey = `purchase_popup_seen_latest_${user._id}`;
-    const seenLatest = sessionStorage.getItem(popupKey) || "";
-    if (!seenLatest || new Date(latestPendingPurchaseAt) > new Date(seenLatest)) {
-      setShowPurchasePopup(true);
-    }
-  }, [latestPendingPurchaseAt, pendingPurchaseCount, user?._id, user?.role]);
+    fetchNotificationSnapshot();
+
+    const interval = window.setInterval(() => {
+      fetchNotificationSnapshot();
+    }, NOTIFICATION_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(interval);
+  }, [fetchNotificationSnapshot, user?._id]);
 
   useEffect(() => {
-    fetchInvestorPurchaseOutcomePopups();
-  }, [fetchInvestorPurchaseOutcomePopups]);
+    if (!user?.token || !user?._id) return undefined;
 
-  const fetchNotifications = async () => {
-    setNotifLoading(true);
-    try {
-      const { data } = await api.get("/notifications");
-      setNotifications(data);
-    } catch { setNotifications([]); }
-    finally { setNotifLoading(false); }
-  };
+    const socket = io(SOCKET_ORIGIN, {
+      auth: { token: user.token },
+    });
+
+    socket.on("connect", () => {
+      socket.emit("join-notifications", user._id);
+      scheduleNotificationRefresh();
+    });
+
+    socket.onAny((eventName) => {
+      if (eventName === "connect" || eventName === "disconnect") return;
+      scheduleNotificationRefresh();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [scheduleNotificationRefresh, user?._id, user?.token]);
 
   const handleCreditsUpdate = (data) => {
     setCreditsBalance(data.credits.balance);
   };
 
   const handleNotifToggle = () => {
-    if (!notifOpen) fetchNotifications();
+    dismissAllNotificationPopups();
+    if (!notifOpen) fetchNotificationSnapshot({ showLoader: true });
     setNotifOpen(!notifOpen);
     setDropdownOpen(false);
   };
@@ -241,7 +307,10 @@ const MainLayout = ({ children }) => {
       await api.put("/notifications/mark-all-read");
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch { }
+      setNotificationPopups([]);
+    } catch {
+      return;
+    }
   };
 
   const handleMarkOneRead = async (id) => {
@@ -249,7 +318,10 @@ const MainLayout = ({ children }) => {
       await api.put(`/notifications/${id}/read`);
       setNotifications((prev) => prev.map((n) => n._id === id ? { ...n, read: true } : n));
       setUnreadCount((c) => Math.max(0, c - 1));
-    } catch { }
+      dismissNotificationPopup(id, { rememberSeen: true });
+    } catch {
+      return;
+    }
   };
 
   const handleDeleteNotif = async (id) => {
@@ -258,7 +330,10 @@ const MainLayout = ({ children }) => {
       const removed = notifications.find((n) => n._id === id);
       setNotifications((prev) => prev.filter((n) => n._id !== id));
       if (removed && !removed.read) setUnreadCount((c) => Math.max(0, c - 1));
-    } catch { }
+      dismissNotificationPopup(id, { rememberSeen: true });
+    } catch {
+      return;
+    }
   };
 
   const handleClearAll = async () => {
@@ -266,7 +341,10 @@ const MainLayout = ({ children }) => {
       await api.delete("/notifications");
       setNotifications([]);
       setUnreadCount(0);
-    } catch { }
+      setNotificationPopups([]);
+    } catch {
+      return;
+    }
   };
 
   const getNotifIcon = (type) => {
@@ -315,82 +393,117 @@ const MainLayout = ({ children }) => {
     return new Date(date).toLocaleDateString();
   };
 
+  const getNotifTitle = (type) => {
+    const titles = {
+      like: "New like",
+      comment: "New comment",
+      follow: "New follower",
+      unlock: "Script unlocked",
+      hold: "Hold update",
+      hold_expiring: "Hold expiring",
+      script_score: "Script score ready",
+      trailer_ready: "Trailer ready",
+      audition: "Audition update",
+      smart_match: "Smart match",
+      profile_view: "Profile view",
+      script_approved: "Script approved",
+      script_rejected: "Script update",
+      purchase: "Purchase update",
+      investor_approved: "Investor approval",
+      purchase_request: "Purchase request",
+      purchase_approved: "Purchase approved",
+      purchase_rejected: "Purchase declined",
+      message_request: "Message request",
+      script_pitch: "Script pitch",
+      admin_alert: "Platform alert",
+      collab_invite: "Collab invite",
+      collab_request: "Collab request",
+      collab_update: "Collab update",
+      revision_update: "Revision update",
+    };
+
+    return titles[type] || "New notification";
+  };
+
+  const getNotifActionLabel = (notification) => {
+    const type = String(notification?.type || "");
+
+    if (["purchase_request", "purchase_rejected"].includes(type)) return "Review";
+    if (type === "message_request") return "Reply";
+    if (["follow", "profile_view"].includes(type) && notification?.from) return "Profile";
+    if (["collab_invite", "collab_request", "collab_update", "revision_update"].includes(type)) return "View";
+    return "Open";
+  };
+
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
   };
 
-  const dismissPurchasePopup = () => {
-    if (user?._id) {
-      const popupKey = `purchase_popup_seen_latest_${user._id}`;
-      if (latestPendingPurchaseAt) {
-        sessionStorage.setItem(popupKey, latestPendingPurchaseAt);
-      }
-    }
-    setShowPurchasePopup(false);
-  };
+  const openNotificationTarget = useCallback(async (notification) => {
+    if (!notification?._id) return;
 
-  const dismissInvestorApprovalPopup = () => {
-    if (user?._id && latestApprovedPurchaseNotification?.createdAt) {
-      const popupKey = `investor_purchase_approved_seen_${user._id}`;
-      sessionStorage.setItem(popupKey, latestApprovedPurchaseNotification.createdAt);
-    }
-    setShowInvestorApprovalPopup(false);
-  };
-
-  const handleOpenApprovedScript = async () => {
-    const notificationId = latestApprovedPurchaseNotification?._id;
-    const scriptRef = latestApprovedPurchaseNotification?.script || null;
-    const scriptId = scriptRef?._id;
-
-    if (notificationId) {
-      try {
-        await api.put(`/notifications/${notificationId}/read`);
-        setNotifications((prev) => prev.map((n) => n._id === notificationId ? { ...n, read: true } : n));
-        setUnreadCount((c) => Math.max(0, c - 1));
-      } catch {
-        // non-blocking
-      }
+    try {
+      await api.put(`/notifications/${notification._id}/read`);
+    } catch {
+      // Non-blocking so the user can still continue.
     }
 
-    dismissInvestorApprovalPopup();
-    if (scriptRef) {
-      navigate(getScriptCanonicalPath(scriptRef));
-    } else if (scriptId) {
-      navigate(getScriptCanonicalPath({ _id: scriptId }));
-    } else {
+    setNotifications((prev) => prev.map((item) => item._id === notification._id ? { ...item, read: true } : item));
+    if (!notification.read) {
+      setUnreadCount((count) => Math.max(0, count - 1));
+    }
+
+    dismissNotificationPopup(notification._id, { rememberSeen: true });
+
+    const type = String(notification.type || "");
+    const scriptTarget = notification?.script ? getScriptCanonicalPath(notification.script) : null;
+    const profileTarget = notification?.from
+      ? getProfileCanonicalPath(notification.from, {
+        viewerId: user?._id,
+        viewerRole: user?.role,
+      })
+      : null;
+
+    if (["purchase_request", "purchase_rejected"].includes(type)) {
       navigate("/purchase-requests");
-    }
-  };
-
-  const dismissInvestorRejectedPopup = () => {
-    if (user?._id && latestRejectedPurchaseNotification?.createdAt) {
-      const popupKey = `investor_purchase_rejected_seen_${user._id}`;
-      sessionStorage.setItem(popupKey, latestRejectedPurchaseNotification.createdAt);
-    }
-    setShowInvestorRejectedPopup(false);
-  };
-
-  const handleOpenPurchaseRequestsFromRejected = async () => {
-    const notificationId = latestRejectedPurchaseNotification?._id;
-    if (notificationId) {
-      try {
-        await api.put(`/notifications/${notificationId}/read`);
-        setNotifications((prev) => prev.map((n) => n._id === notificationId ? { ...n, read: true } : n));
-        setUnreadCount((c) => Math.max(0, c - 1));
-      } catch {
-        // non-blocking
-      }
+      return;
     }
 
-    dismissInvestorRejectedPopup();
-    navigate("/purchase-requests");
-  };
+    if (type === "message_request") {
+      navigate("/messages");
+      return;
+    }
 
-  const handleGoToPurchaseRequests = () => {
-    dismissPurchasePopup();
-    navigate("/purchase-requests");
-  };
+    if (scriptTarget && [
+      "purchase_approved",
+      "unlock",
+      "smart_match",
+      "script_score",
+      "trailer_ready",
+      "audition",
+      "hold",
+      "hold_expiring",
+      "script_approved",
+      "script_rejected",
+      "collab_invite",
+      "collab_request",
+      "collab_update",
+      "revision_update",
+      "script_pitch",
+      "purchase",
+    ].includes(type)) {
+      navigate(scriptTarget);
+      return;
+    }
+
+    if (profileTarget && ["follow", "profile_view", "like", "comment"].includes(type)) {
+      navigate(profileTarget);
+      return;
+    }
+
+    setNotifOpen(true);
+  }, [dismissNotificationPopup, navigate, user?._id, user?.role]);
 
   const handleLogout = () => {
     setDropdownOpen(false);
@@ -422,6 +535,9 @@ const MainLayout = ({ children }) => {
     setAvatarLoadError(false);
   }, [resolvedProfileImage]);
 
+  const visibleNotificationPopups = notificationPopups.slice(0, POPUP_STACK_LIMIT);
+  const hiddenPopupCount = Math.max(0, notificationPopups.length - POPUP_STACK_LIMIT);
+
   return (
     <>
       {showCreditSystem && (
@@ -432,176 +548,120 @@ const MainLayout = ({ children }) => {
         />
       )}
 
-      {showPurchasePopup && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] w-[min(92vw,380px)] animate-scaleIn">
-          <div className={`rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
-            isDarkMode
-              ? "bg-[#0f1d2d]/95 border-[#27415f] text-white shadow-black/40"
-              : "bg-white/95 border-[#d5e2ef] text-gray-900 shadow-slate-200/80"
-          }`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center ${
-                  isDarkMode ? "bg-sky-500/15 text-sky-300" : "bg-sky-50 text-sky-600"
-                }`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                    New Purchase Request{pendingPurchaseCount > 1 ? "s" : ""}
-                  </p>
-                  <p className={`mt-1 text-xs leading-5 ${isDarkMode ? "text-[#9db2c9]" : "text-gray-600"}`}>
-                    You have <span className="font-semibold">{pendingPurchaseCount}</span> pending request{pendingPurchaseCount > 1 ? "s" : ""} waiting for your decision.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={dismissPurchasePopup}
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                  isDarkMode ? "text-[#8ca5be] hover:bg-white/10 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                }`}
-                aria-label="Dismiss"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={dismissPurchasePopup}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                  isDarkMode ? "text-[#9db2c9] hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
+      <div className="pointer-events-none fixed top-[78px] right-4 xl:right-6 z-[120] hidden lg:block w-[min(calc(100vw-2.5rem),28rem)]">
+        <AnimatePresence initial={false}>
+          {visibleNotificationPopups.map((notification, index) => (
+            <div
+              key={notification._id}
+              className="pointer-events-auto w-full"
+              style={{
+                zIndex: 40 - index,
+                marginTop: index === 0 ? 0 : 14,
+                transform: `translate(${Math.min(index, POPUP_STACK_LIMIT - 1) * 10}px, ${Math.min(index, POPUP_STACK_LIMIT - 1) * 8}px) scale(${1 - Math.min(index, POPUP_STACK_LIMIT - 1) * 0.02})`,
+                transformOrigin: "top right",
+              }}
+            >
+              <MotionDiv
+                layout
+                initial={{ opacity: 0, x: 72, y: -18, scale: 0.92 }}
+                animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 88, y: -12, scale: 0.92 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 180,
+                  damping: 24,
+                  mass: 1.05,
+                  delay: index * 0.18,
+                }}
+                className={`relative w-full overflow-hidden rounded-[24px] border px-4 py-4 shadow-2xl backdrop-blur-2xl ${
+                  isDarkMode
+                    ? "bg-[#07111d]/94 border-white/10 text-white shadow-black/45"
+                    : "bg-white/92 border-white/70 text-gray-900 shadow-slate-300/70"
                 }`}
               >
-                Later
-              </button>
-              <button
-                onClick={handleGoToPurchaseRequests}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#1e3a5f] text-white hover:bg-[#2a4b77] transition-colors"
-              >
-                Review now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="flex items-start gap-3">
+                  <div className={`mt-0.5 w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${getNotifColor(notification.type)}`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d={getNotifIcon(notification.type)} />
+                    </svg>
+                  </div>
 
-      {showInvestorApprovalPopup && latestApprovedPurchaseNotification && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] w-[min(92vw,420px)] animate-scaleIn">
-          <div className={`rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
-            isDarkMode
-              ? "bg-[#102417]/95 border-emerald-600/30 text-white shadow-black/40"
-              : "bg-white/95 border-emerald-200 text-gray-900 shadow-slate-200/80"
-          }`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center ${
-                  isDarkMode ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-50 text-emerald-600"
-                }`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <div>
-                  <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                    Purchase Approved
-                  </p>
-                  <p className={`mt-1 text-xs leading-5 ${isDarkMode ? "text-emerald-100/80" : "text-gray-600"}`}>
-                    {latestApprovedPurchaseNotification.message || "Your purchase request was approved. Complete payment (if required) to unlock full script access."}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={dismissInvestorApprovalPopup}
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                  isDarkMode ? "text-emerald-200/80 hover:bg-white/10 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                }`}
-                aria-label="Dismiss"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={dismissInvestorApprovalPopup}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                  isDarkMode ? "text-emerald-100/80 hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Later
-              </button>
-              <button
-                onClick={handleOpenApprovedScript}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
-              >
-                Open script
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1 pr-1">
+                        <p className={`text-[13px] font-bold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                          {getNotifTitle(notification.type)}
+                        </p>
+                        <p className={`mt-0.5 text-[11px] font-medium ${isDarkMode ? "text-[#7f97b4]" : "text-gray-500"}`}>
+                          {timeAgo(notification.createdAt)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => dismissNotificationPopup(notification._id)}
+                        className={`w-7 h-7 shrink-0 rounded-xl flex items-center justify-center transition-colors ${
+                          isDarkMode ? "text-[#7f97b4] hover:bg-white/10 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        }`}
+                        aria-label="Dismiss notification popup"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
 
-      {showInvestorRejectedPopup && latestRejectedPurchaseNotification && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] w-[min(92vw,420px)] animate-scaleIn">
-          <div className={`rounded-2xl border p-4 shadow-2xl backdrop-blur-xl ${
-            isDarkMode
-              ? "bg-[#2a1313]/95 border-rose-600/30 text-white shadow-black/40"
-              : "bg-white/95 border-rose-200 text-gray-900 shadow-slate-200/80"
-          }`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3">
-                <div className={`mt-0.5 w-10 h-10 rounded-xl flex items-center justify-center ${
-                  isDarkMode ? "bg-rose-500/15 text-rose-300" : "bg-rose-50 text-rose-600"
-                }`}>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                    <p className={`mt-2 text-[12.5px] leading-5 break-words ${isDarkMode ? "text-[#d4ddec]" : "text-gray-600"}`}>
+                      {notification.from?.name && (
+                        <span className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                          {notification.from.name}{" "}
+                        </span>
+                      )}
+                      {notification.message}
+                      {notification.script?.title && (
+                        <span className={`font-semibold ${isDarkMode ? "text-[#eef4ff]" : "text-gray-800"}`}>
+                          {" "}"{notification.script.title}"
+                        </span>
+                      )}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+                      {!notification.read && (
+                        <button
+                          onClick={() => handleMarkOneRead(notification._id)}
+                          className={`min-h-[38px] rounded-xl px-3.5 py-2 text-[11px] font-semibold transition-colors ${
+                            isDarkMode ? "text-[#b4c4da] hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
+                          }`}
+                        >
+                          Mark read
+                        </button>
+                      )}
+                      <button
+                        onClick={() => openNotificationTarget(notification)}
+                        className={`min-h-[38px] min-w-[88px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
+                          isDarkMode
+                            ? "bg-sky-500 !text-white hover:bg-sky-400"
+                            : "bg-[#0f1d31] !text-white hover:bg-[#19314f]"
+                        }`}
+                      >
+                        {getNotifActionLabel(notification)}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                    Purchase Request Declined
-                  </p>
-                  <p className={`mt-1 text-xs leading-5 ${isDarkMode ? "text-rose-100/80" : "text-gray-600"}`}>
-                    {latestRejectedPurchaseNotification.message || "Your purchase request was declined by the writer."}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={dismissInvestorRejectedPopup}
-                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${
-                  isDarkMode ? "text-rose-200/80 hover:bg-white/10 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                }`}
-                aria-label="Dismiss"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              </MotionDiv>
             </div>
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <button
-                onClick={dismissInvestorRejectedPopup}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                  isDarkMode ? "text-rose-100/80 hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                Later
-              </button>
-              <button
-                onClick={handleOpenPurchaseRequestsFromRejected}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors"
-              >
-                View details
-              </button>
+          ))}
+        </AnimatePresence>
+
+        {hiddenPopupCount > 0 && (
+          <div className="pointer-events-none mt-3 flex justify-end pr-2">
+            <div className={`rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-xl ${
+              isDarkMode ? "bg-[#07111d]/85 text-[#d7e5f9] border border-white/10" : "bg-white/90 text-gray-700 border border-white/70"
+            }`}>
+              +{hiddenPopupCount} more notification{hiddenPopupCount > 1 ? "s" : ""}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       
       <div className={`min-h-screen ${isDarkMode ? "bg-[#080e18]" : "bg-[#eef0f3]"}`}>
       <Sidebar

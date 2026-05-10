@@ -23,12 +23,14 @@ const NEGOTIATION_LABELS = {
 import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { io } from "socket.io-client";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { Film, BadgeCheck } from "lucide-react";
 import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 import SocialShareButton from "../components/SocialShareButton";
+import RequestCollabButton from "../components/collab/RequestCollabButton";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -39,8 +41,10 @@ import {
   getScriptCompletionProgressText,
   getScriptCompletionStatusLabel,
 } from "../utils/scriptCompletion";
+import { getApiBaseUrl } from "../utils/apiOrigin";
 
 const BUYER_COMMISSION_RATE = 0.05;
+const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 const getBuyerCheckoutTotal = (baseAmount) => {
   const base = Number(baseAmount || 0);
   return Math.round((base + base * BUYER_COMMISSION_RATE) * 100) / 100;
@@ -291,6 +295,37 @@ const ScriptDetail = () => {
     fetchReviews({ page: 1 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [script?._id, user?._id]);
+
+  useEffect(() => {
+    if (!user?.token || !activeScriptId) return undefined;
+
+    const socket = io(SOCKET_ORIGIN, {
+      auth: { token: user.token },
+    });
+
+    const handleCollaboratorRemoved = async (payload = {}) => {
+      if (String(payload.scriptId || "") !== String(activeScriptId)) return;
+      await fetchScript({ silent: true });
+      showNotice("Your collaboration access was removed.", "error");
+    };
+
+    const handleRoleOrMembershipChanged = async (payload = {}) => {
+      if (String(payload.scriptId || "") !== String(activeScriptId)) return;
+      await fetchScript({ silent: true });
+    };
+
+    socket.on("collaborator_removed", handleCollaboratorRemoved);
+    socket.on("collab_role_changed", handleRoleOrMembershipChanged);
+    socket.on("collab_membership_changed", handleRoleOrMembershipChanged);
+
+    return () => {
+      socket.off("collaborator_removed", handleCollaboratorRemoved);
+      socket.off("collab_role_changed", handleRoleOrMembershipChanged);
+      socket.off("collab_membership_changed", handleRoleOrMembershipChanged);
+      socket.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeScriptId, user?.token]);
 
   useEffect(() => {
     if (activeTab !== "reviews" || !script?._id) return;
@@ -898,15 +933,24 @@ const ScriptDetail = () => {
   const creatorId = script?.creator?._id || script?.creator;
   const viewerId = user?._id || user?.id;
   const isOwner = Boolean(script?.isCreator || (creatorId && viewerId && String(creatorId) === String(viewerId)));
-  const canViewFullScript = Boolean(isOwner || script?.isUnlocked || script?.isAdmin || script?.canViewFullScript);
+  const currentCollaborator = Array.isArray(script?.collaborators) ? script.collaborators.find((entry) => {
+    const collaboratorId = entry?.userId?._id || entry?.userId;
+    return entry?.isActive !== false && entry?.status === "accepted" && collaboratorId && viewerId && String(collaboratorId) === String(viewerId);
+  }) : null;
+  const isAcceptedCollaborator = Boolean(script?.isCollaborator || currentCollaborator);
+  const collaboratorRole = String(script?.collaboratorRole || currentCollaborator?.role || "").toLowerCase();
+  const canViewFullScript = Boolean(isOwner || isAcceptedCollaborator || script?.isUnlocked || script?.isAdmin || script?.canViewFullScript);
+  const canEditScript = Boolean(script?._id && (isOwner || script?.canEditScript || collaboratorRole === "editor"));
+  const canOpenCollaborationHub = Boolean(script?._id && (isOwner || isAcceptedCollaborator));
   const isReaderReviewer = String(user?.role || "").toLowerCase() === "reader";
   const isSoldScript = Boolean(script?.isSold || script?.holdStatus === "sold");
-  const canBookmark = Boolean(user?._id && !isOwner);
+  const canBookmark = Boolean(user?._id && !isOwner && !isAcceptedCollaborator);
   const isPro = ["investor", "producer", "director"].includes(user?.role);
   const canSubmitReview = Boolean(
     user?._id &&
     isReaderReviewer &&
     !isOwner &&
+    !isAcceptedCollaborator &&
     script?.status === "published"
   );
   const reviewUnavailableMessage = isOwner
@@ -986,6 +1030,7 @@ const ScriptDetail = () => {
   const completionProgress = getScriptCompletionProgressText(script);
   const completionFuturePlans = getScriptCompletionFuturePlans(script);
   const publishedAtValue = script?.publishedAt || script?.createdAt;
+  const collaborationStats = script?.collaborationStats || {};
 
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -1211,14 +1256,14 @@ const ScriptDetail = () => {
                   <div className={`rounded-2xl border p-5 sm:p-6 ${t.card}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-3 ${t.label}`}>Project Overview</p>
                     <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight leading-tight ${t.title}`}>
-                        {script.title}
-                      </h1>
-                      <SocialShareButton
-                        share={scriptShare}
-                        buttonLabel="Share"
-                        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition w-fit ${isDarkMode ? "bg-white/[0.04] border-white/[0.09] text-white/80 hover:bg-white/[0.08]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
-                      />
+                      <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight leading-tight ${t.title}`}>{script.title}</h1>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <SocialShareButton
+                          share={scriptShare}
+                          buttonLabel="Share"
+                          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition w-fit ${isDarkMode ? "bg-white/[0.04] border-white/[0.09] text-white/80 hover:bg-white/[0.08]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
+                        />
+                      </div>
                     </div>
 
                     <div className={`flex flex-wrap items-center gap-2.5 text-xs mb-5 ${t.muted}`}>
@@ -1363,6 +1408,8 @@ const ScriptDetail = () => {
                   <div className={`rounded-2xl p-4 border space-y-2 ${t.priceSub}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Actions</p>
 
+                    <RequestCollabButton script={script} />
+
                     {canBookmark && (
                       <button
                         onClick={handleToggleBookmark}
@@ -1378,22 +1425,36 @@ const ScriptDetail = () => {
                       </button>
                     )}
 
-                    {isOwner && script?._id && !isEditApprovalPending && (
-                      <button
-                        onClick={() => navigate(shouldEditInTextEditor ? `/create-project/${script._id}` : `/upload?edit=${script._id}`)}
-                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border ${t.btnSec}`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487a2.5 2.5 0 113.536 3.536L7.5 20.922 3 21l.078-4.5L16.862 4.487z" />
-                        </svg>
-                        Edit Script
-                      </button>
-                    )}
-
                     {isOwner && isEditApprovalPending && (
                       <div className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold border text-center ${t.inset}`}>
                         Edit approval pending with admin. Editing is locked until review is complete.
                       </div>
+                    )}
+
+                    {canEditScript && (!isOwner || !isEditApprovalPending) && (
+                      <Link
+                        to={isOwner
+                          ? (shouldEditInTextEditor ? `/create-project/${script._id}` : `/upload?edit=${script._id}`)
+                          : `/script/${script._id}/branch/edit`}
+                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border ${t.btnSec}`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                        </svg>
+                        {isOwner ? "Edit Project" : "Edit my branch"}
+                      </Link>
+                    )}
+
+                    {canOpenCollaborationHub && (
+                      <Link
+                        to={`/script/${script._id}/collaborate/overview`}
+                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border ${t.btnSec}`}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Collaboration Hub
+                      </Link>
                     )}
 
                     {isOwner && !isSoldScript && script?.status === "published" && !spotlightActive && !spotlightPendingApproval && !spotlightPaidAtUpload && (
@@ -1639,6 +1700,19 @@ const ScriptDetail = () => {
                     {script?.sid && (
                       <p className={`text-[10px] font-semibold mt-1 ${t.sub}`}>SID: {script.sid}</p>
                     )}
+                  </div>
+                  <div className={`rounded-2xl p-4 border ${t.priceSub}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${t.label}`}>Collaboration</p>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={t.muted}>Writers worked on this script</span>
+                        <span className={`font-bold ${t.sub}`}>{Number(collaborationStats.totalWritersWorked || 1)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className={t.muted}>Still working on it</span>
+                        <span className={`font-bold ${t.sub}`}>{Number(collaborationStats.activeWritersWorking || 1)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2491,6 +2565,7 @@ const ScriptDetail = () => {
                 )}
               </motion.div>
             )}
+
           </AnimatePresence>
         </motion.div>
       </div>

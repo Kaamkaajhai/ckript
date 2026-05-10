@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, TrendingUp, Eye, Star, Clock, Zap, Crown, Award } from "lucide-react";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const FeaturedSection = () => {
   const { isDarkMode: dark } = useDarkMode();
@@ -206,7 +207,7 @@ const FeaturedSection = () => {
                   className="flex items-center gap-3"
                 >
                   <Link 
-                    to={`/reader/script/${hero._id}`} 
+                    to={getScriptCanonicalPath(hero)} 
                     className="inline-flex items-center gap-2 px-6 py-3 bg-white text-gray-900 rounded-xl font-bold text-sm hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl hover:scale-105"
                   >
                     <Zap size={16} fill="currentColor" />
@@ -279,7 +280,7 @@ const PromotionalCard = ({ script, index, dark }) => {
       transition={{ delay: index * 0.05, duration: 0.4 }}
       className="flex-none"
     >
-      <Link to={`/reader/script/${script._id}`} className="group block h-full">
+      <Link to={getScriptCanonicalPath(script)} className="group block h-full">
         <div className={`rounded-2xl overflow-hidden flex flex-col transition-all duration-300 relative ${
           isSponsored
             ? dark
