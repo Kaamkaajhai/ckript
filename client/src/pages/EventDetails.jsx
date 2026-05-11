@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import MarketingHeader from "../components/MarketingHeader";
 import BrandLogo from "../components/BrandLogo";
 import { AuthContext } from "../context/AuthContext";
@@ -7,6 +8,11 @@ import api from "../services/api";
 
 const EVENT_SLUG = "ckript-global-scriptathon-2026";
 const EVENT_START_DATE = new Date("2026-05-23T18:00:00+05:30");
+const HERO_STATS = [
+  { label: "Duration", value: "48 Hours" },
+  { label: "Prize Pool", value: "INR 7,500+" },
+  { label: "Writers", value: "Global" },
+];
 
 const loadRazorpaySdk = () =>
   new Promise((resolve, reject) => {
@@ -208,13 +214,23 @@ const EventDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#05070b] text-white">
+    <div className="relative min-h-screen overflow-hidden bg-[#05070b] text-white">
       <MarketingHeader />
 
-      <main className="pt-28">
-        <section className="mx-auto max-w-6xl px-4 sm:px-8">
-          <div className="rounded-[36px] border border-white/10 bg-gradient-to-br from-[#0b1220] via-[#05070b] to-[#0a1322] px-6 py-16 sm:px-12">
-            <p className="text-xs uppercase tracking-[0.3em] text-[#7dd3fc]">Ckript Global Scriptathon 2026</p>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-32 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(14,165,233,0.22),transparent_70%)] blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-72 w-[36rem] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.18),transparent_70%)] blur-3xl" />
+      </div>
+
+      <main className="relative pt-28">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto max-w-6xl px-4 sm:px-8"
+        >
+          <div className="rounded-[36px] border border-white/10 bg-gradient-to-br from-[#0b1220] via-[#05070b] to-[#0a1322] px-6 py-16 shadow-[0_30px_80px_rgba(0,0,0,0.45)] sm:px-12">
+            <p className="text-xs uppercase tracking-[0.35em] text-[#7dd3fc]">Ckript Global Scriptathon 2026</p>
             <h1 className="mt-5 text-3xl sm:text-5xl font-semibold leading-tight">
               The world&#39;s first AI-powered live script writing arena.
             </h1>
@@ -227,28 +243,43 @@ const EventDetails = () => {
                 <button
                   type="button"
                   onClick={handleRegister}
-                  className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#38bdf8]"
+                  className="rounded-full bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] px-6 py-3 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(14,165,233,0.45)] active:scale-[0.98]"
                 >
-                  {user ? "Pay and register" : "Login to register"}
+                  {user ? `Pay and register (${paymentLabel})` : "Login to register"}
                 </button>
               )}
               <a
                 href="#rules"
-                className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white hover:border-white/40"
+                className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/5 active:scale-[0.98]"
               >
                 View Rules
               </a>
               <a
                 href="#prizes"
-                className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white hover:border-white/40"
+                className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/5 active:scale-[0.98]"
               >
                 Prize Pool
               </a>
             </div>
-          </div>
-        </section>
 
-        <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              {HERO_STATS.map((stat) => (
+                <div key={stat.label} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-4 transition duration-200 ease-out hover:-translate-y-1 hover:border-[#38bdf8]/40">
+                  <p className="text-xs uppercase tracking-[0.18em] text-[#7f96b7]">{stat.label}</p>
+                  <p className="mt-2 text-xl font-semibold text-white">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
               <h2 className="text-2xl font-semibold">The countdown has begun</h2>
@@ -256,7 +287,7 @@ const EventDetails = () => {
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {countdown.map((item) => (
                   <div key={item.label} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-4 text-center">
-                    <div className="text-2xl font-semibold text-white">{String(item.value).padStart(2, "0")}</div>
+                    <div className="text-2xl font-semibold text-white tabular-nums">{String(item.value).padStart(2, "0")}</div>
                     <div className="mt-1 text-xs uppercase tracking-wider text-[#7f96b7]">{item.label}</div>
                   </div>
                 ))}
@@ -280,9 +311,16 @@ const EventDetails = () => {
               </p>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section id="prizes" className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <motion.section
+          id="prizes"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
             <h2 className="text-2xl font-semibold">Prizes and recognition</h2>
             <div className="mt-6 grid gap-6 md:grid-cols-3">
@@ -291,7 +329,7 @@ const EventDetails = () => {
                 { title: "Runner-Up", amount: "INR 2000", perks: ["Featured trailer", "Global visibility"] },
                 { title: "Third Place", amount: "INR 500", perks: ["Special spotlight", "Community badge"] },
               ].map((item) => (
-                <div key={item.title} className="rounded-2xl border border-white/10 bg-[#070b12] p-5">
+                <div key={item.title} className="rounded-2xl border border-white/10 bg-[#070b12] p-5 transition hover:-translate-y-1 hover:border-[#38bdf8]/40">
                   <p className="text-sm uppercase tracking-[0.2em] text-[#7dd3fc]">{item.title}</p>
                   <h3 className="mt-3 text-2xl font-semibold text-white">{item.amount}</h3>
                   <ul className="mt-4 space-y-2 text-sm text-[#9fb2cc]">
@@ -312,9 +350,16 @@ const EventDetails = () => {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section id="rules" className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <motion.section
+          id="rules"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
             <h2 className="text-2xl font-semibold">Competition rules</h2>
             <ul className="mt-6 grid gap-3 text-sm text-[#9fb2cc] sm:grid-cols-2">
@@ -329,15 +374,21 @@ const EventDetails = () => {
                 "Plagiarism or cheating may result in disqualification.",
                 "Submissions after the deadline will not be accepted.",
               ].map((rule) => (
-                <li key={rule} className="rounded-2xl border border-white/10 bg-[#070b12] p-4">
+                <li key={rule} className="rounded-2xl border border-white/10 bg-[#070b12] p-4 transition hover:-translate-y-1 hover:border-[#38bdf8]/40">
                   {rule}
                 </li>
               ))}
             </ul>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="grid gap-6 lg:grid-cols-3">
             {[
               {
@@ -353,15 +404,21 @@ const EventDetails = () => {
                 desc: "Advanced systems detect copy-paste abuse, plagiarism, and AI-generated spam.",
               },
             ].map((card) => (
-              <div key={card.title} className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
+              <div key={card.title} className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 transition hover:-translate-y-1 hover:border-[#38bdf8]/40">
                 <h3 className="text-lg font-semibold">{card.title}</h3>
                 <p className="mt-3 text-sm text-[#9fb2cc]">{card.desc}</p>
               </div>
             ))}
           </div>
-        </section>
+        </motion.section>
 
-        <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
             <h2 className="text-2xl font-semibold">Why participate?</h2>
             <div className="mt-6 grid gap-3 text-sm text-[#9fb2cc] sm:grid-cols-2">
@@ -374,21 +431,27 @@ const EventDetails = () => {
                 "Win prizes and recognition.",
                 "Become part of the Ckript storytelling ecosystem.",
               ].map((item) => (
-                <div key={item} className="rounded-2xl border border-white/10 bg-[#070b12] p-4">
+                <div key={item} className="rounded-2xl border border-white/10 bg-[#070b12] p-4 transition hover:-translate-y-1 hover:border-[#38bdf8]/40">
                   {item}
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
               <h2 className="text-2xl font-semibold">Live competition dashboard</h2>
               <div className="mt-5 grid gap-3 text-sm text-[#9fb2cc]">
                 {["Top writers", "Trending genres", "Highest story scores", "Most active participants"].map((item) => (
-                  <div key={item} className="rounded-2xl border border-white/10 bg-[#070b12] p-4">
+                  <div key={item} className="rounded-2xl border border-white/10 bg-[#070b12] p-4 transition hover:-translate-y-1 hover:border-[#38bdf8]/40">
                     {item}
                   </div>
                 ))}
@@ -405,16 +468,22 @@ const EventDetails = () => {
                   "Submit before the deadline.",
                   "Winners announced live on Ckript.",
                 ].map((step, index) => (
-                  <li key={step} className="rounded-2xl border border-white/10 bg-[#070b12] p-4">
+                  <li key={step} className="rounded-2xl border border-white/10 bg-[#070b12] p-4 transition hover:-translate-y-1 hover:border-[#38bdf8]/40">
                     <span className="font-semibold">Step {index + 1}:</span> {step}
                   </li>
                 ))}
               </ol>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div id="event-registration" className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
               <h2 className="text-2xl font-semibold">Register for Scriptathon 2026</h2>
@@ -430,7 +499,7 @@ const EventDetails = () => {
                     <p className="mt-2 text-sm text-[#9fb2cc]">Your event access is active. The payment button is hidden for registered participants.</p>
                     <Link
                       to={`/events/${EVENT_SLUG}/dashboard`}
-                      className="mt-5 inline-flex rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white"
+                      className="mt-5 inline-flex rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/5 active:scale-[0.98]"
                     >
                       Open event dashboard
                     </Link>
@@ -445,7 +514,7 @@ const EventDetails = () => {
                           type="button"
                           onClick={requireLogin}
                           disabled={authLoading}
-                          className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black disabled:opacity-60"
+                          className="rounded-full bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] px-6 py-3 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(14,165,233,0.3)] transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(14,165,233,0.4)] active:scale-[0.98] disabled:opacity-60"
                         >
                           Login to register
                         </button>
@@ -454,7 +523,7 @@ const EventDetails = () => {
                           type="button"
                           onClick={handlePaidRegister}
                           disabled={submitting}
-                          className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black disabled:opacity-60"
+                          className="rounded-full bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] px-6 py-3 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(14,165,233,0.3)] transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(14,165,233,0.4)] active:scale-[0.98] disabled:opacity-60"
                         >
                           {submitting ? "Registering..." : `Pay ${paymentLabel} and register`}
                         </button>
@@ -496,9 +565,15 @@ const EventDetails = () => {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
-        <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
               <h2 className="text-2xl font-semibold">Testimonials</h2>
@@ -525,10 +600,16 @@ const EventDetails = () => {
               </div>
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {registered && registration && (
-          <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8 pb-16">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mx-auto mt-16 max-w-6xl px-4 sm:px-8 pb-16"
+          >
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
               <h2 className="text-2xl font-semibold">Welcome to Scriptathon 2026</h2>
               <p className="mt-3 text-sm text-[#9fb2cc]">
@@ -540,7 +621,7 @@ const EventDetails = () => {
                 <p className="mt-2 text-sm text-[#9fb2cc]">Prepare your story. The countdown has begun.</p>
               </div>
             </div>
-          </section>
+          </motion.section>
         )}
       </main>
 

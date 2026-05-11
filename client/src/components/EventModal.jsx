@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 
 const EVENT_SLUG = "ckript-global-scriptathon-2026";
 const EVENT_PATH = `/events/${EVENT_SLUG}`;
@@ -29,8 +30,18 @@ const EventModal = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 px-4 py-6">
-      <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-[#05070b] shadow-[0_35px_90px_rgba(0,0,0,0.6)]">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-[140] flex items-center justify-center bg-black/70 px-4 py-6"
+    >
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.25 }}
+        className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-[#05070b] shadow-[0_35px_90px_rgba(0,0,0,0.6)]"
+      >
         <button
           type="button"
           onClick={handleClose}
@@ -45,7 +56,7 @@ const EventModal = () => {
         <button
           type="button"
           onClick={handleNavigate}
-          className="group block w-full text-left"
+          className="group block w-full text-left transition duration-200 ease-out hover:scale-[1.01]"
           aria-label="Open Scriptathon 2026 event"
         >
           <div className="relative">
@@ -55,10 +66,13 @@ const EventModal = () => {
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-transparent to-black/30 opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="absolute bottom-6 left-6 rounded-full border border-white/15 bg-black/60 px-4 py-2 text-xs uppercase tracking-[0.3em] text-white">
+              Tap to view event
+            </div>
           </div>
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

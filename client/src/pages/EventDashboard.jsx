@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   Award,
   BarChart3,
@@ -53,7 +54,7 @@ const EmptyState = ({ children }) => (
 );
 
 const StatTile = ({ label, value, icon: Icon, accent = "text-[#38bdf8]" }) => (
-  <div className="rounded-2xl border border-white/10 bg-[#070b12] p-4">
+  <div className="rounded-2xl border border-white/10 bg-[#070b12] p-4 transition hover:-translate-y-1 hover:border-[#38bdf8]/40">
     <div className="flex items-center justify-between gap-3">
       <p className="text-xs uppercase tracking-[0.18em] text-[#7f96b7]">{label}</p>
       {Icon && <Icon className={`h-4 w-4 ${accent}`} />}
@@ -69,7 +70,7 @@ const ActionButton = ({ icon, label, disabled = false }) => {
     <button
       type="button"
       disabled={disabled}
-      className="flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-white/10 bg-[#070b12] px-5 py-4 text-sm font-semibold text-white transition hover:border-[#38bdf8]/60 hover:bg-[#0b1726] disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex min-h-16 items-center justify-center gap-3 rounded-2xl border border-white/10 bg-[#070b12] px-5 py-4 text-sm font-semibold text-white transition duration-200 ease-out hover:-translate-y-1 hover:border-[#38bdf8]/60 hover:bg-[#0b1726] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
     >
       <ActionIcon className="h-5 w-5" />
       {label}
@@ -181,7 +182,12 @@ const EventDashboard = () => {
 
       <div className="relative mx-auto grid max-w-7xl gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="space-y-6">
-          <section className="rounded-3xl border border-white/10 bg-[#0a1220]/95 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:p-8">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="rounded-3xl border border-white/10 bg-[#0a1220]/95 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] sm:p-8"
+          >
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-[#7dd3fc]">Event Dashboard</p>
@@ -199,9 +205,15 @@ const EventDashboard = () => {
                 {statusBadge}
               </div>
             </div>
-          </section>
+          </motion.section>
 
-          <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"
+          >
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
               <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">
                 {eventStatus === "upcoming" ? "Starts In" : eventStatus === "live" ? "Time Remaining" : "Event Complete"}
@@ -235,9 +247,15 @@ const EventDashboard = () => {
                 <StatTile label="Registered Writers" value={String(event.participantCount ?? 0)} icon={Trophy} />
               </div>
             </div>
-          </section>
+          </motion.section>
 
-          <section className="grid gap-6 lg:grid-cols-2">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid gap-6 lg:grid-cols-2"
+          >
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
               <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">Your Current Rank</p>
               {ranking ? (
@@ -264,12 +282,18 @@ const EventDashboard = () => {
                 <EmptyState>No event script is linked to this registration yet.</EmptyState>
               )}
             </div>
-          </section>
+          </motion.section>
 
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+          >
             <Link
               to={`/events/${EVENT_SLUG}/write`}
-              className="flex min-h-16 items-center justify-center gap-3 rounded-2xl bg-[#0ea5e9] px-5 py-4 text-sm font-semibold text-black transition hover:bg-[#38bdf8]"
+              className="flex min-h-16 items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] px-5 py-4 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(14,165,233,0.3)] transition duration-200 ease-out hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(14,165,233,0.4)] active:scale-[0.98]"
             >
               <PenLine className="h-5 w-5" />
               Continue Writing
@@ -277,9 +301,15 @@ const EventDashboard = () => {
             <ActionButton icon={Eye} label="Preview Script" disabled />
             <ActionButton icon={Download} label="Export Draft" disabled />
             <ActionButton icon={Rocket} label="Submit Script" disabled />
-          </section>
+          </motion.section>
 
-          <section className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid gap-6 lg:grid-cols-[1fr_0.9fr]"
+          >
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">Top Writers Right Now</p>
@@ -297,7 +327,7 @@ const EventDashboard = () => {
                     </thead>
                     <tbody className="divide-y divide-white/10">
                       {leaderboard.map((item) => (
-                        <tr key={`${item.rank}-${item.writer}`} className="bg-[#070b12]">
+                        <tr key={`${item.rank}-${item.writer}`} className="bg-[#070b12] transition duration-200 ease-out hover:bg-[#0b1726]">
                           <td className="px-4 py-4 font-semibold text-white">{item.rank}</td>
                           <td className="px-4 py-4 text-[#d5e2f4]">{item.writer}</td>
                           <td className="px-4 py-4 text-[#9fb2cc]">{item.genre}</td>
@@ -322,9 +352,15 @@ const EventDashboard = () => {
                 <EmptyState>No AI story feedback is available for this event script yet.</EmptyState>
               )}
             </div>
-          </section>
+          </motion.section>
 
-          <section className="grid gap-6 lg:grid-cols-3">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid gap-6 lg:grid-cols-3"
+          >
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
               <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">Latest Updates</p>
               <div className="mt-5 space-y-3">
@@ -358,15 +394,21 @@ const EventDashboard = () => {
                 )) : <EmptyState>No real-time activity is available yet.</EmptyState>}
               </div>
             </div>
-          </section>
+          </motion.section>
 
-          <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <motion.section
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]"
+          >
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
               <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">Share Your Journey</p>
               <p className="mt-4 text-sm text-[#b6c4d9]">Registered for {event.title} on Ckript.</p>
               <div className="mt-5 flex flex-wrap gap-3">
                 {["Share on LinkedIn", "Share on Instagram", "Share on X"].map((label) => (
-                  <button key={label} type="button" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold text-white hover:border-[#38bdf8]/60">
+                  <button key={label} type="button" className="inline-flex items-center gap-2 rounded-full border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:border-[#38bdf8]/60 hover:bg-white/5 active:scale-[0.98]">
                     <Share2 className="h-4 w-4" />
                     {label}
                   </button>
@@ -382,7 +424,7 @@ const EventDashboard = () => {
                 Submit Final Script
               </button>
             </div>
-          </section>
+          </motion.section>
 
           <footer className="rounded-3xl border border-white/10 bg-[#0a1220] p-6">
             <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
