@@ -41,6 +41,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
 import agreementRoutes from "./routes/agreementRoutes.js";
 import collabRoutes from "./routes/collab.routes.js";
+import eventRoutes from "./routes/eventRoutes.js";
 import { registerCollabSocket } from "./socket/collab.socket.js";
 import {
   applyGlobalSecurity,
@@ -346,6 +347,7 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
 app.use("/api/collab", collabRoutes);
+app.use("/api/events", eventRoutes);
 
 export default app;
 

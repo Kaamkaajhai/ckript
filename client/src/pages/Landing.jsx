@@ -933,6 +933,9 @@ const Landing = () => {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-7 font-body text-sm text-[#94A3B8]">
+              <Link to="/events" className="luxury-footer-link hover:text-white transition-colors">
+                Events
+              </Link>
               <Link to="/about" className="luxury-footer-link hover:text-white transition-colors">
                 About
               </Link>
