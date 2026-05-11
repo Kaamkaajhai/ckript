@@ -434,7 +434,7 @@ const EventDashboard = () => {
                 <Link to="/contact" className="hover:text-white">Support</Link>
                 <Link to="/contact" className="hover:text-white">Contact</Link>
               </div>
-              <p className="text-sm text-[#9fb2cc]">Need help? <span className="text-white">{event.supportEmail || "support@ckript.com"}</span></p>
+              <p className="text-sm text-[#9fb2cc]">Need help? <span className="text-white">{event.supportEmail || "info.ckript@gmail.com"}</span></p>
             </div>
           </footer>
         </main>

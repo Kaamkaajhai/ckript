@@ -500,6 +500,123 @@ const EventDetails = () => {
           transition={{ duration: 0.6 }}
           className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
         >
+          <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-[#7dd3fc]">Sponsorship Proposal</p>
+                <h2 className="mt-4 text-2xl font-semibold sm:text-3xl">Ckript Global Scriptathon 2026</h2>
+                <p className="mt-3 max-w-3xl text-sm text-[#9fb2cc]">
+                  A 48-hour global online script writing competition connecting writers, storytellers, filmmakers, and
+                  creators. Sponsors get direct access to a highly engaged creative audience and global visibility.
+                </p>
+                <div className="mt-5 flex flex-wrap gap-3 text-xs text-[#d5e2f4]">
+                  <span className="rounded-full border border-white/10 px-4 py-2">Dates: 23 May, 06:00 PM IST - 25 May, 06:00 PM IST</span>
+                  <span className="rounded-full border border-white/10 px-4 py-2">Format: Global Online Event</span>
+                  <span className="rounded-full border border-white/10 px-4 py-2">Audience: Writers, filmmakers, creators</span>
+                </div>
+              </div>
+              <a
+                href="mailto:info.ckript@gmail.com?subject=Sponsorship%20Inquiry%20-%20Ckript%20Global%20Scriptathon%202026"
+                className="inline-flex w-fit items-center justify-center rounded-full bg-gradient-to-r from-[#0ea5e9] to-[#38bdf8] px-6 py-3 text-sm font-semibold text-black shadow-[0_12px_30px_rgba(14,165,233,0.35)] transition duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(14,165,233,0.45)] active:scale-[0.98]"
+              >
+                Apply for sponsorship
+              </a>
+            </div>
+
+            <div className="mt-10 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-2xl border border-white/10 bg-[#070b12] p-5">
+                <h3 className="text-lg font-semibold">Why sponsor this event?</h3>
+                <ul className="mt-4 grid gap-3 text-sm text-[#9fb2cc] sm:grid-cols-2">
+                  {[
+                    "Brand visibility across event assets and social campaigns.",
+                    "Digital reach via creator communities and event promotion.",
+                    "Direct access to emerging creative talent.",
+                    "Brand positioning with creativity, innovation, and storytelling.",
+                  ].map((item) => (
+                    <li key={item} className="rounded-2xl border border-white/10 bg-[#0a1220] p-4">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[#070b12] p-5">
+                <h3 className="text-lg font-semibold">Sponsorship categories</h3>
+                <div className="mt-4 grid gap-3 text-sm text-[#9fb2cc]">
+                  {[
+                    { title: "Title Sponsor", desc: "Premium branding, powered-by placement, homepage visibility." },
+                    { title: "Gold Sponsor", desc: "Featured logo placement, social promotions, sponsor mentions." },
+                    { title: "Silver Sponsor", desc: "Logo placement, community visibility, sponsor mentions." },
+                    { title: "Community Partner", desc: "Ideal for film schools, startups, and creator communities." },
+                  ].map((tier) => (
+                    <div key={tier.title} className="rounded-2xl border border-white/10 bg-[#0a1220] p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">{tier.title}</p>
+                      <p className="mt-2 text-sm text-[#9fb2cc]">{tier.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-6 lg:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-[#070b12] p-5">
+                <h3 className="text-lg font-semibold">Sponsorship options</h3>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#9fb2cc]">
+                  {[
+                    "Prize sponsorship",
+                    "Marketing support",
+                    "Financial sponsorship",
+                    "Technology partnership",
+                    "Community promotion",
+                    "Creator support initiatives",
+                  ].map((item) => (
+                    <span key={item} className="rounded-full border border-white/10 px-3 py-1">{item}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[#070b12] p-5">
+                <h3 className="text-lg font-semibold">Ideal sponsors</h3>
+                <div className="mt-4 flex flex-wrap gap-2 text-xs text-[#9fb2cc]">
+                  {[
+                    "Entertainment companies",
+                    "OTT and media brands",
+                    "AI startups",
+                    "Creator economy platforms",
+                    "Film schools",
+                    "EdTech platforms",
+                    "Writing tools",
+                    "Tech companies",
+                    "Creative communities",
+                    "Media publications",
+                  ].map((item) => (
+                    <span key={item} className="rounded-full border border-white/10 px-3 py-1">{item}</span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-[#070b12] p-5">
+                <h3 className="text-lg font-semibold">Contact</h3>
+                <p className="mt-3 text-sm text-[#9fb2cc]">Interested sponsors can reach us at:</p>
+                <div className="mt-4 grid gap-2 text-sm text-[#d5e2f4]">
+                  <a className="underline-offset-4 hover:underline" href="mailto:info.ckript@gmail.com">info.ckript@gmail.com</a>
+                  <span>ckript.com</span>
+                </div>
+                <div className="mt-5 rounded-2xl border border-white/10 bg-[#0a1220] p-4 text-xs text-[#9fb2cc]">
+                  1000+ participants target. Packages available for Title, Gold, Silver, and Community Partner tiers.
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto mt-16 max-w-6xl px-4 sm:px-8"
+        >
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div id="event-registration" className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
               <h2 className="text-2xl font-semibold">Register for Scriptathon 2026</h2>
