@@ -270,6 +270,22 @@ const EventDetails = () => {
                 </div>
               ))}
             </div>
+
+            {registered && registration && (
+              <div className="mt-8 rounded-3xl border border-emerald-400/20 bg-emerald-400/5 p-6">
+                <p className="text-xs uppercase tracking-[0.2em] text-emerald-200">You are registered</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{registration.participantId}</p>
+                <p className="mt-2 text-sm text-[#b6c4d9]">
+                  Your event access is active. The payment button is hidden for registered participants.
+                </p>
+                <Link
+                  to={`/events/${EVENT_SLUG}/dashboard`}
+                  className="mt-5 inline-flex rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/5 active:scale-[0.98]"
+                >
+                  Open event dashboard
+                </Link>
+              </div>
+            )}
           </div>
         </motion.section>
 
@@ -541,15 +557,7 @@ const EventDetails = () => {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
-              <h2 className="text-2xl font-semibold">AI prompt</h2>
-              <p className="mt-3 text-sm text-[#9fb2cc]">
-                Use this prompt to kickstart your story. Modify to match your voice and genre.
-              </p>
-              <div className="mt-5 rounded-2xl border border-white/10 bg-[#070b12] p-5 text-sm text-[#d5e2f4]">
-                Create a cinematic story about a protagonist who must solve a global crisis in 48 hours, balancing personal sacrifice with high-stakes consequences. Build strong dialogue, emotional arcs, and a finale that feels earned.
-              </div>
-
-              <div className="mt-8 rounded-2xl border border-white/10 bg-[#070b12] p-5">
+              <div className="rounded-2xl border border-white/10 bg-[#070b12] p-5">
                 <h3 className="text-lg font-semibold">Live participant counter</h3>
                 <p className="mt-2 text-3xl font-semibold text-[#38bdf8]">1,284 writers registered</p>
                 <p className="mt-2 text-xs text-[#7f96b7]">Numbers update during the event.</p>
@@ -602,27 +610,6 @@ const EventDetails = () => {
           </div>
         </motion.section>
 
-        {registered && registration && (
-          <motion.section
-            initial={{ opacity: 0, y: 24 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="mx-auto mt-16 max-w-6xl px-4 sm:px-8 pb-16"
-          >
-            <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
-              <h2 className="text-2xl font-semibold">Welcome to Scriptathon 2026</h2>
-              <p className="mt-3 text-sm text-[#9fb2cc]">
-                You are officially registered for the world&#39;s biggest AI-powered live screenplay writing competition.
-              </p>
-              <div className="mt-5 rounded-2xl border border-white/10 bg-[#070b12] p-5">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">Participant ID</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{registration.participantId}</p>
-                <p className="mt-2 text-sm text-[#9fb2cc]">Prepare your story. The countdown has begun.</p>
-              </div>
-            </div>
-          </motion.section>
-        )}
       </main>
 
       <footer className="border-t border-white/10 bg-[#0a0f17] py-10">
