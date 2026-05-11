@@ -1,54 +1,62 @@
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import MarketingHeader from "../components/MarketingHeader";
 import BrandLogo from "../components/BrandLogo";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 
 const EVENT_SLUG = "ckript-global-scriptathon-2026";
+const EVENT_START_DATE = new Date("2026-05-23T18:00:00+05:30");
+
+const loadRazorpaySdk = () =>
+  new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Payment gateway is unavailable."));
+      return;
+    }
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const existingScript = document.querySelector('script[data-razorpay-sdk="true"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(true), { once: true });
+      existingScript.addEventListener("error", () => reject(new Error("Failed to load Razorpay SDK")), { once: true });
+      return;
+    }
+    const sdkScript = document.createElement("script");
+    sdkScript.src = "https://checkout.razorpay.com/v1/checkout.js";
+    sdkScript.async = true;
+    sdkScript.setAttribute("data-razorpay-sdk", "true");
+    sdkScript.onload = () => resolve(true);
+    sdkScript.onerror = () => reject(new Error("Failed to load Razorpay SDK"));
+    document.body.appendChild(sdkScript);
+  });
+
+const getTimeLeft = () => {
+  const now = Date.now();
+  const diff = Math.max(0, EVENT_START_DATE.getTime() - now);
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / (1000 * 60)) % 60);
+  const seconds = Math.floor((diff / 1000) % 60);
+  return { days, hours, minutes, seconds };
+};
 
 const EventDetails = () => {
   const { slug } = useParams();
-  const { user } = useContext(AuthContext);
+  const location = useLocation();
+  const { user, loading: authLoading } = useContext(AuthContext);
   const navigate = useNavigate();
   const [registered, setRegistered] = useState(false);
   const [registration, setRegistration] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    phoneNumber: "",
-    country: "",
-    city: "",
-    bio: "",
-    socialLinks: "",
-    experienceLevel: "",
-    preferredGenre: "",
-    participationReason: "",
-    storyPlan: "",
-    agreedOriginal: false,
-    agreedRules: false,
-  });
-
-  if (slug && slug !== EVENT_SLUG) {
-    return (
-      <div className="min-h-screen bg-[#05070b] text-white">
-        <MarketingHeader />
-        <main className="mx-auto max-w-4xl px-6 pt-32 pb-20">
-          <h1 className="text-2xl font-semibold">Event not found</h1>
-          <p className="mt-4 text-sm text-[#9fb2cc]">Please return to the events page to view upcoming events.</p>
-          <Link to="/events" className="mt-6 inline-flex items-center rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black">
-            Back to events
-          </Link>
-        </main>
-      </div>
-    );
-  }
+  const [timeLeft, setTimeLeft] = useState(getTimeLeft());
 
   const requireLogin = () => {
     if (!user) {
-      navigate("/login");
+      navigate("/login", { state: { from: `${location.pathname}${location.search}${location.hash}` } });
       return false;
     }
     return true;
@@ -58,7 +66,13 @@ const EventDetails = () => {
     let cancelled = false;
 
     const loadRegistration = async () => {
-      if (!user || !slug || slug !== EVENT_SLUG) return;
+      if (!user || !slug || slug !== EVENT_SLUG) {
+        if (!cancelled) {
+          setRegistration(null);
+          setRegistered(false);
+        }
+        return;
+      }
       try {
         const { data } = await api.get(`/events/${slug}/registration`);
         if (!cancelled) {
@@ -80,50 +94,86 @@ const EventDetails = () => {
     };
   }, [slug, user]);
 
-  const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  useEffect(() => {
+    const timer = window.setInterval(() => setTimeLeft(getTimeLeft()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  const handleCheckboxChange = (event) => {
-    const { name, checked } = event.target;
-    setForm((prev) => ({ ...prev, [name]: checked }));
-  };
+  const countdown = useMemo(() => ([
+    { label: "Days", value: timeLeft.days },
+    { label: "Hours", value: timeLeft.hours },
+    { label: "Minutes", value: timeLeft.minutes },
+    { label: "Seconds", value: timeLeft.seconds },
+  ]), [timeLeft]);
 
-  const submitRegistration = async ({ paymentStatus, paymentAmount, paymentCurrency }) => {
-    if (!requireLogin()) return;
-
+  const handlePaidRegister = async () => {
+    if (!requireLogin() || registered) return;
+    const normalizedCountry = String(user?.address?.country || "").trim().toLowerCase();
+    const isIndia = !normalizedCountry || normalizedCountry === "india" || normalizedCountry === "in";
     setSubmitting(true);
     setSubmitError("");
 
     try {
-      const payload = {
-        ...form,
-        paymentStatus,
-        paymentAmount,
-        paymentCurrency,
-        paymentProvider: "manual",
-      };
-      const { data } = await api.post(`/events/${EVENT_SLUG}/register`, payload);
-      const nextRegistration = data?.registration || null;
-      setRegistration(nextRegistration);
-      setRegistered(Boolean(nextRegistration));
-      if (nextRegistration) {
-        navigate(`/events/${EVENT_SLUG}/dashboard`);
+      await loadRazorpaySdk();
+      const { data } = await api.post(`/events/${EVENT_SLUG}/create-order`);
+
+      if (data?.alreadyRegistered && data?.registration) {
+        setRegistration(data.registration);
+        setRegistered(true);
+        return;
       }
+
+      if (!window.Razorpay || !data?.orderId || !data?.keyId) {
+        throw new Error("Payment gateway is not ready. Please try again.");
+      }
+
+      const options = {
+        key: data.keyId,
+        amount: data.amount,
+        currency: data.currency || (isIndia ? "INR" : "USD"),
+        name: "Ckript",
+        description: "Scriptathon 2026 registration",
+        order_id: data.orderId,
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+          contact: user?.phone || "",
+        },
+        notes: {
+          eventSlug: EVENT_SLUG,
+        },
+        theme: {
+          color: "#0ea5e9",
+        },
+        handler: async (response) => {
+          try {
+            const { data: verifyData } = await api.post(`/events/${EVENT_SLUG}/verify-payment`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            const nextRegistration = verifyData?.registration || null;
+            setRegistration(nextRegistration);
+            setRegistered(Boolean(nextRegistration));
+          } catch (err) {
+            setSubmitError(err?.response?.data?.message || "Payment succeeded, but registration verification failed. Please contact support.");
+          } finally {
+            setSubmitting(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setSubmitting(false);
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || "Failed to register. Please try again.");
-    } finally {
+      setSubmitError(err?.response?.data?.message || err?.message || "Failed to start payment. Please try again.");
       setSubmitting(false);
     }
-  };
-
-  const handlePaidRegister = () => {
-    const normalizedCountry = form.country.trim().toLowerCase();
-    const isIndia = normalizedCountry === "india";
-    const paymentAmount = isIndia ? 99 : 5;
-    const paymentCurrency = isIndia ? "INR" : "USD";
-    submitRegistration({ paymentStatus: "paid", paymentAmount, paymentCurrency });
   };
 
   const handleRegister = () => {
@@ -137,6 +187,25 @@ const EventDetails = () => {
       section.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
+
+  const normalizedCountry = String(user?.address?.country || "").trim().toLowerCase();
+  const isIndia = !normalizedCountry || normalizedCountry === "india" || normalizedCountry === "in";
+  const paymentLabel = isIndia ? "INR 99" : "USD 5";
+
+  if (slug && slug !== EVENT_SLUG) {
+    return (
+      <div className="min-h-screen bg-[#05070b] text-white">
+        <MarketingHeader />
+        <main className="mx-auto max-w-4xl px-6 pt-32 pb-20">
+          <h1 className="text-2xl font-semibold">Event not found</h1>
+          <p className="mt-4 text-sm text-[#9fb2cc]">Please return to the events page to view upcoming events.</p>
+          <Link to="/events" className="mt-6 inline-flex items-center rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black">
+            Back to events
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#05070b] text-white">
@@ -154,13 +223,15 @@ const EventDetails = () => {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={handleRegister}
-                className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#38bdf8]"
-              >
-                Register Now
-              </button>
+              {!registered && (
+                <button
+                  type="button"
+                  onClick={handleRegister}
+                  className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#38bdf8]"
+                >
+                  {user ? "Pay and register" : "Login to register"}
+                </button>
+              )}
               <a
                 href="#rules"
                 className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white hover:border-white/40"
@@ -177,16 +248,16 @@ const EventDetails = () => {
           </div>
         </section>
 
-        <section id="event-registration" className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
+        <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
               <h2 className="text-2xl font-semibold">The countdown has begun</h2>
               <p className="mt-3 text-sm text-[#9fb2cc]">48 hours. One story. Global competition. Thousands of writers. One winner.</p>
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {["Days", "Hours", "Minutes", "Seconds"].map((label) => (
-                  <div key={label} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-4 text-center">
-                    <div className="text-2xl font-semibold text-white">00</div>
-                    <div className="mt-1 text-xs uppercase tracking-wider text-[#7f96b7]">{label}</div>
+                {countdown.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-4 text-center">
+                    <div className="text-2xl font-semibold text-white">{String(item.value).padStart(2, "0")}</div>
+                    <div className="mt-1 text-xs uppercase tracking-wider text-[#7f96b7]">{item.label}</div>
                   </div>
                 ))}
               </div>
@@ -345,88 +416,59 @@ const EventDetails = () => {
 
         <section className="mx-auto mt-16 max-w-6xl px-4 sm:px-8">
           <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
+            <div id="event-registration" className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">
               <h2 className="text-2xl font-semibold">Register for Scriptathon 2026</h2>
-              <p className="mt-2 text-sm text-[#9fb2cc]">Join writers from around the world and write the next blockbuster.</p>
+              <p className="mt-2 text-sm text-[#9fb2cc]">
+                Registration is tied to your Ckript account. Login first, then complete payment to secure your spot.
+              </p>
 
-              <form className="mt-6 grid gap-4" onSubmit={(e) => e.preventDefault()}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <input name="fullName" value={form.fullName} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="Full Name" />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <input name="email" value={form.email} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="Email Address" />
-                  <input name="phoneNumber" value={form.phoneNumber} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="Phone Number" />
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <input name="country" value={form.country} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="Country" />
-                  <input name="city" value={form.city} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="City" />
-                </div>
-                <textarea name="bio" value={form.bio} onChange={handleInputChange} className="min-h-[120px] rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="Short Bio" />
-                <input name="socialLinks" value={form.socialLinks} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="Instagram / Twitter / LinkedIn (optional)" />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <select name="experienceLevel" value={form.experienceLevel} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white">
-                    <option value="">Previous Writing Experience</option>
-                    <option>Beginner</option>
-                    <option>Intermediate</option>
-                    <option>Professional</option>
-                  </select>
-                  <select name="preferredGenre" value={form.preferredGenre} onChange={handleInputChange} className="rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white">
-                    <option value="">Preferred Genre</option>
-                    <option>Thriller</option>
-                    <option>Sci-Fi</option>
-                    <option>Drama</option>
-                    <option>Romance</option>
-                    <option>Anime</option>
-                    <option>Action</option>
-                    <option>Horror</option>
-                    <option>Fantasy</option>
-                    <option>Comedy</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-                <textarea name="participationReason" value={form.participationReason} onChange={handleInputChange} className="min-h-[120px] rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="Why do you want to participate?" />
-                <textarea name="storyPlan" value={form.storyPlan} onChange={handleInputChange} className="min-h-[120px] rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-white" placeholder="What kind of story are you planning to write?" />
-
-                <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-[#9fb2cc]">
-                  <input name="agreedOriginal" type="checkbox" checked={form.agreedOriginal} onChange={handleCheckboxChange} className="mt-1" />
-                  I confirm that all submitted work will be original and written during the event.
-                </label>
-                <label className="flex items-start gap-3 rounded-2xl border border-white/10 bg-[#070b12] px-4 py-3 text-sm text-[#9fb2cc]">
-                  <input name="agreedRules" type="checkbox" checked={form.agreedRules} onChange={handleCheckboxChange} className="mt-1" />
-                  I agree to Ckript&#39;s competition rules and anti-cheat policies.
-                </label>
-
-                <div className="mt-2 rounded-2xl border border-white/10 bg-[#070b12] p-5">
-                  <h3 className="text-lg font-semibold">Complete your registration</h3>
-                  <p className="mt-2 text-sm text-[#9fb2cc]">India: INR 99 | International: USD 5</p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={handlePaidRegister}
-                      disabled={submitting}
-                      className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black disabled:opacity-60"
+              <div className="mt-6 rounded-2xl border border-white/10 bg-[#070b12] p-5">
+                {registered && registration ? (
+                  <>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[#7dd3fc]">You are registered</p>
+                    <p className="mt-2 text-2xl font-semibold text-white">{registration.participantId}</p>
+                    <p className="mt-2 text-sm text-[#9fb2cc]">Your event access is active. The payment button is hidden for registered participants.</p>
+                    <Link
+                      to={`/events/${EVENT_SLUG}/dashboard`}
+                      className="mt-5 inline-flex rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white"
                     >
-                      {submitting ? "Registering..." : "Pay and register"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!requireLogin()) return;
-                        navigate("/dashboard");
-                      }}
-                      className="rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white"
-                    >
-                      Continue to dashboard
-                    </button>
-                  </div>
-                  {!user && (
-                    <p className="mt-3 text-xs text-[#7f96b7]">Login is required to complete registration.</p>
-                  )}
-                  {submitError && (
-                    <p className="mt-3 text-xs text-red-300">{submitError}</p>
-                  )}
-                </div>
-              </form>
+                      Open event dashboard
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-semibold">Complete your registration</h3>
+                    <p className="mt-2 text-sm text-[#9fb2cc]">India: INR 99 | International: USD 5</p>
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      {!user ? (
+                        <button
+                          type="button"
+                          onClick={requireLogin}
+                          disabled={authLoading}
+                          className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black disabled:opacity-60"
+                        >
+                          Login to register
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handlePaidRegister}
+                          disabled={submitting}
+                          className="rounded-full bg-[#0ea5e9] px-6 py-3 text-sm font-semibold text-black disabled:opacity-60"
+                        >
+                          {submitting ? "Registering..." : `Pay ${paymentLabel} and register`}
+                        </button>
+                      )}
+                    </div>
+                    {!user && (
+                      <p className="mt-3 text-xs text-[#7f96b7]">Login is required before payment and registration.</p>
+                    )}
+                    {submitError && (
+                      <p className="mt-3 text-xs text-red-300">{submitError}</p>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-[#0a1220] p-6 sm:p-8">

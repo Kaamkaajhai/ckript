@@ -16,6 +16,7 @@ const ContactPage = lazy(() => import("./pages/ContactPage"));
 const Events = lazy(() => import("./pages/Events"));
 const EventDetails = lazy(() => import("./pages/EventDetails"));
 const EventDashboard = lazy(() => import("./pages/EventDashboard"));
+const EventEditor = lazy(() => import("./pages/EventEditor"));
 const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -66,6 +67,7 @@ const preloadRouteChunks = [
   () => import("./pages/Events"),
   () => import("./pages/EventDetails"),
   () => import("./pages/EventDashboard"),
+  () => import("./pages/EventEditor"),
 ];
 
 // Handles admin impersonation login via URL parameter
@@ -245,6 +247,16 @@ function App() {
                   <PrivateRoute>
                     <MainLayout>
                       <EventDashboard />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/events/:slug/write"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <EventEditor />
                     </MainLayout>
                   </PrivateRoute>
                 }
