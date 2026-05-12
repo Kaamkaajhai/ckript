@@ -6,6 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 
 const links = [
   { to: "/", label: "Home" },
+  { to: "/events", label: "Events" },
   { to: "/about", label: "About us" },
   { to: "/contact", label: "Contact us" },
 ];
@@ -28,7 +29,7 @@ const MarketingHeader = () => {
   const primaryLabel = user?.role === "reader" ? "Reader" : "Dashboard";
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-black border-b border-white/10">
+    <nav className="fixed top-0 w-full z-50 bg-[#100E0C] border-b border-[#2E2A26]" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
 
         {/* ✅ LOGO */}
@@ -50,7 +51,7 @@ const MarketingHeader = () => {
               to={item.to}
               className={`text-sm px-3 py-2 rounded-full ${isLinkActive(pathname, item.to)
                   ? "text-white"
-                  : "text-gray-400 hover:text-white"
+                  : "text-[#9A9590] hover:text-white"
                 }`}
             >
               {item.label}
@@ -59,24 +60,24 @@ const MarketingHeader = () => {
 
           {user ? (
             <>
-              <Link to="/profile" className="text-gray-400 hover:text-white">
+              <Link to="/profile" className="text-[#9A9590] hover:text-white">
                 Profile
               </Link>
               <Link
                 to={primaryPath}
-                className="bg-white px-4 py-2 rounded-md text-[#0F172A] font-medium hover:bg-gray-100 transition-colors"
+                className="bg-[#F5F0E8] px-4 py-2 rounded-md text-[#100E0C] font-medium hover:bg-white transition-colors"
               >
                 {primaryLabel}
               </Link>
             </>
           ) : (
             <>
-              <Link to="/login" className="text-gray-400 hover:text-white">
+              <Link to="/login" className="text-[#9A9590] hover:text-white">
                 Sign in
               </Link>
               <Link
                 to="/join"
-                className="bg-white px-4 py-2 rounded-md text-[#0F172A] font-medium hover:bg-gray-100 transition-colors"
+                className="bg-[#F5F0E8] px-4 py-2 rounded-md text-[#100E0C] font-medium hover:bg-white transition-colors"
               >
                 Get Started
               </Link>
@@ -87,12 +88,12 @@ const MarketingHeader = () => {
 
       {/* MOBILE MENU */}
       {menuOpen && (
-        <div className="md:hidden px-4 pb-4 flex flex-col gap-2 bg-black">
+        <div className="md:hidden px-4 pb-4 flex flex-col gap-2 bg-[#100E0C]">
           {links.map((item) => (
             <Link
               key={item.to}
               to={item.to}
-              className="text-gray-300 hover:text-white"
+              className="text-[#9A9590] hover:text-white"
               onClick={() => setMenuOpen(false)}
             >
               {item.label}

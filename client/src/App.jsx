@@ -7,11 +7,16 @@ import { AuthContext } from "./context/AuthContext";
 import SeoManager from "./components/SeoManager";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
+import EventModal from "./components/EventModal";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
 
 const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
+const Events = lazy(() => import("./pages/Events"));
+const EventDetails = lazy(() => import("./pages/EventDetails"));
+const EventDashboard = lazy(() => import("./pages/EventDashboard"));
+const EventEditor = lazy(() => import("./pages/EventEditor"));
 const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -59,6 +64,10 @@ const preloadRouteChunks = [
   () => import("./pages/CollaborationHub"),
   () => import("./pages/Dashboard"),
   () => import("./pages/Profile"),
+  () => import("./pages/Events"),
+  () => import("./pages/EventDetails"),
+  () => import("./pages/EventDashboard"),
+  () => import("./pages/EventEditor"),
 ];
 
 // Handles admin impersonation login via URL parameter
@@ -234,6 +243,7 @@ function App() {
           <ScrollToTopOnRouteChange />
           <SeoManager />
           <CookieConsentBanner />
+          <EventModal />
           <AnalyticsBootstrap />
           <AdminLoginHandler>
             <Suspense
@@ -247,6 +257,28 @@ function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:slug" element={<EventDetails />} />
+              <Route
+                path="/events/:slug/dashboard"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <EventDashboard />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/events/:slug/write"
+                element={
+                  <PrivateRoute>
+                    <MainLayout>
+                      <EventEditor />
+                    </MainLayout>
+                  </PrivateRoute>
+                }
+              />
               <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
