@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer"];
+const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer", "full_admin"];
 const normalizeCollaboratorRole = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
   return VALID_COLLABORATOR_ROLES.includes(normalized) ? normalized : "editor";
@@ -25,7 +25,7 @@ const roleSchema = new mongoose.Schema({
 
 const collaboratorSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  role: { type: String, enum: ["editor", "merger", "viewer"], required: true, default: "editor", set: normalizeCollaboratorRole },
+  role: { type: String, enum: ["editor", "merger", "viewer", "full_admin"], required: true, default: "editor", set: normalizeCollaboratorRole },
   accessLevel: {
     type: String,
     enum: ["full_access", "content_only"],

@@ -85,6 +85,14 @@ export default function useCollabSocket(scriptId, enabled = true, options = {}) 
       callbacksRef.current?.onCollabMembershipChanged?.(payload);
     });
 
+    socket.on("collab_request", (payload) => {
+      callbacksRef.current?.onCollabRequest?.(payload);
+    });
+
+    socket.on("collab_request_responded", (payload) => {
+      callbacksRef.current?.onCollabRequestResponded?.(payload);
+    });
+
     socket.on("pr_raised", (payload) => {
       callbacksRef.current?.onPRRaised?.(payload);
     });
