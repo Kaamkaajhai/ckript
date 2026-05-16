@@ -5,6 +5,9 @@ import {
 	getMe,
 	verifyOTP,
 	resendOTP,
+	forgotPassword,
+	resetPassword,
+	resendPasswordResetOTP,
 	validateSignupAddress,
 	lookupZipInfo,
 	validateReferral,
@@ -19,6 +22,9 @@ router.post("/join", join);
 router.post("/login", login);
 router.post("/verify-otp", verifyOTP);
 router.post("/resend-otp", resendOTP);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
+router.post("/resend-reset-otp", resendPasswordResetOTP);
 router.post("/validate-address", validateSignupAddress);
 router.get("/validate-referral/:referralInput", validateReferral);
 router.post("/apply-referral", protect, applyReferralCode);

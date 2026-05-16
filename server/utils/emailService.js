@@ -196,6 +196,80 @@ export const sendOTPEmail = async (email, name, otp) => {
   }
 };
 
+// Send password reset OTP email
+export const sendPasswordResetOTPEmail = async (email, name, otp, validitySeconds) => {
+  try {
+    validateEmailConfig();
+
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      throw new Error('Invalid email address format');
+    }
+
+    console.log(`Sending password reset OTP email to ${email}...`);
+    const transporter = createTransporter();
+    const otpValidityLabel = formatOtpValidityLabel(validitySeconds || getOTPExpirySeconds());
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      to: email,
+      subject: 'Reset your ckript password',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+            .otp-box { background: white; border: 2px dashed #1e3a5f; padding: 20px; margin: 20px 0; text-align: center; border-radius: 8px; }
+            .otp-code { font-size: 32px; font-weight: bold; color: #1e3a5f; letter-spacing: 8px; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+            .warn { background:#fff7ed; border-left:4px solid #f97316; padding:10px 14px; border-radius:6px; color:#92400e; font-size:13px; margin-top:16px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Password Reset Request</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${name || 'there'},</p>
+              <p>We received a request to reset the password for your ckript account. Use the verification code below to continue:</p>
+
+              <div class="otp-box">
+                <p style="margin: 0 0 10px 0; color: #666; font-size: 14px;">Your password reset code is:</p>
+                <div class="otp-code">${otp}</div>
+              </div>
+
+              <p>This code will expire in <strong>${otpValidityLabel}</strong>.</p>
+
+              <div class="warn">
+                If you did not request a password reset, you can safely ignore this email — your password will remain unchanged.
+              </div>
+
+              <p style="margin-top:16px;">Best regards,<br>The ckript Team</p>
+            </div>
+            <div class="footer">
+              <p>© 2026 ckript. All rights reserved.</p>
+              <p>This is an automated message, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name || 'there'},\n\nWe received a request to reset the password for your ckript account.\n\nYour password reset code is: ${otp}\n\nThis code will expire in ${otpValidityLabel}.\n\nIf you didn't request a password reset, ignore this email — your password will remain unchanged.\n\nBest regards,\nThe ckript Team`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Password reset OTP email sent successfully to:', email, 'MessageId:', info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending password reset OTP email to', email, ':', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 // Send welcome email after verification
 export const sendWelcomeEmail = async (email, name) => {
   try {
