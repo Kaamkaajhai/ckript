@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
 import { DarkModeProvider } from "./context/DarkModeContext";
@@ -186,6 +186,24 @@ function CollaborationRedirect() {
   return <Navigate to={`/script/${scriptId}/collaborate/overview`} replace />;
 }
 
+function ProtectedMainLayout() {
+  return (
+    <PrivateRoute>
+      <MainLayout>
+        <Suspense
+          fallback={
+            <div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">
+              Loading...
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
+      </MainLayout>
+    </PrivateRoute>
+  );
+}
+
 function App() {
   useEffect(() => {
     const preload = () => {
@@ -250,289 +268,38 @@ function App() {
               <Route path="/writer-onboarding" element={<WriterOnboarding />} />
               <Route path="/producer-director-onboarding" element={<InvestorOnboarding />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
-              <Route path="/industry-onboarding" element={
-                <PrivateRoute>
-                  <MainLayout>
-                    <IndustryOnboarding />
-                  </MainLayout>
-                </PrivateRoute>
-              } />
-              <Route
-                path="/top-list"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <TopList />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/featured"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <FeaturedProjects />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/trending"
-                element={<Navigate to="/top-list" replace />}
-              />
-              <Route
-                path="/profile/:id?"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Profile />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Dashboard />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/credits"
-                element={<Navigate to="/dashboard" replace />}
-              />
-              <Route
-                path="/purchase-requests"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <WriterPurchaseRequests />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/new-project"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <NewProject />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/ai-tools"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Dashboard />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/offer-holds"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Dashboard />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/create-project"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <CreateProject />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/create-project/:draftId"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <CreateProject />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/upload"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ScriptUpload />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/search"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Search />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/collaborate"
-                element={
-                  <PrivateRoute>
-                    <CollaborationRedirect />
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/script/:scriptId/branch/edit"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <BranchEditor />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/script/:scriptId/collaborate/*"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <CollaborationHub />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/script/:id/pay"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ScriptPaymentPage />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/script/:id"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ScriptDetail />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/script/:projectHeading/:writerUsername"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ScriptDetail />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/:projectHeading/:writerUsername"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ScriptDetail />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/mandates"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Mandates />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/writers"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Writers />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/home"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <InvestorHome />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/messages"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <Messages />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/reader"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ReaderHome />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/reader/script/:id"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ScriptReader />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/reader/profile/:id?"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ReaderProfile />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
-              <Route
-                path="/reader/search"
-                element={
-                  <PrivateRoute>
-                    <MainLayout>
-                      <ReaderHome />
-                    </MainLayout>
-                  </PrivateRoute>
-                }
-              />
+              <Route element={<ProtectedMainLayout />}>
+                <Route path="/industry-onboarding" element={<IndustryOnboarding />} />
+                <Route path="/top-list" element={<TopList />} />
+                <Route path="/featured" element={<FeaturedProjects />} />
+                <Route path="/trending" element={<Navigate to="/top-list" replace />} />
+                <Route path="/profile/:id?" element={<Profile />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/credits" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
+                <Route path="/new-project" element={<NewProject />} />
+                <Route path="/ai-tools" element={<Dashboard />} />
+                <Route path="/offer-holds" element={<Dashboard />} />
+                <Route path="/create-project" element={<CreateProject />} />
+                <Route path="/create-project/:draftId" element={<CreateProject />} />
+                <Route path="/upload" element={<ScriptUpload />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/collaborate" element={<CollaborationRedirect />} />
+                <Route path="/script/:scriptId/branch/edit" element={<BranchEditor />} />
+                <Route path="/script/:scriptId/collaborate/*" element={<CollaborationHub />} />
+                <Route path="/script/:id/pay" element={<ScriptPaymentPage />} />
+                <Route path="/script/:id" element={<ScriptDetail />} />
+                <Route path="/script/:projectHeading/:writerUsername" element={<ScriptDetail />} />
+                <Route path="/:projectHeading/:writerUsername" element={<ScriptDetail />} />
+                <Route path="/mandates" element={<Mandates />} />
+                <Route path="/writers" element={<Writers />} />
+                <Route path="/home" element={<InvestorHome />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="/reader" element={<ReaderHome />} />
+                <Route path="/reader/script/:id" element={<ScriptReader />} />
+                <Route path="/reader/profile/:id?" element={<ReaderProfile />} />
+                <Route path="/reader/search" element={<ReaderHome />} />
+              </Route>
               <Route
                 path="/reader/featured"
                 element={<Navigate to="/featured" replace />}
