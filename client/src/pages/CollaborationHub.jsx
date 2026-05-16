@@ -8,6 +8,7 @@ import InviteModal from "../components/collab/InviteModal";
 import PullRequestDiffModal from "../components/collab/PullRequestDiffModal";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const REQUEST_TABS = ["pending", "accepted", "rejected"];
 const ACTIVITY_FILTERS = ["all", "invites", "requests", "revisions", "publishing"];
@@ -699,18 +700,26 @@ export default function CollaborationHub() {
   const onlineUserIds = new Set((onlineUsers || []).map((entry) => String(entry?.userId || "")));
   const pendingRequestCount = requests.filter((entry) => entry?.status === "pending").length;
   const roleOverviewLabel = userRole === "full_admin" ? "Admin" : `${String(userRole || "").charAt(0).toUpperCase()}${String(userRole || "").slice(1)}`;
+  const currentSectionLabel = navItems.find((item) => item.id === currentSection)?.label || "Overview";
+  const currentVisibilityLabel = collabData?.collabVisibility === "open" ? "Open for requests" : "Private workspace";
   const overviewCards = isOwner
     ? [
-      { label: "Collaborators", value: acceptedCollaborators.length, accent: "from-[#1e3a5f] to-[#2d5a8e]" },
-      { label: "Pending Requests", value: pendingRequestCount, accent: "from-amber-500 to-orange-500" },
-      { label: "Open PRs", value: openPrCount, accent: "from-emerald-500 to-teal-500" },
-      { label: "Visibility", value: collabData?.collabVisibility === "open" ? "Open 🌐" : "Private 🔒", accent: "from-violet-500 to-fuchsia-500" },
+      { label: "Collaborators", shortLabel: "Collab", value: acceptedCollaborators.length, accent: "from-[#1e3a5f] to-[#2d5a8e]" },
+      { label: "Pending Requests", shortLabel: "Pending", value: pendingRequestCount, accent: "from-amber-500 to-orange-500" },
+      { label: "Open PRs", shortLabel: "Open PRs", value: openPrCount, accent: "from-emerald-500 to-teal-500" },
+      {
+        label: "Visibility",
+        shortLabel: "Visibility",
+        value: collabData?.collabVisibility === "open" ? "Open" : "Private",
+        accent: "from-violet-500 to-fuchsia-500",
+        helper: collabData?.collabVisibility === "open" ? "Requests enabled" : "Invite only",
+      },
     ]
     : [
-      { label: "Collaborators", value: acceptedCollaborators.length, accent: "from-[#1e3a5f] to-[#2d5a8e]" },
-      { label: "Open pull requests", value: openPrCount, accent: "from-amber-500 to-orange-500" },
-      { label: "Activity items", value: activity.length, accent: "from-emerald-500 to-teal-500" },
-      { label: "Your role", value: roleOverviewLabel, accent: "from-rose-500 to-red-500" },
+      { label: "Collaborators", shortLabel: "Collab", value: acceptedCollaborators.length, accent: "from-[#1e3a5f] to-[#2d5a8e]" },
+      { label: "Open pull requests", shortLabel: "Open PRs", value: openPrCount, accent: "from-amber-500 to-orange-500" },
+      { label: "Activity items", shortLabel: "Activity", value: activity.length, accent: "from-emerald-500 to-teal-500" },
+      { label: "Your role", shortLabel: "Role", value: roleOverviewLabel, accent: "from-rose-500 to-red-500", helper: "Workspace access" },
     ];
 
   const createPr = async () => {
@@ -753,7 +762,7 @@ export default function CollaborationHub() {
         <div className="max-w-lg rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-2xl font-bold text-slate-900">Collaboration unavailable</h1>
           <p className="mt-3 text-sm text-red-600">{pageError}</p>
-          <Link to={`/script/${scriptId}`} className="mt-6 inline-flex rounded-2xl bg-[#1e3a5f] px-5 py-2.5 text-sm font-semibold text-white">
+          <Link to={getScriptCanonicalPath(script || { _id: resolvedScriptId || scriptId })} className="mt-6 inline-flex rounded-2xl bg-[#1e3a5f] px-5 py-2.5 text-sm font-semibold text-white">
             Back to Script
           </Link>
         </div>
@@ -777,24 +786,25 @@ export default function CollaborationHub() {
   const muted = isDarkMode ? "text-[#8da3bc]" : "text-gray-500";
   const titleTone = isDarkMode ? "text-white" : "text-gray-900";
   const surface = isDarkMode ? "bg-[#09111b]" : "bg-[#eef0f3]";
+  const scriptDetailPath = getScriptCanonicalPath(script || { _id: resolvedScriptId || scriptId });
 
   const SectionShell = ({ title, subtitle, action, children }) => (
     <section className={`rounded-3xl border shadow-sm ${shellCard}`}>
-      <div className={`flex flex-col gap-3 border-b px-5 py-5 sm:flex-row sm:items-center sm:justify-between ${isDarkMode ? "border-[#1c2a3a]" : "border-gray-100"}`}>
+      <div className={`flex flex-col gap-3 border-b px-4 py-4 sm:px-5 sm:py-5 sm:flex-row sm:items-center sm:justify-between ${isDarkMode ? "border-[#1c2a3a]" : "border-gray-100"}`}>
         <div>
           <h2 className={`text-xl font-bold tracking-tight ${titleTone}`}>{title}</h2>
           {subtitle ? <p className={`mt-1 text-sm ${muted}`}>{subtitle}</p> : null}
         </div>
-        {action}
+        {action ? <div className="w-full sm:w-auto">{action}</div> : null}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </section>
   );
 
   return (
-    <div className={`min-h-screen ${surface} pb-24 lg:pb-8`}>
+    <div className={`min-h-screen ${surface} pb-28 sm:pb-24 lg:pb-8`}>
       {toast ? (
-        <div className="fixed bottom-6 right-6 z-[10020]">
+        <div className="fixed bottom-24 right-3 z-[10020] sm:bottom-6 sm:right-6">
           <div className={`rounded-xl px-4 py-3 shadow-2xl text-sm font-semibold ${
             toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
           }`}>
@@ -802,7 +812,7 @@ export default function CollaborationHub() {
           </div>
         </div>
       ) : null}
-      <div className="mx-auto flex max-w-[1440px] gap-6 px-4 py-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-5 lg:flex-row lg:gap-6 lg:px-8">
         <aside className={`hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col lg:rounded-3xl lg:border lg:p-5 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] ${shellCard}`}>
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
             {script?.coverImage ? (
@@ -838,7 +848,7 @@ export default function CollaborationHub() {
 
           <div className="mt-auto pt-5">
             <Link
-              to={`/script/${scriptId}`}
+              to={scriptDetailPath}
               className={`flex items-center justify-center rounded-2xl border px-4 py-3 text-sm font-semibold ${
                 isDarkMode ? "border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border-gray-200 text-gray-700 hover:bg-gray-50"
               }`}
@@ -848,7 +858,34 @@ export default function CollaborationHub() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 space-y-5">
+        <main className="min-w-0 flex-1 space-y-4 sm:space-y-5">
+          <section className={`rounded-3xl border p-4 shadow-sm lg:hidden ${shellCard}`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${muted}`}>Collaboration Hub</p>
+                <h1 className={`mt-2 text-xl font-bold leading-tight sm:text-2xl ${titleTone}`}>{script?.title || "Untitled Script"}</h1>
+                <p className={`mt-1 text-sm ${muted}`}>{currentSectionLabel}</p>
+              </div>
+              <Link
+                to={scriptDetailPath}
+                className={`inline-flex items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-semibold ${
+                  isDarkMode ? "border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                Back to Script
+              </Link>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isDarkMode ? "bg-white/[0.06] text-[#c6d4e3]" : "border border-gray-200 bg-white text-gray-700"}`}>
+                {roleOverviewLabel}
+              </span>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isDarkMode ? "bg-white/[0.06] text-[#c6d4e3]" : "border border-gray-200 bg-white text-gray-700"}`}>
+                {currentVisibilityLabel}
+              </span>
+            </div>
+          </section>
+
           {prNotice ? (
             <div className={`rounded-2xl border px-4 py-3 text-sm ${
               prNotice.type === "error"
@@ -861,13 +898,24 @@ export default function CollaborationHub() {
 
           {currentSection === "overview" && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 min-[360px]:grid-cols-2 xl:grid-cols-4">
                 {overviewCards.map((card) => (
-                  <div key={card.label} className={`rounded-3xl border p-5 shadow-sm ${softCard}`}>
-                    <div className={`inline-flex rounded-2xl bg-gradient-to-r px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white ${card.accent}`}>
-                      {card.label}
+                  <div key={card.label} className={`flex min-h-[136px] flex-col rounded-3xl border p-4 shadow-sm sm:min-h-[152px] sm:p-5 ${softCard}`}>
+                    <div
+                      className={`inline-flex max-w-full min-w-0 self-start overflow-hidden rounded-2xl bg-gradient-to-r px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-white min-[360px]:text-[10px] sm:px-3 sm:text-[11px] sm:tracking-[0.14em] ${card.accent}`}
+                      title={card.label}
+                    >
+                      <span className="min-w-0 truncate">{card.shortLabel || card.label}</span>
                     </div>
-                    <p className={`mt-4 text-3xl font-extrabold ${titleTone}`}>{card.value}</p>
+                    <p
+                      className={`mt-4 max-w-full truncate whitespace-nowrap text-[clamp(1.9rem,3vw,2.5rem)] font-extrabold leading-none ${titleTone}`}
+                      title={String(card.value)}
+                    >
+                      {card.value}
+                    </p>
+                    {card.helper ? (
+                      <p className={`mt-2 text-xs font-medium ${muted}`}>{card.helper}</p>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -923,7 +971,7 @@ export default function CollaborationHub() {
                 <button
                   type="button"
                   onClick={() => setShowInviteModal(true)}
-                  className="rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white"
+                  className="w-full rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white sm:w-auto"
                 >
                   Invite Someone
                 </button>
@@ -966,7 +1014,7 @@ export default function CollaborationHub() {
                         <p className={`truncate text-xs ${muted}`}>{script.creator.email || "Owner"}</p>
                       </div>
                     </div>
-                    <div className="flex flex-1 flex-wrap items-center gap-3 lg:justify-end">
+                    <div className="flex w-full flex-1 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isDarkMode ? "bg-white/[0.06] text-[#c6d4e3]" : "bg-white text-gray-700 border border-gray-200"}`}>
                         Owner
                       </span>
@@ -992,7 +1040,7 @@ export default function CollaborationHub() {
                           <p className={`truncate text-xs ${muted}`}>{person?.email || "No email"}</p>
                         </div>
                       </div>
-                      <div className="flex flex-1 flex-wrap items-center gap-3 lg:justify-end">
+                      <div className="flex w-full flex-1 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isDarkMode ? "bg-white/[0.06] text-[#c6d4e3]" : "bg-white text-gray-700 border border-gray-200"}`}>
                           {entry.role}
                         </span>
@@ -1006,7 +1054,7 @@ export default function CollaborationHub() {
                               value={entry.accessLevel || "full_access"}
                               disabled={busyKey === `role:${personId}`}
                               onChange={(event) => updateRole(personId, entry.role, event.target.value)}
-                              className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+                              className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 sm:w-auto"
                             >
                               {ACCESS_LEVEL_OPTIONS.map((option) => (
                                 <option key={option.value} value={option.value}>
@@ -1018,13 +1066,13 @@ export default function CollaborationHub() {
                               type="button"
                               disabled={busyKey === `remove:${personId}`}
                               onClick={() => removeCollaborator(personId)}
-                              className="rounded-2xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600"
+                              className="w-full rounded-2xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 sm:w-auto"
                             >
                               Remove
                             </button>
                           </>
                         ) : (
-                          <span className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700">
+                          <span className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 sm:w-auto">
                             {getAccessLevelLabel(entry.accessLevel)}
                           </span>
                         )}
@@ -1055,19 +1103,19 @@ export default function CollaborationHub() {
                               <p className={`truncate text-xs ${muted}`}>{person?.email || "No email"}</p>
                             </div>
                           </div>
-                          <div className="flex flex-1 flex-wrap items-center gap-3 lg:justify-end">
+                          <div className="flex w-full flex-1 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
                             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Pending</span>
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isDarkMode ? "bg-white/[0.06] text-[#c6d4e3]" : "bg-white text-gray-700 border border-gray-200"}`}>
                               {entry.role}
                             </span>
-                            <span className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700">
+                            <span className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 sm:w-auto">
                               {getAccessLevelLabel(entry.accessLevel)}
                             </span>
                             <button
                               type="button"
                               disabled={busyKey === `resend:${personId}`}
                               onClick={() => resendInvite(personId)}
-                              className="rounded-2xl bg-[#1e3a5f] px-4 py-2 text-sm font-semibold text-white"
+                              className="w-full rounded-2xl bg-[#1e3a5f] px-4 py-2 text-sm font-semibold text-white sm:w-auto"
                             >
                               Resend Invite
                             </button>
@@ -1138,10 +1186,10 @@ export default function CollaborationHub() {
                             <p className={`text-xs ${muted}`}>{timeAgo(request.createdAt)}</p>
                           </div>
                           {request.message ? <p className={`mt-3 text-sm leading-relaxed ${muted}`}>"{request.message}"</p> : null}
-                          <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                             <Link
                               to={getProfileCanonicalPath(request.requesterId)}
-                              className={`rounded-2xl border px-4 py-2 text-sm font-semibold ${isDarkMode ? "border-[#1c2a3a] text-white" : "border-gray-200 text-gray-700"}`}
+                              className={`inline-flex w-full items-center justify-center rounded-2xl border px-4 py-2 text-sm font-semibold sm:w-auto ${isDarkMode ? "border-[#1c2a3a] text-white" : "border-gray-200 text-gray-700"}`}
                             >
                               View Profile
                             </Link>
@@ -1151,18 +1199,18 @@ export default function CollaborationHub() {
                                   type="button"
                                   disabled={busyKey === `request:${request._id}:rejected`}
                                   onClick={() => respondToRequest(request, "rejected")}
-                                  className="rounded-2xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600"
+                                  className="w-full rounded-2xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 sm:w-auto"
                                 >
                                   Reject
                                 </button>
-                                <div className="flex items-center gap-2">
+                                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                                   <select
                                     value={requestAccessLevels[request._id] || "full_access"}
                                     onChange={(event) => setRequestAccessLevels((prev) => ({
                                       ...prev,
                                       [request._id]: event.target.value,
                                     }))}
-                                    className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
+                                    className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 sm:w-auto"
                                   >
                                     {ACCESS_LEVEL_OPTIONS.map((option) => (
                                       <option key={option.value} value={option.value}>
@@ -1174,7 +1222,7 @@ export default function CollaborationHub() {
                                     type="button"
                                     disabled={busyKey === `request:${request._id}:accepted`}
                                     onClick={() => respondToRequest(request, "accepted")}
-                                    className="rounded-2xl bg-[#1e3a5f] px-4 py-2 text-sm font-semibold text-white"
+                                    className="w-full rounded-2xl bg-[#1e3a5f] px-4 py-2 text-sm font-semibold text-white sm:w-auto"
                                   >
                                     Accept
                                   </button>
@@ -1240,13 +1288,13 @@ export default function CollaborationHub() {
                       )}
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                       {resolvedScriptId ? (
                         <button
                           type="button"
                           disabled={Boolean(editorOpenPr)}
                           onClick={() => navigate(`/script/${resolvedScriptId}/branch/edit`)}
-                          className="rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                          className="w-full rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
                         >
                           {editorLatestReviewedPr?.status === "rejected" ? "Edit and re-raise" : "Edit my branch"}
                         </button>
@@ -1258,7 +1306,7 @@ export default function CollaborationHub() {
                             setPrForm({ title: editorOpenPr.title || "", message: editorOpenPr.message || "" });
                             setShowPrComposer(true);
                           }}
-                          className={`rounded-2xl px-4 py-2.5 text-sm font-semibold ${isDarkMode ? "border border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
+                          className={`w-full rounded-2xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${isDarkMode ? "border border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
                         >
                           Update open PR
                         </button>
@@ -1269,7 +1317,7 @@ export default function CollaborationHub() {
                             setPrForm({ title: "", message: "" });
                             setShowPrComposer(true);
                           }}
-                          className={`rounded-2xl px-4 py-2.5 text-sm font-semibold ${isDarkMode ? "border border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
+                          className={`w-full rounded-2xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${isDarkMode ? "border border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
                         >
                           Raise Pull Request
                         </button>
@@ -1309,19 +1357,19 @@ export default function CollaborationHub() {
                           rows={4}
                           className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900"
                         />
-                        <div className="flex flex-wrap gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                           <button
                             type="button"
                             disabled={busyKey === "create-pr"}
                             onClick={createPr}
-                            className="rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                            className="w-full rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
                           >
                             {editorOpenPr ? "Save PR update" : "Raise Pull Request"}
                           </button>
                           <button
                             type="button"
                             onClick={() => setShowPrComposer(false)}
-                            className={`rounded-2xl border px-4 py-2.5 text-sm font-semibold ${isDarkMode ? "border-[#1c2a3a] text-white" : "border-gray-200 text-gray-700"}`}
+                            className={`w-full rounded-2xl border px-4 py-2.5 text-sm font-semibold sm:w-auto ${isDarkMode ? "border-[#1c2a3a] text-white" : "border-gray-200 text-gray-700"}`}
                           >
                             Cancel
                           </button>
@@ -1424,13 +1472,13 @@ export default function CollaborationHub() {
                               ) : null}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                             {String(entry._id) === String(latestMergedPrId) && canManagePrs ? (
                               <button
                                 type="button"
                                 disabled={busyKey === `revert:${entry._id}`}
                                 onClick={() => revertMergedPR(entry._id)}
-                                className="shrink-0 rounded-2xl px-4 py-2.5 text-sm font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-60"
+                                className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 sm:w-auto"
                               >
                                 Revert Merge
                               </button>
@@ -1439,7 +1487,7 @@ export default function CollaborationHub() {
                               type="button"
                               disabled={!canManagePrs && isOpen}
                               onClick={() => setSelectedPr(entry)}
-                              className={`shrink-0 rounded-2xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 ${
+                              className={`w-full rounded-2xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto ${
                                 isOpen ? "bg-[#1e3a5f]" : isDarkMode ? "bg-[#1c2a3a] text-gray-300" : "bg-gray-200 text-gray-700"
                               }`}
                             >
@@ -1502,13 +1550,13 @@ export default function CollaborationHub() {
         </main>
       </div>
 
-      <div className={`fixed inset-x-0 bottom-0 z-40 border-t px-2 py-2 lg:hidden ${isDarkMode ? "border-[#1c2a3a] bg-[#09111b]" : "border-gray-200 bg-white/95 backdrop-blur"}`}>
-        <div className="flex items-center justify-between gap-2 overflow-x-auto">
+      <div className={`fixed inset-x-0 bottom-0 z-40 border-t px-2 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden ${isDarkMode ? "border-[#1c2a3a] bg-[#09111b]" : "border-gray-200 bg-white/95 backdrop-blur"}`}>
+        <div className="flex items-center justify-start gap-2 overflow-x-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.id}
               to={`/script/${scriptId}/collaborate/${item.id}`}
-              className={({ isActive }) => `min-w-fit rounded-2xl px-4 py-2 text-sm font-semibold ${
+              className={({ isActive }) => `min-w-fit whitespace-nowrap rounded-2xl px-4 py-2 text-sm font-semibold ${
                 isActive ? "bg-[#1e3a5f] text-white" : isDarkMode ? "text-[#9db3cc]" : "text-gray-700"
               }`}
             >
