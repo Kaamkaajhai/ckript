@@ -620,7 +620,6 @@ const CreateProject = () => {
   const [showDrafts, setShowDrafts] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
-  const [lineCount, setLineCount] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
@@ -896,13 +895,9 @@ const CreateProject = () => {
     }
   }, []);
 
-  // Auto-calculated page count — MS Word-style (line/paragraph-based)
-  // A standard US Letter page at 15px / line-height 1.65 with 1-inch margins
-  // fits roughly 32 content lines. We count block nodes (including empty ones)
-  // and add wrapped-line estimates per block, just like Word does.
-  const LINES_PER_PAGE = 32;
+  // Auto-calculated page count from word count + format
   const formatInfo = FORMAT_PAGE_RANGES[formData.format] || FORMAT_PAGE_RANGES.feature;
-  const estimatedPages = Math.max(1, Math.round(lineCount / LINES_PER_PAGE));
+  const estimatedPages = Math.max(1, Math.round(wordCount / formatInfo.wordsPerPage));
   const pageStatus = estimatedPages < formatInfo.min ? "short" : estimatedPages > formatInfo.max ? "long" : "good";
   const renderPageMarkers = () => Array.from({ length: Math.max(estimatedPages, 1) }, (_, pageIndex) => (
     <div
@@ -982,40 +977,6 @@ const CreateProject = () => {
       setWordCount(t.split(/\s+/).filter(Boolean).length);
       setCharCount(t.length);
       setSaved(false);
-
-      // MS Word-style line count: walk the document JSON and count every block
-      // node (paragraph, heading, listItem, blockquote, codeBlock) including
-      // empty ones, plus estimate wrapped lines for longer blocks.
-      // ~80 chars per line at the editor's ~680px content width with 15px font.
-      const CHARS_PER_LINE = 80;
-      const BLOCK_TYPES = new Set(["paragraph", "heading", "listItem", "blockquote", "codeBlock"]);
-      let totalLines = 0;
-      const doc = editor.getJSON();
-      const walkNode = (node) => {
-        if (!node) return;
-        if (BLOCK_TYPES.has(node.type)) {
-          // Collect total text length for this block (including all inline children)
-          let blockChars = 0;
-          const gatherText = (n) => {
-            if (n.type === "text" && n.text) blockChars += n.text.length;
-            if (n.content) n.content.forEach(gatherText);
-          };
-          gatherText(node);
-          // At minimum 1 line per block (captures empty paragraphs), plus
-          // additional wrapped lines for content that exceeds one line width.
-          const wrappedLines = Math.max(1, Math.ceil(blockChars / CHARS_PER_LINE));
-          totalLines += wrappedLines;
-          // Don't recurse further — gatherText already collected all nested text.
-          // Child block nodes (e.g. paragraphs inside listItems) are already
-          // counted via gatherText so we skip them to avoid double-counting.
-          return;
-        }
-        // Non-block container nodes (doc, bulletList, orderedList, etc.)
-        // — recurse to find the block-level children inside them.
-        if (node.content) node.content.forEach(walkNode);
-      };
-      if (doc?.content) doc.content.forEach(walkNode);
-      setLineCount(Math.max(totalLines, 0));
     },
   });
 

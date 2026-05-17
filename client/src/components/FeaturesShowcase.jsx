@@ -70,7 +70,7 @@ const FeaturesShowcase = () => {
   return (
     <section
       id="platform-innovations"
-      className="luxury-section luxury-features-section relative pt-12 pb-24 sm:pt-16 sm:pb-32 px-4 sm:px-8 bg-[#100E0C] overflow-hidden"
+      className="luxury-section luxury-features-section relative pt-12 pb-24 sm:pt-16 sm:pb-32 px-4 sm:px-8 bg-[#F8FAFC] overflow-hidden"
       style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
     >
       <div className="max-w-7xl mx-auto">
@@ -83,17 +83,17 @@ const FeaturesShowcase = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <p className="luxury-section-kicker text-xs font-semibold uppercase tracking-wider text-[#9A9590] mb-5">
+          <p className="luxury-section-kicker text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-5">
             What you get
           </p>
           <h2
-            className="luxury-section-title text-4xl sm:text-5xl lg:text-6xl text-[#F5F0E8] leading-[1.05] tracking-tight font-medium"
+            className="luxury-section-title text-4xl sm:text-5xl lg:text-6xl text-[#111827] leading-[1.05] tracking-tight font-medium"
             style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
           >
             Built for writers.<br />
             <em>Loved by producers.</em>
           </h2>
-          <p className="luxury-body-copy text-base sm:text-lg text-[#9A9590] mt-5 max-w-xl leading-relaxed">
+          <p className="luxury-body-copy text-base sm:text-lg text-[#6B7280] mt-5 max-w-xl leading-relaxed">
             Seven tools that turn your script from a file on your laptop into a film
             people actually want to make.
           </p>
@@ -120,22 +120,22 @@ const FeaturesShowcase = () => {
                   onClick={() => setActive(i)}
                   data-active={isActive}
                   data-tone={isAi ? "ai" : "premium"}
-                  className={`luxury-feature-tab group flex items-center gap-3 px-4 py-3.5 rounded-2xl border text-left transition-all duration-200 shrink-0 ${
+                  className={`luxury-feature-tab group flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 text-left transition-all duration-200 shrink-0 ${
                     isActive
-                      ? "bg-white/[0.06] border-white/20 text-[#F5F0E8] shadow-[0_8px_24px_rgba(0,0,0,0.20)]"
-                      : "bg-white/[0.02] border-[#2E2A26] text-[#F5F0E8] hover:border-white/10 hover:bg-white/[0.04]"
+                      ? "bg-white border-[#6366F1] text-black shadow-[0_8px_24px_rgba(79,70,229,0.10)]"
+                      : "bg-white border-[#E5E7EB] text-black hover:border-[#D1D5DB] hover:text-black"
                   }`}
                 >
                   <div
                     className={`luxury-feature-tab-icon w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                       isActive
-                        ? "bg-white/10 text-[#F5F0E8]"
-                        : "bg-white/[0.04] text-[#9A9590] group-hover:bg-white/[0.06]"
+                        ? "bg-[#6366F1] text-white"
+                        : "bg-[#F3F4F6] text-black group-hover:bg-[#E5E7EB]"
                     }`}
                   >
                     <TabIcon className="w-3.5 h-3.5" />
                   </div>
-                  <span className="text-sm font-medium whitespace-nowrap text-inherit">
+                  <span className="text-sm font-medium whitespace-nowrap">
                     {feat.title}
                   </span>
                 </button>
@@ -152,42 +152,42 @@ const FeaturesShowcase = () => {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.3 }}
               data-tone={activeIsAi ? "ai" : "premium"}
-              className="luxury-feature-panel rounded-3xl bg-[#1C1917] p-7 sm:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.25)] border border-[#2E2A26]"
+              className="luxury-feature-panel rounded-3xl bg-white p-7 sm:p-10 shadow-[0_20px_60px_rgba(17,24,39,0.06)] border border-[#E5E7EB]"
             >
               {/* Header row */}
               <div className="flex items-start gap-4 mb-7">
-                <div className="luxury-feature-panel-icon w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center shrink-0 border border-white/[0.08]">
-                  <Icon className="w-5 h-5 text-[#F5F0E8]" />
+                <div className="luxury-feature-panel-icon w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center shrink-0">
+                  <Icon className="w-5 h-5 text-[#111827]" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className={`luxury-badge ${activeIsAi ? "luxury-badge--ai" : "luxury-badge--premium"} font-body text-xs font-semibold uppercase tracking-wider text-[#9A9590] px-3 py-1`}>
+                  <span className={`luxury-badge ${activeIsAi ? "luxury-badge--ai" : "luxury-badge--premium"} font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] px-3 py-1`}>
                     {f.tag}
                   </span>
                   <h3
-                    className="luxury-section-title text-2xl sm:text-3xl text-[#F5F0E8] leading-tight font-medium mt-3"
+                    className="luxury-section-title text-2xl sm:text-3xl text-[#111827] leading-tight font-medium mt-3"
                     style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
                   >
                     {f.title}
                   </h3>
-                  <p className="luxury-body-copy font-body text-sm text-[#9A9590] mt-1.5 italic">{f.subtitle}</p>
+                  <p className="luxury-body-copy font-body text-sm text-[#6B7280] mt-1.5 italic">{f.subtitle}</p>
                 </div>
               </div>
 
               {/* Description */}
-              <p className="luxury-body-copy font-body text-[#9A9590] text-[15px] sm:text-base leading-relaxed mb-8">
+              <p className="luxury-body-copy font-body text-[#6B7280] text-[15px] sm:text-base leading-relaxed mb-8">
                 {f.description}
               </p>
 
               {/* Benefits */}
-              <div className="luxury-feature-panel-divider pt-6 border-t border-[#2E2A26]">
-                <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#9A9590] mb-4">
+              <div className="luxury-feature-panel-divider pt-6 border-t border-[#E5E7EB]">
+                <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-4">
                   What you get
                 </p>
                 <ul className="space-y-3">
                   {f.benefits.map((b, idx) => (
                     <li key={idx} className="flex items-start gap-3">
-                      <CheckCircle2 className="luxury-check-icon w-4 h-4 mt-0.5 shrink-0 text-[#9A9590]" />
-                      <span className="luxury-body-copy font-body text-sm sm:text-base text-[#9A9590] leading-relaxed">
+                      <CheckCircle2 className="luxury-check-icon w-4 h-4 mt-0.5 shrink-0 text-[#9CA3AF]" />
+                      <span className="luxury-body-copy font-body text-sm sm:text-base text-[#6B7280] leading-relaxed">
                         {b}
                       </span>
                     </li>
@@ -196,8 +196,8 @@ const FeaturesShowcase = () => {
               </div>
 
               {/* Pagination */}
-              <div className="luxury-feature-panel-divider mt-8 pt-6 border-t border-[#2E2A26] flex items-center justify-between gap-4">
-                <span className="luxury-body-copy font-body text-xs font-medium text-[#9A9590]">
+              <div className="luxury-feature-panel-divider mt-8 pt-6 border-t border-[#E5E7EB] flex items-center justify-between gap-4">
+                <span className="luxury-body-copy font-body text-xs font-medium text-[#6B7280]">
                   {String(active + 1).padStart(2, "0")} / {String(features.length).padStart(2, "0")}
                 </span>
                 <div className="flex gap-1.5">
@@ -208,8 +208,8 @@ const FeaturesShowcase = () => {
                       aria-label={`Go to feature ${i + 1}`}
                       className={`luxury-pagination-dot h-1.5 rounded-full transition-all duration-300 ${
                         i === active
-                          ? "is-active w-6 bg-[#F5F0E8]"
-                          : "w-1.5 bg-[#2E2A26] hover:bg-[#9A9590]"
+                          ? "is-active w-6 bg-[#6366F1]"
+                          : "w-1.5 bg-[#E5E7EB] hover:bg-[#9CA3AF]"
                       }`}
                     />
                   ))}

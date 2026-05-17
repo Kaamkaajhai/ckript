@@ -78,7 +78,7 @@ export const updatePitchStatus = async (req, res) => {
     const pitch = await ScriptPitch.findOneAndUpdate(
       { _id: pitchId, investor: investorId },
       { status },
-      { returnDocument: "after" }
+      { new: true }
     );
 
     if (!pitch) return res.status(404).json({ message: "Pitch not found." });
