@@ -59,6 +59,12 @@ import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import {
+  attachAdminScriptAccessHeader,
+  clearAdminScriptAccess,
+  getStoredAdminScriptAccess,
+  storeAdminScriptAccess,
+} from "../utils/adminScriptAccess";
 
 const SCRIPT_LINES_PER_PAGE = 42;
 
@@ -76,7 +82,7 @@ adminApi.interceptors.request.use((config) => {
       // Ignore malformed admin session and allow request to fail with 401.
     }
   }
-  return config;
+  return attachAdminScriptAccessHeader(config);
 });
 
 const formatDateTime = (value) => {
@@ -119,6 +125,10 @@ const AdminScriptView = () => {
   const [notice, setNotice] = useState("");
   const [activePage, setActivePage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
+  const [scriptAccessReady, setScriptAccessReady] = useState(() => Boolean(getStoredAdminScriptAccess()?.token));
+  const [scriptAccessPassword, setScriptAccessPassword] = useState("");
+  const [scriptAccessError, setScriptAccessError] = useState("");
+  const [scriptAccessLoading, setScriptAccessLoading] = useState(false);
 
   const hasAdminSession = useMemo(() => {
     const raw = sessionStorage.getItem("admin-session");
@@ -137,15 +147,32 @@ const AdminScriptView = () => {
       return;
     }
 
+    const existingAccess = getStoredAdminScriptAccess();
+    if (!existingAccess?.token) {
+      setScriptAccessReady(false);
+      setLoading(false);
+      return;
+    }
+
+    setScriptAccessReady(true);
+
     const fetchScript = async () => {
       try {
         setLoading(true);
         setError("");
+        setScriptAccessError("");
         const { data } = await adminApi.get(`/admin/scripts/${id}`);
         setScript(data);
       } catch (err) {
         const status = err?.response?.status;
         if (status === 401 || status === 403) {
+          if (err?.response?.data?.code === "ADMIN_SCRIPT_SECTION_PASSWORD_REQUIRED") {
+            clearAdminScriptAccess();
+            setScriptAccessReady(false);
+            setScript(null);
+            setScriptAccessError("Enter the script-section password to continue.");
+            return;
+          }
           navigate("/admin", { replace: true });
           return;
         }
@@ -156,7 +183,40 @@ const AdminScriptView = () => {
     };
 
     fetchScript();
-  }, [hasAdminSession, id, navigate]);
+  }, [hasAdminSession, id, navigate, scriptAccessReady]);
+
+  const handleUnlockScriptAccess = async (event) => {
+    event.preventDefault();
+    setScriptAccessError("");
+
+    if (!scriptAccessPassword) {
+      setScriptAccessError("Password is required.");
+      return;
+    }
+
+    try {
+      setScriptAccessLoading(true);
+      const { data } = await adminApi.post("/admin/script-access/verify", {
+        password: scriptAccessPassword,
+      });
+      storeAdminScriptAccess(data);
+      setScriptAccessPassword("");
+      setScriptAccessReady(true);
+      setLoading(true);
+    } catch (err) {
+      clearAdminScriptAccess();
+      setScriptAccessReady(false);
+
+      if (err?.response?.status === 401) {
+        navigate("/admin", { replace: true });
+        return;
+      }
+
+      setScriptAccessError(err?.response?.data?.message || "Failed to unlock script details.");
+    } finally {
+      setScriptAccessLoading(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!script?._id || script?.isDeleted) return;
@@ -170,6 +230,12 @@ const AdminScriptView = () => {
       setScript((prev) => (prev ? { ...prev, isDeleted: true, deletedAt: new Date().toISOString() } : prev));
       setNotice(data?.message || "Project deleted successfully.");
     } catch (err) {
+      if (err?.response?.data?.code === "ADMIN_SCRIPT_SECTION_PASSWORD_REQUIRED") {
+        clearAdminScriptAccess();
+        setScriptAccessReady(false);
+        setScriptAccessError("Enter the script-section password to continue.");
+        return;
+      }
       setError(err?.response?.data?.message || "Failed to delete project.");
     } finally {
       setDeleteLoading(false);
@@ -419,6 +485,59 @@ const AdminScriptView = () => {
     return (
       <div className="min-h-screen bg-[#050b16] text-white flex items-center justify-center px-4">
         <div className="w-10 h-10 rounded-full border-2 border-white/15 border-t-white/80 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!scriptAccessReady) {
+    return (
+      <div className="min-h-screen bg-[#050b16] text-white flex items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-2xl border border-[#1a3050] bg-[#0c1527] p-7 shadow-2xl">
+          <div className="text-center mb-6">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
+              <svg className="h-7 w-7 text-blue-300" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 10.5h10.5A2.25 2.25 0 0019.5 18.75v-6a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 12.75v6A2.25 2.25 0 006.75 21z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-extrabold">Protected Script Section</h1>
+            <p className="mt-2 text-sm text-white/60">
+              Enter the script-section password to open this admin script page.
+            </p>
+          </div>
+
+          <form onSubmit={handleUnlockScriptAccess} className="space-y-4">
+            <input
+              type="password"
+              value={scriptAccessPassword}
+              onChange={(event) => {
+                setScriptAccessPassword(event.target.value);
+                setScriptAccessError("");
+              }}
+              placeholder="Section password"
+              autoFocus
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 focus:ring-2 focus:ring-blue-500/20"
+            />
+            {scriptAccessError && (
+              <p className="text-sm font-medium text-red-300">{scriptAccessError}</p>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => navigate("/admin", { replace: true })}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-white/70 hover:bg-white/5"
+              >
+                Back to Admin
+              </button>
+              <button
+                type="submit"
+                disabled={scriptAccessLoading || !scriptAccessPassword}
+                className="px-5 py-2.5 rounded-xl bg-[#1e3a5f] text-sm font-bold text-white hover:bg-[#2a4b77] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {scriptAccessLoading ? "Unlocking..." : "Unlock"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     );
   }

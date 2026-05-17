@@ -1,6 +1,7 @@
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
 import adminOnly from "../middleware/adminMiddleware.js";
+import requireAdminScriptSectionAccess from "../middleware/adminScriptSectionMiddleware.js";
 import {
     getStats,
     getUsers,
@@ -30,6 +31,7 @@ import {
     loginAsUser,
     getScriptDetail,
     deleteScriptAsAdmin,
+    verifyAdminScriptSectionAccess,
     getPendingInvestors,
     getPendingWriterMembershipReviews,
     getWriterMembershipProofAccessUrl,
@@ -79,17 +81,18 @@ router.post("/users/:id/credits", grantCreditsToUser);
 router.post("/broadcast/:audience", sendAudienceBroadcast);
 
 // Scripts
-router.get("/scripts", getScripts);
+router.post("/script-access/verify", verifyAdminScriptSectionAccess);
+router.get("/scripts", requireAdminScriptSectionAccess, getScripts);
 router.get("/scripts/ai-usage", getAIUsageScripts);
 router.get("/scripts/evaluation-purchases", getEvaluationPurchases);
 router.get("/scripts/investor-purchases", getInvestorPurchases);
-router.get("/scripts/pending", getPendingScripts);
+router.get("/scripts/pending", requireAdminScriptSectionAccess, getPendingScripts);
 router.get("/scripts/trailer-requests", getTrailerRequests);
-router.get("/scripts/:id", getScriptDetail);
-router.delete("/scripts/:id", deleteScriptAsAdmin);
-router.put("/scripts/:id/approve", approveScript);
-router.put("/scripts/:id/reject", rejectScript);
-router.put("/scripts/:id/score", scoreScript);
+router.get("/scripts/:id", requireAdminScriptSectionAccess, getScriptDetail);
+router.delete("/scripts/:id", requireAdminScriptSectionAccess, deleteScriptAsAdmin);
+router.put("/scripts/:id/approve", requireAdminScriptSectionAccess, approveScript);
+router.put("/scripts/:id/reject", requireAdminScriptSectionAccess, rejectScript);
+router.put("/scripts/:id/score", requireAdminScriptSectionAccess, scoreScript);
 router.put("/scripts/:id/trailer-approve", approveTrailer);
 router.post("/scripts/:id/upload-trailer", uploadAdminTrailerFile, uploadTrailerAsAdmin);
 
