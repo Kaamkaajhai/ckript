@@ -3,8 +3,8 @@ body.luxury-homepage-body {
   --lux-bg: #0a0a0a;
   --lux-surface: #161618;
   --lux-border: #27272a;
-  --lux-gold: #C9705F;
-  --lux-gold-soft: rgba(201, 112, 95, 0.18);
+  --lux-gold: #93c5fd;
+  --lux-gold-soft: rgba(147, 197, 253, 0.18);
   --lux-teal: #3eb8b0;
   --lux-teal-soft: rgba(62, 184, 176, 0.18);
   --lux-text: #f5f2eb;
@@ -19,7 +19,7 @@ html.luxury-homepage-html {
 
 body.luxury-homepage-body {
   background:
-    radial-gradient(circle at 16% 0%, rgba(201, 112, 95, 0.08), transparent 28%),
+    radial-gradient(circle at 16% 0%, rgba(147, 197, 253, 0.08), transparent 28%),
     radial-gradient(circle at 84% 22%, rgba(62, 184, 176, 0.05), transparent 20%),
     #0a0a0a !important;
   color: #f5f2eb !important;
@@ -83,7 +83,7 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-brand-logo {
-  filter: drop-shadow(0 4px 12px rgba(201, 112, 95, 0.12)) !important;
+  filter: drop-shadow(0 4px 12px rgba(147, 197, 253, 0.12)) !important;
 }
 
 .luxury-homepage .luxury-nav-link,
@@ -116,7 +116,7 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-nav-toggle:hover {
-  border-color: rgba(201, 112, 95, 0.4) !important;
+  border-color: rgba(147, 197, 253, 0.4) !important;
   color: var(--lux-gold) !important;
 }
 
@@ -160,21 +160,21 @@ body.luxury-homepage-body #root {
 
 .luxury-homepage .luxury-hero-spotlight {
   background:
-    radial-gradient(circle at 63% 64%, rgba(201, 112, 95, 0.26), transparent 16%),
-    linear-gradient(166deg, transparent 0%, transparent 28%, rgba(201, 112, 95, 0.12) 28.4%, rgba(201, 112, 95, 0.34) 35%, rgba(201, 112, 95, 0.12) 43%, transparent 44%);
+    radial-gradient(circle at 63% 64%, rgba(191, 219, 254, 0.26), transparent 16%),
+    linear-gradient(166deg, transparent 0%, transparent 28%, rgba(147, 197, 253, 0.12) 28.4%, rgba(147, 197, 253, 0.34) 35%, rgba(147, 197, 253, 0.12) 43%, transparent 44%);
   mix-blend-mode: screen;
   opacity: 0.95;
 }
 
 .luxury-homepage .luxury-hero-dust {
   background-image:
-    radial-gradient(circle at 68% 18%, rgba(201, 112, 95, 0.65) 0 1.2px, transparent 1.4px),
-    radial-gradient(circle at 72% 30%, rgba(201, 112, 95, 0.6) 0 1px, transparent 1.2px),
-    radial-gradient(circle at 78% 36%, rgba(201, 112, 95, 0.48) 0 1.2px, transparent 1.4px),
-    radial-gradient(circle at 84% 52%, rgba(201, 112, 95, 0.5) 0 1px, transparent 1.3px),
-    radial-gradient(circle at 60% 58%, rgba(201, 112, 95, 0.36) 0 1px, transparent 1.2px),
-    radial-gradient(circle at 87% 66%, rgba(201, 112, 95, 0.48) 0 1.1px, transparent 1.3px),
-    radial-gradient(circle at 72% 78%, rgba(201, 112, 95, 0.38) 0 1px, transparent 1.2px);
+    radial-gradient(circle at 68% 18%, rgba(219, 234, 254, 0.65) 0 1.2px, transparent 1.4px),
+    radial-gradient(circle at 72% 30%, rgba(191, 219, 254, 0.6) 0 1px, transparent 1.2px),
+    radial-gradient(circle at 78% 36%, rgba(191, 219, 254, 0.48) 0 1.2px, transparent 1.4px),
+    radial-gradient(circle at 84% 52%, rgba(191, 219, 254, 0.5) 0 1px, transparent 1.3px),
+    radial-gradient(circle at 60% 58%, rgba(191, 219, 254, 0.36) 0 1px, transparent 1.2px),
+    radial-gradient(circle at 87% 66%, rgba(191, 219, 254, 0.48) 0 1.1px, transparent 1.3px),
+    radial-gradient(circle at 72% 78%, rgba(191, 219, 254, 0.38) 0 1px, transparent 1.2px);
   filter: blur(0.2px);
   opacity: 0.8;
 }
@@ -196,7 +196,7 @@ body.luxury-homepage-body #root {
 
 .luxury-homepage .luxury-hero-overlay--vignette {
   background:
-    radial-gradient(circle at 71% 66%, rgba(201, 112, 95, 0.12), transparent 18%),
+    radial-gradient(circle at 71% 66%, rgba(147, 197, 253, 0.12), transparent 18%),
     radial-gradient(circle at center, transparent 30%, rgba(0, 0, 0, 0.48) 100%) !important;
 }
 
@@ -240,7 +240,7 @@ body.luxury-homepage-body #root {
   bottom: 0;
   width: 100%;
   height: 1px;
-  background: linear-gradient(90deg, rgba(201, 112, 95, 0.9), rgba(201, 112, 95, 0.14));
+  background: linear-gradient(90deg, rgba(147, 197, 253, 0.9), rgba(147, 197, 253, 0.14));
 }
 
 .luxury-homepage .luxury-hero-secondary-link:hover {
@@ -261,7 +261,7 @@ body.luxury-homepage-body #root {
   position: absolute;
   height: 1px;
   transform-origin: left center;
-  background: linear-gradient(90deg, rgba(201, 112, 95, 0.34), rgba(201, 112, 95, 0.06));
+  background: linear-gradient(90deg, rgba(147, 197, 253, 0.34), rgba(147, 197, 253, 0.06));
   opacity: 0.72;
 }
 
@@ -311,7 +311,7 @@ body.luxury-homepage-body #root {
 
 .luxury-homepage .luxury-hero-note {
   position: absolute;
-  color: rgba(201, 112, 95, 0.9);
+  color: rgba(219, 234, 254, 0.9);
   font-family: "Courier Prime", "Courier New", monospace;
   font-size: clamp(0.82rem, 1vw, 1.05rem);
   letter-spacing: 0.02em;
@@ -338,8 +338,8 @@ body.luxury-homepage-body #root {
   width: 0.72rem;
   height: 0.72rem;
   border-radius: 999px;
-  border: 1px solid rgba(201, 112, 95, 0.78);
-  box-shadow: 0 0 0 3px rgba(201, 112, 95, 0.08);
+  border: 1px solid rgba(147, 197, 253, 0.78);
+  box-shadow: 0 0 0 3px rgba(147, 197, 253, 0.08);
 }
 
 .luxury-homepage .luxury-hero-footer-text {
@@ -351,7 +351,7 @@ body.luxury-homepage-body #root {
 .luxury-homepage .luxury-hero-footer-line {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, rgba(201, 112, 95, 0.5), rgba(39, 39, 42, 0.3));
+  background: linear-gradient(90deg, rgba(147, 197, 253, 0.5), rgba(39, 39, 42, 0.3));
 }
 
 .luxury-homepage .luxury-cta {
@@ -389,7 +389,7 @@ body.luxury-homepage-body #root {
 
 .luxury-homepage .luxury-cta--ghost:hover {
   transform: translateY(-2px);
-  border-color: rgba(201, 112, 95, 0.34) !important;
+  border-color: rgba(147, 197, 253, 0.34) !important;
   color: var(--lux-gold) !important;
 }
 
@@ -457,10 +457,10 @@ body.luxury-homepage-body #root {
 .luxury-homepage .luxury-surface-card:hover,
 .luxury-homepage .luxury-inline-surface:hover {
   transform: translateY(-4px);
-  border-color: rgba(201, 112, 95, 0.26) !important;
+  border-color: rgba(147, 197, 253, 0.26) !important;
   box-shadow:
     0 28px 68px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(201, 112, 95, 0.08) !important;
+    0 0 0 1px rgba(147, 197, 253, 0.08) !important;
 }
 
 .luxury-homepage .luxury-icon-shell {
@@ -471,9 +471,9 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-icon-shell--gold {
-  background: rgba(201, 112, 95, 0.12) !important;
+  background: rgba(147, 197, 253, 0.12) !important;
   color: var(--lux-gold) !important;
-  border-color: rgba(201, 112, 95, 0.18) !important;
+  border-color: rgba(147, 197, 253, 0.18) !important;
 }
 
 .luxury-homepage .luxury-icon-shell--teal {
@@ -502,9 +502,9 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-badge--premium {
-  background: rgba(201, 112, 95, 0.14) !important;
+  background: rgba(147, 197, 253, 0.14) !important;
   color: var(--lux-gold) !important;
-  border-color: rgba(201, 112, 95, 0.22) !important;
+  border-color: rgba(147, 197, 253, 0.22) !important;
 }
 
 .luxury-homepage .luxury-badge--ai {
@@ -514,10 +514,10 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-cinematic-panel {
-  border-color: rgba(201, 112, 95, 0.24) !important;
+  border-color: rgba(147, 197, 253, 0.24) !important;
   box-shadow:
     0 30px 72px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(201, 112, 95, 0.08) !important;
+    0 0 0 1px rgba(147, 197, 253, 0.08) !important;
 }
 
 .luxury-homepage .luxury-cinematic-quote {
@@ -533,15 +533,15 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-feature-tab:hover {
-  border-color: rgba(201, 112, 95, 0.28) !important;
+  border-color: rgba(147, 197, 253, 0.28) !important;
 }
 
 .luxury-homepage .luxury-feature-tab[data-active="true"] {
   transform: translateX(4px);
-  border-color: rgba(201, 112, 95, 0.44) !important;
+  border-color: rgba(147, 197, 253, 0.44) !important;
   box-shadow:
     0 22px 48px rgba(0, 0, 0, 0.36),
-    0 0 0 1px rgba(201, 112, 95, 0.1) !important;
+    0 0 0 1px rgba(147, 197, 253, 0.1) !important;
 }
 
 .luxury-homepage .luxury-feature-tab[data-tone="ai"][data-active="true"] {
@@ -553,9 +553,9 @@ body.luxury-homepage-body #root {
 
 .luxury-homepage .luxury-feature-tab-icon,
 .luxury-homepage .luxury-feature-panel-icon {
-  background: rgba(201, 112, 95, 0.12) !important;
+  background: rgba(147, 197, 253, 0.12) !important;
   color: var(--lux-gold) !important;
-  border: 1px solid rgba(201, 112, 95, 0.16) !important;
+  border: 1px solid rgba(147, 197, 253, 0.16) !important;
 }
 
 .luxury-homepage .luxury-feature-tab[data-tone="ai"] .luxury-feature-tab-icon,
@@ -592,7 +592,7 @@ body.luxury-homepage-body #root {
   pointer-events: none;
   background:
     radial-gradient(circle at 20% 18%, rgba(62, 184, 176, 0.08), transparent 28%),
-    radial-gradient(circle at 82% 82%, rgba(201, 112, 95, 0.05), transparent 22%);
+    radial-gradient(circle at 82% 82%, rgba(147, 197, 253, 0.05), transparent 22%);
 }
 
 .luxury-homepage .luxury-process-line {
@@ -678,17 +678,17 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-contact-option:hover {
-  border-color: rgba(201, 112, 95, 0.24) !important;
+  border-color: rgba(147, 197, 253, 0.24) !important;
 }
 
 .luxury-homepage .luxury-contact-option[data-selected="true"] {
   background:
-    linear-gradient(180deg, rgba(201, 112, 95, 0.08), rgba(22, 22, 24, 0.94) 44%),
+    linear-gradient(180deg, rgba(147, 197, 253, 0.08), rgba(22, 22, 24, 0.94) 44%),
     var(--lux-surface) !important;
-  border-color: rgba(201, 112, 95, 0.44) !important;
+  border-color: rgba(147, 197, 253, 0.44) !important;
   box-shadow:
     0 22px 48px rgba(0, 0, 0, 0.36),
-    0 0 0 1px rgba(201, 112, 95, 0.08) !important;
+    0 0 0 1px rgba(147, 197, 253, 0.08) !important;
 }
 
 .luxury-homepage .luxury-contact-option-icon {
@@ -698,8 +698,8 @@ body.luxury-homepage-body #root {
 }
 
 .luxury-homepage .luxury-contact-option[data-selected="true"] .luxury-contact-option-icon {
-  background: rgba(201, 112, 95, 0.16) !important;
-  border-color: rgba(201, 112, 95, 0.24) !important;
+  background: rgba(147, 197, 253, 0.16) !important;
+  border-color: rgba(147, 197, 253, 0.24) !important;
 }
 
 .luxury-homepage .luxury-form-surface,
@@ -727,10 +727,10 @@ body.luxury-homepage-body #root {
 
 .luxury-homepage .luxury-field-input:focus,
 .luxury-homepage .luxury-field-input:focus-visible {
-  border-color: rgba(201, 112, 95, 0.44) !important;
+  border-color: rgba(147, 197, 253, 0.44) !important;
   box-shadow:
-    0 0 0 1px rgba(201, 112, 95, 0.14),
-    0 0 0 4px rgba(201, 112, 95, 0.08) !important;
+    0 0 0 1px rgba(147, 197, 253, 0.14),
+    0 0 0 4px rgba(147, 197, 253, 0.08) !important;
 }
 
 .luxury-homepage .luxury-feedback-danger {
@@ -751,12 +751,12 @@ body.luxury-homepage-body #root {
 
 .luxury-homepage .luxury-modal-close:hover {
   color: var(--lux-text) !important;
-  border-color: rgba(201, 112, 95, 0.32) !important;
+  border-color: rgba(147, 197, 253, 0.32) !important;
 }
 
 .luxury-homepage .luxury-modal-icon {
-  background: rgba(201, 112, 95, 0.12) !important;
-  border: 1px solid rgba(201, 112, 95, 0.18) !important;
+  background: rgba(147, 197, 253, 0.12) !important;
+  border: 1px solid rgba(147, 197, 253, 0.18) !important;
   color: var(--lux-gold) !important;
 }
 

@@ -5,6 +5,7 @@ import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
 import ConfirmDialog from "./ConfirmDialog";
+import ReferralShareCard from "./ReferralShareCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
@@ -149,13 +150,13 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
   ] : isReader ? [
     { path: "/reader", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" },
-
+    { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
     { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   ] : isIndustry ? [
     { path: "/dashboard", label: "Dashboard", icon: "M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H3.75A.75.75 0 013 21V9.75z" },
     ...(isInvestorRole ? [{ path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" }] : []),
-
+    { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
     { path: "/search", label: "Search Scripts", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
     { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
     { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
@@ -179,7 +180,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
   const bottomNavItems = (!isReader && !isIndustry && !isAdmin) ? [
     { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
-
+    { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   ] : [];
 
   const mobileItems = isAdmin ? [
@@ -191,23 +192,23 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
     { path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" },
     { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
     { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
-
+    { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   ] : isInvestorRole ? [
     { path: "/home", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" },
     { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
     { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
-
+    { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   ] : isIndustry ? [
     { path: "/dashboard", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-
+    { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   ] : [
     { path: "/dashboard", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     ...(isWriterRole ? [{ path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" }] : []),
     { path: "/create-project", label: "Create", icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
     { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
-
+    { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   ];
 
   const Icon = ({ d, size = "w-[22px] h-[22px]" }) => (
@@ -229,19 +230,19 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         state={item.path === "/create-project" ? { startFresh: true } : undefined}
         onClick={() => setMobileOpen(false)}
         className={`group flex items-center gap-3 px-4 py-2.5 min-h-[44px] mx-2 rounded-xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
-          ? isDarkMode ? "bg-white/[0.06] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
-          : isDarkMode ? "text-[#9A9590] hover:bg-white/[0.04] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
+          ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
+          : isDarkMode ? "text-[#8896a7] hover:bg-[#0d1520] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
           }`}
       >
         <Icon d={item.icon} size="w-5 h-5 shrink-0" />
         <span className="flex-1 min-w-0 truncate leading-none">{item.label}</span>
         {showMessageBadge && (
-          <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#2E2A26] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
+          <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#0f766e] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
             +{unreadMessageCount > 99 ? "99" : unreadMessageCount}
           </span>
         )}
         {showPurchaseBadge && (
-          <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#C9705F] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
+          <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#1e3a5f] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
             +{purchaseRequestCount > 99 ? "99" : purchaseRequestCount}
           </span>
         )}
@@ -252,30 +253,35 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
   const SectionLabel = ({ label }) => (
     <div className={`px-5 pt-4 pb-1`}>
-      <span className={`text-[11px] font-bold tracking-widest uppercase ${isDarkMode ? "text-[#5A5550]" : "text-gray-300"}`}>{label}</span>
+      <span className={`text-[11px] font-bold tracking-widest uppercase ${isDarkMode ? "text-[#2a3a4e]" : "text-gray-300"}`}>{label}</span>
     </div>
   );
 
-
+  const SidebarReferralCard = () => (
+    <div className="px-3 pt-2 pb-1">
+      <ReferralShareCard dark={isDarkMode} compact />
+    </div>
+  );
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="flex flex-col h-full">
       <div className="px-5 h-16 flex items-center shrink-0">
         <BrandLogo className="h-9 w-auto" />
       </div>
 
-      <div className={`mx-3 border-t ${isDarkMode ? "border-[#2E2A26]" : "border-gray-100"}`}></div>
+      <div className={`mx-3 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
 
       <nav className="flex-1 py-2 overflow-y-auto">
         {isInvestorRole && investorSections ? (
           investorSections.map((section, idx) => (
             <div key={section.label}>
-              {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#2E2A26]" : "border-gray-100"}`}></div>}
+              {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>}
               <SectionLabel label={section.label} />
               <div className="space-y-0.5">
                 {section.items.map((item) => (
                   <Fragment key={item.label}>
                     <NavItem item={item} />
+                    {item.path === profilePath && <SidebarReferralCard />}
                   </Fragment>
                 ))}
               </div>
@@ -287,10 +293,11 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
               {mainNavItems.map((item) => (
                 <Fragment key={item.label}>
                   <NavItem item={item} />
+                  {item.path === profilePath && <SidebarReferralCard />}
                 </Fragment>
               ))}
             </div>
-            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#2E2A26]" : "border-gray-100"}`}></div>
+            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
             {actionItems.map((item) => <NavItem key={item.label} item={item} />)}
             {bottomNavItems.length > 0 && (
               <>
@@ -298,6 +305,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
                 {bottomNavItems.map((item) => (
                   <Fragment key={item.label}>
                     <NavItem item={item} />
+                    {item.path === profilePath && <SidebarReferralCard />}
                   </Fragment>
                 ))}
               </>
@@ -308,13 +316,13 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
                 <button
                   onClick={() => setProjectsOpen(!projectsOpen)}
-                  className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-[#5A5550] hover:text-[#9A9590]" : "text-gray-400 hover:text-gray-600"}`}
+                  className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-[#2a3a4e] hover:text-[#8896a7]" : "text-gray-400 hover:text-gray-600"}`}
                 >
                   <svg className={`w-4 h-4 transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
                     fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
-                  <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-[#5A5550]" : "text-gray-400"}`}>My Projects</span>
+                  <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-[#2a3a4e]" : "text-gray-400"}`}>My Projects</span>
                 </button>
 
                 {projectsOpen && (
@@ -322,13 +330,13 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
                     {myScripts.length > 0 ? (
                       myScripts.map((script) => (
                         <Link key={script._id} to={getScriptCanonicalPath(script)} onClick={() => setMobileOpen(false)}
-                          className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-[#9A9590] hover:text-white" : "text-gray-500 hover:text-gray-700"}`}>
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#2E2A26]" : "bg-gray-300"}`}></div>
+                          className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-[#8896a7] hover:text-white" : "text-gray-500 hover:text-gray-700"}`}>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#1c2a3a]" : "bg-gray-300"}`}></div>
                           <span className="text-[15px] font-semibold truncate">{script.title}</span>
                         </Link>
                       ))
                     ) : (
-                      <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-[#5A5550]" : "text-gray-400"}`}>No projects yet</p>
+                      <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-[#3a4a5e]" : "text-gray-400"}`}>No projects yet</p>
                     )}
                   </div>
                 )}
@@ -338,7 +346,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         )}
       </nav>
 
-      <div className={`border-t p-3 ${isDarkMode ? "border-[#2E2A26]" : "border-gray-100"}`}>
+      <div className={`border-t p-3 ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}>
         <button onClick={handleLogout}
           style={{ color: logoutAccentColor, opacity: 1 }}
           className={`w-full px-3 py-2.5 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center gap-2.5 justify-center ${isDarkMode ? "!text-red-400 hover:!text-red-300 hover:bg-red-500/10" : "!text-red-600 hover:!text-red-700 hover:bg-red-50/80"}`}>
@@ -351,14 +359,14 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
   return (
     <>
-      <aside className={`hidden lg:flex fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#100E0C] border-[#2E2A26]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`hidden lg:flex fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <SidebarContent />
       </aside>
 
-      <aside className={`hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#100E0C] border-[#2E2A26]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <div className="h-16 flex items-center justify-center">
           <Link to="/dashboard">
-            <svg className={`w-7 h-7 ${isDarkMode ? "text-[#9A9590]" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            <svg className={`w-7 h-7 ${isDarkMode ? "text-[#8896a7]" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           </Link>
@@ -371,8 +379,8 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
             return (
               <Link key={item.label} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined} title={item.label}
                 className={`relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${active
-                  ? isDarkMode ? "bg-white/[0.06] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
-                  : isDarkMode ? "text-[#5A5550] hover:bg-white/[0.04] hover:text-[#9A9590]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  ? isDarkMode ? "bg-[#0d1520] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
+                  : isDarkMode ? "text-[#4a5a6e] hover:bg-[#0d1520] hover:text-[#8896a7]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                   }`}>
                 <Icon d={item.icon} />
                 {showMessageBadge && (
@@ -381,21 +389,21 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
                   </span>
                 )}
                 {showPurchaseBadge && (
-                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[19px] h-[19px] px-1 rounded-full bg-[#C9705F] text-white text-[10px] font-extrabold leading-none ring-2 ring-[#100E0C]">
+                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[19px] h-[19px] px-1 rounded-full bg-[#1e3a5f] text-white text-[10px] font-extrabold leading-none ring-2 ring-white/80">
                     {purchaseRequestCount > 9 ? "9+" : purchaseRequestCount}
                   </span>
                 )}
               </Link>
             );
           })}
-          <div className={`w-6 my-1 border-t ${isDarkMode ? "border-[#2E2A26]" : "border-gray-100"}`}></div>
+          <div className={`w-6 my-1 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
           {actionItems.map((item) => {
             const active = isActive(item.path);
             return (
               <Link key={item.label} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined} title={item.label}
                 className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${active
-                  ? isDarkMode ? "bg-white/[0.06] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
-                  : isDarkMode ? "text-[#5A5550] hover:bg-white/[0.04] hover:text-[#9A9590]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  ? isDarkMode ? "bg-[#0d1520] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
+                  : isDarkMode ? "text-[#4a5a6e] hover:bg-[#0d1520] hover:text-[#8896a7]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                   }`}>
                 <Icon d={item.icon} />
               </Link>
@@ -409,10 +417,10 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
                 src={resolvedProfileImage}
                 alt={user?.name || "User"}
                 onError={() => setAvatarLoadError(true)}
-                className={`w-9 h-9 rounded-full object-cover ring-1 ${isDarkMode ? "ring-[#2E2A26]" : "ring-gray-200"}`}
+                className={`w-9 h-9 rounded-full object-cover ring-1 ${isDarkMode ? "ring-[#1c2a3a]" : "ring-gray-200"}`}
               />
             ) : (
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${isDarkMode ? "bg-white/[0.06] text-[#9A9590] ring-1 ring-[#2E2A26]" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${isDarkMode ? "bg-[#0d1520] text-[#8896a7] ring-1 ring-[#1c2a3a]" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
                 {user?.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
             )}
@@ -427,7 +435,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
       {showFloatingToggle && (
         <button onClick={() => setMobileOpen(true)}
-          className={`md:hidden fixed top-4 left-4 z-50 w-9 h-9 border rounded-lg flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#100E0C] border-[#2E2A26] text-[#9A9590]" : "bg-white border-gray-200 text-gray-600"}`}>
+          className={`md:hidden fixed top-4 left-4 z-50 w-9 h-9 border rounded-lg flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#080e18] border-[#151f2e] text-[#8896a7]" : "bg-white border-gray-200 text-gray-600"}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -437,8 +445,8 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)}></div>
-          <aside className={`absolute left-0 top-0 h-full w-[260px] shadow-lg ${isDarkMode ? "bg-[#100E0C]" : "bg-white"}`}>
-            <button onClick={() => setMobileOpen(false)} className={`absolute top-4 right-3 ${isDarkMode ? "text-[#5A5550] hover:text-white" : "text-gray-400 hover:text-gray-600"}`}>
+          <aside className={`absolute left-0 top-0 h-full w-[260px] shadow-lg ${isDarkMode ? "bg-[#080e18]" : "bg-white"}`}>
+            <button onClick={() => setMobileOpen(false)} className={`absolute top-4 right-3 ${isDarkMode ? "text-[#4a5a6e] hover:text-white" : "text-gray-400 hover:text-gray-600"}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -448,7 +456,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         </div>
       )}
 
-      <nav className={`hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#100E0C] border-[#2E2A26]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
+      <nav className={`hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
         {mobileItems.map((item) => {
           const active = isActive(item.path);
           const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
@@ -456,7 +464,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
             <Link key={item.path} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined}
               className={`relative flex flex-col items-center justify-center gap-0.5 w-14 h-12 transition-colors ${active
                 ? isDarkMode ? "text-white" : "text-[#1e3a5f]"
-                : isDarkMode ? "text-[#5A5550]" : "text-gray-400"
+                : isDarkMode ? "text-[#4a5a6e]" : "text-gray-400"
                 }`}>
               <Icon d={item.icon} size={`w-[22px] h-[22px] ${active ? "stroke-[2.2]" : ""}`} />
               {showMessageBadge && (
@@ -466,7 +474,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
               )}
               <span className={`text-xs ${active
                 ? isDarkMode ? "font-extrabold text-white" : "font-extrabold text-[#1e3a5f]"
-                : isDarkMode ? "font-bold text-[#5A5550]" : "font-bold text-gray-400"
+                : isDarkMode ? "font-bold text-[#4a5a6e]" : "font-bold text-gray-400"
                 }`}>
                 {item.label}
               </span>

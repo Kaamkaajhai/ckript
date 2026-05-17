@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
 
 /* ═══════════════════════════════════════════════════════════
    DESIGN SYSTEM — Premium Global Foundation
@@ -249,12 +248,12 @@ html.dark-mode select optgroup {
 }
 
 html.dark-mode ::-webkit-scrollbar-thumb {
-  background: #2E2A26;
+  background: #1e3550;
   border-radius: 100px;
 }
 
 html.dark-mode ::-webkit-scrollbar-thumb:hover {
-  background: #5A5550;
+  background: #2a4a6a;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
@@ -589,20 +588,20 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 
 html.dark-mode {
   color-scheme: dark;
-  background: #100E0C;
+  background: #060d18;
 }
 
 html.dark-mode body {
-  background: #100E0C;
-  color: #F5F0E8;
+  background: #060d18;
+  color: #e2e8f0;
 }
 
 html.dark-mode .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #2E2A26;
+  background: #1a3050;
 }
 
 html.dark-mode .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #5A5550;
+  background: #24466e;
 }
 
 html.dark-mode *,
@@ -620,40 +619,40 @@ html.dark-mode [class*="animate-"] {
 
 /* ── Dark Mode Card & Surface Refinements ── */
 html.dark-mode .hover-lift:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 24px rgba(5, 20, 45, 0.5), 0 0 0 1px rgba(45, 90, 142, 0.15);
 }
 
 html.dark-mode .skeleton {
-  background: linear-gradient(90deg, #1C1917 25%, #2E2A26 37%, #1C1917 63%);
+  background: linear-gradient(90deg, #0e1c2e 25%, #1a3050 37%, #0e1c2e 63%);
   background-size: 200% 100%;
 }
 
 html.dark-mode .glass {
-  background: rgba(28, 25, 23, 0.85);
+  background: rgba(14, 28, 46, 0.85);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
 html.dark-mode .glass-strong {
-  background: rgba(16, 14, 12, 0.92);
+  background: rgba(11, 20, 38, 0.92);
   backdrop-filter: blur(20px) saturate(200%);
   -webkit-backdrop-filter: blur(20px) saturate(200%);
 }
 
 html.dark-mode ::selection {
-  background: rgba(201, 112, 95, 0.3);
-  color: #F5F0E8;
+  background: rgba(30, 58, 95, 0.5);
+  color: #93c5fd;
 }
 
 html.dark-mode *:focus-visible {
-  box-shadow: 0 0 0 2px #1C1917, 0 0 0 4px rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 2px #0e1c2e, 0 0 0 4px #2d5a8e;
 }
 
 html.dark-mode input:focus-visible,
 html.dark-mode textarea:focus-visible,
 html.dark-mode select:focus-visible {
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 0 0 3px rgba(45, 90, 142, 0.25);
+  border-color: #2d5a8e !important;
 }
 
 html.dark-mode .editor-title:focus,
@@ -667,7 +666,7 @@ html.dark-mode .ProseMirror:focus-visible {
 
 /* ── Dark Mode Scrollbar ── */
 html.dark-mode ::-webkit-scrollbar-track {
-  background: #100E0C;
+  background: #080e1a;
 }
 
 /* ── Dark Mode Script Content viewer ── */
