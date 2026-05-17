@@ -139,7 +139,7 @@ const upsertActivityLog = async ({ userId, anonymousId, email, phone, logEntry }
         },
       },
     },
-    { upsert: true, returnDocument: "after" }
+    { upsert: true, new: true }
   );
 
   return activity;
@@ -223,7 +223,7 @@ const getOrCreateUserActivityDoc = async ({ userId, anonymousId, email, phone })
         phone: phone || "",
       }
     },
-    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
   if (anonymousId) activity.anonymousId = anonymousId;
@@ -552,7 +552,7 @@ export const trackEvent = async (req, res) => {
           sessions: [],
         }
       },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
     const isReturningVisitor = detectReturningFlag(visitor, isReturning);
@@ -710,7 +710,7 @@ export const trackSession = async (req, res) => {
           sessions: [],
         }
       },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
     const isReturningVisitor = detectReturningFlag(visitor, isReturning);

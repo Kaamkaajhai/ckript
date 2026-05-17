@@ -145,17 +145,17 @@ const ContactSection = () => {
                 data-selected={form.reason === value}
                 className={`luxury-contact-option flex items-center gap-4 px-5 py-4 rounded-2xl border-2 text-left transition-all duration-200
                   ${form.reason === value
-                    ? "border-white/20 bg-white text-black shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                    ? "border-[#6366F1] bg-white text-black shadow-[0_8px_24px_rgba(79,70,229,0.12)]"
                     : "border-[#E5E7EB] bg-white text-black hover:border-[#D1D5DB] hover:bg-[#F9FAFB]"
                   }`}
               >
-                <div className={`luxury-contact-option-icon w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${form.reason === value ? "bg-[#C9705F] text-white" : "bg-[#F3F4F6] text-black"
+                <div className={`luxury-contact-option-icon w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${form.reason === value ? "bg-[#6366F1] text-white" : "bg-[#F3F4F6] text-black"
                   }`}>
                   <Icon className="w-4 h-4" />
                 </div>
                 <span className="font-body text-sm font-medium">{label}</span>
                 {form.reason === value && (
-                  <CheckCircle className="w-4 h-4 text-[#C9705F] ml-auto shrink-0" />
+                  <CheckCircle className="w-4 h-4 text-[#D4AF77] ml-auto shrink-0" />
                 )}
               </button>
             ))}
@@ -291,7 +291,7 @@ const ContactSection = () => {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="luxury-cta luxury-cta--gold luxury-cta--wide group flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-[#C9705F] hover:bg-[#B5604F] font-body font-semibold text-white text-sm transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="luxury-cta luxury-cta--gold luxury-cta--wide group flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] font-body font-semibold text-white text-sm transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {loading ? (
                         <>
@@ -461,7 +461,7 @@ const Landing = () => {
                 <Link
                   to="/login"
                   onClick={closeInvestorReviewPopup}
-                  className="luxury-cta luxury-cta--gold sm:ml-auto bg-[#C9705F] text-white font-body text-xs font-semibold px-5 py-2.5 rounded-xl hover:bg-[#B5604F] transition-colors text-center"
+                  className="luxury-cta luxury-cta--gold sm:ml-auto bg-[#6366F1] text-white font-body text-xs font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4F46E5] transition-colors text-center"
                 >
                   Open Login →
                 </Link>
@@ -646,7 +646,7 @@ const Landing = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.10)] transition-all"
+              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
             >
               <div className="luxury-icon-shell luxury-icon-shell--gold w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
                 <PenLine className="w-5 h-5 text-[#111827]" />
@@ -689,7 +689,7 @@ const Landing = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.05)] hover:border-white/20 hover:shadow-[0_20px_50px_rgba(0,0,0,0.10)] transition-all"
+              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
             >
               <div className="luxury-icon-shell w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
                 <TrendingUp className="w-5 h-5 text-[#111827]" />
@@ -732,7 +732,7 @@ const Landing = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="luxury-cinematic-panel relative mt-16 sm:mt-20 max-w-6xl mx-auto overflow-hidden rounded-[2rem] border border-white/10 shadow-[0_28px_80px_rgba(0,0,0,0.30)]"
+            className="luxury-cinematic-panel relative mt-16 sm:mt-20 max-w-6xl mx-auto overflow-hidden rounded-[2rem] border border-[#E2C38B]/35 shadow-[0_28px_80px_rgba(15,23,42,0.26)]"
           >
             <img
               src="/enter-ckript-cover.png"
@@ -776,9 +776,9 @@ const Landing = () => {
       {/* ══════════════════════════════════════
           HOW IT WORKS — dark with cinematic background
           ══════════════════════════════════════ */}
-      <section className="luxury-section luxury-process-section relative py-24 sm:py-32 px-4 sm:px-8 overflow-hidden bg-[#0D0B08]">
-        <div className="absolute inset-0 opacity-60">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(229,160,75,0.06),transparent_50%),radial-gradient(ellipse_at_80%_100%,rgba(147,197,253,0.04),transparent_50%)]" />
+      <section className="luxury-section luxury-process-section relative py-24 sm:py-32 px-4 sm:px-8 overflow-hidden bg-[#0A0A0B]">
+        <div className="absolute inset-0 opacity-80">
+          <div className="absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] [background-size:120px_120px]" />
         </div>
 
         <div className="relative z-10 max-w-6xl mx-auto">
@@ -836,7 +836,7 @@ const Landing = () => {
                       data-active={isActive}
                       className={`luxury-step-dot flex h-10 w-10 items-center justify-center rounded-full border text-[11px] font-semibold transition-all duration-500 ${isActive
                           ? "border-white bg-white text-black"
-                          : "border-white/20 bg-[#0D0B08] text-white/50"
+                          : "border-white/20 bg-[#0A0A0B] text-white/50"
                         }`}
                       aria-label={`Highlight step ${item.step}`}
                     >
@@ -905,7 +905,7 @@ const Landing = () => {
           >
             <Link
               to="/join"
-              className="luxury-cta luxury-cta--gold luxury-cta--sheen group inline-flex items-center gap-2 bg-[#C9705F] text-white font-body text-sm font-semibold px-8 py-4 rounded-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(201,112,95,0.30)]"
+              className="luxury-cta luxury-cta--gold luxury-cta--sheen group inline-flex items-center gap-2 bg-[linear-gradient(135deg,#0EA5E9,#2563EB)] text-white font-body text-sm font-semibold px-8 py-4 rounded-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(14,165,233,0.38)]"
             >
               Start your story
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -933,9 +933,6 @@ const Landing = () => {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-7 font-body text-sm text-[#94A3B8]">
-              <Link to="/events" className="luxury-footer-link hover:text-white transition-colors">
-                Events
-              </Link>
               <Link to="/about" className="luxury-footer-link hover:text-white transition-colors">
                 About
               </Link>

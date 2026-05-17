@@ -10,7 +10,6 @@ import { getScriptCompletionBadgeClasses, getScriptCompletionProgressText, getSc
 const API_ORIGIN = getApiOrigin();
 const API_BASE_URL = getApiBaseUrl();
 const MAX_ATTACHMENT_SIZE_BYTES = 250 * 1024 * 1024;
-const EVENT_REGISTRATION_SLUG = "ckript-global-scriptathon-2026";
 
 // Admin-specific API — uses admin token from sessionStorage, separate from user session
 const adminApi = axios.create({ baseURL: API_BASE_URL });
@@ -45,7 +44,6 @@ const TABS = [
     { key: "investor-purchases", label: "Purchases", icon: "M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" },
     { key: "invoices", label: "Invoices", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H6.75A2.25 2.25 0 004.5 4.5v15A2.25 2.25 0 006.75 21.75h10.5A2.25 2.25 0 0019.5 19.5v-1.125M15 12h-6m6 3h-6m3-6h.008v.008H12V9z" },
     { key: "payments", label: "Payments", icon: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" },
-    { key: "event-registrations", label: "Event Registrations", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "scores", label: "Scores", icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" },
     { key: "deleted-film-professionals", label: "Deleted Film Professionals", icon: "M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" },
     { key: "deleted-writers", label: "Deleted Writers", icon: "M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" },
@@ -966,7 +964,6 @@ const AdminDashboard = () => {
     const [scripts, setScripts] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [invoices, setInvoices] = useState([]);
-    const [eventRegistrations, setEventRegistrations] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState("");
@@ -1202,7 +1199,6 @@ const AdminDashboard = () => {
     const sourceScripts = isGlobalSearchMode ? globalResults.scripts : scripts;
     const sourceTransactions = isGlobalSearchMode ? globalResults.transactions : transactions;
     const sourceInvoices = isGlobalSearchMode ? globalResults.invoices : invoices;
-    const sourceEventRegistrations = eventRegistrations;
     const sourcePendingInvestors = isGlobalSearchMode ? globalResults.pendingInvestors : pendingInvestors;
     const sourceMembershipReviews = membershipReviews;
     const sourceBankReviews = isGlobalSearchMode ? globalResults.bankReviews : bankReviews;
@@ -1241,18 +1237,6 @@ const AdminDashboard = () => {
         )
     );
     const filteredInvoices = sourceInvoices.filter((inv) => matchesSearch(inv.invoiceNumber, inv.creator?.name, inv.creatorSid, inv.creator?.sid, inv.script?.title, inv.scriptSid, inv.script?.sid, inv.accessType));
-    const filteredEventRegistrations = sourceEventRegistrations.filter((reg) => matchesSearch(
-        reg.participantId,
-        reg.fullName,
-        reg.username,
-        reg.email,
-        reg.phoneNumber,
-        reg.country,
-        reg.city,
-        reg.preferredGenre,
-        reg.paymentStatus,
-        reg.createdAt
-    ));
     const filteredPendingInvestors = sourcePendingInvestors.filter((inv) => matchesSearch(inv.name, inv.email, inv.createdAt));
     const filteredMembershipReviews = sourceMembershipReviews.filter((review) =>
         matchesSearch(
@@ -1316,11 +1300,6 @@ const AdminDashboard = () => {
                 return {
                     title: `Invoices (${invoices.length})`,
                     lines: invoices.map((inv, idx) => `${idx + 1}. ${inv.invoiceNumber || "-"} | Creator: ${inv.creator?.name || "-"} (${inv.creatorSid || inv.creator?.sid || "-"}) | Project: ${inv.script?.title || "-"} (${inv.scriptSid || inv.script?.sid || "-"}) | Access: ${inv.accessType || "-"} | Credits: ${inv.totalCreditsRequired || 0} | Date: ${formatExportDate(inv.invoiceDate || inv.createdAt)}`),
-                };
-            case "event-registrations":
-                return {
-                    title: `Event Registrations (${eventRegistrations.length})`,
-                    lines: eventRegistrations.map((reg, idx) => `${idx + 1}. ${reg.fullName || "-"} | ${reg.email || "-"} | Participant: ${reg.participantId || "-"} | Phone: ${reg.phoneNumber || "-"} | Country: ${reg.country || "-"} | Genre: ${reg.preferredGenre || "-"} | Status: ${reg.paymentStatus || "-"} | Date: ${formatExportDate(reg.createdAt)}`),
                 };
             case "pending-investors":
                 return {
@@ -1668,13 +1647,6 @@ const AdminDashboard = () => {
                 case "invoices": {
                     const { data } = await adminApi.get(`/admin/invoices?page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     setInvoices(data.invoices); setTotalPages(data.totalPages); setTotal(data.total);
-                    break;
-                }
-                case "event-registrations": {
-                    const { data } = await adminApi.get(`/admin/events/registrations?slug=${encodeURIComponent(EVENT_REGISTRATION_SLUG)}&page=${page}&search=${encodeURIComponent(activeSearch)}`);
-                    setEventRegistrations(data.registrations || []);
-                    setTotalPages(data.totalPages || 1);
-                    setTotal(data.total || 0);
                     break;
                 }
                 case "scores": {
@@ -3092,70 +3064,6 @@ const AdminDashboard = () => {
                                         ))}
                                         {filteredInvoices.length === 0 && (
                                             <tr><td colSpan={7} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No invoices found</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
-
-            case "event-registrations":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                Event Registrations
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                                    ({hasSearch ? filteredEventRegistrations.length : total})
-                                </span>
-                            </h2>
-                        </div>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            {[
-                                                "Participant",
-                                                "Email",
-                                                "Phone",
-                                                "Country",
-                                                "Genre",
-                                                "Payment",
-                                                "Registered",
-                                            ].map((h) => (
-                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {filteredEventRegistrations.map((reg) => (
-                                            <tr key={reg._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className="px-5 py-3.5">
-                                                    <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{reg.fullName || "-"}</p>
-                                                    <p className={`text-[11px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                                                        ID: {reg.participantId || "-"}
-                                                    </p>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{reg.email || "-"}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{reg.phoneNumber || "-"}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{reg.country || "-"}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{reg.preferredGenre || "-"}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${reg.paymentStatus === "paid"
-                                                        ? "bg-emerald-100 text-emerald-700"
-                                                        : reg.paymentStatus === "failed"
-                                                            ? "bg-red-100 text-red-700"
-                                                            : "bg-amber-100 text-amber-700"
-                                                        }`}>{reg.paymentStatus || "pending"}</span>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>{new Date(reg.createdAt).toLocaleDateString()}</td>
-                                            </tr>
-                                        ))}
-                                        {filteredEventRegistrations.length === 0 && (
-                                            <tr><td colSpan={7} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No registrations found</td></tr>
                                         )}
                                     </tbody>
                                 </table>

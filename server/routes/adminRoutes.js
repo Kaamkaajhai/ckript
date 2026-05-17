@@ -53,7 +53,6 @@ import {
     deleteDiscountCode,
     sendAudienceBroadcast,
 } from "../controllers/adminController.js";
-import { getEventRegistrationsAdmin } from "../controllers/eventController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
 
@@ -132,9 +131,6 @@ router.post("/legal/terms/versions", createAdminPurchaseTermsVersion);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);
-
-// Event Registrations
-router.get("/events/registrations", getEventRegistrationsAdmin);
 
 // Discount Codes
 router.get("/discount-codes", getDiscountCodes);

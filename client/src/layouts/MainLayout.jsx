@@ -12,10 +12,9 @@ import api from "../services/api";
 import { getApiOrigin } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
-import ReferralShareCard from "../components/ReferralShareCard";
 
 const SOCKET_ORIGIN = getApiOrigin() || (typeof window !== "undefined" ? window.location.origin : "");
-const POPUP_STACK_LIMIT = 1;
+const POPUP_STACK_LIMIT = 4;
 const POPUP_STORAGE_LIMIT = 12;
 const NOTIFICATION_POLL_INTERVAL_MS = 30000;
 const NOTIFICATION_REFRESH_DEBOUNCE_MS = 350;
@@ -40,7 +39,6 @@ const MainLayout = ({ children }) => {
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [sidebarToggleToken, setSidebarToggleToken] = useState(0);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showReferralModal, setShowReferralModal] = useState(false);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
   const notificationRefreshTimeoutRef = useRef(null);
@@ -665,7 +663,7 @@ const MainLayout = ({ children }) => {
         )}
       </div>
       
-      <div className={`min-h-screen ${isDarkMode ? "bg-[#100E0C]" : "bg-[#eef0f3]"}`}>
+      <div className={`min-h-screen ${isDarkMode ? "bg-[#080e18]" : "bg-[#eef0f3]"}`}>
       <Sidebar
         purchaseRequestCount={pendingPurchaseCount}
         unreadMessageCount={unreadMessageCount}
@@ -674,11 +672,11 @@ const MainLayout = ({ children }) => {
       />
 
       {/* Top bar */}
-      <header className="fixed top-0 right-0 left-0 md:left-[64px] lg:left-[270px] border-b px-3 max-[378px]:px-2.5 max-[340px]:px-2 sm:px-6 lg:px-8 py-2 sm:py-0 z-[90] bg-[#0D0B08]/98 border-[#2E2A26] backdrop-blur-xl" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <header className="fixed top-0 right-0 left-0 md:left-[64px] lg:left-[270px] border-b px-3 max-[378px]:px-2.5 max-[340px]:px-2 sm:px-6 lg:px-8 py-2 sm:py-0 z-[90] bg-[#060b14]/98 border-[#132033] backdrop-blur-xl">
         <div className="flex flex-nowrap items-center gap-2 max-[378px]:gap-1.5 max-[340px]:gap-1 sm:gap-3 min-[640px]:max-[690px]:gap-2 min-h-14 sm:min-h-16">
           <button
             onClick={() => setSidebarToggleToken((v) => v + 1)}
-            className="md:hidden order-1 w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 shrink-0 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-white/[0.04]"
+            className="md:hidden order-1 w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 shrink-0 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a]"
             style={{ color: "#ffffff" }}
             aria-label="Open sidebar"
             title="Open sidebar"
@@ -699,8 +697,8 @@ const MainLayout = ({ children }) => {
 
           {/* Search */}
           <form onSubmit={handleSearch} className="hidden sm:flex min-[640px]:max-[690px]:hidden order-3 basis-full sm:order-2 sm:basis-auto sm:flex-1 sm:min-w-[200px] md:min-w-[260px] sm:max-w-[320px] md:max-w-lg items-center">
-          <div className="group flex items-center w-full rounded-xl overflow-hidden transition-all duration-300 border border-[#2E2A26] bg-[#1C1917] hover:border-white/10 focus-within:border-white/20 focus-within:ring-2 focus-within:ring-white/5">
-            <div className="pl-4 transition-colors text-[#9A9590] group-focus-within:text-[#F5F0E8]">
+          <div className="group flex items-center w-full rounded-xl overflow-hidden transition-all duration-300 border border-[#1d2d45] bg-[#0b1524] hover:border-[#2b4262] focus-within:border-[#355782] focus-within:ring-2 focus-within:ring-sky-400/10">
+            <div className="pl-4 transition-colors text-[#6f86a7] group-focus-within:text-[#b7c8df]">
               <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -713,11 +711,11 @@ const MainLayout = ({ children }) => {
               spellCheck={false}
               autoCorrect="off"
               autoCapitalize="none"
-              className="app-search-input app-search-input-dark flex-1 px-2.5 md:px-3 py-2.5 text-[13px] md:text-[14px] font-medium outline-none bg-transparent text-white !text-white placeholder-[#9A9590]"
+              className="app-search-input app-search-input-dark flex-1 px-2.5 md:px-3 py-2.5 text-[13px] md:text-[14px] font-medium outline-none bg-transparent text-white !text-white placeholder-[#6f86a7]"
             />
             {searchQuery && (
               <button type="button" onClick={() => setSearchQuery("")}
-                className="pr-3 transition-colors text-[#9A9590] hover:text-[#F5F0E8]">
+                className="pr-3 transition-colors text-[#6f86a7] hover:text-[#b7c8df]">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -730,7 +728,7 @@ const MainLayout = ({ children }) => {
         <div className="order-2 sm:order-3 ml-auto flex items-center gap-1 max-[378px]:gap-0.5 sm:gap-1.5 md:gap-2 min-[640px]:max-[690px]:gap-1 relative z-[95] shrink-0">
           <button
             onClick={() => navigate("/search")}
-            className="sm:hidden min-[640px]:max-[690px]:flex max-[299px]:hidden w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-white/[0.04]"
+            className="sm:hidden min-[640px]:max-[690px]:flex max-[299px]:hidden w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a]"
             style={{ color: "#ffffff" }}
             aria-label="Open search"
             title="Search"
@@ -743,13 +741,13 @@ const MainLayout = ({ children }) => {
           {/* Notification bell */}
           <div className="relative" ref={notifRef}>
             <button onClick={handleNotifToggle}
-              className="relative w-8 h-8 md:w-9 md:h-9 max-[378px]:w-[30px] max-[378px]:h-[30px] flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-white/[0.04] hover:scale-105"
+              className="relative w-8 h-8 md:w-9 md:h-9 max-[378px]:w-[30px] max-[378px]:h-[30px] flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a] hover:scale-105"
               style={{ color: "#ffffff" }}>
               <svg className="w-5 h-5 max-[378px]:w-[18px] max-[378px]:h-[18px] text-white opacity-100" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-[#C9705F] text-white text-[10px] font-bold rounded-full px-1 ring-2 ring-[#0D0B08] animate-pulse-soft">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-[#1e3a5f] text-white text-[10px] font-bold rounded-full px-1 ring-2 ring-[#060b14] animate-pulse-soft">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
@@ -894,34 +892,34 @@ const MainLayout = ({ children }) => {
           {showCreditSystem && (
             <button
               onClick={() => setShowBuyCredits(true)}
-              className="group shrink-0 flex items-center gap-1.5 max-[378px]:gap-1 md:gap-2 min-[640px]:max-[690px]:gap-1 px-2.5 max-[378px]:px-2 max-[340px]:px-1.5 md:px-3.5 min-[640px]:max-[690px]:px-2 py-1.5 max-[378px]:py-1 rounded-xl max-[378px]:rounded-lg border text-sm transition-all duration-200 bg-[#1C1917] border-white/[0.06] hover:bg-white/[0.06] hover:border-white/10 hover:shadow-lg hover:shadow-black/10"
+              className="group shrink-0 flex items-center gap-1.5 max-[378px]:gap-1 md:gap-2 min-[640px]:max-[690px]:gap-1 px-2.5 max-[378px]:px-2 max-[340px]:px-1.5 md:px-3.5 min-[640px]:max-[690px]:px-2 py-1.5 max-[378px]:py-1 rounded-xl max-[378px]:rounded-lg border text-sm transition-all duration-200 bg-[#071224] border-white/[0.09] hover:bg-[#0a1729] hover:border-sky-500/25 hover:shadow-lg hover:shadow-sky-500/5"
             >
-              <svg className="w-3.5 h-3.5 max-[378px]:w-3 max-[378px]:h-3 flex-shrink-0 transition-colors text-[#C9705F] group-hover:text-[#D9806F]" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-3.5 h-3.5 max-[378px]:w-3 max-[378px]:h-3 flex-shrink-0 transition-colors text-sky-400 group-hover:text-sky-300" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" />
               </svg>
               <span className="font-bold text-[12px] max-[378px]:text-[11px] md:text-[13px] tabular-nums tracking-tight text-white">{creditsBalance}</span>
-              <span className="hidden md:inline text-[11px] font-medium text-[#9A9590]">CR</span>
+              <span className="hidden md:inline text-[11px] font-medium text-[#7f93b0]">CR</span>
             </button>
           )}
 
           {/* User menu */}
           <div className="hidden sm:block min-[640px]:max-[690px]:hidden relative" ref={dropdownRef}>
             <button onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all duration-200 hover:bg-white/[0.04]">
+              className="flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all duration-200 hover:bg-[#0d1a2a]">
               {resolvedProfileImage && !avatarLoadError ? (
                 <img
                   src={resolvedProfileImage}
                   alt={user?.name || "User"}
                   onError={() => setAvatarLoadError(true)}
-                  className="w-8 h-8 rounded-xl object-cover ring-2 transition-shadow ring-[#2E2A26]"
+                  className="w-8 h-8 rounded-xl object-cover ring-2 transition-shadow ring-[#1c2a3a]"
                 />
               ) : (
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold bg-white/[0.06] text-[#9A9590] ring-1 ring-[#2E2A26]">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold bg-[#0d1520] text-[#c3d2e6] ring-1 ring-[#1c2a3a]">
                   {initials}
                 </div>
               )}
               <span className="hidden lg:block text-[14px] font-semibold text-white">{user?.name || "User"}</span>
-              <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""} text-[#9A9590]`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""} text-[#7f93b0]`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
@@ -960,16 +958,6 @@ const MainLayout = ({ children }) => {
                   Privacy
                 </button>
 
-                {["creator", "writer"].includes(String(user?.role || "").toLowerCase()) && (
-                  <button onClick={() => { setShowReferralModal(true); setDropdownOpen(false); }}
-                    className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                    </svg>
-                    Writer Referral
-                  </button>
-                )}
-
                 <div className={`border-t my-1 ${isDarkMode ? "border-[#1c2a3a]" : "border-gray-100"}`}></div>
                 <button onClick={handleLogout}
                   className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-red-400" : "text-gray-500 hover:bg-gray-50"}`}>
@@ -1003,47 +991,6 @@ const MainLayout = ({ children }) => {
       onCancel={() => setShowLogoutConfirm(false)}
       isDarkMode={isDarkMode}
     />
-
-    <AnimatePresence>
-      {showReferralModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowReferralModal(false)}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className={`relative w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl ${
-              isDarkMode ? "bg-[#100E0C] border-[#2E2A26]" : "bg-white border-gray-200"
-            }`}
-          >
-            <div className="flex items-center justify-between border-b p-4 sm:p-5" style={{ borderColor: isDarkMode ? "#2E2A26" : "#e5e7eb" }}>
-              <h3 className={`text-lg font-bold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                Writer Referral
-              </h3>
-              <button
-                onClick={() => setShowReferralModal(false)}
-                className={`rounded-full p-2 transition-colors ${
-                  isDarkMode ? "text-gray-400 hover:bg-white/10 hover:text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-                }`}
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="p-4 sm:p-6">
-              <ReferralShareCard dark={isDarkMode} compact={false} />
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
     </>
   );
 };
