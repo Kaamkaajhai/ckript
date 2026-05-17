@@ -17,6 +17,9 @@ const AUTH_HEADER_EXEMPT_ROUTES = [
   "/auth/join",
   "/auth/verify-otp",
   "/auth/resend-otp",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+  "/auth/resend-reset-otp",
   "/auth/validate-address",
   "/auth/zip-info",
 ];

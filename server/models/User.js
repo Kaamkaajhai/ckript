@@ -56,6 +56,12 @@ const userSchema = new mongoose.Schema({
   emailVerificationExpires: { type: Date },
   emailVerificationResendAvailableAt: { type: Date },
 
+  // Password reset (forgot password)
+  passwordResetToken: { type: String, default: null },
+  passwordResetExpires: { type: Date, default: null },
+  passwordResetResendAvailableAt: { type: Date, default: null },
+  passwordResetAttempts: { type: Number, default: 0 },
+
   // Legal acceptance tracking
   privacyPolicyAccepted: { type: Boolean, default: false },
   privacyPolicyAcceptedAt: { type: Date },
