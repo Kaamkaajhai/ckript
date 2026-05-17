@@ -6,6 +6,13 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { formatCurrency } from "../utils/currency";
 import { getApiBaseUrl, getApiOrigin } from "../utils/apiOrigin";
 import { getScriptCompletionBadgeClasses, getScriptCompletionProgressText, getScriptCompletionStatusLabel, getScriptCompletionSummary } from "../utils/scriptCompletion";
+import {
+    attachAdminScriptAccessHeader,
+    clearAdminScriptAccess,
+    getStoredAdminScriptAccess,
+    isAdminScriptProtectedTab,
+    storeAdminScriptAccess,
+} from "../utils/adminScriptAccess";
 
 const API_ORIGIN = getApiOrigin();
 const API_BASE_URL = getApiBaseUrl();
@@ -23,7 +30,7 @@ adminApi.interceptors.request.use((config) => {
             // Ignore malformed admin session data and proceed without token.
         }
     }
-    return config;
+    return attachAdminScriptAccessHeader(config);
 });
 
 const TABS = [
@@ -1132,6 +1139,54 @@ const AdminDashboard = () => {
         if (typeof resolver === "function") resolver(result);
     };
 
+    const ensureScriptSectionAccess = async () => {
+        const existingAccess = getStoredAdminScriptAccess();
+        if (existingAccess?.token) {
+            return true;
+        }
+
+        const password = await openAdminDialog({
+            type: "prompt",
+            title: "Unlock Script Sections",
+            message: "Enter the script-section password to open Scripts, Script Approvals, and Deleted Scripts.",
+            confirmText: "Unlock",
+            cancelText: "Cancel",
+            placeholder: "Section password",
+            inputType: "password",
+        });
+
+        if (password === null) {
+            return false;
+        }
+
+        if (!String(password || "").length) {
+            showToast("Script section password is required.", "error");
+            return false;
+        }
+
+        try {
+            const { data } = await adminApi.post("/admin/script-access/verify", { password });
+            storeAdminScriptAccess(data);
+            showToast("Script sections unlocked");
+            return true;
+        } catch (err) {
+            clearAdminScriptAccess();
+            showToast(err?.response?.data?.message || "Failed to unlock script sections", "error");
+            return false;
+        }
+    };
+
+    const handleTabChange = async (nextTab) => {
+        if (nextTab === activeTab) return;
+
+        if (isAdminScriptProtectedTab(nextTab)) {
+            const hasAccess = await ensureScriptSectionAccess();
+            if (!hasAccess) return;
+        }
+
+        setActiveTab(nextTab);
+    };
+
     useEffect(() => {
         if (!adminDialog) return undefined;
 
@@ -1450,6 +1505,9 @@ const AdminDashboard = () => {
 
     const handleDownloadWholeDashboardPdf = async () => {
         try {
+            const hasScriptAccess = await ensureScriptSectionAccess();
+            if (!hasScriptAccess) return;
+
             setExportingAll(true);
 
             const [
@@ -1589,6 +1647,14 @@ const AdminDashboard = () => {
         setLoading(true);
         const activeSearch = searchValue.trim();
         try {
+            if (isAdminScriptProtectedTab(activeTab)) {
+                const hasScriptAccess = await ensureScriptSectionAccess();
+                if (!hasScriptAccess) {
+                    setLoading(false);
+                    return;
+                }
+            }
+
             switch (activeTab) {
                 case "overview": {
                     const { data } = await adminApi.get("/admin/stats");
@@ -1719,8 +1785,12 @@ const AdminDashboard = () => {
             console.error("Admin fetch error:", err);
             if (err.response?.status === 401) {
                 sessionStorage.removeItem("admin-session");
+                clearAdminScriptAccess();
                 setAuthorized(false);
                 showToast("Session expired. Please re-enter the access code.", "error");
+            } else if (err?.response?.data?.code === "ADMIN_SCRIPT_SECTION_PASSWORD_REQUIRED") {
+                clearAdminScriptAccess();
+                showToast("Script section unlock expired. Please enter the password again.", "error");
             } else {
                 showToast(err?.response?.data?.message || "Failed to load admin data", "error");
             }
@@ -1740,6 +1810,7 @@ const AdminDashboard = () => {
 
         setLoading(true);
         try {
+            const hasScriptAccess = Boolean(getStoredAdminScriptAccess()?.token);
             const [
                 investorsRes,
                 writersRes,
@@ -1756,7 +1827,9 @@ const AdminDashboard = () => {
                 adminApi.get(`/admin/users?role=writer&page=1&limit=100&search=${encodeURIComponent(activeSearch)}`),
                 adminApi.get(`/admin/users?role=creator&page=1&limit=100&search=${encodeURIComponent(activeSearch)}`),
                 adminApi.get(`/admin/users?role=reader&page=1&limit=100&search=${encodeURIComponent(activeSearch)}`),
-                adminApi.get(`/admin/scripts?page=1&limit=100&search=${encodeURIComponent(activeSearch)}`),
+                hasScriptAccess
+                    ? adminApi.get(`/admin/scripts?page=1&limit=100&search=${encodeURIComponent(activeSearch)}`)
+                    : Promise.resolve({ data: { scripts: [] } }),
                 adminApi.get(`/admin/invoices?page=1&limit=100&search=${encodeURIComponent(activeSearch)}`),
                 adminApi.get(`/admin/payments?page=1&limit=200`),
                 adminApi.get(`/admin/investors/pending?page=1&limit=200`),
@@ -1782,8 +1855,12 @@ const AdminDashboard = () => {
             console.error("Admin global search fetch error:", err);
             if (err.response?.status === 401) {
                 sessionStorage.removeItem("admin-session");
+                clearAdminScriptAccess();
                 setAuthorized(false);
                 showToast("Session expired. Please re-enter the access code.", "error");
+            } else if (err?.response?.data?.code === "ADMIN_SCRIPT_SECTION_PASSWORD_REQUIRED") {
+                clearAdminScriptAccess();
+                showToast("Scripts stay hidden in global search until the protected script sections are unlocked.", "info");
             }
         }
         setLoading(false);
@@ -2056,6 +2133,9 @@ const AdminDashboard = () => {
 
     // ─── Action handlers (all use adminApi) ───
     const handleApprove = async (id) => {
+        const hasScriptAccess = await ensureScriptSectionAccess();
+        if (!hasScriptAccess) return;
+
         try {
             await adminApi.put(`/admin/scripts/${id}/approve`);
             showToast("Script approved and published successfully");
@@ -2067,6 +2147,9 @@ const AdminDashboard = () => {
     };
 
     const handleReject = async (id) => {
+        const hasScriptAccess = await ensureScriptSectionAccess();
+        if (!hasScriptAccess) return;
+
         const reason = await openAdminDialog({
             type: "prompt",
             title: "Reject script",
@@ -2088,6 +2171,9 @@ const AdminDashboard = () => {
     };
 
     const handleDeleteProject = async (script) => {
+        const hasScriptAccess = await ensureScriptSectionAccess();
+        if (!hasScriptAccess) return;
+
         const scriptId = script?._id;
         if (!scriptId || deletingScriptId) return;
 
@@ -2115,6 +2201,9 @@ const AdminDashboard = () => {
     };
 
     const handleScore = async (id, scores) => {
+        const hasScriptAccess = await ensureScriptSectionAccess();
+        if (!hasScriptAccess) return false;
+
         try {
             await adminApi.put(`/admin/scripts/${id}/score`, scores);
             showToast("Platform score saved successfully");
@@ -2621,6 +2710,7 @@ const AdminDashboard = () => {
                 adminCode: enteredCode,
             });
             sessionStorage.setItem("admin-session", JSON.stringify(data));
+            clearAdminScriptAccess();
             setAuthorized(true);
             setCodeInput("");
         } catch (error) {
@@ -2637,6 +2727,7 @@ const AdminDashboard = () => {
     const confirmLogout = () => {
         setShowLogoutConfirm(false);
         sessionStorage.removeItem("admin-session");
+        clearAdminScriptAccess();
         setAuthorized(false);
         previousAlertSummaryRef.current = null;
         setAlertSummary({});
@@ -4959,7 +5050,7 @@ const AdminDashboard = () => {
                             <span className="flex-1 text-left">Agreements</span>
                         </a>
                         {TABS.map((tab) => (
-                            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
                                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all ${activeTab === tab.key
                                     ? "bg-blue-500/15 text-blue-400"
                                     : "text-gray-400 hover:bg-[#132744] hover:text-gray-200"
@@ -4986,7 +5077,7 @@ const AdminDashboard = () => {
                             Agreements
                         </a>
                         {TABS.map((tab) => (
-                            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
                                 className={`whitespace-nowrap px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === tab.key
                                     ? "bg-blue-500/15 text-blue-400"
                                     : "text-gray-500"
