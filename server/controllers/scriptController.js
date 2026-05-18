@@ -24,17 +24,12 @@ import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { CREDIT_PRICES } from "./creditsController.js";
 import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
-import { getProfileCompletion } from "../utils/profileCompletion.js";
-import { createRequire } from 'module';
+import { extractTextFromPdfBuffer, extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
-import os from "os";
-import { execFile } from "child_process";
-import { promisify } from "util";
-import { readFile, unlink, writeFile } from "fs/promises";
 import { fileURLToPath } from "url";
 import { uploadToCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import {
@@ -51,7 +46,6 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ADMIN_APPROVAL_ARCHIVE_DIR = process.env.ADMIN_APPROVAL_ARCHIVE_DIR || "C:\\Users\\yashc\\OneDrive\\ckript-data\\c-s";
-const execFileAsync = promisify(execFile);
 
 // Lazy initialization of Razorpay
 let razorpayInstance = null;
@@ -266,26 +260,37 @@ const archiveScriptSubmissionForAdmin = async ({ script, writer, approvalSource 
   return { targetDir, archiveName, mode: "pdf" };
 };
 
-const normalizeExtractedPdfText = (value = "") =>
-  String(value || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n");
+const hydrateScriptTextFromStoredPdf = async (script, { source = "unknown" } = {}) => {
+  if (!script) return { text: "", strategy: "missing-script" };
 
-const extractPdfTextWithPdftotext = async (buffer) => {
-  const tempId = crypto.randomUUID();
-  const tempPdfPath = path.join(os.tmpdir(), `ckript-pdf-${tempId}.pdf`);
-  const tempTxtPath = path.join(os.tmpdir(), `ckript-pdf-${tempId}.txt`);
+  const currentText = String(script.textContent || "").trim();
+  if (currentText) {
+    return { text: script.textContent, strategy: "already-present" };
+  }
+
+  const remoteUrl = String(script.fileUrl || "").trim();
+  if (!remoteUrl) {
+    return { text: "", strategy: "missing-file-url" };
+  }
 
   try {
-    await writeFile(tempPdfPath, buffer);
-    await execFileAsync("pdftotext", ["-layout", "-enc", "UTF-8", tempPdfPath, tempTxtPath]);
-    const text = await readFile(tempTxtPath, "utf8");
-    return normalizeExtractedPdfText(text);
-  } finally {
-    await Promise.allSettled([
-      unlink(tempPdfPath),
-      unlink(tempTxtPath),
-    ]);
+    const extraction = await extractTextFromPdfUrl(remoteUrl);
+    const extractedText = String(extraction?.text || "").trim();
+
+    if (!extractedText) {
+      return extraction;
+    }
+
+    script.textContent = extraction.text;
+    if (!Number(script.pageCount) && Number(extraction?.numItems) > 0) {
+      script.pageCount = Number(extraction.numItems);
+    }
+    await script.save();
+
+    return extraction;
+  } catch (error) {
+    console.warn(`[hydrateScriptTextFromStoredPdf] ${source} failed:`, error?.message || error);
+    return { text: "", strategy: "hydrate-failed" };
   }
 };
 
@@ -921,14 +926,7 @@ const requireProjectCreatorAccess = (req, res) => {
     return false;
   }
 
-  const completion = getProfileCompletion(req.user);
-  if (completion.isComplete) return true;
-
-  res.status(403).json({
-    message: "Complete your profile before creating or uploading projects.",
-    profileCompletion: completion,
-  });
-  return false;
+  return true;
 };
 
 const isSpotlightActive = (script, now = new Date()) => {
@@ -1363,26 +1361,9 @@ export const extractPdfText = async (req, res) => {
       return res.status(400).json({ message: "No PDF file provided" });
     }
 
-    const require = createRequire(import.meta.url);
-    const pdfParse = require('pdf-parse');
-    let text = "";
-    let numItems = 0;
-
-    try {
-      const data = await pdfParse(req.file.buffer);
-      text = normalizeExtractedPdfText(data?.text || "");
-      numItems = Number(data?.numpages) || 0;
-    } catch (parseError) {
-      console.warn("[extractPdfText] pdf-parse failed, falling back to pdftotext:", parseError?.message || parseError);
-      text = await extractPdfTextWithPdftotext(req.file.buffer);
-    }
-
-    const trimmedText = text.trim();
-    if (!trimmedText) {
-      return res.status(422).json({
-        message: "We couldn't extract readable text from this PDF. It may be scanned, image-based, or protected.",
-      });
-    }
+    const extraction = await extractTextFromPdfBuffer(req.file.buffer);
+    const text = extraction.text || "";
+    const numItems = Number(extraction.numItems) || 0;
 
     let uploadedPdfUrl = "";
     try {
@@ -1397,7 +1378,19 @@ export const extractPdfText = async (req, res) => {
       console.error("PDF upload to Cloudinary failed:", uploadError?.message || uploadError);
     }
 
-    res.json({ text, numItems, fileUrl: uploadedPdfUrl });
+    const trimmedText = text.trim();
+    const extractionWarning = trimmedText
+      ? ""
+      : "We couldn't extract readable text from this PDF. It may be scanned, image-based, or protected, but the PDF was uploaded and you can continue.";
+
+    res.json({
+      text,
+      numItems,
+      fileUrl: uploadedPdfUrl,
+      extractedTextAvailable: Boolean(trimmedText),
+      extractionWarning,
+      extractionStrategy: extraction.strategy || "none",
+    });
   } catch (error) {
     console.error("PDF Extraction Error:", error);
     res.status(500).json({ message: "Failed to extract text from PDF", error: error.message });
@@ -2209,6 +2202,24 @@ export const uploadScript = async (req, res) => {
       holdFee
     } = req.body;
 
+    let resolvedTextContent = typeof textContent === "string" ? textContent : "";
+    let resolvedPageCount = Number(pageCount) || 0;
+    const uploadedScriptUrl = scriptUrl || fileUrl || "";
+
+    if (!resolvedTextContent.trim() && uploadedScriptUrl) {
+      try {
+        const extraction = await extractTextFromPdfUrl(uploadedScriptUrl);
+        if (String(extraction?.text || "").trim()) {
+          resolvedTextContent = extraction.text;
+        }
+        if (!resolvedPageCount && Number(extraction?.numItems) > 0) {
+          resolvedPageCount = Number(extraction.numItems);
+        }
+      } catch (extractionError) {
+        console.warn("[uploadScript] Server-side PDF extraction failed:", extractionError?.message || extractionError);
+      }
+    }
+
     // Validate required fields
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
@@ -2222,7 +2233,7 @@ export const uploadScript = async (req, res) => {
     if (!synopsis || String(synopsis).trim().length === 0) {
       return res.status(400).json({ message: "Synopsis is required" });
     }
-    if (!scriptUrl && !fileUrl && !textContent) {
+    if (!scriptUrl && !fileUrl && !resolvedTextContent) {
       return res.status(400).json({ message: "Script file or text content is required" });
     }
     const ageRangeError = getInvalidRoleAgeRangeMessage(roles);
@@ -2332,9 +2343,9 @@ export const uploadScript = async (req, res) => {
       description: synopsis,
       synopsis: synopsis,
       fullContent,
-      textContent,
+      textContent: resolvedTextContent,
       fileUrl: scriptUrl || fileUrl,
-      pageCount,
+      pageCount: resolvedPageCount,
       scriptCompletion: normalizeScriptCompletionInput(scriptCompletion || {}, {}),
       coverImage,
       genre: genre || classification?.primaryGenre,
@@ -2778,6 +2789,8 @@ export const getScriptById = async (req, res) => {
       .populate("heldBy", "name role");
 
     if (!script) return res.status(404).json({ message: "Script not found" });
+
+    await hydrateScriptTextFromStoredPdf(script, { source: "getScriptById" });
 
     const now = new Date();
     if (shouldAutoSyncUploadSpotlight(script, now)) {
