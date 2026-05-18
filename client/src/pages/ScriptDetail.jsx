@@ -31,8 +31,10 @@ import { Film, BadgeCheck } from "lucide-react";
 import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 import SocialShareButton from "../components/SocialShareButton";
 import RequestCollabButton from "../components/collab/RequestCollabButton";
+import ScreenplayViewer from "../components/ScreenplayViewer";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
@@ -147,12 +149,23 @@ const ScriptDetail = () => {
   const resolveImage = resolveMediaUrl;
 
   const handlePrint = () => {
+    const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
+    if (!(typeof script?.textContent === "string" && script.textContent.trim()) && uploadedPdfUrl) {
+      window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     const raw = typeof script?.textContent === "string" ? script.textContent : "";
     const normalizedRaw = raw.trimStart();
     const isHtml = normalizedRaw.startsWith("<");
+    const formattedPlain = formatScreenplayLikeText(raw);
     const bodyContent = isHtml
       ? normalizedRaw
-      : raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>");
+      : formattedPlain
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br/>");
     const win = window.open("", "_blank", "width=800,height=900");
     win.document.write(`<!DOCTYPE html>
 <html>
@@ -180,8 +193,21 @@ const ScriptDetail = () => {
   };
 
   const handleDownload = () => {
+    const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
+    if (!(typeof script?.textContent === "string" && script.textContent.trim()) && uploadedPdfUrl) {
+      const link = document.createElement("a");
+      link.href = uploadedPdfUrl;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.download = `${(script?.title || "script").replace(/[^a-z0-9]/gi, "_")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return;
+    }
+
     const raw = script?.textContent || "";
-    const plain = raw.replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    const plain = formatScreenplayLikeText(raw.replace(/<[^>]*>/g, "\n"));
     const blob = new Blob([`${script?.title || "Script"}\n${'='.repeat((script?.title || '').length)}\n\n${plain}`], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -989,8 +1015,12 @@ const ScriptDetail = () => {
   const hasTrailer = trailerSources.length > 0;
   const canPlayTrailer = hasTrailer && !trailerError;
   const scriptRawContent = typeof script?.textContent === "string" ? script.textContent : "";
+  const uploadedScriptUrl = resolveImage(script?.fileUrl || "");
+  const hasScriptTextContent = Boolean(scriptRawContent.trim());
+  const hasUploadedScriptPdf = Boolean(uploadedScriptUrl);
   const normalizedScriptHtml = scriptRawContent.trimStart();
   const hasHtmlScriptContent = normalizedScriptHtml.startsWith("<");
+  const formattedPlainScriptText = hasHtmlScriptContent ? "" : formatScreenplayLikeText(scriptRawContent);
   const heroImage = script.trailerThumbnail || script.coverImage || "";
   const resolvedHeroImage = resolveImage(heroImage);
   const showCoverPlaceholder = !resolvedHeroImage || coverError;
@@ -1038,7 +1068,7 @@ const ScriptDetail = () => {
     { id: "evaluation", label: "Evaluation" },
     { id: "roles", label: "Roles" },
     { id: "synopsis", label: "Synopsis" },
-    ...(canViewFullScript && script.textContent
+    ...(canViewFullScript && (hasScriptTextContent || hasUploadedScriptPdf)
       ? [{ id: "content", label: isOwner ? "My Script" : "Full Script" }]
       : []),
   ];
@@ -2288,7 +2318,7 @@ const ScriptDetail = () => {
             )}
 
             {/* ── Full Script (owner or purchased) ────────── */}
-            {activeTab === "content" && canViewFullScript && (
+            {activeTab === "content" && canViewFullScript && (hasScriptTextContent || hasUploadedScriptPdf) && (
               <motion.div key="content" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                 <div className={`mb-4 rounded-xl border px-3 py-3 sm:px-5 ${t.card}`}>
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2300,11 +2330,17 @@ const ScriptDetail = () => {
                       <p className={`text-[13px] font-bold truncate ${t.title}`}>{script.title}</p>
                       <p className={`text-[11px] ${t.muted}`}>
                         {(() => {
-                          const raw = script.textContent || "";
+                          const raw = hasHtmlScriptContent ? script.textContent || "" : formattedPlainScriptText;
                           const plain = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-                          const words = plain.split(" ").filter(Boolean).length;
+                          const words = plain ? plain.split(" ").filter(Boolean).length : 0;
                           const pages = script.pageCount || Math.ceil(words / 250);
-                          return `${words.toLocaleString()} words \u00B7 ~${pages} pages`;
+                          if (words > 0) {
+                            return `${words.toLocaleString()} words \u00B7 ~${pages} pages`;
+                          }
+                          if (hasUploadedScriptPdf) {
+                            return `Uploaded PDF \u00B7 ~${pages || "?"} pages`;
+                          }
+                          return `0 words \u00B7 ~${pages} pages`;
                         })()}
                       </p>
                     </div>
@@ -2313,9 +2349,12 @@ const ScriptDetail = () => {
                     <button
                       onClick={() => {
                         const raw = script.textContent || "";
-                        const plain = raw.replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+                        const plain = hasHtmlScriptContent
+                          ? raw.replace(/<[^>]*>/g, "\n").replace(/\n{3,}/g, "\n\n").trim()
+                          : formattedPlainScriptText;
                         navigator.clipboard.writeText(plain);
                       }}
+                      disabled={!hasScriptTextContent}
                       className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${isDarkMode ? "bg-white/[0.05] text-neutral-400 hover:text-white hover:bg-white/[0.08]" : "bg-gray-100 text-gray-500 hover:text-gray-800 hover:bg-gray-200"}`}
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -2333,7 +2372,7 @@ const ScriptDetail = () => {
                         <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
                         <rect x="6" y="14" width="12" height="8" />
                       </svg>
-                      Print
+                      {hasScriptTextContent ? "Print" : "Open PDF"}
                     </button>
                     <button
                       onClick={handleDownload}
@@ -2344,27 +2383,51 @@ const ScriptDetail = () => {
                         <polyline points="7 10 12 15 17 10" />
                         <line x1="12" y1="15" x2="12" y2="3" />
                       </svg>
-                      Download
+                      {hasScriptTextContent ? "Download" : "Download PDF"}
                     </button>
                   </div>
                   </div>
                 </div>
 
                 <div className={`rounded-xl border overflow-hidden ${t.card}`}>
-                  <div className="max-w-2xl mx-auto px-8 py-10 sm:px-16">
-                    <div className={`text-center mb-10 pb-8 border-b ${t.divider}`}>
-                      <h2 className={`text-2xl font-bold tracking-tight mb-1 ${t.title}`}>{script.title}</h2>
-                      {script.format && <p className={`text-[11px] font-bold uppercase tracking-widest ${t.muted}`}>{fmtFormat(script.format)}</p>}
+                  {hasScriptTextContent ? (
+                    <div className="max-w-2xl mx-auto px-8 py-10 sm:px-16">
+                      <div className={`text-center mb-10 pb-8 border-b ${t.divider}`}>
+                        <h2 className={`text-2xl font-bold tracking-tight mb-1 ${t.title}`}>{script.title}</h2>
+                        {script.format && <p className={`text-[11px] font-bold uppercase tracking-widest ${t.muted}`}>{fmtFormat(script.format)}</p>}
+                      </div>
+                      {hasHtmlScriptContent ? (
+                        <div className="script-content" dangerouslySetInnerHTML={{ __html: normalizedScriptHtml }} />
+                      ) : (
+                        <ScreenplayViewer text={formattedPlainScriptText || scriptRawContent} className={t.sub} />
+                      )}
                     </div>
-                    {hasHtmlScriptContent ? (
-                      <div className="script-content" dangerouslySetInnerHTML={{ __html: normalizedScriptHtml }} />
-                    ) : (
-                      <pre className={`whitespace-pre-wrap text-[14px] leading-relaxed ${t.sub}`}
-                        style={{ fontFamily: '"Courier Prime", "Courier New", Courier, monospace' }}>
-                        {scriptRawContent}
-                      </pre>
-                    )}
-                  </div>
+                  ) : hasUploadedScriptPdf ? (
+                    <div className="p-4 sm:p-6 space-y-4">
+                      <div className={`rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${isDarkMode ? "border-blue-400/20 bg-blue-500/10" : "border-blue-200 bg-blue-50"}`}>
+                        <div>
+                          <p className={`text-sm font-semibold ${isDarkMode ? "text-blue-100" : "text-blue-900"}`}>Uploaded PDF available</p>
+                          <p className={`text-xs ${isDarkMode ? "text-blue-100/75" : "text-blue-800/75"}`}>
+                            This project was uploaded as a PDF. No extracted text is available here, but you can preview and download the original file below.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => window.open(uploadedScriptUrl, "_blank", "noopener,noreferrer")}
+                          className={`shrink-0 px-3 py-2 rounded-lg text-xs font-bold border transition ${isDarkMode ? "border-blue-300/30 bg-blue-500/20 hover:bg-blue-500/30 text-blue-50" : "border-blue-200 bg-white hover:bg-blue-100 text-blue-700"}`}
+                        >
+                          Open PDF
+                        </button>
+                      </div>
+                      <div className="overflow-hidden rounded-xl border border-black/5 bg-white">
+                        <iframe
+                          src={uploadedScriptUrl}
+                          title={`${script.title || "Script"} PDF`}
+                          className="w-full h-[720px]"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 {isOwner && (

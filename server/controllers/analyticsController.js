@@ -96,6 +96,10 @@ const pickEffectiveIp = (requestIp, clientIp = "") => {
 };
 
 const getOrCreateSession = (visitor, sessionId, startedAt) => {
+  if (!Array.isArray(visitor.sessions)) {
+    visitor.sessions = [];
+  }
+
   let session = visitor.sessions.find((item) => item.sessionId === sessionId);
 
   if (!session) {
@@ -190,6 +194,10 @@ const pickBestLocation = (...candidates) => {
 };
 
 const getOrCreateUserSession = (activity, sessionId, startedAt) => {
+  if (!Array.isArray(activity.sessions)) {
+    activity.sessions = [];
+  }
+
   let session = activity.sessions.find((item) => item.sessionId === sessionId);
 
   if (!session) {
@@ -235,6 +243,9 @@ const getOrCreateUserActivityDoc = async ({ userId, anonymousId, email, phone })
 
 const appendAuthEvent = (activity, { type, source = "tracking", sessionId = "", timestamp = new Date(), metadata = {} }) => {
   if (!activity || !type) return;
+  if (!Array.isArray(activity.authEvents)) {
+    activity.authEvents = [];
+  }
 
   activity.authEvents.push({
     type: sanitizeText(type, 80),
@@ -262,6 +273,10 @@ const appendAuthEvent = (activity, { type, source = "tracking", sessionId = "", 
 const applyEventToUserSession = (session, payload) => {
   const now = payload.timestamp || new Date();
   const path = sanitizeText(payload.path || "", 300);
+
+  if (!Array.isArray(session.pages)) session.pages = [];
+  if (!Array.isArray(session.clicks)) session.clicks = [];
+  if (!Array.isArray(session.actions)) session.actions = [];
 
   if (payload.eventType === "page_enter") {
     if (!session.entryPath) session.entryPath = path;
@@ -438,6 +453,10 @@ const applyEventToSession = (session, payload) => {
   const now = payload.timestamp || new Date();
   const path = sanitizeText(payload.path || "", 300);
 
+  if (!Array.isArray(session.pages)) session.pages = [];
+  if (!Array.isArray(session.clicks)) session.clicks = [];
+  if (!Array.isArray(session.events)) session.events = [];
+
   if (payload.eventType === "page_enter") {
     if (!session.entryPath) session.entryPath = path;
 
@@ -561,8 +580,8 @@ export const trackEvent = async (req, res) => {
     const location = pickBestLocation(clientLocation, visitor?.location, ipLocation);
 
     visitor.ipAddress = ipAddress || visitor.ipAddress;
-  visitor.device = safeDevice;
-  visitor.location = location;
+    visitor.device = safeDevice;
+    visitor.location = location;
     visitor.isReturning = Boolean(visitor.isReturning || isReturningVisitor);
     visitor.lastVisit = now;
     visitor.lastEventAt = now;
@@ -604,6 +623,9 @@ export const trackEvent = async (req, res) => {
         email: effectiveEmail,
         phone: effectivePhone,
       });
+      if (!Array.isArray(activityDoc.activityLogs)) {
+        activityDoc.activityLogs = [];
+      }
 
       const userSession = getOrCreateUserSession(activityDoc, sessionId, now);
       userSession.device = safeDevice;
@@ -719,8 +741,8 @@ export const trackSession = async (req, res) => {
     const location = pickBestLocation(clientLocation, visitor?.location, ipLocation);
 
     visitor.ipAddress = ipAddress || visitor.ipAddress;
-  visitor.device = safeDevice;
-  visitor.location = location;
+    visitor.device = safeDevice;
+    visitor.location = location;
     visitor.isReturning = Boolean(visitor.isReturning || isReturningVisitor);
     visitor.lastVisit = new Date();
     visitor.lastEventAt = new Date();
@@ -764,6 +786,9 @@ export const trackSession = async (req, res) => {
         email: effectiveEmail,
         phone: effectivePhone,
       });
+      if (!Array.isArray(activityDoc.activityLogs)) {
+        activityDoc.activityLogs = [];
+      }
 
       const userSession = getOrCreateUserSession(activityDoc, sessionId, sessionStart);
       userSession.device = safeDevice;
