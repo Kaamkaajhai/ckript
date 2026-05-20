@@ -7,6 +7,7 @@ import { AuthContext } from "../context/AuthContext";
 const links = [
   { to: "/", label: "Home" },
   { to: "/about", label: "About us" },
+  { to: "/pricing", label: "Pricing" },
   { to: "/contact", label: "Contact us" },
 ];
 

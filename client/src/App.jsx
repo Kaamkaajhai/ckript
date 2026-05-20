@@ -11,6 +11,7 @@ import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/la
 
 const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
+const PricingPlans = lazy(() => import("./pages/PricingPlans"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
@@ -247,6 +248,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/about" element={<About />} />
+              <Route path="/pricing" element={<PricingPlans />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />

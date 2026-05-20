@@ -1,11 +1,15 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════
-   DESIGN SYSTEM — Premium Global Foundation
-   ═══════════════════════════════════════════════════════════ */
+  DESIGN SYSTEM — Premium Global Foundation
+  Fonts: Inter (body) + Playfair Display (headings)
+  ═══════════════════════════════════════════════════════════ */
 
 :root {
-  --app-font-family: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-body-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  --app-font-family: var(--font-body-family);
   --brand-900: #0c1f37;
   --brand-800: #122b4d;
   --brand-700: #1a3a63;
@@ -62,6 +66,10 @@
 * {
   font-family: var(--app-font-family);
 }
+
+/* Utility classes to ensure consistent typography across the app */
+.font-body { font-family: var(--font-body-family); }
+.font-display { font-family: var(--font-display-family); }
 
 html,
 body,
