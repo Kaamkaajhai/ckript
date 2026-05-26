@@ -229,7 +229,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         to={item.path}
         state={item.path === "/create-project" ? { startFresh: true } : undefined}
         onClick={() => setMobileOpen(false)}
-        className={`group flex items-center gap-3 px-4 py-2.5 min-h-[44px] mx-2 rounded-xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
+        className={`group flex items-center gap-3 px-4 py-3 min-h-[48px] mx-2 rounded-2xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
           ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
           : isDarkMode ? "text-[#8896a7] hover:bg-[#0d1520] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
           }`}
@@ -435,7 +435,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
       {showFloatingToggle && (
         <button onClick={() => setMobileOpen(true)}
-          className={`md:hidden fixed top-4 left-4 z-50 w-9 h-9 border rounded-lg flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#080e18] border-[#151f2e] text-[#8896a7]" : "bg-white border-gray-200 text-gray-600"}`}>
+          className={`md:hidden fixed top-4 left-4 z-50 w-10 h-10 border rounded-xl flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#080e18] border-[#151f2e] text-[#8896a7]" : "bg-white border-gray-200 text-gray-600"}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -445,7 +445,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)}></div>
-          <aside className={`absolute left-0 top-0 h-full w-[260px] shadow-lg ${isDarkMode ? "bg-[#080e18]" : "bg-white"}`}>
+          <aside className={`absolute left-0 top-0 h-full w-[min(88vw,320px)] shadow-2xl border-r ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white border-gray-200"}`}>
             <button onClick={() => setMobileOpen(false)} className={`absolute top-4 right-3 ${isDarkMode ? "text-[#4a5a6e] hover:text-white" : "text-gray-400 hover:text-gray-600"}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -456,7 +456,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         </div>
       )}
 
-      <nav className={`hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
         {mobileItems.map((item) => {
           const active = isActive(item.path);
           const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;

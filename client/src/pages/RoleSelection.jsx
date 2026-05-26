@@ -4,7 +4,7 @@ import { FileText, Users, ArrowRight, ArrowLeft } from "lucide-react";
 
 const RoleSelection = () => {
   return (
-    <div className="min-h-screen bg-[#080e18] relative overflow-hidden flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#080e18] relative overflow-hidden flex items-start sm:items-center justify-center px-3 sm:px-4 py-6 sm:py-10">
       <div
         className="absolute inset-0 opacity-[0.035] pointer-events-none"
         style={{
@@ -16,20 +16,31 @@ const RoleSelection = () => {
       <div className="absolute bottom-0 right-0 w-[420px] h-[420px] bg-white/[0.02] rounded-full blur-3xl translate-x-1/3 translate-y-1/3 pointer-events-none" />
       <div className="max-w-5xl w-full relative z-10">
         <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex justify-end mb-5 sm:mb-6"
+        >
+          <Link to="/" className="text-[#5f6f83] hover:text-[#8ea1b7] flex items-center gap-1 text-sm transition-colors">
+            <ArrowLeft size={14} /> Back to Home
+          </Link>
+        </motion.div>
+
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-12"
+          className="text-center mb-8 sm:mb-12"
         >
-          <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white mb-3 sm:mb-4 tracking-tight">
             Join Ckript
           </h1>
-          <p className="text-xl text-[#8ea1b7] font-medium">
+          <p className="text-base sm:text-lg md:text-xl text-[#8ea1b7] font-medium px-2">
             Choose your path to get started
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
           {/* Writer Card */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -39,17 +50,17 @@ const RoleSelection = () => {
             className="group"
           >
             <Link to="/writer-onboarding">
-              <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/80 p-8 border border-slate-200 hover:border-[#31465e]/40 transition-all duration-300 h-full">
+              <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/80 p-6 sm:p-8 border border-slate-200 hover:border-[#31465e]/40 transition-all duration-300 h-full">
                 <div className="flex h-full flex-col items-center text-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6">
                     <FileText className="text-white" size={32} strokeWidth={1.5} />
                   </div>
                   
-                  <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight min-h-[72px] flex items-center justify-center">
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3 tracking-tight min-h-[56px] sm:min-h-[72px] flex items-center justify-center">
                     I'm a Writer
                   </h2>
                   
-                  <p className="text-slate-600 mb-6 text-sm min-h-[64px]">
+                  <p className="text-slate-600 mb-6 text-sm min-h-[48px] sm:min-h-[64px]">
                     Showcase your scripts to industry professionals
                   </p>
                   
@@ -110,17 +121,17 @@ const RoleSelection = () => {
             className="group"
           >
             <Link to="/producer-director-onboarding">
-              <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/80 p-8 border border-slate-200 hover:border-[#31465e]/40 transition-all duration-300 h-full">
+              <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/80 p-6 sm:p-8 border border-slate-200 hover:border-[#31465e]/40 transition-all duration-300 h-full">
                 <div className="flex h-full flex-col items-center text-center">
                   <div className="w-16 h-16 bg-gradient-to-br from-[#0f2544] to-[#1a365d] rounded-xl flex items-center justify-center mb-6">
                     <Users className="text-white" size={32} strokeWidth={1.5} />
                   </div>
                   
-                  <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight min-h-[72px] flex items-center justify-center">
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mb-3 tracking-tight min-h-[56px] sm:min-h-[72px] flex items-center justify-center">
                     I'm a Film Industry Professional
                   </h2>
                   
-                  <p className="text-slate-600 mb-6 text-sm min-h-[64px]">
+                  <p className="text-slate-600 mb-6 text-sm min-h-[48px] sm:min-h-[64px]">
                     Fund projects and connect with talented writers
                   </p>
                   
@@ -184,11 +195,6 @@ const RoleSelection = () => {
             Already have an account?{" "}
             <Link to="/login" className="text-white font-semibold hover:text-slate-200">
               Log in
-            </Link>
-          </p>
-          <p className="mt-3">
-            <Link to="/" className="text-[#5f6f83] hover:text-[#8ea1b7] flex items-center justify-center gap-1 text-sm transition-colors">
-              <ArrowLeft size={14} /> Back to Home
             </Link>
           </p>
         </motion.div>

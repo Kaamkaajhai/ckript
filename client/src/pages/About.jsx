@@ -159,8 +159,8 @@ const About = () => {
 			</section>
 
 			<section className="relative z-10 px-4 pb-10 sm:px-8 sm:pb-14">
-				<div className="mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0A0A0B] shadow-[0_28px_80px_rgba(0,0,0,0.5)]">
-					<div className="relative">
+				<div className="mx-auto w-full max-w-6xl overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0A0A0B] shadow-[0_28px_80px_rgba(0,0,0,0.5)] sm:rounded-[2rem]">
+					<div className="relative aspect-[16/10] sm:aspect-video">
 						<video
 							ref={videoRef}
 							controls
@@ -170,7 +170,7 @@ const About = () => {
 							onPlay={() => setIsVideoPlaying(true)}
 							onPause={() => setIsVideoPlaying(false)}
 							onEnded={() => setIsVideoPlaying(false)}
-							className="h-full max-h-[560px] w-full bg-black"
+							className="absolute inset-0 h-full w-full bg-black object-cover"
 							aria-label="How to use Ckript platform video"
 						>
 							<source src={ckriptVideo} type="video/mp4" />
@@ -180,23 +180,23 @@ const About = () => {
 						<div
 							className={`absolute inset-0 transition-opacity duration-300 ${isVideoPlaying ? "opacity-0 pointer-events-none" : "opacity-100"}`}
 						>
-							<div className="absolute inset-0 bg-[#0A0A0B]/80 backdrop-blur-sm" />
+							<div className="absolute inset-0 bg-[#0A0A0B]/78 backdrop-blur-[2px]" />
 							<button
 								type="button"
 								onClick={handleVideoOverlayClick}
-								className="relative z-10 flex h-full w-full items-center justify-center p-5 text-center sm:p-8"
+								className="relative z-10 flex h-full w-full items-center justify-center px-4 py-6 text-center sm:px-8 sm:py-8"
 								aria-label="Play platform walkthrough video"
 							>
 								<div className="max-w-3xl">
-									<div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-md transition-transform hover:scale-110">
-										<svg viewBox="0 0 24 24" className="h-6 w-6 ml-1" fill="currentColor" aria-hidden="true">
+									<div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.06)] backdrop-blur-md transition-transform hover:scale-110 sm:mb-6 sm:h-16 sm:w-16">
+										<svg viewBox="0 0 24 24" className="ml-1 h-5 w-5 sm:h-6 sm:w-6" fill="currentColor" aria-hidden="true">
 											<path d="M8 6v12l10-6z" />
 										</svg>
 									</div>
-									<h2 className="font-display text-4xl leading-tight text-white sm:text-5xl font-medium">
+									<h2 className="font-display text-2xl font-medium leading-tight text-white sm:text-4xl lg:text-5xl">
 										How to Use the Platform
 									</h2>
-									<p className="font-body mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
+									<p className="font-body mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-white/72 sm:mt-4 sm:text-base lg:text-lg">
 										Watch this quick walkthrough to understand how writers can upload securely and how producers can discover and evaluate scripts efficiently.
 									</p>
 								</div>

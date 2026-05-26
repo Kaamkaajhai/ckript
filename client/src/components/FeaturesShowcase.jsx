@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, TrendingUp, Lock, Star, Mic, PenTool, BookOpen, CheckCircle2 } from "lucide-react";
-import { useState } from "react";
+import { Play, TrendingUp, Lock, Star, Mic, PenTool, BookOpen, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 
 const features = [
   {
@@ -63,9 +63,22 @@ const features = [
 
 const FeaturesShowcase = () => {
   const [active, setActive] = useState(0);
+    const total = features.length;
   const f = features[active];
   const Icon = f.icon;
   const activeIsAi = f.tag.includes("AI");
+
+    const prev = useCallback(() => setActive((s) => (s - 1 + total) % total), [total]);
+    const next = useCallback(() => setActive((s) => (s + 1) % total), [total]);
+
+    useEffect(() => {
+      const onKey = (e) => {
+        if (e.key === "ArrowLeft") prev();
+        if (e.key === "ArrowRight") next();
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }, [prev, next]);
 
   return (
     <section
@@ -152,8 +165,9 @@ const FeaturesShowcase = () => {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.3 }}
               data-tone={activeIsAi ? "ai" : "premium"}
-              className="luxury-feature-panel rounded-3xl bg-white p-7 sm:p-10 shadow-[0_20px_60px_rgba(17,24,39,0.06)] border border-[#E5E7EB]"
+              className="luxury-feature-panel rounded-3xl bg-white p-7 sm:p-10 shadow-[0_20px_60px_rgba(17,24,39,0.06)] border border-[#E5E7EB] relative"
             >
+              {/* Prev/Next arrows moved into pagination footer to avoid top-centering and improve responsiveness */}
               {/* Header row */}
               <div className="flex items-start gap-4 mb-7">
                 <div className="luxury-feature-panel-icon w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center shrink-0">
@@ -196,23 +210,41 @@ const FeaturesShowcase = () => {
               </div>
 
               {/* Pagination */}
-              <div className="luxury-feature-panel-divider mt-8 pt-6 border-t border-[#E5E7EB] flex items-center justify-between gap-4">
+              <div className="luxury-feature-panel-divider mt-8 pt-6 border-t border-[#E5E7EB] flex items-end justify-between gap-4">
                 <span className="luxury-body-copy font-body text-xs font-medium text-[#6B7280]">
                   {String(active + 1).padStart(2, "0")} / {String(features.length).padStart(2, "0")}
                 </span>
-                <div className="flex gap-1.5">
-                  {features.map((_, i) => (
+                <div className="flex flex-col items-end gap-3">
+                  <div className="flex items-center gap-2">
                     <button
-                      key={i}
-                      onClick={() => setActive(i)}
-                      aria-label={`Go to feature ${i + 1}`}
-                      className={`luxury-pagination-dot h-1.5 rounded-full transition-all duration-300 ${
-                        i === active
-                          ? "is-active w-6 bg-[#6366F1]"
-                          : "w-1.5 bg-[#E5E7EB] hover:bg-[#9CA3AF]"
-                      }`}
-                    />
-                  ))}
+                      onClick={prev}
+                      aria-label="Previous feature"
+                      className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-sky-400/18 border border-sky-300/30 shadow-none hover:bg-sky-300/28 hover:border-sky-200/50 hover:scale-105 transition-all"
+                    >
+                      <ChevronLeft className="w-4 h-4 text-[#111827]" />
+                    </button>
+                    <button
+                      onClick={next}
+                      aria-label="Next feature"
+                      className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-sky-400/18 border border-sky-300/30 shadow-none hover:bg-sky-300/28 hover:border-sky-200/50 hover:scale-105 transition-all"
+                    >
+                      <ChevronRight className="w-4 h-4 text-[#111827]" />
+                    </button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    {features.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setActive(i)}
+                        aria-label={`Go to feature ${i + 1}`}
+                        className={`luxury-pagination-dot h-1.5 rounded-full transition-all duration-300 ${
+                          i === active
+                            ? "is-active w-6 bg-[#6366F1]"
+                            : "w-1.5 bg-[#E5E7EB] hover:bg-[#9CA3AF]"
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             </motion.div>

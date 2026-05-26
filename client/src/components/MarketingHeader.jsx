@@ -1,13 +1,24 @@
 import { useContext, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import {
+  Menu,
+  X,
+  House,
+  Info,
+  Mail,
+  User,
+  LogIn,
+  UserPlus,
+  LayoutDashboard,
+  BookOpen,
+} from "lucide-react";
 import BrandLogo from "./BrandLogo"; // ✅ correct import
 import { AuthContext } from "../context/AuthContext";
 
 const links = [
-  { to: "/", label: "Home" },
-  { to: "/about", label: "About us" },
-  { to: "/contact", label: "Contact us" },
+  { to: "/", label: "Home", icon: House },
+  { to: "/about", label: "About us", icon: Info },
+  { to: "/contact", label: "Contact us", icon: Mail },
 ];
 
 const isLinkActive = (pathname, to) => {
@@ -92,22 +103,35 @@ const MarketingHeader = () => {
             <Link
               key={item.to}
               to={item.to}
-              className="text-gray-300 hover:text-white"
+              className="text-gray-300 hover:text-white inline-flex items-center gap-2 py-1"
               onClick={() => setMenuOpen(false)}
             >
+              <item.icon className="w-4 h-4" />
               {item.label}
             </Link>
           ))}
 
           {user ? (
             <>
-              <Link to="/profile">Profile</Link>
-              <Link to={primaryPath}>{primaryLabel}</Link>
+              <Link to="/profile" className="text-gray-300 hover:text-white inline-flex items-center gap-2 py-1">
+                <User className="w-4 h-4" />
+                Profile
+              </Link>
+              <Link to={primaryPath} className="text-gray-300 hover:text-white inline-flex items-center gap-2 py-1">
+                {user?.role === "reader" ? <BookOpen className="w-4 h-4" /> : <LayoutDashboard className="w-4 h-4" />}
+                {primaryLabel}
+              </Link>
             </>
           ) : (
             <>
-              <Link to="/login">Sign in</Link>
-              <Link to="/join">Get Started</Link>
+              <Link to="/login" className="text-gray-300 hover:text-white inline-flex items-center gap-2 py-1">
+                <LogIn className="w-4 h-4" />
+                Sign in
+              </Link>
+              <Link to="/join" className="text-gray-300 hover:text-white inline-flex items-center gap-2 py-1">
+                <UserPlus className="w-4 h-4" />
+                Get Started
+              </Link>
             </>
           )}
         </div>

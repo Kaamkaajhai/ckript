@@ -69,10 +69,12 @@ body,
   margin: 0;
   padding: 0;
   min-height: 100%;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 html {
-  font-size: 17px;
+  font-size: 16px;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -83,12 +85,25 @@ body {
   text-rendering: auto;
   font-optical-sizing: auto;
   font-synthesis: none;
-  background: var(--surface-overlay);
+  background:
+    radial-gradient(circle at top, rgba(30, 58, 95, 0.06), transparent 28%),
+    linear-gradient(180deg, #f6f8fb 0%, var(--surface-overlay) 42%, #edf1f5 100%);
   color: var(--text-primary);
   font-size: 17px;
   line-height: var(--lh-body);
   letter-spacing: var(--tracking-ui);
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 15px;
+  }
+
+  body {
+    font-size: 16px;
+    line-height: 1.55;
+  }
 }
 
 button,

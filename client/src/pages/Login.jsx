@@ -2,7 +2,7 @@ import { useContext, useState } from "react";
 import { motion } from "framer-motion";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link, useLocation, useSearchParams } from "react-router-dom";
-import { ArrowRight, AlertCircle } from "lucide-react";
+import { ArrowRight, AlertCircle, ArrowLeft } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
 
@@ -193,15 +193,21 @@ const Login = () => {
       </div>
 
       {/* ── Right form panel ── */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
+      <div className="flex-1 flex items-start sm:items-center justify-center px-4 sm:px-6 py-8 sm:py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="w-full max-w-[400px]"
         >
+          <div className="flex justify-end mb-6 sm:mb-8">
+            <Link to="/" className="text-xs sm:text-sm text-slate-500 hover:text-[#1e3a5f] font-medium transition-colors inline-flex items-center gap-1">
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to home
+            </Link>
+          </div>
+
           {/* Mobile logo */}
-          <div className="lg:hidden mb-10">
+          <div className="lg:hidden mb-8 sm:mb-10">
             <BrandLogo className="h-9 w-auto" />
           </div>
 
@@ -283,11 +289,6 @@ const Login = () => {
               Don't have an account?{" "}
               <Link to="/join" className="text-[#1e3a5f] font-semibold hover:text-[#162d4a] transition-colors">
                 Create one
-              </Link>
-            </p>
-            <p>
-              <Link to="/" className="text-xs text-slate-500 hover:text-[#1e3a5f] font-medium transition-colors">
-                &larr; Back to home
               </Link>
             </p>
           </div>

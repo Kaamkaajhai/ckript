@@ -560,7 +560,7 @@ const FeaturedCarousel = ({ scripts, dark, getImageUrl, onWatchPreview }) => {
         {/* Arrow nav */}
         <button
           onClick={(e) => { e.stopPropagation(); prev(); }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-all duration-200 hover:scale-110 z-10"
+          className="absolute top-1/2 -translate-y-1/2 left-4 sm:left-6 md:left-8 lg:left-12 w-9 sm:w-10 md:w-12 h-9 sm:h-10 md:h-12 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-all duration-200 hover:scale-110 z-10"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -568,7 +568,7 @@ const FeaturedCarousel = ({ scripts, dark, getImageUrl, onWatchPreview }) => {
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); next(); }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-all duration-200 hover:scale-110 z-10"
+          className="absolute top-1/2 -translate-y-1/2 right-4 sm:right-6 md:right-8 lg:right-12 w-9 sm:w-10 md:w-12 h-9 sm:h-10 md:h-12 rounded-full flex items-center justify-center text-white/90 hover:text-white transition-all duration-200 hover:scale-110 z-10"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -902,7 +902,7 @@ const FeaturedProjects = () => {
   );
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12">
       {/* ── Premium Header with Promote CTA ── */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
@@ -994,7 +994,7 @@ const FeaturedProjects = () => {
                   )}
 
                   {/* Content */}
-                  <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-8 pr-14 sm:pr-16">
+                  <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6 md:p-8 pr-4 sm:pr-6 md:pr-8 lg:pr-12">
                     {/* Top badges row */}
                     <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-2 max-w-[calc(100%-4.5rem)]">
                       {(slide.verifiedBadge || slide.premium || slide.isFeatured) && (
@@ -1042,28 +1042,40 @@ const FeaturedProjects = () => {
                 </motion.div>
               </AnimatePresence>
 
-              {/* Prev / Next arrows */}
+              {/* Prev / Next arrows + counter footer */}
               {heroSlides.length > 1 && (
-                <>
-                  <button
-                    onClick={() => {
-                      setHeroDirection(-1);
-                      setHeroIndex(i => (i - 1 + heroSlides.length) % heroSlides.length);
-                    }}
-                    className={`absolute left-2 sm:left-3 top-[44%] sm:top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all ${useLightFallbackText ? "text-[#15375d]/85 hover:text-[#15375d]" : "text-white/90 hover:text-white"}`}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setHeroDirection(1);
-                      setHeroIndex(i => (i + 1) % heroSlides.length);
-                    }}
-                    className={`absolute right-2 sm:right-3 top-[44%] sm:top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full transition-all ${useLightFallbackText ? "text-[#15375d]/85 hover:text-[#15375d]" : "text-white/90 hover:text-white"}`}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                  </button>
-                </>
+                <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 flex flex-col items-center gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                    <button
+                      onClick={() => {
+                        setHeroDirection(-1);
+                        setHeroIndex((i) => (i - 1 + heroSlides.length) % heroSlides.length);
+                      }}
+                      aria-label="Previous featured project"
+                      className="w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+                    >
+                      <svg className="w-5 h-5 sm:w-[22px] sm:h-[22px]" fill="none" stroke="currentColor" strokeWidth={2.3} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setHeroDirection(1);
+                        setHeroIndex((i) => (i + 1) % heroSlides.length);
+                      }}
+                      aria-label="Next featured project"
+                      className="w-9 h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 shadow-[0_10px_24px_rgba(0,0,0,0.2)]"
+                    >
+                      <svg className="w-5 h-5 sm:w-[22px] sm:h-[22px]" fill="none" stroke="currentColor" strokeWidth={2.3} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="text-[13px] sm:text-[14px] font-medium tracking-[0.2em] text-white/55 bg-black/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/8 min-w-[64px] sm:min-w-[88px] text-center">
+                    {String(heroIndex + 1).padStart(2, "0")} / {String(heroSlides.length).padStart(2, "0")}
+                  </div>
+                </div>
               )}
 
             </div>

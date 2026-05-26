@@ -8,6 +8,7 @@ import Sidebar from "../components/Sidebar";
 import BuyCreditsModal from "../components/BuyCreditsModal";
 import BrandLogo from "../components/BrandLogo";
 import ConfirmDialog from "../components/ConfirmDialog";
+import BackButton from "../components/BackButton";
 import api from "../services/api";
 import { getApiOrigin } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -674,6 +675,13 @@ const MainLayout = ({ children }) => {
       {/* Top bar */}
       <header className="fixed top-0 right-0 left-0 md:left-[64px] lg:left-[270px] border-b px-3 max-[378px]:px-2.5 max-[340px]:px-2 sm:px-6 lg:px-8 py-2 sm:py-0 z-[90] bg-[#060b14]/98 border-[#132033] backdrop-blur-xl">
         <div className="flex flex-nowrap items-center gap-2 max-[378px]:gap-1.5 max-[340px]:gap-1 sm:gap-3 min-[640px]:max-[690px]:gap-2 min-h-14 sm:min-h-16">
+          {/* Back button: hidden on home/dashboard */}
+          {location.pathname !== topBarHomePath && location.pathname !== "/" && (
+            <div className="md:hidden order-1 mr-1">
+              <BackButton compact className="bg-transparent hover:bg-white/6 text-white/90" />
+            </div>
+          )}
+
           <button
             onClick={() => setSidebarToggleToken((v) => v + 1)}
             className="md:hidden order-1 w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 shrink-0 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a]"
@@ -974,8 +982,12 @@ const MainLayout = ({ children }) => {
       </header>
 
       {/* Main content */}
-      <main className="pt-20 sm:pt-16 pb-0 md:ml-[64px] lg:ml-[270px] min-h-screen">
-        <div className="w-full mx-auto p-4 sm:p-6 lg:p-8 max-w-[1400px]">
+      <main className="pt-20 sm:pt-16 pb-20 md:pb-0 md:ml-[64px] lg:ml-[270px] min-h-screen">
+        <div className="w-full mx-auto px-3 py-4 sm:px-5 sm:py-6 lg:px-8 lg:py-8 max-w-[1680px] relative">
+          {/* Floating back button inside page content (always visible) */}
+          <div className="absolute top-4 left-4 z-40">
+            <BackButton />
+          </div>
           {children}
         </div>
       </main>
