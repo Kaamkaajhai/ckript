@@ -30,6 +30,7 @@ import {
     issueAdminScriptSectionAccessToken,
     validateAdminScriptSectionPassword,
 } from "../utils/adminScriptSectionAccess.js";
+import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 
 const buildChatId = (idA, idB) => {
     const sorted = [idA.toString(), idB.toString()].sort();
@@ -1654,6 +1655,21 @@ export const getScriptDetail = async (req, res) => {
             .populate("unlockedBy", "name email role")
             .populate("platformScore.scoredBy", "name");
         if (!script) return res.status(404).json({ message: "Script not found" });
+
+        if (!String(script.textContent || "").trim() && String(script.fileUrl || "").trim()) {
+            try {
+                const extraction = await extractTextFromPdfUrl(script.fileUrl);
+                if (String(extraction?.text || "").trim()) {
+                    script.textContent = extraction.text;
+                    if (!Number(script.pageCount) && Number(extraction?.numItems) > 0) {
+                        script.pageCount = Number(extraction.numItems);
+                    }
+                    await script.save();
+                }
+            } catch (error) {
+                console.warn("[admin.getScriptDetail] Failed to hydrate script text from PDF:", error?.message || error);
+            }
+        }
 
         const [settledPurchaseRequests, agreements] = await Promise.all([
             ScriptPurchaseRequest.find({

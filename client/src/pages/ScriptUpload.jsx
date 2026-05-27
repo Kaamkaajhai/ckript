@@ -7,6 +7,7 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { formatCurrency } from "../utils/currency";
+import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
@@ -403,11 +404,13 @@ const ScriptUpload = () => {
   const [scriptId, setScriptId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [pdfNotice, setPdfNotice] = useState("");
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [existingUploadedFile, setExistingUploadedFile] = useState(null);
   const [textContent, setTextContent] = useState("");
+  const [pdfTextExtracted, setPdfTextExtracted] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
   const [creditsBalance, setCreditsBalance] = useState(0);
@@ -811,6 +814,8 @@ const ScriptUpload = () => {
     setUploadProgress(0);
     setUploadedFile(null);
     setTextContent("");
+    setPdfNotice("");
+    setPdfTextExtracted(false);
     setIsExtracting(true);
     setError("");
 
@@ -839,17 +844,22 @@ const ScriptUpload = () => {
         size: file.size,
         url: data.fileUrl || "",
       });
+      setPdfTextExtracted(Boolean(data.extractedTextAvailable));
 
       // Populate the editor with extracted text
       if (data.text) {
-        setTextContent(data.text);
+        setTextContent(formatScreenplayLikeText(data.text));
       }
 
-      if (!data.fileUrl) {
-        setError("Text extracted, but PDF upload link could not be created. Submit will update script content only.");
+      if (data.extractionWarning) {
+        setPdfNotice(data.extractionWarning);
+      } else if (!data.fileUrl) {
+        setPdfNotice("Text extracted, but PDF upload link could not be created. Submit will update script content only.");
       }
     } catch (err) {
       clearInterval(interval);
+      setPdfNotice("");
+      setPdfTextExtracted(false);
       setError(err.response?.data?.message || "Failed to extract text from PDF.");
     } finally {
       setIsExtracting(false);
@@ -1660,6 +1670,15 @@ const ScriptUpload = () => {
               {error}
             </div>
           )}
+          {pdfNotice && (
+            <div className={`mb-5 px-4 py-2.5 rounded-xl text-sm border ${
+              isDarkMode
+                ? "bg-amber-500/10 border-amber-500/20 text-amber-200"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+            }`}>
+              {pdfNotice}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <AnimatePresence mode="wait">
@@ -2159,10 +2178,10 @@ const ScriptUpload = () => {
                           </div>
                           <div className="flex-1 min-w-0 w-full">
                             <p className={`text-sm font-bold break-all ${isDarkMode ? "text-green-400" : "text-green-700"}`}>
-                              {uploadedFile.name} (Text Extracted)
+                              {uploadedFile.name} {pdfTextExtracted ? "(Text Extracted)" : "(Uploaded)"}
                             </p>
                             <p className={`text-xs ${isDarkMode ? "text-green-500/90" : "text-green-700/80"}`}>
-                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB{pdfTextExtracted ? "" : " • Ready to continue"}
                             </p>
                           </div>
                           <button
@@ -2171,6 +2190,8 @@ const ScriptUpload = () => {
                               setUploadedFile(null);
                               setUploadProgress(0);
                               setTextContent("");
+                              setPdfNotice("");
+                              setPdfTextExtracted(false);
                             }}
                             className={`text-sm font-bold px-2 py-1 rounded-md border transition w-full min-[416px]:w-auto ${isDarkMode ? "text-red-400 bg-white/[0.08] border-red-500/20 hover:bg-white/[0.12]" : "text-red-600 bg-white border-red-200 hover:bg-red-50"}`}
                           >

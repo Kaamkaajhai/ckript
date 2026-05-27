@@ -57,8 +57,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
+import ScreenplayViewer from "../components/ScreenplayViewer";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { formatScreenplayLikeText } from "../utils/screenplayText";
 import {
   attachAdminScriptAccessHeader,
   clearAdminScriptAccess,
@@ -243,6 +245,7 @@ const AdminScriptView = () => {
   };
 
   const rawContent = typeof script?.textContent === "string" ? script.textContent : "";
+  const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
   const writerCustomTerms = String(script?.legal?.customInvestorTerms || "").trim();
   const hasWriterCustomTerms = writerCustomTerms.length > 0;
   const formatLabel = script?.format === "other"
@@ -309,7 +312,10 @@ const AdminScriptView = () => {
     },
     { label: "Negotiation Mode", value: NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || "-" },
   ];
-  const plainScriptText = useMemo(() => getPlainTextFromScriptContent(rawContent), [rawContent]);
+  const plainScriptText = useMemo(
+    () => formatScreenplayLikeText(getPlainTextFromScriptContent(rawContent)),
+    [rawContent]
+  );
   const scriptPages = useMemo(() => {
     const normalized = plainScriptText.replace(/\r\n/g, "\n").trim();
     if (!normalized) return [];
@@ -324,6 +330,7 @@ const AdminScriptView = () => {
 
   const totalPages = scriptPages.length;
   const currentPage = totalPages > 0 ? scriptPages[Math.min(Math.max(activePage, 1), totalPages) - 1] : "";
+  const hasUploadedPdf = Boolean(uploadedPdfUrl);
 
   useEffect(() => {
     setActivePage(1);
@@ -346,8 +353,14 @@ const AdminScriptView = () => {
   };
 
   const handleDownloadScript = () => {
+    if (!plainScriptText.trim()) {
+      if (uploadedPdfUrl) {
+        window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+
     const normalized = plainScriptText.replace(/\r\n/g, "\n").trim();
-    if (!normalized) return;
 
     const title = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
     const filename = `${title || "script"}_full_script.pdf`;
@@ -1023,10 +1036,10 @@ const AdminScriptView = () => {
               <button
                 type="button"
                 onClick={handleDownloadScript}
-                disabled={!plainScriptText.trim()}
+                disabled={!plainScriptText.trim() && !hasUploadedPdf}
                 className="px-3 py-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Download
+                {plainScriptText.trim() ? "Download" : "Open PDF"}
               </button>
             </div>
           </div>
@@ -1035,12 +1048,9 @@ const AdminScriptView = () => {
             <>
               <div className="mx-auto w-full max-w-[794px] aspect-[210/297] bg-white text-slate-900 rounded-md shadow-[0_18px_48px_rgba(0,0,0,0.35)] border border-slate-200 overflow-hidden">
                 <div className="h-full p-6 sm:p-10 lg:p-12 overflow-hidden">
-                  <pre
-                    className="h-full whitespace-pre-wrap break-words text-[13px] sm:text-[14px] leading-[1.55]"
-                    style={{ fontFamily: '"Courier Prime", "Courier New", Courier, monospace' }}
-                  >
-                    {currentPage}
-                  </pre>
+                  <div className="h-full overflow-hidden text-[13px] sm:text-[14px] leading-[1.55]">
+                    <ScreenplayViewer text={currentPage} className="text-slate-900" />
+                  </div>
                 </div>
               </div>
 
@@ -1098,7 +1108,35 @@ const AdminScriptView = () => {
               )}
             </>
           ) : (
-            <p className="text-sm text-white/55">No script body found.</p>
+            hasUploadedPdf ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-blue-100">Uploaded PDF available</p>
+                    <p className="text-xs text-blue-100/75">
+                      No extracted script text was saved for this project, but the writer uploaded a PDF that admin can open and review.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer")}
+                    className="px-3 py-2 rounded-lg border border-blue-300/30 bg-blue-500/20 hover:bg-blue-500/30 text-blue-50 text-xs font-bold"
+                  >
+                    Open Uploaded PDF
+                  </button>
+                </div>
+
+                <div className="overflow-hidden rounded-xl border border-white/10 bg-white">
+                  <iframe
+                    src={uploadedPdfUrl}
+                    title="Uploaded script PDF"
+                    className="w-full h-[720px]"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-white/55">No script body found.</p>
+            )
           )}
         </div>
       </div>

@@ -819,6 +819,92 @@ html.dark-mode .script-content img {
   margin: 1.2em 0;
 }
 
+.screenplay-viewer {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 14px;
+  line-height: 1.65;
+  color: inherit;
+}
+
+.screenplay-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: inherit;
+}
+
+.screenplay-line--frontmatter {
+  margin: 0 0 0.45rem;
+  text-align: center;
+}
+
+.screenplay-line--scene,
+.screenplay-line--shot {
+  margin: 1.25rem 0 0.45rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.screenplay-line--action {
+  margin: 0 0 0.7rem;
+}
+
+.screenplay-line--character {
+  margin: 1rem 0 0.15rem 32%;
+  max-width: 15rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.screenplay-line--parenthetical {
+  margin: 0 0 0.12rem 27%;
+  max-width: 20rem;
+}
+
+.screenplay-line--dialogue {
+  margin: 0 0 0.7rem 22%;
+  max-width: 28rem;
+}
+
+.screenplay-line--transition {
+  margin: 1rem 0 0.55rem auto;
+  max-width: 16rem;
+  text-align: right;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.screenplay-spacer {
+  height: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .screenplay-viewer {
+    font-size: 13px;
+  }
+
+  .screenplay-line--character {
+    margin-left: 18%;
+    max-width: none;
+  }
+
+  .screenplay-line--parenthetical {
+    margin-left: 14%;
+    max-width: none;
+  }
+
+  .screenplay-line--dialogue {
+    margin-left: 10%;
+    max-width: none;
+  }
+
+  .screenplay-line--transition {
+    max-width: none;
+  }
+}
+
 .script-content img {
   display: block;
   max-width: 100%;
