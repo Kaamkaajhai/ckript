@@ -5,6 +5,7 @@ import { useNavigate, Link, useLocation, useSearchParams } from "react-router-do
 import { ArrowRight, AlertCircle } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 const FORCE_DEFAULT_REDIRECT_KEY = "auth:force-default-redirect";
 
@@ -277,6 +278,20 @@ const Login = () => {
               )}
             </button>
           </form>
+
+          <div className="mt-5 flex items-center gap-3">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">or</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          <div className="mt-4">
+            <GoogleSignInButton
+              text="signin_with"
+              onSuccess={(userData) => navigateAfterLogin(userData || {})}
+              onError={(msg) => setError(msg)}
+            />
+          </div>
 
           <div className="mt-6 pt-6 border-t border-slate-200 space-y-3 text-center">
             <p className="text-sm text-slate-600">

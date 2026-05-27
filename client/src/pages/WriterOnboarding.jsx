@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import OTPVerification from "../components/OTPVerification";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import { 
   FileText, 
   UserCircle, 
@@ -1147,6 +1148,33 @@ const WriterOnboarding = () => {
               <h1 className="ob-title">What's your <em>name</em>?</h1>
               <p className="ob-subtitle">Let's start with the basics.</p>
               <ErrorBox msg={error} />
+
+              <div style={{ marginBottom: 16 }}>
+                <GoogleSignInButton
+                  text="signup_with"
+                  referralCode={accountData.referralCode}
+                  onSuccess={(userData) => {
+                    setAccountData((prev) => ({
+                      ...prev,
+                      name: userData?.name || prev.name,
+                      email: userData?.email || prev.email,
+                      phone: userData?.phone || prev.phone,
+                    }));
+                    setError("");
+                    setEmailError("");
+                    // Google has already verified the email, so skip name/email/password
+                    // steps and continue the writer onboarding at the username step.
+                    setCurrentStep(4);
+                  }}
+                  onError={(msg) => setError(msg)}
+                />
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "16px 0 4px" }}>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+                  <span style={{ fontSize: 11, letterSpacing: 1, color: "#6B7280", textTransform: "uppercase", fontWeight: 600 }}>or continue with email</span>
+                  <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+                </div>
+              </div>
+
               <div className="ob-field">
                 <label className="ob-label">Full Name</label>
                 <div style={{ position: "relative" }}>

@@ -124,7 +124,7 @@ export const formatScreenplayLikeText = (value = "") => {
     .trim();
 };
 
-const extractPdfTextWithPdftotext = async (buffer) => {
+export const extractPdfTextWithPdftotext = async (buffer) => {
   const tempId = crypto.randomUUID();
   const tempPdfPath = path.join(os.tmpdir(), `ckript-pdf-${tempId}.pdf`);
   const tempTxtPath = path.join(os.tmpdir(), `ckript-pdf-${tempId}.txt`);

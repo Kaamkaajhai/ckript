@@ -1458,6 +1458,88 @@ export const rejectScript = async (req, res) => {
     }
 };
 
+// ─── Admin Edit (at approval time or after) ───
+const ADMIN_EDITABLE_TOP_LEVEL_FIELDS = [
+    "title",
+    "companyName",
+    "logline",
+    "description",
+    "synopsis",
+    "textContent",
+    "fullContent",
+    "genre",
+    "contentType",
+    "format",
+    "formatOther",
+    "styleMedium",
+    "primaryGenre",
+    "subGenres",
+    "classification",
+    "contentIndicators",
+    "tagIds",
+    "scriptCompletion",
+    "price",
+];
+
+export const editScriptAsAdmin = async (req, res) => {
+    try {
+        const script = await Script.findById(req.params.id);
+        if (!script) return res.status(404).json({ message: "Script not found" });
+
+        const prevTextContent = String(script.textContent || "");
+
+        for (const field of ADMIN_EDITABLE_TOP_LEVEL_FIELDS) {
+            if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+                script[field] = req.body[field];
+                script.markModified(field);
+            }
+        }
+
+        if (req.body.legal && typeof req.body.legal === "object") {
+            script.legal = { ...(script.legal?.toObject?.() || script.legal || {}), ...req.body.legal };
+            if (Object.prototype.hasOwnProperty.call(req.body.legal, "customInvestorTerms")) {
+                script.legal.customInvestorTermsUpdatedAt = new Date();
+            }
+            script.markModified("legal");
+        }
+
+        if (req.body.rightsLicensing && typeof req.body.rightsLicensing === "object") {
+            const incoming = req.body.rightsLicensing;
+            const current = script.rightsLicensing?.toObject?.() || script.rightsLicensing || {};
+            const merged = { ...current, ...incoming };
+            if (incoming.royaltySettings && typeof incoming.royaltySettings === "object") {
+                merged.royaltySettings = { ...(current.royaltySettings || {}), ...incoming.royaltySettings };
+            }
+            if (incoming.timeBound && typeof incoming.timeBound === "object") {
+                merged.timeBound = { ...(current.timeBound || {}), ...incoming.timeBound };
+            }
+            if (incoming.legalAcknowledgement && typeof incoming.legalAcknowledgement === "object") {
+                merged.legalAcknowledgement = { ...(current.legalAcknowledgement || {}), ...incoming.legalAcknowledgement };
+            }
+            merged.lastUpdatedAt = new Date();
+            script.rightsLicensing = merged;
+            script.markModified("rightsLicensing");
+        }
+
+        const newTextContent = String(script.textContent || "");
+        if (newTextContent !== prevTextContent) {
+            script.history = script.history || [];
+            script.history.push({
+                content: newTextContent,
+                savedAt: new Date(),
+                savedBy: req.user._id,
+                prId: null,
+            });
+            script.markModified("history");
+        }
+
+        await script.save();
+        res.json({ message: "Script updated by admin", script });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // ─── Platform Scoring ───
 export const scoreScript = async (req, res) => {
     try {

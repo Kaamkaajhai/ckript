@@ -194,6 +194,7 @@ const Profile = () => {
   const [bookmarkedScripts, setBookmarkedScripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followRequestPending, setFollowRequestPending] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState("projects");
   const [showMessageRequestModal, setShowMessageRequestModal] = useState(false);
@@ -263,6 +264,7 @@ const Profile = () => {
       setBlockedByProfile(Boolean(data.user.blockedByProfile));
       const followers = Array.isArray(data.user?.followers) ? data.user.followers : [];
       setIsFollowing(followers.some((f) => f?._id === currentUser?._id));
+      setFollowRequestPending(Boolean(data.user?.followRequestPending));
 
       if (tabInitializedForProfileRef.current !== data.user._id) {
         const role = String(data.user.role || "").toLowerCase();
@@ -279,6 +281,7 @@ const Profile = () => {
 
       if (status === 403 && isPrivateAccount) {
         setProfile(null);
+        setFollowRequestPending(Boolean(error?.response?.data?.followRequestPending));
         setProfileAccessMessage(serverMessage || "This account is private.");
       } else if (status === 403 && isBlockedView) {
         setProfile(null);
@@ -357,16 +360,23 @@ const Profile = () => {
             (f) => f._id !== currentUser._id
           ),
         });
+      } else if (followRequestPending) {
+        await api.post("/users/follow-requests/cancel", { userId: profile._id });
+        setFollowRequestPending(false);
       } else {
-        await api.post("/users/follow", { userId: profile._id });
-        setIsFollowing(true);
-        setProfile({
-          ...profile,
-          followers: [
-            ...profile.followers,
-            { _id: currentUser._id, name: currentUser.name },
-          ],
-        });
+        const { data } = await api.post("/users/follow", { userId: profile._id });
+        if (data?.status === "pending") {
+          setFollowRequestPending(true);
+        } else {
+          setIsFollowing(true);
+          setProfile({
+            ...profile,
+            followers: [
+              ...profile.followers,
+              { _id: currentUser._id, name: currentUser.name },
+            ],
+          });
+        }
       }
     } catch (error) {
       console.error("Error following/unfollowing:", error);
@@ -674,6 +684,30 @@ const Profile = () => {
         >
           {profileAccessMessage || "User not found"}
         </p>
+        {String(profileAccessMessage || "").toLowerCase().includes("private") && id && (
+          <button
+            onClick={async () => {
+              try {
+                if (followRequestPending) {
+                  await api.post("/users/follow-requests/cancel", { userId: id });
+                  setFollowRequestPending(false);
+                } else {
+                  const { data } = await api.post("/users/follow", { userId: id });
+                  setFollowRequestPending(data?.status === "pending");
+                }
+              } catch (err) {
+                console.error("Follow request action failed:", err);
+              }
+            }}
+            className={`mt-2 px-4 py-1.5 rounded-xl text-[12px] font-bold border transition-all ${
+              followRequestPending
+                ? dark ? "bg-white/[0.06] text-white border-white/15" : "bg-gray-100 text-gray-700 border-gray-300"
+                : dark ? "bg-blue-500 text-white border-blue-500 hover:bg-blue-600" : "bg-[#1e3a5f] text-white border-[#1e3a5f] hover:bg-[#152a47]"
+            }`}
+          >
+            {followRequestPending ? "Requested" : "Send follow request"}
+          </button>
+        )}
       </div>
     );
   }
@@ -792,7 +826,7 @@ const Profile = () => {
                     disabled={isBlockedByCurrent || blockedByProfile}
                     className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border max-[470px]:flex-1 max-[470px]:px-2 max-[470px]:text-[11px] disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                   >
-                    {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : "Follow"}
+                    {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
                   </button>
                   <button
                     onClick={handleToggleBlock}
@@ -843,7 +877,7 @@ const Profile = () => {
                             disabled={isBlockedByCurrent || blockedByProfile}
                             className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                           >
-                            {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : "Follow"}
+                            {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
                           </button>
                         )}
                       </div>
@@ -944,7 +978,7 @@ const Profile = () => {
                           disabled={isBlockedByCurrent || blockedByProfile}
                           className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                         >
-                          {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : "Follow"}
+                          {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
                         </button>
                         <button
                           onClick={handleToggleBlock}
@@ -997,7 +1031,7 @@ const Profile = () => {
                                 disabled={isBlockedByCurrent || blockedByProfile}
                                 className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                               >
-                                {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : "Follow"}
+                                {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
                               </button>
                               <button
                                 onClick={handleToggleBlock}
@@ -1131,7 +1165,7 @@ const Profile = () => {
                               disabled={isBlockedByCurrent || blockedByProfile}
                               className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                             >
-                              {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : "Follow"}
+                              {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
                             </button>
                             <button
                               onClick={handleToggleBlock}

@@ -336,6 +336,24 @@ const MainLayout = ({ children }) => {
     }
   };
 
+  const handleFollowRequestDecision = async (notification, decision) => {
+    const fromUserId = notification?.from?._id || notification?.from;
+    if (!fromUserId) return;
+    try {
+      const endpoint = decision === "accept"
+        ? "/users/follow-requests/accept"
+        : "/users/follow-requests/reject";
+      await api.post(endpoint, { fromUserId });
+      // Remove this notification locally and refresh.
+      setNotifications((prev) => prev.filter((n) => n._id !== notification._id));
+      if (!notification.read) setUnreadCount((c) => Math.max(0, c - 1));
+      dismissNotificationPopup(notification._id, { rememberSeen: true });
+      scheduleNotificationRefresh();
+    } catch (err) {
+      console.error("Follow request decision failed:", err);
+    }
+  };
+
   const handleClearAll = async () => {
     try {
       await api.delete("/notifications");
@@ -369,6 +387,8 @@ const MainLayout = ({ children }) => {
       like:          isDarkMode ? "text-rose-400 bg-rose-500/10"       : "text-rose-500 bg-rose-50",
       comment:       isDarkMode ? "text-blue-400 bg-blue-500/10"        : "text-blue-600 bg-blue-50",
       follow:        isDarkMode ? "text-violet-400 bg-violet-500/10"   : "text-violet-600 bg-violet-50",
+      follow_request: isDarkMode ? "text-violet-400 bg-violet-500/10"  : "text-violet-600 bg-violet-50",
+      follow_request_accepted: isDarkMode ? "text-emerald-400 bg-emerald-500/10" : "text-emerald-600 bg-emerald-50",
       unlock:        isDarkMode ? "text-emerald-400 bg-emerald-500/10" : "text-emerald-600 bg-emerald-50",
       hold:          isDarkMode ? "text-amber-400 bg-amber-500/10"     : "text-amber-600 bg-amber-50",
       hold_expiring: isDarkMode ? "text-orange-400 bg-orange-500/10"   : "text-orange-600 bg-orange-50",
@@ -398,6 +418,8 @@ const MainLayout = ({ children }) => {
       like: "New like",
       comment: "New comment",
       follow: "New follower",
+      follow_request: "Follow request",
+      follow_request_accepted: "Follow request accepted",
       unlock: "Script unlocked",
       hold: "Hold update",
       hold_expiring: "Hold expiring",
@@ -430,7 +452,8 @@ const MainLayout = ({ children }) => {
 
     if (["purchase_request", "purchase_rejected"].includes(type)) return "Review";
     if (type === "message_request") return "Reply";
-    if (["follow", "profile_view"].includes(type) && notification?.from) return "Profile";
+    if (["follow", "follow_request_accepted", "profile_view"].includes(type) && notification?.from) return "Profile";
+    if (type === "follow_request") return "Review";
     if (["collab_invite", "collab_request", "collab_update", "revision_update"].includes(type)) return "View";
     return "Open";
   };
@@ -475,6 +498,11 @@ const MainLayout = ({ children }) => {
       return;
     }
 
+    if (type === "follow_request") {
+      navigate("/follow-requests");
+      return;
+    }
+
     if (scriptTarget && [
       "purchase_approved",
       "unlock",
@@ -497,7 +525,7 @@ const MainLayout = ({ children }) => {
       return;
     }
 
-    if (profileTarget && ["follow", "profile_view", "like", "comment"].includes(type)) {
+    if (profileTarget && ["follow", "follow_request_accepted", "profile_view", "like", "comment"].includes(type)) {
       navigate(profileTarget);
       return;
     }
@@ -844,6 +872,30 @@ const MainLayout = ({ children }) => {
                           <p className={`text-[11px] max-[340px]:text-[10px] mt-0.5 ${isDarkMode ? "text-[#3d5470]" : "text-gray-400"}`}>
                             {timeAgo(n.createdAt)}
                           </p>
+                          {n.type === "follow_request" && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(n, "accept"); }}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                                  isDarkMode
+                                    ? "bg-blue-500 text-white hover:bg-blue-600"
+                                    : "bg-[#1e3a5f] text-white hover:bg-[#152a47]"
+                                }`}
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(n, "reject"); }}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors border ${
+                                  isDarkMode
+                                    ? "border-white/15 text-[#b0c0d0] hover:bg-white/[0.05]"
+                                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                                }`}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Actions (hover) */}

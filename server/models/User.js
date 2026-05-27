@@ -38,7 +38,10 @@ const userSchema = new mongoose.Schema({
     formatted: { type: String },
   },
   pendingEmail: { type: String },
-  password: { type: String, required: true },
+  password: { type: String, required: function () { return !this.googleId; } },
+  // Google OAuth linkage (writers / creators sign-in with Google).
+  googleId: { type: String, index: true, sparse: true },
+  authProvider: { type: String, enum: ["password", "google"], default: "password" },
   role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin"], required: true },
   bio: { type: String },
   skills: [String],
@@ -237,6 +240,16 @@ const userSchema = new mongoose.Schema({
 
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  // Pending follow requests sent to this user (used when this user is a private writer)
+  followRequests: [{
+    from: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdAt: { type: Date, default: Date.now },
+  }],
+  // Pending follow requests this user has sent that haven't been accepted yet
+  sentFollowRequests: [{
+    to: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    createdAt: { type: Date, default: Date.now },
+  }],
   profileViews: { type: Number, default: 0 },
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   // Smart Match preferences
@@ -449,11 +462,13 @@ userSchema.pre("validate", async function () {
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
+  if (!this.password) return;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

@@ -248,6 +248,19 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
+  const googleSignIn = async (credential, { referralCode } = {}) => {
+    const payload = { credential };
+    if (referralCode) payload.referralCode = referralCode;
+    const { data } = await axios.post(`${API_URL}/auth/google`, payload);
+
+    setUser(data);
+    localStorage.setItem("user", JSON.stringify(data));
+    if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
+    await linkAnonymousSessionToUser(data);
+    await trackAuthEvent(data?.isNewUser ? "signup_success" : "login_success", data);
+    return data;
+  };
+
   const logout = (options = {}) => {
     const { redirect = true } = options;
     clearLogoutTimer();
@@ -265,7 +278,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, join, logout }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, join, googleSignIn, logout }}>
       {children}
     </AuthContext.Provider>
   );

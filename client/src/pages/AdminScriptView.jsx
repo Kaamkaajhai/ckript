@@ -131,6 +131,11 @@ const AdminScriptView = () => {
   const [scriptAccessPassword, setScriptAccessPassword] = useState("");
   const [scriptAccessError, setScriptAccessError] = useState("");
   const [scriptAccessLoading, setScriptAccessLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [draft, setDraft] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
+  const [rejectLoading, setRejectLoading] = useState(false);
 
   const hasAdminSession = useMemo(() => {
     const raw = sessionStorage.getItem("admin-session");
@@ -241,6 +246,108 @@ const AdminScriptView = () => {
       setError(err?.response?.data?.message || "Failed to delete project.");
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const buildDraftFromScript = (s) => ({
+    title: s?.title || "",
+    companyName: s?.companyName || "",
+    logline: s?.logline || "",
+    description: s?.description || "",
+    synopsis: s?.synopsis || "",
+    textContent: typeof s?.textContent === "string" ? s.textContent : "",
+    genre: s?.genre || "",
+    contentType: s?.contentType || "movie",
+    format: s?.format || "feature_film",
+    formatOther: s?.formatOther || "",
+    primaryGenre: s?.primaryGenre || "",
+    price: typeof s?.price === "number" ? s.price : 0,
+    legal: {
+      customInvestorTerms: s?.legal?.customInvestorTerms || "",
+    },
+    rightsLicensing: {
+      rightsType: s?.rightsLicensing?.rightsType || "custom_negotiation_required",
+      exclusivity: Boolean(s?.rightsLicensing?.exclusivity),
+      modificationRights: s?.rightsLicensing?.modificationRights || "buyer_must_consult_writer",
+      paymentStructure: s?.rightsLicensing?.paymentStructure || "one_time_upfront_payment",
+      negotiationMode: s?.rightsLicensing?.negotiationMode || "fixed_terms_non_negotiable",
+      customConditions: s?.rightsLicensing?.customConditions || "",
+      royaltySettings: {
+        percentage: s?.rightsLicensing?.royaltySettings?.percentage || 0,
+        durationType: s?.rightsLicensing?.royaltySettings?.durationType || "none",
+        durationYears: s?.rightsLicensing?.royaltySettings?.durationYears || 0,
+      },
+      timeBound: {
+        licenseDurationMonths: s?.rightsLicensing?.timeBound?.licenseDurationMonths || 0,
+        autoRevertToWriter: Boolean(s?.rightsLicensing?.timeBound?.autoRevertToWriter),
+      },
+    },
+  });
+
+  const handleStartEdit = () => {
+    if (!script) return;
+    setDraft(buildDraftFromScript(script));
+    setEditMode(true);
+    setError("");
+    setNotice("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditMode(false);
+    setDraft(null);
+  };
+
+  const updateDraft = (updater) => {
+    setDraft((prev) => (prev ? updater(prev) : prev));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!script?._id || !draft) return;
+    try {
+      setSavingEdit(true);
+      setError("");
+      const { data } = await adminApi.put(`/admin/scripts/${script._id}/edit`, draft);
+      setScript(data.script || data);
+      setEditMode(false);
+      setDraft(null);
+      setNotice("Script updated successfully.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to save changes.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!script?._id) return;
+    if (!window.confirm("Approve and publish this script?")) return;
+    try {
+      setApproveLoading(true);
+      setError("");
+      const { data } = await adminApi.put(`/admin/scripts/${script._id}/approve`);
+      setScript(data.script || data);
+      setNotice(data?.message || "Script approved.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to approve script.");
+    } finally {
+      setApproveLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!script?._id) return;
+    const reason = window.prompt("Optional reason for rejection (leave blank to skip):", "") || "";
+    if (!window.confirm("Reject this script?")) return;
+    try {
+      setRejectLoading(true);
+      setError("");
+      const { data } = await adminApi.put(`/admin/scripts/${script._id}/reject`, { reason: reason.trim() });
+      setScript(data.script || data);
+      setNotice(data?.message || "Script rejected.");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to reject script.");
+    } finally {
+      setRejectLoading(false);
     }
   };
 
@@ -593,14 +700,66 @@ const AdminScriptView = () => {
           </div>
 
           {!script?.isDeleted && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={deleteLoading}
-              className="px-4 py-2 rounded-lg border border-red-400/30 bg-red-500/15 hover:bg-red-500/25 text-red-100 text-xs sm:text-sm font-bold disabled:opacity-60"
-            >
-              {deleteLoading ? "Deleting..." : "Delete Project"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {!editMode ? (
+                <button
+                  type="button"
+                  onClick={handleStartEdit}
+                  className="px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs sm:text-sm font-bold"
+                >
+                  Edit
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveEdit}
+                    disabled={savingEdit}
+                    className="px-4 py-2 rounded-lg border border-emerald-400/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-xs sm:text-sm font-bold disabled:opacity-60"
+                  >
+                    {savingEdit ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    disabled={savingEdit}
+                    className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-xs sm:text-sm font-bold disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+              {script?.status === "pending_approval" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleApprove}
+                    disabled={editMode || approveLoading || rejectLoading}
+                    className="px-4 py-2 rounded-lg border border-emerald-400/40 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-100 text-xs sm:text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={editMode ? "Save or cancel edits first" : ""}
+                  >
+                    {approveLoading ? "Approving..." : "Approve"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={editMode || approveLoading || rejectLoading}
+                    className="px-4 py-2 rounded-lg border border-orange-400/40 bg-orange-500/20 hover:bg-orange-500/30 text-orange-100 text-xs sm:text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={editMode ? "Save or cancel edits first" : ""}
+                  >
+                    {rejectLoading ? "Rejecting..." : "Reject"}
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleteLoading || editMode}
+                className="px-4 py-2 rounded-lg border border-red-400/30 bg-red-500/15 hover:bg-red-500/25 text-red-100 text-xs sm:text-sm font-bold disabled:opacity-60"
+              >
+                {deleteLoading ? "Deleting..." : "Delete Project"}
+              </button>
+            </div>
           )}
         </div>
 
@@ -613,6 +772,254 @@ const AdminScriptView = () => {
         {error && (
           <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
             {error}
+          </div>
+        )}
+
+        {editMode && draft && (
+          <div className="rounded-2xl border border-blue-400/30 bg-blue-500/[0.06] p-5 sm:p-7 space-y-5">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-blue-200 mb-1">Admin Edit Mode</p>
+                <p className="text-xs text-white/70">Edit any field below. Changes to script body are recorded in history with you as the editor.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Title</span>
+                <input
+                  type="text"
+                  value={draft.title}
+                  onChange={(e) => updateDraft((d) => ({ ...d, title: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Company Name</span>
+                <input
+                  type="text"
+                  value={draft.companyName}
+                  onChange={(e) => updateDraft((d) => ({ ...d, companyName: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block lg:col-span-2">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Logline</span>
+                <input
+                  type="text"
+                  value={draft.logline}
+                  onChange={(e) => updateDraft((d) => ({ ...d, logline: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block lg:col-span-2">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Synopsis</span>
+                <textarea
+                  rows={4}
+                  value={draft.synopsis}
+                  onChange={(e) => updateDraft((d) => ({ ...d, synopsis: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block lg:col-span-2">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Description</span>
+                <textarea
+                  rows={3}
+                  value={draft.description}
+                  onChange={(e) => updateDraft((d) => ({ ...d, description: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Format</span>
+                <input
+                  type="text"
+                  value={draft.format}
+                  onChange={(e) => updateDraft((d) => ({ ...d, format: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Content Type</span>
+                <input
+                  type="text"
+                  value={draft.contentType}
+                  onChange={(e) => updateDraft((d) => ({ ...d, contentType: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Primary Genre</span>
+                <input
+                  type="text"
+                  value={draft.primaryGenre}
+                  onChange={(e) => updateDraft((d) => ({ ...d, primaryGenre: e.target.value }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Price (INR)</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={draft.price}
+                  onChange={(e) => updateDraft((d) => ({ ...d, price: Number(e.target.value) || 0 }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Script Body (textContent)</span>
+              <textarea
+                rows={18}
+                value={draft.textContent}
+                onChange={(e) => updateDraft((d) => ({ ...d, textContent: e.target.value }))}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                style={{ fontFamily: '"Courier Prime", "Courier New", Courier, monospace' }}
+              />
+            </label>
+
+            <div className="border-t border-white/10 pt-4">
+              <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/55 mb-3">Rights & Licensing</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Rights Type</span>
+                  <select
+                    value={draft.rightsLicensing.rightsType}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, rightsType: e.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  >
+                    <option value="full_rights_sale">Full Rights Sale</option>
+                    <option value="exclusive_license">Exclusive License</option>
+                    <option value="custom_negotiation_required">Custom Negotiation Required</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Modification Rights</span>
+                  <select
+                    value={draft.rightsLicensing.modificationRights}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, modificationRights: e.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  >
+                    <option value="buyer_can_modify_freely">Buyer can modify freely</option>
+                    <option value="buyer_must_consult_writer">Buyer must consult writer</option>
+                    <option value="writer_retains_creative_approval_rights">Writer retains creative approval rights</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Payment Structure</span>
+                  <select
+                    value={draft.rightsLicensing.paymentStructure}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, paymentStructure: e.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  >
+                    <option value="one_time_upfront_payment">One-time upfront payment</option>
+                    <option value="lower_upfront_plus_royalty_percent">Lower upfront + royalty %</option>
+                    <option value="revenue_sharing_model">Revenue sharing model</option>
+                    <option value="custom_deal">Custom deal</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Negotiation Mode</span>
+                  <select
+                    value={draft.rightsLicensing.negotiationMode}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, negotiationMode: e.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  >
+                    <option value="fixed_terms_non_negotiable">Fixed terms (non-negotiable)</option>
+                    <option value="open_to_discussion_after_purchase">Open to discussion after purchase</option>
+                    <option value="ckript_not_involved">Ckript not involved</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Royalty %</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={draft.rightsLicensing.royaltySettings.percentage}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, percentage: Number(e.target.value) || 0 } } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Royalty Duration Type</span>
+                  <select
+                    value={draft.rightsLicensing.royaltySettings.durationType}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, durationType: e.target.value } } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  >
+                    <option value="none">None</option>
+                    <option value="years">Years</option>
+                    <option value="project_lifetime">Project lifetime</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Royalty Duration (Years)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.rightsLicensing.royaltySettings.durationYears}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, durationYears: Number(e.target.value) || 0 } } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">License Duration (Months)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={draft.rightsLicensing.timeBound.licenseDurationMonths}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, timeBound: { ...d.rightsLicensing.timeBound, licenseDurationMonths: Number(e.target.value) || 0 } } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  />
+                </label>
+                <label className="flex items-center gap-2 mt-6">
+                  <input
+                    type="checkbox"
+                    checked={draft.rightsLicensing.exclusivity}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, exclusivity: e.target.checked } }))}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-xs text-white/85 font-semibold">Exclusivity</span>
+                </label>
+                <label className="flex items-center gap-2 mt-6">
+                  <input
+                    type="checkbox"
+                    checked={draft.rightsLicensing.timeBound.autoRevertToWriter}
+                    onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, timeBound: { ...d.rightsLicensing.timeBound, autoRevertToWriter: e.target.checked } } }))}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-xs text-white/85 font-semibold">Auto-revert to writer</span>
+                </label>
+              </div>
+              <label className="block mt-3">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Custom Conditions</span>
+                <textarea
+                  rows={3}
+                  maxLength={5000}
+                  value={draft.rightsLicensing.customConditions}
+                  onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, customConditions: e.target.value } }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+            </div>
+
+            <div className="border-t border-white/10 pt-4">
+              <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/55 mb-3">Legal / Writer Terms</p>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/55">Custom Terms For Film Industry Professionals</span>
+                <textarea
+                  rows={4}
+                  maxLength={3000}
+                  value={draft.legal.customInvestorTerms}
+                  onChange={(e) => updateDraft((d) => ({ ...d, legal: { ...d.legal, customInvestorTerms: e.target.value } }))}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                />
+              </label>
+            </div>
           </div>
         )}
 
