@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>Ckript Blog</title>
+  <link>https://ckript.com</link>
+  <description>Latest articles from Ckript</description>
+  <item>
+    <title>How AI Is Changing Screenwriting</title>
+    <link>https://ckript.com/resources/blog/how-ai-is-changing-screenwriting</link>
+    <guid isPermaLink="true">https://ckript.com/resources/blog/how-ai-is-changing-screenwriting</guid>
+    <description>AI tools transforming the way writers develop and pitch screenplays.</description>
+    <pubDate>Thu, 15 Jan 2026 00:00:00 GMT</pubDate>
+  </item>
+  <item>
+    <title>Script Marketing For Producers</title>
+    <link>https://ckript.com/resources/blog/script-marketing-for-producers</link>
+    <guid isPermaLink="true">https://ckript.com/resources/blog/script-marketing-for-producers</guid>
+    <description>Strategies producers use to evaluate and market scripts to studios.</description>
+    <pubDate>Mon, 02 Mar 2026 00:00:00 GMT</pubDate>
+  </item>
+</channel>
+</rss>
