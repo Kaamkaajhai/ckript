@@ -16,5 +16,8 @@ Disallow: /industry-onboarding
 Disallow: /login
 Disallow: /join
 Disallow: /signup
+Disallow: /api
+Disallow: /auth
+Disallow: /uploads
 
 Sitemap: https://ckript.com/sitemap.xml

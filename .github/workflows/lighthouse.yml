@@ -1,0 +1,68 @@
+name: Lighthouse CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-lighthouse:
+    runs-on: ubuntu-latest
+    env:
+      LH_PERF_THRESHOLD: 0.75
+      LH_ACCESSIBILITY_THRESHOLD: 0.9
+      LH_BESTPRACTICES_THRESHOLD: 0.9
+      LH_SEO_THRESHOLD: 0.9
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install client dependencies
+        run: npm --prefix client ci
+
+      - name: Build client
+        run: npm --prefix client run build
+
+      - name: Serve client
+        run: npx http-server client/dist -p 8080 & sleep 2
+
+      - name: Run Lighthouse
+        run: npx -y lighthouse http://127.0.0.1:8080 --output=json --output-path=./lighthouse-report.json --quiet --chrome-flags="--no-sandbox --headless"
+
+      - name: Upload Lighthouse report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: lighthouse-report.json
+
+      - name: Check Lighthouse thresholds and fail on regressions
+        shell: bash
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "jq not found; installing..."
+            sudo apt-get update && sudo apt-get install -y jq
+          fi
+          echo "Reading lighthouse-report.json"
+          cat lighthouse-report.json
+          perf=$(jq '.categories.performance.score' lighthouse-report.json)
+          access=$(jq '.categories.accessibility.score' lighthouse-report.json)
+          bp=$(jq '.categories["best-practices"].score' lighthouse-report.json)
+          seo=$(jq '.categories.seo.score' lighthouse-report.json)
+          echo "Scores -> Performance: $perf, Accessibility: $access, BestPractices: $bp, SEO: $seo"
+          perf_threshold=${LH_PERF_THRESHOLD}
+          access_threshold=${LH_ACCESSIBILITY_THRESHOLD}
+          bp_threshold=${LH_BESTPRACTICES_THRESHOLD}
+          seo_threshold=${LH_SEO_THRESHOLD}
+          compare() {
+            awk -v a="$1" -v b="$2" 'BEGIN{ if ((a+0) < (b+0)) exit 1 }'
+          }
+          compare "$perf" "$perf_threshold" || { echo "PERFORMANCE check failed: $perf < $perf_threshold"; exit 1; }
+          compare "$access" "$access_threshold" || { echo "ACCESSIBILITY check failed: $access < $access_threshold"; exit 1; }
+          compare "$bp" "$bp_threshold" || { echo "BEST-PRACTICES check failed: $bp < $bp_threshold"; exit 1; }
+          compare "$seo" "$seo_threshold" || { echo "SEO check failed: $seo < $seo_threshold"; exit 1; }

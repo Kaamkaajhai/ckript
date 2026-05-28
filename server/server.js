@@ -1,4 +1,5 @@
 import express from "express";
+import fs from "fs";
 import dotenv from "dotenv";
 import cors from "cors";
 import compression from "compression";
@@ -346,6 +347,35 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
 app.use("/api/collab", collabRoutes);
+
+// Serve client static build (if present) with aggressive caching for hashed assets
+try {
+  const clientDist = path.join(__dirname, "../client/dist");
+  if (fs.existsSync(clientDist)) {
+    app.use(express.static(clientDist, {
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('.html')) {
+          // HTML must be revalidated to pick up new deploys
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (/\.[0-9a-f]{8,}\.\w+$/.test(filePath)) {
+          // Fingerprinted assets: long cache + immutable
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+          // Other static assets: 7 days
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+      }
+    }));
+
+    // SPA fallback for non-API routes
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/verification')) return next();
+      res.sendFile(path.join(clientDist, 'index.html'));
+    });
+  }
+} catch (err) {
+  // Continue if static assets are not present
+}
 
 export default app;
 

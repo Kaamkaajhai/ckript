@@ -51,6 +51,7 @@ const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
+const SeoRoutePage = lazy(() => import("./pages/SeoRoutePage"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
@@ -246,6 +247,28 @@ function App() {
             >
             <Routes>
               <Route path="/" element={<Landing />} />
+              <Route path="/features" element={<SeoRoutePage />} />
+              <Route path="/features/:featureSlug" element={<SeoRoutePage />} />
+              <Route path="/for" element={<SeoRoutePage />} />
+              <Route path="/for/:audience" element={<SeoRoutePage />} />
+              <Route path="/industries" element={<SeoRoutePage />} />
+              <Route path="/industries/:industry" element={<SeoRoutePage />} />
+              <Route path="/resources" element={<SeoRoutePage />} />
+              <Route path="/resources/blog" element={<SeoRoutePage />} />
+              <Route path="/resources/blog/:slug" element={<SeoRoutePage />} />
+              <Route path="/resources/:resourceSlug" element={<SeoRoutePage />} />
+              <Route path="/tools" element={<SeoRoutePage />} />
+              <Route path="/tools/:toolSlug" element={<SeoRoutePage />} />
+              <Route path="/pricing" element={<SeoRoutePage />} />
+              <Route path="/faq" element={<SeoRoutePage />} />
+              <Route path="/genre/:slug" element={<SeoRoutePage />} />
+              <Route path="/how-to-sell-a-script" element={<SeoRoutePage />} />
+              <Route path="/how-to-find-producers" element={<SeoRoutePage />} />
+              <Route path="/how-to-pitch-screenplay" element={<SeoRoutePage />} />
+              <Route path="/how-to-find-film-investors" element={<SeoRoutePage />} />
+              <Route path="/film-investment-india" element={<SeoRoutePage />} />
+              <Route path="/bollywood-script-submission" element={<SeoRoutePage />} />
+              <Route path="/web-series-screenplay-guide" element={<SeoRoutePage />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />

@@ -1,21 +1,32 @@
-export const SITE_URL = "https://ckript.com";
+import { defaultSeo, SITE_URL } from "./seoConfig.js";
+import { blogPosts, genrePages, guidePages, marketingPages } from "./seoContent.js";
+import {
+  buildArticleSchema,
+  buildBreadcrumbItems,
+  buildBreadcrumbSchema,
+  buildFaqSchema,
+  buildOrganizationSchema,
+  buildProductSchema,
+  buildSoftwareApplicationSchema,
+  buildWebSiteSchema,
+} from "./schemaUtils.js";
+import { homepageFaqs } from "./seoContent.js";
 
-export const defaultSeo = {
-  title: "Ckript | Script Collaboration Platform",
-  description:
-    "Ckript is a collaborative platform for scriptwriters, readers, producers, and investors to discover scripts, build teams, and move film projects forward.",
-  image: `${SITE_URL}/ckript-logo-landscape-nobg.png`,
+export const aliasCanonicalMap = {
+  "/privacy": "/privacy-policy",
+  "/terms": "/terms-of-service",
+  "/t-and-c": "/terms-of-service",
 };
 
-// Public pages that can be indexed and included in sitemap.xml.
-export const publicSeoRoutes = [
+const staticSeoRoutes = [
   {
     path: "/",
-    title: "Ckript | Script Collaboration Platform",
-    description:
-      "Discover scripts, connect with creators, and collaborate with producers and investors on Ckript.",
+    title: defaultSeo.title,
+    description: defaultSeo.description,
+    keywords: defaultSeo.keywords,
     changefreq: "daily",
     priority: "1.0",
+    kind: "homepage",
   },
   {
     path: "/contact",
@@ -75,11 +86,46 @@ export const publicSeoRoutes = [
   },
 ];
 
-export const aliasCanonicalMap = {
-  "/privacy": "/privacy-policy",
-  "/terms": "/terms-of-service",
-  "/t-and-c": "/terms-of-service",
-};
+const marketingSeoRoutes = marketingPages.map((page) => ({
+  path: page.path,
+  title: page.title,
+  description: page.description,
+  keywords: page.keywords,
+  changefreq: "monthly",
+  priority: "0.9",
+  kind: page.kind || "marketing",
+}));
+
+const programmaticRoutes = [
+  ...Object.keys(genrePages).map((slug) => ({
+    path: `/genre/${slug}`,
+    changefreq: "weekly",
+    priority: "0.8",
+    kind: "genre",
+  })),
+  ...Object.keys(guidePages).map((path) => ({
+    path,
+    changefreq: "monthly",
+    priority: "0.75",
+    kind: "guide",
+  })),
+  ...blogPosts.map((post) => ({
+    path: `/resources/blog/${post.slug}`,
+    changefreq: "monthly",
+    priority: "0.7",
+    kind: "blog",
+  })),
+];
+
+const seoRoutesByPath = new Map(
+  [...staticSeoRoutes, ...marketingSeoRoutes].map((route) => [route.path, route]),
+);
+
+export const publicSeoRoutes = [
+  ...staticSeoRoutes,
+  ...marketingSeoRoutes,
+  ...programmaticRoutes,
+];
 
 // Authenticated and app-internal pages should not be indexed.
 export const noIndexPrefixes = [
@@ -110,4 +156,143 @@ export const noIndexPrefixes = [
   "/messages",
   "/reader",
   "/admin",
+  "/api",
+  "/auth",
+  "/uploads",
 ];
+
+export function resolveCanonicalPath(pathname) {
+  return aliasCanonicalMap[pathname] || pathname;
+}
+
+export function getSeoForPath(pathname) {
+  const canonicalPath = resolveCanonicalPath(pathname);
+  const staticRoute = seoRoutesByPath.get(canonicalPath);
+
+  if (staticRoute) {
+    return buildSeoPayload({
+      ...staticRoute,
+      canonicalPath,
+    });
+  }
+
+  const blogMatch = canonicalPath.match(/^\/resources\/blog\/([^/]+)$/);
+  if (blogMatch) {
+    const slug = blogMatch[1];
+    const post = blogPosts.find((item) => item.slug === slug);
+    if (post) {
+      return buildSeoPayload({
+        path: canonicalPath,
+        canonicalPath,
+        title: `${post.title} | Ckript`,
+        description: post.description,
+        keywords: ["Ckript blog", "AI filmmaking", "script marketplace"],
+        kind: "blog",
+        blogPost: post,
+      });
+    }
+  }
+
+  const genreMatch = canonicalPath.match(/^\/genre\/([^/]+)$/);
+  if (genreMatch) {
+    const slug = genreMatch[1];
+    const genre = genrePages[slug];
+    if (genre) {
+      return buildSeoPayload({
+        path: canonicalPath,
+        canonicalPath,
+        title: genre.title,
+        description: genre.description,
+        keywords: ["script marketplace", `${slug} scripts`, "screenplay"],
+        kind: "genre",
+      });
+    }
+  }
+
+  const guide = guidePages[canonicalPath];
+  if (guide) {
+    return buildSeoPayload({
+      path: canonicalPath,
+      canonicalPath,
+      title: guide.title,
+      description: guide.description,
+      keywords: ["screenplay guide", "script pitching", "film funding"],
+      kind: "guide",
+    });
+  }
+
+  return buildSeoPayload({
+    path: canonicalPath,
+    canonicalPath,
+    title: defaultSeo.title,
+    description: defaultSeo.description,
+    keywords: defaultSeo.keywords,
+    kind: "fallback",
+  });
+}
+
+function buildSeoPayload(route) {
+  const breadcrumbs = buildBreadcrumbItems(route.canonicalPath || route.path || "/");
+  const canonicalUrl = `${SITE_URL}${route.canonicalPath || route.path || "/"}`;
+  const baseSchemas = [buildOrganizationSchema(), buildWebSiteSchema()];
+
+  if (route.kind === "homepage") {
+    baseSchemas.push(
+      buildSoftwareApplicationSchema({
+        name: "Ckript",
+        description: defaultSeo.description,
+        url: canonicalUrl,
+      }),
+      buildFaqSchema(homepageFaqs),
+    );
+  }
+
+  if (route.kind === "blog" && route.blogPost) {
+    baseSchemas.push(
+      buildArticleSchema({
+        headline: route.blogPost.title,
+        description: route.blogPost.description,
+        url: canonicalUrl,
+        datePublished: route.blogPost.date,
+        authorName: route.blogPost.author,
+      }),
+      buildBreadcrumbSchema(breadcrumbs),
+    );
+  }
+
+  if (route.kind === "tool") {
+    baseSchemas.push(
+      buildSoftwareApplicationSchema({
+        name: route.title,
+        description: route.description,
+        url: canonicalUrl,
+      }),
+    );
+  }
+
+  if (route.kind === "product") {
+    baseSchemas.push(
+      buildProductSchema({
+        name: route.title,
+        description: route.description,
+        url: canonicalUrl,
+      }),
+    );
+  }
+
+  if (route.kind === "faq") {
+    baseSchemas.push(buildFaqSchema(homepageFaqs));
+  }
+
+  return {
+    title: route.title || defaultSeo.title,
+    description: route.description || defaultSeo.description,
+    keywords: route.keywords || defaultSeo.keywords,
+    image: defaultSeo.image,
+    kind: route.kind,
+    canonicalPath: route.canonicalPath || route.path || "/",
+    canonicalUrl,
+    breadcrumbs,
+    schemas: baseSchemas,
+  };
+}

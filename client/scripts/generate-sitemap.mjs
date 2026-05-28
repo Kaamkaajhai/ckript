@@ -1,14 +1,16 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { SITE_URL, publicSeoRoutes } from "../src/seo/seoRoutes.js";
+import { SITE_URL } from "../src/seo/seoConfig.js";
+import { publicSeoRoutes } from "../src/seo/seoRoutes.js";
 
 const siteUrl = (process.env.SITE_URL || SITE_URL).replace(/\/$/, "");
 const today = new Date().toISOString().split("T")[0];
 
-const urlEntries = publicSeoRoutes
+const urlEntries = (publicSeoRoutes || [])
   .map((route) => {
     const routePath = route.path === "/" ? "" : route.path;
-    return `  <url>\n    <loc>${siteUrl}${routePath}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${route.changefreq || "monthly"}</changefreq>\n    <priority>${route.priority || "0.5"}</priority>\n  </url>`;
+    const lastmod = route.lastmod || today;
+    return `  <url>\n    <loc>${siteUrl}${routePath}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${route.changefreq || "monthly"}</changefreq>\n    <priority>${route.priority || "0.5"}</priority>\n  </url>`;
   })
   .join("\n");
 

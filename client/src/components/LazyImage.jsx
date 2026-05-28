@@ -23,6 +23,9 @@ import { useDarkMode } from "../context/DarkModeContext";
 const LazyImage = ({
   src,
   webpSrc,
+  srcSet,
+  webpSrcSet,
+  sizes,
   alt = "",
   className = "",
   wrapClass = "w-full h-full",
@@ -60,9 +63,12 @@ const LazyImage = ({
       {/* Actual image — uses <picture> for WebP when available */}
       {!errored && (
         <picture className={`block ${wrapClass}`}>
-          {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
+          {webpSrcSet && <source srcSet={webpSrcSet} type="image/webp" sizes={sizes} />}
+          {webpSrc && !webpSrcSet && <source srcSet={webpSrc} type="image/webp" />}
           <img
             src={src}
+            srcSet={srcSet}
+            sizes={sizes}
             alt={alt}
             loading={eager ? "eager" : "lazy"}
             decoding="async"
