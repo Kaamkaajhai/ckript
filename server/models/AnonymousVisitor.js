@@ -93,7 +93,6 @@ const anonymousVisitorSchema = new mongoose.Schema(
 );
 
 anonymousVisitorSchema.index({ lastVisit: -1 });
-anonymousVisitorSchema.index({ "sessions.sessionId": 1 });
 anonymousVisitorSchema.index({ isReturning: 1, lastVisit: -1 });
 
 const AnonymousVisitor = mongoose.model("AnonymousVisitor", anonymousVisitorSchema);

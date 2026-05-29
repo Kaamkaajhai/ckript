@@ -128,7 +128,6 @@ const userActivitySchema = new mongoose.Schema(
 userActivitySchema.index({ lastActiveAt: -1 });
 userActivitySchema.index({ "activityLogs.timestamp": -1 });
 userActivitySchema.index({ "authEvents.timestamp": -1 });
-userActivitySchema.index({ "sessions.sessionId": 1 });
 
 const UserActivity = mongoose.model("UserActivity", userActivitySchema);
 
