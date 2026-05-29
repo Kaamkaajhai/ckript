@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 import { sendOTPEmail, sendWelcomeEmail, sendPasswordResetOTPEmail } from "../utils/emailService.js";
 import {
   generateOTP,
@@ -944,6 +945,164 @@ export const login = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// ── Google OAuth (writers sign-in / sign-up) ──────────────────────────────
+let cachedGoogleClient = null;
+const getGoogleClient = () => {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  if (!clientId) {
+    throw new Error("GOOGLE_OAUTH_CLIENT_ID is not configured on the server");
+  }
+  if (!cachedGoogleClient || cachedGoogleClient._configuredClientId !== clientId) {
+    cachedGoogleClient = new OAuth2Client(clientId);
+    cachedGoogleClient._configuredClientId = clientId;
+  }
+  return cachedGoogleClient;
+};
+
+const verifyGoogleIdToken = async (idToken) => {
+  const client = getGoogleClient();
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const ticket = await client.verifyIdToken({ idToken, audience: clientId });
+  const payload = ticket.getPayload();
+  if (!payload) throw new Error("Google did not return a verifiable payload");
+  return payload;
+};
+
+export const googleAuth = async (req, res) => {
+  try {
+    const { credential, idToken, referralCode } = req.body || {};
+    const token = String(credential || idToken || "").trim();
+    if (!token) {
+      return res.status(400).json({ message: "Google credential is required" });
+    }
+
+    let payload;
+    try {
+      payload = await verifyGoogleIdToken(token);
+    } catch (verifyErr) {
+      console.error("[googleAuth] verifyIdToken failed:", verifyErr?.message || verifyErr);
+      return res.status(401).json({ message: "Invalid Google credential" });
+    }
+
+    if (!payload.email || !payload.email_verified) {
+      return res.status(400).json({
+        message: "Your Google account email is not verified. Please verify it with Google and try again.",
+      });
+    }
+
+    const email = sanitizeEmail(payload.email);
+    const googleId = String(payload.sub || "").trim();
+    const name = String(payload.name || payload.given_name || email.split("@")[0]).trim();
+    const profileImage = String(payload.picture || "").trim();
+
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+    let isNewUser = false;
+
+    if (!user) {
+      // Create new writer/creator account linked to Google. No password is set.
+      isNewUser = true;
+      const normalizedReferralInput = normalizeReferralInput(referralCode);
+      let referrerUser = null;
+      if (normalizedReferralInput) {
+        referrerUser = await findReferrerByInput(normalizedReferralInput).catch(() => null);
+        if (referrerUser && sanitizeEmail(referrerUser.email) === email) {
+          referrerUser = null;
+        }
+      }
+
+      user = await User.create({
+        name,
+        email,
+        role: "creator",
+        googleId,
+        authProvider: "google",
+        emailVerified: true,
+        profileImage: profileImage || undefined,
+        referredBy: referrerUser?._id,
+      });
+    } else {
+      // Link the Google account if not already linked, and refresh basic fields.
+      let dirty = false;
+      if (!user.googleId) {
+        user.googleId = googleId;
+        dirty = true;
+      }
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        dirty = true;
+      }
+      if (!user.profileImage && profileImage) {
+        user.profileImage = profileImage;
+        dirty = true;
+      }
+      if (!user.authProvider) {
+        user.authProvider = user.password ? "password" : "google";
+        dirty = true;
+      }
+      if (dirty) await user.save();
+    }
+
+    if (user.isDeactivated) {
+      return res.status(403).json({ message: "This account has been deleted", accountDeleted: true });
+    }
+    if (user.isFrozen) {
+      return res.status(403).json({
+        message: user.frozenReason || "This account has been frozen by admin",
+        accountFrozen: true,
+      });
+    }
+
+    // Investor accounts created elsewhere may sign in with Google, but if pending/rejected
+    // we keep the same gating used in the password login path.
+    if (user.role === "investor" && user.approvalStatus === "pending") {
+      return res.status(403).json({
+        message: "Your account is pending admin approval. You will be notified once approved.",
+        pendingApproval: true,
+      });
+    }
+    if (user.role === "investor" && user.approvalStatus === "rejected") {
+      return res.status(403).json({
+        message: user.approvalNote
+          ? `Your account has been rejected: ${user.approvalNote}. Please contact support.`
+          : "Your account has been rejected. Please contact support.",
+        rejected: true,
+      });
+    }
+
+    let referralBonusAwarded = false;
+    if (isNewUser) {
+      const result = await awardReferralBonusForUser(user._id).catch(() => ({ awarded: false }));
+      referralBonusAwarded = Boolean(result?.awarded);
+    }
+
+    const { token: jwtToken, expiresAt } = generateToken(user._id);
+    return res.json({
+      _id: user._id,
+      sid: user.sid,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      referralCode: user.referralCode,
+      language: normalizeLanguagePreference(user.language),
+      timezone: user.timezone || DEFAULT_TIMEZONE,
+      approvalStatus: user.approvalStatus,
+      approvalNote: user.approvalNote,
+      profileImage: user.profileImage || user.profilePicture || "",
+      profileCompletion: getProfileCompletion(user),
+      authProvider: "google",
+      isNewUser,
+      referralBonusAwarded,
+      referralBonusCredits: referralBonusAwarded ? REFERRAL_BONUS_CREDITS : 0,
+      token: jwtToken,
+      expiresAt,
+    });
+  } catch (error) {
+    console.error("[googleAuth] failed:", error?.message || error);
+    return res.status(500).json({ message: error.message || "Google sign-in failed" });
   }
 };
 

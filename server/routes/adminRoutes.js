@@ -23,6 +23,7 @@ import {
     getPendingScripts,
     approveScript,
     rejectScript,
+    editScriptAsAdmin,
     scoreScript,
     getTrailerRequests,
     approveTrailer,
@@ -92,6 +93,7 @@ router.get("/scripts/:id", requireAdminScriptSectionAccess, getScriptDetail);
 router.delete("/scripts/:id", requireAdminScriptSectionAccess, deleteScriptAsAdmin);
 router.put("/scripts/:id/approve", requireAdminScriptSectionAccess, approveScript);
 router.put("/scripts/:id/reject", requireAdminScriptSectionAccess, rejectScript);
+router.put("/scripts/:id/edit", requireAdminScriptSectionAccess, editScriptAsAdmin);
 router.put("/scripts/:id/score", requireAdminScriptSectionAccess, scoreScript);
 router.put("/scripts/:id/trailer-approve", approveTrailer);
 router.post("/scripts/:id/upload-trailer", uploadAdminTrailerFile, uploadTrailerAsAdmin);

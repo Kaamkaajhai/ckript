@@ -1,3 +1,4 @@
+import { createRequire } from "module";
 import Script from "../models/Script.js";
 import mongoose from "mongoose";
 import ScriptOption from "../models/ScriptOption.js";
@@ -24,7 +25,7 @@ import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { CREDIT_PRICES } from "./creditsController.js";
 import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
-import { extractTextFromPdfBuffer, extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
+import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, extractPdfTextWithPdftotext } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import multer from "multer";
@@ -1351,6 +1352,18 @@ const getPurchasedUserIdSet = async (script) => {
   );
 };
 
+const detectUploadedDocType = (file) => {
+  const name = String(file?.originalname || "").toLowerCase();
+  const mime = String(file?.mimetype || "").toLowerCase();
+  if (mime === "application/pdf" || name.endsWith(".pdf")) return "pdf";
+  if (
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    name.endsWith(".docx")
+  ) return "docx";
+  if (mime === "application/msword" || name.endsWith(".doc")) return "doc";
+  return "";
+};
+
 export const extractPdfText = async (req, res) => {
   try {
     if (!requireProjectCreatorAccess(req, res)) {
@@ -1358,24 +1371,61 @@ export const extractPdfText = async (req, res) => {
     }
 
     if (!req.file) {
-      return res.status(400).json({ message: "No PDF file provided" });
+      return res.status(400).json({ message: "No file provided" });
     }
 
-    const extraction = await extractTextFromPdfBuffer(req.file.buffer);
-    const text = extraction.text || "";
-    const numItems = Number(extraction.numItems) || 0;
+    const docType = detectUploadedDocType(req.file);
+    if (!docType) {
+      return res.status(400).json({ message: "Unsupported file type. Please upload a PDF, DOCX, or DOC file." });
+    }
+
+    const require = createRequire(import.meta.url);
+    let text = "";
+    let numItems = 0;
+
+    if (docType === "pdf") {
+      const pdfParse = require('pdf-parse');
+      try {
+        const data = await pdfParse(req.file.buffer);
+        text = normalizeExtractedPdfText(data?.text || "");
+        numItems = Number(data?.numpages) || 0;
+      } catch (parseError) {
+        console.warn("[extractPdfText] pdf-parse failed, falling back to pdftotext:", parseError?.message || parseError);
+        text = await extractPdfTextWithPdftotext(req.file.buffer);
+      }
+    } else if (docType === "docx") {
+      try {
+        const mammoth = require('mammoth');
+        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+        text = normalizeExtractedPdfText(result?.value || "");
+      } catch (docxError) {
+        console.error("[extractPdfText] docx parse failed:", docxError?.message || docxError);
+        return res.status(422).json({
+          message: "We couldn't extract readable text from this DOCX file.",
+        });
+      }
+    } else if (docType === "doc") {
+      return res.status(415).json({
+        message: "Legacy .doc files aren't supported. Please save your file as .docx or .pdf and try again.",
+      });
+    }
 
     let uploadedPdfUrl = "";
     try {
-      const uploadResult = await uploadToCloudinary(req.file.buffer, {
+      const uploadOptions = {
         folder: "scriptbridge/scripts",
         resource_type: "raw",
-        format: "pdf",
         public_id: `script-${req.user?._id || "user"}-${Date.now()}`,
-      });
+      };
+      if (docType === "pdf") {
+        uploadOptions.format = "pdf";
+      } else if (docType === "docx") {
+        uploadOptions.format = "docx";
+      }
+      const uploadResult = await uploadToCloudinary(req.file.buffer, uploadOptions);
       uploadedPdfUrl = uploadResult?.secure_url || "";
     } catch (uploadError) {
-      console.error("PDF upload to Cloudinary failed:", uploadError?.message || uploadError);
+      console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
     }
 
     const trimmedText = text.trim();
@@ -1389,11 +1439,10 @@ export const extractPdfText = async (req, res) => {
       fileUrl: uploadedPdfUrl,
       extractedTextAvailable: Boolean(trimmedText),
       extractionWarning,
-      extractionStrategy: extraction.strategy || "none",
     });
   } catch (error) {
-    console.error("PDF Extraction Error:", error);
-    res.status(500).json({ message: "Failed to extract text from PDF", error: error.message });
+    console.error("Document Extraction Error:", error);
+    res.status(500).json({ message: "Failed to extract text from document", error: error.message });
   }
 };
 

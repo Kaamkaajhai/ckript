@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
 import PrivateRoute from "./utils/PrivateRoute";
 import { AuthContext } from "./context/AuthContext";
@@ -50,6 +51,7 @@ const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
+const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 
 const preloadRouteChunks = [
@@ -227,8 +229,9 @@ function App() {
     };
   }, []);
 
-  return (
-    <DarkModeProvider>
+  const googleClientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID || "";
+  const appTree = (
+    <DarkModeProvider key="dm-root">
       <AuthProvider>
         <Router>
           <LanguagePreferenceSync />
@@ -277,6 +280,7 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/credits" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
+                <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
                 <Route path="/ai-tools" element={<Dashboard />} />
                 <Route path="/offer-holds" element={<Dashboard />} />
@@ -324,6 +328,10 @@ function App() {
       </AuthProvider>
     </DarkModeProvider>
   );
+
+  return googleClientId
+    ? <GoogleOAuthProvider clientId={googleClientId}>{appTree}</GoogleOAuthProvider>
+    : appTree;
 }
 
 export default App;

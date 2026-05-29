@@ -827,11 +827,15 @@ export const getUserProfile = async (req, res) => {
       const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
 
       if (user?.isPrivate && !isFollower && !isAdminViewer) {
+        const followRequestPending = (user?.followRequests || []).some(
+          (entry) => entry?.from?.toString() === req.user._id.toString()
+        );
         return res.status(403).json({
           message: "This account is private.",
           privateAccount: true,
           blockedByCurrent,
           blockedByProfile,
+          followRequestPending,
         });
       }
 
@@ -944,6 +948,13 @@ export const getUserProfile = async (req, res) => {
 
     userObj.blockedByCurrent = blockedByCurrent;
     userObj.blockedByProfile = blockedByProfile;
+    if (!isOwnProfile) {
+      userObj.followRequestPending = (user?.followRequests || []).some(
+        (entry) => entry?.from?.toString() === req.user._id.toString()
+      );
+    } else {
+      userObj.pendingFollowRequestCount = (user?.followRequests || []).length;
+    }
     userObj.shareMeta = buildUserShareMeta(req, userObj);
     userObj.canonicalPath = buildUserCanonicalPath(userObj);
     userObj.profileCompletion = getProfileCompletion(userObj);
@@ -1383,6 +1394,9 @@ export const updateUserProfile = async (req, res) => {
   }
 };
 
+const isWriterRole = (role) =>
+  ["writer", "creator"].includes(String(role || "").toLowerCase());
+
 export const followUser = async (req, res) => {
   try {
     const userToFollow = await User.findById(req.body.userId);
@@ -1411,6 +1425,34 @@ export const followUser = async (req, res) => {
       return res.status(400).json({ message: "Already following this user" });
     }
 
+    const requiresApproval = isWriterRole(userToFollow.role) && Boolean(userToFollow.isPrivate);
+
+    if (requiresApproval) {
+      const alreadyRequested = (userToFollow.followRequests || []).some(
+        (entry) => entry?.from?.toString() === req.user._id.toString()
+      );
+      if (alreadyRequested) {
+        return res.status(200).json({ message: "Follow request already pending", status: "pending" });
+      }
+
+      userToFollow.followRequests = userToFollow.followRequests || [];
+      userToFollow.followRequests.push({ from: req.user._id, createdAt: new Date() });
+      currentUser.sentFollowRequests = currentUser.sentFollowRequests || [];
+      currentUser.sentFollowRequests.push({ to: userToFollow._id, createdAt: new Date() });
+
+      await currentUser.save();
+      await userToFollow.save();
+
+      await Notification.create({
+        user: userToFollow._id,
+        type: "follow_request",
+        from: req.user._id,
+        message: "requested to follow you",
+      });
+
+      return res.json({ message: "Follow request sent", status: "pending" });
+    }
+
     currentUser.following.push(req.body.userId);
     userToFollow.followers.push(req.user._id);
 
@@ -1425,7 +1467,158 @@ export const followUser = async (req, res) => {
       message: "started following you",
     });
 
-    res.json({ message: "User followed successfully" });
+    res.json({ message: "User followed successfully", status: "following" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// List pending follow requests received by the current user (writer)
+export const getFollowRequests = async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id)
+      .select("followRequests")
+      .populate({
+        path: "followRequests.from",
+        select: "name profileImage role writerProfile.username bio",
+      });
+
+    if (!me) return res.status(404).json({ message: "User not found" });
+
+    const requests = (me.followRequests || [])
+      .filter((entry) => entry?.from)
+      .map((entry) => ({
+        _id: entry._id,
+        createdAt: entry.createdAt,
+        from: entry.from,
+      }))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json({ requests });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const acceptFollowRequest = async (req, res) => {
+  try {
+    const fromUserId = String(req.body.fromUserId || "").trim();
+    if (!fromUserId) {
+      return res.status(400).json({ message: "fromUserId is required" });
+    }
+
+    const me = await User.findById(req.user._id);
+    if (!me) return res.status(404).json({ message: "User not found" });
+
+    const pendingIndex = (me.followRequests || []).findIndex(
+      (entry) => entry?.from?.toString() === fromUserId
+    );
+    if (pendingIndex === -1) {
+      return res.status(404).json({ message: "No pending follow request from this user" });
+    }
+
+    const requester = await User.findById(fromUserId);
+    if (!requester) {
+      // Cleanup stale request
+      me.followRequests.splice(pendingIndex, 1);
+      await me.save();
+      return res.status(404).json({ message: "Requesting user no longer exists" });
+    }
+
+    // Move from pending to followers/following.
+    me.followRequests.splice(pendingIndex, 1);
+    if (!me.followers.some((id) => id.toString() === fromUserId)) {
+      me.followers.push(requester._id);
+    }
+    requester.sentFollowRequests = (requester.sentFollowRequests || []).filter(
+      (entry) => entry?.to?.toString() !== req.user._id.toString()
+    );
+    if (!requester.following.some((id) => id.toString() === req.user._id.toString())) {
+      requester.following.push(me._id);
+    }
+
+    await me.save();
+    await requester.save();
+
+    await Notification.create({
+      user: requester._id,
+      type: "follow_request_accepted",
+      from: me._id,
+      message: "accepted your follow request",
+    });
+
+    res.json({ message: "Follow request accepted", status: "accepted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const rejectFollowRequest = async (req, res) => {
+  try {
+    const fromUserId = String(req.body.fromUserId || "").trim();
+    if (!fromUserId) {
+      return res.status(400).json({ message: "fromUserId is required" });
+    }
+
+    const me = await User.findById(req.user._id);
+    if (!me) return res.status(404).json({ message: "User not found" });
+
+    const before = (me.followRequests || []).length;
+    me.followRequests = (me.followRequests || []).filter(
+      (entry) => entry?.from?.toString() !== fromUserId
+    );
+
+    if (me.followRequests.length === before) {
+      return res.status(404).json({ message: "No pending follow request from this user" });
+    }
+
+    await me.save();
+
+    // Mirror cleanup on requester's sentFollowRequests.
+    await User.updateOne(
+      { _id: fromUserId },
+      { $pull: { sentFollowRequests: { to: req.user._id } } }
+    );
+
+    // Best-effort: remove the pending request notification so it disappears from their bell.
+    await Notification.deleteMany({
+      user: req.user._id,
+      type: "follow_request",
+      from: fromUserId,
+    });
+
+    res.json({ message: "Follow request rejected", status: "rejected" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Used by the requester to cancel a pending follow request they sent.
+export const cancelFollowRequest = async (req, res) => {
+  try {
+    const toUserId = String(req.body.userId || "").trim();
+    if (!toUserId) return res.status(400).json({ message: "userId is required" });
+
+    const me = await User.findById(req.user._id);
+    if (!me) return res.status(404).json({ message: "User not found" });
+
+    me.sentFollowRequests = (me.sentFollowRequests || []).filter(
+      (entry) => entry?.to?.toString() !== toUserId
+    );
+    await me.save();
+
+    await User.updateOne(
+      { _id: toUserId },
+      { $pull: { followRequests: { from: req.user._id } } }
+    );
+
+    await Notification.deleteMany({
+      user: toUserId,
+      type: "follow_request",
+      from: req.user._id,
+    });
+
+    res.json({ message: "Follow request cancelled", status: "cancelled" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -1700,6 +1893,13 @@ export const unfollowUser = async (req, res) => {
     );
     userToUnfollow.followers = userToUnfollow.followers.filter(
       (id) => id.toString() !== req.user._id.toString()
+    );
+    // Also clear any pending follow request in either direction so unfollow doubles as cancel.
+    currentUser.sentFollowRequests = (currentUser.sentFollowRequests || []).filter(
+      (entry) => entry?.to?.toString() !== req.body.userId
+    );
+    userToUnfollow.followRequests = (userToUnfollow.followRequests || []).filter(
+      (entry) => entry?.from?.toString() !== req.user._id.toString()
     );
 
     await currentUser.save();

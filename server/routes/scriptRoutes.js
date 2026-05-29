@@ -30,10 +30,10 @@ const upload = multer({
 const uploadPdfWithLimit = (req, res, next) => {
   upload.single("pdf")(req, res, (err) => {
     if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
-      return res.status(413).json({ message: "PDF must be 30MB or smaller." });
+      return res.status(413).json({ message: "File must be 30MB or smaller." });
     }
     if (err) {
-      return res.status(400).json({ message: err.message || "PDF upload failed." });
+      return res.status(400).json({ message: err.message || "File upload failed." });
     }
     next();
   });

@@ -801,13 +801,17 @@ const ScriptUpload = () => {
   const handleFileSelect = async (file) => {
     if (!file) return;
 
-    if (file.type !== "application/pdf") {
-      setError("Please upload a PDF file only.");
+    const fileName = String(file.name || "").toLowerCase();
+    const isPdf = file.type === "application/pdf" || fileName.endsWith(".pdf");
+    const isDocx = file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || fileName.endsWith(".docx");
+    const isDoc = file.type === "application/msword" || fileName.endsWith(".doc");
+    if (!isPdf && !isDocx && !isDoc) {
+      setError("Please upload a PDF, DOCX, or DOC file.");
       return;
     }
 
     if (file.size > MAX_PDF_SIZE) {
-      setError("PDF must be 30MB or smaller.");
+      setError("File must be 30MB or smaller.");
       return;
     }
 
@@ -2155,14 +2159,14 @@ const ScriptUpload = () => {
                           </svg>
                         </div>
                         <p className={`text-sm font-medium ${labelCls} mb-1`}>
-                          {isExtracting ? "Extracting text from PDF..." : "Drag & drop your PDF here"}
+                          {isExtracting ? "Extracting text from file..." : "Drag & drop your PDF or Word file here"}
                         </p>
                         <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{isExtracting ? "Please wait..." : "or click to browse"}</p>
-                        <p className={`text-[10px] mt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>Accepted format: PDF only (max 30MB)</p>
+                        <p className={`text-[10px] mt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>Accepted formats: PDF, DOCX, DOC (max 30MB)</p>
                         <input
                           ref={fileInputRef}
                           type="file"
-                          accept=".pdf"
+                          accept=".pdf,.docx,.doc,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           onChange={(e) => handleFileSelect(e.target.files[0])}
                           className="hidden"
                           disabled={isExtracting}

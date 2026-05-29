@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 
-const DEFAULT_ALLOWED_ADMIN_BRANCHES = ["yashu", "ujju", "master", "aman"];
+const DEFAULT_ALLOWED_ADMIN_BRANCHES = ["yashu", "ujju", "ujjunew", "master", "aman"];
 
 let cachedRuntimeBranch;
 
