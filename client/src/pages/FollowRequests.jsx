@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api/axios";
+import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 
 export default function FollowRequests() {
