@@ -188,6 +188,19 @@ const createRealtimeServer = () => {
       }
 
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      // --- ADD THIS BYPASS BLOCK FOR LOAD TESTING ---
+      if (process.env.NODE_ENV === "test" || process.env.BYPASS_DB_AUTH === "true") {
+        socket.user = {
+          _id: decoded.id,
+          role: "writer",
+          name: "Artillery VUser",
+          writerProfile: { username: "artillery_user" }
+        };
+        return next();
+      }
+      // ----------------------------------------------
+
       const user = await User.findById(decoded.id).select(
         "_id name writerProfile.username role isDeactivated isFrozen"
       );
@@ -306,7 +319,9 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 // Baseline abuse protection (route-level limiters remain stricter for sensitive endpoints)
-app.use("/api", apiLimiter);
+if (process.env.NODE_ENV !== "test") {
+  app.use("/api", apiLimiter);
+}
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads"), {

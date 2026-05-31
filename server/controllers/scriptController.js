@@ -4237,15 +4237,19 @@ export const getLatestScripts = async (req, res) => {
 
 export const recordRead = async (req, res) => {
   try {
-    const script = await Script.findById(req.params.id);
-    if (!script) return res.status(404).json({ message: "Script not found" });
-    script.readsCount = (script.readsCount || 0) + 1;
-    await script.save();
-    await User.findByIdAndUpdate(req.user._id, { $addToSet: { scriptsRead: script._id } });
+    const updatedScript = await Script.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { readsCount: 1 } },
+      { new: true, select: "_id" }
+    );
+    
+    if (!updatedScript) return res.status(404).json({ message: "Script not found" });
+    
+    await User.findByIdAndUpdate(req.user._id, { $addToSet: { scriptsRead: updatedScript._id } });
 
     trackInvestorInteraction({
       userId: req.user._id,
-      scriptId: script._id,
+      scriptId: updatedScript._id,
       type: "read",
       source: "script_reader",
     }).catch(() => null);
@@ -4258,24 +4262,38 @@ export const recordRead = async (req, res) => {
 
 export const toggleFavorite = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
-    const idx = user.favoriteScripts.indexOf(req.params.id);
-    if (idx > -1) {
-      user.favoriteScripts.splice(idx, 1);
-      await user.save();
-      res.json({ favorited: false });
+    const userId = req.user._id;
+    const scriptId = req.params.id;
+
+    // Check if the script exists fast before mutating arrays
+    const scriptExists = await Script.exists({ _id: scriptId });
+    if (!scriptExists) return res.status(404).json({ message: "Script not found" });
+
+    // Use MongoDB atomic updates. Try removing first.
+    const userWithRemoved = await User.findOneAndUpdate(
+      { _id: userId, favoriteScripts: scriptId },
+      { $pull: { favoriteScripts: scriptId } },
+      { new: true }
+    );
+
+    if (userWithRemoved) {
+      // It was in the array, so we removed it.
+      return res.json({ favorited: false });
     } else {
-      user.favoriteScripts.push(req.params.id);
-      await user.save();
+      // It wasn't in the array, so add it.
+      await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { favoriteScripts: scriptId } }
+      );
 
       trackInvestorInteraction({
-        userId: req.user._id,
-        scriptId: req.params.id,
+        userId: userId,
+        scriptId: scriptId,
         type: "save",
         source: "favorite_toggle",
       }).catch(() => null);
 
-      res.json({ favorited: true });
+      return res.json({ favorited: true });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });

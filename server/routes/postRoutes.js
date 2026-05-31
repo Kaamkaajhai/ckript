@@ -4,6 +4,7 @@ import { createPost, getFeed, likePost, commentPost } from "../controllers/postC
 
 const router = express.Router();
 
+router.get("/", protect, getFeed);
 router.post("/create", protect, createPost);
 router.get("/feed", protect, getFeed);
 router.post("/like", protect, likePost);

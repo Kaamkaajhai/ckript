@@ -15,6 +15,7 @@ import {
 
 const router = express.Router();
 
+router.get("/", protect, getConversations);
 router.get("/unread-count", protect, getUnreadCount);
 router.get("/conversations", protect, getConversations);
 router.get("/can-message/:targetId", protect, checkCanMessage);

@@ -973,7 +973,7 @@ const verifyGoogleIdToken = async (idToken) => {
 
 export const googleAuth = async (req, res) => {
   try {
-    const { credential, idToken, referralCode } = req.body || {};
+    const { credential, idToken } = req.body || {};
     const token = String(credential || idToken || "").trim();
     if (!token) {
       return res.status(400).json({ message: "Google credential is required" });
@@ -998,32 +998,20 @@ export const googleAuth = async (req, res) => {
     const name = String(payload.name || payload.given_name || email.split("@")[0]).trim();
     const profileImage = String(payload.picture || "").trim();
 
-    let user = await User.findOne({ $or: [{ googleId }, { email }] });
-    let isNewUser = false;
+    const user = await User.findOne({ $or: [{ googleId }, { email }] });
 
     if (!user) {
-      // Create new writer/creator account linked to Google. No password is set.
-      isNewUser = true;
-      const normalizedReferralInput = normalizeReferralInput(referralCode);
-      let referrerUser = null;
-      if (normalizedReferralInput) {
-        referrerUser = await findReferrerByInput(normalizedReferralInput).catch(() => null);
-        if (referrerUser && sanitizeEmail(referrerUser.email) === email) {
-          referrerUser = null;
-        }
-      }
-
-      user = await User.create({
-        name,
+      // Google is sign-in only. New users must create an account through the regular
+      // signup flow so they can pick a role (writer vs industry professional) and, for
+      // investors, supply the contact + approval data Google can't provide.
+      return res.status(404).json({
+        message: "No account found for this Google email. Please create an account first.",
+        accountNotFound: true,
         email,
-        role: "creator",
-        googleId,
-        authProvider: "google",
-        emailVerified: true,
-        profileImage: profileImage || undefined,
-        referredBy: referrerUser?._id,
       });
-    } else {
+    }
+
+    {
       // Link the Google account if not already linked, and refresh basic fields.
       let dirty = false;
       if (!user.googleId) {
@@ -1072,12 +1060,6 @@ export const googleAuth = async (req, res) => {
       });
     }
 
-    let referralBonusAwarded = false;
-    if (isNewUser) {
-      const result = await awardReferralBonusForUser(user._id).catch(() => ({ awarded: false }));
-      referralBonusAwarded = Boolean(result?.awarded);
-    }
-
     const { token: jwtToken, expiresAt } = generateToken(user._id);
     return res.json({
       _id: user._id,
@@ -1094,9 +1076,7 @@ export const googleAuth = async (req, res) => {
       profileImage: user.profileImage || user.profilePicture || "",
       profileCompletion: getProfileCompletion(user),
       authProvider: "google",
-      isNewUser,
-      referralBonusAwarded,
-      referralBonusCredits: referralBonusAwarded ? REFERRAL_BONUS_CREDITS : 0,
+      isNewUser: false,
       token: jwtToken,
       expiresAt,
     });

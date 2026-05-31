@@ -289,7 +289,13 @@ const Login = () => {
             <GoogleSignInButton
               text="signin_with"
               onSuccess={(userData) => navigateAfterLogin(userData || {})}
-              onError={(msg) => setError(msg)}
+              onError={(msg, data) => {
+                if (data?.accountNotFound) {
+                  setError("No account found for that Google email. Please create an account first.");
+                  return;
+                }
+                setError(msg);
+              }}
             />
           </div>
 

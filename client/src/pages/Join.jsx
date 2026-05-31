@@ -4,7 +4,6 @@ import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { UserPlus, MapPin, Phone } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
-import GoogleSignInButton from "../components/GoogleSignInButton";
 import api from "../services/api";
 
 const EMAIL_EXISTS_MSG = "User already exists";
@@ -449,25 +448,6 @@ const Join = () => {
                   </>
                 ) : error}
               </span>
-            </div>
-          )}
-
-          {formData.role === "creator" && (
-            <div className="mb-5">
-              <GoogleSignInButton
-                text="signup_with"
-                referralCode={referralCode}
-                onSuccess={(userData) => {
-                  if (userData?.role === "investor") navigate("/home");
-                  else navigate("/dashboard");
-                }}
-                onError={(msg) => setError(msg)}
-              />
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">or sign up with email</span>
-                <div className="flex-1 h-px bg-slate-200" />
-              </div>
             </div>
           )}
 
