@@ -4,6 +4,21 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    target: 'es2020',
+    cssCodeSplit: true,
+    assetsInlineLimit: 4096,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          editor: ['@tiptap/react', '@tiptap/starter-kit'],
+          charts: ['recharts'],
+          realtime: ['socket.io-client'],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {
