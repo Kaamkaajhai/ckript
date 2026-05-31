@@ -6,10 +6,15 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/ckript-feather nobg.png?v=3" />
     <link rel="shortcut icon" type="image/png" href="/ckript-feather nobg.png?v=3" />
     <link rel="apple-touch-icon" sizes="180x180" href="/ckript-feather nobg.png?v=3" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Ckript is a collaborative platform for scriptwriters, readers, producers, and investors to discover scripts, build teams, and move film projects forward."
+      content="Discover scripts, generate AI concept trailers, connect with producers and investors using Ckript's AI-powered entertainment marketplace."
+    />
+    <meta
+      name="keywords"
+      content="Ckript, script marketplace, screenplay analysis, AI script analysis, AI concept trailer, film funding, script discovery, screenplay submission, script pitching, AI filmmaking"
     />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#0f172a" />
@@ -17,28 +22,42 @@
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Ckript" />
-    <meta property="og:title" content="Ckript | Script Collaboration Platform" />
+    <meta property="og:title" content="Ckript - AI Script Discovery, Screenplay Analysis & Film Funding" />
     <meta
       property="og:description"
-      content="Discover scripts, connect with creators, and collaborate with producers and investors on Ckript."
+      content="Discover scripts, generate AI concept trailers, connect with producers and investors using Ckript's AI-powered entertainment marketplace."
     />
     <meta property="og:url" content="https://ckript.com/" />
     <meta property="og:image" content="https://ckript.com/ckript-logo-landscape-nobg.png" />
+    <meta property="og:locale" content="en_US" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Ckript | Script Collaboration Platform" />
+    <meta name="twitter:title" content="Ckript - AI Script Discovery, Screenplay Analysis & Film Funding" />
     <meta
       name="twitter:description"
-      content="Ckript helps scriptwriters, readers, and producers collaborate and bring film projects to life."
+      content="Discover scripts, generate AI concept trailers, connect with producers and investors using Ckript's AI-powered entertainment marketplace."
     />
     <meta name="twitter:image" content="https://ckript.com/ckript-logo-landscape-nobg.png" />
 
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebSite",
+        "@type": "Organization",
+        "@id": "https://ckript.com/#organization",
         "name": "Ckript",
         "url": "https://ckript.com/",
+        "logo": "https://ckript.com/ckript-logo-landscape-nobg.png",
+        "description": "AI-powered script discovery and entertainment-tech marketplace"
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "@id": "https://ckript.com/#website",
+        "name": "Ckript",
+        "url": "https://ckript.com/",
+        "publisher": { "@id": "https://ckript.com/#organization" },
         "potentialAction": {
           "@type": "SearchAction",
           "target": "https://ckript.com/search?q={search_term_string}",
@@ -47,7 +66,7 @@
       }
     </script>
 
-    <title>Ckript | Script Collaboration Platform</title>
+    <title>Ckript - AI Script Discovery, Screenplay Analysis & Film Funding</title>
   </head>
   <body>
     <div id="root"></div>

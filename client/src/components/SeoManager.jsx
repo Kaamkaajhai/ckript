@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import {
-  SITE_URL,
-  aliasCanonicalMap,
   defaultSeo,
+  getSeoForPath,
   noIndexPrefixes,
-  publicSeoRoutes,
+  resolveCanonicalPath,
+  SITE_URL,
 } from "../seo/seoRoutes";
+import { searchVerification } from "../seo/seoConfig";
 
 function setMetaByName(name, content) {
   let tag = document.querySelector(`meta[name="${name}"]`);
@@ -38,17 +39,21 @@ function setCanonical(url) {
   canonical.setAttribute("href", url);
 }
 
+function setJsonLd(schemas) {
+  document.querySelectorAll('script[data-ckript-schema="true"]').forEach((tag) => tag.remove());
+
+  schemas.forEach((schema, index) => {
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.dataset.ckriptSchema = "true";
+    script.dataset.schemaIndex = String(index);
+    script.text = JSON.stringify(schema);
+    document.head.appendChild(script);
+  });
+}
+
 function isNoIndexPath(pathname) {
   return noIndexPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-function resolveCanonicalPath(pathname) {
-  return aliasCanonicalMap[pathname] || pathname;
-}
-
-function getRouteSeo(pathname) {
-  const canonicalPath = resolveCanonicalPath(pathname);
-  return publicSeoRoutes.find((route) => route.path === canonicalPath) || defaultSeo;
 }
 
 export default function SeoManager() {
@@ -57,14 +62,19 @@ export default function SeoManager() {
   useEffect(() => {
     const pathname = location.pathname || "/";
     const canonicalPath = resolveCanonicalPath(pathname);
-    const seo = getRouteSeo(pathname);
-    const canonicalUrl = `${SITE_URL}${canonicalPath}`;
+    const seo = getSeoForPath(pathname);
+    const canonicalUrl = seo.canonicalUrl || `${SITE_URL}${canonicalPath}`;
     const robots = isNoIndexPath(pathname) ? "noindex, nofollow" : "index, follow";
 
     document.title = seo.title || defaultSeo.title;
 
     setMetaByName("description", seo.description || defaultSeo.description);
+    setMetaByName("keywords", (seo.keywords || defaultSeo.keywords).join(", "));
     setMetaByName("robots", robots);
+    setMetaByName("author", "Ckript");
+    setMetaByName("application-name", "Ckript");
+    setMetaByName("apple-mobile-web-app-title", "Ckript");
+    setMetaByName("theme-color", defaultSeo.themeColor);
     setMetaByName("twitter:card", "summary_large_image");
     setMetaByName("twitter:title", seo.title || defaultSeo.title);
     setMetaByName("twitter:description", seo.description || defaultSeo.description);
@@ -76,8 +86,18 @@ export default function SeoManager() {
     setMetaByProperty("og:description", seo.description || defaultSeo.description);
     setMetaByProperty("og:url", canonicalUrl);
     setMetaByProperty("og:image", seo.image || defaultSeo.image);
+    setMetaByProperty("og:locale", defaultSeo.locale);
 
     setCanonical(canonicalUrl);
+    setJsonLd(seo.schemas || []);
+
+    if (searchVerification.google) {
+      setMetaByName("google-site-verification", searchVerification.google);
+    }
+
+    if (searchVerification.bing) {
+      setMetaByName("msvalidate.01", searchVerification.bing);
+    }
   }, [location.pathname]);
 
   return null;
