@@ -13,6 +13,7 @@ import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/la
 const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
+const SeoPage = lazy(() => import("./pages/SeoPage"));
 const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
@@ -251,6 +252,28 @@ function App() {
               <Route path="/" element={<Landing />} />
               <Route path="/about" element={<About />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/features" element={<SeoPage />} />
+              <Route path="/features/:slug" element={<SeoPage />} />
+              <Route path="/for" element={<SeoPage />} />
+              <Route path="/for/:slug" element={<SeoPage />} />
+              <Route path="/industries" element={<SeoPage />} />
+              <Route path="/industries/:slug" element={<SeoPage />} />
+              <Route path="/resources" element={<SeoPage />} />
+              <Route path="/resources/blog" element={<SeoPage />} />
+              <Route path="/resources/blog/:slug" element={<SeoPage />} />
+              <Route path="/resources/:slug" element={<SeoPage />} />
+              <Route path="/tools" element={<SeoPage />} />
+              <Route path="/tools/:slug" element={<SeoPage />} />
+              <Route path="/pricing" element={<SeoPage />} />
+              <Route path="/faq" element={<SeoPage />} />
+              <Route path="/genre/:slug" element={<SeoPage />} />
+              <Route path="/how-to-sell-a-script" element={<SeoPage />} />
+              <Route path="/how-to-find-producers" element={<SeoPage />} />
+              <Route path="/how-to-pitch-screenplay" element={<SeoPage />} />
+              <Route path="/how-to-find-film-investors" element={<SeoPage />} />
+              <Route path="/film-investment-india" element={<SeoPage />} />
+              <Route path="/bollywood-script-submission" element={<SeoPage />} />
+              <Route path="/web-series-screenplay-guide" element={<SeoPage />} />
               <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
