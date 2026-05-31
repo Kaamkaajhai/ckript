@@ -13,7 +13,10 @@ export const createPost = async (req, res) => {
 
 export const getFeed = async (req, res) => {
   try {
-    const posts = await Post.find().populate("user", "name profileImage role").sort({ createdAt: -1 });
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .populate("user", "name profileImage role");
     res.json(posts);
   } catch (error) {
     res.status(500).json({ message: error.message });

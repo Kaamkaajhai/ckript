@@ -17,6 +17,7 @@ export default function GoogleSignInButton({
   onSuccess,
   onError,
   referralCode = "",
+  role = "",
   text = "continue_with",
   disabled = false,
 }) {
@@ -41,11 +42,12 @@ export default function GoogleSignInButton({
     }
     setBusy(true);
     try {
-      const data = await googleSignIn(credential, { referralCode });
+      const data = await googleSignIn(credential, { referralCode, role });
       onSuccess?.(data);
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || "Google sign-in failed.";
-      onError?.(msg);
+      const data = err?.response?.data;
+      const msg = data?.message || err?.message || "Google sign-in failed.";
+      onError?.(msg, data || {}, credential);
     } finally {
       setBusy(false);
     }

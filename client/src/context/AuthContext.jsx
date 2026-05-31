@@ -248,9 +248,10 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const googleSignIn = async (credential, { referralCode } = {}) => {
+  const googleSignIn = async (credential, { referralCode, role } = {}) => {
     const payload = { credential };
     if (referralCode) payload.referralCode = referralCode;
+    if (role) payload.role = role;
     const { data } = await axios.post(`${API_URL}/auth/google`, payload);
 
     setUser(data);

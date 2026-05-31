@@ -30,104 +30,103 @@ router.get("/", authMiddleware, async (req, res) => {
 
     // Search users (optionally filter by role)
     if (type === "all" || type === "users" || type === "writers" || type === "investors") {
-      const userQuery = {
-        role: { $ne: "reader" },
-        $or: [
-          { name: searchRegex },
-          { sid: searchRegex },
-          { bio: searchRegex },
-          { skills: searchRegex },
-          { "writerProfile.genres": searchRegex },
-          { "writerProfile.specializedTags": searchRegex },
-        ],
-      };
+      const userMatch = { role: { $ne: "reader" } };
 
       // Apply role filter
       if (type === "writers") {
-        userQuery.role = { $in: ["writer", "creator"] };
+        userMatch.role = { $in: ["writer", "creator"] };
       } else if (type === "investors") {
-        userQuery.role = "investor";
+        userMatch.role = "investor";
       } else if (role && role !== "reader") {
-        userQuery.role = role;
+        userMatch.role = role;
       }
 
       if (blockedUserIds.length > 0) {
-        userQuery._id = { $nin: blockedUserIds };
+        userMatch._id = { $nin: blockedUserIds };
       }
 
-      const userDocs = await User.find(userQuery)
-        .select("sid name email role bio skills profileImage followers following writerProfile.genres writerProfile.wgaMember writerProfile.sgaMember writerProfile.representationStatus")
-        .limit(30)
-        ;
-
-      await Promise.all(
-        userDocs.map(async (doc) => {
-          if (!doc.sid) {
-            await doc.save();
+      const userDocs = await User.aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: q.trim(),
+              path: ["name", "sid", "bio", "skills", "writerProfile.genres", "writerProfile.specializedTags"],
+              fuzzy: { maxEdits: 1 }
+            }
           }
-        })
-      );
+        },
+        { $match: userMatch },
+        { $limit: 30 },
+        { 
+          $project: { 
+            sid: 1, name: 1, email: 1, role: 1, bio: 1, skills: 1, profileImage: 1, 
+            followers: 1, following: 1, "writerProfile.genres": 1, 
+            "writerProfile.wgaMember": 1, "writerProfile.sgaMember": 1, 
+            "writerProfile.representationStatus": 1 
+          } 
+        }
+      ]);
 
       // Add computed counts
-      results.users = userDocs.map((doc) => {
-        const u = doc.toObject();
+      results.users = userDocs.map((u) => {
         return ({
-        ...u,
-        followerCount: u.followers?.length || 0,
-        followingCount: u.following?.length || 0,
-      });
+          ...u,
+          followerCount: u.followers?.length || 0,
+          followingCount: u.following?.length || 0,
+        });
       });
     }
 
     // Search scripts/projects
     if (type === "all" || type === "projects") {
-      const scriptQuery = {
+      const scriptMatch = {
         status: "published",
         isSold: { $ne: true },
         isDeleted: { $ne: true },
       };
-      if (q && q.trim()) {
-        scriptQuery.$and = [{
-          $or: [
-          { title: searchRegex },
-          { sid: searchRegex },
-          { description: searchRegex },
-          { genre: searchRegex },
-          { contentType: searchRegex },
-          ],
-        }];
-      }
-      if (genre) scriptQuery.genre = genre;
-      if (contentType) scriptQuery.contentType = contentType;
-      if (budget) scriptQuery.budget = budget;
-      if (premium === "true") scriptQuery.premium = true;
-      else if (premium === "false") scriptQuery.premium = { $ne: true };
+      
+      if (genre) scriptMatch.genre = genre;
+      if (contentType) scriptMatch.contentType = contentType;
+      if (budget) scriptMatch.budget = budget;
+      if (premium === "true") scriptMatch.premium = true;
+      else if (premium === "false") scriptMatch.premium = { $ne: true };
       if (blockedUserIds.length > 0) {
-        scriptQuery.creator = { $nin: blockedUserIds };
+        scriptMatch.creator = { $nin: blockedUserIds };
       }
 
-      const scriptDocs = await Script.find(scriptQuery)
-        .populate("creator", "name profileImage role")
-        .sort({ createdAt: -1 })
-        .limit(30)
-        ;
-
-      await Promise.all(
-        scriptDocs.map(async (doc) => {
-          if (!doc.sid) {
-            await doc.save();
+      const scriptDocs = await Script.aggregate([
+        {
+          $search: {
+            index: "default",
+            text: {
+              query: q.trim(),
+              path: ["title", "sid", "description", "genre", "contentType"],
+              fuzzy: { maxEdits: 1 }
+            }
           }
-        })
-      );
+        },
+        { $match: scriptMatch },
+        { $limit: 30 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "creator",
+            foreignField: "_id",
+            as: "creator",
+            pipeline: [{ $project: { name: 1, profileImage: 1, role: 1 } }]
+          }
+        },
+        { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } }
+      ]);
 
       // Add computed counts
-      results.scripts = scriptDocs.map((doc) => {
-        const s = doc.toObject();
+      results.scripts = scriptDocs.map((s) => {
         return ({
-        ...s,
-        unlockCount: s.unlockedBy?.length || 0,
-        viewCount: s.views || 0,
-      });
+          ...s,
+          unlockCount: s.unlockedBy?.length || 0,
+          viewCount: s.views || 0,
+        });
       });
     }
 
@@ -144,19 +143,47 @@ router.get("/suggestions", authMiddleware, async (req, res) => {
     const { q = "" } = req.query;
     if (!q.trim() || q.trim().length < 2) return res.json({ scripts: [], users: [] });
 
-    const regex = new RegExp(q.trim(), "i");
-
     const [scripts, users] = await Promise.all([
-      Script.find({ title: regex })
-        .select("title genre coverImage creator readsCount scriptScore scriptCompletion")
-        .populate("creator", "name profileImage")
-        .sort({ readsCount: -1 })
-        .limit(5)
-        .lean(),
-      User.find({ name: regex, role: { $in: ["writer", "investor"] } })
-        .select("name profileImage role")
-        .limit(3)
-        .lean(),
+      Script.aggregate([
+        {
+          $search: {
+            index: "default",
+            autocomplete: {
+              query: q.trim(),
+              path: "title"
+            }
+          }
+        },
+        { $sort: { readsCount: -1 } },
+        { $limit: 5 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "creator",
+            foreignField: "_id",
+            as: "creator",
+            pipeline: [{ $project: { name: 1, profileImage: 1 } }]
+          }
+        },
+        { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } },
+        {
+          $project: { title: 1, genre: 1, coverImage: 1, creator: 1, readsCount: 1, scriptScore: 1, scriptCompletion: 1 }
+        }
+      ]),
+      User.aggregate([
+        {
+          $search: {
+            index: "default",
+            autocomplete: {
+              query: q.trim(),
+              path: "name"
+            }
+          }
+        },
+        { $match: { role: { $in: ["writer", "investor"] } } },
+        { $limit: 3 },
+        { $project: { name: 1, profileImage: 1, role: 1 } }
+      ])
     ]);
 
     res.json({ scripts, users });

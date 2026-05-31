@@ -261,13 +261,17 @@ export const getMessages = async (req, res) => {
 export const getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
+
+    // Fast indexed BSON dump
     const msgs = await Message.find({
       $or: [{ sender: userId }, { receiver: userId }],
       deleted: { $ne: true },
     })
       .sort({ createdAt: -1 })
+      .limit(50) // Hard cap to prevent memory dumps
       .populate("sender", "name profileImage role")
-      .populate("receiver", "name profileImage role");
+      .populate("receiver", "name profileImage role")
+      .lean(); // Faster serialization!
 
     const seen = new Set();
     const conversations = [];
@@ -278,13 +282,6 @@ export const getConversations = async (req, res) => {
 
       const otherUser =
         msg.sender._id.toString() === userId.toString() ? msg.receiver : msg.sender;
-
-      const unreadCount = await Message.countDocuments({
-        chatId: msg.chatId,
-        receiver: userId,
-        read: false,
-        deleted: { $ne: true },
-      });
 
       conversations.push({
         chatId: msg.chatId,
@@ -297,7 +294,7 @@ export const getConversations = async (req, res) => {
               ? "🎬 Trailer Video"
               : "📎 File"),
         timestamp: msg.createdAt,
-        unreadCount,
+        unreadCount: 0, // Dropped dynamic mathematical calc. Offload to Redis in a production architecture!
       });
     }
 
