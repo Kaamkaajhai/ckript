@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./onboarding-theme.css";
+import PasswordInput from "../components/PasswordInput";
 
 
 // Comprehensive email validation
@@ -785,7 +786,7 @@ const WriterOnboarding = () => {
     if (typeof window !== "undefined") {
       window.sessionStorage.removeItem(WRITER_ONBOARDING_DRAFT_KEY);
     }
-    navigate("/dashboard");
+    navigate("/profile");
   };
 
   const handleEmailVerification = async (e) => {
@@ -1074,7 +1075,7 @@ const WriterOnboarding = () => {
         if (typeof window !== "undefined") {
           window.sessionStorage.removeItem(WRITER_ONBOARDING_DRAFT_KEY);
         }
-        navigate("/dashboard");
+        navigate("/profile");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Submission failed");
@@ -1202,7 +1203,7 @@ const WriterOnboarding = () => {
                   <label className="ob-label">Password</label>
                   <div style={{ position: "relative" }}>
                     <Lock size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
-                    <input autoFocus type="password" className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
+                    <PasswordInput autoFocus className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
                   </div>
                   {showPasswordReqs && (() => { const v = validatePassword(accountData.password); return (
                     <div className="ob-pw-reqs">

@@ -14,7 +14,6 @@ const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SeoPage = lazy(() => import("./pages/SeoPage"));
-const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
@@ -60,7 +59,6 @@ const preloadRouteChunks = [
   () => import("./pages/Login"),
   () => import("./pages/Join"),
   () => import("./pages/AcceptInvite"),
-  () => import("./pages/CollaborationHub"),
   () => import("./pages/Dashboard"),
   () => import("./pages/Profile"),
 ];
@@ -176,17 +174,6 @@ function SingleSegmentProfileOrReferralRoute() {
       </MainLayout>
     </PrivateRoute>
   );
-}
-
-function CollaborationRedirect() {
-  const [searchParams] = useSearchParams();
-  const scriptId = String(searchParams.get("scriptId") || "").trim();
-
-  if (!scriptId) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <Navigate to={`/script/${scriptId}/collaborate/overview`} replace />;
 }
 
 function ProtectedMainLayout() {
@@ -311,9 +298,7 @@ function App() {
                 <Route path="/create-project/:draftId" element={<CreateProject />} />
                 <Route path="/upload" element={<ScriptUpload />} />
                 <Route path="/search" element={<Search />} />
-                <Route path="/collaborate" element={<CollaborationRedirect />} />
                 <Route path="/script/:scriptId/branch/edit" element={<BranchEditor />} />
-                <Route path="/script/:scriptId/collaborate/*" element={<CollaborationHub />} />
                 <Route path="/script/:id/pay" element={<ScriptPaymentPage />} />
                 <Route path="/script/:id" element={<ScriptDetail />} />
                 <Route path="/script/:projectHeading/:writerUsername" element={<ScriptDetail />} />

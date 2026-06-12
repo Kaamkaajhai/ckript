@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, AlertCircle, CheckCircle2 } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
 import api from "../services/api";
+import PasswordInput from "../components/PasswordInput";
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
@@ -300,8 +301,7 @@ const ForgotPassword = () => {
                 <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
                   New password
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   placeholder="At least 8 characters"
                   className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-[#1e3a5f] focus:ring-1 focus:ring-[#1e3a5f]/20 transition-all duration-200"
                   value={newPassword}
@@ -315,8 +315,7 @@ const ForgotPassword = () => {
                 <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
                   Confirm new password
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   placeholder="Re-enter password"
                   className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-[#1e3a5f] focus:ring-1 focus:ring-[#1e3a5f]/20 transition-all duration-200"
                   value={confirmPassword}
