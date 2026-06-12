@@ -39,6 +39,17 @@ const Login = () => {
     getSafeRedirectPath(location.state?.from) ||
     getSafeRedirectPath(searchParams.get("next"));
 
+  const isRedirectValidForRole = (path, role) => {
+    if (!path) return false;
+    const writerOnlyPaths = ["/upload", "/create-project", "/new-project", "/dashboard", "/purchase-requests", "/follow-requests"];
+    const investorOnlyPaths = ["/home", "/mandates"];
+    const readerOnlyPaths = ["/reader"];
+    if (role === "investor") return !writerOnlyPaths.some(p => path.startsWith(p)) && !readerOnlyPaths.some(p => path.startsWith(p));
+    if (role === "writer" || role === "creator") return !investorOnlyPaths.some(p => path.startsWith(p)) && !readerOnlyPaths.some(p => path.startsWith(p));
+    if (role === "reader") return !writerOnlyPaths.some(p => path.startsWith(p)) && !investorOnlyPaths.some(p => path.startsWith(p));
+    return true;
+  };
+
   const navigateAfterLogin = (userData = {}) => {
     const shouldForceDefaultRedirect =
       typeof window !== "undefined" &&
@@ -48,14 +59,15 @@ const Login = () => {
       sessionStorage.removeItem(FORCE_DEFAULT_REDIRECT_KEY);
     }
 
-    if (!shouldForceDefaultRedirect && redirectPath) {
+    const role = userData?.role;
+    if (!shouldForceDefaultRedirect && redirectPath && isRedirectValidForRole(redirectPath, role)) {
       navigate(redirectPath, { replace: true });
       return;
     }
 
-    if (userData?.role === "reader") {
+    if (role === "reader") {
       navigate("/reader", { replace: true });
-    } else if (userData?.role === "investor") {
+    } else if (role === "investor") {
       navigate("/home", { replace: true });
     } else {
       navigate("/dashboard", { replace: true });
