@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import BrandLogo from "../components/BrandLogo";
+import PasswordInput from "../components/PasswordInput";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { formatCurrency } from "../utils/currency";
 import { getApiBaseUrl, getApiOrigin } from "../utils/apiOrigin";
@@ -2750,8 +2751,7 @@ const AdminDashboard = () => {
                         <p className="text-sm mt-1 text-gray-500">Enter access code to continue</p>
                     </div>
                     <form onSubmit={handleCodeSubmit}>
-                        <input
-                            type="password"
+                        <PasswordInput
                             value={codeInput}
                             onChange={(e) => { setCodeInput(e.target.value); setCodeError(""); }}
                             placeholder="Access Code"

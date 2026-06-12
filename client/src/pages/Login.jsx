@@ -6,6 +6,7 @@ import { ArrowRight, AlertCircle } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import PasswordInput from "../components/PasswordInput";
 
 const FORCE_DEFAULT_REDIRECT_KEY = "auth:force-default-redirect";
 
@@ -240,8 +241,7 @@ const Login = () => {
               <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
                 Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 placeholder="••••••••"
                 className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-[#1e3a5f] focus:ring-1 focus:ring-[#1e3a5f]/20 transition-all duration-200"
                 value={password}
