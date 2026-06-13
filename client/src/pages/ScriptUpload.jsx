@@ -1117,8 +1117,12 @@ const ScriptUpload = () => {
           setError("Primary genre is required.");
           return false;
         }
-        if (formData.logline && formData.logline.length > 50) {
-          setError("Logline must be 50 characters or less.");
+        if (!formData.logline.trim()) {
+          setError("Logline is required.");
+          return false;
+        }
+        if (formData.logline.length > 500) {
+          setError("Logline must be 500 characters or less.");
           return false;
         }
         {
@@ -1784,106 +1788,114 @@ const ScriptUpload = () => {
                   </div>
 
                   <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-0.5">
                       <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
                       <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                        Let buyers and admins know whether this is a full script, partially complete, or still ongoing.
+                        Let buyers know how much of the script is ready.
                       </p>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                      <div className="lg:col-span-2">
-                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                          Completion Status
-                        </label>
-                        <select
-                          name="completionStatus"
-                          value={formData.completionStatus}
-                          onChange={handleChange}
-                          className={inputCls}
-                        >
-                          {SCRIPT_COMPLETION_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <p className={`mt-1 text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          {SCRIPT_COMPLETION_OPTIONS.find((option) => option.value === formData.completionStatus)?.helper}
-                        </p>
+                    {/* Status picker */}
+                    <div className="mt-4">
+                      <p className={`text-xs font-semibold mb-2 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Where is your script right now?</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {[
+                          { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
+                          { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
+                          { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setFormData(f => ({ ...f, completionStatus: opt.value }))}
+                            className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${
+                              formData.completionStatus === opt.value
+                                ? isDarkMode
+                                  ? "border-[#2a5080] bg-[#0f2035] ring-1 ring-[#2a5080]"
+                                  : "border-blue-300 bg-blue-50 ring-1 ring-blue-200"
+                                : isDarkMode
+                                  ? "border-[#1d3350] bg-[#0d1826] hover:border-[#2a4a6a]"
+                                  : "border-gray-200 bg-white hover:border-gray-300"
+                            }`}
+                          >
+                            <span className={`text-[13px] font-semibold ${
+                              formData.completionStatus === opt.value
+                                ? isDarkMode ? "text-white" : "text-blue-800"
+                                : isDarkMode ? "text-gray-200" : "text-gray-800"
+                            }`}>{opt.label}</span>
+                            <span className={`text-[11px] leading-snug ${
+                              formData.completionStatus === opt.value
+                                ? isDarkMode ? "text-blue-300" : "text-blue-600"
+                                : isDarkMode ? "text-gray-500" : "text-gray-400"
+                            }`}>{opt.desc}</span>
+                          </button>
+                        ))}
                       </div>
+                    </div>
 
-                      <div>
-                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                          Completed Chapters/Parts
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          name="completedParts"
-                          value={formData.completedParts}
-                          onChange={handleChange}
-                          placeholder="4"
-                          className={inputCls}
-                        />
+                    {/* Parts inputs — only relevant for partial / ongoing */}
+                    {formData.completionStatus !== "complete" && (
+                      <div className="mt-4 grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                            Parts / episodes done so far
+                          </label>
+                          <input type="number" min="0" name="completedParts" value={formData.completedParts} onChange={handleChange} placeholder="e.g. 4" className={inputCls} />
+                        </div>
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                            Total parts / episodes planned
+                          </label>
+                          <input type="number" min="0" name="totalParts" value={formData.totalParts} onChange={handleChange} placeholder="e.g. 10" className={inputCls} />
+                        </div>
                       </div>
+                    )}
 
-                      <div>
-                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                          Total Planned Chapters/Parts
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          name="totalParts"
-                          value={formData.totalParts}
-                          onChange={handleChange}
-                          placeholder="10"
-                          className={inputCls}
-                        />
-                      </div>
-
-                      <div className="lg:col-span-2">
-                        <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                          Future Update Note <span className="text-neutral-500">(optional)</span>
-                        </label>
-                        <textarea
-                          name="futurePlans"
-                          value={formData.futurePlans}
-                          onChange={handleChange}
-                          rows={3}
-                          maxLength={300}
-                          placeholder="Example: Episodes 5-8 are still being written and will be uploaded later."
-                          className={`${inputCls} resize-none`}
-                        />
-                        <p className="text-xs text-neutral-500 mt-1 text-right">
-                          {String(formData.futurePlans || "").length}/300
-                        </p>
-                      </div>
+                    {/* Future note */}
+                    <div className="mt-4">
+                      <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                        Anything else buyers should know? <span className={`font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                      </label>
+                      <textarea
+                        name="futurePlans"
+                        value={formData.futurePlans}
+                        onChange={handleChange}
+                        rows={2}
+                        maxLength={300}
+                        placeholder={
+                          formData.completionStatus === "complete"
+                            ? "e.g. This is the final locked version, ready for production."
+                            : "e.g. Remaining episodes are still being written and will be uploaded soon."
+                        }
+                        className={`${inputCls} resize-none`}
+                      />
+                      <p className="text-[10px] text-neutral-500 mt-1 text-right">
+                        {String(formData.futurePlans || "").length}/300
+                      </p>
                     </div>
                   </div>
 
                   <div>
                     <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Logline <span className="text-neutral-500">(optional, max 50 characters)</span>
+                      Logline *
                     </label>
                     <textarea
                       name="logline"
                       value={formData.logline}
                       onChange={handleChange}
                       rows={3}
-                      maxLength={50}
+                      maxLength={500}
                       placeholder="A one-line hook that sells your concept..."
                       className={inputCls}
                     />
                     <p className="text-xs text-neutral-500 mt-1 text-right">
-                      {formData.logline.length}/50
+                      {formData.logline.length}/500
                     </p>
                   </div>
 
                   <div>
                     <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Synopsis * <span className="text-neutral-500">(shown on your project page)</span>
+                      Synopsis *
                     </label>
                     <textarea
                       name="synopsis"
@@ -1898,7 +1910,7 @@ const ScriptUpload = () => {
 
                   <div>
                     <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Tags <span className="text-neutral-500">(comma-separated)</span>
+                      Tags
                     </label>
                     <input
                       type="text"
@@ -2424,54 +2436,60 @@ const ScriptUpload = () => {
                       <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Choose access, set price, select services, and accept terms.</p>
                     </div>
 
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 space-y-4 min-[420px]:space-y-5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
-                        <div>
-                          <h3 className={`text-[15px] min-[420px]:text-base font-bold mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Monetization</h3>
-                          <p className={`text-[11px] min-[420px]:text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Set your pricing and rights-based selling terms.</p>
+                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 space-y-5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
+                      {/* Header */}
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
+                          <svg className={`w-4.5 h-4.5 ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                         </div>
-                        
+                        <div>
+                          <h3 className={`text-[15px] min-[420px]:text-base font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Monetization</h3>
+                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Set what buyers pay to access your script and rights terms.</p>
+                        </div>
                       </div>
 
-
-                      <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${isDarkMode ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-emerald-50 border border-emerald-100"}`}>
-                      <svg className={`w-4 h-4 mt-0.5 shrink-0 ${isDarkMode ? "text-emerald-300" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-                      <div>
-                        <p className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Monetization is active</p>
-                        <p className={`text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Set your asking amount below, then review the rights terms before publishing.</p>
-                      </div>
-                    </div>
-
-                      <div className="space-y-4">
-                          <div>
-                            <div className={`rounded-xl p-4 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                              <label className={`block text-[11px] font-bold uppercase tracking-[0.14em] mb-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Set Amount</label>
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                <div className="relative w-full sm:w-40">
-                                  <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>₹</span>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    value={scriptPrice}
-                                    onChange={(e) => {
-                                      const normalized = String(e.target.value || "").replace(/^0+(?=\d)/, "");
-                                      setScriptPrice(Number(normalized) || 0);
-                                      setCustomPriceInput(normalized);
-                                      setUseCustomPrice(false);
-                                    }}
-                                    placeholder="0"
-                                    className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${isDarkMode ? "bg-white/[0.04] border-emerald-500/50 text-white focus:border-emerald-500" : "bg-white border-emerald-300 text-gray-900 focus:border-emerald-500"}`}
-                                  />
-                                </div>
-                                <p className={`text-[12px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Set your asking amount here. Buyers can review your rights terms below before moving ahead.</p></div></div></div></div>
-
-                      <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <svg className={`w-4 h-4 mt-0.5 shrink-0 ${isDarkMode ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zm9-3.758a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        <div>
-                          <p className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Important for writers</p>
-                          <p className={`text-[12px] mt-1 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Film industry professionals usually do not buy scripts just to read them. They may be evaluating rights for films, web series, TV serials, remakes, or adaptations, so set your price and rights terms on that basis.</p>
+                      {/* Price input */}
+                      <div className={`rounded-xl p-4 sm:p-5 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                        <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Your Asking Price</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                          <div className="relative w-full sm:w-44">
+                            <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-base font-bold ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>₹</span>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={scriptPrice}
+                              onChange={(e) => {
+                                const normalized = String(e.target.value || "").replace(/^0+(?=\d)/, "");
+                                setScriptPrice(Number(normalized) || 0);
+                                setCustomPriceInput(normalized);
+                                setUseCustomPrice(false);
+                              }}
+                              placeholder="0"
+                              className={`w-full pl-8 pr-4 py-3 rounded-xl text-lg font-bold border-2 outline-none transition-all ${isDarkMode ? "bg-white/[0.04] border-emerald-500/40 text-white focus:border-emerald-400" : "bg-emerald-50/60 border-emerald-200 text-gray-900 focus:border-emerald-500 focus:bg-white"}`}
+                            />
+                          </div>
+                          <p className={`text-[12px] leading-relaxed ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                            This is the amount buyers pay to unlock your script. You can update it anytime before publishing.
+                          </p>
                         </div>
+                      </div>
+
+                      {/* How it works */}
+                      <div className={`rounded-xl p-4 space-y-2.5 ${isDarkMode ? "bg-amber-500/5 border border-amber-500/15" : "bg-amber-50/70 border border-amber-100"}`}>
+                        <p className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>Before you set your price</p>
+                        <ul className="space-y-2">
+                          {[
+                            "Buyers are evaluating rights — for films, web series, TV serials, remakes, or adaptations.",
+                            "They're not paying just to read — they're assessing your script for a potential deal.",
+                            "Price it based on what those rights are worth, not just the read.",
+                          ].map((tip, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${isDarkMode ? "bg-amber-400" : "bg-amber-500"}`} />
+                              <p className={`text-[12px] leading-relaxed ${isDarkMode ? "text-amber-200/70" : "text-amber-800"}`}>{tip}</p>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     </div>
 

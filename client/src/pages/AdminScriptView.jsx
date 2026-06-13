@@ -58,6 +58,7 @@ import axios from "axios";
 import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import ScreenplayViewer from "../components/ScreenplayViewer";
+import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
@@ -626,8 +627,7 @@ const AdminScriptView = () => {
           </div>
 
           <form onSubmit={handleUnlockScriptAccess} className="space-y-4">
-            <input
-              type="password"
+            <PasswordInput
               value={scriptAccessPassword}
               onChange={(event) => {
                 setScriptAccessPassword(event.target.value);

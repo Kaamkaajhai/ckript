@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./onboarding-theme.css";
+import PasswordInput from "../components/PasswordInput";
 
 
 // Comprehensive email validation
@@ -1028,7 +1029,7 @@ const InvestorOnboarding = () => {
                   <label className="ob-label">Password</label>
                   <div style={{ position: "relative" }}>
                     <Lock size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
-                    <input autoFocus type="password" className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
+                    <PasswordInput autoFocus className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
                   </div>
                   {showPasswordReqs && (() => { const v = validatePassword(accountData.password); return (
                     <div className="ob-pw-reqs">

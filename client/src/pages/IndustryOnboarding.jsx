@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import BrandLogo from "../components/BrandLogo";
+import PasswordInput from "../components/PasswordInput";
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
 const MotionDiv = motion.div;
@@ -308,7 +309,7 @@ const IndustryOnboarding = () => {
       });
       
       if (response.data.success) {
-        navigate("/dashboard");
+        navigate("/profile");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Submission failed");
@@ -318,7 +319,7 @@ const IndustryOnboarding = () => {
   };
 
   const handleFinishLater = () => {
-    navigate("/dashboard");
+    navigate("/profile");
   };
 
   // Toggle handlers
@@ -456,11 +457,10 @@ const IndustryOnboarding = () => {
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="password"
+                  <PasswordInput
                     value={accountData.password}
                     onChange={(e) => setAccountData({...accountData, password: e.target.value})}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
+                    className="w-full pl-10 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#1a365d] focus:border-transparent"
                     placeholder="••••••••"
                     required
                   />
