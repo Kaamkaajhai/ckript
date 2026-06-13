@@ -7,6 +7,7 @@ import {
 	correctScriptText,
 	aiWritingAssist,
 	generateProseSample,
+	generateProjectMetadata,
 } from "../controllers/aiController.js";
 
 const router = express.Router();
@@ -26,5 +27,8 @@ router.post("/correct-script-text", protect, correctScriptText);
 
 // AI Writing Assistant (improve, professional, grammar, shorten, expand, dialogue, emotional, custom)
 router.post("/writing-assist", protect, aiWritingAssist);
+
+// AI Project Metadata — parse the script to draft logline, synopsis, and roles
+router.post("/generate-metadata", protect, generateProjectMetadata);
 
 export default router;
