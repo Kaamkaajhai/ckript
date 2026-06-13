@@ -630,6 +630,131 @@ ${truncatedSource}`;
   }
 };
 
+// ── AI Project Metadata (free tool — parse a project and draft logline, synopsis, roles) ──
+
+const ROLE_GENDER_VALUES = ["Any", "Female", "Male", "Non-binary", "Other"];
+
+const normalizeGeneratedRoles = (rawRoles = []) => {
+  if (!Array.isArray(rawRoles)) return [];
+  return rawRoles
+    .map((role) => {
+      const characterName = cleanText(role?.characterName || role?.name || "");
+      if (!characterName) return null;
+
+      const genderRaw = cleanText(role?.gender || "Any");
+      const gender =
+        ROLE_GENDER_VALUES.find((g) => g.toLowerCase() === genderRaw.toLowerCase()) || "Any";
+
+      const minAge = Number(role?.ageRange?.min);
+      const maxAge = Number(role?.ageRange?.max);
+
+      return {
+        characterName: characterName.slice(0, 120),
+        type: cleanText(role?.type || role?.archetype || "").slice(0, 120),
+        description: cleanText(role?.description || "").slice(0, 600),
+        gender,
+        ageRange: {
+          min: Number.isFinite(minAge) && minAge >= 0 ? Math.round(minAge) : "",
+          max: Number.isFinite(maxAge) && maxAge >= 0 ? Math.round(maxAge) : "",
+        },
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 12);
+};
+
+// Generate logline, synopsis, and roles by parsing the project's script content.
+// Free tool used during project creation / upload.
+export const generateProjectMetadata = async (req, res) => {
+  try {
+    const sourceText = safeSlice(
+      req.body?.text || req.body?.textContent || "",
+      24000
+    );
+    if (!sourceText || sourceText.length < 50) {
+      return res.status(400).json({
+        message: "Add at least a short passage of script content before generating metadata.",
+      });
+    }
+
+    const user = await User.findById(req.user._id).select("language");
+    const outputLanguageInstruction = getOutputLanguageInstruction(user?.language);
+
+    const title = cleanText(req.body?.title || "").slice(0, 200);
+    const genre = cleanText(req.body?.genre || req.body?.primaryGenre || "");
+    const contentType = cleanText(req.body?.contentType || "");
+
+    const fields = Array.isArray(req.body?.fields) && req.body.fields.length
+      ? req.body.fields.filter((f) => ["logline", "synopsis", "roles"].includes(f))
+      : ["logline", "synopsis", "roles"];
+
+    const wantLogline = fields.includes("logline");
+    const wantSynopsis = fields.includes("synopsis");
+    const wantRoles = fields.includes("roles");
+
+    const prompt = `You are a senior development executive and story analyst. Read the project content below and extract production-ready metadata. Base everything ONLY on what is actually in the content — do not invent characters or plot points that are not present.
+
+Return STRICT JSON with this exact shape — no markdown, no code fences:
+{
+  "logline": "<one to two punchy sentences (max 280 characters) capturing the protagonist, central conflict, and stakes>",
+  "synopsis": "<2-4 tight paragraphs summarizing the story arc, main characters, and tone — no spoiler warnings, just the story>",
+  "roles": [
+    {
+      "characterName": "<name as written in the script>",
+      "type": "<archetype/billing e.g. Lead, Supporting, Antagonist, Cameo>",
+      "gender": "<one of: ${ROLE_GENDER_VALUES.join(", ")}>",
+      "ageRange": { "min": <integer or null>, "max": <integer or null> },
+      "description": "<1-2 sentences on the character's role, personality, and casting vibe>"
+    }
+  ]
+}
+
+Rules:
+- Only include the keys requested: ${fields.join(", ")}.
+- "roles": include every named character you can identify (up to 12), most important first. If ages are unclear, use null.
+- "gender" MUST be exactly one of: ${ROLE_GENDER_VALUES.join(", ")}.
+- Keep the logline under 280 characters.
+- If the content is too thin to determine something, return an empty string or empty array rather than guessing wildly.
+- ${outputLanguageInstruction}
+
+Project Title: ${title || "Untitled"}
+Genre: ${genre || "Not specified"}
+Content Type: ${contentType || "Not specified"}
+
+Project Content:
+${sourceText}`;
+
+    let payload;
+    let usedFallback = false;
+    try {
+      payload = await generateJsonWithGoogleAI({
+        prompt,
+        temperature: 0.4,
+        maxOutputTokens: 2600,
+      });
+    } catch (aiError) {
+      console.error("[AI Metadata] AI call failed:", aiError.message);
+      usedFallback = true;
+      payload = {};
+    }
+
+    const result = {};
+    if (wantLogline) result.logline = cleanText(payload?.logline || "").slice(0, 500);
+    if (wantSynopsis) result.synopsis = cleanText(payload?.synopsis || "");
+    if (wantRoles) result.roles = normalizeGeneratedRoles(payload?.roles);
+
+    return res.json({
+      ...result,
+      usedFallback,
+      message: usedFallback
+        ? "AI is busy right now — please try again in a moment."
+        : "Metadata generated successfully.",
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ message: error.message });
+  }
+};
+
 // ── AI Writing Assistant (free tool for writers during script creation) ──────
 
 const AI_ACTION_PROMPTS = {
