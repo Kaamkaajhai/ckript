@@ -40,7 +40,6 @@ const TABS = [
     { key: "investors", label: "Film Professionals", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "writers", label: "Writers", icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
     { key: "projects", label: "Scripts", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
-    { key: "pending-investors", label: "Film Professional Requests", icon: "M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" },
     { key: "approvals", label: "Script Approvals", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "trailers", label: "AI Trailer Approvals", icon: "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375V5.625A1.125 1.125 0 016 4.5h12a1.125 1.125 0 011.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125h1.5" },
     { key: "evaluations", label: "AI Evaluations", icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
@@ -629,7 +628,7 @@ const Pagination = ({ page, totalPages, onPageChange, isDark }) => {
 // ═══════════════════════════════════════════════
 // Main Admin Dashboard
 // ═══════════════════════════════════════════════
-const BADGE_WATCH_KEYS = ["approvals", "trailers", "pending-investors", "membership-reviews", "bank-reviews", "queries"];
+const BADGE_WATCH_KEYS = ["approvals", "trailers", "membership-reviews", "bank-reviews", "queries"];
 
 const formatBadgeCount = (count) => {
     if (!count || count <= 0) return "";
@@ -2917,7 +2916,6 @@ const AdminDashboard = () => {
                             <div>
                                 <h3 className={`text-sm font-extrabold uppercase tracking-wide mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Pending Actions</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <StatCard isDark={isDark} label="Pending Film Professional Requests" value={stats.pendingInvestors || 0} icon="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0z" color="bg-teal-500/15 text-teal-500" />
                                     <StatCard isDark={isDark} label="Pending SWA/WGA Reviews" value={stats.pendingMembershipReviews || 0} icon="M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 0h1.5A2.25 2.25 0 0115 2.25v1.134a9 9 0 11-6 0V2.25z" color="bg-amber-500/15 text-amber-500" />
                                     <StatCard isDark={isDark} label="Pending Bank Reviews" value={stats.pendingBankReviews || 0} icon="M3.75 4.5h16.5A1.5 1.5 0 0121.75 6v12a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5zM6 9h12M6 13.5h5.25" color="bg-orange-500/15 text-orange-500" />
                                     <StatCard isDark={isDark} label="Locked Bank Users" value={stats.lockedBankUsers || 0} icon="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5A1.5 1.5 0 0118.75 12v7.5a1.5 1.5 0 01-1.5 1.5H6.75a1.5 1.5 0 01-1.5-1.5V12a1.5 1.5 0 011.5-1.5z" color="bg-yellow-500/15 text-yellow-500" />
@@ -3493,80 +3491,6 @@ const AdminDashboard = () => {
                     </div>
                 );
             }
-
-            case "pending-investors":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                Film Professional Requests
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredPendingInvestors.length : total})</span>
-                            </h2>
-                        </div>
-                        {filteredPendingInvestors.length === 0 ? (
-                            <div className={`rounded-2xl border p-12 text-center ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
-                                    <svg className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <p className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-600"}`}>No pending film professional requests</p>
-                            </div>
-                        ) : (
-                            <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            {["Film Professional", "Email", "Signed Up", "Actions"].map((h) => (
-                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {filteredPendingInvestors.map((inv) => (
-                                            <tr key={inv._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className="px-5 py-3.5">
-                                                    <div className="flex items-center gap-3">
-                                                        {inv.profileImage ? (
-                                                            <img src={inv.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                                        ) : (
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"}`}>
-                                                                {inv.name?.charAt(0)?.toUpperCase() || "?"}
-                                                            </div>
-                                                        )}
-                                                        <div>
-                                                            <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{inv.name}</p>
-                                                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-700`}>pending</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{inv.email}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>{new Date(inv.createdAt).toLocaleDateString()}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <div className="flex items-center gap-2">
-                                                        <button onClick={() => setSelectedUserDetail(inv)}
-                                                            className="text-xs font-bold text-blue-500 hover:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">
-                                                            View Details
-                                                        </button>
-                                                        <button onClick={() => handleApproveInvestor(inv._id)}
-                                                            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors">
-                                                            ✓ Approve
-                                                        </button>
-                                                        <button onClick={() => setRejectModal(inv)}
-                                                            className="text-xs font-bold text-red-500 hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
-                                                            ✕ Reject
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
 
             case "membership-reviews":
                 return (

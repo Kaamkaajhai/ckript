@@ -302,6 +302,8 @@ const scriptSchema = new mongoose.Schema({
   // Uploaded Trailer (User uploaded, no credits required)
   uploadedTrailerUrl: { type: String },
   trailerSource: { type: String, enum: ["ai", "uploaded", "none"], default: "none" }, // Track trailer source
+  // Pitch Video (short pitch, max 90s, max 90MB)
+  pitchVideoUrl: { type: String },
   trailerWriterFeedback: {
     status: { type: String, enum: ["pending", "approved", "revision_requested"], default: "pending" },
     note: { type: String, default: "" },

@@ -6024,6 +6024,12 @@ export const uploadTrailer = multer({
   limits: { fileSize: 250 * 1024 * 1024 } // 250MB limit
 });
 
+export const uploadPitchVideo = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: videoFileFilter,
+  limits: { fileSize: 90 * 1024 * 1024 } // 90MB limit
+});
+
 // ── Upload Thumbnail Controller (Cloudinary) ──
 export const uploadScriptThumbnail = async (req, res) => {
   try {
@@ -6123,6 +6129,44 @@ export const uploadScriptTrailer = async (req, res) => {
     });
   } catch (error) {
     console.error("Trailer upload error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ── Upload Pitch Video Controller (Cloudinary) ──
+export const uploadScriptPitchVideo = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No pitch video file provided" });
+    }
+
+    const scriptId = req.params.id;
+    const script = await Script.findById(scriptId);
+
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    if (script.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can upload a pitch video" });
+    }
+
+    const result = await uploadToCloudinary(req.file.buffer, {
+      folder: "scriptbridge/pitch-videos",
+      resource_type: "video",
+      public_id: `pitch-${scriptId}-${Date.now()}`,
+    });
+
+    script.pitchVideoUrl = result.secure_url;
+    await script.save();
+
+    res.json({
+      message: "Pitch video uploaded successfully",
+      pitchVideoUrl: result.secure_url,
+      script,
+    });
+  } catch (error) {
+    console.error("Pitch video upload error:", error);
     res.status(500).json({ message: error.message });
   }
 };

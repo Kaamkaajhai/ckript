@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
-import { sendOTPEmail, sendWelcomeEmail, sendPasswordResetOTPEmail } from "../utils/emailService.js";
+import { sendOTPEmail, sendWelcomeEmail, sendInvestorWelcomeEmail, sendPasswordResetOTPEmail } from "../utils/emailService.js";
 import {
   generateOTP,
   generateOTPExpiry,
@@ -895,22 +895,6 @@ export const login = async (req, res) => {
         });
       }
 
-      // Check admin approval for investors
-      if (user.role === "investor" && user.approvalStatus === "pending") {
-        return res.status(403).json({
-          message: "Your account is pending admin approval. You will be notified once approved.",
-          pendingApproval: true,
-        });
-      }
-      if (user.role === "investor" && user.approvalStatus === "rejected") {
-        return res.status(403).json({
-          message: user.approvalNote
-            ? `Your account has been rejected: ${user.approvalNote}. Please contact support.`
-            : "Your investor account has been rejected. Please contact support.",
-          rejected: true,
-        });
-      }
-      
       const { token, expiresAt } = generateToken(user._id);
       res.json({
         _id: user._id,
@@ -1043,23 +1027,6 @@ export const googleAuth = async (req, res) => {
       });
     }
 
-    // Investor accounts created elsewhere may sign in with Google, but if pending/rejected
-    // we keep the same gating used in the password login path.
-    if (user.role === "investor" && user.approvalStatus === "pending") {
-      return res.status(403).json({
-        message: "Your account is pending admin approval. You will be notified once approved.",
-        pendingApproval: true,
-      });
-    }
-    if (user.role === "investor" && user.approvalStatus === "rejected") {
-      return res.status(403).json({
-        message: user.approvalNote
-          ? `Your account has been rejected: ${user.approvalNote}. Please contact support.`
-          : "Your account has been rejected. Please contact support.",
-        rejected: true,
-      });
-    }
-
     const { token: jwtToken, expiresAt } = generateToken(user._id);
     return res.json({
       _id: user._id,
@@ -1166,22 +1133,12 @@ export const verifyOTP = async (req, res) => {
 
     await user.save();
 
-    if (user.role === "investor") {
-      await notifyAdminWorkflowEvent({
-        title: "Investor Profile Approval Request",
-        section: "pending-investors",
-        actorId: user._id,
-        message: `Investor profile request received from ${user.name} (${user.email}).`,
-        metadata: {
-          investorId: user._id,
-          investorEmail: user.email,
-          status: "pending",
-        },
-      });
-    }
-
     // Send welcome email
-    await sendWelcomeEmail(user.email, user.name);
+    if (user.role === "investor") {
+      await sendInvestorWelcomeEmail(user.email, user.name);
+    } else {
+      await sendWelcomeEmail(user.email, user.name);
+    }
 
     const referralBonusResult = await awardReferralBonusForUser(user._id);
 

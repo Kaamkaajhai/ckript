@@ -176,12 +176,6 @@ const OTPVerification = ({
         otp: otpString,
       });
 
-      // Investor accounts need admin approval — don't store token yet
-      if (response.data.pendingApproval) {
-        onSuccess(response.data);
-        return;
-      }
-
       // Store user session in the same shape consumed by AuthContext.
       localStorage.setItem('user', JSON.stringify(response.data));
 
