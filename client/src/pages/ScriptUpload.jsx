@@ -418,12 +418,17 @@ const ScriptUpload = () => {
   const fileInputRef = useRef(null);
   const thumbnailInputRef = useRef(null);
   const trailerInputRef = useRef(null);
+  const pitchVideoInputRef = useRef(null);
   const reviewRedirectTimerRef = useRef(null);
 
   // Thumbnail and Trailer states
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [trailerFile, setTrailerFile] = useState(null);
   const [trailerOption, setTrailerOption] = useState("none"); // "none", "ai", "upload"
+  const [pitchVideoFile, setPitchVideoFile] = useState(null);
+  const [pitchVideoPreviewUrl, setPitchVideoPreviewUrl] = useState("");
+  const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
+  const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
@@ -913,6 +918,10 @@ const ScriptUpload = () => {
       });
       setPdfTextExtracted(Boolean(data.extractedTextAvailable));
 
+      if (data.numItems > 0) {
+        setFormData((prev) => ({ ...prev, pageCount: String(data.numItems) }));
+      }
+
       // Populate the editor with extracted text
       if (data.text) {
         setTextContent(formatScreenplayLikeText(data.text));
@@ -1096,6 +1105,63 @@ const ScriptUpload = () => {
     };
   }, [trailerFile]);
 
+  const handlePitchVideoSelect = (file) => {
+    if (!file) return;
+    const allowedTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/webm", "video/x-m4v"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a valid video file (MP4, MPEG, MOV, or WebM) for the pitch video.");
+      return;
+    }
+    if (file.size > 90 * 1024 * 1024) {
+      setError("Pitch video must be under 90MB.");
+      return;
+    }
+    setPitchVideoFile(file);
+    setError("");
+  };
+
+  useEffect(() => {
+    if (!pitchVideoFile) {
+      setPitchVideoPreviewUrl("");
+      setPitchVideoMeta(null);
+      setPitchVideoMetaLoading(false);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(pitchVideoFile);
+    setPitchVideoPreviewUrl(previewUrl);
+    setPitchVideoMeta(null);
+    setPitchVideoMetaLoading(true);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.src = previewUrl;
+    video.onloadedmetadata = () => {
+      if (video.duration > 90) {
+        setError("Pitch video must be 1 minute 30 seconds (90 seconds) or less.");
+        setPitchVideoFile(null);
+        setPitchVideoPreviewUrl("");
+        setPitchVideoMeta(null);
+        setPitchVideoMetaLoading(false);
+        URL.revokeObjectURL(previewUrl);
+        return;
+      }
+      setPitchVideoMeta({
+        duration: Number.isFinite(video.duration) ? video.duration : 0,
+        width: video.videoWidth || 0,
+        height: video.videoHeight || 0,
+      });
+      setPitchVideoMetaLoading(false);
+    };
+    video.onerror = () => {
+      setPitchVideoMetaLoading(false);
+      setPitchVideoMeta(null);
+    };
+    return () => {
+      video.onloadedmetadata = null;
+      video.onerror = null;
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [pitchVideoFile]);
+
   // Handle agreement scroll
   useEffect(() => {
     if (step !== 5) return;
@@ -1182,7 +1248,7 @@ const ScriptUpload = () => {
           return false;
         }
         if (!formData.pageCount || Number(formData.pageCount) <= 0) {
-          setError("Page count is required.");
+          setError("Page count could not be detected. Please go back and re-upload your PDF.");
           return false;
         }
         if (!formData.primaryGenre) {
@@ -1350,6 +1416,9 @@ const ScriptUpload = () => {
   const downloadSubmissionSummaryPdf = async (targetScriptId, title) => {
     if (!targetScriptId) return;
 
+    const confirmed = window.confirm("Your project was submitted successfully! Would you like to download your submission summary PDF?");
+    if (!confirmed) return;
+
     try {
       const response = await api.get(`/scripts/${targetScriptId}/submission-summary-pdf?download=1`, {
         responseType: "blob",
@@ -1498,6 +1567,14 @@ const ScriptUpload = () => {
             const trailerFormData = new FormData();
             trailerFormData.append("trailer", trailerFile);
             await api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData);
+          })());
+        }
+
+        if (pitchVideoFile) {
+          mediaTasks.push((async () => {
+            const pitchFormData = new FormData();
+            pitchFormData.append("pitchVideo", pitchVideoFile);
+            await api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData);
           })());
         }
 
@@ -1811,18 +1888,19 @@ const ScriptUpload = () => {
 
                     <div>
                       <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                        Page Count *
+                        Page Count
                       </label>
-                      <input
-                        type="number"
-                        name="pageCount"
-                        value={formData.pageCount}
-                        onChange={handleChange}
-                        required
-                        min="1"
-                        placeholder="110"
-                        className={inputCls}
-                      />
+                      <div className={`${inputCls} flex items-center justify-between select-none pointer-events-none opacity-80`}>
+                        <span>{formData.pageCount || "—"}</span>
+                        <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/40" : "text-gray-400"}`}>
+                          Auto-detected
+                        </span>
+                      </div>
+                      {!formData.pageCount && (
+                        <p className={`text-xs mt-1 ${isDarkMode ? "text-white/40" : "text-gray-400"}`}>
+                          Page count is detected automatically from your uploaded PDF.
+                        </p>
+                      )}
                       {pageCountWarning && (
                         <p className="text-xs text-amber-600 mt-1">
                           ⚠️ {pageCountWarning}
@@ -2478,6 +2556,70 @@ const ScriptUpload = () => {
                                       setTrailerOption("none");
                                       setError("");
                                     }}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Pitch Video Upload */}
+                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
+                          <label className={`block text-sm font-medium mb-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                            Pitch Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                          </label>
+                          <p className={`text-[11px] mb-2.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>A short video pitch for your script. Max 1:30 min · Max 90MB</p>
+                          <input
+                            ref={pitchVideoInputRef}
+                            type="file"
+                            accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
+                            onChange={(e) => {
+                              handlePitchVideoSelect(e.target.files?.[0]);
+                              e.target.value = "";
+                            }}
+                            className="hidden"
+                          />
+                          {!pitchVideoFile ? (
+                            <div onClick={() => pitchVideoInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
+                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36A.75.75 0 0 1 21.75 8.8v6.4a.75.75 0 0 1-1.28.53l-4.72-2.36m-1.5 3.98V6.67A2.25 2.25 0 0 0 12 4.42H4.5a2.25 2.25 0 0 0-2.25 2.25v10.66A2.25 2.25 0 0 0 4.5 19.58H12a2.25 2.25 0 0 0 2.25-2.25Z" /></svg>
+                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload Pitch Video</p>
+                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM · Max 1:30 min · Max 90MB</p>
+                            </div>
+                          ) : (
+                            <div className={`border rounded-xl p-3 space-y-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                              <div className="relative overflow-hidden rounded-lg">
+                                <video
+                                  src={pitchVideoPreviewUrl}
+                                  controls
+                                  preload="metadata"
+                                  className="w-full h-44 object-contain bg-black"
+                                />
+                              </div>
+                              <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
+                                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{pitchVideoFile.name}</p>
+                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>
+                                    {(pitchVideoFile.size / 1024 / 1024).toFixed(1)} MB
+                                    {pitchVideoMetaLoading ? " · reading..." : pitchVideoMeta ? ` · ${formatDuration(pitchVideoMeta.duration)}` : ""}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => pitchVideoInputRef.current?.click()}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                                  >
+                                    Replace
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setPitchVideoFile(null); setError(""); }}
                                     className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
                                   >
                                     Remove

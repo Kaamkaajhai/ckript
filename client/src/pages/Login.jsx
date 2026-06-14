@@ -109,30 +109,12 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      if (data?.pendingApproval) {
-        navigate("/?investorReview=pending");
-        setLoading(false);
-        return;
-      }
-      if (data?.rejected) {
-        const note = encodeURIComponent(data.message || "Your investor profile was not approved.");
-        navigate(`/?investorReview=rejected&note=${note}`);
-        setLoading(false);
-        return;
-      }
       setError(data?.message || "Login failed");
       setLoading(false);
     }
   };
 
   const handleOTPSuccess = (userData) => {
-    // Investor pending approval — show waiting screen
-    if (userData.pendingApproval) {
-      setShowOTPVerification(false);
-      navigate("/?investorReview=pending");
-      return;
-    }
-
     // Update auth context with user data
     setUser(userData);
 

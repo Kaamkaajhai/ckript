@@ -481,10 +481,6 @@ const Profile = () => {
 
   const handleDeleteAccount = async () => {
     const reason = deleteAccountReason.trim();
-    if (reason.length < 5) {
-      setSettingsErr("Please share a short reason (minimum 5 characters).");
-      return;
-    }
 
     try {
       setDeletingAccount(true);
@@ -2302,7 +2298,7 @@ const Profile = () => {
               >
                 <h3 className={`text-[15px] font-extrabold mb-1 ${dark ? "text-white" : "text-gray-900"}`}>Delete Account</h3>
                 <p className={`text-[12px] mb-3 ${dark ? "text-white/40" : "text-gray-500"}`}>
-                  Share the reason for deletion. This is visible to admin, and your account will be hidden across the platform.
+                  Share the reason for deletion. This is visible to admin, and your account will be deleted permanently across the platform.
                 </p>
                 <textarea
                   value={deleteAccountReason}
@@ -2321,7 +2317,7 @@ const Profile = () => {
                   </button>
                   <button
                     onClick={handleDeleteAccount}
-                    disabled={deletingAccount || deleteAccountReason.trim().length < 5}
+                    disabled={deletingAccount}
                     className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-colors disabled:opacity-50 ${dark ? "bg-red-500/20 text-red-300 hover:bg-red-500/30" : "bg-red-500 text-white hover:bg-red-600"}`}
                   >
                     {deletingAccount ? "Deleting..." : "Delete Account"}

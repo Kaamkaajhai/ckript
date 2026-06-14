@@ -337,6 +337,88 @@ export const sendWelcomeEmail = async (email, name) => {
   }
 };
 
+export const sendInvestorWelcomeEmail = async (email, name) => {
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      to: email,
+      subject: 'Welcome to ckript — Your Gateway to Exceptional Scripts',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #1a1a2e; margin: 0; padding: 0; background: #f4f6fb; }
+            .container { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+            .header { background: linear-gradient(135deg, #0f2444 0%, #1e3a5f 60%, #1a5276 100%); color: white; padding: 40px 36px; text-align: center; }
+            .header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+            .header p { margin: 0; font-size: 14px; opacity: 0.75; letter-spacing: 0.4px; text-transform: uppercase; }
+            .badge { display: inline-block; margin-bottom: 16px; background: rgba(255,255,255,0.12); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); }
+            .content { padding: 36px; }
+            .content p { margin: 0 0 16px; font-size: 15px; color: #2c3e50; }
+            .highlight-box { background: #f0f4ff; border-left: 4px solid #1e3a5f; border-radius: 0 10px 10px 0; padding: 18px 20px; margin: 24px 0; }
+            .highlight-box p { margin: 0; font-size: 14px; color: #1e3a5f; font-weight: 600; }
+            .feature-list { list-style: none; padding: 0; margin: 20px 0; }
+            .feature-list li { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; font-size: 14px; color: #2c3e50; }
+            .feature-list li span.icon { background: #1e3a5f; color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
+            .cta { text-align: center; margin: 32px 0 8px; }
+            .cta a { background: #1e3a5f; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-weight: 700; font-size: 15px; letter-spacing: 0.2px; display: inline-block; }
+            .footer { text-align: center; padding: 20px 36px; background: #f8fafc; color: #94a3b8; font-size: 12px; border-top: 1px solid #e8edf4; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="badge">Film Industry Professional</div>
+              <h1>Welcome to ckript</h1>
+              <p>Where Stories Meet the Screen</p>
+            </div>
+            <div class="content">
+              <p>Hi ${name},</p>
+              <p>You're now part of <strong>ckript</strong> — India's dedicated marketplace built for film and media professionals like you.</p>
+
+              <div class="highlight-box">
+                <p>Discover original scripts, secure IP rights, and connect directly with talented writers — all in one place.</p>
+              </div>
+
+              <p>Here's what you can do on ckript:</p>
+              <ul class="feature-list">
+                <li><span class="icon">✦</span> Browse scripts across genres, formats, and tones — curated for production-ready projects</li>
+                <li><span class="icon">✦</span> Acquire IP and secure rights for your upcoming films, series, or web projects</li>
+                <li><span class="icon">✦</span> Connect directly with verified writers and negotiate on your terms</li>
+                <li><span class="icon">✦</span> Watch pitch videos from writers and evaluate scripts before committing</li>
+                <li><span class="icon">✦</span> Build your portfolio of owned properties and track your acquisitions</li>
+              </ul>
+
+              <p>Great stories are already waiting for you. Start exploring now.</p>
+
+              <div class="cta">
+                <a href="https://ckript.com/search">Explore Scripts on ckript</a>
+              </div>
+            </div>
+            <div class="footer">
+              <p>© 2026 ckript. All rights reserved.</p>
+              <p style="margin: 4px 0 0;">Questions? Reach us at <a href="mailto:info.ckript@gmail.com" style="color:#1e3a5f;">info.ckript@gmail.com</a></p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name},\n\nWelcome to ckript — India's dedicated marketplace for film and media professionals.\n\nDiscover original scripts, acquire IP rights, and connect directly with writers.\n\nWhat you can do:\n- Browse scripts by genre, format & tone\n- Acquire IP and secure rights for your productions\n- Connect with verified writers\n- Watch pitch videos and evaluate scripts\n\nStart exploring: https://ckript.com/search\n\nThe ckript Team`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Investor welcome email sent:', info.messageId);
+    return { success: true };
+  } catch (error) {
+    console.error('Error sending investor welcome email:', error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 // Send writer signup bonus credits email
 export const sendWriterSignupCreditsEmail = async (
   email,

@@ -267,6 +267,47 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
       <div className={`mx-3 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
 
+      {isWriterRole && (
+        <Link
+          to={profilePath}
+          onClick={() => setMobileOpen(false)}
+          className={`mx-3 mt-3 mb-1 p-3 rounded-xl flex items-center gap-3 transition-all group ${
+            isDarkMode
+              ? "bg-[#0d1520] hover:bg-[#111d2e] border border-[#1c2a3a]"
+              : "bg-gray-50 hover:bg-gray-100/80 border border-gray-100"
+          }`}
+        >
+          {resolvedProfileImage && !avatarLoadError ? (
+            <img
+              src={resolvedProfileImage}
+              alt={user?.name}
+              onError={() => setAvatarLoadError(true)}
+              className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-[#1e3a5f]/20"
+            />
+          ) : (
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold shrink-0 ${
+              isDarkMode ? "bg-[#1c2a3a] text-[#8896a7]" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
+            }`}>
+              {user?.name?.charAt(0)?.toUpperCase() || "W"}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className={`text-[13px] font-bold truncate leading-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+              {user?.name || "Writer"}
+            </p>
+            <p className={`text-[11px] font-medium truncate leading-tight mt-0.5 ${isDarkMode ? "text-[#8896a7]" : "text-gray-500"}`}>
+              {user?.writerProfile?.username ? `@${user.writerProfile.username}` : user?.role === "creator" ? "Creator" : "Writer"}
+            </p>
+          </div>
+          <svg
+            className={`w-4 h-4 shrink-0 transition-colors ${isDarkMode ? "text-[#2a3a4e] group-hover:text-[#8896a7]" : "text-gray-300 group-hover:text-gray-500"}`}
+            fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      )}
+
       <nav className="flex-1 py-2 overflow-y-auto">
         {isInvestorRole && investorSections ? (
           investorSections.map((section, idx) => (

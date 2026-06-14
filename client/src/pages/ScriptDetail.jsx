@@ -1710,6 +1710,23 @@ const ScriptDetail = () => {
                     </div>
                   )}
 
+                  {/* Pitch Video */}
+                  {script?.pitchVideoUrl && (
+                    <div className={`rounded-2xl border overflow-hidden ${t.priceSub}`}>
+                      <div className={`px-4 pt-3 pb-2`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Pitch Video</p>
+                      </div>
+                      <video
+                        src={script.pitchVideoUrl}
+                        controls
+                        controlsList="nodownload"
+                        playsInline
+                        preload="metadata"
+                        className="w-full max-h-[220px] object-contain bg-black"
+                      />
+                    </div>
+                  )}
+
                   <div className={`rounded-2xl p-3 border text-center ${t.priceSub}`}>
                     <p className={`text-[11px] font-medium ${t.muted}`}>Published {formatDateTime(publishedAtValue)}</p>
                     {script?.sid && (

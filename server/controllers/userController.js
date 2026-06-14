@@ -2239,9 +2239,6 @@ export const verifyEmailVerificationCode = async (req, res) => {
 export const deleteAccount = async (req, res) => {
   try {
     const reason = String(req.body?.reason || "").trim();
-    if (reason.length < 5) {
-      return res.status(400).json({ message: "Please provide a valid reason (minimum 5 characters)." });
-    }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
