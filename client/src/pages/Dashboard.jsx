@@ -682,68 +682,6 @@ const CreatorDashboard = ({ user, dark }) => {
           )}
         </div>
 
-        {sharedScripts.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-5 flex-wrap">
-              <h2 className={`text-[17px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Shared With Me</h2>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-[#8896a7] bg-white/[0.04]' : 'text-gray-400 bg-gray-100'}`}>{sharedScripts.length}</span>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {sharedScripts.map((script) => {
-                const canEditScript = Boolean(script?.canEditScript);
-                const roleLabel = String(script?.collaboratorRole || "editor").replace(/^\w/, (char) => char.toUpperCase());
-                const statusLabel = String(script?.status || "draft").replace(/_/g, " ");
-
-                return (
-                  <div key={script._id} className={`rounded-2xl border p-4 sm:p-5 ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${dark ? 'text-[#8896a7]' : 'text-gray-400'}`}>Collaborator Access</p>
-                        <h3 className={`mt-1 text-[18px] font-bold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{script?.title || "Untitled Project"}</h3>
-                        <p className={`mt-1 text-sm ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>
-                          By {script?.creator?.name || "Unknown"} • {roleLabel}
-                        </p>
-                      </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${dark ? 'bg-white/[0.06] text-[#c6d4e3]' : 'bg-white text-gray-700 border border-gray-200'}`}>
-                        {statusLabel}
-                      </span>
-                    </div>
-
-                    {script?.logline && (
-                      <p className={`mt-3 text-sm leading-6 ${dark ? 'text-[#c6d4e3]' : 'text-gray-600'}`}>{script.logline}</p>
-                    )}
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Link
-                        to={getScriptCanonicalPath(script)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#162d4a] transition-colors"
-                      >
-                        Open Script
-                      </Link>
-                      {canEditScript && (
-                        <Link
-                          to={`/script/${script._id}/branch/edit`}
-                          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
-                        >
-                          Edit Script
-                        </Link>
-                      )}
-                      {script?.canEditMetadata && (
-                        <Link
-                          to={`/upload?edit=${script._id}`}
-                          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
-                        >
-                          Edit Settings
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Section heading */}
         <div className="flex items-center gap-2 mb-5 flex-wrap">

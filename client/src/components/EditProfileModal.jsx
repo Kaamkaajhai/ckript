@@ -1308,7 +1308,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   value={investorData.company}
                   onChange={(e) => setInvestorData({ ...investorData, company: e.target.value })}
                   className={inputClass}
-                  placeholder="e.g., Yash Raj Films, Dharma Productions"
+                  placeholder="e.g., Novastride Pictures, Vantara Films"
                 />
               </div>
 

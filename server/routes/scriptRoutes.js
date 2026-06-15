@@ -11,8 +11,8 @@ import {
   getPurchaseRequestAcceptancePdf,
   createScriptPurchaseOrder, verifyScriptPurchase,
   createScriptHoldOrder, verifyScriptHold,
-  uploadThumbnail, uploadTrailer,
-  uploadScriptThumbnail, uploadScriptTrailer,
+  uploadThumbnail, uploadTrailer, uploadPitchVideo,
+  uploadScriptThumbnail, uploadScriptTrailer, uploadScriptPitchVideo,
   requestScriptAITrailer, submitTrailerFeedback,
   activateProjectSpotlight,
   getInvestorHomeFeed, getTopList,
@@ -67,9 +67,22 @@ router.post("/extract-pdf", protect, uploadPdfWithLimit, extractPdfText);
 router.post("/draft", protect, saveDraft);
 router.post("/upload", protect, uploadScript);
 
-// Thumbnail and Trailer upload routes
+const uploadPitchVideoWithLimit = (req, res, next) => {
+  uploadPitchVideo.single("pitchVideo")(req, res, (err) => {
+    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ message: "Pitch video must be 90MB or smaller." });
+    }
+    if (err) {
+      return res.status(400).json({ message: err.message || "Pitch video upload failed." });
+    }
+    next();
+  });
+};
+
+// Thumbnail, Trailer and Pitch Video upload routes
 router.post("/:id/upload-thumbnail", protect, uploadThumbnailWithLimit, uploadScriptThumbnail);
 router.post("/:id/upload-trailer", protect, uploadTrailerWithLimit, uploadScriptTrailer);
+router.post("/:id/upload-pitch-video", protect, uploadPitchVideoWithLimit, uploadScriptPitchVideo);
 router.post("/:id/request-ai-trailer", protect, requestScriptAITrailer);
 router.post("/:id/trailer-feedback", protect, submitTrailerFeedback);
 router.post("/:id/activate-spotlight", protect, activateProjectSpotlight);

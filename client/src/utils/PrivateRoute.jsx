@@ -20,14 +20,6 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  if (user?.role === "investor" && user?.approvalStatus === "pending") {
-    return <Navigate to="/?investorReview=pending" replace />;
-  }
-
-  if (user?.role === "investor" && user?.approvalStatus === "rejected") {
-    return <Navigate to="/?investorReview=rejected" replace />;
-  }
-
   if (!user) {
     // If this is an explicit logout, redirect to login without saving the current page.
     // Do NOT remove the key here — let Login.jsx consume it so it can skip the redirect.

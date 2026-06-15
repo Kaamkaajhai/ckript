@@ -1999,13 +1999,6 @@ export const approveInvestor = async (req, res) => {
         user.approvalNote = undefined;
         await user.save();
 
-        // Send approval email
-        sendInvestorApprovalEmail(user.email, user.name, {
-            clientBaseUrl: resolveClientOriginFromRequest(req),
-        }).catch((err) =>
-            console.error("Failed to send investor approval email:", err.message)
-        );
-
         // Create in-app notification
         await Notification.create({
             user: user._id,
@@ -2027,12 +2020,6 @@ export const rejectInvestor = async (req, res) => {
         user.approvalStatus = "rejected";
         if (note) user.approvalNote = note;
         await user.save();
-
-        sendInvestorRejectionEmail(user.email, user.name, note || user.approvalNote || "", {
-            clientBaseUrl: resolveClientOriginFromRequest(req),
-        }).catch((err) =>
-            console.error("Failed to send investor rejection email:", err.message)
-        );
 
         res.json({ message: "Investor rejected", user: { _id: user._id, name: user.name, email: user.email, approvalStatus: user.approvalStatus } });
     } catch (error) {

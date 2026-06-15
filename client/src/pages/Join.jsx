@@ -344,12 +344,7 @@ const Join = () => {
         });
         setShowOTPVerification(true);
       } else if (response?.token) {
-        // Direct login (shouldn't happen with new flow, but keeping for backwards compatibility)
-        if (response.role === "investor") {
-          navigate("/home");
-        } else {
-          navigate("/profile");
-        }
+        navigate("/profile");
       }
     } catch (err) {
       const msg = err.response?.data?.message
@@ -373,13 +368,7 @@ const Join = () => {
     // Update auth context with user data
     setUser(userData);
 
-    // Investors need admin approval — send to home
-    if (userData.role === "investor") {
-      navigate("/home");
-    } else {
-      // New user: open their profile so they can complete it
-      navigate("/profile");
-    }
+    navigate("/profile");
   };
 
   const handleBackToSignup = () => {

@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useContext } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { hasBusinessEmail } from "../utils/industryAccess";
 
 /* ─── Constants ─────────────────────────────────── */
 const GENRES = [
@@ -106,7 +108,7 @@ const SkeletonCard = ({ dark }) => (
 );
 
 /* ─── Writer Card ────────────────────────────── */
-const WriterCard = ({ writer, rank, sortBy, dark }) => {
+const WriterCard = ({ writer, rank, sortBy, dark, currentUser }) => {
   const tier    = RANK_TIERS[rank] || null;
   const isTop3  = rank <= 3;
   const genres  = writer.writerProfile?.genres || [];
@@ -135,6 +137,15 @@ const WriterCard = ({ writer, rank, sortBy, dark }) => {
     return                             { val: Math.round(writer.reputation || 0), label: "Rep" };
   })();
 
+  const canOpenProfile = Boolean(currentUser?._id && hasBusinessEmail(currentUser?.email));
+  const profileHref = getProfileCanonicalPath(writer, {
+    viewerId: currentUser?._id,
+    viewerRole: currentUser?.role,
+  });
+
+  const Shell = canOpenProfile ? Link : "div";
+  const shellProps = canOpenProfile ? { to: profileHref } : {};
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -143,7 +154,7 @@ const WriterCard = ({ writer, rank, sortBy, dark }) => {
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
       className="h-full"
     >
-      <Link to={getProfileCanonicalPath(writer)} className="block group h-full">
+      <Shell {...shellProps} className="block group h-full">
         <div className={`relative rounded-xl border transition-all duration-250 overflow-hidden h-full flex flex-col ${
           isTop3
             ? `${dark ? tier.bg.d : tier.bg.l} ${dark ? tier.border.d : tier.border.l} ${tier.glow}`
@@ -261,7 +272,7 @@ const WriterCard = ({ writer, rank, sortBy, dark }) => {
                 ? "bg-white/[0.03] text-gray-600 group-hover:bg-white/[0.08] group-hover:text-gray-200"
                 : "bg-gray-50 text-gray-500 group-hover:bg-[#1e3a5f]/[0.08] group-hover:text-[#1e3a5f]"
             }`}>
-              <span>View profile</span>
+              <span>{canOpenProfile ? "Open profile" : "Business email required"}</span>
               <svg className="w-3 h-3 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
               </svg>
@@ -269,7 +280,7 @@ const WriterCard = ({ writer, rank, sortBy, dark }) => {
 
           </div>
         </div>
-      </Link>
+      </Shell>
     </motion.div>
   );
 };
@@ -277,6 +288,7 @@ const WriterCard = ({ writer, rank, sortBy, dark }) => {
 /* ─── Page ───────────────────────────────────── */
 const Writers = () => {
   const { isDarkMode: dark } = useDarkMode();
+  const { user: currentUser } = useContext(AuthContext);
   const [writers, setWriters]         = useState([]);
   const [loading, setLoading]         = useState(true);   // true only on initial blank load
   const [fetching, setFetching]       = useState(false);  // true on re-fetches (filter/sort changes)
@@ -497,7 +509,7 @@ const Writers = () => {
               {top3.length === 3 && (
                 <>
                   <div className="grid grid-cols-1 min-[500px]:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-3.5">
-                    {top3.map((w, i) => <WriterCard key={w._id} writer={w} rank={i + 1} sortBy={sortBy} dark={dark} />)}
+                    {top3.map((w, i) => <WriterCard key={w._id} writer={w} rank={i + 1} sortBy={sortBy} dark={dark} currentUser={currentUser} />)}
                   </div>
                   {rest.length > 0 && (
                     <div className="flex items-center gap-3 mb-3.5">
@@ -513,7 +525,7 @@ const Writers = () => {
               {rest.length > 0 && (
                 <div className="grid grid-cols-1 min-[500px]:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {rest.map((w, i) => (
-                    <WriterCard key={w._id} writer={w} rank={isFiltered ? i + 1 : i + 4} sortBy={sortBy} dark={dark} />
+                    <WriterCard key={w._id} writer={w} rank={isFiltered ? i + 1 : i + 4} sortBy={sortBy} dark={dark} currentUser={currentUser} />
                   ))}
                 </div>
               )}
