@@ -131,7 +131,7 @@ const RoleSelection = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-slate-700">Discover investment opportunities</span>
+                      <span className="text-slate-700">Find your next greenlight project</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
                       <div className="w-5 h-5 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -139,7 +139,7 @@ const RoleSelection = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-slate-700">Browse curated scripts</span>
+                      <span className="text-slate-700">Discover scripts by genre, format &amp; tone</span>
                     </li>
                     <li className="flex items-start gap-2 text-sm">
                       <div className="w-5 h-5 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -155,7 +155,7 @@ const RoleSelection = () => {
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <span className="text-slate-700">Option & fund projects</span>
+                      <span className="text-slate-700">Acquire IP &amp; secure rights for your next production</span>
                     </li>
                   </ul>
                   

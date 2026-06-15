@@ -3,6 +3,10 @@ const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const getApiKey = () => process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
 const getModel = () => process.env.GOOGLE_AI_MODEL || "gemini-2.5-flash";
 
+// Fallback model ladder used when the primary model hits quota / rate limits.
+// Each entry is tried in order until one succeeds.
+const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+
 const extractText = (responseJson) => {
   const parts = responseJson?.candidates?.[0]?.content?.parts || [];
   return parts
@@ -49,30 +53,21 @@ const fetchWithRetry = async (url, options, { retries = 2, baseDelay = 1500 } = 
   throw lastError || new Error("AI request failed after retries");
 };
 
-export const generateWithGoogleAI = async ({
-  prompt,
-  temperature = 0.4,
-  maxOutputTokens = 2500,
-  responseMimeType,
-}) => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    const err = new Error("Google AI API key is missing. Set GOOGLE_AI_API_KEY in server env.");
-    err.statusCode = 503;
-    throw err;
-  }
+const isQuotaError = (statusCode, message = "") => {
+  const msg = message.toLowerCase();
+  return (
+    statusCode === 429 ||
+    msg.includes("quota") ||
+    msg.includes("rate limit") ||
+    msg.includes("resource exhausted")
+  );
+};
 
-  const model = getModel();
+// Single attempt against one specific model. Returns { text, raw } or throws.
+const callModel = async ({ model, apiKey, prompt, temperature, maxOutputTokens, responseMimeType }) => {
   const endpoint = `${GOOGLE_API_BASE}/models/${model}:generateContent?key=${apiKey}`;
-
-  const generationConfig = {
-    temperature,
-    maxOutputTokens,
-  };
-
-  if (responseMimeType) {
-    generationConfig.responseMimeType = responseMimeType;
-  }
+  const generationConfig = { temperature, maxOutputTokens };
+  if (responseMimeType) generationConfig.responseMimeType = responseMimeType;
 
   console.log(`[GoogleAI] Calling ${model} (temp=${temperature}, maxTokens=${maxOutputTokens}, mime=${responseMimeType || "text"})`);
 
@@ -89,7 +84,7 @@ export const generateWithGoogleAI = async ({
 
   if (!response.ok) {
     const message = data?.error?.message || "Google AI request failed";
-    console.error(`[GoogleAI] Error ${response.status}: ${message}`);
+    console.error(`[GoogleAI] Error ${response.status} from ${model}: ${message}`);
     const err = new Error(message);
     err.statusCode = response.status;
     err.aiProvider = "google";
@@ -99,14 +94,54 @@ export const generateWithGoogleAI = async ({
 
   const text = extractText(data);
   if (!text) {
-    console.error("[GoogleAI] Empty response from API");
     const err = new Error("Google AI returned an empty response");
     err.statusCode = 502;
     throw err;
   }
 
-  console.log(`[GoogleAI] Success — ${text.length} chars returned`);
+  console.log(`[GoogleAI] Success from ${model} — ${text.length} chars returned`);
   return { text, raw: data };
+};
+
+export const generateWithGoogleAI = async ({
+  prompt,
+  temperature = 0.4,
+  maxOutputTokens = 2500,
+  responseMimeType,
+}) => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    const err = new Error("Google AI API key is missing. Set GOOGLE_AI_API_KEY in server env.");
+    err.statusCode = 503;
+    throw err;
+  }
+
+  // Build the model list: configured model first, then fallbacks (deduped)
+  const primaryModel = getModel();
+  const modelsToTry = [primaryModel, ...FALLBACK_MODELS.filter((m) => m !== primaryModel)];
+
+  let lastError;
+  for (const model of modelsToTry) {
+    try {
+      return await callModel({ model, apiKey, prompt, temperature, maxOutputTokens, responseMimeType });
+    } catch (err) {
+      lastError = err;
+      if (isQuotaError(err.statusCode, err.message)) {
+        console.warn(`[GoogleAI] Quota/rate-limit on ${model} — trying next model in fallback ladder`);
+        continue;
+      }
+      // Non-quota errors (bad JSON, timeout, 5xx) — don't try other models
+      throw err;
+    }
+  }
+
+  // All models exhausted
+  const err = new Error(
+    `All AI models hit quota limits. Please try again in a few minutes. (last: ${lastError?.message || "unknown"})`
+  );
+  err.statusCode = 429;
+  err.aiProvider = "google";
+  throw err;
 };
 
 export const generateJsonWithGoogleAI = async ({
@@ -144,11 +179,5 @@ export const generateJsonWithGoogleAI = async ({
 
 export const isGoogleQuotaError = (error) => {
   if (!error) return false;
-  const message = String(error.message || "").toLowerCase();
-  return (
-    error.statusCode === 429 ||
-    message.includes("quota") ||
-    message.includes("rate limit") ||
-    message.includes("resource exhausted")
-  );
+  return isQuotaError(error.statusCode, error.message);
 };

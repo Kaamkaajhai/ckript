@@ -58,6 +58,7 @@ import axios from "axios";
 import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import ScreenplayViewer from "../components/ScreenplayViewer";
+import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
@@ -626,8 +627,7 @@ const AdminScriptView = () => {
           </div>
 
           <form onSubmit={handleUnlockScriptAccess} className="space-y-4">
-            <input
-              type="password"
+            <PasswordInput
               value={scriptAccessPassword}
               onChange={(event) => {
                 setScriptAccessPassword(event.target.value);
@@ -1192,7 +1192,7 @@ const AdminScriptView = () => {
             <p className="text-xs text-white/60">Cover image, trailer thumbnail, and trailer media submitted with the project.</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
               <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45">Cover Image</p>
               {coverImageUrl ? (
@@ -1222,6 +1222,18 @@ const AdminScriptView = () => {
                 <p>Source: {script?.trailerSource || "none"}</p>
                 <p>Status: {script?.trailerStatus || "none"}</p>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45">Pitch Video</p>
+              {script?.pitchVideoUrl ? (
+                <video src={resolveMediaUrl(script.pitchVideoUrl)} controls className="w-full h-48 rounded-lg border border-white/10 bg-black" />
+              ) : (
+                <p className="text-sm text-white/60">No pitch video uploaded.</p>
+              )}
+              {script?.pitchVideoUrl && (
+                <p className="text-[11px] text-white/50">Writer-submitted pitch · max 1:30 min · max 90MB</p>
+              )}
             </div>
           </div>
         </div>

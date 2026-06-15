@@ -6,6 +6,10 @@ import ScriptOption from "../models/ScriptOption.js";
 import Notification from "../models/Notification.js";
 import { sendOTPEmail } from "../utils/emailService.js";
 import {
+  INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE,
+  isIndustryProfessionalWithPersonalEmail,
+} from "../utils/industryAccess.js";
+import {
   generateOTP,
   generateOTPExpiry,
   hashOTP,
@@ -799,7 +803,7 @@ export const getUserProfile = async (req, res) => {
     let blockedByProfile = false;
 
     if (!isOwnProfile) {
-      const currentUser = await User.findById(req.user._id).select("blockedUsers role");
+      const currentUser = await User.findById(req.user._id).select("blockedUsers role email");
       blockedByCurrent = currentUser?.blockedUsers?.some((uid) => uid.toString() === targetUserId) || false;
       blockedByProfile = user?.blockedUsers?.some((uid) => {
         const blockedId = uid?._id?.toString?.() || uid?.toString?.();
@@ -840,6 +844,9 @@ export const getUserProfile = async (req, res) => {
       }
 
       const isWriterProfile = ["writer", "creator"].includes(String(user?.role || "").toLowerCase());
+      if (isWriterProfile && isIndustryProfessionalWithPersonalEmail(currentUser || req.user)) {
+        return res.status(403).json({ message: INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE });
+      }
       if (isWriterProfile) {
         await User.updateOne({ _id: user._id }, { $inc: { profileViews: 1 } });
         user.profileViews = Number(user.profileViews || 0) + 1;
@@ -2232,9 +2239,6 @@ export const verifyEmailVerificationCode = async (req, res) => {
 export const deleteAccount = async (req, res) => {
   try {
     const reason = String(req.body?.reason || "").trim();
-    if (reason.length < 5) {
-      return res.status(400).json({ message: "Please provide a valid reason (minimum 5 characters)." });
-    }
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
