@@ -148,18 +148,6 @@ export const AuthProvider = ({ children }) => {
             expiresAt: data.expiresAt || effectiveExpiry,
           };
 
-          if (
-            refreshedUser?.role === "investor" &&
-            ["pending", "rejected"].includes(refreshedUser?.approvalStatus) &&
-            !isOnInvestorOnboardingPath()
-          ) {
-            localStorage.removeItem("user");
-            setUser(null);
-            redirectInvestorReview(refreshedUser.approvalStatus);
-            setLoading(false);
-            return;
-          }
-
           setUser(refreshedUser);
           localStorage.setItem("user", JSON.stringify(refreshedUser));
           scheduleAutoLogout(refreshedUser.expiresAt);

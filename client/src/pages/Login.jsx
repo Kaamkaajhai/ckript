@@ -6,6 +6,7 @@ import { ArrowRight, AlertCircle } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import PasswordInput from "../components/PasswordInput";
 
 const FORCE_DEFAULT_REDIRECT_KEY = "auth:force-default-redirect";
 
@@ -38,6 +39,17 @@ const Login = () => {
     getSafeRedirectPath(location.state?.from) ||
     getSafeRedirectPath(searchParams.get("next"));
 
+  const isRedirectValidForRole = (path, role) => {
+    if (!path) return false;
+    const writerOnlyPaths = ["/upload", "/create-project", "/new-project", "/dashboard", "/purchase-requests", "/follow-requests"];
+    const investorOnlyPaths = ["/home", "/mandates"];
+    const readerOnlyPaths = ["/reader"];
+    if (role === "investor") return !writerOnlyPaths.some(p => path.startsWith(p)) && !readerOnlyPaths.some(p => path.startsWith(p));
+    if (role === "writer" || role === "creator") return !investorOnlyPaths.some(p => path.startsWith(p)) && !readerOnlyPaths.some(p => path.startsWith(p));
+    if (role === "reader") return !writerOnlyPaths.some(p => path.startsWith(p)) && !investorOnlyPaths.some(p => path.startsWith(p));
+    return true;
+  };
+
   const navigateAfterLogin = (userData = {}) => {
     const shouldForceDefaultRedirect =
       typeof window !== "undefined" &&
@@ -47,14 +59,15 @@ const Login = () => {
       sessionStorage.removeItem(FORCE_DEFAULT_REDIRECT_KEY);
     }
 
-    if (!shouldForceDefaultRedirect && redirectPath) {
+    const role = userData?.role;
+    if (!shouldForceDefaultRedirect && redirectPath && isRedirectValidForRole(redirectPath, role)) {
       navigate(redirectPath, { replace: true });
       return;
     }
 
-    if (userData?.role === "reader") {
+    if (role === "reader") {
       navigate("/reader", { replace: true });
-    } else if (userData?.role === "investor") {
+    } else if (role === "investor") {
       navigate("/home", { replace: true });
     } else {
       navigate("/dashboard", { replace: true });
@@ -96,30 +109,12 @@ const Login = () => {
         setLoading(false);
         return;
       }
-      if (data?.pendingApproval) {
-        navigate("/?investorReview=pending");
-        setLoading(false);
-        return;
-      }
-      if (data?.rejected) {
-        const note = encodeURIComponent(data.message || "Your investor profile was not approved.");
-        navigate(`/?investorReview=rejected&note=${note}`);
-        setLoading(false);
-        return;
-      }
       setError(data?.message || "Login failed");
       setLoading(false);
     }
   };
 
   const handleOTPSuccess = (userData) => {
-    // Investor pending approval — show waiting screen
-    if (userData.pendingApproval) {
-      setShowOTPVerification(false);
-      navigate("/?investorReview=pending");
-      return;
-    }
-
     // Update auth context with user data
     setUser(userData);
 
@@ -240,8 +235,7 @@ const Login = () => {
               <label className="block text-[11px] font-medium text-slate-600 mb-1.5">
                 Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 placeholder="••••••••"
                 className="w-full px-4 py-3 bg-white border border-slate-300 rounded-xl text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-[#1e3a5f] focus:ring-1 focus:ring-[#1e3a5f]/20 transition-all duration-200"
                 value={password}

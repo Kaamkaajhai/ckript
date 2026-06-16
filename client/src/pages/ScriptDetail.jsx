@@ -30,7 +30,6 @@ import { useDarkMode } from "../context/DarkModeContext";
 import { Film, BadgeCheck } from "lucide-react";
 import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 import SocialShareButton from "../components/SocialShareButton";
-import RequestCollabButton from "../components/collab/RequestCollabButton";
 import ScreenplayViewer from "../components/ScreenplayViewer";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
@@ -1438,8 +1437,6 @@ const ScriptDetail = () => {
                   <div className={`rounded-2xl p-4 border space-y-2 ${t.priceSub}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Actions</p>
 
-                    <RequestCollabButton script={script} />
-
                     {canBookmark && (
                       <button
                         onClick={handleToggleBookmark}
@@ -1472,18 +1469,6 @@ const ScriptDetail = () => {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                         </svg>
                         {isOwner ? "Edit Project" : "Edit my branch"}
-                      </Link>
-                    )}
-
-                    {canOpenCollaborationHub && (
-                      <Link
-                        to={`/script/${script._id}/collaborate/overview`}
-                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 border ${t.btnSec}`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Collaboration Hub
                       </Link>
                     )}
 
@@ -1725,24 +1710,28 @@ const ScriptDetail = () => {
                     </div>
                   )}
 
+                  {/* Pitch Video */}
+                  {script?.pitchVideoUrl && (
+                    <div className={`rounded-2xl border overflow-hidden ${t.priceSub}`}>
+                      <div className={`px-4 pt-3 pb-2`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Pitch Video</p>
+                      </div>
+                      <video
+                        src={script.pitchVideoUrl}
+                        controls
+                        controlsList="nodownload"
+                        playsInline
+                        preload="metadata"
+                        className="w-full max-h-[220px] object-contain bg-black"
+                      />
+                    </div>
+                  )}
+
                   <div className={`rounded-2xl p-3 border text-center ${t.priceSub}`}>
                     <p className={`text-[11px] font-medium ${t.muted}`}>Published {formatDateTime(publishedAtValue)}</p>
                     {script?.sid && (
                       <p className={`text-[10px] font-semibold mt-1 ${t.sub}`}>SID: {script.sid}</p>
                     )}
-                  </div>
-                  <div className={`rounded-2xl p-4 border ${t.priceSub}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${t.label}`}>Collaboration</p>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className={t.muted}>Writers worked on this script</span>
-                        <span className={`font-bold ${t.sub}`}>{Number(collaborationStats.totalWritersWorked || 1)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className={t.muted}>Still working on it</span>
-                        <span className={`font-bold ${t.sub}`}>{Number(collaborationStats.activeWritersWorking || 1)}</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

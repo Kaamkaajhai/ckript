@@ -63,7 +63,6 @@ const CreatorDashboard = ({ user, dark }) => {
   const [sharedScripts, setSharedScripts] = useState([]);
   const [stats, setStats] = useState(null);
   const [reviews, setReviews] = useState(null);
-  const [collabRequests, setCollabRequests] = useState([]);
   const [reviewTab, setReviewTab] = useState("ai");
   const [loading, setLoading] = useState(true);
   const [chartsReady, setChartsReady] = useState(false);
@@ -104,11 +103,10 @@ const CreatorDashboard = ({ user, dark }) => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [scriptsRes, statsRes, reviewsRes, collabRes] = await Promise.allSettled([
+      const [scriptsRes, statsRes, reviewsRes] = await Promise.allSettled([
         api.get("/scripts/mine?includeCollaborations=1"),
         api.get("/dashboard"),
         api.get("/dashboard/reviews"),
-        api.get("/collab/requests/inbox"),
       ]);
 
       if (scriptsRes.status === "fulfilled") {
@@ -137,11 +135,6 @@ const CreatorDashboard = ({ user, dark }) => {
         setReviews(null);
       }
 
-      if (collabRes.status === "fulfilled") {
-        setCollabRequests(collabRes.value.data?.requests || []);
-      } else {
-        setCollabRequests([]);
-      }
     } catch { } finally { setLoading(false); }
   };
 
@@ -159,22 +152,6 @@ const CreatorDashboard = ({ user, dark }) => {
     viewerRole: user?.role,
   });
   const projectActionClass = "";
-  const collaborationProjects = useMemo(() => (
-    myScripts.filter((script) => {
-      const acceptedCollaborators = Array.isArray(script?.collaborators)
-        ? script.collaborators.filter((entry) => entry?.isActive !== false && entry?.status === "accepted").length
-        : 0;
-      return script?.collabVisibility === "open" || acceptedCollaborators > 0;
-    })
-  ), [myScripts]);
-  const collabRequestsByScript = useMemo(() => (
-    collabRequests.reduce((acc, request) => {
-      const key = String(request?.scriptId || "");
-      if (!key) return acc;
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {})
-  ), [collabRequests]);
 
   if (loading) {
     return (
@@ -705,167 +682,6 @@ const CreatorDashboard = ({ user, dark }) => {
           )}
         </div>
 
-        <div id="writer-collaboration" className="mb-8">
-          <div className="flex items-center gap-3 mb-5 sm:mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] flex items-center justify-center shadow-sm">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2a3 3 0 00-.356-1.429M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.496.122-.964.338-1.375m9.324 0A5.002 5.002 0 0012 13a5.002 5.002 0 00-4.662 3.625M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Collaboration</h2>
-              <p className={`text-sm font-medium ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Manage requests and jump into each project hub</p>
-            </div>
-          </div>
-
-          <div className={`rounded-2xl border shadow-sm overflow-hidden ${dark ? 'bg-[#101e30] border-[#182840]' : 'bg-white border-gray-100'}`}>
-            <div className={`px-4 sm:px-6 py-4 border-b ${dark ? 'border-[#182840]' : 'border-gray-100'}`}>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-[#0d1520] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Projects</p>
-                  <p className={`mt-1 text-xl font-extrabold ${dark ? 'text-white' : 'text-gray-900'}`}>{collaborationProjects.length}</p>
-                </div>
-                <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-[#0d1520] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Pending Requests</p>
-                  <p className={`mt-1 text-xl font-extrabold ${dark ? 'text-white' : 'text-gray-900'}`}>{collabRequests.length}</p>
-                </div>
-                <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-[#0d1520] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Open Projects</p>
-                  <p className={`mt-1 text-xl font-extrabold ${dark ? 'text-white' : 'text-gray-900'}`}>{collaborationProjects.filter((script) => script?.collabVisibility === "open").length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 sm:p-6">
-              {collaborationProjects.length > 0 ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {collaborationProjects.map((script) => {
-                    const activeCollaborators = Array.isArray(script?.collaborators)
-                      ? script.collaborators.filter((entry) => entry?.isActive !== false && entry?.status === "accepted").length
-                      : 0;
-                    const pendingCount = collabRequestsByScript[String(script._id)] || 0;
-
-                    return (
-                      <div key={script._id} className={`rounded-2xl border p-4 ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h3 className={`text-[15px] font-bold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{script.title}</h3>
-                            <p className={`mt-1 text-sm ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>
-                              Visibility: {script?.collabVisibility === "open" ? "Open for requests" : "Private workspace"}
-                            </p>
-                          </div>
-                          {pendingCount > 0 ? (
-                            <span className="inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-full bg-[#1e3a5f] text-white text-xs font-extrabold">
-                              {pendingCount}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${dark ? 'bg-white/[0.06] text-[#c6d4e3]' : 'bg-white text-gray-700 border border-gray-200'}`}>
-                            {activeCollaborators} collaborators
-                          </span>
-                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${dark ? 'bg-white/[0.06] text-[#c6d4e3]' : 'bg-white text-gray-700 border border-gray-200'}`}>
-                            {pendingCount} pending requests
-                          </span>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Link
-                            to={`/script/${script._id}/collaborate/overview`}
-                            className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#162d4a] transition-colors"
-                          >
-                            Open Collaboration Hub
-                          </Link>
-                          <Link
-                            to={getScriptCanonicalPath(script)}
-                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
-                          >
-                            View Script
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className={`rounded-2xl border px-5 py-8 text-center ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
-                  <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-gray-800'}`}>No collaboration-enabled projects yet</p>
-                  <p className={`mt-1 text-sm ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>Open collaboration on a project or invite collaborators to make it appear here.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {sharedScripts.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-5 flex-wrap">
-              <h2 className={`text-[17px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Shared With Me</h2>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-[#8896a7] bg-white/[0.04]' : 'text-gray-400 bg-gray-100'}`}>{sharedScripts.length}</span>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {sharedScripts.map((script) => {
-                const canEditScript = Boolean(script?.canEditScript);
-                const roleLabel = String(script?.collaboratorRole || "editor").replace(/^\w/, (char) => char.toUpperCase());
-                const statusLabel = String(script?.status || "draft").replace(/_/g, " ");
-
-                return (
-                  <div key={script._id} className={`rounded-2xl border p-4 sm:p-5 ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className={`text-[11px] font-bold uppercase tracking-[0.2em] ${dark ? 'text-[#8896a7]' : 'text-gray-400'}`}>Collaborator Access</p>
-                        <h3 className={`mt-1 text-[18px] font-bold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{script?.title || "Untitled Project"}</h3>
-                        <p className={`mt-1 text-sm ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>
-                          By {script?.creator?.name || "Unknown"} • {roleLabel}
-                        </p>
-                      </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${dark ? 'bg-white/[0.06] text-[#c6d4e3]' : 'bg-white text-gray-700 border border-gray-200'}`}>
-                        {statusLabel}
-                      </span>
-                    </div>
-
-                    {script?.logline && (
-                      <p className={`mt-3 text-sm leading-6 ${dark ? 'text-[#c6d4e3]' : 'text-gray-600'}`}>{script.logline}</p>
-                    )}
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Link
-                        to={getScriptCanonicalPath(script)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#162d4a] transition-colors"
-                      >
-                        Open Script
-                      </Link>
-                      {canEditScript && (
-                        <Link
-                          to={`/script/${script._id}/branch/edit`}
-                          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
-                        >
-                          Edit Script
-                        </Link>
-                      )}
-                      {script?.canEditMetadata && (
-                        <Link
-                          to={`/upload?edit=${script._id}`}
-                          className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
-                        >
-                          Edit Settings
-                        </Link>
-                      )}
-                      <Link
-                        to={`/script/${script._id}/collaborate/overview`}
-                        className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold ${dark ? 'bg-white/[0.05] text-white' : 'bg-white text-gray-700 border border-gray-200'}`}
-                      >
-                        Collaboration Hub
-                      </Link>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Section heading */}
         <div className="flex items-center gap-2 mb-5 flex-wrap">

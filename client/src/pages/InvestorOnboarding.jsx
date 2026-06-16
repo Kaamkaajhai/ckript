@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import "./onboarding-theme.css";
+import PasswordInput from "../components/PasswordInput";
 
 
 // Comprehensive email validation
@@ -1028,7 +1029,7 @@ const InvestorOnboarding = () => {
                   <label className="ob-label">Password</label>
                   <div style={{ position: "relative" }}>
                     <Lock size={16} style={{ position: "absolute", left: 14, top: 16, color: "#6B7280" }} />
-                    <input autoFocus type="password" className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
+                    <PasswordInput autoFocus className="ob-input" style={{ paddingLeft: 40 }} placeholder="Min. 8 characters" value={accountData.password} onChange={(e) => { setAccountData({ ...accountData, password: e.target.value }); if (!showPasswordReqs) setShowPasswordReqs(true); }} onFocus={() => setShowPasswordReqs(true)} required />
                   </div>
                   {showPasswordReqs && (() => { const v = validatePassword(accountData.password); return (
                     <div className="ob-pw-reqs">
@@ -1058,7 +1059,7 @@ const InvestorOnboarding = () => {
                 <label className="ob-label">Username</label>
                 <div style={{ position: "relative" }}>
                   <span style={{ position: "absolute", left: 14, top: 13, color: "#6B7280", fontSize: "0.9375rem", fontWeight: 500 }}>@</span>
-                  <input autoFocus type="text" className={`ob-input ${usernameError || usernameStatus.state === "unavailable" ? "ob-input--error" : ""}`} style={{ paddingLeft: 34 }} placeholder="e.g. rajesh_films" value={investorProfile.username} onChange={(e) => { setInvestorProfile({ ...investorProfile, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }); if (usernameError) setUsernameError(""); }} required />
+                  <input autoFocus type="text" className={`ob-input ${usernameError || usernameStatus.state === "unavailable" ? "ob-input--error" : ""}`} style={{ paddingLeft: 34 }} placeholder="e.g. aryan_visuals" value={investorProfile.username} onChange={(e) => { setInvestorProfile({ ...investorProfile, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") }); if (usernameError) setUsernameError(""); }} required />
                 </div>
                 {usernameError && <p className="ob-hint ob-hint--err">{usernameError}</p>}
                 {!usernameError && usernameStatus.message && (
@@ -1081,7 +1082,7 @@ const InvestorOnboarding = () => {
                 </div>
                 <div className="ob-field">
                   <label className="ob-label">Production House / Firm *</label>
-                  <input type="text" className="ob-input" placeholder="e.g. Dharma Productions" value={investorProfile.company} onChange={(e) => { setInvestorProfile({ ...investorProfile, company: e.target.value }); setFirmNameError(""); }} required />
+                  <input type="text" className="ob-input" placeholder="e.g. Novastride Pictures" value={investorProfile.company} onChange={(e) => { setInvestorProfile({ ...investorProfile, company: e.target.value }); setFirmNameError(""); }} required />
                   {firmNameError && <p className="ob-hint ob-hint--err">{firmNameError}</p>}
                 </div>
               </div>
@@ -1120,13 +1121,6 @@ const InvestorOnboarding = () => {
                 </div>
               </div>
               {identityError && <p className="ob-hint ob-hint--err" style={{ marginBottom: 12 }}>{identityError}</p>}
-              <div className="ob-field">
-                <label className="ob-label">Investment Range <span style={{ opacity: 0.5, textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
-                <select className="ob-input ob-select" value={investorProfile.investmentRange} onChange={(e) => setInvestorProfile({ ...investorProfile, investmentRange: e.target.value })}>
-                  <option value="">Select range</option>
-                  {investmentRanges.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
               <div className="ob-actions">
                 <button type="button" onClick={handleSubStepContinue} className="ob-btn ob-btn-primary">Continue <ArrowRight size={16} /></button>
                 <div className="ob-actions-row"><BackBtn to={4} /><FinishLaterBtn /></div>

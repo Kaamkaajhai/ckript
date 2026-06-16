@@ -691,8 +691,13 @@ const CreateProject = () => {
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
   const [trailerMetaLoading, setTrailerMetaLoading] = useState(false);
+  const [pitchVideoFile, setPitchVideoFile] = useState(null);
+  const [pitchVideoPreviewUrl, setPitchVideoPreviewUrl] = useState("");
+  const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
+  const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
   const thumbnailInputRef = useRef(null);
   const trailerInputRef = useRef(null);
+  const pitchVideoInputRef = useRef(null);
   const stepContentRef = useRef(null);
 
   const [isThumbnailEditorOpen, setIsThumbnailEditorOpen] = useState(false);
@@ -872,6 +877,63 @@ const CreateProject = () => {
     };
   }, [trailerFile]);
 
+  const handlePitchVideoSelect = (file) => {
+    if (!file) return;
+    const allowedTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/webm", "video/x-m4v"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please upload a valid video file (MP4, MPEG, MOV, or WebM) for the pitch video.");
+      return;
+    }
+    if (file.size > 90 * 1024 * 1024) {
+      setError("Pitch video must be under 90MB.");
+      return;
+    }
+    setPitchVideoFile(file);
+    setError("");
+  };
+
+  useEffect(() => {
+    if (!pitchVideoFile) {
+      setPitchVideoPreviewUrl("");
+      setPitchVideoMeta(null);
+      setPitchVideoMetaLoading(false);
+      return;
+    }
+    const previewUrl = URL.createObjectURL(pitchVideoFile);
+    setPitchVideoPreviewUrl(previewUrl);
+    setPitchVideoMeta(null);
+    setPitchVideoMetaLoading(true);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.src = previewUrl;
+    video.onloadedmetadata = () => {
+      if (video.duration > 90) {
+        setError("Pitch video must be 1 minute 30 seconds (90 seconds) or less.");
+        setPitchVideoFile(null);
+        setPitchVideoPreviewUrl("");
+        setPitchVideoMeta(null);
+        setPitchVideoMetaLoading(false);
+        URL.revokeObjectURL(previewUrl);
+        return;
+      }
+      setPitchVideoMeta({
+        duration: Number.isFinite(video.duration) ? video.duration : 0,
+        width: video.videoWidth || 0,
+        height: video.videoHeight || 0,
+      });
+      setPitchVideoMetaLoading(false);
+    };
+    video.onerror = () => {
+      setPitchVideoMetaLoading(false);
+      setPitchVideoMeta(null);
+    };
+    return () => {
+      video.onloadedmetadata = null;
+      video.onerror = null;
+      URL.revokeObjectURL(previewUrl);
+    };
+  }, [pitchVideoFile]);
+
   const formatDuration = (seconds) => {
     if (!seconds || !Number.isFinite(seconds)) return "--:--";
     const mins = Math.floor(seconds / 60);
@@ -912,6 +974,10 @@ const CreateProject = () => {
   ));
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
+
+  // AI metadata generation (per-section: "logline" | "synopsis" | "roles")
+  const [metaLoadingField, setMetaLoadingField] = useState("");
+  const [metaNotice, setMetaNotice] = useState({ field: "", text: "" });
 
   // Step 3: Classification
   const [classification, setClassification] = useState({ tones: [], themes: [], settings: [] });
@@ -1422,6 +1488,9 @@ const CreateProject = () => {
   const downloadSubmissionSummaryPdf = async (targetScriptId, currentTitle) => {
     if (!targetScriptId) return;
 
+    const confirmed = window.confirm("Your project was submitted successfully! Would you like to download your submission summary PDF?");
+    if (!confirmed) return;
+
     try {
       const response = await api.get(`/scripts/${targetScriptId}/submission-summary-pdf?download=1`, {
         responseType: "blob",
@@ -1665,7 +1734,8 @@ const CreateProject = () => {
         return false;
       }
       if (!formData.primaryGenre) { setError("Primary genre is required."); return false; }
-      if (formData.logline && formData.logline.length > 50) { setError("Logline must be 50 chars or less."); return false; }
+      if (!formData.logline.trim()) { setError("Logline is required."); return false; }
+      if (formData.logline.length > 500) { setError("Logline must be 500 characters or less."); return false; }
       {
         const completionError = getScriptCompletionValidationMessage(formData);
         if (completionError) {
@@ -1720,6 +1790,12 @@ const CreateProject = () => {
       const trailerFormData = new FormData();
       trailerFormData.append("trailer", trailerFile);
       tasks.push(api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData));
+    }
+
+    if (pitchVideoFile) {
+      const pitchFormData = new FormData();
+      pitchFormData.append("pitchVideo", pitchVideoFile);
+      tasks.push(api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData));
     }
 
     if (tasks.length === 0) return;
@@ -1998,8 +2074,69 @@ const CreateProject = () => {
     }
   };
 
+  // Generate a single section (logline / synopsis / roles) by parsing the project content with AI
+  const handleGenerateMetadata = async (field) => {
+    if (!editor || metaLoadingField) return;
+    const plainText = editor.getText().trim();
+    if (!plainText || plainText.length < 50) {
+      setError("Write at least 50 characters of script content before generating with AI.");
+      return;
+    }
+
+    setMetaLoadingField(field);
+    setMetaNotice({ field: "", text: "" });
+    setError("");
+
+    try {
+      const { data } = await api.post("/ai/generate-metadata", {
+        text: plainText,
+        fields: [field],
+        title,
+        primaryGenre: formData.primaryGenre,
+        contentType: getContentTypeFromFormat(formData.format),
+      });
+
+      let filled = false;
+      if (field === "logline" && typeof data.logline === "string" && data.logline.trim()) {
+        setFormData((f) => ({ ...f, logline: data.logline.trim().slice(0, 500) }));
+        filled = true;
+      }
+      if (field === "synopsis" && typeof data.synopsis === "string" && data.synopsis.trim()) {
+        setFormData((f) => ({ ...f, synopsis: data.synopsis.trim() }));
+        filled = true;
+      }
+      if (field === "roles" && Array.isArray(data.roles) && data.roles.length) {
+        setRoles(data.roles.map((role) => ({
+          characterName: role.characterName || "",
+          type: role.type || "",
+          description: role.description || "",
+          gender: role.gender || "Any",
+          ageRange: {
+            min: role.ageRange?.min ?? "",
+            max: role.ageRange?.max ?? "",
+          },
+        })));
+        filled = true;
+      }
+
+      setSaved(false);
+      if (data.usedFallback) {
+        setMetaNotice({ field, text: "AI is busy right now — please try again in a moment." });
+      } else if (filled) {
+        setMetaNotice({ field, text: "Generated by AI — review and edit before submitting." });
+      } else {
+        setMetaNotice({ field, text: "Not enough story detail — add more script content and try again." });
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to generate. Please try again.");
+    } finally {
+      setMetaLoadingField("");
+    }
+  };
+
   // Styling helpers
   const cardCls = `rounded-2xl border backdrop-blur-sm ${dark ? "bg-[#0d1520]/80 border-[#182840]" : "bg-white/90 border-gray-200 shadow-sm"}`;
+  const aiBtnCls = `shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition disabled:opacity-50 disabled:cursor-not-allowed ${dark ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`;
   const inputCls = `w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 outline-none ${dark
     ? "bg-white/[0.04] border border-[#1d3350] text-gray-100 placeholder:text-gray-600 focus:border-[#1e3a5f] focus:ring-1 focus:ring-[#1e3a5f]/30"
     : "bg-gray-50 border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/50 focus:ring-1 focus:ring-[#1e3a5f]/10"}`;
@@ -2879,44 +3016,88 @@ const CreateProject = () => {
               <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                 <div>
                   <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
-                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
-                    Show whether this script is complete, partially finished, or still ongoing.
+                  <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                    Let buyers know how much of the script is ready.
                   </p>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <div className="lg:col-span-2">
-                    <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Completion Status</label>
-                    <select name="completionStatus" value={formData.completionStatus} onChange={handleChange} className={inputCls}>
-                      {SCRIPT_COMPLETION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                    <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
-                      {SCRIPT_COMPLETION_OPTIONS.find((option) => option.value === formData.completionStatus)?.helper}
-                    </p>
+                {/* Status picker */}
+                <div className="mt-4">
+                  <p className={`text-xs font-semibold mb-2 ${dark ? "text-gray-400" : "text-gray-500"}`}>Where is your script right now?</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {[
+                      { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
+                      { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
+                      { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, completionStatus: opt.value }))}
+                        className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${
+                          formData.completionStatus === opt.value
+                            ? dark
+                              ? "border-[#2a5080] bg-[#0f2035] ring-1 ring-[#2a5080]"
+                              : "border-blue-300 bg-blue-50 ring-1 ring-blue-200"
+                            : dark
+                              ? "border-[#1d3350] bg-[#0d1826] hover:border-[#2a4a6a]"
+                              : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <span className={`text-[13px] font-semibold ${
+                          formData.completionStatus === opt.value
+                            ? dark ? "text-white" : "text-blue-800"
+                            : dark ? "text-gray-200" : "text-gray-800"
+                        }`}>{opt.label}</span>
+                        <span className={`text-[11px] leading-snug ${
+                          formData.completionStatus === opt.value
+                            ? dark ? "text-blue-300" : "text-blue-600"
+                            : dark ? "text-gray-500" : "text-gray-400"
+                        }`}>{opt.desc}</span>
+                      </button>
+                    ))}
                   </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Completed Chapters/Parts</label>
-                    <input type="number" min="0" name="completedParts" value={formData.completedParts} onChange={handleChange} placeholder="4" className={inputCls} />
+                </div>
+
+                {/* Parts inputs — only relevant for partial / ongoing */}
+                {formData.completionStatus !== "complete" && (
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                        Parts / episodes done so far
+                      </label>
+                      <input type="number" min="0" name="completedParts" value={formData.completedParts} onChange={handleChange} placeholder="e.g. 4" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                        Total parts / episodes planned
+                      </label>
+                      <input type="number" min="0" name="totalParts" value={formData.totalParts} onChange={handleChange} placeholder="e.g. 10" className={inputCls} />
+                    </div>
                   </div>
-                  <div>
-                    <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Total Planned Chapters/Parts</label>
-                    <input type="number" min="0" name="totalParts" value={formData.totalParts} onChange={handleChange} placeholder="10" className={inputCls} />
-                  </div>
-                  <div className="lg:col-span-2">
-                    <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Future Update Note <span className={`${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span></label>
-                    <textarea
-                      name="futurePlans"
-                      value={formData.futurePlans}
-                      onChange={handleChange}
-                      rows={3}
-                      maxLength={300}
-                      placeholder="Example: Remaining episodes are still in development and will be added later."
-                      className={`${inputCls} resize-none`}
-                    />
-                    <p className={`text-[10px] mt-1 text-right ${dark ? "text-gray-600" : "text-gray-400"}`}>
-                      {String(formData.futurePlans || "").length}/300
-                    </p>
-                  </div>
+                )}
+
+                {/* Future note */}
+                <div className="mt-4">
+                  <label className={`block text-xs font-semibold mb-1.5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                    Anything else buyers should know? <span className={`font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                  </label>
+                  <textarea
+                    name="futurePlans"
+                    value={formData.futurePlans}
+                    onChange={handleChange}
+                    rows={2}
+                    maxLength={300}
+                    placeholder={
+                      formData.completionStatus === "complete"
+                        ? "e.g. This is the final locked version, ready for production."
+                        : "e.g. Remaining episodes are still being written and will be uploaded soon."
+                    }
+                    className={`${inputCls} resize-none`}
+                  />
+                  <p className={`text-[10px] mt-1 text-right ${dark ? "text-gray-600" : "text-gray-400"}`}>
+                    {String(formData.futurePlans || "").length}/300
+                  </p>
                 </div>
               </div>
               <div>
@@ -2934,18 +3115,28 @@ const CreateProject = () => {
               </div>
               {targetFilm && (
                 <div>
-                  <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Logline <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional, {formData.logline.length}/50)</span></label>
-                  <textarea name="logline" value={formData.logline} onChange={handleChange} rows={3} maxLength={50} placeholder="A one-sentence summary of your story..."
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className={`block text-sm font-medium ${dark ? "text-gray-300" : "text-gray-700"}`}>Logline * <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>{formData.logline.length}/500</span></label>
+                    <button type="button" onClick={() => handleGenerateMetadata("logline")} disabled={Boolean(metaLoadingField)}
+                      className={aiBtnCls}>{metaLoadingField === "logline" ? "Generating…" : "✨ Generate with AI"}</button>
+                  </div>
+                  <textarea name="logline" value={formData.logline} onChange={handleChange} rows={3} maxLength={500} placeholder="A one-sentence summary of your story..."
                     className={`${inputCls} resize-none`} />
+                  {metaNotice.field === "logline" && <p className={`text-[11px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>}
                 </div>
               )}
               <div>
-                <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Synopsis *</label>
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <label className={`block text-sm font-medium ${dark ? "text-gray-300" : "text-gray-700"}`}>Synopsis *</label>
+                  <button type="button" onClick={() => handleGenerateMetadata("synopsis")} disabled={Boolean(metaLoadingField)}
+                    className={aiBtnCls}>{metaLoadingField === "synopsis" ? "Generating…" : "✨ Generate with AI"}</button>
+                </div>
                 <textarea name="synopsis" value={formData.synopsis} onChange={handleChange} rows={4} placeholder="A longer synopsis of your script..."
                   className={`${inputCls} resize-none`} />
+                {metaNotice.field === "synopsis" && <p className={`text-[11px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>}
               </div>
               <div>
-                <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Tags <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(comma separated)</span></label>
+                <label className={`block text-sm font-medium mb-1.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Tags</label>
                 <input type="text" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="e.g. heist, ensemble, twist ending" className={inputCls} />
               </div>
 
@@ -2955,14 +3146,25 @@ const CreateProject = () => {
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Role Studio</h3>
                       <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Add cast roles with demographics and creative direction. Leave blank if not casting yet.</p>
+                      {metaNotice.field === "roles" && <p className={`text-[11px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>}
                     </div>
-                    <button
-                      type="button"
-                      onClick={addRole}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`}
-                    >
-                      + Add Role
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateMetadata("roles")}
+                        disabled={Boolean(metaLoadingField)}
+                        className={aiBtnCls}
+                      >
+                        {metaLoadingField === "roles" ? "Generating…" : "✨ Generate with AI"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addRole}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`}
+                      >
+                        + Add Role
+                      </button>
+                    </div>
                   </div>
 
                   {roles.length === 0 ? (
@@ -3245,6 +3447,70 @@ const CreateProject = () => {
                       )}
                     </div>
                   )}
+
+                  {/* Pitch Video Upload */}
+                  <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <label className={`block text-sm font-medium mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                      Pitch Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                    </label>
+                    <p className={`text-[11px] mb-2.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>A short video pitch for your project. Max 1:30 min · Max 90MB</p>
+                    <input
+                      ref={pitchVideoInputRef}
+                      type="file"
+                      accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
+                      onChange={(e) => {
+                        handlePitchVideoSelect(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                      className="hidden"
+                    />
+                    {!pitchVideoFile ? (
+                      <div onClick={() => pitchVideoInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${dark ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
+                        <Film className={`w-8 h-8 mb-2 ${dark ? "text-[#1d3350]" : "text-gray-400"}`} />
+                        <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload Pitch Video</p>
+                        <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM · Max 1:30 min · Max 90MB</p>
+                      </div>
+                    ) : (
+                      <div className={`border rounded-xl p-3 space-y-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                        <div className="relative overflow-hidden rounded-lg">
+                          <video
+                            src={pitchVideoPreviewUrl}
+                            controls
+                            preload="metadata"
+                            className="w-full h-44 object-contain bg-black"
+                          />
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
+                            <CheckCircle2 className="w-6 h-6 text-green-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-bold truncate ${dark ? "text-green-400" : "text-green-700"}`}>{pitchVideoFile.name}</p>
+                            <p className={`text-[10px] ${dark ? "text-green-500/80" : "text-green-600/80"}`}>
+                              {(pitchVideoFile.size / 1024 / 1024).toFixed(1)} MB
+                              {pitchVideoMetaLoading ? " · reading..." : pitchVideoMeta ? ` · ${formatDuration(pitchVideoMeta.duration)}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => pitchVideoInputRef.current?.click()}
+                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                            >
+                              Replace
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setPitchVideoFile(null); setError(""); }}
+                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -3281,51 +3547,56 @@ const CreateProject = () => {
                     <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Choose access, set price, select services, and accept terms.</p>
                   </div>
 
-                  <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 space-y-4 min-[420px]:space-y-5 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex flex-col gap-3 min-[460px]:flex-row min-[460px]:items-start min-[460px]:justify-between">
-                      <div>
-                        <h3 className={`text-[15px] min-[420px]:text-base font-bold mt-0.5 ${dark ? "text-white" : "text-gray-900"}`}>Monetization</h3>
-                        <p className={`text-[11px] min-[420px]:text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>Set your pricing and rights-based selling terms.</p>
+                  <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 space-y-5 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
+                    {/* Header */}
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${dark ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
+                        <svg className={`w-4.5 h-4.5 ${dark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
                       </div>
-                      
-                    </div>
-
-                    
-
-                    <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${dark ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-emerald-50 border border-emerald-100"}`}>
-                      <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? "text-emerald-300" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                       <div>
-                        <p className={`text-sm font-semibold ${dark ? "text-white" : "text-gray-900"}`}>Monetization is active</p>
-                        <p className={`text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>Set your asking amount below, then review the rights terms before publishing.</p>
+                        <h3 className={`text-[15px] min-[420px]:text-base font-bold ${dark ? "text-white" : "text-gray-900"}`}>Monetization</h3>
+                        <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>Set what buyers pay to access your script and rights terms.</p>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                        <div>
-                          <div className={`rounded-xl p-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                            <label className={`block text-[11px] font-bold uppercase tracking-[0.14em] mb-2 ${dark ? "text-gray-500" : "text-gray-400"}`}>Set Amount</label>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                              <div className="relative w-full sm:w-40">
-                                <span className={`absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold ${dark ? "text-gray-400" : "text-gray-500"}`}>₹</span>
-                                <input
-                                  type="number" min="1" step="1"
-                                  value={scriptPrice}
-                                  onChange={(e) => {
-                                    const normalized = String(e.target.value || "").replace(/^0+(?=\d)/, "");
-                                    setScriptPrice(Number(normalized) || 0);
-                                  }}
-                                  placeholder="0"
-                                  className={`w-full pl-7 pr-3 py-2.5 rounded-xl text-sm font-bold border-2 outline-none transition-all ${dark ? "bg-white/[0.04] border-emerald-500/50 text-white focus:border-emerald-500" : "bg-white border-emerald-300 text-gray-900 focus:border-emerald-500"}`}
-                                />
-                              </div>
-                              <p className={`text-[12px] ${dark ? "text-gray-500" : "text-gray-500"}`}>Set your asking amount here. Buyers can review your rights terms below before moving ahead.</p></div></div></div></div>
-
-                    <div className={`rounded-xl px-4 py-3 flex items-start gap-3 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                      <svg className={`w-4 h-4 mt-0.5 shrink-0 ${dark ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zm9-3.758a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      <div>
-                        <p className={`text-sm font-semibold ${dark ? "text-white" : "text-gray-900"}`}>Important for writers</p>
-                        <p className={`text-[12px] mt-1 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>Film industry professionals usually do not buy scripts just to read them. They may be evaluating rights for films, web series, TV serials, remakes, or adaptations, so set your price and rights terms on that basis.</p>
+                    {/* Price input */}
+                    <div className={`rounded-xl p-4 sm:p-5 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                      <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${dark ? "text-gray-500" : "text-gray-400"}`}>Your Asking Price</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                        <div className="relative w-full sm:w-44">
+                          <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-base font-bold ${dark ? "text-emerald-400" : "text-emerald-600"}`}>₹</span>
+                          <input
+                            type="number" min="1" step="1"
+                            value={scriptPrice}
+                            onChange={(e) => {
+                              const normalized = String(e.target.value || "").replace(/^0+(?=\d)/, "");
+                              setScriptPrice(Number(normalized) || 0);
+                            }}
+                            placeholder="0"
+                            className={`w-full pl-8 pr-4 py-3 rounded-xl text-lg font-bold border-2 outline-none transition-all ${dark ? "bg-white/[0.04] border-emerald-500/40 text-white focus:border-emerald-400" : "bg-emerald-50/60 border-emerald-200 text-gray-900 focus:border-emerald-500 focus:bg-white"}`}
+                          />
+                        </div>
+                        <p className={`text-[12px] leading-relaxed ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                          This is the amount buyers pay to unlock your script. You can update it anytime before publishing.
+                        </p>
                       </div>
+                    </div>
+
+                    {/* How it works */}
+                    <div className={`rounded-xl p-4 space-y-2.5 ${dark ? "bg-amber-500/5 border border-amber-500/15" : "bg-amber-50/70 border border-amber-100"}`}>
+                      <p className={`text-xs font-bold uppercase tracking-wide ${dark ? "text-amber-300" : "text-amber-700"}`}>Before you set your price</p>
+                      <ul className="space-y-2">
+                        {[
+                          "Buyers are evaluating rights — for films, web series, TV serials, remakes, or adaptations.",
+                          "They're not paying just to read — they're assessing your script for a potential deal.",
+                          "Price it based on what those rights are worth, not just the read.",
+                        ].map((tip, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${dark ? "bg-amber-400" : "bg-amber-500"}`} />
+                            <p className={`text-[12px] leading-relaxed ${dark ? "text-amber-200/70" : "text-amber-800"}`}>{tip}</p>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
 

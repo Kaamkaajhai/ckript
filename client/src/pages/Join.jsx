@@ -5,6 +5,7 @@ import { UserPlus, MapPin, Phone } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
 import BrandLogo from "../components/BrandLogo";
 import api from "../services/api";
+import PasswordInput from "../components/PasswordInput";
 
 const EMAIL_EXISTS_MSG = "User already exists";
 
@@ -343,12 +344,7 @@ const Join = () => {
         });
         setShowOTPVerification(true);
       } else if (response?.token) {
-        // Direct login (shouldn't happen with new flow, but keeping for backwards compatibility)
-        if (response.role === "investor") {
-          navigate("/home");
-        } else {
-          navigate("/dashboard");
-        }
+        navigate("/profile");
       }
     } catch (err) {
       const msg = err.response?.data?.message
@@ -371,13 +367,8 @@ const Join = () => {
   const handleOTPSuccess = (userData) => {
     // Update auth context with user data
     setUser(userData);
-    
-    // Navigate based on role
-    if (userData.role === "investor") {
-      navigate("/home");
-    } else {
-      navigate("/dashboard");
-    }
+
+    navigate("/profile");
   };
 
   const handleBackToSignup = () => {
@@ -660,14 +651,14 @@ const Join = () => {
             )}
             <div>
               <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Password</label>
-              <input type="password" placeholder="Create a strong password"
+              <PasswordInput placeholder="Create a strong password"
                 className="w-full px-4 py-3 bg-[#0b121c] border border-[#243447] rounded-xl text-[15px] text-white placeholder-[#506074] outline-none focus:border-[#3f5d7a] focus:ring-2 focus:ring-[#3f5d7a]/20 transition-all duration-200"
-                value={formData.password} 
-                onChange={(e) => { 
-                  setFormData({ ...formData, password: e.target.value }); 
-                  setPasswordMismatch(false); 
+                value={formData.password}
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  setPasswordMismatch(false);
                   if (!showPasswordReqs) setShowPasswordReqs(true);
-                }} 
+                }}
                 onFocus={() => setShowPasswordReqs(true)}
                 required />
               {showPasswordReqs && (
@@ -710,7 +701,7 @@ const Join = () => {
             </div>
             <div>
               <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Confirm password</label>
-              <input type="password" placeholder="Re-enter your password"
+              <PasswordInput placeholder="Re-enter your password"
                 className={`w-full px-4 py-3 bg-[#0b121c] border rounded-xl text-[15px] text-white placeholder-[#506074] outline-none focus:ring-2 transition-all duration-200 ${
                   passwordMismatch
                     ? 'border-red-400 focus:border-red-400 focus:ring-red-500/20'
