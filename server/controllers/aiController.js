@@ -667,9 +667,11 @@ const normalizeGeneratedRoles = (rawRoles = []) => {
 // Free tool used during project creation / upload.
 export const generateProjectMetadata = async (req, res) => {
   try {
+    // Cap at 8,000 chars (~1,400 words) — enough to identify characters, plot and tone
+    // without blowing through free-tier token quotas on large scripts.
     const sourceText = safeSlice(
       req.body?.text || req.body?.textContent || "",
-      24000
+      8000
     );
     if (!sourceText || sourceText.length < 50) {
       return res.status(400).json({
