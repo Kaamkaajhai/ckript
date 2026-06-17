@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
 import PrivateRoute from "./utils/PrivateRoute";
@@ -222,6 +223,7 @@ function App() {
     <DarkModeProvider key="dm-root">
       <AuthProvider>
         <Router>
+          <AuthModalProvider>
           <LanguagePreferenceSync />
           <ScrollToTopOnRouteChange />
           <SeoManager />
@@ -332,6 +334,7 @@ function App() {
             </Routes>
             </Suspense>
           </AdminLoginHandler>
+          </AuthModalProvider>
         </Router>
       </AuthProvider>
     </DarkModeProvider>
