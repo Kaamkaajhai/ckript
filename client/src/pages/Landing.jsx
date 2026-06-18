@@ -1,964 +1,772 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Link, useSearchParams } from "react-router-dom";
-import {
-  Film,
-  Users,
-  TrendingUp,
-  Mail,
-  Send,
-  Briefcase,
-  HelpCircle,
-  MessageSquare,
-  CheckCircle,
-  PenLine,
-  ArrowRight,
-  Clock3,
-  XCircle,
-} from "lucide-react";
-import api from "../services/api";
-import BrandLogo from "../components/BrandLogo";
-import MarketingHeader from "../components/MarketingHeader";
-import heroImage from "../assets/image_2.png";
-import "./landing-luxury.css";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
+import scriptOriginal from "../assets/ckript-landing/script-original.png";
+import filmClean from "../assets/ckript-landing/film-clean.png";
+import scriptImg from "../assets/ckript-landing/script-img.png";
+import trailerStill from "../assets/ckript-landing/trailer-still.png";
 
-const FeaturesShowcase = lazy(() => import("../components/FeaturesShowcase"));
-
-/* ─────────────────────────────────────────────
-   Fonts — Playfair Display (display) + Inter (body)
-   ───────────────────────────────────────────── */
-const FontInjection = () => (
-  <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700;800&display=swap');
-
-    .font-display { font-family: 'Playfair Display', Georgia, serif; font-optical-sizing: auto; }
-    .font-body    { font-family: 'Inter', system-ui, sans-serif; }
-
-    .grain::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0.06;
-      mix-blend-mode: overlay;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    }
-
-    @keyframes marquee {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
-    }
-    .marquee-track { animation: marquee 9s linear infinite; }
-
-    @keyframes soft-pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: 0.7; transform: scale(1.05); }
-    }
-    .soft-pulse { animation: soft-pulse 2.5s ease-in-out infinite; }
-  `}</style>
-);
-
-const contactReasons = [
-  { value: "doubt", label: "I have a question", icon: HelpCircle },
-  { value: "team", label: "I want to join the team", icon: Briefcase },
-  { value: "general", label: "General feedback", icon: MessageSquare },
-  { value: "email", label: "Just say hello", icon: Mail },
-];
-
-const heroSceneNotes = [
-  { text: "INT. UNKNOWN - NIGHT", className: "luxury-hero-note luxury-hero-note--slug", style: { top: "18%", left: "8%" } },
-  { text: "A wind.", className: "luxury-hero-note", style: { top: "4%", left: "28%" } },
-  { text: "A silhouette.", className: "luxury-hero-note", style: { top: "30%", left: "34%" } },
-  { text: "Darkness.", className: "luxury-hero-note", style: { top: "12%", right: "16%" } },
-  { text: "Silence.", className: "luxury-hero-note", style: { top: "34%", right: "8%" } },
-  { text: "The world holds its breath.", className: "luxury-hero-note", style: { top: "52%", left: "42%" } },
-  { text: "Then-light.", className: "luxury-hero-note", style: { top: "52%", right: "4%" } },
-  { text: "Somewhere,", className: "luxury-hero-note", style: { bottom: "20%", left: "14%" } },
-  { text: "a story is born.", className: "luxury-hero-note", style: { bottom: "2%", left: "30%" } },
-];
-
-/* ─────────────────────────────────────────────
-   Contact Section
-   ───────────────────────────────────────────── */
-const ContactSection = () => {
-  const [form, setForm] = useState({ reason: "", name: "", email: "", message: "" });
-  const [submitted, setSubmitted] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-
-  const handleChange = (e) => {
-    if (submitError) setSubmitError("");
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setSubmitError("");
-    try {
-      await api.post("/contact", form);
-      setLoading(false);
-      setSubmitted(true);
-    } catch (error) {
-      setLoading(false);
-      setSubmitError(error?.response?.data?.message || "Failed to send message. Please try again.");
-    }
-  };
-
-  return (
-    <section className="luxury-section luxury-contact-section relative py-24 sm:py-32 px-4 sm:px-6 bg-[#F8FAFC] overflow-hidden">
-      <div className="relative max-w-5xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mb-14 sm:mb-16 max-w-2xl"
-        >
-          <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-5">
-            Contact
-          </p>
-          <h2 className="luxury-section-title font-display text-4xl sm:text-5xl lg:text-6xl text-[#111827] leading-[1.05] tracking-tight">
-            We'd love to hear<br />
-            <em className="font-medium">from you.</em>
-          </h2>
-          <p className="luxury-body-copy font-body text-[#6B7280] text-base sm:text-lg mt-5 leading-relaxed">
-            Got a question? An idea? A complaint? A coffee recommendation? Drop us a line —
-            we read everything.
-          </p>
-        </motion.div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12 items-start">
-          {/* Left — reason cards */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="lg:col-span-2 flex flex-col gap-2.5"
-          >
-            {contactReasons.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, reason: value }))}
-                data-selected={form.reason === value}
-                className={`luxury-contact-option flex items-center gap-4 px-5 py-4 rounded-2xl border-2 text-left transition-all duration-200
-                  ${form.reason === value
-                    ? "border-[#6366F1] bg-white text-black shadow-[0_8px_24px_rgba(79,70,229,0.12)]"
-                    : "border-[#E5E7EB] bg-white text-black hover:border-[#D1D5DB] hover:bg-[#F9FAFB]"
-                  }`}
-              >
-                <div className={`luxury-contact-option-icon w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${form.reason === value ? "bg-[#6366F1] text-white" : "bg-[#F3F4F6] text-black"
-                  }`}>
-                  <Icon className="w-4 h-4" />
-                </div>
-                <span className="font-body text-sm font-medium">{label}</span>
-                {form.reason === value && (
-                  <CheckCircle className="w-4 h-4 text-[#D4AF77] ml-auto shrink-0" />
-                )}
-              </button>
-            ))}
-
-            <div className="luxury-inline-surface mt-4 px-5 py-4 rounded-2xl bg-white border border-[#E5E7EB]">
-              <p className="luxury-body-copy font-body text-xs text-[#6B7280] mb-1">Or email us directly</p>
-              <a
-                href="mailto:info.ckript@gmail.com"
-                className="luxury-inline-link font-display text-lg text-[#111827] hover:underline transition-colors break-all"
-              >
-                info.ckript@gmail.com
-              </a>
-            </div>
-          </motion.div>
-
-          {/* Right — form */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="lg:col-span-3"
-          >
-            <div className="luxury-form-surface bg-white rounded-3xl p-6 sm:p-10 shadow-[0_20px_60px_rgba(17,24,39,0.08)] border border-[#E5E7EB]">
-              <AnimatePresence mode="wait">
-                {submitted ? (
-                  <motion.div
-                    key="success"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col items-center justify-center text-center py-12 gap-4"
-                  >
-                    <div className="luxury-icon-shell luxury-icon-shell--gold w-16 h-16 rounded-full bg-[#F3F4F6] flex items-center justify-center">
-                      <CheckCircle className="w-8 h-8 text-[#111827]" />
-                    </div>
-                    <h3 className="luxury-modal-title font-display text-3xl text-[#111827]">
-                      Message <em>sent.</em>
-                    </h3>
-                    <p className="luxury-body-copy font-body text-[#6B7280] text-sm max-w-xs">
-                      Thanks for reaching out. We'll get back to you within 24 hours.
-                    </p>
-                    <button
-                      onClick={() => {
-                        setSubmitted(false);
-                        setSubmitError("");
-                        setForm({ reason: "", name: "", email: "", message: "" });
-                      }}
-                      className="luxury-inline-link mt-3 font-body text-sm font-medium text-[#111827] underline underline-offset-4 decoration-[#9CA3AF] hover:decoration-[#111827]"
-                    >
-                      Send another
-                    </button>
-                  </motion.div>
-                ) : (
-                  <motion.form
-                    key="form"
-                    onSubmit={handleSubmit}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col gap-5"
-                  >
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div className="flex flex-col gap-2">
-                        <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
-                          Your name
-                        </label>
-                        <input
-                          name="name"
-                          value={form.name}
-                          onChange={handleChange}
-                          required
-                          placeholder="Jane Doe"
-                          className="luxury-field-input bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
-                          Your email
-                        </label>
-                        <input
-                          name="email"
-                          type="email"
-                          value={form.email}
-                          onChange={handleChange}
-                          required
-                          placeholder="jane@example.com"
-                          className="luxury-field-input bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
-                        What's this about?
-                      </label>
-                      <select
-                        name="reason"
-                        value={form.reason}
-                        onChange={handleChange}
-                        required
-                        className="luxury-field-input contact-reason-select bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-black text-sm focus:outline-none focus:border-[#111827] focus:bg-white transition-all appearance-none cursor-pointer"
-                        style={{ color: "#F5F2EB" }}
-                      >
-                        <option value="" disabled style={{ color: "#000000", backgroundColor: "#ffffff" }}>Pick a topic…</option>
-                        {contactReasons.map(({ value, label }) => (
-                          <option key={value} value={value} style={{ color: "#000000", backgroundColor: "#ffffff" }}>{label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="luxury-field-label font-body text-xs font-semibold text-[#111827]">
-                        Your message
-                      </label>
-                      <textarea
-                        name="message"
-                        value={form.message}
-                        onChange={handleChange}
-                        required
-                        rows={5}
-                        placeholder="Tell us what's on your mind…"
-                        className="luxury-field-input bg-[#F3F4F6] border-2 border-transparent rounded-xl px-4 py-3 font-body text-[#111827] text-sm placeholder:text-[#9CA3AF] resize-none focus:outline-none focus:border-[#111827] focus:bg-white transition-all"
-                      />
-                    </div>
-
-                    {submitError && (
-                      <div className="luxury-feedback-danger rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 font-body text-sm text-red-700">
-                        {submitError}
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="luxury-cta luxury-cta--gold luxury-cta--wide group flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] font-body font-semibold text-white text-sm transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {loading ? (
-                        <>
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                          </svg>
-                          Sending…
-                        </>
-                      ) : (
-                        <>
-                          Send message
-                          <Send className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                        </>
-                      )}
-                    </button>
-                  </motion.form>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </section>
-  );
+/* Destinations carried over from the previous landing page. */
+const ROUTES = {
+  home: "/",
+  writer: "/writer-onboarding",
+  pro: "/producer-director-onboarding",
+  join: "/join",
+  login: "/login",
+  about: "/about",
+  contact: "/contact",
+  privacy: "/privacy-policy",
+  terms: "/terms-of-service",
+  linkedin: "https://www.linkedin.com/company/ckript/?viewAsMember=true",
 };
 
-/* ─────────────────────────────────────────────
-   Landing Page
-   ───────────────────────────────────────────── */
-const Landing = () => {
-  const shouldReduceMotion = useReducedMotion();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [showInvestorReviewPopup, setShowInvestorReviewPopup] = useState(false);
-  const [activeProcessStep, setActiveProcessStep] = useState(0);
+/* ─────────────────────────────────────────────────────────────
+   Ckript Landing — port of the "Ckript Landing.dc.html" Claude
+   Design handoff bundle. Every inline SVG icon from the original
+   has been replaced with Google Material Symbols icons.
+   ───────────────────────────────────────────────────────────── */
 
-  const reviewStatus = useMemo(() => {
-    const value = (searchParams.get("investorReview") || "").toLowerCase();
-    if (value === "pending" || value === "rejected") return value;
-    return "";
-  }, [searchParams]);
+const INK = "#0B0A06";
+const RED = "#D14D37";
+const SANS = "'Helvetica Neue',Arial,sans-serif";
+const SERIF = "'Baskervville',Georgia,serif";
+const BODY = "'PT Serif',Georgia,serif";
 
-  const rejectedNote = useMemo(() => {
-    return searchParams.get("note") || "";
-  }, [searchParams]);
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
 
+@keyframes ckl-flA{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
+@keyframes ckl-flB{0%,100%{transform:translateY(0)}50%{transform:translateY(13px)}}
+@keyframes ckl-fadeUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ckl-fadeUpC{from{opacity:0;transform:translate(-50%,28px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes ckl-fadeDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ckl-fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes ckl-growLineC{from{opacity:0;transform:translateX(-50%) scaleY(0)}to{opacity:1;transform:translateX(-50%) scaleY(1)}}
+@keyframes ckl-dotPulse{0%,100%{transform:translate(-50%,-50%) scale(1);opacity:1}50%{transform:translate(-50%,-50%) scale(1.4);opacity:.7}}
+@keyframes ckl-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.ckl{background:#fff;}
+.ckl *{box-sizing:border-box;}
+
+/* Page scrollbar while the landing is shown (scoped via .ckl-scroll on <html>).
+   The standard properties are the primary, cross-browser driver: they give a
+   thin, arrow-less bar and are honoured by Chrome 121+/Edge/Firefox — and unlike
+   ::-webkit-scrollbar on the viewport, they actually repaint when the class
+   toggles. The ::-webkit-scrollbar block is only a fallback for Safari / older
+   WebKit, which ignore the standard properties. */
+html.ckl-scroll{scrollbar-width:thin;scrollbar-color:#161513 transparent;}
+html.ckl-scroll::-webkit-scrollbar{width:7px;height:7px;}
+html.ckl-scroll::-webkit-scrollbar-track{background:transparent;}
+html.ckl-scroll::-webkit-scrollbar-thumb{background:#161513;border-radius:100px;}
+html.ckl-scroll::-webkit-scrollbar-thumb:hover{background:${RED};}
+html.ckl-scroll::-webkit-scrollbar-button{display:none;width:0;height:0;}
+.ckl .msi{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-smoothing:antialiased;font-variation-settings:'opsz' 24,'wght' 400,'GRAD' 0,'FILL' 0;}
+.ckl .msi.fill{font-variation-settings:'opsz' 24,'wght' 400,'GRAD' 0,'FILL' 1;}
+
+.ckl a{transition:color .22s ease;}
+.ckl .hov-red:hover{color:${RED};}
+.ckl .hov-underline:hover{color:${RED};border-color:${RED};}
+.ckl .hov-btn{transition:background .25s ease,transform .25s cubic-bezier(.2,.7,.2,1);}
+.ckl .hov-btn:hover{background:#2c2a26;}
+.ckl .hov-btn-lift:hover{background:#2c2a26;transform:translateY(-3px);}
+.ckl .hov-lift3{transition:transform .25s cubic-bezier(.2,.7,.2,1);}
+.ckl .hov-lift3:hover{transform:translateY(-3px);}
+.ckl .hov-trailer:hover{transform:translateY(-6px);box-shadow:0 30px 60px rgba(0,0,0,0.22);}
+.ckl .hov-rights:hover{transform:translateY(-6px);box-shadow:0 30px 60px rgba(0,0,0,0.14);}
+.ckl .hov-format{transition:transform .35s cubic-bezier(.2,.7,.2,1);}
+.ckl .hov-format:hover{transform:translateY(-8px);}
+.ckl .hov-tab:hover{border-color:#c9c6bf;}
+.ckl .hov-bc-red:hover{border-color:${RED};}
+
+@media (max-width:900px){
+  .ckl .ckl-feat-grid{grid-template-columns:1fr !important;}
+  .ckl .ckl-feat-panel{grid-template-columns:1fr !important;}
+  .ckl .ckl-format-grid{grid-template-columns:repeat(2,1fr) !important;}
+  .ckl .ckl-problem-grid,.ckl .ckl-testi-grid{grid-template-columns:1fr !important;}
+}
+`;
+
+function Diamond({ size = 9, color = RED, style }) {
+  return (
+    <span
+      style={{
+        width: size,
+        height: size,
+        background: color,
+        transform: "rotate(45deg)",
+        flex: "none",
+        display: "inline-block",
+        ...style,
+      }}
+    />
+  );
+}
+
+function Icon({ name, size = 24, color = "currentColor", fill = false, style }) {
+  return (
+    <span className={fill ? "msi fill" : "msi"} style={{ fontSize: size, color, ...style }}>
+      {name}
+    </span>
+  );
+}
+
+/* Reveal-on-scroll: any element carrying data-ra animates in when visible. */
+function useReveal(rootRef) {
   useEffect(() => {
-    if (reviewStatus) {
-      setShowInvestorReviewPopup(true);
-    }
-  }, [reviewStatus]);
+    const root = rootRef.current;
+    if (!root || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((en) => {
+          if (!en.isIntersecting) return;
+          const el = en.target;
+          const name = el.getAttribute("data-ra") || "ckl-fadeUp";
+          const d = el.getAttribute("data-rd") || "0";
+          el.style.animation = `${name} .85s ${d}s cubic-bezier(.2,.7,.2,1) both`;
+          io.unobserve(el);
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -7% 0px" }
+    );
+    root.querySelectorAll("[data-ra]").forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [rootRef]);
+}
 
-  useEffect(() => {
-    document.documentElement.classList.add("luxury-homepage-html");
-    document.body.classList.add("luxury-homepage-body");
-
-    return () => {
-      document.documentElement.classList.remove("luxury-homepage-html");
-      document.body.classList.remove("luxury-homepage-body");
+/* Scale a fixed-width design stage to fill its responsive wrapper. */
+function useStageFit(wrapRef, stageRef, designW, designH) {
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const stage = stageRef.current;
+    if (!wrap || !stage) return;
+    const fit = () => {
+      const w = wrap.clientWidth || window.innerWidth;
+      const s = w / designW;
+      stage.style.transform = `translateX(-50%) scale(${s})`;
+      wrap.style.height = `${designH * s}px`;
     };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(wrap);
+    window.addEventListener("resize", fit);
+    const timers = [50, 200, 600].map((t) => setTimeout(fit, t));
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", fit);
+      timers.forEach(clearTimeout);
+    };
+  }, [wrapRef, stageRef, designW, designH]);
+}
+
+const FEATURES = [
+  {
+    num: "01",
+    tab: "Text-to-Trailer AI",
+    tag: "AI · Video",
+    title: "Text-to-Trailer AI",
+    italic: "30-second visual pitch from your script.",
+    desc: "Ckript turns your written script into a captivating 30-second visual trailer. By blending stock footage with AI-generated visuals, your concept reaches producers and investors quickly, clearly, and memorably.",
+    bullets: ["Auto-generate trailers in seconds", "Hook decision-makers visually", "5× your discovery rate"],
+    seed: "ckript-trailer",
+    opacity: 0.78,
+    media: "trailer",
+  },
+  {
+    num: "02",
+    tab: "Locked Ideas, Paid Unlocks",
+    tag: "Monetisation",
+    title: "Locked Ideas, Paid Unlocks",
+    italic: "Public summaries, protected scripts.",
+    desc: "Your full script stays safely behind a paywall. Share a curated public summary to spark interest while producers pay to unlock the full work — your IP stays yours, always.",
+    bullets: ["Full script IP protection", "Earn from every unlock", "Public teasers drive demand"],
+    seed: "ckript-lock",
+    opacity: 0.7,
+    media: { icon: "lock", shape: "round-sq" },
+  },
+  {
+    num: "03",
+    tab: "Smart Matching Engine",
+    tag: "AI · Discovery",
+    title: "Smart Matching Engine",
+    italic: "Data-driven, targeted discovery.",
+    desc: "Our recommendation engine analyzes producer activity and preferences to surface the right matches. Writers get found by producers actively looking for stories in their genre.",
+    bullets: ["Auto-matched by genre & style", "Effortless connections", "Real-time producer alerts"],
+    seed: "ckript-match",
+    opacity: 0.7,
+    media: { icon: "search", shape: "circle" },
+  },
+  {
+    num: "04",
+    tab: "Script Validation & Scoring",
+    tag: "AI · Analysis",
+    title: "Script Validation & Scoring",
+    italic: "AI-powered story analysis.",
+    desc: "Every script gets analyzed for structure, originality, market potential, and narrative quality. You receive a detailed score breakdown — clear insight into what's working and what needs polish, before it reaches the industry.",
+    bullets: ["Detailed AI score report", "Structure & originality analysis", "Market-fit recommendations"],
+    seed: "ckript-score",
+    opacity: 0.7,
+    media: { stat: "92", label: "Ckript Score" },
+  },
+  {
+    num: "05",
+    tab: "Option Hold Exclusivity",
+    tag: "Business",
+    title: "Option Hold Exclusivity",
+    italic: "30-day paid holding periods.",
+    desc: "Producers can secure temporary exclusivity by paying to reserve a script for 30 days. Creators get protection and guaranteed compensation during the evaluation window — everyone wins.",
+    bullets: ["Guaranteed income per hold", "Exclusive 30-day lock-in", "Faster producer decisions"],
+    seed: "ckript-hold",
+    opacity: 0.7,
+    media: { stat: "30", label: "Days exclusive" },
+  },
+  {
+    num: "06",
+    tab: "AI Writing Studio",
+    tag: "AI · Writing",
+    title: "AI Writing Studio",
+    italic: "An AI co-writer at your side.",
+    desc: "Create, edit, and refine your scripts directly on the platform with an AI writing assistant. Get live guidance on dialogue, pacing, and structure — polish your screenplay before you ever submit.",
+    bullets: ["Real-time AI co-writing", "Dialogue & pacing suggestions", "In-platform draft management"],
+    seed: "ckript-studio",
+    opacity: 0.72,
+    media: { icon: "edit", shape: "round-sq" },
+  },
+  {
+    num: "07",
+    tab: "Expert Reader Reviews",
+    tag: "Review",
+    title: "Expert Reader Reviews",
+    italic: "Curated industry professionals.",
+    desc: "Submissions are reviewed by hand-picked expert readers who provide industry-standard coverage reports. Get the same kind of feedback decision-makers use to evaluate scripts every day.",
+    bullets: ["Industry-standard coverage", "Hand-picked reviewers", "Actionable professional feedback"],
+    seed: "ckript-review",
+    opacity: 0.72,
+    media: { stars: 4 },
+  },
+];
+
+const FORMATS = [
+  { title: "Film", sub: "Feature & Short", seed: "ckript-film", offset: false, rd: "0.02" },
+  { title: "Web Series", sub: "Episodic", seed: "ckript-series", offset: true, rd: "0.08" },
+  { title: "Anime", sub: "Animation", seed: "ckript-anime", offset: false, rd: "0.14" },
+  { title: "Television", sub: "Broadcast", seed: "ckript-tv", offset: true, rd: "0.2" },
+  { title: "Cartoons", sub: "Family", seed: "ckript-cartoon", offset: false, rd: "0.26" },
+];
+
+const TESTIMONIALS = [
+  {
+    quote: "The first producer call happened in under two weeks, and we entered option talks right after.",
+    body: "I had a script people complimented but never moved forward on. On Ckript I could present it with a trailer and clearer project notes.",
+    name: "Sarah Chen",
+    role: "Screenplay Writer, Los Angeles",
+    tag: "Writer",
+    seed: "ckript-sarah",
+    rd: "0.04",
+  },
+  {
+    quote: "My shortlist got tighter, and my team now spends more time on scripts we would actually develop.",
+    body: "Most of my week used to go into sorting submissions that were not a fit. The filtering and matching changed that completely.",
+    name: "Marcus Williams",
+    role: "Independent Producer, New York",
+    tag: "Producer",
+    seed: "ckript-marcus",
+    rd: "0.1",
+  },
+  {
+    quote: "Clearer context around genre fit, audience, and scope made diligence faster and decisions more confident.",
+    body: "My issue was never interest in content IP, it was signal quality. Ckript gave me exactly that.",
+    name: "Priya Kapoor",
+    role: "Film & Media Investor, London",
+    tag: "Investor",
+    seed: "ckript-priya",
+    rd: "0.16",
+  },
+  {
+    quote: "I shared self-tapes with teams early and got invited into conversations before formal casting started.",
+    body: "I wanted to connect with projects at script stage, not after roles were already narrowed down.",
+    name: "James Rodriguez",
+    role: "Actor, Miami",
+    tag: "Actor",
+    seed: "ckript-james",
+    rd: "0.22",
+  },
+];
+
+const FOOTER_COLS = [
+  {
+    head: "Platform",
+    links: [
+      { label: "Scripts", to: ROUTES.join },
+      { label: "For Producers", to: ROUTES.pro },
+      { label: "For Writers", to: ROUTES.writer },
+    ],
+  },
+  {
+    head: "Company",
+    links: [
+      { label: "About", to: ROUTES.about },
+      { label: "Contact", to: ROUTES.contact },
+      { label: "LinkedIn", to: ROUTES.linkedin, external: true },
+    ],
+  },
+  {
+    head: "Legal",
+    links: [
+      { label: "Privacy", to: ROUTES.privacy },
+      { label: "Terms", to: ROUTES.terms },
+    ],
+  },
+];
+
+const MARQUEE = [
+  "Now casting untold stories",
+  "From the page to the screen",
+  "Every great film began as a script",
+  "Your story deserves an audience",
+];
+
+function FeatureMedia({ feat }) {
+  const { media, seed, opacity } = feat;
+  return (
+    <div style={{ position: "relative", background: "#0c0d0f", overflow: "hidden" }}>
+      <img
+        src={`https://picsum.photos/seed/${seed}/900/1000?grayscale`}
+        alt=""
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity }}
+      />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(120deg,rgba(12,13,15,0.55),rgba(12,13,15,0.1))" }} />
+      {media === "trailer" && (
+        <>
+          <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 74, height: 74, borderRadius: "50%", background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="play_arrow" fill size={34} color="#fff" />
+          </div>
+          <div style={{ position: "absolute", left: 24, right: 24, bottom: 24 }}>
+            <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.3)" }}>
+              <div style={{ width: "42%", height: "100%", background: RED, borderRadius: 2 }} />
+            </div>
+            <div style={{ marginTop: 11, fontFamily: SANS, fontSize: 13, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
+              FORSAKEN HORIZON — Trailer · 0:13 / 0:30
+            </div>
+          </div>
+        </>
+      )}
+      {media && media.icon && (
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", width: 70, height: 70, borderRadius: media.shape === "round-sq" ? 18 : "50%", background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon name={media.icon} size={32} color="#fff" />
+        </div>
+      )}
+      {media && media.stat && (
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", textAlign: "center" }}>
+          <div style={{ fontFamily: SERIF, fontSize: 78, lineHeight: 1, color: "#fff" }}>{media.stat}</div>
+          <div style={{ marginTop: 6, fontFamily: SANS, fontSize: 13, letterSpacing: "2px", textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>{media.label}</div>
+        </div>
+      )}
+      {media && media.stars && (
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)", display: "flex", gap: 7 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Icon key={i} name="star" fill size={30} color={i < media.stars ? RED : "rgba(255,255,255,0.45)"} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Landing() {
+  const rootRef = useRef(null);
+  const heroWrapRef = useRef(null);
+  const heroStageRef = useRef(null);
+  const stepsWrapRef = useRef(null);
+  const stepsStageRef = useRef(null);
+  const [activeFeat, setActiveFeat] = useState(0);
+  const { user } = useContext(AuthContext);
+  const { openAuthModal } = useAuthModal();
+
+  const primaryPath = user?.role === "reader" ? "/reader" : "/dashboard";
+  const signInLabel = user ? (user.role === "reader" ? "Reader" : "Dashboard") : "Sign in";
+
+  useStageFit(heroWrapRef, heroStageRef, 1586, 992);
+  useStageFit(stepsWrapRef, stepsStageRef, 1850, 1080);
+  useReveal(rootRef);
+
+  // Mark <html> so the page scrollbar styling applies only while the landing is
+  // mounted. useLayoutEffect runs before paint, so the class is present on the
+  // first frame (no flash of the app's default scrollbar).
+  useLayoutEffect(() => {
+    const el = document.documentElement;
+    el.classList.add("ckl-scroll");
+    return () => el.classList.remove("ckl-scroll");
   }, []);
 
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      setActiveProcessStep((prev) => (prev + 1) % 4);
-    }, 2800);
-    return () => clearInterval(intervalId);
-  }, []);
+  const initHeroScale = typeof window !== "undefined" ? window.innerWidth / 1586 : 0.62;
+  const initStepsScale = typeof window !== "undefined" ? window.innerWidth / 1850 : 0.53;
 
-  const closeInvestorReviewPopup = () => {
-    setShowInvestorReviewPopup(false);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete("investorReview");
-    nextParams.delete("note");
-    setSearchParams(nextParams, { replace: true });
-  };
-
-  const processSteps = [
-    {
-      step: "01",
-      title: "Upload your script",
-      desc: "Share your concept, your logline, your fire. A few clicks and you're in.",
-      icon: PenLine,
-    },
-    {
-      step: "02",
-      title: "AI cuts your trailer",
-      desc: "A 30-second visual taste of your story — tone, mood, world — rendered while you wait.",
-      icon: Film,
-    },
-    {
-      step: "03",
-      title: "Get matched, not lost",
-      desc: "Industry professionals and investors find you based on what they're actually looking for.",
-      icon: Users,
-    },
-    {
-      step: "04",
-      title: "Unlock & earn",
-      desc: "Buyers unlock your full script. You get paid. No middlemen, no waiting around.",
-      icon: TrendingUp,
-    },
-  ];
+  const navLink = { color: "#262523", textDecoration: "none", fontFamily: SANS, fontWeight: 500, fontSize: 19 };
+  const feat = FEATURES[activeFeat];
 
   return (
-    <div className="luxury-homepage font-body bg-[#0F172A] text-[#F9FAFB] overflow-x-hidden">
-      <FontInjection />
+    <div className="ckl" ref={rootRef} style={{ width: "100%", overflowX: "hidden", background: "#fff" }}>
+      <style>{STYLES}</style>
 
-      {/* ══════════════════════════════════════
-          INVESTOR REVIEW POPUP
-          ══════════════════════════════════════ */}
-      <AnimatePresence>
-        {showInvestorReviewPopup && reviewStatus && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="luxury-modal-backdrop fixed inset-0 z-[100] bg-black/70 backdrop-blur-md flex items-center justify-center px-5"
-            onClick={closeInvestorReviewPopup}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.96 }}
-              transition={{ duration: 0.3 }}
-              className="luxury-modal relative w-full max-w-md bg-[#1F2937] rounded-3xl p-8 shadow-2xl border border-[#374151]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={closeInvestorReviewPopup}
-                className="luxury-modal-close absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-[#CBD5E1] transition-colors"
-              >
-                <XCircle className="w-4 h-4" />
-              </button>
-
-              <div className="luxury-modal-icon w-14 h-14 rounded-2xl flex items-center justify-center mb-5 bg-white/10">
-                {reviewStatus === "pending" ? (
-                  <Clock3 className="w-6 h-6 text-[#F9FAFB]" />
-                ) : (
-                  <XCircle className="w-6 h-6 text-red-300" />
-                )}
-              </div>
-
-              <h3 className="luxury-modal-title font-display text-2xl sm:text-3xl text-[#F9FAFB] leading-tight mb-3">
-                {reviewStatus === "pending" ? (
-                  <>Your profile is <em>under review</em></>
-                ) : (
-                  <>Profile not <em className="text-red-300">approved</em></>
-                )}
-              </h3>
-
-              <p className="luxury-modal-copy font-body text-sm text-[#CBD5E1] leading-relaxed mb-6">
-                {reviewStatus === "pending"
-                  ? "Our team is reviewing your investor profile. Expect a decision within 2–3 days — we'll email you the moment it's approved."
-                  : rejectedNote
-                    ? `Your investor profile was not approved. Reason: ${rejectedNote}`
-                    : "Your investor profile was not approved. Reach out and we'll walk you through next steps."}
-              </p>
-
-              <div className="luxury-modal-actions flex flex-col sm:flex-row gap-3 pt-5 border-t border-[#374151]">
-                <a
-                  href="mailto:info.ckript@gmail.com"
-                  className="luxury-inline-link font-body text-xs font-medium text-[#CBD5E1] hover:text-white transition-colors break-all"
-                >
-                  info.ckript@gmail.com
-                </a>
-                <Link
-                  to="/login"
-                  onClick={closeInvestorReviewPopup}
-                  className="luxury-cta luxury-cta--gold sm:ml-auto bg-[#6366F1] text-white font-body text-xs font-semibold px-5 py-2.5 rounded-xl hover:bg-[#4F46E5] transition-colors text-center"
-                >
-                  Open Login →
-                </Link>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ══════════════════════════════════════
-          NAVIGATION
-          ══════════════════════════════════════ */}
-      <MarketingHeader />
-
-      {/* ══════════════════════════════════════
-          HERO — simple, left-aligned, big headline
-          ══════════════════════════════════════ */}
-      <section className="luxury-hero relative min-h-[90vh] flex items-center overflow-hidden grain pt-28 pb-20">
-        {/* Background */}
-        <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt=""
-            className="luxury-hero-image w-full h-full object-cover opacity-40"
-            loading="eager"
-          />
-          <div className="luxury-hero-spotlight absolute inset-0" />
-          <div className="luxury-hero-dust absolute inset-0" />
-          <div className="luxury-hero-beam absolute inset-y-0 right-[12%] w-[34%]" />
-          <div className="luxury-hero-overlay--primary absolute inset-0 bg-gradient-to-r from-[#0F172A] via-[#0F172A]/80 to-[#0F172A]/30" />
-          <div className="luxury-hero-overlay--secondary absolute inset-0 bg-gradient-to-t from-[#0F172A]/70 via-transparent to-transparent" />
-          <div className="luxury-hero-overlay--vignette absolute inset-0" />
-        </div>
-
-        <div className="relative z-10 w-full px-6 sm:px-10 lg:px-16">
-          <div className="luxury-hero-layout max-w-[1480px] mx-auto">
-            <div className="luxury-hero-copy">
-
-              <motion.h1
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.08 }}
-                className="luxury-hero-title font-display text-[#F9FAFB] mb-8"
-                style={{
-                  fontSize: "clamp(3.2rem, 7vw, 7.6rem)",
-                  lineHeight: "0.93",
-                  letterSpacing: "-0.04em",
-                  fontWeight: 600,
-                }}
-              >
-                <span className="whitespace-nowrap">From Script,</span><br />
-                to Screen.
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.22 }}
-                className="luxury-hero-subtitle font-body text-[#CBD5E1] leading-relaxed mb-10"
-                style={{ fontSize: "clamp(1rem, 1.25vw, 1.18rem)" }}
-              >
-                Ckript transforms raw story worlds into cinematic momentum.
-                Upload your script, shape a trailer, and bring producers and investors into the same atmosphere as your idea.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.36 }}
-                className="luxury-hero-actions flex flex-col sm:flex-row gap-4"
-              >
-                <Link
-                  to="/writer-onboarding"
-                  className="luxury-cta luxury-hero-primary-cta group flex items-center justify-center gap-2 bg-white text-black font-body text-sm font-semibold px-8 py-4 rounded-full hover:bg-gray-100 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(255,255,255,0.2)]"
-                >
-                  Start with your script
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </Link>
-                <Link
-                  to="/producer-director-onboarding"
-                  className="luxury-hero-secondary-link group inline-flex items-center gap-2 font-body text-xs sm:text-sm font-semibold whitespace-nowrap"
-                >
-                  Start as Industry Professional
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
-                </Link>
-              </motion.div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.9, delay: 0.18 }}
-              className="luxury-hero-visual"
-            >
-              <div className="luxury-hero-constellation">
-                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--a" />
-                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--b" />
-                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--c" />
-                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--d" />
-                <div className="luxury-hero-constellation-line luxury-hero-constellation-line--e" />
-                <span className="luxury-hero-star" style={{ top: "6%", left: "30%", "--star-delay": "0s" }} />
-                <span className="luxury-hero-star" style={{ top: "22%", left: "24%", "--star-delay": "0.8s" }} />
-                <span className="luxury-hero-star" style={{ top: "46%", left: "18%", "--star-delay": "1.6s" }} />
-                <span className="luxury-hero-star" style={{ top: "48%", left: "48%", "--star-delay": "2.3s" }} />
-                <span className="luxury-hero-star" style={{ top: "33%", left: "76%", "--star-delay": "1.1s" }} />
-                <span className="luxury-hero-star" style={{ top: "58%", left: "84%", "--star-delay": "2.8s" }} />
-                <span className="luxury-hero-star" style={{ top: "78%", left: "22%", "--star-delay": "1.9s" }} />
-                <span className="luxury-hero-star" style={{ top: "92%", left: "40%", "--star-delay": "3.2s" }} />
-
-                {heroSceneNotes.map((note, index) => (
-                  <span
-                    key={note.text}
-                    className={note.className}
-                    style={{ ...note.style, "--note-delay": `${index * 0.45}s` }}
-                  >
-                    {note.text}
-                  </span>
-                ))}
-              </div>
-            </motion.div>
+      {/* ===================== HERO ===================== */}
+      <section ref={heroWrapRef} style={{ position: "relative", width: "100%", overflow: "hidden", background: "#fff", height: `${992 * initHeroScale}px` }}>
+        <div ref={heroStageRef} style={{ position: "absolute", top: 0, left: "50%", width: 1586, height: 992, transformOrigin: "top center", transform: `translateX(-50%) scale(${initHeroScale})`, background: "#fff" }}>
+          {/* Decorations */}
+          <div style={{ position: "absolute", left: -623, top: 463, width: 1644, height: 1096, pointerEvents: "none", zIndex: 1, animation: "ckl-flA 11s ease-in-out infinite" }}>
+            <img src={scriptOriginal} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "translate(-5px,-200px) rotate(9.7deg) scale(0.7)", transformOrigin: "center center", pointerEvents: "none", userSelect: "none" }} />
+          </div>
+          <div style={{ position: "absolute", left: 605, top: 213, width: 1507, height: 1005, pointerEvents: "none", zIndex: 1, animation: "ckl-flB 13s ease-in-out infinite" }}>
+            <img src={filmClean} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "translate(105px,-120px) rotate(5.44deg) scale(1.05)", transformOrigin: "center center", pointerEvents: "none", userSelect: "none" }} />
           </div>
 
+          {/* Nav */}
+          <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 104, display: "flex", alignItems: "center", padding: "0 52px", zIndex: 3, opacity: 0, animation: "ckl-fadeDown .8s .05s cubic-bezier(.2,.7,.2,1) forwards" }}>
+            <Link to={ROUTES.home} style={{ fontFamily: SANS, fontWeight: 700, fontSize: 33, letterSpacing: "-1.2px", color: INK, lineHeight: 1, textDecoration: "none" }}>ckript</Link>
+            <span style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
+            <nav style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
+              <Link to={ROUTES.join} className="hov-red" style={navLink}>Scripts</Link>
+              <Link to={ROUTES.pro} className="hov-red" style={navLink}>For Producers</Link>
+              <Link to={ROUTES.about} className="hov-red" style={navLink}>About</Link>
+            </nav>
+            {user ? (
+              <Link to={primaryPath} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
+            ) : (
+              <button type="button" onClick={() => openAuthModal()} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, background: "none", border: "none", padding: 0, cursor: "pointer", transition: "color .22s ease" }}>{signInLabel}</button>
+            )}
+          </div>
 
+          {/* Hero content */}
+          <h1 style={{ margin: 0, padding: 0, position: "absolute", top: 248, left: 0, width: "100%", textAlign: "center", fontFamily: SERIF, fontWeight: 400, fontSize: 114, lineHeight: "128px", color: INK, zIndex: 2, opacity: 0, animation: "ckl-fadeUp 1s .18s cubic-bezier(.2,.7,.2,1) forwards" }}>
+            THE SCRIPT<br />IS THE STORY
+            <span style={{ display: "inline-block", width: 19, height: 19, background: RED, marginLeft: 18, verticalAlign: "1px" }} />
+          </h1>
+          <span style={{ position: "absolute", top: 528, left: "50%", width: 1, height: 46, background: "#bdbbb5", transform: "translateX(-50%)", transformOrigin: "top", zIndex: 2, opacity: 0, animation: "ckl-growLineC .7s .55s ease forwards" }} />
+          <p style={{ position: "absolute", top: 594, left: "50%", transform: "translateX(-50%)", width: 530, margin: 0, textAlign: "center", fontFamily: BODY, fontWeight: 400, fontSize: 22, lineHeight: "32px", color: "#33312e", zIndex: 2, opacity: 0, animation: "ckl-fadeUpC .9s .5s cubic-bezier(.2,.7,.2,1) forwards" }}>
+            Ckript is a curated marketplace where writers connect with producers and directors to showcase, discover, and acquire high-potential stories.
+          </p>
+          <div style={{ position: "absolute", top: 728, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 54, zIndex: 2, opacity: 0, animation: "ckl-fadeUpC .9s .65s cubic-bezier(.2,.7,.2,1) forwards" }}>
+            <Link to={ROUTES.join} className="hov-btn-lift" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 244, height: 70, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "0.2px", textDecoration: "none", transition: "transform .25s cubic-bezier(.2,.7,.2,1),background .25s ease" }}>Browse Scripts</Link>
+            <Link to={ROUTES.about} className="hov-underline" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 19, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 7, transition: "color .22s ease,border-color .22s ease" }}>Meet the Platform</Link>
+          </div>
         </div>
       </section>
-      {/* ══════════════════════════════════════
-          MARQUEE — dark transition strip
-          ══════════════════════════════════════ */}
-      <div className="luxury-marquee relative bg-[#0F172A] text-[#CBD5E1] py-5 overflow-hidden border-t border-b border-white/10">
-        <div className="flex whitespace-nowrap marquee-track">
-          {Array.from({ length: 2 }).map((_, groupIdx) => (
-            <div key={groupIdx} className="flex items-center gap-10 pr-10">
-              {[
-                "Now casting untold stories",
-                "✦",
-                "From the page to the screen",
-                "✦",
-                "Writers, industry professionals, investors",
-                "✦",
-                "Every great film began as a script",
-                "✦",
-                "Your story deserves an audience",
-                "✦",
-              ].map((item, i) => (
-                <span
-                  key={`${groupIdx}-${i}`}
-                  className="luxury-marquee-item font-display text-xl italic font-medium"
-                >
-                  {item}
+
+      {/* ===================== SECTION BRIDGE ===================== */}
+      <div style={{ position: "relative", width: "100%", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 0 4px" }}>
+        <span style={{ width: 1, height: 78, background: "linear-gradient(to bottom, rgba(11,10,6,0), #c4c2bc)" }} />
+        <Diamond size={9} style={{ boxShadow: "0 0 0 6px #fff" }} />
+        <span style={{ marginTop: 26, fontFamily: SANS, fontWeight: 600, fontSize: 14, letterSpacing: "3px", color: "#9a978f", textTransform: "uppercase" }}>How It Works</span>
+        <span style={{ marginTop: 26, width: 1, height: 78, background: "linear-gradient(to bottom, #c4c2bc, rgba(11,10,6,0))" }} />
+      </div>
+
+      {/* ===================== STEPS SECTION ===================== */}
+      <section ref={stepsWrapRef} style={{ position: "relative", width: "100%", overflow: "hidden", background: "#fff", height: `${1080 * initStepsScale}px` }}>
+        <div ref={stepsStageRef} style={{ position: "absolute", top: 0, left: "50%", width: 1586, height: 1080, transformOrigin: "top center", transform: `translateX(-50%) scale(${initStepsScale})`, background: "#fff" }}>
+          <h1 data-ra="ckl-fadeUp" data-rd="0" style={{ margin: 0, position: "absolute", top: 88, left: 0, width: "100%", textAlign: "center", fontFamily: SERIF, fontWeight: 400, fontSize: 94, lineHeight: "94px", color: INK, opacity: 0 }}>
+            FIND IT. WATCH IT. OWN IT
+            <span style={{ display: "inline-block", width: 17, height: 17, background: RED, marginLeft: 10, verticalAlign: "2px" }} />
+          </h1>
+          <p data-ra="ckl-fadeUpC" data-rd="0.08" style={{ position: "absolute", top: 218, left: "50%", transform: "translateX(-50%)", width: 600, margin: 0, textAlign: "center", fontFamily: BODY, fontWeight: 400, fontSize: 23, lineHeight: "31px", color: "#57544f", opacity: 0 }}>
+            Producers can explore scripts, watch AI-generated trailers,<br />and acquire the ones that stand out.
+          </p>
+
+          {/* Arrows */}
+          <div data-ra="ckl-fadeIn" data-rd="0.5" style={{ position: "absolute", left: 482, top: 503, color: "#8d8a84", opacity: 0 }}>
+            <Icon name="arrow_right_alt" size={40} />
+          </div>
+          <div data-ra="ckl-fadeIn" data-rd="0.62" style={{ position: "absolute", left: 1066, top: 503, color: "#8d8a84", opacity: 0 }}>
+            <Icon name="arrow_right_alt" size={40} />
+          </div>
+
+          {/* Col 1: script image */}
+          <img data-ra="ckl-fadeUp" data-rd="0.18" src={scriptImg} alt="" style={{ position: "absolute", left: -125, top: 268, width: 766, height: 511, objectFit: "contain", pointerEvents: "none", userSelect: "none", opacity: 0 }} />
+
+          {/* Col 2: trailer */}
+          <div data-ra="ckl-fadeUp" data-rd="0.3" className="hov-trailer" style={{ position: "absolute", left: 563, top: 360, width: 460, height: 326, borderRadius: 10, overflow: "hidden", background: "#0c0d0f", boxShadow: "0 22px 48px rgba(0,0,0,0.16)", opacity: 0, transition: "transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s ease" }}>
+            <img src={trailerStill} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 62, background: "linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))" }}>
+              <div style={{ position: "absolute", left: 14, right: 14, top: 14, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.32)" }}>
+                <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "46%", background: RED, borderRadius: 2 }} />
+                <div style={{ position: "absolute", left: "46%", top: "50%", width: 12, height: 12, borderRadius: "50%", background: RED, transform: "translate(-50%,-50%)", animation: "ckl-dotPulse 2.4s ease-in-out infinite" }} />
+              </div>
+              <div style={{ position: "absolute", left: 14, right: 14, bottom: 11, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
+                  <Icon name="play_arrow" fill size={16} color="#fff" />
+                  <span style={{ fontFamily: SANS, fontSize: 13, color: "#fff", letterSpacing: "0.3px" }}>0:34 / 1:46</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 16, color: "#fff" }}>
+                  <Icon name="volume_up" size={18} color="#fff" />
+                  <Icon name="settings" size={17} color="#fff" />
+                  <Icon name="fullscreen" size={18} color="#fff" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Col 3: rights card */}
+          <div data-ra="ckl-fadeUp" data-rd="0.42" className="hov-rights" style={{ position: "absolute", left: 1140, top: 345, width: 296, height: 372, background: "#fcfcfa", border: "1px solid #e4e2dc", borderRadius: 10, boxShadow: "0 20px 44px rgba(0,0,0,0.08)", padding: "30px 30px 28px", opacity: 0, transition: "transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s ease" }}>
+            <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 23, lineHeight: 1, letterSpacing: "0.3px", whiteSpace: "nowrap", color: "#161513" }}>FORSAKEN HORIZON</div>
+            <div style={{ marginTop: 22, fontFamily: BODY, fontSize: 18, lineHeight: "27px", color: "#3a3833" }}>Drama / Sci-Fi / Thriller<br />Feature Length</div>
+            <div style={{ margin: "24px 0", height: 1, background: "#e3e1da" }} />
+            <div style={{ fontFamily: BODY, fontSize: 18, lineHeight: "27px", color: "#3a3833" }}>Rights<br />Worldwide<br />All Media</div>
+            <Link to={ROUTES.join} className="hov-btn" style={{ position: "absolute", left: 30, right: 30, bottom: 28, display: "flex", alignItems: "center", justifyContent: "center", gap: 11, height: 54, background: "#161513", borderRadius: 6, textDecoration: "none" }}>
+              <Icon name="lock" size={16} color="#fff" />
+              <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 17, letterSpacing: "0.2px", color: "#fff" }}>Acquire Script</span>
+            </Link>
+          </div>
+
+          {/* Captions */}
+          {[
+            { left: 258, rd: "0.52", num: "01", title: "Discover a script.", desc: ["Explore original stories", "across every genre."] },
+            { left: 793, rd: "0.6", num: "02", title: "Watch the trailer.", desc: ["Experience AI-generated trailers", "that bring the story to life."] },
+            { left: 1288, rd: "0.68", num: "03", title: "Own the story.", desc: ["Secure exclusive rights", "to make it yours."] },
+          ].map((c) => (
+            <div key={c.num} data-ra="ckl-fadeUpC" data-rd={c.rd} style={{ position: "absolute", left: c.left, top: 742, width: 380, transform: "translateX(-50%)", textAlign: "center", opacity: 0 }}>
+              <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "1px", color: RED }}>{c.num}</div>
+              <div style={{ marginTop: 18, fontFamily: SERIF, fontWeight: 400, fontSize: 31, lineHeight: 1, color: INK }}>{c.title}</div>
+              <div style={{ marginTop: 18, fontFamily: BODY, fontSize: 19, lineHeight: "27px", color: "#57544f" }}>{c.desc[0]}<br />{c.desc[1]}</div>
+            </div>
+          ))}
+
+          {/* Browse Scripts CTA */}
+          <span data-ra="ckl-fadeUpC" data-rd="0.74" style={{ position: "absolute", left: "50%", top: 898, transform: "translateX(-50%)", width: 1, height: 40, background: "linear-gradient(to bottom, rgba(11,10,6,0), #c4c2bc)", opacity: 0 }} />
+          <Link to={ROUTES.join} data-ra="ckl-fadeUpC" data-rd="0.8" className="hov-btn" style={{ position: "absolute", left: "50%", top: 954, transform: "translateX(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 250, height: 70, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "0.2px", textDecoration: "none", opacity: 0 }}>Browse Scripts</Link>
+        </div>
+      </section>
+
+      {/* ===================== MARQUEE STRIP ===================== */}
+      <section style={{ position: "relative", width: "100%", background: INK, padding: "34px 0", overflow: "hidden", borderTop: "1px solid #211f1a", borderBottom: "1px solid #211f1a" }}>
+        <div style={{ display: "flex", width: "max-content", alignItems: "center", animation: "ckl-marquee 30s linear infinite", willChange: "transform" }}>
+          {[0, 1].map((g) => (
+            <div key={g} aria-hidden={g === 1 ? "true" : undefined} style={{ display: "flex", alignItems: "center", gap: 40, paddingRight: 40 }}>
+              {MARQUEE.map((phrase) => (
+                <span key={phrase} style={{ display: "flex", alignItems: "center", gap: 40 }}>
+                  <span style={{ fontFamily: SERIF, fontStyle: "italic", fontSize: "clamp(1.7rem,2.9vw,2.5rem)", color: "#f3f1ea", whiteSpace: "nowrap" }}>{phrase}</span>
+                  <Diamond size={9} />
                 </span>
               ))}
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {/* ══════════════════════════════════════
-          THE PROBLEM — light section
-          ══════════════════════════════════════ */}
-      <section className="luxury-section luxury-problem-section relative pt-24 pb-10 sm:pt-32 sm:pb-14 px-4 sm:px-8 bg-[#F8FAFC] overflow-hidden">
-        <div className="relative max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="mb-16 sm:mb-20 max-w-3xl"
-          >
-            <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-5">
-              The problem
-            </p>
-            <h2 className="luxury-section-title font-display text-4xl sm:text-5xl lg:text-6xl text-[#111827] leading-[1.05] tracking-tight font-medium">
-              The film industry is <em>broken</em><br />
-              on both sides of the page.
+      {/* ===================== FEATURES SHOWCASE ===================== */}
+      <section style={{ position: "relative", width: "100%", background: "#fff", padding: "clamp(80px,9vw,140px) clamp(20px,5vw,80px)" }}>
+        <div style={{ maxWidth: 1320, margin: "0 auto" }}>
+          <div data-ra="ckl-fadeUp" style={{ maxWidth: 760, opacity: 0 }}>
+            <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, letterSpacing: "3px", color: "#9a978f", textTransform: "uppercase" }}>What you get</div>
+            <h2 style={{ margin: "22px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.6rem,5.2vw,4.4rem)", lineHeight: 1.02, color: INK }}>
+              Built for writers.<br /><span style={{ fontStyle: "italic", color: "#6f6c66" }}>Loved by producers.</span>
             </h2>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Writers */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
-            >
-              <div className="luxury-icon-shell luxury-icon-shell--gold w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
-                <PenLine className="w-5 h-5 text-[#111827]" />
-              </div>
-
-              <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
-                If you're a writer
-              </p>
-              <h3 className="luxury-section-title font-display text-3xl sm:text-4xl text-[#111827] mb-6 leading-tight font-medium">
-                Brilliant pages,<br />
-                <em className="text-[#6B7280]">no audience.</em>
-              </h3>
-
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Your script sits in a drawer or an inbox nobody opens",
-                  "Gatekeepers say \"pass\" without reading past page three",
-                  "No real way to reach industry professionals who'd actually fund you",
-                  "Your best story ages while you wait for permission",
-                ].map((line, i) => (
-                  <li key={i} className="luxury-body-copy flex gap-3 font-body text-sm sm:text-base text-[#6B7280] leading-relaxed">
-                    <span className="text-[#9CA3AF] shrink-0 mt-0.5">→</span>
-                    {line}
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                to="/writer-onboarding"
-                className="luxury-text-link group inline-flex items-center gap-2 font-body text-sm font-semibold text-[#111827] border-b border-[#111827] pb-1 hover:gap-3 transition-all"
-              >
-                Start as a writer
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </motion.div>
-
-            {/* Industry */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="luxury-surface-card luxury-problem-card bg-white rounded-3xl p-8 sm:p-10 border border-[#6366F1]/35 shadow-[0_10px_30px_rgba(17,24,39,0.05)] hover:border-[#6366F1]/60 hover:shadow-[0_20px_50px_rgba(17,24,39,0.10)] transition-all"
-            >
-              <div className="luxury-icon-shell w-12 h-12 rounded-2xl bg-[#F3F4F6] flex items-center justify-center mb-6">
-                <TrendingUp className="w-5 h-5 text-[#111827]" />
-              </div>
-
-              <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-3">
-                If you're in the industry
-              </p>
-              <h3 className="luxury-section-title font-display text-3xl sm:text-4xl text-[#111827] mb-6 leading-tight font-medium">
-                Too much noise,<br />
-                <em className="text-[#6B7280]">too little signal.</em>
-              </h3>
-
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Thousands of unfiltered submissions, no way to find the gems",
-                  "No preview of tone or vision before reading 110 pages",
-                  "Discovery is slow, expensive, and built on who-you-know",
-                  "The next big film is out there and you're missing it",
-                ].map((line, i) => (
-                  <li key={i} className="luxury-body-copy flex gap-3 font-body text-sm sm:text-base text-[#6B7280] leading-relaxed">
-                    <span className="text-[#9CA3AF] shrink-0 mt-0.5">→</span>
-                    {line}
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                to="/producer-director-onboarding"
-                className="luxury-text-link group inline-flex items-center gap-2 font-body text-sm font-semibold text-[#111827] border-b border-[#111827] pb-1 hover:gap-3 transition-all"
-              >
-                Start as an Industry Professional
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </motion.div>
+            <p style={{ margin: "26px 0 0", maxWidth: 540, fontFamily: BODY, fontSize: 20, lineHeight: "30px", color: "#57544f" }}>Seven tools that turn your script from a file on your laptop into a film people actually want to make.</p>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="luxury-cinematic-panel relative mt-16 sm:mt-20 max-w-6xl mx-auto overflow-hidden rounded-[2rem] border border-[#E2C38B]/35 shadow-[0_28px_80px_rgba(15,23,42,0.26)]"
-          >
-            <img
-              src="/enter-ckript-cover.png"
-              alt="Illustrated Ckript workspace connecting writers, producers, and investors"
-              className="luxury-cinematic-panel__image absolute inset-0 w-full h-full object-cover object-center"
-              loading="eager"
-            />
-            <div className="luxury-cinematic-panel__glow absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(250,224,174,0.28),transparent_34%)]" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#120E09]/72 via-[#1B1611]/36 to-[#0F172A]/14" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#120E09]/68 via-transparent to-[#0F172A]/16" />
+          <div className="ckl-feat-grid" style={{ marginTop: "clamp(44px,5vw,72px)", display: "grid", gridTemplateColumns: "340px 1fr", gap: 28, alignItems: "start" }}>
+            {/* Tab rail */}
+            <div data-ra="ckl-fadeUp" data-rd="0.05" style={{ display: "flex", flexDirection: "column", gap: 8, opacity: 0 }}>
+              {FEATURES.map((f, i) => {
+                const on = activeFeat === i;
+                return (
+                  <button key={f.num} type="button" onClick={() => setActiveFeat(i)} className={on ? "" : "hov-tab"} style={{ display: "flex", alignItems: "center", gap: 14, padding: "17px 18px", border: `1px solid ${on ? "#0B0A06" : "#e4e2dc"}`, background: on ? "#0B0A06" : "#fff", borderRadius: 11, textAlign: "left", cursor: "pointer", transition: "border-color .25s ease,background .25s ease" }}>
+                    <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13, letterSpacing: "1px", color: on ? RED : "#a8a59d", flex: "none" }}>{f.num}</span>
+                    <span style={{ fontFamily: SANS, fontWeight: 500, fontSize: 17, color: on ? "#fff" : "#161513" }}>{f.tab}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-            <div className="relative z-10 min-h-[420px] sm:min-h-[500px] flex items-end">
-              <div className="max-w-3xl px-6 py-10 text-left sm:px-10 sm:py-12 lg:px-14">
-                <p className="luxury-badge luxury-badge--premium inline-flex items-center rounded-full border border-[#F6E4B8]/35 bg-[#120E09]/38 px-3 py-1.5 font-body text-xs font-semibold uppercase tracking-[0.22em] text-[#F8E7C2] backdrop-blur-sm">
-                  Enter Ckript
-                </p>
-                <p className="luxury-cinematic-quote mt-5 max-w-2xl font-display text-2xl sm:text-3xl lg:text-[2.85rem] text-white italic leading-[1.18] font-medium [text-shadow:0_4px_22px_rgba(0,0,0,0.45)]">
-                  "We cut the gatekeepers and the fog. Writers get seen. Industry professionals get clarity. Everyone gets back to making films."
-                </p>
+            {/* Detail panel */}
+            <div data-ra="ckl-fadeUp" data-rd="0.12" style={{ position: "relative", border: "1px solid #e7e5df", borderRadius: 16, background: "#fcfcfa", overflow: "hidden", opacity: 0 }}>
+              <div className="ckl-feat-panel" style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", minHeight: 480 }}>
+                <div style={{ padding: "clamp(34px,3.4vw,52px)", display: "flex", flexDirection: "column" }}>
+                  <span style={{ alignSelf: "flex-start", fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: RED, border: "1px solid #ecc9c1", padding: "6px 13px", borderRadius: 100 }}>{feat.tag}</span>
+                  <h3 style={{ margin: "24px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2rem,3.4vw,2.9rem)", lineHeight: 1.04, color: INK }}>{feat.title}</h3>
+                  <p style={{ margin: "10px 0 0", fontFamily: BODY, fontStyle: "italic", fontSize: 19, color: "#8d8a84" }}>{feat.italic}</p>
+                  <p style={{ margin: "24px 0 0", fontFamily: BODY, fontSize: 18, lineHeight: "29px", color: "#57544f" }}>{feat.desc}</p>
+                  <div style={{ marginTop: "auto", paddingTop: 30, display: "flex", flexDirection: "column", gap: 13 }}>
+                    {feat.bullets.map((b) => (
+                      <div key={b} style={{ display: "flex", alignItems: "center", gap: 13 }}>
+                        <Diamond size={7} />
+                        <span style={{ fontFamily: SANS, fontSize: 16, color: "#33312e" }}>{b}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <FeatureMedia feat={feat} />
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          FEATURES SHOWCASE
-          ══════════════════════════════════════ */}
-      <Suspense
-        fallback={
-          <section className="luxury-section py-20 px-6 bg-[#F8FAFC]" aria-label="Loading features">
-            <div className="max-w-7xl mx-auto">
-              <div className="luxury-body-copy font-body text-sm text-[#6B7280]">Loading features…</div>
-            </div>
-          </section>
-        }
-      >
-        <FeaturesShowcase />
-      </Suspense>
-
-      {/* ══════════════════════════════════════
-          HOW IT WORKS — dark with cinematic background
-          ══════════════════════════════════════ */}
-      <section className="luxury-section luxury-process-section relative py-24 sm:py-32 px-4 sm:px-8 overflow-hidden bg-[#0A0A0B]">
-        <div className="absolute inset-0 opacity-80">
-          <div className="absolute inset-0 [background-image:linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] [background-size:120px_120px]" />
-        </div>
-
-        <div className="relative z-10 max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="mb-16 sm:mb-20 max-w-3xl mx-auto text-center"
-          >
-            <p className="luxury-section-kicker font-body text-xs font-semibold uppercase tracking-[0.28em] text-white/60 mb-5">
-              How it works
-            </p>
-            <h2 className="luxury-section-title font-display text-4xl sm:text-5xl lg:text-6xl text-white leading-[1.02] tracking-tight font-medium">
-              Four steps. <em className="text-white/70">One story.</em>
+      {/* ===================== EVERY FORMAT GALLERY ===================== */}
+      <section style={{ position: "relative", width: "100%", background: "#FBFAF7", padding: "clamp(80px,9vw,140px) clamp(20px,5vw,80px)", borderTop: "1px solid #efece5" }}>
+        <div style={{ maxWidth: 1320, margin: "0 auto" }}>
+          <div data-ra="ckl-fadeUp" style={{ textAlign: "center", maxWidth: 760, margin: "0 auto", opacity: 0 }}>
+            <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, letterSpacing: "3px", color: "#9a978f", textTransform: "uppercase" }}>Built for every story</div>
+            <h2 style={{ margin: "22px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.6rem,5.2vw,4.4rem)", lineHeight: 1.02, color: INK }}>
+              One platform.<br /><span style={{ fontStyle: "italic", color: "#6f6c66" }}>Every format.</span>
             </h2>
-            <p className="luxury-body-copy luxury-body-copy--light font-body text-base sm:text-lg text-[#CBD5E1] mt-5 max-w-2xl mx-auto leading-relaxed">
-              From the first line on the page to the moment you get paid, here's how Ckript
-              takes your script from idea to industry.
-            </p>
-          </motion.div>
-
-          <div className="relative max-w-5xl mx-auto">
-            <div className="luxury-process-line absolute left-5 top-0 bottom-0 w-px bg-white/10 md:left-1/2 md:-translate-x-1/2" />
-            {processSteps.map((item, index) => {
-              const isActive = index === activeProcessStep;
-              const Icon = item.icon;
-              const isLeft = index % 2 === 0;
-              return (
-                <motion.div
-                  key={item.step}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className={`relative grid md:grid-cols-2 gap-6 md:gap-12 items-center ${index !== processSteps.length - 1 ? "mb-10 md:mb-7" : ""
-                    }`}
-                >
-                  <div className={`hidden md:flex ${isLeft ? "justify-end pr-14" : "justify-start pl-14 md:order-3"}`}>
-                    <div
-                      data-active={isActive}
-                      className={`luxury-process-orb relative flex h-16 w-16 items-center justify-center rounded-2xl border transition-all duration-500 ${isActive
-                          ? "border-white/30 bg-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
-                          : "border-white/5 bg-transparent"
-                        }`}
-                    >
-                      <Icon className={`relative z-10 w-7 h-7 transition-colors duration-500 ${isActive ? "text-white" : "text-white/40"}`} />
-                    </div>
-                  </div>
-
-                  <div className="absolute left-5 top-1/2 -translate-x-1/2 -translate-y-1/2 md:left-1/2 md:z-20">
-                    <button
-                      type="button"
-                      onClick={() => setActiveProcessStep(index)}
-                      data-active={isActive}
-                      className={`luxury-step-dot flex h-10 w-10 items-center justify-center rounded-full border text-[11px] font-semibold transition-all duration-500 ${isActive
-                          ? "border-white bg-white text-black"
-                          : "border-white/20 bg-[#0A0A0B] text-white/50"
-                        }`}
-                      aria-label={`Highlight step ${item.step}`}
-                    >
-                      {item.step}
-                    </button>
-                  </div>
-
-                  <motion.button
-                    type="button"
-                    onClick={() => setActiveProcessStep(index)}
-                    data-active={isActive}
-                    className={`luxury-process-card group relative ml-12 text-left p-5 sm:p-6 rounded-2xl border transition-all duration-500 md:ml-0 ${isLeft ? "md:order-2" : "md:order-1"
-                      } ${isActive
-                        ? "bg-white/[0.04] border-white/20"
-                        : "bg-transparent border-white/5 hover:border-white/15 hover:bg-white/[0.02]"
-                      }`}
-                  >
-                    <div className="relative z-10 flex items-start gap-4 sm:gap-5">
-                      <div
-                        className={`luxury-process-card-icon md:hidden shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl border transition-all duration-500 ${isActive
-                            ? "border-white/20 bg-white/10 text-white"
-                            : "border-white/5 bg-transparent text-white/40"
-                          }`}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-4">
-                          <span
-                            data-active={isActive}
-                            className={`luxury-process-label font-body text-[11px] font-semibold uppercase tracking-[0.24em] transition-colors duration-500 ${isActive ? "text-white" : "text-white/40"
-                              }`}
-                          >
-                            Step {item.step}
-                          </span>
-                          <div
-                            data-active={isActive}
-                            className={`luxury-process-mini-icon hidden sm:flex h-9 w-9 items-center justify-center rounded-full border transition-all duration-500 ${isActive
-                                ? "border-white/20 bg-white/10 text-white"
-                                : "border-white/5 bg-transparent text-white/40"
-                              }`}
-                          >
-                            <Icon className="w-4 h-4" />
-                          </div>
-                        </div>
-                        <h3 className="luxury-section-title mt-3 font-display text-2xl sm:text-[2rem] text-[#F9FAFB] leading-tight font-medium">
-                          {item.title}
-                        </h3>
-                        <p className="luxury-body-copy luxury-body-copy--light mt-3 font-body text-sm sm:text-[15px] text-[#CBD5E1] leading-relaxed max-w-md">
-                          {item.desc}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.button>
-                </motion.div>
-              );
-            })}
+            <p style={{ margin: "26px auto 0", maxWidth: 520, fontFamily: BODY, fontSize: 20, lineHeight: "30px", color: "#57544f" }}>From features to anime, writers showcase their work across every screen and every genre.</p>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="mt-16 sm:mt-20 text-center"
-          >
-            <Link
-              to="/join"
-              className="luxury-cta luxury-cta--gold luxury-cta--sheen group inline-flex items-center gap-2 bg-[linear-gradient(135deg,#0EA5E9,#2563EB)] text-white font-body text-sm font-semibold px-8 py-4 rounded-full transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(14,165,233,0.38)]"
-            >
-              Start your story
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </motion.div>
+          <div className="ckl-format-grid" style={{ marginTop: "clamp(46px,5vw,76px)", display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 20 }}>
+            {FORMATS.map((f) => (
+              <Link key={f.title} to={ROUTES.join} data-ra="ckl-fadeUp" data-rd={f.rd} className="hov-format" style={{ position: "relative", display: "block", textDecoration: "none", borderRadius: 13, overflow: "hidden", aspectRatio: "3/4.4", marginTop: f.offset ? 34 : 0, opacity: 0 }}>
+                <img src={`https://picsum.photos/seed/${f.seed}/600/880`} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top,rgba(11,10,6,0.82) 0%,rgba(11,10,6,0.08) 52%,rgba(11,10,6,0.18) 100%)" }} />
+                <div style={{ position: "absolute", left: 18, right: 18, bottom: 18 }}>
+                  <div style={{ fontFamily: SERIF, fontSize: 25, color: "#fff", lineHeight: 1.05 }}>{f.title}</div>
+                  <div style={{ marginTop: 5, fontFamily: SANS, fontSize: 12, letterSpacing: "1.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.72)" }}>{f.sub}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          CONTACT
-          ══════════════════════════════════════ */}
-      <ContactSection />
-
-      {/* ══════════════════════════════════════
-          FOOTER
-          ══════════════════════════════════════ */}
-      <footer className="luxury-footer relative bg-[#0F172A] border-t border-white/10 py-12 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <BrandLogo className="luxury-brand-logo h-7 w-auto" />
-              <span className="luxury-footer-copy font-body text-xs text-[#94A3B8]">
-                &copy; 2026 Ckript. All rights reserved.
+      {/* ===================== CINEMATIC AI TRAILER ===================== */}
+      <section style={{ position: "relative", width: "100%", minHeight: 660, background: INK, overflow: "hidden", display: "flex", alignItems: "center" }}>
+        <img src="https://picsum.photos/seed/ckript-cinema/1920/1100?grayscale" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.42 }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 30% 50%,rgba(11,10,6,0.35),rgba(11,10,6,0.92))" }} />
+        <div style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: 1100, margin: "0 auto", padding: "clamp(70px,8vw,120px) clamp(24px,5vw,60px)", textAlign: "center" }}>
+          <div data-ra="ckl-fadeUp" style={{ display: "inline-flex", alignItems: "center", gap: 11, opacity: 0 }}>
+            <Diamond size={8} />
+            <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, letterSpacing: "3px", textTransform: "uppercase", color: "#bdb9b0" }}>Text-to-Trailer AI</span>
+          </div>
+          <h2 data-ra="ckl-fadeUp" data-rd="0.08" style={{ margin: "26px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.8rem,6vw,5.2rem)", lineHeight: 1.02, color: "#fff", opacity: 0 }}>
+            Your script,<br /><span style={{ fontStyle: "italic", color: "#e3ddd2" }}>rendered in 30 seconds.</span>
+          </h2>
+          <p data-ra="ckl-fadeUp" data-rd="0.16" style={{ margin: "28px auto 0", maxWidth: 580, fontFamily: BODY, fontSize: 21, lineHeight: "31px", color: "#c7c2b8", opacity: 0 }}>
+            Upload your pages and watch Ckript blend stock footage with AI-generated visuals into a cinematic teaser — the fastest way to make a producer feel your story.
+          </p>
+          <div data-ra="ckl-fadeUp" data-rd="0.24" style={{ marginTop: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 20, flexWrap: "wrap", opacity: 0 }}>
+            <Link to={ROUTES.join} className="hov-lift3" style={{ display: "inline-flex", alignItems: "center", gap: 14, height: 70, padding: "0 28px 0 22px", background: "#fff", color: INK, textDecoration: "none", borderRadius: 100 }}>
+              <span style={{ width: 42, height: 42, borderRadius: "50%", background: RED, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+                <Icon name="play_arrow" fill size={22} color="#fff" />
               </span>
-            </div>
+              <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 18 }}>Watch a sample trailer</span>
+            </Link>
+            <Link to={ROUTES.writer} className="hov-bc-red" style={{ fontFamily: SANS, fontWeight: 600, fontSize: 18, color: "#fff", textDecoration: "none", borderBottom: "2px solid rgba(255,255,255,0.5)", paddingBottom: 6, transition: "border-color .22s ease" }}>Start with your script</Link>
+          </div>
+        </div>
+      </section>
 
-            <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-7 font-body text-sm text-[#94A3B8]">
-              <Link to="/about" className="luxury-footer-link hover:text-white transition-colors">
-                About
-              </Link>
-              <Link to="/privacy-policy" className="luxury-footer-link hover:text-white transition-colors">
-                Privacy
-              </Link>
-              <Link to="/terms-of-service" className="luxury-footer-link hover:text-white transition-colors">
-                Terms
-              </Link>
-              <Link to="/contact" className="luxury-footer-link hover:text-white transition-colors">
-                Contact
-              </Link>
-              <a
-                href="https://www.linkedin.com/company/ckript/?viewAsMember=true"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="luxury-footer-link hover:text-white transition-colors"
-              >
-                LinkedIn
-              </a>
+      {/* ===================== THE PROBLEM (SPLIT) ===================== */}
+      <section style={{ position: "relative", width: "100%", background: "#fff", padding: "clamp(80px,9vw,140px) clamp(20px,5vw,80px)" }}>
+        <div style={{ maxWidth: 1320, margin: "0 auto" }}>
+          <div data-ra="ckl-fadeUp" style={{ maxWidth: 820, opacity: 0 }}>
+            <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, letterSpacing: "3px", color: "#9a978f", textTransform: "uppercase" }}>The problem</div>
+            <h2 style={{ margin: "22px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.6rem,5.2vw,4.4rem)", lineHeight: 1.02, color: INK }}>
+              The industry is <span style={{ fontStyle: "italic", color: RED }}>broken</span><br />on both sides of the page.
+            </h2>
+          </div>
+
+          <div className="ckl-problem-grid" style={{ marginTop: "clamp(44px,5vw,68px)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+            {[
+              { rd: "0.05", to: ROUTES.writer, kicker: "If you're a writer", title: ["Brilliant pages,", "no audience."], rows: ["Your script sits in a drawer or an inbox nobody opens.", 'Gatekeepers say "pass" without reading past page three.', "No real way to reach professionals who'd actually fund you."], cta: "Start as a writer" },
+              { rd: "0.12", to: ROUTES.pro, kicker: "If you're in the industry", title: ["Too much noise,", "too little signal."], rows: ["Thousands of unfiltered submissions, no way to find the gems.", "No preview of tone or vision before reading 110 pages.", "Discovery is slow, expensive, and built on who-you-know."], cta: "Start as a professional" },
+            ].map((card) => (
+              <div key={card.kicker} data-ra="ckl-fadeUp" data-rd={card.rd} style={{ border: "1px solid #e7e5df", borderRadius: 16, background: "#fcfcfa", padding: "clamp(32px,3.2vw,48px)", opacity: 0 }}>
+                <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 13, letterSpacing: "2px", textTransform: "uppercase", color: "#9a978f" }}>{card.kicker}</div>
+                <h3 style={{ margin: "16px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(1.9rem,3.2vw,2.6rem)", lineHeight: 1.05, color: INK }}>
+                  {card.title[0]}<br /><span style={{ fontStyle: "italic", color: "#8d8a84" }}>{card.title[1]}</span>
+                </h3>
+                <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 16 }}>
+                  {card.rows.map((r) => (
+                    <div key={r} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                      <Icon name="arrow_forward" size={18} color={RED} style={{ flex: "none", marginTop: 4 }} />
+                      <span style={{ fontFamily: BODY, fontSize: 18, lineHeight: "27px", color: "#57544f" }}>{r}</span>
+                    </div>
+                  ))}
+                </div>
+                <Link to={card.to} className="hov-underline" style={{ marginTop: 32, display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontWeight: 700, fontSize: 17, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 6, transition: "color .22s ease,border-color .22s ease" }}>
+                  {card.cta}<Icon name="arrow_forward" size={17} />
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== TESTIMONIALS ===================== */}
+      <section style={{ position: "relative", width: "100%", background: "#FBFAF7", padding: "clamp(80px,9vw,140px) clamp(20px,5vw,80px)", borderTop: "1px solid #efece5" }}>
+        <div style={{ maxWidth: 1180, margin: "0 auto" }}>
+          <div data-ra="ckl-fadeUp" style={{ maxWidth: 760, opacity: 0 }}>
+            <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 14, letterSpacing: "3px", color: "#9a978f", textTransform: "uppercase" }}>Testimonials</div>
+            <h2 style={{ margin: "22px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2.6rem,5.2vw,4.4rem)", lineHeight: 1.02, color: INK }}>
+              From the people<br /><span style={{ fontStyle: "italic", color: "#6f6c66" }}>who build films.</span>
+            </h2>
+          </div>
+
+          <div className="ckl-testi-grid" style={{ marginTop: "clamp(44px,5vw,68px)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+            {TESTIMONIALS.map((t) => (
+              <div key={t.name} data-ra="ckl-fadeUp" data-rd={t.rd} style={{ position: "relative", border: "1px solid #e7e5df", borderRadius: 16, background: "#fff", padding: "clamp(30px,3vw,44px)", opacity: 0 }}>
+                <div style={{ fontFamily: SERIF, fontSize: 60, lineHeight: 0.4, color: "#e0bcb3", height: 32 }}>&ldquo;</div>
+                <p style={{ margin: 0, fontFamily: SERIF, fontSize: "clamp(1.4rem,2.1vw,1.85rem)", lineHeight: 1.32, color: "#1a1815" }}>{t.quote}</p>
+                <p style={{ margin: "22px 0 0", fontFamily: BODY, fontSize: 17, lineHeight: "26px", color: "#6f6c66" }}>{t.body}</p>
+                <div style={{ marginTop: 28, paddingTop: 24, borderTop: "1px solid #ece9e2", display: "flex", alignItems: "center", gap: 16 }}>
+                  <img src={`https://picsum.photos/seed/${t.seed}/120/120?grayscale`} alt="" style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 16, color: INK }}>{t.name}</div>
+                    <div style={{ fontFamily: SANS, fontSize: 14, color: "#8d8a84" }}>{t.role}</div>
+                  </div>
+                  <span style={{ fontFamily: SANS, fontWeight: 600, fontSize: 11, letterSpacing: "1.5px", textTransform: "uppercase", color: RED, border: "1px solid #ecc9c1", padding: "5px 11px", borderRadius: 100, flex: "none" }}>{t.tag}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== FINAL CTA ===================== */}
+      <section style={{ position: "relative", width: "100%", background: "#fff", padding: "clamp(90px,11vw,170px) clamp(20px,5vw,80px)", textAlign: "center", overflow: "hidden" }}>
+        <span data-ra="ckl-fadeUp" style={{ display: "inline-block", width: 1, height: 64, background: "linear-gradient(to bottom,rgba(11,10,6,0),#c4c2bc)", opacity: 0 }} />
+        <div data-ra="ckl-fadeUp" data-rd="0.06" style={{ opacity: 0 }}>
+          <span style={{ display: "inline-block", width: 10, height: 10, background: RED, transform: "rotate(45deg)", margin: "18px 0 4px" }} />
+        </div>
+        <h2 data-ra="ckl-fadeUp" data-rd="0.1" style={{ margin: "18px auto 0", maxWidth: 1000, fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(3rem,7vw,6rem)", lineHeight: 1.0, color: INK, opacity: 0 }}>
+          Your story deserves<br /><span style={{ fontStyle: "italic" }}>an audience.</span>
+        </h2>
+        <p data-ra="ckl-fadeUp" data-rd="0.18" style={{ margin: "30px auto 0", maxWidth: 540, fontFamily: BODY, fontSize: 21, lineHeight: "31px", color: "#57544f", opacity: 0 }}>
+          Upload your script, shape a trailer, and put your work in front of the producers, directors, and investors who can make it real.
+        </p>
+        <div data-ra="ckl-fadeUp" data-rd="0.26" style={{ marginTop: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 48, flexWrap: "wrap", opacity: 0 }}>
+          <Link to={ROUTES.writer} className="hov-btn-lift" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 262, height: 72, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, textDecoration: "none", transition: "transform .25s cubic-bezier(.2,.7,.2,1),background .25s ease" }}>Start with your script</Link>
+          <Link to={ROUTES.join} className="hov-underline" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 19, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 7, transition: "color .22s ease,border-color .22s ease" }}>Browse scripts</Link>
+        </div>
+      </section>
+
+      {/* ===================== FOOTER ===================== */}
+      <footer style={{ position: "relative", width: "100%", background: INK, padding: "clamp(56px,6vw,84px) clamp(20px,5vw,80px) 40px" }}>
+        <div style={{ maxWidth: 1320, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 40, flexWrap: "wrap", paddingBottom: 42, borderBottom: "1px solid #211f1a" }}>
+            <div style={{ maxWidth: 380 }}>
+              <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 34, letterSpacing: "-1.2px", color: "#fff", lineHeight: 1 }}>ckript</div>
+              <p style={{ margin: "20px 0 0", fontFamily: SERIF, fontStyle: "italic", fontSize: 23, lineHeight: 1.3, color: "#c7c2b8" }}>From the page to the screen.</p>
             </div>
+            <div style={{ display: "flex", gap: "clamp(40px,6vw,96px)", flexWrap: "wrap" }}>
+              {FOOTER_COLS.map((col) => (
+                <div key={col.head} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
+                  <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: "#76726a", marginBottom: 4 }}>{col.head}</div>
+                  {col.links.map((l) =>
+                    l.external ? (
+                      <a key={l.label} href={l.to} target="_blank" rel="noopener noreferrer" className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none" }}>{l.label}</a>
+                    ) : (
+                      <Link key={l.label} to={l.to} className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none" }}>{l.label}</Link>
+                    )
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ paddingTop: 28, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: SANS, fontSize: 14, color: "#76726a" }}>© 2026 Ckript. All rights reserved.</span>
+            <span style={{ fontFamily: SANS, fontSize: 14, color: "#76726a" }}>Made for storytellers.</span>
           </div>
         </div>
       </footer>
     </div>
   );
-};
-
-export default Landing;
+}
