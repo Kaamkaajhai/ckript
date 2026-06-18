@@ -14,7 +14,7 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
 const SOCKET_ORIGIN = getApiOrigin() || (typeof window !== "undefined" ? window.location.origin : "");
-const POPUP_STACK_LIMIT = 4;
+const POPUP_STACK_LIMIT = 1;
 const POPUP_STORAGE_LIMIT = 12;
 const NOTIFICATION_POLL_INTERVAL_MS = 30000;
 const NOTIFICATION_REFRESH_DEBOUNCE_MS = 350;
