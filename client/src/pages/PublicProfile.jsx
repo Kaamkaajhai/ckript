@@ -111,6 +111,10 @@ const PublicProfile = () => {
     { key: "twitter", label: "Twitter", value: writerLinks.twitter },
     { key: "facebook", label: "Facebook", value: writerLinks.facebook },
   ].filter((item) => String(item.value || "").trim());
+  const contactItems = [
+    { key: "email", label: "Email", value: profile?.email, href: profile?.email ? `mailto:${profile.email}` : "" },
+    { key: "phone", label: "Phone", value: profile?.phone, href: profile?.phone ? `tel:${profile.phone}` : "" },
+  ].filter((item) => String(item.value || "").trim());
 
   const writerProfilePublic = isWriterRole(profile?.role);
 
@@ -240,6 +244,29 @@ const PublicProfile = () => {
 
               {writerProfilePublic && profile.writerProfile && (
                 <>
+                  {(contactItems.length > 0) && (
+                    <div className="pt-6 first:pt-0">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                          </svg>
+                        </span>
+                        <h3 className={`text-2xl font-extrabold ${dark ? "text-white" : "text-gray-900"}`}>View Contact Details</h3>
+                      </div>
+                      <div className="space-y-3">
+                        {contactItems.map((item) => (
+                          <div key={item.key} className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
+                            <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>{item.label}</span>
+                            <a href={item.href} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
+                              {item.value}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="pt-6 first:pt-0">
                     <div className="flex items-center gap-3 mb-3">
                       <span className={`w-9 h-9 rounded-full border flex items-center justify-center ${dark ? "border-white/10 text-blue-200" : "border-gray-200 text-blue-700 bg-blue-50"}`}>
@@ -400,18 +427,6 @@ const PublicProfile = () => {
                         )}
                       </div>
 
-                      <div>
-                        <p className={`text-[11px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-gray-400" : "text-gray-400"}`}>Budget Tiers</p>
-                        {Array.isArray(profile.industryProfile?.mandates?.budgetTiers) && profile.industryProfile.mandates.budgetTiers.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {profile.industryProfile.mandates.budgetTiers.map((tier) => (
-                              <span key={tier} className={`px-3 py-1.5 rounded-2xl text-[12px] font-semibold border ${dark ? "bg-amber-500/10 text-amber-200 border-amber-500/20" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{tier}</span>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No budget tiers selected</p>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </>

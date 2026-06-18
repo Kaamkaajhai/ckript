@@ -732,9 +732,6 @@ export const getPublicUserProfile = async (req, res) => {
               formats: Array.isArray(user.industryProfile.mandates?.formats)
                 ? user.industryProfile.mandates.formats.filter(Boolean).slice(0, 20)
                 : [],
-              budgetTiers: Array.isArray(user.industryProfile.mandates?.budgetTiers)
-                ? user.industryProfile.mandates.budgetTiers.filter(Boolean).slice(0, 20)
-                : [],
               specificHooks: Array.isArray(user.industryProfile.mandates?.specificHooks)
                 ? user.industryProfile.mandates.specificHooks.filter(Boolean).slice(0, 20)
                 : [],
@@ -1064,12 +1061,7 @@ export const updateUserProfile = async (req, res) => {
       if (!user.industryProfile) user.industryProfile = {};
       if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
       user.industryProfile.mandates.genres = preferredGenres;
-      user.markModified("industryProfile");
-    }
-    if (preferredBudgets !== undefined) {
-      if (!user.industryProfile) user.industryProfile = {};
-      if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
-      user.industryProfile.mandates.budgetTiers = preferredBudgets;
+      delete user.industryProfile.mandates.budgetTiers;
       user.markModified("industryProfile");
     }
     if (preferredFormats !== undefined) {
@@ -1080,6 +1072,7 @@ export const updateUserProfile = async (req, res) => {
       user.industryProfile.mandates.formats = normalizeStringArray(preferredFormats, 40)
         .map(normalizePreferredFormat)
         .filter(Boolean);
+      delete user.industryProfile.mandates.budgetTiers;
       user.markModified("industryProfile");
     }
 

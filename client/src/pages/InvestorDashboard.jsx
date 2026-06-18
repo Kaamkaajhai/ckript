@@ -268,19 +268,6 @@ const InvestorDashboard = () => {
                           </div>
                         </div>
                       )}
-                      {mandates.budgetTiers?.length > 0 && (
-                        <div>
-                          <p className={`text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>Budget</p>
-                          <div className="flex flex-wrap gap-1">
-                            {mandates.budgetTiers.map(b => (
-                              <span key={b} className={`px-2 py-0.5 rounded-md text-[11px] font-semibold capitalize
-                                ${dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.06]" : "bg-gray-50 text-gray-600 border border-gray-200"}`}>
-                                {b}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                       {mandates.specificHooks?.length > 0 && (
                         <div>
                           <p className={`text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>Hooks</p>

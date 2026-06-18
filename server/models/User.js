@@ -228,7 +228,6 @@ const userSchema = new mongoose.Schema({
     // Mandates (what they're looking for)
     mandates: {
       formats: [String], // Feature Film, TV Pilot, etc.
-      budgetTiers: [String], // micro, low, medium, high, blockbuster
       genres: [String], // Genres they want
       excludeGenres: [String], // Genres they don't want
       specificHooks: [String] // Diverse Voices, Female-Led, etc.

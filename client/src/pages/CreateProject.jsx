@@ -182,6 +182,43 @@ const FORMAT_PAGE_RANGES = {
   poet: { min: 1, max: 60, typical: "3-20", label: "Poet", wordsPerPage: 250 },
   other: { min: 1, max: 250, typical: "Varies", label: "Other", wordsPerPage: 250 },
 };
+const MAX_PREVIEW_SNIPPET_LENGTH = 900;
+const normalizePreviewContent = (value = "") =>
+  String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
+  const index = Math.max(0, Number(pageNumber || 0) - 1);
+  const raw = String(pageTexts?.[index] || "").trim();
+  if (!raw) return "";
+  return raw.length > MAX_PREVIEW_SNIPPET_LENGTH
+    ? `${raw.slice(0, MAX_PREVIEW_SNIPPET_LENGTH).trimEnd()}...`
+    : raw;
+};
+const buildPagePreviewTexts = (html = "", pageCount = 1, wordsPerPage = 250) => {
+  const plainText = normalizePreviewContent(html);
+  if (!plainText) return [];
+
+  const words = plainText.split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const safePages = Math.max(1, Number(pageCount) || 1);
+  const chunks = [];
+  const wordsPerChunk = Math.max(50, Number(wordsPerPage) || 250);
+
+  for (let pageIndex = 0; pageIndex < safePages; pageIndex += 1) {
+    const startIndex = pageIndex * wordsPerChunk;
+    const endIndex = pageIndex === safePages - 1
+      ? words.length
+      : Math.min(words.length, (pageIndex + 1) * wordsPerChunk);
+    const pageText = words.slice(startIndex, endIndex).join(" ").trim();
+    chunks.push(pageText);
+  }
+
+  return chunks;
+};
 const LEGAL_AGREEMENT = SCRIPT_UPLOAD_TERMS_TEXT;
 
 const RIGHTS_TYPE_OPTIONS = [
@@ -628,6 +665,7 @@ const CreateProject = () => {
   const lastDraftSignatureRef = useRef("");
   const autoSaveInFlightRef = useRef(false);
   const localDraftHydratedRef = useRef(false);
+  const previewPageTextsSignatureRef = useRef("");
 
   // Grammar credit confirmation + undo/keep
   const GRAMMAR_COST = 5;
@@ -636,6 +674,7 @@ const CreateProject = () => {
   const [grammarCreditLoading, setGrammarCreditLoading] = useState(false);
   const [preGrammarContent, setPreGrammarContent] = useState(null); // for undo
   const [showUndoBar, setShowUndoBar] = useState(false);
+  const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
   // AI Prose Sample Generation
   const PROSE_COST = 20;
@@ -649,6 +688,9 @@ const CreateProject = () => {
     format: "feature_film",
     styleMedium: "",
     formatOther: "",
+    previewWindowMode: "pages",
+    previewWindowStart: "1",
+    previewWindowEnd: "8",
     primaryGenre: "",
     logline: "",
     synopsis: "",
@@ -961,6 +1003,27 @@ const CreateProject = () => {
   const formatInfo = FORMAT_PAGE_RANGES[formData.format] || FORMAT_PAGE_RANGES.feature;
   const estimatedPages = Math.max(1, Math.round(wordCount / formatInfo.wordsPerPage));
   const pageStatus = estimatedPages < formatInfo.min ? "short" : estimatedPages > formatInfo.max ? "long" : "good";
+  useEffect(() => {
+    const pageCount = Number(estimatedPages || 0);
+    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
+    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
+
+    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowEnd: String(start),
+      }));
+      return;
+    }
+
+    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
+        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
+      }));
+    }
+  }, [estimatedPages, formData.previewWindowStart, formData.previewWindowEnd]);
   const renderPageMarkers = () => Array.from({ length: Math.max(estimatedPages, 1) }, (_, pageIndex) => (
     <div
       key={pageIndex}
@@ -1028,6 +1091,13 @@ const CreateProject = () => {
     };
   }, [legal.agreedToTerms, rightsLicensing]);
 
+  const buildScriptPreviewPayload = useCallback((source = formData) => {
+    const mode = "pages";
+    const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
+    const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
+    return { mode, start, end };
+  }, [formData]);
+
   // TipTap Editor
   const editor = useEditor({
     extensions: [
@@ -1045,6 +1115,16 @@ const CreateProject = () => {
       setSaved(false);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const editorHtmlForPreview = editor.getHTML?.() || "";
+    const nextPreviewTexts = buildPagePreviewTexts(editorHtmlForPreview, estimatedPages, formatInfo.wordsPerPage);
+    const nextSignature = JSON.stringify(nextPreviewTexts);
+    if (nextSignature === previewPageTextsSignatureRef.current) return;
+    previewPageTextsSignatureRef.current = nextSignature;
+    setPreviewPageTexts(nextPreviewTexts);
+  }, [editor, estimatedPages, formatInfo.wordsPerPage]);
 
   // Fetch credits
   useEffect(() => {
@@ -1091,6 +1171,9 @@ const CreateProject = () => {
       if (data.styleMedium !== undefined) setFormData(f => ({ ...f, styleMedium: data.styleMedium || "" }));
       if (data.formatOther !== undefined) setFormData(f => ({ ...f, formatOther: data.formatOther || "" }));
       if (data.pageCount) setFormData(f => ({ ...f, pageCount: String(data.pageCount) }));
+      if (data.scriptPreviewAccess?.start) setFormData(f => ({ ...f, previewWindowStart: String(data.scriptPreviewAccess.start) }));
+      if (data.scriptPreviewAccess?.end) setFormData(f => ({ ...f, previewWindowEnd: String(data.scriptPreviewAccess.end) }));
+      setPreviewPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
       if (data.classification?.primaryGenre || data.genre) setFormData(f => ({ ...f, primaryGenre: data.classification?.primaryGenre || data.genre || "" }));
       if (data.companyName !== undefined) setFormData(f => ({ ...f, companyName: data.companyName || "" }));
       if (data.logline) setFormData(f => ({ ...f, logline: data.logline }));
@@ -1181,6 +1264,8 @@ const CreateProject = () => {
         themes: classification.themes,
         settings: classification.settings,
       },
+      scriptPreviewAccess: buildScriptPreviewPayload(formData),
+      scriptPreviewPageTexts: previewPageTexts,
       scriptCompletion: buildScriptCompletionPayload(formData),
       legal: {
         agreedToTerms: Boolean(legal.agreedToTerms),
@@ -1330,6 +1415,9 @@ const CreateProject = () => {
     setFormData({
       format: "feature",
       formatOther: "",
+      previewWindowMode: "pages",
+      previewWindowStart: "1",
+      previewWindowEnd: "8",
       primaryGenre: "",
       logline: "",
       synopsis: "",
@@ -1709,6 +1797,10 @@ const CreateProject = () => {
     },
     { label: "Primary Genre", value: formData.primaryGenre || "Not selected" },
     { label: "Estimated Pages", value: `${estimatedPages} pages` },
+    {
+      label: "Viewable Script",
+      value: `Pages ${buildScriptPreviewPayload(formData).start} to ${buildScriptPreviewPayload(formData).end}`,
+    },
     { label: "Access", value: isPremium ? "Premium paid access" : "Free public access" },
   ];
   const publishReadiness = [
@@ -1740,6 +1832,17 @@ const CreateProject = () => {
         const completionError = getScriptCompletionValidationMessage(formData);
         if (completionError) {
           setError(completionError);
+          return false;
+        }
+      }
+      {
+        const previewPayload = buildScriptPreviewPayload(formData);
+        if (previewPayload.end < previewPayload.start) {
+          setError("The ending page must be greater than or equal to the starting page.");
+          return false;
+        }
+        if (Number(estimatedPages || 0) > 0 && (previewPayload.start > Number(estimatedPages || 0) || previewPayload.end > Number(estimatedPages || 0))) {
+          setError("The viewable script range cannot exceed the estimated page count.");
           return false;
         }
       }
@@ -1858,8 +1961,18 @@ const CreateProject = () => {
         styleMedium: targetFilm ? formData.styleMedium : undefined,
         contentType: getContentTypeFromFormat(formData.format),
         formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
-        pageCount: estimatedPages, textContent: editor.getHTML(), tags: tagsArr,
-        classification: { primaryGenre: formData.primaryGenre, secondaryGenre: null, tones: classification.tones, themes: classification.themes, settings: classification.settings },
+        pageCount: estimatedPages,
+        textContent: editor.getHTML(),
+        tags: tagsArr,
+        classification: {
+          primaryGenre: formData.primaryGenre,
+          secondaryGenre: null,
+          tones: classification.tones,
+          themes: classification.themes,
+          settings: classification.settings,
+        },
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
+        scriptPreviewPageTexts: previewPageTexts,
         scriptCompletion: buildScriptCompletionPayload(formData),
         roles: roles
           .filter((role) => role.characterName?.trim())
@@ -3013,6 +3126,88 @@ const CreateProject = () => {
                   </div>
                 </div>
               )}
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
+                    <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      Set the exact pages film professionals can view before unlocking the rest.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200"}`}>
+                    Free preview
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1.5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                      Starting Page
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      name="previewWindowStart"
+                      value={formData.previewWindowStart}
+                      onChange={handleChange}
+                      className={inputCls}
+                      placeholder="e.g. 1"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1.5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                      Ending Page
+                    </label>
+                    <input
+                      type="number"
+                      min={Math.max(1, Number(formData.previewWindowStart || 1) || 1)}
+                      name="previewWindowEnd"
+                      value={formData.previewWindowEnd}
+                      onChange={handleChange}
+                      className={inputCls}
+                      placeholder="e.g. 8"
+                    />
+                  </div>
+                </div>
+
+                <div className={`mt-4 rounded-xl px-4 py-3 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                  <p className={`text-sm font-medium ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                    Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
+                  </p>
+                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                    Admin review will also show this exact page range before approval.
+                  </p>
+                </div>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[Number(formData.previewWindowStart || 1) || 1, Number(formData.previewWindowEnd || 1) || 1].map((pageNumber, index) => {
+                    const isStart = index === 0;
+                    const pageLabel = isStart ? "Starting Page" : "Ending Page";
+                    const snippet = getPreviewPageSnippet(previewPageTexts, pageNumber);
+
+                    return (
+                      <div
+                        key={`${pageLabel}-${pageNumber}`}
+                        className={`rounded-2xl border p-4 ${dark ? "bg-[#09111d] border-white/[0.08]" : "bg-white border-gray-200"}`}
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div>
+                            <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${dark ? "text-gray-500" : "text-gray-500"}`}>{pageLabel}</p>
+                            <p className={`text-sm font-bold mt-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Page {pageNumber}</p>
+                          </div>
+                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${dark ? "bg-white/[0.05] text-gray-300" : "bg-gray-100 text-gray-600"}`}>
+                            Preview
+                          </span>
+                        </div>
+                        <div className={`rounded-xl border px-3 py-3 text-sm leading-6 whitespace-pre-wrap ${dark ? "border-white/[0.08] bg-white/[0.02] text-gray-200" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
+                          {snippet || "Page content will appear here after PDF extraction."}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                 <div>
                   <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
@@ -3028,7 +3223,6 @@ const CreateProject = () => {
                     {[
                       { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
                       { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
-                      { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -3059,7 +3253,7 @@ const CreateProject = () => {
                   </div>
                 </div>
 
-                {/* Parts inputs — only relevant for partial / ongoing */}
+                {/* Parts inputs — only relevant for partial */}
                 {formData.completionStatus !== "complete" && (
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div>
@@ -4321,47 +4515,6 @@ const CreateProject = () => {
                   <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-purple-300" : "text-purple-700"}`}>Writer / Premium Sale</p>
                   <p className={`text-xl font-black mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{isPremium ? `₹${writerPayout}` : "₹0"}</p>
                   <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Writer gets full script fee per paid purchase</p>
-                </div>
-              </div>
-
-              <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-teal-300" : "text-teal-700"}`}>Collaboration Visibility</p>
-                    <p className={`text-[12px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>
-                      Choose whether this project stays private or accepts collaboration requests after publish.
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold ${collabVisibility === "open"
-                    ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"
-                    : dark ? "bg-gray-700/40 text-gray-200" : "bg-gray-200 text-gray-700"
-                  }`}>
-                    {collabVisibility === "open" ? "Open for collaboration" : "Private workspace"}
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCollabVisibility("private")}
-                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "private"
-                      ? dark ? "border-[#4f86c6] bg-[#0f2238]" : "border-[#1e3a5f] bg-[#eef4fb]"
-                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Private workspace</p>
-                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Only invited collaborators can join.</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCollabVisibility("open")}
-                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "open"
-                      ? dark ? "border-emerald-400 bg-emerald-500/10" : "border-emerald-600 bg-emerald-50"
-                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Open for collaboration</p>
-                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Writers can request editor, reader, merger, or admin access.</p>
-                  </button>
                 </div>
               </div>
 

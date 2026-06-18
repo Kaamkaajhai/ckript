@@ -1,16 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, TrendingUp, Eye, Star, Clock, Zap, Crown, Award } from "lucide-react";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import { AuthContext } from "../context/AuthContext";
+import { isIndustryProfessionalWithPersonalEmail } from "../utils/industryAccess";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const FeaturedSection = () => {
   const { isDarkMode: dark } = useDarkMode();
+  const { user } = useContext(AuthContext);
   const [scripts, setScripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [heroIdx, setHeroIdx] = useState(0);
+  const [accessNotice, setAccessNotice] = useState("");
+  const accessNoticeTimerRef = useRef(null);
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -78,9 +83,22 @@ const FeaturedSection = () => {
 
   const hero = scripts[heroIdx] || scripts[0];
   const isSponsored = hero.premium || hero.isFeatured;
+  const isBlockedViewer = isIndustryProfessionalWithPersonalEmail(user);
+  const handleScriptClick = (event) => {
+    if (!isBlockedViewer) return;
+    event.preventDefault();
+    setAccessNotice("Please login with a company email or purchase a plan to open scripts.");
+    if (accessNoticeTimerRef.current) window.clearTimeout(accessNoticeTimerRef.current);
+    accessNoticeTimerRef.current = window.setTimeout(() => setAccessNotice(""), 3500);
+  };
 
   return (
     <section className="mb-12">
+      {accessNotice && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          {accessNotice}
+        </div>
+      )}
       {/* Section Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -206,10 +224,11 @@ const FeaturedSection = () => {
                   transition={{ delay: 0.4 }}
                   className="flex items-center gap-3"
                 >
-                  <Link 
-                    to={getScriptCanonicalPath(hero)} 
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-white text-gray-900 rounded-xl font-bold text-sm hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-                  >
+                    <Link 
+                      to={getScriptCanonicalPath(hero)} 
+                      onClick={handleScriptClick}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-white text-gray-900 rounded-xl font-bold text-sm hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                    >
                     <Zap size={16} fill="currentColor" />
                     Read Now
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -254,7 +273,7 @@ const FeaturedSection = () => {
       {/* Premium Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {scripts.slice(0, 8).map((s, i) => (
-          <PromotionalCard key={s._id} script={s} index={i} dark={dark} />
+          <PromotionalCard key={s._id} script={s} index={i} dark={dark} onBlockedOpen={handleScriptClick} />
         ))}
       </div>
     </section>
@@ -262,7 +281,7 @@ const FeaturedSection = () => {
 };
 
 /* Premium Promotional Card Component */
-const PromotionalCard = ({ script, index, dark }) => {
+const PromotionalCard = ({ script, index, dark, onBlockedOpen }) => {
   const [imgErr, setImgErr] = useState(false);
   const isSponsored = script.premium || script.isFeatured;
 
@@ -280,7 +299,7 @@ const PromotionalCard = ({ script, index, dark }) => {
       transition={{ delay: index * 0.05, duration: 0.4 }}
       className="flex-none"
     >
-      <Link to={getScriptCanonicalPath(script)} className="group block h-full">
+      <Link to={getScriptCanonicalPath(script)} onClick={onBlockedOpen} className="group block h-full">
         <div className={`rounded-2xl overflow-hidden flex flex-col transition-all duration-300 relative ${
           isSponsored
             ? dark

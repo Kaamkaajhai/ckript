@@ -1478,6 +1478,7 @@ const ADMIN_EDITABLE_TOP_LEVEL_FIELDS = [
     "contentIndicators",
     "tagIds",
     "scriptCompletion",
+    "scriptPreviewAccess",
     "price",
 ];
 

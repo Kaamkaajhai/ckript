@@ -391,6 +391,16 @@ const getFileNameFromUrl = (url = "") => {
   }
 };
 
+const MAX_PREVIEW_SNIPPET_LENGTH = 900;
+const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
+  const index = Math.max(0, Number(pageNumber || 0) - 1);
+  const raw = String(pageTexts?.[index] || "").trim();
+  if (!raw) return "";
+  return raw.length > MAX_PREVIEW_SNIPPET_LENGTH
+    ? `${raw.slice(0, MAX_PREVIEW_SNIPPET_LENGTH).trimEnd()}...`
+    : raw;
+};
+
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
@@ -410,6 +420,7 @@ const ScriptUpload = () => {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [existingUploadedFile, setExistingUploadedFile] = useState(null);
   const [textContent, setTextContent] = useState("");
+  const [pdfPageTexts, setPdfPageTexts] = useState([]);
   const [pdfTextExtracted, setPdfTextExtracted] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
@@ -459,6 +470,9 @@ const ScriptUpload = () => {
     format: "feature",
     formatOther: "",
     pageCount: "",
+    previewWindowMode: "pages",
+    previewWindowStart: "1",
+    previewWindowEnd: "8",
     primaryGenre: "",
     logline: "",
     synopsis: "",
@@ -556,6 +570,17 @@ const ScriptUpload = () => {
     };
   };
 
+  const buildScriptPreviewPayload = (source = formData) => {
+    const mode = "pages";
+    const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
+    const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
+    return {
+      mode,
+      start,
+      end,
+    };
+  };
+
   // Fetch credits balance on mount
   useEffect(() => {
     const fetchCreditsBalance = async () => {
@@ -628,10 +653,14 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
+          previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
+          previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || data.genre || "",
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
         });
+        setPdfPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
         setTagsInput((data.tags || []).join(", "));
         setClassification({
           tones: data.classification?.tones || [],
@@ -681,6 +710,7 @@ const ScriptUpload = () => {
         const { data } = await api.get(`/scripts/${draftId}`);
         setScriptId(data._id);
         setTextContent(data.textContent || "");
+        setPdfPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
         setFormData((prev) => ({
           ...prev,
           title: data.title || "",
@@ -688,6 +718,9 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
+          previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
+          previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || "",
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
@@ -849,6 +882,27 @@ const ScriptUpload = () => {
   };
 
   const pageCountWarning = getPageCountWarning(formData.format, formData.pageCount);
+  useEffect(() => {
+    const pageCount = Number(formData.pageCount || 0);
+    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
+    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
+
+    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowEnd: String(start),
+      }));
+      return;
+    }
+
+    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
+        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
+      }));
+    }
+  }, [formData.pageCount, formData.previewWindowStart, formData.previewWindowEnd]);
 
   // Toggle classification chips (max 3 per category)
   const toggleClassification = (category, value) => {
@@ -886,6 +940,8 @@ const ScriptUpload = () => {
     setUploadProgress(0);
     setUploadedFile(null);
     setTextContent("");
+    setPdfPageTexts([]);
+    setFormData((prev) => ({ ...prev, pageCount: "" }));
     setPdfNotice("");
     setPdfTextExtracted(false);
     setIsExtracting(true);
@@ -917,6 +973,7 @@ const ScriptUpload = () => {
         url: data.fileUrl || "",
       });
       setPdfTextExtracted(Boolean(data.extractedTextAvailable));
+      setPdfPageTexts(Array.isArray(data.pageTexts) ? data.pageTexts : []);
 
       if (data.numItems > 0) {
         setFormData((prev) => ({ ...prev, pageCount: String(data.numItems) }));
@@ -1251,6 +1308,10 @@ const ScriptUpload = () => {
           setError("Page count could not be detected. Please go back and re-upload your PDF.");
           return false;
         }
+        if (Number(formData.previewWindowStart || 0) < 1) {
+          setError("Preview start page must be at least 1.");
+          return false;
+        }
         if (!formData.primaryGenre) {
           setError("Primary genre is required.");
           return false;
@@ -1273,6 +1334,17 @@ const ScriptUpload = () => {
         if (!formData.synopsis || !formData.synopsis.trim()) {
           setError("Synopsis is required.");
           return false;
+        }
+        {
+          const previewPayload = buildScriptPreviewPayload(formData);
+          if (previewPayload.end < previewPayload.start) {
+            setError("The ending page must be greater than or equal to the starting page.");
+            return false;
+          }
+          if (Number(formData.pageCount || 0) > 0 && (previewPayload.start > Number(formData.pageCount || 0) || previewPayload.end > Number(formData.pageCount || 0))) {
+            setError("The preview range cannot exceed the detected page count.");
+            return false;
+          }
         }
         {
           const ageRangeError = getInvalidRoleAgeRangeMessage();
@@ -1371,6 +1443,8 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
+        scriptPreviewPageTexts: pdfPageTexts,
         legal: {
           agreedToTerms: legal.agreedToTerms,
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
@@ -1527,7 +1601,9 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
         scriptCompletion: buildScriptCompletionPayload(formData),
+        scriptPreviewPageTexts: pdfPageTexts,
         // Send script URL only when we have a remote file URL.
         ...(isHttpUrl(uploadedFile?.url)
           ? { scriptUrl: uploadedFile.url }
@@ -1909,6 +1985,87 @@ const ScriptUpload = () => {
                     </div>
                   </div>
 
+                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col gap-0.5">
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
+                        <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                          Set the exact pages film professionals can view before unlocking the rest.
+                        </p>
+                      </div>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${isDarkMode ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200"}`}>
+                        Free preview
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                          Starting Page
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          name="previewWindowStart"
+                          value={formData.previewWindowStart}
+                          onChange={handleChange}
+                          className={inputCls}
+                          placeholder="e.g. 1"
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
+                          Ending Page
+                        </label>
+                        <input
+                          type="number"
+                          min={Math.max(1, Number(formData.previewWindowStart || 1) || 1)}
+                          name="previewWindowEnd"
+                          value={formData.previewWindowEnd}
+                          onChange={handleChange}
+                          className={inputCls}
+                          placeholder="e.g. 8"
+                        />
+                      </div>
+                    </div>
+
+                    <div className={`mt-4 rounded-xl px-4 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                      <p className={`text-sm font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+                        Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
+                      </p>
+                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                        Admin review will also show this exact page range before approval.
+                      </p>
+                    </div>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[Number(formData.previewWindowStart || 1) || 1, Number(formData.previewWindowEnd || 1) || 1].map((pageNumber, index) => {
+                        const isStart = index === 0;
+                        const pageLabel = isStart ? "Starting Page" : "Ending Page";
+                        const snippet = getPreviewPageSnippet(pdfPageTexts, pageNumber);
+
+                        return (
+                          <div
+                            key={`${pageLabel}-${pageNumber}`}
+                            className={`rounded-2xl border p-4 ${isDarkMode ? "bg-[#09111d] border-white/[0.08]" : "bg-white border-gray-200"}`}
+                          >
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                              <div>
+                                <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{pageLabel}</p>
+                                <p className={`text-sm font-bold mt-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Page {pageNumber}</p>
+                              </div>
+                              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${isDarkMode ? "bg-white/[0.05] text-gray-300" : "bg-gray-100 text-gray-600"}`}>
+                                Preview
+                              </span>
+                            </div>
+                            <div className={`rounded-xl border px-3 py-3 text-sm leading-6 whitespace-pre-wrap ${isDarkMode ? "border-white/[0.08] bg-white/[0.02] text-gray-200" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
+                              {snippet || "Page content will appear here after PDF extraction."}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   <div>
                     <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Primary Genre *
@@ -1944,7 +2101,6 @@ const ScriptUpload = () => {
                         {[
                           { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
                           { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
-                          { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
                         ].map((opt) => (
                           <button
                             key={opt.value}
@@ -1975,7 +2131,7 @@ const ScriptUpload = () => {
                       </div>
                     </div>
 
-                    {/* Parts inputs — only relevant for partial / ongoing */}
+                {/* Parts inputs — only relevant for partial */}
                     {formData.completionStatus !== "complete" && (
                       <div className="mt-4 grid grid-cols-2 gap-3">
                         <div>

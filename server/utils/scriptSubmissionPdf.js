@@ -186,8 +186,28 @@ const createScriptSubmissionPdfBuffer = async ({ script, creator }) =>
     addSectionHeader(doc, "Logline");
     addParagraph(doc, script?.logline || "No logline provided.");
 
-    addSectionHeader(doc, "Synopsis");
-    addParagraph(doc, script?.synopsis || "No synopsis provided.");
+    addSectionHeader(doc, "Viewable Script Window");
+    const previewAccess = script?.scriptPreviewAccess || {};
+    const previewMode = String(previewAccess?.mode || "pages").toLowerCase() === "episodes" ? "Episode" : "Page";
+    const previewStart = Number(previewAccess?.start || 1);
+    const previewEnd = Number(previewAccess?.end || 8);
+    const previewWordsPerUnit = 250;
+    const previewSourceText = String(script?.previewExcerpt || script?.textContent || script?.fullContent || "")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const previewWords = previewSourceText ? previewSourceText.split(/\s+/).filter(Boolean) : [];
+    const previewExcerpt = script?.previewExcerpt || (
+      previewWords.length
+        ? previewWords.slice(
+            Math.max(0, (previewStart - 1) * previewWordsPerUnit),
+            Math.max(0, Math.min(previewWords.length, previewEnd * previewWordsPerUnit))
+          ).join(" ")
+        : ""
+    );
+    addKeyValue(doc, "Preview Type", previewMode);
+    addKeyValue(doc, "Preview Range", `${previewStart} to ${previewEnd}`);
+    addParagraph(doc, previewExcerpt || "No viewable excerpt was provided with this submission.");
 
     addSectionHeader(doc, "Writer Custom Terms For Investors");
     addParagraph(doc, legal?.customInvestorTerms || "No custom investor terms were provided.");

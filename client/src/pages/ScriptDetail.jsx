@@ -36,6 +36,7 @@ import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { hasBusinessEmail } from "../utils/industryAccess";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -60,6 +61,7 @@ const ScriptDetail = () => {
 
   const [script, setScript] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [accessMessage, setAccessMessage] = useState("");
   const [coverError, setCoverError] = useState(false);
   const [trailerError, setTrailerError] = useState(false);
   const [trailerSourceIndex, setTrailerSourceIndex] = useState(0);
@@ -92,6 +94,7 @@ const ScriptDetail = () => {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [showWriterInfo, setShowWriterInfo] = useState(false);
   const viewStartRef = useRef(Date.now());
   const noticeTimerRef = useRef(null);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
@@ -112,6 +115,22 @@ const ScriptDetail = () => {
   const writerCustomConditions = String(script?.legal?.customInvestorTerms || "").trim();
   const hasWriterCustomConditions = writerCustomConditions.length > 0;
   const canViewWriterCustomConditions = Boolean(!script?.isCreator && script?.canPurchase);
+  const canViewWriterInfo = Boolean(
+    !script?.isCreator &&
+    user?._id &&
+    ["investor", "producer", "director", "industry", "professional"].includes(String(user?.role || "").toLowerCase()) &&
+    hasBusinessEmail(user?.email)
+  );
+  const writerContact = script?.writerContact || {};
+  const writerLinks = writerContact?.links || script?.creator?.writerProfile?.links || {};
+  const availableWriterLinks = [
+    { key: "portfolio", label: "Portfolio", href: writerLinks.portfolio },
+    { key: "linkedin", label: "LinkedIn", href: writerLinks.linkedin },
+    { key: "imdb", label: "IMDb", href: writerLinks.imdb },
+    { key: "instagram", label: "Instagram", href: writerLinks.instagram },
+    { key: "twitter", label: "X / Twitter", href: writerLinks.twitter },
+    { key: "facebook", label: "Facebook", href: writerLinks.facebook },
+  ].filter((item) => Boolean(String(item.href || "").trim()));
 
   const scriptShare = {
     url: script?.shareMeta?.url || (script?._id ? `${browserOrigin}/share/project/${script._id}` : ""),
@@ -295,6 +314,10 @@ const ScriptDetail = () => {
   }, [activeScriptId]);
 
   useEffect(() => {
+    setShowWriterInfo(false);
+  }, [script?._id]);
+
+  useEffect(() => {
     return () => {
       if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
     };
@@ -363,6 +386,7 @@ const ScriptDetail = () => {
       if (!silent) {
         setLoading(true);
       }
+      setAccessMessage("");
       const hasCanonicalPathParams = Boolean(projectHeading && writerUsername);
       const endpoint = hasCanonicalPathParams
         ? `/scripts/path/${encodeURIComponent(projectHeading)}/${encodeURIComponent(writerUsername)}`
@@ -374,7 +398,24 @@ const ScriptDetail = () => {
       if (canonicalPath && canonicalPath !== location.pathname) {
         navigate(canonicalPath, { replace: true });
       }
-    } catch {
+    } catch (error) {
+      const status = error?.response?.status;
+      const message = String(error?.response?.data?.message || "").toLowerCase();
+      const isAccessBlocked =
+        status === 403 ||
+        message.includes("company email") ||
+        message.includes("purchase a plan") ||
+        message.includes("login with a company");
+
+      if (isAccessBlocked) {
+        setScript(null);
+        setAccessMessage(
+          error?.response?.data?.message ||
+          "Please login with a company email or purchase a plan to open scripts."
+        );
+        return;
+      }
+
       /* demo fallback */
       setScript({
         _id: activeScriptId || "demo-script",
@@ -649,7 +690,7 @@ const ScriptDetail = () => {
       await api.post("/scripts/unlock", { scriptId: script._id });
       await fetchScript();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to unlock synopsis");
+      alert(err.response?.data?.message || "Failed to unlock script");
     } finally {
       setUnlockLoading(false);
     }
@@ -688,7 +729,7 @@ const ScriptDetail = () => {
     try {
       await api.post("/scripts/purchase-request", {
         scriptId: script._id,
-        note: "I like your synopsis and I want to buy your project.",
+        note: "I like your preview and I want to buy your project.",
       });
       setShowRequestModal(false);
       await fetchScript();
@@ -939,6 +980,22 @@ const ScriptDetail = () => {
       </div>
     );
 
+  if (accessMessage)
+    return (
+      <div className={`flex justify-center items-center min-h-[60vh] px-4 ${t.page}`}>
+        <div className={`max-w-lg w-full rounded-2xl border p-6 sm:p-8 text-center ${t.card}`}>
+          <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 border ${t.inset}`}>
+            <svg className={`w-6 h-6 ${t.label}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+          </div>
+          <h2 className={`text-xl font-extrabold mb-2 ${t.title}`}>Access Restricted</h2>
+          <p className={`text-sm leading-relaxed ${t.muted}`}>{accessMessage}</p>
+        </div>
+      </div>
+    );
+
   if (!script)
     return (
       <div className={`text-center py-20 ${t.page}`}>
@@ -1066,7 +1123,7 @@ const ScriptDetail = () => {
     { id: "classification", label: "Classification" },
     { id: "evaluation", label: "Evaluation" },
     { id: "roles", label: "Roles" },
-    { id: "synopsis", label: "Synopsis" },
+    { id: "synopsis", label: "Viewable Script" },
     ...(canViewFullScript && (hasScriptTextContent || hasUploadedScriptPdf)
       ? [{ id: "content", label: isOwner ? "My Script" : "Full Script" }]
       : []),
@@ -1274,6 +1331,16 @@ const ScriptDetail = () => {
                           <span className="text-xs whitespace-pre-wrap text-white/90">{script.rightsLicensing.customConditions}</span>
                         </div>
                       )}
+                      {canViewWriterCustomConditions && (
+                        <div className="col-span-full mt-1 pt-3 border-t border-white/10">
+                          <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Writer Custom Conditions</span>
+                          {hasWriterCustomConditions ? (
+                            <span className="text-xs whitespace-pre-wrap text-white/90">{writerCustomConditions}</span>
+                          ) : (
+                            <span className="text-xs text-white/60">Writer has not added custom conditions for film industry professionals.</span>
+                          )}
+                        </div>
+                      )}
                       <div className="col-span-full">
                         <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Terms Version</span>
                         <span className="text-xs text-white/80">{script?.rightsLicensing?.termsVersion || script?.legal?.termsVersion || "-"}</span>
@@ -1409,7 +1476,7 @@ const ScriptDetail = () => {
 
                   {/* Price card */}
                   <div className={`rounded-2xl p-5 border ${t.priceSub}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${t.label}`}>Commercial</p>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${t.label}`}>Script Pricing</p>
                     <p className={`text-3xl font-extrabold mb-4 ${t.title}`}>
                       {formatCurrency(script.price)}
                       <span className={`text-sm font-medium ml-1 ${t.muted}`}>INR</span>
@@ -1426,12 +1493,75 @@ const ScriptDetail = () => {
 
                       {script.rating > 0 && (
                         <div>
-                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Rating</p>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>AI Generated Rating</p>
                           <p className="text-lg font-extrabold text-amber-500 tabular-nums">&#9733; {script.rating.toFixed(1)}</p>
                         </div>
                       )}
                     </div>
                   </div>
+
+                  {canViewWriterInfo && (
+                    <div className={`rounded-2xl p-4 border ${t.priceSub}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Writer Info</p>
+                          <p className={`text-[12px] ${t.muted}`}>View contact details and links</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowWriterInfo((prev) => !prev)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${t.btnSec}`}
+                        >
+                          {showWriterInfo ? "Hide" : "View"}
+                        </button>
+                      </div>
+
+                      {showWriterInfo && (
+                        <div className={`mt-4 pt-4 border-t space-y-3 ${t.divider}`}>
+                          <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${t.label}`}>Email</p>
+                            {writerContact?.email ? (
+                              <a href={`mailto:${writerContact.email}`} className={`text-sm font-semibold break-all ${t.title}`}>
+                                {writerContact.email}
+                              </a>
+                            ) : (
+                              <p className={`text-sm ${t.muted}`}>No email available</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${t.label}`}>Phone</p>
+                            {writerContact?.phone ? (
+                              <a href={`tel:${writerContact.phone}`} className={`text-sm font-semibold break-all ${t.title}`}>
+                                {writerContact.phone}
+                              </a>
+                            ) : (
+                              <p className={`text-sm ${t.muted}`}>No phone available</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Links</p>
+                            {availableWriterLinks.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {availableWriterLinks.map((link) => (
+                                  <a
+                                    key={link.key}
+                                    href={link.href}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border ${t.btnSec}`}
+                                  >
+                                    {link.label}
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className={`text-sm ${t.muted}`}>No links available</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Action buttons */}
                   <div className={`rounded-2xl p-4 border space-y-2 ${t.priceSub}`}>
@@ -1448,7 +1578,7 @@ const ScriptDetail = () => {
                         <svg className={`w-3.5 h-3.5 ${isBookmarked ? "fill-current" : ""}`} viewBox="0 0 24 24" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h13.5a.75.75 0 01.75.75v15.69a.75.75 0 01-1.219.594L12 16.34l-6.281 5.194a.75.75 0 01-1.219-.594V5.25a.75.75 0 01.75-.75z" />
                         </svg>
-                        {isBookmarked ? "Bookmarked" : "Bookmark Project"}
+                        {isBookmarked ? "Saved Script" : "Save Script"}
                       </button>
                     )}
 
@@ -1567,23 +1697,6 @@ const ScriptDetail = () => {
                       )
                     )}
 
-                    {canViewWriterCustomConditions && (
-                      <div className={`w-full px-3 py-3 rounded-xl border ${t.inset}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 ${t.label}`}>
-                          Writer Custom Conditions
-                        </p>
-                        {hasWriterCustomConditions ? (
-                          <p className={`text-[12px] leading-relaxed whitespace-pre-wrap max-h-36 overflow-y-auto sidebar-scroll pr-1 ${t.sub}`}>
-                            {writerCustomConditions}
-                          </p>
-                        ) : (
-                          <p className={`text-[12px] ${t.muted}`}>
-                            Writer has not added custom conditions for film industry professionals.
-                          </p>
-                        )}
-                      </div>
-                    )}
-
                     {/* Already Purchased Badge + Message Writer CTA */}
                     {!isOwner && script.isUnlocked && (
                       <>
@@ -1676,39 +1789,6 @@ const ScriptDetail = () => {
                       </button>
                     )}
                   </div>
-
-                  {/* Services */}
-                  {script.services && (
-                    <div className={`rounded-2xl p-4 border ${t.priceSub}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-2 ${t.label}`}>Active Services</p>
-                      <div className="space-y-1.5">
-                        {script.services.hosting && isApprovedOrPublished && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className={`font-medium ${t.sub}`}>Hosted &amp; Searchable</span>
-                          </div>
-                        )}
-                        {script.services.hosting && !isApprovedOrPublished && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                            <span className={`font-medium ${t.sub}`}>Hosting under review</span>
-                          </div>
-                        )}
-                        {script.services.evaluation && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                            <span className={`font-medium ${t.sub}`}>Professional Evaluation</span>
-                          </div>
-                        )}
-                        {script.services.aiTrailer && (
-                          <div className="flex items-center gap-2 text-xs">
-                            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                            <span className={`font-medium ${t.sub}`}>AI Trailer</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Pitch Video */}
                   {script?.pitchVideoUrl && (
@@ -2458,14 +2538,35 @@ const ScriptDetail = () => {
               </motion.div>
             )}
 
-            {/* ── Synopsis ─────────────────────────────────── */}
+            {/* ── Viewable Script ─────────────────────────────────── */}
             {activeTab === "synopsis" && (
               <motion.div key="synopsis" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 className={`rounded-xl border p-6 ${t.card}`}>
-                {script.synopsis ? (
+                {script.previewExcerpt || script.scriptPreviewSummary ? (
                   <>
-                    <h3 className={`text-lg font-extrabold mb-4 tracking-tight ${t.title}`}>Synopsis</h3>
-                    <p className={`text-sm leading-relaxed whitespace-pre-wrap mb-6 ${t.sub}`}>{script.synopsis}</p>
+                    <h3 className={`text-lg font-extrabold mb-4 tracking-tight ${t.title}`}>Viewable Script</h3>
+                    <p className={`text-sm leading-relaxed whitespace-pre-wrap mb-6 ${t.sub}`}>{script.previewExcerpt || "The writer has not added a viewable excerpt yet."}</p>
+                    {(script.scriptPreviewStartText || script.scriptPreviewEndText || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length > 0)) && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                        {[Number(script.scriptPreviewAccess?.start || 1) || 1, Number(script.scriptPreviewAccess?.end || 1) || 1].map((pageNumber, index) => {
+                          const pageLabel = index === 0 ? "Starting Page" : "Ending Page";
+                          const pageText = String(
+                            index === 0
+                              ? script.scriptPreviewStartText || script.scriptPreviewPageTexts?.[Math.max(0, pageNumber - 1)] || ""
+                              : script.scriptPreviewEndText || script.scriptPreviewPageTexts?.[Math.max(0, pageNumber - 1)] || ""
+                          ).trim();
+                          return (
+                            <div key={`${pageLabel}-${pageNumber}`} className={`rounded-2xl border p-4 ${isDarkMode ? "bg-white/[0.02] border-white/[0.08]" : "bg-gray-50 border-gray-200"}`}>
+                              <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${t.muted}`}>{pageLabel}</p>
+                              <p className={`text-sm font-bold mt-1 mb-3 ${t.title}`}>Page {pageNumber}</p>
+                              <div className={`rounded-xl border px-3 py-3 text-sm leading-6 whitespace-pre-wrap ${isDarkMode ? "border-white/[0.08] bg-[#0d1726] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}>
+                                {pageText || "Page content not available yet."}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                     {script.isSynopsisLocked && (
                       <div className={`pt-5 border-t ${t.divider}`}>
                         <div className={`rounded-xl p-6 text-center border ${t.inset}`}>
@@ -2477,7 +2578,7 @@ const ScriptDetail = () => {
                           </div>
                           <h4 className={`text-base font-bold mb-2 ${t.title}`}>Full Script Locked</h4>
                           {script.isWriter ? (
-                            <p className={`text-sm ${t.muted}`}>Writers cannot purchase synopsis access. Only industry professionals can unlock full scripts.</p>
+                            <p className={`text-sm ${t.muted}`}>Writers can review the preview window, but only qualified industry professionals can unlock the full script.</p>
                           ) : script.canPurchase ? (
                             <div>
                               <p className={`text-sm mb-4 ${t.muted}`}>Send your request first. Once the writer approves, payment is enabled and full access unlocks instantly after successful payment.</p>
@@ -2545,7 +2646,7 @@ const ScriptDetail = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-xs font-bold">Full synopsis unlocked</span>
+                        <span className="text-xs font-bold">Full script unlocked</span>
                       </div>
                     )}
                     {/* Creator: pending purchase requests for this script */}
@@ -2612,7 +2713,7 @@ const ScriptDetail = () => {
                   </>
                 ) : (
                   <div className="text-center py-12">
-                    <h3 className={`text-base font-bold mb-1 ${t.title}`}>No Synopsis Available</h3>
+                    <h3 className={`text-base font-bold mb-1 ${t.title}`}>No Viewable Script Available</h3>
                   </div>
                 )}
               </motion.div>
