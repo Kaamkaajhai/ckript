@@ -24,6 +24,7 @@ import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { io } from "socket.io-client";
+import { jsPDF } from "jspdf";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
@@ -31,6 +32,7 @@ import { Film, BadgeCheck } from "lucide-react";
 import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 import SocialShareButton from "../components/SocialShareButton";
 import ScreenplayViewer from "../components/ScreenplayViewer";
+import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
@@ -50,6 +52,74 @@ const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, ""
 const getBuyerCheckoutTotal = (baseAmount) => {
   const base = Number(baseAmount || 0);
   return Math.round((base + base * BUYER_COMMISSION_RATE) * 100) / 100;
+};
+
+const normalizePreviewPdfPageText = (value = "") =>
+  formatScreenplayLikeText(
+    String(value || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .trim()
+  );
+
+const buildPreviewPdfBlob = ({ title = "Script", pageBlocks = [], fallbackText = "" } = {}) => {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "pt",
+    format: "a4",
+    compress: true,
+  });
+  doc.setProperties({ title });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginX = 42;
+  const marginTop = 40;
+  const marginBottom = 40;
+  const usableWidth = pageWidth - marginX * 2;
+  const sourcePages = pageBlocks.length
+    ? pageBlocks.map((page, index) => ({
+        pageNumber: Number(page?.pageNumber || index + 1),
+        text: normalizePreviewPdfPageText(page?.displayText || page?.text || ""),
+      }))
+    : [{
+        pageNumber: 1,
+        text: normalizePreviewPdfPageText(fallbackText),
+      }];
+
+  sourcePages.forEach((page, index) => {
+    if (index > 0) doc.addPage("a4", "portrait");
+
+    const lines = [];
+    String(page.text || "")
+      .split("\n")
+      .forEach((segment) => {
+        const trimmed = String(segment || "").trimEnd();
+        if (!trimmed.trim()) {
+          if (lines.length && lines[lines.length - 1] !== "") lines.push("");
+          return;
+        }
+
+        lines.push(...doc.splitTextToSize(trimmed, usableWidth));
+      });
+
+    doc.setFont("courier", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(15, 23, 42);
+    doc.text(lines.length ? lines : [""], marginX, marginTop, {
+      baseline: "top",
+      lineHeightFactor: 1.32,
+    });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Page ${page.pageNumber} / ${sourcePages.length}`, pageWidth - marginX, pageHeight - marginBottom, {
+      align: "right",
+    });
+  });
+
+  return doc.output("blob");
 };
 
 const ScriptDetail = () => {
@@ -137,6 +207,54 @@ const ScriptDetail = () => {
     title: script?.shareMeta?.title || `${script?.title || "Project"} | Ckript`,
     text: script?.shareMeta?.text || (script?.logline || script?.synopsis || "Check out this project on Ckript."),
   };
+  const previewRawText = typeof script?.previewExcerpt === "string" ? script.previewExcerpt : "";
+  const beautifyPreviewPageText = (value = "") => {
+    const text = String(value || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .trim();
+
+    if (!text) return "";
+
+    return text
+      .replace(/\s+(Page\s*\|\s*\d+)\s+/gi, "\n$1\n")
+      .replace(/\s+(Genre:\s*[^\n]+)\s+(?=(?:Pilot Episode|Episode Title:|Written by:|SWA Membership:|Page\s*\|\s*\d+|Opening|INT\.|EXT\.))/gi, "\n$1\n")
+      .replace(/\s+(Pilot Episode\s*\d+[^\n]*)\s+(?=(?:Episode Title:|Written by:|SWA Membership:|Page\s*\|\s*\d+|Opening|INT\.|EXT\.))/gi, "\n$1\n")
+      .replace(/\s+(Episode Title:\s*[^\n]*)\s+(?=(?:Written by:|SWA Membership:|Page\s*\|\s*\d+|Opening|INT\.|EXT\.))/gi, "\n$1\n")
+      .replace(/\s+(Written by:\s*[^\n]*)\s+(?=(?:SWA Membership:|Page\s*\|\s*\d+|Opening|INT\.|EXT\.))/gi, "\n$1\n")
+      .replace(/\s+(SWA Membership:\s*\d+[^\n]*)\s+(?=(?:Page\s*\|\s*\d+|Opening|INT\.|EXT\.))/gi, "\n$1\n")
+      .replace(/\s+(Opening)\s+/gi, "\n$1\n")
+      .replace(/([.!?])\s+(?=[A-Z0-9"'(])/g, "$1\n")
+      .replace(/\b(EXTERIOR\.|INTERIOR\.|EXT\.|INT\.|LAHORE|Lahore|April \d{4})\b/g, "\n$1\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n[ \t]+\n/g, "\n\n")
+      .trim();
+  };
+  const previewPageTexts = Array.isArray(script?.scriptPreviewPageTexts)
+    ? script.scriptPreviewPageTexts.map((pageText) => String(pageText || "").trim()).filter(Boolean)
+    : [];
+  const previewStartPage = Math.max(1, Number(script?.scriptPreviewAccess?.start || 1));
+  const previewEndPage = Math.max(previewStartPage, Number(script?.scriptPreviewAccess?.end || previewStartPage));
+  const previewRangeText = previewPageTexts.length
+    ? previewPageTexts.slice(Math.max(0, previewStartPage - 1), Math.max(0, previewEndPage)).join("\n\n")
+    : "";
+  const previewPageBlocks = previewPageTexts.length
+    ? previewPageTexts
+        .slice(Math.max(0, previewStartPage - 1), Math.max(0, previewEndPage))
+      .map((pageText, index) => ({
+          pageNumber: previewStartPage + index,
+          text: String(pageText || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim(),
+          displayText: formatScreenplayLikeText(pageText) || beautifyPreviewPageText(pageText),
+        }))
+        .filter((page) => page.text.trim())
+    : [];
+  const previewSourceText = previewRangeText || previewRawText;
+  const previewFormattedText = formatScreenplayLikeText(previewSourceText);
+  const previewPdfSourceText = previewPageBlocks.length
+    ? previewPageBlocks.map((page) => page.displayText || page.text).join("\n\n")
+    : (previewFormattedText || previewSourceText || previewRawText || "");
+  const hasPreviewDownload = Boolean(previewPdfSourceText.trim());
   const showNotice = (message, type = "success") => {
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
     setNotice({ type, message });
@@ -233,6 +351,25 @@ const ScriptDetail = () => {
     a.download = `${(script?.title || "script").replace(/[^a-z0-9]/gi, "_")}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPreview = () => {
+    const safeTitle = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+    if (!hasPreviewDownload) return;
+
+    const blob = buildPreviewPdfBlob({
+      title: script?.title || "Script",
+      pageBlocks: previewPageBlocks,
+      fallbackText: previewPdfSourceText,
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeTitle || "script"}_viewable_preview.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1500);
   };
 
   const handleInvoicePdfAction = async (invoice, action = "open") => {
@@ -2544,29 +2681,15 @@ const ScriptDetail = () => {
                 className={`rounded-xl border p-6 ${t.card}`}>
                 {script.previewExcerpt || script.scriptPreviewSummary ? (
                   <>
-                    <h3 className={`text-lg font-extrabold mb-4 tracking-tight ${t.title}`}>Viewable Script</h3>
-                    <p className={`text-sm leading-relaxed whitespace-pre-wrap mb-6 ${t.sub}`}>{script.previewExcerpt || "The writer has not added a viewable excerpt yet."}</p>
-                    {(script.scriptPreviewStartText || script.scriptPreviewEndText || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length > 0)) && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                        {[Number(script.scriptPreviewAccess?.start || 1) || 1, Number(script.scriptPreviewAccess?.end || 1) || 1].map((pageNumber, index) => {
-                          const pageLabel = index === 0 ? "Starting Page" : "Ending Page";
-                          const pageText = String(
-                            index === 0
-                              ? script.scriptPreviewStartText || script.scriptPreviewPageTexts?.[Math.max(0, pageNumber - 1)] || ""
-                              : script.scriptPreviewEndText || script.scriptPreviewPageTexts?.[Math.max(0, pageNumber - 1)] || ""
-                          ).trim();
-                          return (
-                            <div key={`${pageLabel}-${pageNumber}`} className={`rounded-2xl border p-4 ${isDarkMode ? "bg-white/[0.02] border-white/[0.08]" : "bg-gray-50 border-gray-200"}`}>
-                              <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${t.muted}`}>{pageLabel}</p>
-                              <p className={`text-sm font-bold mt-1 mb-3 ${t.title}`}>Page {pageNumber}</p>
-                              <div className={`rounded-xl border px-3 py-3 text-sm leading-6 whitespace-pre-wrap ${isDarkMode ? "border-white/[0.08] bg-[#0d1726] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}>
-                                {pageText || "Page content not available yet."}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <ScreenplayPdfViewer
+                      pdfUrl={uploadedScriptUrl}
+                      title={script?.title || "Script"}
+                      startPage={previewStartPage}
+                      endPage={previewEndPage}
+                      fallbackPages={previewPageBlocks}
+                      fallbackText={previewFormattedText || previewSourceText || previewRawText || ""}
+                      onDownload={handleDownloadPreview}
+                    />
                     {script.isSynopsisLocked && (
                       <div className={`pt-5 border-t ${t.divider}`}>
                         <div className={`rounded-xl p-6 text-center border ${t.inset}`}>

@@ -3142,9 +3142,6 @@ const CreateProject = () => {
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className={`block text-xs font-semibold mb-1.5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
-                      Starting Page
-                    </label>
                     <input
                       type="number"
                       min="1"
@@ -3156,9 +3153,6 @@ const CreateProject = () => {
                     />
                   </div>
                   <div>
-                    <label className={`block text-xs font-semibold mb-1.5 ${dark ? "text-gray-400" : "text-gray-600"}`}>
-                      Ending Page
-                    </label>
                     <input
                       type="number"
                       min={Math.max(1, Number(formData.previewWindowStart || 1) || 1)}
@@ -3178,33 +3172,6 @@ const CreateProject = () => {
                   <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
                     Admin review will also show this exact page range before approval.
                   </p>
-                </div>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[Number(formData.previewWindowStart || 1) || 1, Number(formData.previewWindowEnd || 1) || 1].map((pageNumber, index) => {
-                    const isStart = index === 0;
-                    const pageLabel = isStart ? "Starting Page" : "Ending Page";
-                    const snippet = getPreviewPageSnippet(previewPageTexts, pageNumber);
-
-                    return (
-                      <div
-                        key={`${pageLabel}-${pageNumber}`}
-                        className={`rounded-2xl border p-4 ${dark ? "bg-[#09111d] border-white/[0.08]" : "bg-white border-gray-200"}`}
-                      >
-                        <div className="flex items-center justify-between gap-3 mb-2">
-                          <div>
-                            <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${dark ? "text-gray-500" : "text-gray-500"}`}>{pageLabel}</p>
-                            <p className={`text-sm font-bold mt-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Page {pageNumber}</p>
-                          </div>
-                          <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${dark ? "bg-white/[0.05] text-gray-300" : "bg-gray-100 text-gray-600"}`}>
-                            Preview
-                          </span>
-                        </div>
-                        <div className={`rounded-xl border px-3 py-3 text-sm leading-6 whitespace-pre-wrap ${dark ? "border-white/[0.08] bg-white/[0.02] text-gray-200" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
-                          {snippet || "Page content will appear here after PDF extraction."}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
 
