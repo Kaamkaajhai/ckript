@@ -1,6 +1,7 @@
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import scriptOriginal from "../assets/ckript-landing/script-original.png";
 import filmClean from "../assets/ckript-landing/film-clean.png";
 import scriptImg from "../assets/ckript-landing/script-img.png";
@@ -380,9 +381,9 @@ export default function Landing() {
   const stepsStageRef = useRef(null);
   const [activeFeat, setActiveFeat] = useState(0);
   const { user } = useContext(AuthContext);
+  const { openAuthModal } = useAuthModal();
 
   const primaryPath = user?.role === "reader" ? "/reader" : "/dashboard";
-  const signInTo = user ? primaryPath : ROUTES.login;
   const signInLabel = user ? (user.role === "reader" ? "Reader" : "Dashboard") : "Sign in";
 
   useStageFit(heroWrapRef, heroStageRef, 1586, 992);
@@ -428,7 +429,11 @@ export default function Landing() {
               <Link to={ROUTES.pro} className="hov-red" style={navLink}>For Producers</Link>
               <Link to={ROUTES.about} className="hov-red" style={navLink}>About</Link>
             </nav>
-            <Link to={signInTo} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
+            {user ? (
+              <Link to={primaryPath} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
+            ) : (
+              <button type="button" onClick={() => openAuthModal()} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, background: "none", border: "none", padding: 0, cursor: "pointer", transition: "color .22s ease" }}>{signInLabel}</button>
+            )}
           </div>
 
           {/* Hero content */}
