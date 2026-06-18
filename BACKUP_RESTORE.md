@@ -6,7 +6,7 @@ This project now supports one-command backups for both:
 
 ## Prerequisites
 
-- Node.js installed
+- Node.js installed.
 - Git installed and available in PATH
 - MongoDB Database Tools installed and available in PATH:
   - `mongodump`
