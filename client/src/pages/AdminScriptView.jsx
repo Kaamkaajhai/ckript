@@ -51,7 +51,6 @@ const SERVICE_LABELS = {
   aiTrailer: "AI Concept Trailer",
   evaluation: "Professional Evaluation",
 };
-
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
@@ -62,6 +61,11 @@ import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import {
+  getScriptCompletionFuturePlans,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
 import {
   attachAdminScriptAccessHeader,
   clearAdminScriptAccess,
@@ -369,6 +373,22 @@ const AdminScriptView = () => {
   const themes = Array.isArray(script?.classification?.themes) ? script.classification.themes.filter(Boolean) : [];
   const settings = Array.isArray(script?.classification?.settings) ? script.classification.settings.filter(Boolean) : [];
   const roles = Array.isArray(script?.roles) ? script.roles.filter((role) => role?.characterName || role?.type || role?.description) : [];
+  const filmDetails = script?.filmDetails || {};
+  const creativeRoleLabels = [
+    filmDetails.wantToDirect ? "Director" : null,
+    filmDetails.wantToProduce ? "Producer" : null,
+  ].filter(Boolean);
+  const dialoguesLabel = filmDetails.dialoguesPresent === "yes"
+    ? "Full Dialogues"
+    : filmDetails.dialoguesPresent === "partial"
+      ? "Partial Dialogues"
+      : filmDetails.dialoguesPresent === "no"
+        ? "Action / Direction Only"
+        : "-";
+  const filmLanguageLabel = String(filmDetails.filmLanguage || "").trim() || "-";
+  const completionStatusLabel = getScriptCompletionStatusLabel(script);
+  const completionProgressText = getScriptCompletionProgressText(script);
+  const completionFuturePlans = getScriptCompletionFuturePlans(script);
   const coverImageUrl = resolveMediaUrl(script?.coverImage || "");
   const trailerThumbnailUrl = resolveMediaUrl(script?.trailerThumbnail || "");
   const trailerVideoUrl = resolveMediaUrl(script?.uploadedTrailerUrl || script?.trailerUrl || "");
@@ -1091,6 +1111,64 @@ const AdminScriptView = () => {
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
               <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45 mb-2">Published</p>
               <p className="text-sm text-white/90">{formatDateTime(script?.publishedAt)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Script Completion</p>
+            <p className="text-xs text-white/60">Completion status and remaining work submitted by the writer.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Status</p>
+              <p className="text-sm font-semibold text-white/90">{completionStatusLabel}</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Progress</p>
+              <p className="text-sm font-semibold text-white/90">{completionProgressText || "-"}</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Future Plans</p>
+              <p className="text-sm text-white/90 whitespace-pre-wrap">{completionFuturePlans || "Not provided"}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Film Production Details</p>
+            <p className="text-xs text-white/60">Writer involvement, language, and dialogue setup submitted with the project.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Your Creative Role</p>
+              <div className="flex flex-wrap gap-2">
+                {creativeRoleLabels.length > 0 ? (
+                  creativeRoleLabels.map((label) => (
+                    <span key={label} className="px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-xs text-white/85">
+                      {label}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-white/60">Not provided</span>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Film Language</p>
+              <p className="text-sm text-white/90">{filmLanguageLabel}</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Dialogues</p>
+              <p className="text-sm text-white/90">{dialoguesLabel}</p>
             </div>
           </div>
         </div>

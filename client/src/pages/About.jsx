@@ -217,6 +217,7 @@ const About = () => {
 
 					<div className="font-body flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/50">
 						<Link to="/about" className="transition-colors hover:text-white">About</Link>
+						<Link to="/pricing" className="transition-colors hover:text-white">Pricing</Link>
 						<Link to="/contact" className="transition-colors hover:text-white">Contact</Link>
 						<Link to="/privacy-policy" className="transition-colors hover:text-white">Privacy Policy</Link>
 						<Link to="/terms-of-service" className="transition-colors hover:text-white">Terms of Service</Link>

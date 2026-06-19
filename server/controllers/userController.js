@@ -7,6 +7,7 @@ import Notification from "../models/Notification.js";
 import { sendOTPEmail } from "../utils/emailService.js";
 import {
   INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE,
+  hasActiveFilmIndustryProfessionalAccess,
   isIndustryProfessionalWithPersonalEmail,
 } from "../utils/industryAccess.js";
 import {
@@ -841,7 +842,11 @@ export const getUserProfile = async (req, res) => {
       }
 
       const isWriterProfile = ["writer", "creator"].includes(String(user?.role || "").toLowerCase());
-      if (isWriterProfile && isIndustryProfessionalWithPersonalEmail(currentUser || req.user)) {
+      if (
+        isWriterProfile &&
+        isIndustryProfessionalWithPersonalEmail(currentUser || req.user) &&
+        !hasActiveFilmIndustryProfessionalAccess(currentUser || req.user)
+      ) {
         return res.status(403).json({ message: INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE });
       }
       if (isWriterProfile) {

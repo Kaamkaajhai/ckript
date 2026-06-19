@@ -123,7 +123,7 @@ const SkeletonCard = ({ dark }) => (
 );
 
 /* ══════════════════════════════════════════════════════
-   MAIN COMPONENT — Top List (merged)
+   MAIN COMPONENT — Top Script (merged)
 ══════════════════════════════════════════════════════ */
 const TopList = () => {
   const { isDarkMode: dark } = useDarkMode();
@@ -247,7 +247,7 @@ const TopList = () => {
           <div className="min-w-0">
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-1 h-6 rounded-full bg-gradient-to-b from-[#1e3a5f] to-[#3a7bd5]" />
-              <h1 className={`text-2xl font-extrabold tracking-tight ${t.header}`}>Top List</h1>
+              <h1 className={`text-2xl font-extrabold tracking-tight ${t.header}`}>Top Script</h1>
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
             </div>
             <p className={`text-[13px] min-[420px]:max-[640px]:text-[12px] font-medium ml-[18px] min-[420px]:max-[640px]:ml-[14px] ${t.sub}`}>{activeTab.desc}</p>

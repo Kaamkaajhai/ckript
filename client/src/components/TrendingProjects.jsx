@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
-import { isIndustryProfessionalWithPersonalEmail } from "../utils/industryAccess";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  isIndustryProfessionalWithPersonalEmail,
+} from "../utils/industryAccess";
 import ScriptCard from "./ScriptCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 
@@ -74,7 +77,9 @@ const TrendingProjects = () => {
   }, [activeTab]);
 
   const hero = featuredScripts[heroIdx] || featuredScripts[0];
-  const isBlockedViewer = isIndustryProfessionalWithPersonalEmail(user);
+  const isBlockedViewer =
+    isIndustryProfessionalWithPersonalEmail(user) &&
+    !hasActiveFilmIndustryProfessionalAccess(user);
   const handleScriptClick = (event) => {
     if (!isBlockedViewer) return;
     event.preventDefault();

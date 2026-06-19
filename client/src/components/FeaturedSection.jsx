@@ -5,7 +5,10 @@ import { Sparkles, TrendingUp, Eye, Star, Clock, Zap, Crown, Award } from "lucid
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
-import { isIndustryProfessionalWithPersonalEmail } from "../utils/industryAccess";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  isIndustryProfessionalWithPersonalEmail,
+} from "../utils/industryAccess";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 
 const FeaturedSection = () => {
@@ -83,7 +86,9 @@ const FeaturedSection = () => {
 
   const hero = scripts[heroIdx] || scripts[0];
   const isSponsored = hero.premium || hero.isFeatured;
-  const isBlockedViewer = isIndustryProfessionalWithPersonalEmail(user);
+  const isBlockedViewer =
+    isIndustryProfessionalWithPersonalEmail(user) &&
+    !hasActiveFilmIndustryProfessionalAccess(user);
   const handleScriptClick = (event) => {
     if (!isBlockedViewer) return;
     event.preventDefault();

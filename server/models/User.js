@@ -266,6 +266,30 @@ const userSchema = new mongoose.Schema({
     plan: { type: String, enum: ["free", "pro", "enterprise"], default: "free" },
     expiresAt: { type: Date },
     scriptScoreCredits: { type: Number, default: 0 },
+    accessTier: {
+      type: String,
+      enum: ["none", "film_industry_professional"],
+      default: "none",
+    },
+    accessStatus: {
+      type: String,
+      enum: ["inactive", "trial", "active", "expired", "cancelled"],
+      default: "inactive",
+    },
+    accessActivatedAt: { type: Date },
+    accessExpiresAt: { type: Date },
+    checkoutMode: {
+      type: String,
+      enum: ["test", "live"],
+      default: "test",
+    },
+    checkoutProvider: {
+      type: String,
+      enum: ["none", "razorpay", "razorpay_test", "manual"],
+      default: "none",
+    },
+    checkoutReference: { type: String },
+    sourcePath: { type: String },
   },
   // Actor-specific fields for Talent Attachment
   actorProfile: {

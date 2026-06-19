@@ -312,6 +312,7 @@ const ContactPage = () => {
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-6 text-xs sm:text-sm text-white/40">
             <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
             <Link to="/terms-of-service" className="hover:text-white transition-colors">T and C</Link>
+            <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link to="/contact" className="hover:text-white transition-colors">Contact</Link>
           </div>
         </div>
