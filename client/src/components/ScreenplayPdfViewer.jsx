@@ -223,7 +223,7 @@ export default function ScreenplayPdfViewer({
           }
 
           const response = await fetch(pdfUrl, {
-            credentials: "include",
+            credentials: requestUrl.includes("/api/") ? "include" : "omit",
             headers,
           });
           if (!response.ok) {
@@ -292,7 +292,9 @@ export default function ScreenplayPdfViewer({
 
   const usingPdfRenderer = Boolean(pdfDocument && !pdfError);
   const totalPages = usingPdfRenderer ? previewPages.length : Math.max(previewPages.length, 1);
-  const usingNativePdfRenderer = !usingPdfRenderer && Boolean(nativePdfUrl);
+  // Only use native <object> renderer for API proxy URLs we control — external URLs (Cloudinary, etc.)
+  // served with Content-Disposition:attachment trigger an unwanted browser download dialog.
+  const usingNativePdfRenderer = !usingPdfRenderer && Boolean(nativePdfUrl) && String(nativePdfUrl).includes("/api/");
   const hasPager = showPager && previewPages.length > 1;
   const activePreviewEntry = previewPages[Math.min(activePageIndex, Math.max(previewPages.length - 1, 0))];
   const activePreviewPageNumber = usingPdfRenderer

@@ -38,7 +38,7 @@ import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
-import { hasBusinessEmail } from "../utils/industryAccess";
+import { hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -189,7 +189,7 @@ const ScriptDetail = () => {
     !script?.isCreator &&
     user?._id &&
     ["investor", "producer", "director", "industry", "professional"].includes(String(user?.role || "").toLowerCase()) &&
-    hasBusinessEmail(user?.email)
+    hasBusinessEmail(user?.email) || hasActiveFilmIndustryProfessionalAccess(user)
   );
   const writerContact = script?.writerContact || {};
   const writerLinks = writerContact?.links || script?.creator?.writerProfile?.links || {};
@@ -1308,7 +1308,7 @@ const ScriptDetail = () => {
     { id: "classification", label: "Classification" },
     { id: "evaluation", label: "Evaluation" },
     { id: "roles", label: "Roles" },
-    { id: "synopsis", label: "Viewable Script" },
+    ...(hasViewableScript ? [{ id: "synopsis", label: "Viewable Script" }] : []),
     ...(canViewFullScript && (hasScriptTextContent || hasUploadedScriptPdf)
       ? [{ id: "content", label: isOwner ? "My Script" : "Full Script" }]
       : []),

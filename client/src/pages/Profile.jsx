@@ -16,7 +16,7 @@ import PasswordInput from "../components/PasswordInput";
 import { applyLanguagePreference, getBackendLanguageValue, getProfileLanguageValue } from "../utils/languagePreference";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
-import { hasBusinessEmail } from "../utils/industryAccess";
+import { hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -554,7 +554,7 @@ const Profile = () => {
     !isOwnProfile &&
     currentUser?._id &&
     ["investor", "producer", "director", "industry", "professional"].includes(String(currentUser?.role || "").toLowerCase()) &&
-    hasBusinessEmail(currentUser?.email)
+    hasBusinessEmail(currentUser?.email) || hasActiveFilmIndustryProfessionalAccess(currentUser)
   );
   const connectionsLabel = connectionsType === "followers" ? "Followers" : "Following";
   const connectionList =

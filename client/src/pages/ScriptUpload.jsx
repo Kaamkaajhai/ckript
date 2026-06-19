@@ -8,6 +8,7 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { formatCurrency } from "../utils/currency";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
+import ScreenplayViewer from "../components/ScreenplayViewer";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
@@ -443,6 +444,7 @@ const ScriptUpload = () => {
   const [textContent, setTextContent] = useState("");
   const [pdfPageTexts, setPdfPageTexts] = useState([]);
   const [pdfTextExtracted, setPdfTextExtracted] = useState(false);
+  const [scriptContentEditOpen, setScriptContentEditOpen] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
   const [creditsBalance, setCreditsBalance] = useState(0);
@@ -491,7 +493,7 @@ const ScriptUpload = () => {
     format: "feature",
     formatOther: "",
     pageCount: "",
-    viewableScript: false,
+    viewableScript: true,
     previewWindowMode: "pages",
     previewWindowStart: "1",
     previewWindowEnd: "8",
@@ -603,10 +605,6 @@ const ScriptUpload = () => {
   };
 
   const buildScriptPreviewPayload = (source = formData) => {
-    if (!source.viewableScript) {
-      return null;
-    }
-
     const mode = "pages";
     const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
     const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
@@ -1690,6 +1688,7 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        viewableScript: Boolean(formData.viewableScript),
         scriptPreviewAccess: buildScriptPreviewPayload(formData),
         scriptCompletion: buildScriptCompletionPayload(formData),
         scriptPreviewPageTexts: pdfPageTexts,
@@ -2084,37 +2083,6 @@ const ScriptUpload = () => {
                   <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex flex-col gap-0.5">
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Viewable Script</h3>
-                        <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          Turn this on if you want buyers to see a preview window from your uploaded script.
-                        </p>
-                      </div>
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${formData.viewableScript ? (isDarkMode ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200") : (isDarkMode ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200")}`}>
-                        {formData.viewableScript ? "Enabled" : "Hidden"}
-                      </span>
-                    </div>
-                    <label className={`mt-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${isDarkMode ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
-                      <input
-                        type="checkbox"
-                        name="viewableScript"
-                        checked={Boolean(formData.viewableScript)}
-                        onChange={handleChange}
-                        className="h-4 w-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
-                      />
-                      <span className={`text-sm font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
-                        Add a viewable script preview
-                      </span>
-                    </label>
-                    {!formData.viewableScript && (
-                      <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${isDarkMode ? "border-white/10 bg-white/[0.03] text-gray-400" : "border-gray-200 bg-white text-gray-600"}`}>
-                        No preview will be shown until you enable the viewable script option.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`} style={formData.viewableScript ? undefined : { display: "none" }}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex flex-col gap-0.5">
                         <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
                         <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
                           Set the exact pages film professionals can view before unlocking the rest.
@@ -2151,15 +2119,38 @@ const ScriptUpload = () => {
                     </div>
 
                     <div className={`mt-4 rounded-xl px-4 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                      <p className={`text-sm font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
-                        Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
-                      </p>
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                        Admin review will also show this exact page range before approval.
-                      </p>
+                      {formData.viewableScript ? (
+                        <>
+                          <p className={`text-sm font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+                            Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
+                          </p>
+                          <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                            Admin review will also show this exact page range before approval.
+                          </p>
+                        </>
+                      ) : (
+                        <p className={`text-sm font-medium ${isDarkMode ? "text-yellow-400/80" : "text-yellow-700"}`}>
+                          Preview is hidden — producers will not see any pages before purchasing.
+                        </p>
+                      )}
                     </div>
+
+                    <label className="mt-4 flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={!formData.viewableScript}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, viewableScript: !e.target.checked }))
+                        }
+                        className="w-4 h-4 rounded border-gray-300 accent-yellow-500 cursor-pointer"
+                      />
+                      <span className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                        Hide preview from producers
+                      </span>
+                    </label>
                   </div>
 
+                  {formData.viewableScript && (
                   <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
@@ -2182,6 +2173,7 @@ const ScriptUpload = () => {
                       fallbackText={pdfPageTexts.join("\n\n")}
                     />
                   </div>
+                  )}
 
                   <div>
                     <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
@@ -2695,16 +2687,44 @@ const ScriptUpload = () => {
 
                     {(editId || fromDraft || textContent.trim()) && (
                       <div className="mt-5 space-y-2">
-                        <label className={`block text-sm ${labelCls} font-medium`}>
-                          Script Content
-                        </label>
-                        <textarea
-                          value={textContent}
-                          onChange={(e) => setTextContent(e.target.value)}
-                          rows={8}
-                          placeholder="Paste or edit your script content here."
-                          className={`w-full rounded-xl border px-3 py-2 text-sm leading-6 outline-none transition ${isDarkMode ? "bg-[#0f1e30] border-white/[0.08] text-gray-200 placeholder:text-gray-500 focus:border-white/30" : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/40"}`}
-                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <label className={`block text-sm ${labelCls} font-medium`}>
+                            Script Content
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setScriptContentEditOpen((v) => !v)}
+                            className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition ${isDarkMode ? "border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 bg-white/[0.03]" : "border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 bg-gray-50"}`}
+                          >
+                            {scriptContentEditOpen ? "Done editing" : "Edit"}
+                          </button>
+                        </div>
+
+                        {scriptContentEditOpen ? (
+                          <textarea
+                            value={textContent}
+                            onChange={(e) => setTextContent(e.target.value)}
+                            rows={14}
+                            placeholder="Paste or edit your script content here."
+                            className={`w-full rounded-xl border px-3 py-2 text-sm font-mono leading-6 outline-none transition ${isDarkMode ? "bg-[#0f1e30] border-white/[0.08] text-gray-200 placeholder:text-gray-500 focus:border-white/30" : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/40"}`}
+                          />
+                        ) : (
+                          <div className={`rounded-xl border overflow-hidden ${isDarkMode ? "border-white/[0.08] bg-[#0f1e30]" : "border-gray-200 bg-white"}`}>
+                            <div className="px-5 py-5 max-h-72 overflow-y-auto">
+                              {textContent.trim() ? (
+                                <ScreenplayViewer
+                                  text={formatScreenplayLikeText(textContent)}
+                                  className={isDarkMode ? "text-gray-200" : "text-gray-900"}
+                                />
+                              ) : (
+                                <p className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                                  No content yet. Upload a PDF to auto-extract.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
                           This content is used when publishing updates. Uploading a new PDF will auto-fill this field.
                         </p>
