@@ -138,19 +138,46 @@ const FallbackPage = ({ pageNumber, totalPages, text }) => {
   );
 };
 
+const NativePdfPage = ({ sourceUrl, pageNumber }) => {
+  const pageSrc = sourceUrl ? `${sourceUrl}#page=${pageNumber}&zoom=page-width&toolbar=0&navpanes=0&scrollbar=0` : "";
+
+  return (
+    <div className="mx-auto w-full max-w-[794px]">
+      <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(0,0,0,0.14)]">
+        <object
+          data={pageSrc}
+          type="application/pdf"
+          className="block w-full"
+          style={{ minHeight: "1120px" }}
+        >
+          <div className="px-6 py-10 text-center text-sm text-slate-500">
+            Your browser cannot display PDFs inline. Please use the Download button.
+          </div>
+        </object>
+      </div>
+    </div>
+  );
+};
+
 export default function ScreenplayPdfViewer({
   pdfUrl = "",
+  pdfFile = null,
   title = "Script",
+  showHeader = true,
+  showPager = true,
   startPage = 1,
   endPage = 1,
   fallbackPages = [],
   fallbackText = "",
   onDownload,
+  showAllPages = false,
   className = "",
 }) {
   const [pdfDocument, setPdfDocument] = useState(null);
   const [pdfError, setPdfError] = useState("");
   const [loading, setLoading] = useState(Boolean(pdfUrl));
+  const [nativePdfUrl, setNativePdfUrl] = useState("");
+  const [activePageIndex, setActivePageIndex] = useState(0);
   const requestedPages = useMemo(() => {
     const safeStart = Math.max(1, Number(startPage || 1));
     const safeEnd = Math.max(safeStart, Number(endPage || safeStart));
@@ -169,59 +196,133 @@ export default function ScreenplayPdfViewer({
     setPdfError("");
     setPdfDocument(null);
 
-    if (!pdfUrl) {
+    if (!pdfUrl && !pdfFile) {
       setLoading(false);
       return undefined;
     }
 
     setLoading(true);
-    const loadingTask = getDocument({
-      url: pdfUrl,
-      withCredentials: false,
-    });
+    let activeLoadingTask = null;
 
-    loadingTask.promise
-      .then((doc) => {
+    const loadPdf = async () => {
+      try {
+        let data = null;
+        if (pdfFile) {
+          data = new Uint8Array(await pdfFile.arrayBuffer());
+        } else if (pdfUrl) {
+          const requestUrl = String(pdfUrl || "");
+          const headers = {};
+          if (requestUrl.includes("/api/")) {
+            try {
+              const stored = typeof window !== "undefined" ? window.localStorage.getItem("user") : "";
+              const token = stored ? JSON.parse(stored)?.token : "";
+              if (token) headers.Authorization = `Bearer ${token}`;
+            } catch {
+              // Ignore token parsing issues and fall back to unauthenticated fetch.
+            }
+          }
+
+          const response = await fetch(pdfUrl, {
+            credentials: "include",
+            headers,
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch PDF preview (${response.status})`);
+          }
+          data = new Uint8Array(await response.arrayBuffer());
+        }
+
+        if (cancelled || !data) return;
+
+        activeLoadingTask = getDocument({ data });
+        const doc = await activeLoadingTask.promise;
         if (cancelled) {
           doc.destroy();
           return;
         }
         setPdfDocument(doc);
-        setLoading(false);
-      })
-      .catch((error) => {
+      } catch (error) {
         if (cancelled) return;
         console.error("[ScreenplayPdfViewer] PDF load failed:", error);
         setPdfError(error?.message || "Failed to load PDF preview");
-        setLoading(false);
-      });
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadPdf();
 
     return () => {
       cancelled = true;
-      loadingTask.destroy();
+      activeLoadingTask?.destroy?.();
     };
-  }, [pdfUrl]);
+  }, [pdfFile, pdfUrl]);
+
+  useEffect(() => {
+    if (pdfFile) {
+      const objectUrl = URL.createObjectURL(pdfFile);
+      setNativePdfUrl(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
+
+    setNativePdfUrl(pdfUrl || "");
+    return undefined;
+  }, [pdfFile, pdfUrl]);
 
   const previewPages = useMemo(() => {
     if (pdfDocument && !pdfError) {
+      if (showAllPages) {
+        return Array.from({ length: pdfDocument.numPages }, (_, index) => index + 1);
+      }
       return clampPageRange(requestedPages.safeStart, requestedPages.safeEnd, pdfDocument.numPages);
+    }
+    if (showAllPages && fallbackPages.length) {
+      return fallbackPages.map((page, index) => ({
+        pageNumber: Number(page?.pageNumber || index + 1),
+        text: String(page?.text || "").trim(),
+      }));
     }
     return fallbackPreviewPages.map((page, index) => ({
       pageNumber: Number(page?.pageNumber || requestedPages.safeStart + index),
       text: String(page?.text || "").trim(),
     }));
-  }, [fallbackPreviewPages, pdfDocument, pdfError, requestedPages.safeEnd, requestedPages.safeStart]);
+  }, [fallbackPages, fallbackPreviewPages, pdfDocument, pdfError, requestedPages.safeEnd, requestedPages.safeStart, showAllPages]);
 
   const usingPdfRenderer = Boolean(pdfDocument && !pdfError);
   const totalPages = usingPdfRenderer ? previewPages.length : Math.max(previewPages.length, 1);
+  const usingNativePdfRenderer = !usingPdfRenderer && Boolean(nativePdfUrl);
+  const hasPager = showPager && previewPages.length > 1;
+  const activePreviewEntry = previewPages[Math.min(activePageIndex, Math.max(previewPages.length - 1, 0))];
+  const activePreviewPageNumber = usingPdfRenderer
+    ? Number(activePreviewEntry || requestedPages.safeStart)
+    : Number(activePreviewEntry?.pageNumber || requestedPages.safeStart);
+  const activePreviewText = usingPdfRenderer
+    ? ""
+    : String(activePreviewEntry?.text || "").trim();
+  const visiblePages = hasPager ? [activePreviewEntry].filter(Boolean) : previewPages;
+
+  useEffect(() => {
+    setActivePageIndex(0);
+  }, [pdfDocument, pdfError, fallbackPages, fallbackText, pdfFile, pdfUrl, showAllPages, startPage, endPage]);
+
+  useEffect(() => {
+    if (!hasPager) return undefined;
+    const maxIndex = Math.max(previewPages.length - 1, 0);
+    if (activePageIndex > maxIndex) {
+      setActivePageIndex(maxIndex);
+    }
+    return undefined;
+  }, [activePageIndex, hasPager, previewPages.length]);
 
   return (
     <div className={className}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+      {showHeader && <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-slate-500" />
-            <h3 className="text-lg font-extrabold tracking-tight text-slate-900">Viewable Script</h3>
+            <h3 className="text-lg font-extrabold tracking-tight text-slate-900">{title}</h3>
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {requestedPages.safeStart === requestedPages.safeEnd
@@ -240,7 +341,7 @@ export default function ScreenplayPdfViewer({
             Download Preview
           </button>
         )}
-      </div>
+      </div>}
 
       {loading && (
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-[0_18px_48px_rgba(0,0,0,0.10)]">
@@ -258,20 +359,50 @@ export default function ScreenplayPdfViewer({
         </div>
       )}
 
-      {previewPages.length ? (
-        <div className="space-y-8">
-          {usingPdfRenderer
-            ? previewPages.map((pageNumber) => (
-                <PdfPage key={pageNumber} pdfDocument={pdfDocument} pageNumber={pageNumber} />
-              ))
-            : previewPages.map((page, index) => (
-                <FallbackPage
-                  key={`${page.pageNumber || index}-${index}`}
-                  pageNumber={page.pageNumber || requestedPages.safeStart + index}
-                  totalPages={totalPages}
-                  text={page.text}
-                />
-              ))}
+      {visiblePages.length ? (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+            <button
+              type="button"
+              onClick={() => setActivePageIndex((index) => Math.max(0, index - 1))}
+              disabled={!hasPager || activePageIndex === 0}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
+            >
+              <span className="!text-white">Prev</span>
+            </button>
+            <div className="text-center">
+              <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500 font-bold">Preview Page</p>
+              <p className="text-sm font-semibold text-slate-900 mt-1">
+                {activePreviewPageNumber} / {totalPages}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivePageIndex((index) => Math.min(Math.max(previewPages.length - 1, 0), index + 1))}
+              disabled={!hasPager || activePageIndex >= previewPages.length - 1}
+              className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
+            >
+              <span className="!text-white">Next</span>
+            </button>
+          </div>
+
+          {usingPdfRenderer ? (
+            <PdfPage
+              pdfDocument={pdfDocument}
+              pageNumber={activePreviewPageNumber}
+            />
+          ) : usingNativePdfRenderer ? (
+            <NativePdfPage
+              sourceUrl={nativePdfUrl}
+              pageNumber={activePreviewPageNumber}
+            />
+          ) : (
+            <FallbackPage
+              pageNumber={activePreviewPageNumber}
+              totalPages={totalPages}
+              text={activePreviewText}
+            />
+          )}
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-[0_18px_48px_rgba(0,0,0,0.10)]">

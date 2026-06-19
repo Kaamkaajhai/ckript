@@ -7,6 +7,7 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { formatCurrency } from "../utils/currency";
+import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
@@ -218,8 +219,27 @@ const STEPS = [
   { num: 1, label: "Upload", shortLabel: "Upload", desc: "Files" },
   { num: 2, label: "Basics", shortLabel: "Basic", desc: "Essentials" },
   { num: 3, label: "Classify", shortLabel: "Class", desc: "Tags & tone" },
-  { num: 4, label: "Publish", shortLabel: "Publish", desc: "Plan & pricing" },
-  { num: 5, label: "Review", shortLabel: "Review", desc: "Legal & checkout" },
+  { num: 4, label: "Film Info", shortLabel: "Film", desc: "Direction & language" },
+  { num: 5, label: "Publish", shortLabel: "Publish", desc: "Plan & pricing" },
+  { num: 6, label: "Review", shortLabel: "Review", desc: "Legal & checkout" },
+];
+
+const FILM_LANGUAGE_OPTIONS = [
+  "Hindi", "English", "Hinglish", "Urdu", "Tamil", "Telugu", "Marathi",
+  "Bengali", "Kannada", "Malayalam", "Punjabi", "Gujarati", "Odia", "Other",
+];
+
+const SCRIPT_STYLE_OPTIONS = [
+  { id: "Professional", desc: "Industry-standard structure", path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
+  { id: "Modern", desc: "Contemporary voice & fresh approach", path: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
+  { id: "Clean", desc: "Minimal prose, tight & uncluttered", path: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" },
+  { id: "Concise", desc: "Every scene earns its place", path: "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" },
+  { id: "Commercial", desc: "Broad appeal, market-friendly", path: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+  { id: "Realistic", desc: "Grounded characters & authentic dialogue", path: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" },
+  { id: "Poetic", desc: "Lyrical prose & metaphorical language", path: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
+  { id: "Experimental", desc: "Non-linear, unconventional structure", path: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5" },
+  { id: "Dialogue-Heavy", desc: "Character-driven through conversation", path: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" },
+  { id: "Visual-Heavy", desc: "Scene-led, strong visual prose", path: "M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
 ];
 
 const LEGAL_AGREEMENT = SCRIPT_UPLOAD_TERMS_TEXT;
@@ -418,6 +438,7 @@ const ScriptUpload = () => {
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedPdfFile, setUploadedPdfFile] = useState(null);
   const [existingUploadedFile, setExistingUploadedFile] = useState(null);
   const [textContent, setTextContent] = useState("");
   const [pdfPageTexts, setPdfPageTexts] = useState([]);
@@ -509,6 +530,16 @@ const ScriptUpload = () => {
   // Tags as comma-separated input
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
+
+  // Film production details (step 4)
+  const [filmDetails, setFilmDetails] = useState({
+    filmLanguage: "",
+    filmLanguageCustom: "",
+    dialoguesPresent: "yes",
+    wantToDirect: false,
+    wantToProduce: false,
+    scriptStyle: [],
+  });
 
   // AI metadata generation (per-section: "logline" | "synopsis" | "roles")
   const [metaLoadingField, setMetaLoadingField] = useState("");
@@ -693,6 +724,15 @@ const ScriptUpload = () => {
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         });
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        if (data?.filmDetails) {
+          setFilmDetails({
+            filmLanguage: data.filmDetails.filmLanguage || "",
+            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+            wantToDirect: Boolean(data.filmDetails.wantToDirect),
+            wantToProduce: Boolean(data.filmDetails.wantToProduce),
+            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+          });
+        }
       } catch {
         // proceed normally
       } finally {
@@ -743,6 +783,15 @@ const ScriptUpload = () => {
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         }));
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        if (data?.filmDetails) {
+          setFilmDetails({
+            filmLanguage: data.filmDetails.filmLanguage || "",
+            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+            wantToDirect: Boolean(data.filmDetails.wantToDirect),
+            wantToProduce: Boolean(data.filmDetails.wantToProduce),
+            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+          });
+        }
         setFromDraft(true);
         setPurchasedServiceCredits({ evaluation: false, aiTrailer: false, spotlight: false });
       } catch {
@@ -939,6 +988,7 @@ const ScriptUpload = () => {
 
     setUploadProgress(0);
     setUploadedFile(null);
+    setUploadedPdfFile(file);
     setTextContent("");
     setPdfPageTexts([]);
     setFormData((prev) => ({ ...prev, pageCount: "" }));
@@ -946,6 +996,7 @@ const ScriptUpload = () => {
     setPdfTextExtracted(false);
     setIsExtracting(true);
     setError("");
+    const localPreviewUrl = URL.createObjectURL(file);
 
     // Simulate upload progress while we process
     const interval = setInterval(() => {
@@ -971,6 +1022,7 @@ const ScriptUpload = () => {
         name: file.name,
         size: file.size,
         url: data.fileUrl || "",
+        previewUrl: localPreviewUrl,
       });
       setPdfTextExtracted(Boolean(data.extractedTextAvailable));
       setPdfPageTexts(Array.isArray(data.pageTexts) ? data.pageTexts : []);
@@ -991,6 +1043,8 @@ const ScriptUpload = () => {
       }
     } catch (err) {
       clearInterval(interval);
+      URL.revokeObjectURL(localPreviewUrl);
+      setUploadedPdfFile(null);
       setPdfNotice("");
       setPdfTextExtracted(false);
       setError(err.response?.data?.message || "Failed to extract text from PDF.");
@@ -998,6 +1052,14 @@ const ScriptUpload = () => {
       setIsExtracting(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (uploadedFile?.previewUrl) {
+        URL.revokeObjectURL(uploadedFile.previewUrl);
+      }
+    };
+  }, [uploadedFile?.previewUrl]);
 
   // Handle drag and drop
   const handleDrop = (e) => {
@@ -1221,7 +1283,7 @@ const ScriptUpload = () => {
 
   // Handle agreement scroll
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== 6) return;
 
     const agreementElement = agreementRef.current;
     if (!agreementElement) return;
@@ -1356,10 +1418,14 @@ const ScriptUpload = () => {
         return true;
 
       case 3:
-        // Classify step is optional, but we can validate if needed
+        // Classify step is optional
         return true;
 
       case 4:
+        // Film Info step is optional — no required fields
+        return true;
+
+      case 5:
         {
           const rightsError = getRightsValidationMessage(buildRightsPayload());
           if (rightsError) {
@@ -1369,7 +1435,7 @@ const ScriptUpload = () => {
         }
         return true;
 
-      case 5:
+      case 6:
         {
           const rightsError = getRightsValidationMessage(buildRightsPayload());
           if (rightsError) {
@@ -1396,7 +1462,7 @@ const ScriptUpload = () => {
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
     if (!validateStep(step)) return;
-    if (step < 5) {
+    if (step < 6) {
       setStep(step + 1);
       setError("");
     }
@@ -1451,6 +1517,13 @@ const ScriptUpload = () => {
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
       };
 
       await api.post("/scripts/draft", payload);
@@ -1526,7 +1599,7 @@ const ScriptUpload = () => {
     }
 
     if (!isContentOnlyEditMode) {
-      if (!validateStep(5)) return;
+      if (!validateStep(6)) return;
 
       const isEditingExistingScript = Boolean(editId);
       if (!isEditingExistingScript) {
@@ -1621,6 +1694,13 @@ const ScriptUpload = () => {
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
         premium: isPremium && effectivePrice > 0,
         price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         // If this was created via the editor, attach the draftId so the backend updates/converts it
@@ -2031,6 +2111,29 @@ const ScriptUpload = () => {
                         Admin review will also show this exact page range before approval.
                       </p>
                     </div>
+                  </div>
+
+                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Viewable Script Preview</h3>
+                      </div>
+                    </div>
+                    <ScreenplayPdfViewer
+                      pdfFile={uploadedPdfFile}
+                      pdfUrl={uploadedFile?.previewUrl || uploadedFile?.url || existingUploadedFile?.url || ""}
+                      title={formData.title || "Script"}
+                      startPage={Number(formData.previewWindowStart || 1)}
+                      endPage={Number(formData.previewWindowEnd || 1)}
+                      fallbackPages={pdfPageTexts.slice(
+                        Math.max(0, Number(formData.previewWindowStart || 1) - 1),
+                        Math.max(0, Number(formData.previewWindowEnd || 1))
+                      ).map((pageText, index) => ({
+                        pageNumber: Number(formData.previewWindowStart || 1) + index,
+                        text: String(pageText || ""),
+                      }))}
+                      fallbackText={pdfPageTexts.join("\n\n")}
+                    />
                   </div>
 
                   <div>
@@ -2515,6 +2618,7 @@ const ScriptUpload = () => {
                             type="button"
                             onClick={() => {
                               setUploadedFile(null);
+                              setUploadedPdfFile(null);
                               setUploadProgress(0);
                               setTextContent("");
                               setPdfNotice("");
@@ -2791,8 +2895,203 @@ const ScriptUpload = () => {
                 </motion.div>
               )}
 
-              {/* ── Step 4: Services & Strategy ── */}
+              {/* ── Step 4: Film Info ── */}
               {step === 4 && (
+                <motion.div
+                  key="step-film-info"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
+                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style.</p>
+                  </div>
+
+                  {/* Director / Producer intent */}
+                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-4 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Your Creative Role</h3>
+                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Do you intend to take on additional production roles for this project?</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFilmDetails((fd) => ({ ...fd, wantToDirect: !fd.wantToDirect }))}
+                        className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails.wantToDirect
+                          ? isDarkMode ? "border-violet-500/50 bg-violet-500/10" : "border-violet-400 bg-violet-50"
+                          : isDarkMode ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${filmDetails.wantToDirect ? isDarkMode ? "bg-violet-500/20" : "bg-violet-100" : isDarkMode ? "bg-white/[0.05]" : "bg-gray-100"}`}>
+                          <svg className={`w-5 h-5 ${filmDetails.wantToDirect ? isDarkMode ? "text-violet-300" : "text-violet-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h7.5" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className={`text-sm font-bold ${filmDetails.wantToDirect ? isDarkMode ? "text-violet-200" : "text-violet-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Want to Direct</p>
+                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>I want to direct this script myself</p>
+                        </div>
+                        {filmDetails.wantToDirect && (
+                          <svg className={`w-4 h-4 ml-auto shrink-0 ${isDarkMode ? "text-violet-400" : "text-violet-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFilmDetails((fd) => ({ ...fd, wantToProduce: !fd.wantToProduce }))}
+                        className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails.wantToProduce
+                          ? isDarkMode ? "border-amber-500/50 bg-amber-500/10" : "border-amber-400 bg-amber-50"
+                          : isDarkMode ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${filmDetails.wantToProduce ? isDarkMode ? "bg-amber-500/20" : "bg-amber-100" : isDarkMode ? "bg-white/[0.05]" : "bg-gray-100"}`}>
+                          <svg className={`w-5 h-5 ${filmDetails.wantToProduce ? isDarkMode ? "text-amber-300" : "text-amber-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className={`text-sm font-bold ${filmDetails.wantToProduce ? isDarkMode ? "text-amber-200" : "text-amber-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Want to Produce</p>
+                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>I am also the producer of this project</p>
+                        </div>
+                        {filmDetails.wantToProduce && (
+                          <svg className={`w-4 h-4 ml-auto shrink-0 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Film Language */}
+                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Film Language</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {FILM_LANGUAGE_OPTIONS.map((lang) => (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => setFilmDetails((fd) => ({ ...fd, filmLanguage: fd.filmLanguage === lang ? "" : lang }))}
+                          className={chipCls(filmDetails.filmLanguage === lang)}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                    {filmDetails.filmLanguage === "Other" && (
+                      <input
+                        type="text"
+                        placeholder="Specify language..."
+                        value={filmDetails.filmLanguageCustom || ""}
+                        onChange={(e) => setFilmDetails((fd) => ({ ...fd, filmLanguageCustom: e.target.value }))}
+                        className={`${inputCls} mt-2`}
+                        maxLength={80}
+                      />
+                    )}
+                  </div>
+
+                  {/* Dialogues */}
+                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Dialogues</h3>
+                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Are written dialogues included in your script?</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: "yes", label: "Yes — Full Dialogues" },
+                        { value: "partial", label: "Partial — Some Dialogues" },
+                        { value: "no", label: "No — Action/Direction Only" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setFilmDetails((fd) => ({ ...fd, dialoguesPresent: opt.value }))}
+                          className={chipCls(filmDetails.dialoguesPresent === opt.value)}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Script Style */}
+                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-4 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Script Style</h3>
+                        <p className={`text-xs mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>How would you describe your writing approach? <span className={isDarkMode ? "text-gray-600" : "text-gray-400"}>(optional)</span></p>
+                      </div>
+                      {filmDetails.scriptStyle.length > 0 && (
+                        <span className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${isDarkMode ? "bg-indigo-500/15 text-indigo-300" : "bg-indigo-50 text-indigo-600 border border-indigo-200"}`}>
+                          {filmDetails.scriptStyle.length} selected
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SCRIPT_STYLE_OPTIONS.map(({ id, desc, path }) => {
+                        const isSel = filmDetails.scriptStyle.includes(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setFilmDetails((fd) => ({
+                              ...fd,
+                              scriptStyle: fd.scriptStyle.includes(id)
+                                ? fd.scriptStyle.filter((s) => s !== id)
+                                : [...fd.scriptStyle, id],
+                            }))}
+                            className={`flex flex-col gap-2 rounded-xl border p-3 text-left transition-all duration-150 ${
+                              isSel
+                                ? isDarkMode
+                                  ? "border-indigo-500/50 bg-indigo-500/[0.08]"
+                                  : "border-indigo-300 bg-indigo-50 shadow-sm"
+                                : isDarkMode
+                                  ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a] hover:bg-white/[0.02]"
+                                  : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSel ? isDarkMode ? "bg-indigo-500/25" : "bg-indigo-100" : isDarkMode ? "bg-white/[0.06]" : "bg-gray-100"}`}>
+                                <svg className={`w-3.5 h-3.5 ${isSel ? isDarkMode ? "text-indigo-300" : "text-indigo-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                                  <path d={path} />
+                                </svg>
+                              </div>
+                              {isSel && (
+                                <svg className={`w-3.5 h-3.5 ${isDarkMode ? "text-indigo-400" : "text-indigo-500"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                </svg>
+                              )}
+                            </div>
+                            <div>
+                              <p className={`text-xs font-semibold leading-tight ${isSel ? isDarkMode ? "text-indigo-200" : "text-indigo-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>{id}</p>
+                              <p className={`text-[10px] mt-0.5 leading-tight ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{desc}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      className="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ── Step 5: Services & Strategy ── */}
+              {step === 5 && (
                 <motion.div
                   key="step4"
                   initial={{ opacity: 0, x: -20 }}
@@ -3339,10 +3638,10 @@ const ScriptUpload = () => {
                 </motion.div>
               )}
 
-              {/* ── Step 5: Legal & Checkout ── */}
-              {step === 5 && (
+              {/* ── Step 6: Legal & Checkout ── */}
+              {step === 6 && (
                 <motion.div
-                  key="step5"
+                  key="step6"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}

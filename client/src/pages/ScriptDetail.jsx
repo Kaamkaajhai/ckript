@@ -284,6 +284,7 @@ const ScriptDetail = () => {
 
   const resolveImage = resolveMediaUrl;
 
+  const uploadedScriptPdfUrl = activeScriptId ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`) : "";
   const handlePrint = () => {
     const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
     if (!(typeof script?.textContent === "string" && script.textContent.trim()) && uploadedPdfUrl) {
@@ -353,9 +354,34 @@ const ScriptDetail = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleDownloadPreview = () => {
+  const handleDownloadPreview = async () => {
     const safeTitle = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
     if (!hasPreviewDownload) return;
+
+    if (uploadedScriptPdfUrl) {
+      try {
+        const stored = typeof window !== "undefined" ? window.localStorage.getItem("user") : "";
+        const token = stored ? JSON.parse(stored)?.token : "";
+        const response = await fetch(uploadedScriptPdfUrl, {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${safeTitle || "script"}_viewable_preview.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+          return;
+        }
+      } catch (error) {
+        console.error("Preview PDF download failed, falling back to generated preview:", error);
+      }
+    }
 
     const blob = buildPreviewPdfBlob({
       title: script?.title || "Script",
@@ -1214,6 +1240,15 @@ const ScriptDetail = () => {
   const normalizedScriptHtml = scriptRawContent.trimStart();
   const hasHtmlScriptContent = normalizedScriptHtml.startsWith("<");
   const formattedPlainScriptText = hasHtmlScriptContent ? "" : formatScreenplayLikeText(scriptRawContent);
+  const fullScriptSourceText = typeof script?.fullContent === "string" && script.fullContent.trim()
+    ? script.fullContent
+    : scriptRawContent;
+  const scriptPages = String(fullScriptSourceText || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split(/\n{2,}/)
+    .map((pageText) => String(pageText || "").trim())
+    .filter(Boolean);
   const heroImage = script.trailerThumbnail || script.coverImage || "";
   const resolvedHeroImage = resolveImage(heroImage);
   const showCoverPlaceholder = !resolvedHeroImage || coverError;
@@ -1249,6 +1284,7 @@ const ScriptDetail = () => {
   const evaluationPending = !score?.overall && (script?.evaluationStatus === "requested" || hasEvaluationService);
   const cl = script.classification || {};
   const ci = script.contentIndicators || {};
+  const fd = script.filmDetails || {};
   const completionLabel = getScriptCompletionStatusLabel(script);
   const completionProgress = getScriptCompletionProgressText(script);
   const completionFuturePlans = getScriptCompletionFuturePlans(script);
@@ -1996,6 +2032,9 @@ const ScriptDetail = () => {
                       { label: "Page Count", value: script.pageCount },
                       { label: "Budget Level", value: fmtBudget(script.budget) },
                       { label: "Published", value: formatDateTime(publishedAtValue) },
+                      { label: "Film Language", value: fd.filmLanguage },
+                      { label: "Dialogues", value: fd.dialoguesPresent === "yes" ? "Full Dialogues" : fd.dialoguesPresent === "partial" ? "Partial" : fd.dialoguesPresent === "no" ? "Action Only" : undefined },
+                      { label: "Writer's Role", value: [fd.wantToDirect && "Director", fd.wantToProduce && "Producer"].filter(Boolean).join(" & ") || undefined },
                     ]
                       .filter((i) => i.value && i.value !== "\u2014")
                       .map((item, idx) => (
@@ -2035,6 +2074,58 @@ const ScriptDetail = () => {
                     <p className={`text-sm ${t.muted}`}>
                       {isOwner ? "Add tones, themes, and settings when editing your script" : "Classification data hasn't been added yet"}
                     </p>
+                  </div>
+                )}
+
+                {/* Film Production Details */}
+                {(fd.filmLanguage || fd.dialoguesPresent || fd.wantToDirect || fd.wantToProduce || fd.scriptStyle?.length > 0) && (
+                  <div className="py-6 first:pt-0">
+                    <h3 className={`text-[13px] font-bold mb-4 ${t.title}`}>Film Production Details</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {fd.filmLanguage && (
+                        <div className={`rounded-xl border p-3.5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50"}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Film Language</p>
+                          <p className={`text-sm font-semibold ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}>{fd.filmLanguage}</p>
+                        </div>
+                      )}
+                      {fd.dialoguesPresent && (
+                        <div className={`rounded-xl border p-3.5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50"}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Dialogues</p>
+                          <p className={`text-sm font-semibold ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}>
+                            {fd.dialoguesPresent === "yes" ? "Full Dialogues Included" : fd.dialoguesPresent === "partial" ? "Partial Dialogues" : "Action / Direction Only"}
+                          </p>
+                        </div>
+                      )}
+                      {(fd.wantToDirect || fd.wantToProduce) && (
+                        <div className={`rounded-xl border p-3.5 sm:col-span-2 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50"}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Writer's Role</p>
+                          <div className="flex flex-wrap gap-2">
+                            {fd.wantToDirect && (
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${isDarkMode ? "bg-violet-500/10 border-violet-500/20 text-violet-300" : "bg-violet-50 border-violet-200 text-violet-700"}`}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h7.5" /></svg>
+                                Writer-Director
+                              </span>
+                            )}
+                            {fd.wantToProduce && (
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${isDarkMode ? "bg-amber-500/10 border-amber-500/20 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>
+                                Writer-Producer
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {fd.scriptStyle?.length > 0 && (
+                        <div className={`rounded-xl border p-3.5 sm:col-span-2 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50"}`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Script Style</p>
+                          <div className="flex flex-wrap gap-2">
+                            {fd.scriptStyle.map((s) => (
+                              <span key={s} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${isDarkMode ? "bg-white/[0.06] text-white/80 border-white/[0.08]" : "bg-gray-100 text-gray-700 border-gray-200"}`}>{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -2417,6 +2508,55 @@ const ScriptDetail = () => {
                         </div>
                       )}
 
+                      {/* ── Film Production Details (Admin View) ── */}
+                      {(fd.filmLanguage || fd.dialoguesPresent || fd.wantToDirect || fd.wantToProduce || fd.scriptStyle?.length > 0) && (
+                        <div className={`rounded-2xl border overflow-hidden ${t.card}`}>
+                          <div className={`flex items-center gap-2.5 px-5 py-3.5 border-b ${dk ? "border-white/[0.06]" : "border-gray-100"}`}>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-bold ${dk ? "bg-blue-400/10 border-blue-400/20 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h7.5" />
+                              </svg>
+                              Film Production Details
+                            </span>
+                          </div>
+                          <div className={`px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-3 ${dk ? "bg-[#0a1628]/40" : "bg-white"}`}>
+                            {fd.filmLanguage && (
+                              <div className={`rounded-xl p-3 border ${dk ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50"}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dk ? "text-white/30" : "text-gray-400"}`}>Language</p>
+                                <p className={`text-sm font-semibold ${dk ? "text-gray-100" : "text-gray-800"}`}>{fd.filmLanguage}</p>
+                              </div>
+                            )}
+                            {fd.dialoguesPresent && (
+                              <div className={`rounded-xl p-3 border ${dk ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50"}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dk ? "text-white/30" : "text-gray-400"}`}>Dialogues</p>
+                                <p className={`text-sm font-semibold ${dk ? "text-gray-100" : "text-gray-800"}`}>
+                                  {fd.dialoguesPresent === "yes" ? "Full" : fd.dialoguesPresent === "partial" ? "Partial" : "Action Only"}
+                                </p>
+                              </div>
+                            )}
+                            {(fd.wantToDirect || fd.wantToProduce) && (
+                              <div className={`rounded-xl p-3 border ${dk ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50"}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-1.5 ${dk ? "text-white/30" : "text-gray-400"}`}>Writer's Role</p>
+                                <div className="flex flex-col gap-1">
+                                  {fd.wantToDirect && <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md w-fit ${dk ? "bg-violet-500/15 text-violet-300" : "bg-violet-50 text-violet-700"}`}>Director</span>}
+                                  {fd.wantToProduce && <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md w-fit ${dk ? "bg-amber-500/15 text-amber-300" : "bg-amber-50 text-amber-700"}`}>Producer</span>}
+                                </div>
+                              </div>
+                            )}
+                            {fd.scriptStyle?.length > 0 && (
+                              <div className={`rounded-xl p-3 border col-span-2 sm:col-span-3 ${dk ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50"}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${dk ? "text-white/30" : "text-gray-400"}`}>Script Style</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {fd.scriptStyle.map((s) => (
+                                    <span key={s} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${dk ? "bg-white/[0.05] text-white/70 border-white/[0.08]" : "bg-gray-100 text-gray-700 border-gray-200"}`}>{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       {/* ── 4. Platform Editorial Sections ── */}
                       {(() => {
                         const ps = script.platformScore || {};
@@ -2602,7 +2742,19 @@ const ScriptDetail = () => {
                         <h2 className={`text-2xl font-bold tracking-tight mb-1 ${t.title}`}>{script.title}</h2>
                         {script.format && <p className={`text-[11px] font-bold uppercase tracking-widest ${t.muted}`}>{fmtFormat(script.format)}</p>}
                       </div>
-                      {hasHtmlScriptContent ? (
+                      {hasUploadedScriptPdf ? (
+                        <ScreenplayPdfViewer
+                          pdfUrl={uploadedScriptPdfUrl}
+                          title={script?.title || "Script"}
+                          showHeader={false}
+                          showAllPages
+                          fallbackPages={scriptPages.map((pageText, index) => ({
+                            pageNumber: index + 1,
+                            text: pageText,
+                          }))}
+                          fallbackText={formattedPlainScriptText || scriptRawContent}
+                        />
+                      ) : hasHtmlScriptContent ? (
                         <div className="script-content" dangerouslySetInnerHTML={{ __html: normalizedScriptHtml }} />
                       ) : (
                         <ScreenplayViewer text={formattedPlainScriptText || scriptRawContent} className={t.sub} />
@@ -2681,8 +2833,35 @@ const ScriptDetail = () => {
                 className={`rounded-xl border p-6 ${t.card}`}>
                 {script.previewExcerpt || script.scriptPreviewSummary ? (
                   <>
+                    {(fd.filmLanguage || fd.dialoguesPresent || fd.wantToDirect || fd.wantToProduce || fd.scriptStyle?.length > 0) && (
+                      <div className={`flex flex-wrap items-center gap-2 mb-4 pb-4 border-b ${t.divider}`}>
+                        {fd.filmLanguage && (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${isDarkMode ? "bg-blue-500/10 border-blue-500/20 text-blue-300" : "bg-blue-50 border-blue-200 text-blue-700"}`}>
+                            Lang: {fd.filmLanguage}
+                          </span>
+                        )}
+                        {fd.dialoguesPresent && (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${isDarkMode ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
+                            {fd.dialoguesPresent === "yes" ? "Full Dialogues" : fd.dialoguesPresent === "partial" ? "Partial Dialogues" : "Action Only"}
+                          </span>
+                        )}
+                        {fd.wantToDirect && (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${isDarkMode ? "bg-violet-500/10 border-violet-500/20 text-violet-300" : "bg-violet-50 border-violet-200 text-violet-700"}`}>
+                            Writer-Director
+                          </span>
+                        )}
+                        {fd.wantToProduce && (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${isDarkMode ? "bg-amber-500/10 border-amber-500/20 text-amber-300" : "bg-amber-50 border-amber-200 text-amber-700"}`}>
+                            Writer-Producer
+                          </span>
+                        )}
+                        {fd.scriptStyle?.map((s) => (
+                          <span key={s} className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold border ${isDarkMode ? "bg-white/[0.05] border-white/[0.08] text-gray-300" : "bg-gray-50 border-gray-200 text-gray-600"}`}>{s}</span>
+                        ))}
+                      </div>
+                    )}
                     <ScreenplayPdfViewer
-                      pdfUrl={uploadedScriptUrl}
+                      pdfUrl={uploadedScriptPdfUrl}
                       title={script?.title || "Script"}
                       startPage={previewStartPage}
                       endPage={previewEndPage}

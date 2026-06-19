@@ -1921,6 +1921,7 @@ export const updateScript = async (req, res) => {
       // Publishing layer
       targetIndustry,
       publishingDetails,
+      filmDetails,
     } = req.body;
 
     const collaboratorSubmittedContentRevision = !isOwner
@@ -2083,6 +2084,17 @@ export const updateScript = async (req, res) => {
       script.markModified("classification");
     } else if (!isContentOnlyCollaborator && genre) {
       script.genre = genre;
+    }
+
+    if (!isContentOnlyCollaborator && filmDetails) {
+      script.filmDetails = {
+        filmLanguage: String(filmDetails.filmLanguage || "").trim().slice(0, 100),
+        dialoguesPresent: ["yes", "no", "partial"].includes(filmDetails.dialoguesPresent) ? filmDetails.dialoguesPresent : (script.filmDetails?.dialoguesPresent || "yes"),
+        wantToDirect: Boolean(filmDetails.wantToDirect),
+        wantToProduce: Boolean(filmDetails.wantToProduce),
+        scriptStyle: Array.isArray(filmDetails.scriptStyle) ? filmDetails.scriptStyle.slice(0, 8) : (script.filmDetails?.scriptStyle || []),
+      };
+      script.markModified("filmDetails");
     }
 
     if (!isContentOnlyCollaborator && services) {
@@ -2397,7 +2409,8 @@ export const uploadScript = async (req, res) => {
       roles,
       tags,
       budget,
-      holdFee
+      holdFee,
+      filmDetails,
     } = req.body;
 
     let resolvedTextContent = typeof textContent === "string" ? textContent : "";
@@ -2648,6 +2661,15 @@ export const uploadScript = async (req, res) => {
       approvalRequestType: "new_submission",
 
       status: "pending_approval", // Requires admin approval before publishing
+
+      // Film production details
+      filmDetails: filmDetails ? {
+        filmLanguage: String(filmDetails.filmLanguage || "").trim().slice(0, 100),
+        dialoguesPresent: ["yes", "no", "partial"].includes(filmDetails.dialoguesPresent) ? filmDetails.dialoguesPresent : "yes",
+        wantToDirect: Boolean(filmDetails.wantToDirect),
+        wantToProduce: Boolean(filmDetails.wantToProduce),
+        scriptStyle: Array.isArray(filmDetails.scriptStyle) ? filmDetails.scriptStyle.slice(0, 8) : [],
+      } : undefined,
 
       // Publishing layer
       targetIndustry: Array.isArray(targetIndustry) && targetIndustry.length > 0 ? targetIndustry : ["film"],
@@ -2993,6 +3015,76 @@ export const getPurchaseRequestAcceptancePdf = async (req, res) => {
     return res.send(fileBuffer);
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to load acceptance PDF." });
+  }
+};
+
+export const getScriptPdf = async (req, res) => {
+  try {
+    const scriptId = String(req.params.id || "").trim();
+    if (!mongoose.isValidObjectId(scriptId)) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    const script = await Script.findById(scriptId)
+      .populate("creator", "name email role")
+      .populate("heldBy", "name role");
+
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    if (isIndustryProfessionalWithPersonalEmail(req.user) && String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")) {
+      return res.status(403).json({ message: "Please login with a company email or purchase a plan to open scripts." });
+    }
+
+    const isOwner = String(script.creator?._id || script.creator || "") === String(req.user?._id || "");
+    const isAdmin = req.user.role === "admin";
+    const collaboratorRole = resolveScriptRole(script, req.user._id);
+    const isAcceptedCollaborator = !isOwner && Boolean(collaboratorRole);
+    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
+    let isBuyer = hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
+
+    if (!isBuyer) {
+      const [approvedPurchase, convertedOption] = await Promise.all([
+        ScriptPurchaseRequest.exists(getSettledPurchaseQuery({ script: script._id, investor: req.user._id })),
+        ScriptOption.exists({ script: script._id, holder: req.user._id, status: "converted" }),
+      ]);
+      isBuyer = Boolean(approvedPurchase || convertedOption);
+    }
+
+    if (script.isDeleted && !isAdmin && !isBuyer) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    if (script.status === "draft" && !isOwner && !isAcceptedCollaborator && !canCollaboratorRead && !isAdmin) {
+      return res.status(403).json({ message: "This draft is private" });
+    }
+
+    if (script.isSold && !isOwner && !isBuyer && !isAdmin && !canCollaboratorRead) {
+      return res.status(403).json({ message: "This script has been purchased and is no longer publicly available" });
+    }
+
+    const pdfUrl = String(script.fileUrl || "").trim();
+    if (!pdfUrl) {
+      return res.status(404).json({ message: "PDF file not available." });
+    }
+
+    const pdfResponse = await fetch(pdfUrl);
+    if (!pdfResponse.ok) {
+      return res.status(502).json({ message: "Failed to fetch script PDF from storage." });
+    }
+
+    const contentType = pdfResponse.headers.get("content-type") || "application/pdf";
+    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const shouldDownload = String(req.query.download || "") === "1";
+    const disposition = shouldDownload ? "attachment" : "inline";
+    const filename = sanitizePdfFileName(`${script.title || "script"}-full.pdf`);
+
+    res.setHeader("Content-Type", contentType.includes("pdf") ? contentType : "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
+    return res.send(fileBuffer);
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to load script PDF." });
   }
 };
 

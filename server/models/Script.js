@@ -147,12 +147,21 @@ const scriptSchema = new mongoose.Schema({
     settings: [{ type: String }] // Max 3
   },
 
+  // Film production details set by writer during upload
+  filmDetails: {
+    filmLanguage: { type: String, trim: true, maxlength: 100 },
+    dialoguesPresent: { type: String, enum: ["yes", "no", "partial"], default: "yes" },
+    wantToDirect: { type: Boolean, default: false },
+    wantToProduce: { type: Boolean, default: false },
+    scriptStyle: [{ type: String }],
+  },
+
   // Content indicators
   contentIndicators: {
     bechdelTest: { type: Boolean },
     basedOnTrueStory: { type: Boolean, default: false },
     adaptation: { type: Boolean, default: false },
-    adaptationSource: { type: String }, // What it's adapted from
+    adaptationSource: { type: String },
   },
 
   // Tag references (Many-to-Many)

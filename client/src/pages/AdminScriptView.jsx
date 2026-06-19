@@ -57,7 +57,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
-import ScreenplayViewer from "../components/ScreenplayViewer";
+import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
@@ -354,6 +354,7 @@ const AdminScriptView = () => {
     ? script.fullContent
     : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
+  const uploadedPdfProxyUrl = script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf`) : uploadedPdfUrl;
   const writerCustomTerms = String(script?.legal?.customInvestorTerms || "").trim();
   const hasWriterCustomTerms = writerCustomTerms.length > 0;
   const formatLabel = script?.format === "other"
@@ -1422,7 +1423,7 @@ const AdminScriptView = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7">
+        <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45">Main Content</p>
             <div className="flex items-center gap-2">
@@ -1439,16 +1440,21 @@ const AdminScriptView = () => {
 
           {hasFullScriptText ? (
             <>
-              <div className="mx-auto w-full max-w-[794px] rounded-md shadow-[0_18px_48px_rgba(0,0,0,0.35)] border border-slate-200 bg-white text-slate-900">
-                <div className="max-h-[78vh] overflow-y-auto p-6 sm:p-10 lg:p-12">
-                  <div className="text-[13px] sm:text-[14px] leading-[1.55]">
-                    <ScreenplayViewer text={plainScriptText} className="text-slate-900" />
-                  </div>
-                </div>
+              <div className="max-w-[920px] mx-auto">
+                <ScreenplayPdfViewer
+                  pdfUrl={uploadedPdfProxyUrl}
+                  title={script?.title || "Script"}
+                  fallbackPages={scriptPages.map((pageText, index) => ({
+                    pageNumber: index + 1,
+                    text: pageText,
+                  }))}
+                  fallbackText={plainScriptText}
+                  showAllPages
+                />
               </div>
 
               {(script.previewExcerpt || script.scriptPreviewSummary || script.scriptPreviewStartText || script.scriptPreviewEndText) && (
-                <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="mt-4 rounded-[18px] border border-white/10 bg-white/[0.03] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
                       <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45">Viewable Script</p>
@@ -1457,26 +1463,24 @@ const AdminScriptView = () => {
                       )}
                     </div>
                   </div>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/85">
-                    {script.previewExcerpt || "The writer has not added a viewable excerpt yet."}
-                  </p>
-
-                  {(script.scriptPreviewStartText || script.scriptPreviewEndText) && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                      {[
-                        { label: "Starting Page", page: script.scriptPreviewAccess?.start || 1, text: script.scriptPreviewStartText },
-                        { label: "Ending Page", page: script.scriptPreviewAccess?.end || 1, text: script.scriptPreviewEndText },
-                      ].map((item) => (
-                        <div key={item.label} className="rounded-xl border border-white/10 bg-[#0b1322] p-4">
-                          <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45">{item.label}</p>
-                          <p className="text-sm font-semibold text-white/90 mt-1 mb-3">Page {item.page}</p>
-                          <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-3 text-sm leading-6 whitespace-pre-wrap text-white/80">
-                            {item.text || "Page content not available yet."}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="max-w-[920px] mx-auto">
+                    <ScreenplayPdfViewer
+                      pdfUrl={uploadedPdfProxyUrl}
+                      title={script?.title || "Script"}
+                      startPage={Number(script.scriptPreviewAccess?.start || 1)}
+                      endPage={Number(script.scriptPreviewAccess?.end || 1)}
+                      fallbackPages={Array.isArray(script.scriptPreviewPageTexts)
+                        ? script.scriptPreviewPageTexts.slice(
+                            Math.max(0, Number(script.scriptPreviewAccess?.start || 1) - 1),
+                            Math.max(0, Number(script.scriptPreviewAccess?.end || 1))
+                          ).map((pageText, index) => ({
+                            pageNumber: Number(script.scriptPreviewAccess?.start || 1) + index,
+                            text: String(pageText || ""),
+                          }))
+                        : []}
+                      fallbackText={script.previewExcerpt || plainScriptText}
+                    />
+                  </div>
                 </div>
               )}
             </>

@@ -17,6 +17,7 @@ import {
   activateProjectSpotlight,
   getInvestorHomeFeed, getTopList,
   requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
+  getScriptPdf,
 } from "../controllers/scriptController.js";
 import multer from "multer";
 
@@ -110,6 +111,7 @@ router.get("/investor-home", protect, getInvestorHomeFeed);
 router.get("/public/:id", getPublicScriptById);
 router.get("/path/:projectHeading/:writerUsername", protect, getScriptByPath);
 router.get("/:id/submission-summary-pdf", protect, getScriptSubmissionSummaryPdf);
+router.get("/:id/pdf", protect, getScriptPdf);
 router.get("/purchase-request/:id/acceptance-pdf", protect, getPurchaseRequestAcceptancePdf);
 // Purchase request routes (must be before /:id)
 router.post("/purchase-request", protect, requestScriptPurchase);
