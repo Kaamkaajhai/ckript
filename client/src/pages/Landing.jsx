@@ -12,6 +12,7 @@ const ROUTES = {
   home: "/",
   writer: "/writer-onboarding",
   pro: "/producer-director-onboarding",
+  pricing: "/pricing",
   join: "/join",
   login: "/login",
   about: "/about",
@@ -306,6 +307,7 @@ const FOOTER_COLS = [
     head: "Company",
     links: [
       { label: "About", to: ROUTES.about },
+      { label: "Pricing", to: ROUTES.pricing },
       { label: "Contact", to: ROUTES.contact },
       { label: "LinkedIn", to: ROUTES.linkedin, external: true },
     ],
@@ -427,6 +429,7 @@ export default function Landing() {
             <nav style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
               <Link to={ROUTES.join} className="hov-red" style={navLink}>Scripts</Link>
               <Link to={ROUTES.pro} className="hov-red" style={navLink}>For Producers</Link>
+              <Link to={ROUTES.pricing} className="hov-red" style={navLink}>Pricing</Link>
               <Link to={ROUTES.about} className="hov-red" style={navLink}>About</Link>
             </nav>
             {user ? (

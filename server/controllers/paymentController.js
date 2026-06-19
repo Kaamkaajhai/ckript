@@ -1,9 +1,29 @@
 import Stripe from "stripe";
+import User from "../models/User.js";
+import { hasActiveFilmIndustryProfessionalAccess, isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
 
 // Initialize Stripe only if the secret key is provided
 const stripe = process.env.STRIPE_SECRET 
   ? new Stripe(process.env.STRIPE_SECRET)
   : null;
+
+const FILM_INDUSTRY_PRO_MODEL = {
+  plan: "pro",
+  amount: 199900,
+  currency: "INR",
+  durationDays: 30,
+  checkoutProvider: "razorpay_test",
+  checkoutMode: "test",
+  accessTier: "film_industry_professional",
+};
+
+const normalizeReturnPath = (value = "") => {
+  const path = String(value || "").trim();
+  if (!path || !path.startsWith("/")) return "";
+  if (path.startsWith("//")) return "";
+  if (path.startsWith("/login") || path.startsWith("/signup")) return "";
+  return path;
+};
 
 export const createCheckout = async (req, res) => {
   try {
@@ -31,5 +51,78 @@ export const createCheckout = async (req, res) => {
     res.json({ id: session.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const getFilmIndustryProfessionalTestCheckoutStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.json({
+      access: {
+        hasAccess: hasActiveFilmIndustryProfessionalAccess(user),
+        isEligibleRole: isFilmIndustryProfessionalRole(user),
+      },
+      subscription: user.subscription || {},
+      user: user.toObject(),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to load pricing status" });
+  }
+};
+
+export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user._id).select("role subscription");
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!isFilmIndustryProfessionalRole(currentUser)) {
+      return res.status(403).json({
+        message: "Only film industry professionals can activate this pricing plan.",
+      });
+    }
+
+    const returnTo = normalizeReturnPath(req.body?.returnTo || req.get("referer") || "");
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + FILM_INDUSTRY_PRO_MODEL.durationDays * 24 * 60 * 60 * 1000);
+    const checkoutReference = `razorpay_test_${currentUser._id.toString()}_${Date.now()}`;
+
+    const update = {
+      $set: {
+        "subscription.plan": FILM_INDUSTRY_PRO_MODEL.plan,
+        "subscription.expiresAt": expiresAt,
+        "subscription.accessTier": FILM_INDUSTRY_PRO_MODEL.accessTier,
+        "subscription.accessStatus": "active",
+        "subscription.accessActivatedAt": now,
+        "subscription.accessExpiresAt": expiresAt,
+        "subscription.checkoutMode": FILM_INDUSTRY_PRO_MODEL.checkoutMode,
+        "subscription.checkoutProvider": FILM_INDUSTRY_PRO_MODEL.checkoutProvider,
+        "subscription.checkoutReference": checkoutReference,
+        "subscription.sourcePath": returnTo || "/home",
+      },
+    };
+
+    await User.updateOne({ _id: currentUser._id }, update);
+
+    const refreshedUser = await User.findById(currentUser._id).select("-password");
+
+    return res.json({
+      message: "Test checkout activated successfully.",
+      redirectTo: "/home",
+      access: {
+        hasAccess: true,
+        isEligibleRole: true,
+      },
+      subscription: refreshedUser?.subscription || currentUser.subscription,
+      user: refreshedUser?.toObject ? refreshedUser.toObject() : refreshedUser,
+      plan: FILM_INDUSTRY_PRO_MODEL,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to activate test checkout" });
   }
 };

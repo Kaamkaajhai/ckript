@@ -65,6 +65,70 @@ const ACTIVE_USER_FILTER = {
     isDeactivated: { $ne: true },
     isFrozen: { $ne: true },
 };
+const SCRIPT_PREVIEW_WORDS_PER_UNIT = 250;
+const normalizeScriptPreviewAccess = (previewAccess = {}, fallback = {}) => {
+    const rawMode = String(previewAccess?.mode || fallback?.mode || "pages").trim().toLowerCase();
+    const mode = rawMode === "episodes" ? "episodes" : "pages";
+    const fallbackStart = Number(fallback?.start || 1);
+    const fallbackEnd = Number(fallback?.end || 8);
+    const rawStart = Number(previewAccess?.start ?? previewAccess?.from ?? fallbackStart);
+    const rawEnd = Number(previewAccess?.end ?? previewAccess?.to ?? fallbackEnd);
+    const maxUnits = Number(fallback?.maxUnits || 0);
+
+    let start = Number.isFinite(rawStart) && rawStart > 0 ? Math.floor(rawStart) : 1;
+    let end = Number.isFinite(rawEnd) && rawEnd > 0 ? Math.floor(rawEnd) : Math.max(start, fallbackEnd);
+
+    if (maxUnits > 0) {
+        start = Math.min(start, maxUnits);
+        end = Math.min(end, maxUnits);
+    }
+
+    if (end < start) {
+        end = start;
+    }
+
+    return { mode, start, end };
+};
+const getScriptPreviewLabel = (previewAccess) => {
+    const safePreview = normalizeScriptPreviewAccess(previewAccess);
+    const unitLabel = safePreview.mode === "episodes" ? "Episode" : "Page";
+    return `${unitLabel}s ${safePreview.start} to ${safePreview.end}`;
+};
+const getScriptPreviewExcerpt = (script, previewAccess) => {
+    const rawText = String(script?.textContent || script?.fullContent || "").trim();
+    if (!rawText) return "";
+
+    const plainText = rawText
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    if (!plainText) return "";
+
+    const safePreview = normalizeScriptPreviewAccess(previewAccess);
+    const words = plainText.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return "";
+
+    const startIndex = Math.max(0, (safePreview.start - 1) * SCRIPT_PREVIEW_WORDS_PER_UNIT);
+    const endIndex = Math.max(startIndex, Math.min(words.length, safePreview.end * SCRIPT_PREVIEW_WORDS_PER_UNIT));
+    if (startIndex >= words.length) return "";
+
+    const excerpt = words.slice(startIndex, endIndex).join(" ");
+    return excerpt ? `${excerpt}${endIndex < words.length ? "..." : ""}` : "";
+};
+const getScriptPreviewPageTexts = (script) => {
+    if (!script) return [];
+
+    return Array.isArray(script.scriptPreviewPageTexts)
+        ? script.scriptPreviewPageTexts.map((pageText) => String(pageText || "").trim())
+        : [];
+};
+const getScriptPreviewPageTextByNumber = (script, pageNumber) => {
+    const pageTexts = getScriptPreviewPageTexts(script);
+    const index = Math.max(0, Number(pageNumber || 0) - 1);
+    return String(pageTexts[index] || "").trim();
+};
+const hasViewableScriptPreview = (script) => Boolean(script?.viewableScript);
 
 const buildBroadcastAudienceConfig = (audience = "") => {
     const normalizedAudience = String(audience || "").trim().toLowerCase();
@@ -1478,6 +1542,7 @@ const ADMIN_EDITABLE_TOP_LEVEL_FIELDS = [
     "contentIndicators",
     "tagIds",
     "scriptCompletion",
+    "scriptPreviewAccess",
     "price",
 ];
 
@@ -1778,6 +1843,17 @@ export const getScriptDetail = async (req, res) => {
         });
 
         const response = script.toObject();
+        const hasViewablePreview = hasViewableScriptPreview(script);
+        const normalizedPreviewAccess = hasViewablePreview
+            ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+                mode: script.scriptPreviewAccess?.mode || "pages",
+                start: script.scriptPreviewAccess?.start || 1,
+                end: script.scriptPreviewAccess?.end || 8,
+                maxUnits: Array.isArray(script.scriptPreviewPageTexts) ? script.scriptPreviewPageTexts.length : 0,
+            })
+            : null;
+        const previewSummary = hasViewablePreview ? getScriptPreviewLabel(normalizedPreviewAccess) : "";
+        const previewExcerpt = hasViewablePreview ? getScriptPreviewExcerpt(script, normalizedPreviewAccess) : "";
         response.settledPurchaseRequests = settledPurchaseRequests.map((request) => {
             const buyerId = request?.investor?._id?.toString?.() || request?.investor?.toString?.() || "";
             const agreement = agreementByBuyerId.get(buyerId) || null;
@@ -1789,10 +1865,17 @@ export const getScriptDetail = async (req, res) => {
                         status: agreement.status,
                         writerPdfUrl: agreement.writer_pdf_url || "",
                         buyerPdfUrl: agreement.buyer_pdf_url || "",
-                    }
+                }
                     : null,
             };
         });
+        response.viewableScript = hasViewablePreview;
+        response.scriptPreviewAccess = normalizedPreviewAccess;
+        response.scriptPreviewSummary = previewSummary;
+        response.previewExcerpt = previewExcerpt;
+        response.scriptPreviewPageTexts = hasViewablePreview ? getScriptPreviewPageTexts(script) : [];
+        response.scriptPreviewStartText = hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start) : "";
+        response.scriptPreviewEndText = hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end) : "";
 
         res.json(response);
     } catch (error) {

@@ -389,7 +389,7 @@ const InvestorHome = () => {
                 to="/mandates"
                 className={`ml-auto px-3 py-1.5 rounded-md border text-[11px] font-semibold transition-colors max-[380px]:ml-0 max-[380px]:w-full max-[380px]:text-center ${dark ? "border-white/[0.14] text-gray-200 hover:bg-white/[0.05]" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
               >
-                Mandate
+                Set Preferences
               </Link>
             </Fade>
 

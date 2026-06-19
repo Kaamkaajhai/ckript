@@ -16,6 +16,7 @@ import PasswordInput from "../components/PasswordInput";
 import { applyLanguagePreference, getBackendLanguageValue, getProfileLanguageValue } from "../utils/languagePreference";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { hasBusinessEmail } from "../utils/industryAccess";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -204,6 +205,8 @@ const Profile = () => {
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [connectionsType, setConnectionsType] = useState("followers");
+  const [showContactDetails, setShowContactDetails] = useState(false);
+  const messageTextareaRef = useRef(null);
   
   // Pitch
   const [showPitchModal, setShowPitchModal] = useState(false);
@@ -547,6 +550,12 @@ const Profile = () => {
   const isOwnProfile = currentUser._id === profile?._id;
   const isWriterUser = isWriter(profile?.role);
   const isInvestorProfile = String(profile?.role || "").toLowerCase() === "investor";
+  const canViewContactDetails = Boolean(
+    !isOwnProfile &&
+    currentUser?._id &&
+    ["investor", "producer", "director", "industry", "professional"].includes(String(currentUser?.role || "").toLowerCase()) &&
+    hasBusinessEmail(currentUser?.email)
+  );
   const connectionsLabel = connectionsType === "followers" ? "Followers" : "Following";
   const connectionList =
     connectionsType === "followers" ? profile?.followers || [] : profile?.following || [];
@@ -590,6 +599,15 @@ const Profile = () => {
     title: profile?.shareMeta?.title || `${profile?.name || "Profile"} | Ckript`,
     text: profile?.shareMeta?.text || `Check out ${profile?.name || "this creator"}'s profile on Ckript.`,
   };
+  const profileContactLinks = profile?.writerProfile?.links || {};
+  const profileContactLinkItems = [
+    { key: "portfolio", label: "Portfolio", href: profileContactLinks.portfolio },
+    { key: "linkedin", label: "LinkedIn", href: profileContactLinks.linkedin },
+    { key: "imdb", label: "IMDb", href: profileContactLinks.imdb },
+    { key: "instagram", label: "Instagram", href: profileContactLinks.instagram },
+    { key: "twitter", label: "X / Twitter", href: profileContactLinks.twitter },
+    { key: "facebook", label: "Facebook", href: profileContactLinks.facebook },
+  ].filter((item) => Boolean(String(item.href || "").trim()));
 
   const resolveImage = (url) => {
     if (!url) return "";
@@ -638,6 +656,18 @@ const Profile = () => {
       isActive = false;
     };
   }, [activeTab, isOwnProfile, isWriterUser]);
+
+  useEffect(() => {
+    setShowContactDetails(false);
+  }, [profile?._id]);
+
+  useEffect(() => {
+    if (!showMessageRequestModal || !messageTextareaRef.current) return;
+
+    const textarea = messageTextareaRef.current;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
+  }, [showMessageRequestModal, messageRequestText]);
 
   /* â”€â”€ Loading â”€â”€ */
   if (loading) {
@@ -1325,7 +1355,7 @@ const Profile = () => {
                 </svg>
               </div>
               <p className={`text-[15px] font-bold mb-1 ${t.emptyH}`}>No bookmarks yet</p>
-              <p className={`text-[13px] max-w-xs mx-auto ${t.emptyP}`}>Bookmark projects from cards or project pages to quickly access them here.</p>
+              <p className={`text-[13px] max-w-xs mx-auto ${t.emptyP}`}>Save scripts from cards or project pages to quickly access them here.</p>
             </div>
           ) : (
             <div className={`grid grid-cols-1 min-[460px]:grid-cols-2 ${isWriterUser ? "lg:grid-cols-3" : ""} gap-4`}>
@@ -1436,19 +1466,80 @@ const Profile = () => {
                 </svg>
               }
             >
-              <div className="mt-2 space-y-1.5">
-                {isOwnProfile && (
-                  <p className={`text-[13px] font-medium ${t.contactTxt}`}>
-                    {profile.email}
-                  </p>
-                )}
-                {memberSince && (
-                  <p
-                    className={`text-[12px] font-medium ${t.contactSub}`}
-                  >
+              <div className="mt-2 space-y-2">
+                {isOwnProfile ? (
+                  <>
+                    <p className={`text-[13px] font-medium ${t.contactTxt}`}>
+                      {profile.email}
+                    </p>
+                    {profile.phone && (
+                      <p className={`text-[13px] font-medium ${t.contactTxt}`}>
+                        {profile.phone}
+                      </p>
+                    )}
+                  </>
+                ) : canViewContactDetails ? (
+                  <>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${t.statLabel}`}>View Contact Details</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowContactDetails((prev) => !prev)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${t.followIdle}`}
+                      >
+                        {showContactDetails ? "Hide" : "View"}
+                      </button>
+                    </div>
+                    {showContactDetails && (
+                      <div className="space-y-3 pt-2">
+                        <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
+                          <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Email</span>
+                          {profile.email ? (
+                            <a href={`mailto:${profile.email}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
+                              {profile.email}
+                            </a>
+                          ) : (
+                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
+                          )}
+                        </div>
+                        <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
+                          <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Phone</span>
+                          {profile.phone ? (
+                            <a href={`tel:${profile.phone}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
+                              {profile.phone}
+                            </a>
+                          ) : (
+                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] mb-2 ${t.statLabel}`}>Links</p>
+                          {profileContactLinkItems.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {profileContactLinkItems.map((item) => (
+                                <a
+                                  key={item.key}
+                                  href={item.href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.chip}`}
+                                >
+                                  {item.label}
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No links shared</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : memberSince ? (
+                  <p className={`text-[12px] font-medium ${t.contactSub}`}>
                     Member since {memberSince}
                   </p>
-                )}
+                ) : null}
               </div>
             </SectionCard>
           </div>
@@ -1556,19 +1647,6 @@ const Profile = () => {
                         </div>
                       ) : (
                         <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No formats selected</p>
-                      )}
-                    </div>
-                    {/* Budget Tiers */}
-                    <div>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Budget Tiers</p>
-                      {profile.industryProfile?.mandates?.budgetTiers?.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {profile.industryProfile.mandates.budgetTiers.map((b, i) => (
-                            <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border capitalize ${dark ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{b}</span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No budget tiers selected</p>
                       )}
                     </div>
                     {/* Hooks */}
@@ -2747,11 +2825,17 @@ const Profile = () => {
                     Your Message
                   </label>
                   <textarea
+                    ref={messageTextareaRef}
                     value={messageRequestText}
-                    onChange={(e) => setMessageRequestText(e.target.value)}
+                    onChange={(e) => {
+                      setMessageRequestText(e.target.value);
+                      const next = e.target;
+                      next.style.height = "auto";
+                      next.style.height = `${Math.min(next.scrollHeight, 220)}px`;
+                    }}
                     placeholder="Tell them about your work and why you'd like to connect..."
-                    rows={5}
-                    className={`w-full px-4 py-3 rounded-xl text-sm border outline-none transition-colors resize-none ${
+                    rows={3}
+                    className={`w-full px-4 py-3 rounded-xl text-sm border outline-none transition-colors resize-none overflow-hidden ${
                       dark
                         ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/25 focus:border-white/20"
                         : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:border-blue-400"

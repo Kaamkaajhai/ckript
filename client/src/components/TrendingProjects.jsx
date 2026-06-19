@@ -1,8 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import { AuthContext } from "../context/AuthContext";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  isIndustryProfessionalWithPersonalEmail,
+} from "../utils/industryAccess";
 import ScriptCard from "./ScriptCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 
@@ -14,7 +19,10 @@ const SORT_TABS = [
 
 const TrendingProjects = () => {
   const { isDarkMode: dark } = useDarkMode();
+  const { user } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState("featured");
+  const [accessNotice, setAccessNotice] = useState("");
+  const accessNoticeTimerRef = useRef(null);
 
   // Featured state
   const [featuredScripts, setFeaturedScripts] = useState([]);
@@ -69,6 +77,16 @@ const TrendingProjects = () => {
   }, [activeTab]);
 
   const hero = featuredScripts[heroIdx] || featuredScripts[0];
+  const isBlockedViewer =
+    isIndustryProfessionalWithPersonalEmail(user) &&
+    !hasActiveFilmIndustryProfessionalAccess(user);
+  const handleScriptClick = (event) => {
+    if (!isBlockedViewer) return;
+    event.preventDefault();
+    setAccessNotice("Please login with a company email or purchase a plan to open scripts.");
+    if (accessNoticeTimerRef.current) window.clearTimeout(accessNoticeTimerRef.current);
+    accessNoticeTimerRef.current = window.setTimeout(() => setAccessNotice(""), 3500);
+  };
   const isLoading =
     activeTab === "featured" ? featuredLoading : topLoading[activeTab];
   const scripts =
@@ -104,6 +122,12 @@ const TrendingProjects = () => {
           ))}
         </div>
       </div>
+
+      {accessNotice && (
+        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          {accessNotice}
+        </div>
+      )}
 
       {/* Hero Banner — visible only on Featured tab */}
       {activeTab === "featured" &&
@@ -154,6 +178,7 @@ const TrendingProjects = () => {
                     )}
                     <Link
                       to={getScriptCanonicalPath(hero)}
+                      onClick={handleScriptClick}
                       className="inline-flex items-center gap-2.5 px-6 py-3 bg-white text-gray-900 rounded-xl font-bold text-base hover:bg-gray-100 transition-all shadow-lg hover:shadow-xl hover:scale-105"
                     >
                       Read Now
@@ -196,7 +221,12 @@ const TrendingProjects = () => {
       ) : scripts.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {scripts.map((s, i) => (
-            <ScriptCard key={s._id} script={s} index={i} />
+            <ScriptCard
+              key={s._id}
+              script={s}
+              index={i}
+              onClick={handleScriptClick}
+            />
           ))}
         </div>
       ) : (

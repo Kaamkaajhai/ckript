@@ -196,6 +196,14 @@ const getScriptCreatorName = (script) => {
     return String(script?.creator?.name || "").trim() || "—";
 };
 
+const getScriptPreviewWindowLabel = (script) => {
+  const mode = String(script?.scriptPreviewAccess?.mode || "").trim().toLowerCase() === "episodes" ? "Episodes" : "Pages";
+  const start = Number(script?.scriptPreviewAccess?.start || 0);
+  const end = Number(script?.scriptPreviewAccess?.end || 0);
+  if (!start || !end) return "";
+  return `${mode} ${start} to ${end}`;
+};
+
 // ─── Stat Card ───
 const StatCard = ({ label, value, icon, color, isDark }) => (
     <div className={`rounded-2xl p-5 border transition-all hover:scale-[1.02] ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
@@ -375,7 +383,7 @@ const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfre
 };
 
 // ─── Script Table ───
-const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, showApprovalType = false }) => (
+const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, showApprovalType = false, showPreviewWindow = false }) => (
     <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
         <div className="overflow-x-auto">
             <table className="w-full">
@@ -385,6 +393,7 @@ const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, 
                         {showCreator && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Creator</th>}
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Genre</th>
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Completion</th>
+                        {showPreviewWindow && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Free Preview</th>}
                         {showApprovalType && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Approval Type</th>}
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Status</th>
                         {showScore && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Score</th>}
@@ -400,6 +409,11 @@ const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, 
                                 <p className={`text-[11px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
                                     SID: {s.sid || "Pending"}
                                 </p>
+                                {getScriptPreviewWindowLabel(s) && (
+                                    <p className={`text-[11px] mt-0.5 ${isDark ? "text-blue-300" : "text-blue-600"}`}>
+                                        Viewable: {getScriptPreviewWindowLabel(s)}
+                                    </p>
+                                )}
                             </td>
                             {showCreator && (
                                 <td className="px-5 py-3.5">
@@ -419,6 +433,17 @@ const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, 
                                     )}
                                 </div>
                             </td>
+                            {showPreviewWindow && (
+                                <td className="px-5 py-3.5">
+                                    {getScriptPreviewWindowLabel(s) ? (
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${isDark ? "bg-blue-500/10 text-blue-300" : "bg-blue-50 text-blue-700"}`}>
+                                            {getScriptPreviewWindowLabel(s)}
+                                        </span>
+                                    ) : (
+                                        <span className={`text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>Not set</span>
+                                    )}
+                                </td>
+                            )}
                             {showApprovalType && (
                                 <td className="px-5 py-3.5">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${s.approvalRequestType === "edit_submission"
@@ -457,7 +482,7 @@ const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, 
                         </tr>
                     ))}
                     {scripts.length === 0 && (
-                        <tr><td colSpan={(showCreator ? 1 : 0) + (showApprovalType ? 1 : 0) + (showScore ? 1 : 0) + (actions ? 1 : 0) + 5} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No scripts found</td></tr>
+                        <tr><td colSpan={(showCreator ? 1 : 0) + (showPreviewWindow ? 1 : 0) + (showApprovalType ? 1 : 0) + (showScore ? 1 : 0) + (actions ? 1 : 0) + 5} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No scripts found</td></tr>
                     )}
                 </tbody>
             </table>
@@ -1569,7 +1594,8 @@ const AdminDashboard = () => {
                     const approvalLabel = s.status === "pending_approval" && s.approvalRequestType === "edit_submission"
                         ? "edit approval"
                         : (s.status || "-");
-                    return `${idx + 1}. ${s.title || "-"} | SID: ${s.sid || "-"} | Creator: ${getScriptCreatorName(s)} | Genre: ${s.genre || s.primaryGenre || "-"} | Completion: ${getScriptCompletionSummary(s)} | Status: ${approvalLabel} | Score: ${s.scriptScore?.overall || s.platformScore?.overall || s.rating || "-"} | Date: ${formatExportDate(s.createdAt)}`;
+                    const previewLabel = getScriptPreviewWindowLabel(s);
+                    return `${idx + 1}. ${s.title || "-"} | SID: ${s.sid || "-"} | Creator: ${getScriptCreatorName(s)} | Genre: ${s.genre || s.primaryGenre || "-"} | Completion: ${getScriptCompletionSummary(s)} | Preview: ${previewLabel || "-"} | Status: ${approvalLabel} | Score: ${s.scriptScore?.overall || s.platformScore?.overall || s.rating || "-"} | Date: ${formatExportDate(s.createdAt)}`;
                 }),
             });
 
@@ -3195,7 +3221,7 @@ const AdminDashboard = () => {
                                 <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span>
                             </h2>
                         </div>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false} showApprovalType={true}
+                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false} showApprovalType={true} showPreviewWindow={true}
                             actions={(s) => (
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => handleApprove(s._id)} className="text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors">✓ Approve</button>
@@ -4673,7 +4699,6 @@ const AdminDashboard = () => {
             { label: "Mandates Genres", value: Array.isArray(mandates?.genres) ? mandates.genres.join(", ") : "" },
             { label: "Mandates Exclude Genres", value: Array.isArray(mandates?.excludeGenres) ? mandates.excludeGenres.join(", ") : "" },
             { label: "Mandates Hooks", value: Array.isArray(mandates?.specificHooks) ? mandates.specificHooks.join(", ") : "" },
-            { label: "Mandates Budget", value: Array.isArray(mandates?.budgetTiers) ? mandates.budgetTiers.join(", ") : "" },
         ];
 
         const budgetRange = user?.preferences?.budgetRange;
