@@ -66,6 +66,7 @@ const scriptSchema = new mongoose.Schema({
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload
+  viewableScript: { type: Boolean, default: false },
   scriptPreviewAccess: {
     mode: {
       type: String,

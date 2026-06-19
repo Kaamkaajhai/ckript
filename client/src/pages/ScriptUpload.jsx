@@ -491,6 +491,7 @@ const ScriptUpload = () => {
     format: "feature",
     formatOther: "",
     pageCount: "",
+    viewableScript: false,
     previewWindowMode: "pages",
     previewWindowStart: "1",
     previewWindowEnd: "8",
@@ -602,6 +603,10 @@ const ScriptUpload = () => {
   };
 
   const buildScriptPreviewPayload = (source = formData) => {
+    if (!source.viewableScript) {
+      return null;
+    }
+
     const mode = "pages";
     const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
     const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
@@ -684,6 +689,7 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          viewableScript: Boolean(data.viewableScript),
           previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
           previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
           previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
@@ -758,6 +764,7 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          viewableScript: Boolean(data.viewableScript),
           previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
           previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
           previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
@@ -803,7 +810,8 @@ const ScriptUpload = () => {
 
   // Handle form field changes
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const nextValue = type === "checkbox" ? checked : value;
     setFormData((prev) => {
       if (name === "format") {
         return {
@@ -813,7 +821,7 @@ const ScriptUpload = () => {
         };
       }
 
-      return { ...prev, [name]: value };
+      return { ...prev, [name]: nextValue };
     });
   };
 
@@ -1370,7 +1378,7 @@ const ScriptUpload = () => {
           setError("Page count could not be detected. Please go back and re-upload your PDF.");
           return false;
         }
-        if (Number(formData.previewWindowStart || 0) < 1) {
+        if (formData.viewableScript && Number(formData.previewWindowStart || 0) < 1) {
           setError("Preview start page must be at least 1.");
           return false;
         }
@@ -1397,7 +1405,7 @@ const ScriptUpload = () => {
           setError("Synopsis is required.");
           return false;
         }
-        {
+        if (formData.viewableScript) {
           const previewPayload = buildScriptPreviewPayload(formData);
           if (previewPayload.end < previewPayload.start) {
             setError("The ending page must be greater than or equal to the starting page.");
@@ -1422,7 +1430,14 @@ const ScriptUpload = () => {
         return true;
 
       case 4:
-        // Film Info step is optional — no required fields
+        if (!String(filmDetails.filmLanguage || "").trim()) {
+          setError("Film language is required.");
+          return false;
+        }
+        if (filmDetails.filmLanguage === "Other" && !String(filmDetails.filmLanguageCustom || "").trim()) {
+          setError("Please specify the film language.");
+          return false;
+        }
         return true;
 
       case 5:
@@ -1509,6 +1524,7 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        viewableScript: Boolean(formData.viewableScript),
         scriptPreviewAccess: buildScriptPreviewPayload(formData),
         scriptPreviewPageTexts: pdfPageTexts,
         legal: {
@@ -2066,6 +2082,37 @@ const ScriptUpload = () => {
                   </div>
 
                   <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col gap-0.5">
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Viewable Script</h3>
+                        <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                          Turn this on if you want buyers to see a preview window from your uploaded script.
+                        </p>
+                      </div>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${formData.viewableScript ? (isDarkMode ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200") : (isDarkMode ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200")}`}>
+                        {formData.viewableScript ? "Enabled" : "Hidden"}
+                      </span>
+                    </div>
+                    <label className={`mt-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${isDarkMode ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                      <input
+                        type="checkbox"
+                        name="viewableScript"
+                        checked={Boolean(formData.viewableScript)}
+                        onChange={handleChange}
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      <span className={`text-sm font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+                        Add a viewable script preview
+                      </span>
+                    </label>
+                    {!formData.viewableScript && (
+                      <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${isDarkMode ? "border-white/10 bg-white/[0.03] text-gray-400" : "border-gray-200 bg-white text-gray-600"}`}>
+                        No preview will be shown until you enable the viewable script option.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`} style={formData.viewableScript ? undefined : { display: "none" }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex flex-col gap-0.5">
                         <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
@@ -2906,7 +2953,7 @@ const ScriptUpload = () => {
                 >
                   <div>
                     <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style.</p>
+                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. Film language is required.</p>
                   </div>
 
                   {/* Director / Producer intent */}
@@ -2966,7 +3013,7 @@ const ScriptUpload = () => {
 
                   {/* Film Language */}
                   <div className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Film Language</h3>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Film Language <span className="text-red-500">*</span></h3>
                     <div className="flex flex-wrap gap-2">
                       {FILM_LANGUAGE_OPTIONS.map((lang) => (
                         <button
@@ -3010,64 +3057,6 @@ const ScriptUpload = () => {
                           {opt.label}
                         </button>
                       ))}
-                    </div>
-                  </div>
-
-                  {/* Script Style */}
-                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-4 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Script Style</h3>
-                        <p className={`text-xs mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>How would you describe your writing approach? <span className={isDarkMode ? "text-gray-600" : "text-gray-400"}>(optional)</span></p>
-                      </div>
-                      {filmDetails.scriptStyle.length > 0 && (
-                        <span className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${isDarkMode ? "bg-indigo-500/15 text-indigo-300" : "bg-indigo-50 text-indigo-600 border border-indigo-200"}`}>
-                          {filmDetails.scriptStyle.length} selected
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {SCRIPT_STYLE_OPTIONS.map(({ id, desc, path }) => {
-                        const isSel = filmDetails.scriptStyle.includes(id);
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => setFilmDetails((fd) => ({
-                              ...fd,
-                              scriptStyle: fd.scriptStyle.includes(id)
-                                ? fd.scriptStyle.filter((s) => s !== id)
-                                : [...fd.scriptStyle, id],
-                            }))}
-                            className={`flex flex-col gap-2 rounded-xl border p-3 text-left transition-all duration-150 ${
-                              isSel
-                                ? isDarkMode
-                                  ? "border-indigo-500/50 bg-indigo-500/[0.08]"
-                                  : "border-indigo-300 bg-indigo-50 shadow-sm"
-                                : isDarkMode
-                                  ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a] hover:bg-white/[0.02]"
-                                  : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSel ? isDarkMode ? "bg-indigo-500/25" : "bg-indigo-100" : isDarkMode ? "bg-white/[0.06]" : "bg-gray-100"}`}>
-                                <svg className={`w-3.5 h-3.5 ${isSel ? isDarkMode ? "text-indigo-300" : "text-indigo-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                                  <path d={path} />
-                                </svg>
-                              </div>
-                              {isSel && (
-                                <svg className={`w-3.5 h-3.5 ${isDarkMode ? "text-indigo-400" : "text-indigo-500"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                </svg>
-                              )}
-                            </div>
-                            <div>
-                              <p className={`text-xs font-semibold leading-tight ${isSel ? isDarkMode ? "text-indigo-200" : "text-indigo-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>{id}</p>
-                              <p className={`text-[10px] mt-0.5 leading-tight ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{desc}</p>
-                            </div>
-                          </button>
-                        );
-                      })}
                     </div>
                   </div>
 
@@ -3993,3 +3982,7 @@ const ScriptUpload = () => {
 };
 
 export default ScriptUpload;
+
+
+
+

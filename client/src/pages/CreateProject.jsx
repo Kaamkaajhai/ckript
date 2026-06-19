@@ -708,6 +708,7 @@ const CreateProject = () => {
     format: "feature_film",
     styleMedium: "",
     formatOther: "",
+    viewableScript: false,
     previewWindowMode: "pages",
     previewWindowStart: "1",
     previewWindowEnd: "8",
@@ -1120,6 +1121,10 @@ const CreateProject = () => {
   }, [legal.agreedToTerms, rightsLicensing]);
 
   const buildScriptPreviewPayload = useCallback((source = formData) => {
+    if (!source.viewableScript) {
+      return null;
+    }
+
     const mode = "pages";
     const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
     const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
@@ -1199,6 +1204,7 @@ const CreateProject = () => {
       if (data.styleMedium !== undefined) setFormData(f => ({ ...f, styleMedium: data.styleMedium || "" }));
       if (data.formatOther !== undefined) setFormData(f => ({ ...f, formatOther: data.formatOther || "" }));
       if (data.pageCount) setFormData(f => ({ ...f, pageCount: String(data.pageCount) }));
+      setFormData(f => ({ ...f, viewableScript: Boolean(data.viewableScript) }));
       if (data.scriptPreviewAccess?.start) setFormData(f => ({ ...f, previewWindowStart: String(data.scriptPreviewAccess.start) }));
       if (data.scriptPreviewAccess?.end) setFormData(f => ({ ...f, previewWindowEnd: String(data.scriptPreviewAccess.end) }));
       setPreviewPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
@@ -1302,6 +1308,7 @@ const CreateProject = () => {
         themes: classification.themes,
         settings: classification.settings,
       },
+      viewableScript: Boolean(formData.viewableScript),
       scriptPreviewAccess: buildScriptPreviewPayload(formData),
       scriptPreviewPageTexts: previewPageTexts,
       scriptCompletion: buildScriptCompletionPayload(formData),
@@ -1460,6 +1467,7 @@ const CreateProject = () => {
     setFormData({
       format: "feature",
       formatOther: "",
+      viewableScript: false,
       previewWindowMode: "pages",
       previewWindowStart: "1",
       previewWindowEnd: "8",
@@ -1695,7 +1703,8 @@ const CreateProject = () => {
 
   // Form handlers
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const nextValue = type === "checkbox" ? checked : value;
     setFormData((f) => {
       if (name === "format") {
         return {
@@ -1704,7 +1713,7 @@ const CreateProject = () => {
           formatOther: value === "other" ? f.formatOther : "",
         };
       }
-      return { ...f, [name]: value };
+      return { ...f, [name]: nextValue };
     });
   };
   const addRole = () => {
@@ -1882,13 +1891,15 @@ const CreateProject = () => {
       }
       {
         const previewPayload = buildScriptPreviewPayload(formData);
-        if (previewPayload.end < previewPayload.start) {
-          setError("The ending page must be greater than or equal to the starting page.");
-          return false;
-        }
-        if (Number(estimatedPages || 0) > 0 && (previewPayload.start > Number(estimatedPages || 0) || previewPayload.end > Number(estimatedPages || 0))) {
-          setError("The viewable script range cannot exceed the estimated page count.");
-          return false;
+        if (previewPayload) {
+          if (previewPayload.end < previewPayload.start) {
+            setError("The ending page must be greater than or equal to the starting page.");
+            return false;
+          }
+          if (Number(estimatedPages || 0) > 0 && (previewPayload.start > Number(estimatedPages || 0) || previewPayload.end > Number(estimatedPages || 0))) {
+            setError("The viewable script range cannot exceed the estimated page count.");
+            return false;
+          }
         }
       }
       if (!formData.synopsis || !formData.synopsis.trim()) { setError("Synopsis is required."); return false; }
@@ -1897,7 +1908,17 @@ const CreateProject = () => {
       return true;
     }
     if (s === 3) return true;
-    if (s === 4) return true; // Film Info — optional
+    if (s === 4) {
+      if (!String(filmDetails.filmLanguage || "").trim()) {
+        setError("Film language is required.");
+        return false;
+      }
+      if (filmDetails.filmLanguage === "Other" && !String(filmDetails.filmLanguageCustom || "").trim()) {
+        setError("Please specify the film language.");
+        return false;
+      }
+      return true;
+    }
     if (s === 5) {
       const rightsError = getRightsValidationMessage(buildRightsPayload());
       if (rightsError) {
@@ -2017,6 +2038,7 @@ const CreateProject = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        viewableScript: Boolean(formData.viewableScript),
         scriptPreviewAccess: buildScriptPreviewPayload(formData),
         scriptPreviewPageTexts: previewPageTexts,
         scriptCompletion: buildScriptCompletionPayload(formData),
@@ -3183,6 +3205,37 @@ const CreateProject = () => {
               <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex flex-col gap-0.5">
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Viewable Script</h3>
+                    <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      Turn this on if you want buyers to see a preview window from your uploaded script.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${formData.viewableScript ? (dark ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200") : (dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200")}`}>
+                    {formData.viewableScript ? "Enabled" : "Hidden"}
+                  </span>
+                </div>
+                <label className={`mt-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <input
+                    type="checkbox"
+                    name="viewableScript"
+                    checked={Boolean(formData.viewableScript)}
+                    onChange={handleChange}
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <span className={`text-sm font-medium ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                    Add a viewable script preview
+                  </span>
+                </label>
+                {!formData.viewableScript && (
+                  <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${dark ? "border-white/10 bg-white/[0.03] text-gray-400" : "border-gray-200 bg-white text-gray-600"}`}>
+                    No preview will be shown until you enable the viewable script option.
+                  </div>
+                )}
+              </div>
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`} style={formData.viewableScript ? undefined : { display: "none" }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
                     <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
                     <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-500"}`}>
                       Set the exact pages film professionals can view before unlocking the rest.
@@ -3782,7 +3835,7 @@ const CreateProject = () => {
             <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
-                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. All fields are optional.</p>
+                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. Film language is required.</p>
               </div>
 
               {/* Creative Role */}
@@ -3818,7 +3871,7 @@ const CreateProject = () => {
 
               {/* Film Language */}
               <div>
-                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Film Language</h3>
+                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Film Language <span className="text-red-500">*</span></h3>
                 <div className="flex flex-wrap gap-2">
                   {CP_FILM_LANGUAGE_OPTIONS.map((lang) => (
                     <button key={lang} type="button"
@@ -3853,61 +3906,6 @@ const CreateProject = () => {
                 </div>
               </div>
 
-              {/* Script Style */}
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className={`text-sm font-semibold ${dark ? "text-gray-300" : "text-gray-700"}`}>Script Style</h3>
-                    <p className={`text-xs mt-0.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>How would you describe your writing approach? <span className="opacity-70">(optional)</span></p>
-                  </div>
-                  {filmDetails.scriptStyle.length > 0 && (
-                    <span className={`shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-full ${dark ? "bg-indigo-500/15 text-indigo-300" : "bg-indigo-50 text-indigo-600 border border-indigo-200"}`}>
-                      {filmDetails.scriptStyle.length} selected
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {CP_SCRIPT_STYLE_OPTIONS.map(({ id, desc, path }) => {
-                    const isSel = filmDetails.scriptStyle.includes(id);
-                    return (
-                      <button key={id} type="button"
-                        onClick={() => setFilmDetails((fd) => ({
-                          ...fd,
-                          scriptStyle: fd.scriptStyle.includes(id)
-                            ? fd.scriptStyle.filter((s) => s !== id)
-                            : [...fd.scriptStyle, id],
-                        }))}
-                        className={`flex flex-col gap-2 rounded-xl border p-3 text-left transition-all duration-150 ${
-                          isSel
-                            ? dark
-                              ? "border-indigo-500/50 bg-indigo-500/[0.08]"
-                              : "border-indigo-300 bg-indigo-50 shadow-sm"
-                            : dark
-                              ? "border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]"
-                              : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isSel ? dark ? "bg-indigo-500/25" : "bg-indigo-100" : dark ? "bg-white/[0.06]" : "bg-gray-100"}`}>
-                            <svg className={`w-3.5 h-3.5 ${isSel ? dark ? "text-indigo-300" : "text-indigo-600" : dark ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                              <path d={path} />
-                            </svg>
-                          </div>
-                          {isSel && (
-                            <svg className={`w-3.5 h-3.5 ${dark ? "text-indigo-400" : "text-indigo-500"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                          )}
-                        </div>
-                        <div>
-                          <p className={`text-xs font-semibold leading-tight ${isSel ? dark ? "text-indigo-200" : "text-indigo-700" : dark ? "text-gray-200" : "text-gray-800"}`}>{id}</p>
-                          <p className={`text-[10px] mt-0.5 leading-tight ${dark ? "text-gray-500" : "text-gray-500"}`}>{desc}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           </motion.div>
         )}
@@ -4763,3 +4761,7 @@ const CreateProject = () => {
 };
 
 export default CreateProject;
+
+
+
+

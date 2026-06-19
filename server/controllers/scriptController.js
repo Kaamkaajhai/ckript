@@ -25,7 +25,11 @@ import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { CREDIT_PRICES } from "./creditsController.js";
 import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
-import { hasBusinessEmail, isIndustryProfessionalWithPersonalEmail } from "../utils/industryAccess.js";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  hasBusinessEmail,
+  isIndustryProfessionalWithPersonalEmail,
+} from "../utils/industryAccess.js";
 import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
@@ -89,7 +93,7 @@ const canViewerAccessWriterContact = (viewer, creatorId) => {
   }
 
   const role = String(viewer?.role || "").toLowerCase();
-  return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasBusinessEmail(viewer?.email);
+  return WRITER_CONTACT_VIEWER_ROLES.includes(role) && (hasBusinessEmail(viewer?.email) || hasActiveFilmIndustryProfessionalAccess(viewer));
 };
 
 const buildWriterContactPayload = (writerDoc) => {
@@ -125,6 +129,8 @@ const normalizeScriptPreviewAccess = (previewAccess = {}, fallback = {}) => {
 
   return { mode, start, end };
 };
+
+const hasViewableScriptPreview = (script) => Boolean(script?.viewableScript);
 
 const getScriptPreviewLabel = (previewAccess) => {
   const safePreview = normalizeScriptPreviewAccess(previewAccess);
@@ -331,9 +337,9 @@ const archiveScriptSubmissionForAdmin = async ({ script, writer, approvalSource 
     writerEmail: writer?.email || "",
     status: script.status || "",
     approvalRequestType: script.approvalRequestType || "",
-    scriptPreviewAccess: script.scriptPreviewAccess || null,
-    scriptPreviewSummary: getScriptPreviewLabel(script.scriptPreviewAccess),
-    scriptPreviewPageTexts: getScriptPreviewPageTexts(script),
+    scriptPreviewAccess: hasViewableScriptPreview(script) ? script.scriptPreviewAccess || null : null,
+    scriptPreviewSummary: hasViewableScriptPreview(script) ? getScriptPreviewLabel(script.scriptPreviewAccess) : "",
+    scriptPreviewPageTexts: hasViewableScriptPreview(script) ? getScriptPreviewPageTexts(script) : [],
     fileUrl: script.fileUrl || "",
     projectSource: script.projectSource || "",
   };
@@ -1854,7 +1860,7 @@ export const getMyScripts = async (req, res) => {
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-  .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion scriptPreviewAccess scriptPreviewPageTexts")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion viewableScript scriptPreviewAccess scriptPreviewPageTexts")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 
@@ -1915,6 +1921,7 @@ export const updateScript = async (req, res) => {
       scriptUrl, description, synopsis, textContent, fileUrl,
       coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal, collabVisibility,
       scriptPreviewAccess,
+      viewableScript,
       scriptPreviewPageTexts,
       rightsLicensing,
       scriptCompletion,
@@ -2012,6 +2019,9 @@ export const updateScript = async (req, res) => {
         script.formatOther = String(formatOther || "").trim();
       }
       if (pageCount !== undefined) script.pageCount = Number(pageCount);
+      if (viewableScript !== undefined) {
+        script.viewableScript = Boolean(viewableScript);
+      }
       if (scriptPreviewAccess !== undefined) {
         script.scriptPreviewAccess = normalizeScriptPreviewAccess(scriptPreviewAccess || {}, {
           mode: scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages",
@@ -2388,6 +2398,7 @@ export const uploadScript = async (req, res) => {
       legal,
       collabVisibility,
       scriptPreviewAccess,
+      viewableScript,
       rightsLicensing,
       scriptCompletion,
       // Publishing layer
@@ -2499,6 +2510,7 @@ export const uploadScript = async (req, res) => {
           : (pageCount || resolvedPageCount || 0)
       ),
     });
+    const viewableScriptEnabled = Boolean(viewableScript);
 
     const isPremiumAccess = Boolean(isPremium || premium) && Number(price || 0) > 0;
     const effectivePrice = isPremiumAccess ? Number(price || 0) : 0;
@@ -2583,6 +2595,7 @@ export const uploadScript = async (req, res) => {
       textContent: resolvedTextContent,
       fileUrl: scriptUrl || fileUrl,
       pageCount: resolvedPageCount,
+      viewableScript: viewableScriptEnabled,
       scriptPreviewPageTexts: resolvedPreviewPageTexts,
       scriptPreviewAccess: normalizedScriptPreviewAccess,
       scriptCompletion: normalizeScriptCompletionInput(scriptCompletion || {}, {}),
@@ -3033,7 +3046,11 @@ export const getScriptPdf = async (req, res) => {
       return res.status(404).json({ message: "Script not found" });
     }
 
-    if (isIndustryProfessionalWithPersonalEmail(req.user) && String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")) {
+    if (
+      isIndustryProfessionalWithPersonalEmail(req.user) &&
+      !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
+    ) {
       return res.status(403).json({ message: "Please login with a company email or purchase a plan to open scripts." });
     }
 
@@ -3108,7 +3125,11 @@ export const getScriptById = async (req, res) => {
 
     if (!script) return res.status(404).json({ message: "Script not found" });
 
-    if (isIndustryProfessionalWithPersonalEmail(req.user) && String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")) {
+    if (
+      isIndustryProfessionalWithPersonalEmail(req.user) &&
+      !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
+    ) {
       return res.status(403).json({ message: "Please login with a company email or purchase a plan to open scripts." });
     }
 
@@ -3239,18 +3260,21 @@ export const getScriptById = async (req, res) => {
     const userRole = req.user.role;
     const isWriter = userRole === 'writer' || userRole === 'creator';
     const canPurchase = !canCollaboratorRead && ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);
-    const normalizedPreviewAccess = normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
-      mode: script.scriptPreviewAccess?.mode || "pages",
-      start: script.scriptPreviewAccess?.start || 1,
-      end: script.scriptPreviewAccess?.end || 8,
-      maxUnits: Number(
-        String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
-          ? (script.scriptCompletion?.totalParts || 0)
-          : (script.pageCount || 0)
-      ),
-    });
-    const previewSummary = getScriptPreviewLabel(normalizedPreviewAccess);
-    const previewExcerpt = getScriptPreviewExcerpt(script, normalizedPreviewAccess);
+    const hasViewablePreview = hasViewableScriptPreview(script);
+    const normalizedPreviewAccess = hasViewablePreview
+      ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+          mode: script.scriptPreviewAccess?.mode || "pages",
+          start: script.scriptPreviewAccess?.start || 1,
+          end: script.scriptPreviewAccess?.end || 8,
+          maxUnits: Number(
+            String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
+              ? (script.scriptCompletion?.totalParts || 0)
+              : (script.pageCount || 0)
+          ),
+        })
+      : null;
+    const previewSummary = hasViewablePreview ? getScriptPreviewLabel(normalizedPreviewAccess) : "";
+    const previewExcerpt = hasViewablePreview ? getScriptPreviewExcerpt(script, normalizedPreviewAccess) : "";
 
     // Get audition count
     const Audition = (await import("../models/Audition.js")).default;
@@ -3419,10 +3443,11 @@ export const getScriptById = async (req, res) => {
       viewBreakdown,
       reviewBreakdown,
       writerContact,
+      viewableScript: hasViewablePreview,
       scriptPreviewAccess: normalizedPreviewAccess,
       scriptPreviewSummary: previewSummary,
       previewExcerpt,
-      scriptPreviewPageTexts: getScriptPreviewPageTexts(script),
+      scriptPreviewPageTexts: hasViewablePreview ? getScriptPreviewPageTexts(script) : [],
       // Always return full synopsis. Only script body/content remains gated.
       synopsis: script.synopsis,
       // Hide full content unless unlocked, creator, or admin.
@@ -3476,7 +3501,11 @@ export const getPublicScriptById = async (req, res) => {
 
     const creator = script.creator || {};
 
-    if (isIndustryProfessionalWithPersonalEmail(req.user) && String(creator?._id || creator || "") !== String(req.user?._id || "")) {
+    if (
+      isIndustryProfessionalWithPersonalEmail(req.user) &&
+      !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      String(creator?._id || creator || "") !== String(req.user?._id || "")
+    ) {
       return res.status(403).json({ message: "Please login with a company email or purchase a plan to open scripts." });
     }
     const isCreatorPrivate = Boolean(creator.isPrivate);
@@ -3508,18 +3537,21 @@ export const getPublicScriptById = async (req, res) => {
             .lean()
         )
       : null;
-    const normalizedPreviewAccess = normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
-      mode: script.scriptPreviewAccess?.mode || "pages",
-      start: script.scriptPreviewAccess?.start || 1,
-      end: script.scriptPreviewAccess?.end || 8,
-      maxUnits: Number(
-        String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
-          ? (script.scriptCompletion?.totalParts || 0)
-          : (script.pageCount || 0)
-      ),
-    });
-    const previewSummary = getScriptPreviewLabel(normalizedPreviewAccess);
-    const previewExcerpt = getScriptPreviewExcerpt(script, normalizedPreviewAccess);
+    const hasViewablePreview = hasViewableScriptPreview(script);
+    const normalizedPreviewAccess = hasViewablePreview
+      ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+          mode: script.scriptPreviewAccess?.mode || "pages",
+          start: script.scriptPreviewAccess?.start || 1,
+          end: script.scriptPreviewAccess?.end || 8,
+          maxUnits: Number(
+            String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
+              ? (script.scriptCompletion?.totalParts || 0)
+              : (script.pageCount || 0)
+          ),
+        })
+      : null;
+    const previewSummary = hasViewablePreview ? getScriptPreviewLabel(normalizedPreviewAccess) : "";
+    const previewExcerpt = hasViewablePreview ? getScriptPreviewExcerpt(script, normalizedPreviewAccess) : "";
 
     const publicScript = {
       _id: script._id,
@@ -3555,11 +3587,12 @@ export const getPublicScriptById = async (req, res) => {
         adaptationSource: script.contentIndicators?.adaptationSource || "",
       },
       scriptCompletion: normalizeScriptCompletionInput(script.scriptCompletion || {}, {}),
+      viewableScript: hasViewablePreview,
       scriptPreviewAccess: normalizedPreviewAccess,
       scriptPreviewSummary: previewSummary,
       previewExcerpt,
-      scriptPreviewStartText: getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start),
-      scriptPreviewEndText: getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end),
+      scriptPreviewStartText: hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start) : "",
+      scriptPreviewEndText: hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end) : "",
       evaluation: script.scriptScore?.overall
         ? {
             overall: Number(script.scriptScore.overall || 0),

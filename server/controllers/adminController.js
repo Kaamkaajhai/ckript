@@ -128,6 +128,7 @@ const getScriptPreviewPageTextByNumber = (script, pageNumber) => {
     const index = Math.max(0, Number(pageNumber || 0) - 1);
     return String(pageTexts[index] || "").trim();
 };
+const hasViewableScriptPreview = (script) => Boolean(script?.viewableScript);
 
 const buildBroadcastAudienceConfig = (audience = "") => {
     const normalizedAudience = String(audience || "").trim().toLowerCase();
@@ -1842,14 +1843,17 @@ export const getScriptDetail = async (req, res) => {
         });
 
         const response = script.toObject();
-        const normalizedPreviewAccess = normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
-            mode: script.scriptPreviewAccess?.mode || "pages",
-            start: script.scriptPreviewAccess?.start || 1,
-            end: script.scriptPreviewAccess?.end || 8,
-            maxUnits: Array.isArray(script.scriptPreviewPageTexts) ? script.scriptPreviewPageTexts.length : 0,
-        });
-        const previewSummary = getScriptPreviewLabel(normalizedPreviewAccess);
-        const previewExcerpt = getScriptPreviewExcerpt(script, normalizedPreviewAccess);
+        const hasViewablePreview = hasViewableScriptPreview(script);
+        const normalizedPreviewAccess = hasViewablePreview
+            ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+                mode: script.scriptPreviewAccess?.mode || "pages",
+                start: script.scriptPreviewAccess?.start || 1,
+                end: script.scriptPreviewAccess?.end || 8,
+                maxUnits: Array.isArray(script.scriptPreviewPageTexts) ? script.scriptPreviewPageTexts.length : 0,
+            })
+            : null;
+        const previewSummary = hasViewablePreview ? getScriptPreviewLabel(normalizedPreviewAccess) : "";
+        const previewExcerpt = hasViewablePreview ? getScriptPreviewExcerpt(script, normalizedPreviewAccess) : "";
         response.settledPurchaseRequests = settledPurchaseRequests.map((request) => {
             const buyerId = request?.investor?._id?.toString?.() || request?.investor?.toString?.() || "";
             const agreement = agreementByBuyerId.get(buyerId) || null;
@@ -1865,12 +1869,13 @@ export const getScriptDetail = async (req, res) => {
                     : null,
             };
         });
+        response.viewableScript = hasViewablePreview;
         response.scriptPreviewAccess = normalizedPreviewAccess;
         response.scriptPreviewSummary = previewSummary;
         response.previewExcerpt = previewExcerpt;
-        response.scriptPreviewPageTexts = getScriptPreviewPageTexts(script);
-        response.scriptPreviewStartText = getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start);
-        response.scriptPreviewEndText = getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end);
+        response.scriptPreviewPageTexts = hasViewablePreview ? getScriptPreviewPageTexts(script) : [];
+        response.scriptPreviewStartText = hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start) : "";
+        response.scriptPreviewEndText = hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end) : "";
 
         res.json(response);
     } catch (error) {

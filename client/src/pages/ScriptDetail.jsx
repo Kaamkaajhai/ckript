@@ -208,6 +208,7 @@ const ScriptDetail = () => {
     text: script?.shareMeta?.text || (script?.logline || script?.synopsis || "Check out this project on Ckript."),
   };
   const previewRawText = typeof script?.previewExcerpt === "string" ? script.previewExcerpt : "";
+  const hasViewableScript = Boolean(script?.viewableScript);
   const beautifyPreviewPageText = (value = "") => {
     const text = String(value || "")
       .replace(/\r\n/g, "\n")
@@ -231,11 +232,11 @@ const ScriptDetail = () => {
       .replace(/\n[ \t]+\n/g, "\n\n")
       .trim();
   };
-  const previewPageTexts = Array.isArray(script?.scriptPreviewPageTexts)
+  const previewPageTexts = hasViewableScript && Array.isArray(script?.scriptPreviewPageTexts)
     ? script.scriptPreviewPageTexts.map((pageText) => String(pageText || "").trim()).filter(Boolean)
     : [];
-  const previewStartPage = Math.max(1, Number(script?.scriptPreviewAccess?.start || 1));
-  const previewEndPage = Math.max(previewStartPage, Number(script?.scriptPreviewAccess?.end || previewStartPage));
+  const previewStartPage = hasViewableScript ? Math.max(1, Number(script?.scriptPreviewAccess?.start || 1)) : 1;
+  const previewEndPage = hasViewableScript ? Math.max(previewStartPage, Number(script?.scriptPreviewAccess?.end || previewStartPage)) : 1;
   const previewRangeText = previewPageTexts.length
     ? previewPageTexts.slice(Math.max(0, previewStartPage - 1), Math.max(0, previewEndPage)).join("\n\n")
     : "";
@@ -1285,6 +1286,17 @@ const ScriptDetail = () => {
   const cl = script.classification || {};
   const ci = script.contentIndicators || {};
   const fd = script.filmDetails || {};
+  const previewStart = hasViewableScript ? Number(script?.scriptPreviewAccess?.start || 1) : 0;
+  const previewEnd = hasViewableScript ? Number(script?.scriptPreviewAccess?.end || previewStart) : 0;
+  const viewablePagesLabel = !hasViewableScript
+    ? "Hidden"
+    : previewStart === previewEnd
+    ? `${previewStart}`
+    : `${previewStart}-${previewEnd}`;
+  const writerRoleLabel = [
+    fd.wantToDirect ? "I also want to direct my script" : null,
+    fd.wantToProduce ? "I also want to produce my script" : null,
+  ].filter(Boolean).join(" and ") || undefined;
   const completionLabel = getScriptCompletionStatusLabel(script);
   const completionProgress = getScriptCompletionProgressText(script);
   const completionFuturePlans = getScriptCompletionFuturePlans(script);
@@ -1660,8 +1672,8 @@ const ScriptDetail = () => {
                         <p className={`text-lg font-extrabold tabular-nums ${t.title}`}>{script.pageCount || "\u2014"}</p>
                       </div>
                       <div>
-                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Budget</p>
-                        <p className={`text-[13px] font-bold capitalize ${t.title}`}>{script.budget || "\u2014"}</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Viewable Pages</p>
+                        <p className={`text-[13px] font-bold capitalize ${t.title}`}>{viewablePagesLabel || "\u2014"}</p>
                       </div>
 
                       {script.rating > 0 && (
@@ -2030,11 +2042,11 @@ const ScriptDetail = () => {
                       { label: "Secondary Genre", value: cl.secondaryGenre },
                       { label: "Completion", value: completionProgress ? `${completionLabel} · ${completionProgress}` : completionLabel },
                       { label: "Page Count", value: script.pageCount },
-                      { label: "Budget Level", value: fmtBudget(script.budget) },
+                      { label: "Viewable Pages", value: viewablePagesLabel },
                       { label: "Published", value: formatDateTime(publishedAtValue) },
                       { label: "Film Language", value: fd.filmLanguage },
                       { label: "Dialogues", value: fd.dialoguesPresent === "yes" ? "Full Dialogues" : fd.dialoguesPresent === "partial" ? "Partial" : fd.dialoguesPresent === "no" ? "Action Only" : undefined },
-                      { label: "Writer's Role", value: [fd.wantToDirect && "Director", fd.wantToProduce && "Producer"].filter(Boolean).join(" & ") || undefined },
+                      { label: "Writer's Role", value: writerRoleLabel },
                     ]
                       .filter((i) => i.value && i.value !== "\u2014")
                       .map((item, idx) => (
