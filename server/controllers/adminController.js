@@ -1803,14 +1803,25 @@ export const getScriptDetail = async (req, res) => {
             .populate("platformScore.scoredBy", "name");
         if (!script) return res.status(404).json({ message: "Script not found" });
 
-        if (!String(script.textContent || "").trim() && String(script.fileUrl || "").trim()) {
+        const hasPreviewPageTexts = Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.some(Boolean);
+        const needsPdfExtraction = String(script.fileUrl || "").trim() &&
+            (!String(script.textContent || "").trim() || !hasPreviewPageTexts);
+        if (needsPdfExtraction) {
             try {
                 const extraction = await extractTextFromPdfUrl(script.fileUrl);
-                if (String(extraction?.text || "").trim()) {
+                let changed = false;
+                if (!String(script.textContent || "").trim() && String(extraction?.text || "").trim()) {
                     script.textContent = extraction.text;
                     if (!Number(script.pageCount) && Number(extraction?.numItems) > 0) {
                         script.pageCount = Number(extraction.numItems);
                     }
+                    changed = true;
+                }
+                if (!hasPreviewPageTexts && Array.isArray(extraction?.pageTexts) && extraction.pageTexts.length > 0) {
+                    script.scriptPreviewPageTexts = extraction.pageTexts;
+                    changed = true;
+                }
+                if (changed) {
                     await script.save();
                 }
             } catch (error) {
@@ -1844,16 +1855,16 @@ export const getScriptDetail = async (req, res) => {
 
         const response = script.toObject();
         const hasViewablePreview = hasViewableScriptPreview(script);
-        const normalizedPreviewAccess = hasViewablePreview
-            ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
-                mode: script.scriptPreviewAccess?.mode || "pages",
-                start: script.scriptPreviewAccess?.start || 1,
-                end: script.scriptPreviewAccess?.end || 8,
-                maxUnits: Array.isArray(script.scriptPreviewPageTexts) ? script.scriptPreviewPageTexts.length : 0,
-            })
-            : null;
-        const previewSummary = hasViewablePreview ? getScriptPreviewLabel(normalizedPreviewAccess) : "";
-        const previewExcerpt = hasViewablePreview ? getScriptPreviewExcerpt(script, normalizedPreviewAccess) : "";
+        // Always normalize preview access so admin always has start/end even when viewableScript:false
+        const normalizedPreviewAccess = normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+            mode: script.scriptPreviewAccess?.mode || "pages",
+            start: script.scriptPreviewAccess?.start || 1,
+            end: script.scriptPreviewAccess?.end || 8,
+            maxUnits: Array.isArray(script.scriptPreviewPageTexts) ? script.scriptPreviewPageTexts.length : 0,
+        });
+        const previewSummary = getScriptPreviewLabel(normalizedPreviewAccess);
+        const previewExcerpt = getScriptPreviewExcerpt(script, normalizedPreviewAccess);
+        const allPreviewPageTexts = getScriptPreviewPageTexts(script);
         response.settledPurchaseRequests = settledPurchaseRequests.map((request) => {
             const buyerId = request?.investor?._id?.toString?.() || request?.investor?.toString?.() || "";
             const agreement = agreementByBuyerId.get(buyerId) || null;
@@ -1873,9 +1884,10 @@ export const getScriptDetail = async (req, res) => {
         response.scriptPreviewAccess = normalizedPreviewAccess;
         response.scriptPreviewSummary = previewSummary;
         response.previewExcerpt = previewExcerpt;
-        response.scriptPreviewPageTexts = hasViewablePreview ? getScriptPreviewPageTexts(script) : [];
-        response.scriptPreviewStartText = hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start) : "";
-        response.scriptPreviewEndText = hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end) : "";
+        // Always return page texts so admin preview works regardless of viewableScript flag
+        response.scriptPreviewPageTexts = allPreviewPageTexts;
+        response.scriptPreviewStartText = getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start);
+        response.scriptPreviewEndText = getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end);
 
         res.json(response);
     } catch (error) {

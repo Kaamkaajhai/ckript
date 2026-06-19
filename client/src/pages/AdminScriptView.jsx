@@ -1501,6 +1501,53 @@ const AdminScriptView = () => {
           </div>
         </div>
 
+        {uploadedPdfUrl && (
+          <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-emerald-400/70">Script Preview</p>
+                <p className="text-xs text-white/45 mt-0.5">
+                  {script?.viewableScript
+                    ? "Visible to producers before purchasing"
+                    : "Not currently visible to producers"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {script?.viewableScript ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
+                    Visible to Producers
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-white/8 text-white/40 border border-white/10">
+                    Hidden from Producers
+                  </span>
+                )}
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                  Pages {Number(script?.scriptPreviewAccess?.start || 1)} – {Number(script?.scriptPreviewAccess?.end || 8)}
+                </span>
+              </div>
+            </div>
+            <div className="max-w-[920px] mx-auto">
+              <ScreenplayPdfViewer
+                pdfUrl={uploadedPdfUrl}
+                title={script?.title || "Script"}
+                startPage={Number(script?.scriptPreviewAccess?.start || 1)}
+                endPage={Number(script?.scriptPreviewAccess?.end || 8)}
+                fallbackPages={Array.isArray(script?.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length > 0
+                  ? script.scriptPreviewPageTexts.slice(
+                      Math.max(0, Number(script?.scriptPreviewAccess?.start || 1) - 1),
+                      Number(script?.scriptPreviewAccess?.end || 8)
+                    ).map((pageText, index) => ({
+                      pageNumber: Number(script?.scriptPreviewAccess?.start || 1) + index,
+                      text: String(pageText || ""),
+                    }))
+                  : []}
+                fallbackText={script?.previewExcerpt || plainScriptText}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45">Main Content</p>
@@ -1517,81 +1564,30 @@ const AdminScriptView = () => {
           </div>
 
           {hasFullScriptText ? (
-            <>
-              <div className="max-w-[920px] mx-auto">
-                <ScreenplayPdfViewer
-                  pdfUrl={uploadedPdfProxyUrl}
-                  title={script?.title || "Script"}
-                  fallbackPages={scriptPages.map((pageText, index) => ({
-                    pageNumber: index + 1,
-                    text: pageText,
-                  }))}
-                  fallbackText={plainScriptText}
-                  showAllPages
-                />
-              </div>
-
-              {(script.previewExcerpt || script.scriptPreviewSummary || script.scriptPreviewStartText || script.scriptPreviewEndText) && (
-                <div className="mt-4 rounded-[18px] border border-white/10 bg-white/[0.03] p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45">Viewable Script</p>
-                      {script.scriptPreviewSummary && (
-                        <p className="text-xs text-white/55 mt-1">{script.scriptPreviewSummary}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="max-w-[920px] mx-auto">
-                    <ScreenplayPdfViewer
-                      pdfUrl={uploadedPdfProxyUrl}
-                      title={script?.title || "Script"}
-                      startPage={Number(script.scriptPreviewAccess?.start || 1)}
-                      endPage={Number(script.scriptPreviewAccess?.end || 1)}
-                      fallbackPages={Array.isArray(script.scriptPreviewPageTexts)
-                        ? script.scriptPreviewPageTexts.slice(
-                            Math.max(0, Number(script.scriptPreviewAccess?.start || 1) - 1),
-                            Math.max(0, Number(script.scriptPreviewAccess?.end || 1))
-                          ).map((pageText, index) => ({
-                            pageNumber: Number(script.scriptPreviewAccess?.start || 1) + index,
-                            text: String(pageText || ""),
-                          }))
-                        : []}
-                      fallbackText={script.previewExcerpt || plainScriptText}
-                    />
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="max-w-[920px] mx-auto">
+              <ScreenplayPdfViewer
+                pdfUrl={uploadedPdfUrl}
+                title={script?.title || "Script"}
+                fallbackPages={scriptPages.map((pageText, index) => ({
+                  pageNumber: index + 1,
+                  text: pageText,
+                }))}
+                fallbackText={plainScriptText}
+                showAllPages
+              />
+            </div>
+          ) : hasUploadedPdf ? (
+            <div className="max-w-[920px] mx-auto">
+              <ScreenplayPdfViewer
+                pdfUrl={uploadedPdfUrl}
+                title={script?.title || "Script"}
+                fallbackPages={[]}
+                fallbackText=""
+                showAllPages
+              />
+            </div>
           ) : (
-            hasUploadedPdf ? (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-blue-100">Uploaded PDF available</p>
-                    <p className="text-xs text-blue-100/75">
-                      No extracted script text was saved for this project, but the writer uploaded a PDF that admin can open and review.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer")}
-                    className="px-3 py-2 rounded-lg border border-blue-300/30 bg-blue-500/20 hover:bg-blue-500/30 text-blue-50 text-xs font-bold"
-                  >
-                    Open Uploaded PDF
-                  </button>
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-white">
-                  <iframe
-                    src={uploadedPdfUrl}
-                    title="Uploaded script PDF"
-                    className="w-full h-[720px]"
-                  />
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-white/55">No script body found.</p>
-            )
+            <p className="text-sm text-white/55">No script body found.</p>
           )}
         </div>
       </div>

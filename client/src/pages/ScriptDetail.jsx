@@ -1308,7 +1308,7 @@ const ScriptDetail = () => {
     { id: "classification", label: "Classification" },
     { id: "evaluation", label: "Evaluation" },
     { id: "roles", label: "Roles" },
-    { id: "synopsis", label: "Viewable Script" },
+    ...(hasViewableScript ? [{ id: "synopsis", label: "Viewable Script" }] : []),
     ...(canViewFullScript && (hasScriptTextContent || hasUploadedScriptPdf)
       ? [{ id: "content", label: isOwner ? "My Script" : "Full Script" }]
       : []),
