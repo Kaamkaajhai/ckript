@@ -23,7 +23,7 @@ const sections = [
     bullets: [
       "You must provide accurate, current, and complete information during registration",
       "You are responsible for maintaining the confidentiality of your account credentials",
-      "You must notify us immediately at info.ckript@gmail.com if you suspect unauthorized access to your account",
+      "You must notify us immediately at contact@ckript.com if you suspect unauthorized access to your account",
       "You may not create accounts on behalf of others without their explicit consent",
       "One person may not maintain more than one active account without prior written permission from Ckript",
       "We may suspend, restrict, or terminate accounts that violate these Terms or create risk for the platform or other users",
@@ -61,7 +61,7 @@ const sections = [
       },
       {
         subtitle: "Infringement Notices",
-        text: "If you believe content on the platform infringes your copyright or other intellectual property rights, send a notice to info.ckript@gmail.com with sufficient detail for us to identify the work, the allegedly infringing material, the basis of your claim, and your contact details. We may investigate and act as we consider appropriate.",
+        text: "If you believe content on the platform infringes your copyright or other intellectual property rights, send a notice to contact@ckript.com with sufficient detail for us to identify the work, the allegedly infringing material, the basis of your claim, and your contact details. We may investigate and act as we consider appropriate.",
       },
     ],
   },
@@ -84,7 +84,7 @@ const sections = [
       },
       {
         subtitle: "Refund Policy",
-        text: "Except where required by law or expressly stated otherwise, fees are non-refundable once billed or once processing of the purchased service has begun. If you believe you were charged in error, contact info.ckript@gmail.com promptly with supporting details. Any goodwill refund, credit, or reversal will be at our discretion unless otherwise required by law.",
+        text: "Except where required by law or expressly stated otherwise, fees are non-refundable once billed or once processing of the purchased service has begun. If you believe you were charged in error, contact contact@ckript.com promptly with supporting details. Any goodwill refund, credit, or reversal will be at our discretion unless otherwise required by law.",
       },
       {
         subtitle: "Payment Processing",
@@ -317,8 +317,8 @@ export default function TermsOfService() {
                   </p>
                   <p>
                     <span className="text-gray-600">Email: </span>
-                    <a href="mailto:info.ckript@gmail.com" className="text-blue-400 hover:underline">
-                      info.ckript@gmail.com
+                    <a href="mailto:contact@ckript.com" className="text-blue-400 hover:underline">
+                      contact@ckript.com
                     </a>
                   </p>
                   <p>
