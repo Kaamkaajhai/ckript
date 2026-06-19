@@ -138,6 +138,7 @@ const ScriptDetail = () => {
   const [script, setScript] = useState(null);
   const [loading, setLoading] = useState(true);
   const [accessMessage, setAccessMessage] = useState("");
+  const [accessRequiresBusinessEmail, setAccessRequiresBusinessEmail] = useState(false);
   const [coverError, setCoverError] = useState(false);
   const [trailerError, setTrailerError] = useState(false);
   const [trailerSourceIndex, setTrailerSourceIndex] = useState(0);
@@ -200,7 +201,7 @@ const ScriptDetail = () => {
     ["investor", "producer", "director", "industry", "professional"].includes(String(user?.role || "").toLowerCase());
   const viewerHasBusinessEmail = isIndustryRole && hasBusinessEmail(user?.email);
   const viewerHasProAccess = isIndustryRole && hasActiveFilmIndustryProfessionalAccess(user);
-  const canViewWriterInfo = Boolean(viewerHasBusinessEmail || viewerHasProAccess);
+  const canViewWriterInfo = viewerHasProAccess;
 
   const revealStatus = script?.writerContactRevealStatus || null;
   // Use locally revealed contact (after clicking reveal) or the contact from the API response
@@ -208,10 +209,9 @@ const ScriptDetail = () => {
   const writerContact = activeWriterContact;
   const contactAlreadyRevealed = Boolean(
     revealedContact ||
-    revealStatus?.alreadyRevealed ||
-    (viewerHasBusinessEmail && script?.writerContact)
+    revealStatus?.alreadyRevealed
   );
-  const contactRevealBlocked = viewerHasProAccess && !viewerHasBusinessEmail && !contactAlreadyRevealed &&
+  const contactRevealBlocked = viewerHasProAccess && !contactAlreadyRevealed &&
     (revealStats ? revealStats.remainingContacts <= 0 : revealStatus?.remainingContacts <= 0);
   const remainingContacts = revealStats?.remainingContacts ?? revealStatus?.remainingContacts ?? getRemainingContacts(user);
   const contactsLimit = revealStats?.contactsLimit ?? revealStatus?.contactsLimit ?? getContactsLimit(user);
@@ -594,14 +594,13 @@ const ScriptDetail = () => {
         status === 403 ||
         message.includes("company email") ||
         message.includes("purchase a plan") ||
-        message.includes("login with a company");
+        message.includes("login with a company") ||
+        message.includes("business email");
 
       if (isAccessBlocked) {
         setScript(null);
-        setAccessMessage(
-          error?.response?.data?.message ||
-          "Please login with a company email or purchase a plan to open scripts."
-        );
+        setAccessMessage(error?.response?.data?.message || "You need a business email or a plan to access this.");
+        setAccessRequiresBusinessEmail(Boolean(error?.response?.data?.requiresBusinessEmail));
         return;
       }
 
@@ -1207,15 +1206,52 @@ const ScriptDetail = () => {
   if (accessMessage)
     return (
       <div className={`flex justify-center items-center min-h-[60vh] px-4 ${t.page}`}>
-        <div className={`max-w-lg w-full rounded-2xl border p-6 sm:p-8 text-center ${t.card}`}>
-          <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 border ${t.inset}`}>
-            <svg className={`w-6 h-6 ${t.label}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        <div className={`max-w-md w-full rounded-2xl border p-6 sm:p-8 ${t.card}`}>
+          <div className={`w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-4 border ${t.inset}`}>
+            <svg className={`w-5 h-5 ${t.label}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
             </svg>
           </div>
-          <h2 className={`text-xl font-extrabold mb-2 ${t.title}`}>Access Restricted</h2>
-          <p className={`text-sm leading-relaxed ${t.muted}`}>{accessMessage}</p>
+          <h2 className={`text-base font-extrabold mb-1 text-center ${t.title}`}>Access Restricted</h2>
+          {accessRequiresBusinessEmail ? (
+            <>
+              <p className={`text-[13px] text-center leading-relaxed mb-5 ${t.muted}`}>
+                Your account uses a personal email. Choose an option below to continue.
+              </p>
+              <div className="space-y-3">
+                <div className={`rounded-xl border p-4 ${t.inset}`}>
+                  <p className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${t.label}`}>Free Access</p>
+                  <p className={`text-sm font-semibold mb-0.5 ${t.title}`}>Sign up with a business email</p>
+                  <p className={`text-[12px] leading-relaxed mb-3 ${t.muted}`}>
+                    Use a company email address to browse scripts and view writer profiles at no cost.
+                  </p>
+                  <Link
+                    to="/settings"
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition ${t.btnSec}`}
+                  >
+                    Update Account Email
+                  </Link>
+                </div>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-wide mb-1 text-amber-500">Premium Plan</p>
+                  <p className={`text-sm font-semibold mb-0.5 ${t.title}`}>Film Industry Professional</p>
+                  <p className={`text-[12px] leading-relaxed mb-3 ${t.muted}`}>
+                    Full access to scripts, writer profiles, and verified contact details (email, phone &amp; links) for up to 15 writers per month.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/pricing")}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Get the Plan
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className={`text-sm text-center leading-relaxed mt-2 ${t.muted}`}>{accessMessage}</p>
+          )}
         </div>
       </div>
     );
@@ -1745,37 +1781,54 @@ const ScriptDetail = () => {
                     </div>
                   </div>
 
-                  {canViewWriterInfo && (
+                  {isIndustryRole && (
                     <div className={`rounded-2xl border overflow-hidden ${t.priceSub}`}>
+                      {!canViewWriterInfo && (
+                        <div className="px-4 py-3 flex items-center justify-between gap-3">
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Writer Contact</p>
+                          <button
+                            type="button"
+                            onClick={() => navigate("/pricing")}
+                            className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                          >
+                            Get Plan
+                          </button>
+                        </div>
+                      )}
+                      {canViewWriterInfo && (
+                        <>
                       {/* Header */}
                       <div className="px-4 pt-4 pb-3">
                         <div className="flex items-center justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Writer Contact</p>
-                              {viewerHasProAccess && !viewerHasBusinessEmail && (
+                              {viewerHasProAccess && (
                                 <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-amber-400">
                                   <span className="h-[4px] w-[4px] rounded-full bg-amber-400" />
                                   Premium
                                 </span>
                               )}
                             </div>
-                            {viewerHasProAccess && !viewerHasBusinessEmail && (
-                              <p className={`text-[11px] mt-0.5 ${t.muted}`}>
-                                {contactAlreadyRevealed
-                                  ? `Contact revealed · ${remainingContacts} of ${contactsLimit} remaining`
-                                  : contactRevealBlocked
-                                    ? `${contactsUsed}/${contactsLimit} contacts used · limit reached`
-                                    : `${remainingContacts} of ${contactsLimit} reveals remaining`}
+                            {viewerHasProAccess ? (
+                              <p className={`text-[11px] mt-0.5 ${
+                                remainingContacts === 0
+                                  ? "text-rose-400"
+                                  : remainingContacts <= Math.ceil(contactsLimit * 0.3)
+                                    ? "text-amber-400"
+                                    : t.muted
+                              }`}>
+                                {remainingContacts === 0
+                                  ? `Limit reached · ${contactsUsed}/${contactsLimit} contacts used`
+                                  : `You can view ${remainingContacts} more writer contact${remainingContacts === 1 ? "" : "s"} · ${contactsUsed}/${contactsLimit} used`}
                               </p>
-                            )}
-                            {viewerHasBusinessEmail && (
+                            ) : (
                               <p className={`text-[11px] mt-0.5 ${t.muted}`}>View contact details and links</p>
                             )}
                           </div>
 
                           {/* Action button */}
-                          {contactAlreadyRevealed || viewerHasBusinessEmail ? (
+                          {contactAlreadyRevealed ? (
                             <button
                               type="button"
                               onClick={() => setShowWriterInfo((prev) => !prev)}
@@ -1784,7 +1837,7 @@ const ScriptDetail = () => {
                               {showWriterInfo ? "Hide" : "View"}
                             </button>
                           ) : contactRevealBlocked ? (
-                            <span className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border ${dark ? "border-white/10 text-white/25 bg-white/5" : "border-gray-200 text-gray-400 bg-gray-50"}`}>
+                            <span className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border ${isDarkMode ? "border-white/10 text-white/25 bg-white/5" : "border-gray-200 text-gray-400 bg-gray-50"}`}>
                               Limit reached
                             </span>
                           ) : viewerHasProAccess ? (
@@ -1814,10 +1867,10 @@ const ScriptDetail = () => {
                         )}
                       </div>
 
-                      {/* Limit bar — only for pro subscribers */}
-                      {viewerHasProAccess && !viewerHasBusinessEmail && (
-                        <div className={`px-4 pb-3`}>
-                          <div className={`h-[3px] w-full rounded-full overflow-hidden ${dark ? "bg-white/8" : "bg-gray-100"}`}>
+                      {/* Usage bar — all pro subscribers */}
+                      {viewerHasProAccess && (
+                        <div className="px-4 pb-3">
+                          <div className={`h-[3px] w-full rounded-full overflow-hidden ${isDarkMode ? "bg-white/8" : "bg-gray-100"}`}>
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${
                                 contactsUsed >= contactsLimit
@@ -1829,9 +1882,6 @@ const ScriptDetail = () => {
                               style={{ width: `${Math.min(100, (contactsUsed / contactsLimit) * 100)}%` }}
                             />
                           </div>
-                          <p className={`text-[9px] mt-1 text-right ${t.muted}`}>
-                            {contactsUsed} / {contactsLimit} contacts used this period
-                          </p>
                         </div>
                       )}
 
@@ -1846,8 +1896,52 @@ const ScriptDetail = () => {
                       )}
 
                       {/* Revealed contact details */}
-                      {(contactAlreadyRevealed || viewerHasBusinessEmail) && showWriterInfo && (
+                      {contactAlreadyRevealed && showWriterInfo && (
                         <div className={`px-4 pb-4 pt-3 border-t space-y-3 ${t.divider}`}>
+
+                          {/* Contact usage counter — always visible for pro subscribers */}
+                          {viewerHasProAccess && (
+                            <div className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border ${
+                              remainingContacts === 0
+                                ? "bg-rose-500/10 border-rose-500/20"
+                                : remainingContacts <= Math.ceil(contactsLimit * 0.3)
+                                  ? "bg-amber-500/10 border-amber-500/20"
+                                  : isDarkMode
+                                    ? "bg-white/[0.04] border-white/10"
+                                    : "bg-gray-50 border-gray-200"
+                            }`}>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`h-[6px] w-[6px] shrink-0 rounded-full ${
+                                  remainingContacts === 0
+                                    ? "bg-rose-400"
+                                    : remainingContacts <= Math.ceil(contactsLimit * 0.3)
+                                      ? "bg-amber-400 animate-pulse"
+                                      : "bg-emerald-400"
+                                }`} />
+                                <p className={`text-[11px] font-semibold leading-snug ${
+                                  remainingContacts === 0
+                                    ? "text-rose-400"
+                                    : remainingContacts <= Math.ceil(contactsLimit * 0.3)
+                                      ? "text-amber-400"
+                                      : isDarkMode ? "text-white/55" : "text-gray-500"
+                                }`}>
+                                  {remainingContacts === 0
+                                    ? `You've used all ${contactsLimit} contact reveals for this period`
+                                    : `You can view ${remainingContacts} more writer contact${remainingContacts === 1 ? "" : "s"}`}
+                                </p>
+                              </div>
+                              <span className={`shrink-0 text-[10px] font-bold tabular-nums ${
+                                remainingContacts === 0
+                                  ? "text-rose-400"
+                                  : remainingContacts <= Math.ceil(contactsLimit * 0.3)
+                                    ? "text-amber-400"
+                                    : isDarkMode ? "text-white/30" : "text-gray-400"
+                              }`}>
+                                {contactsUsed}/{contactsLimit}
+                              </span>
+                            </div>
+                          )}
+
                           <div>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${t.label}`}>Email</p>
                             {writerContact?.email ? (
@@ -1889,6 +1983,8 @@ const ScriptDetail = () => {
                             )}
                           </div>
                         </div>
+                      )}
+                        </>
                       )}
                     </div>
                   )}

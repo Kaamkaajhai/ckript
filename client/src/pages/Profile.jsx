@@ -16,7 +16,17 @@ import PasswordInput from "../components/PasswordInput";
 import { applyLanguagePreference, getBackendLanguageValue, getProfileLanguageValue } from "../utils/languagePreference";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
-import { hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
+import {
+  hasBusinessEmail,
+  hasActiveFilmIndustryProfessionalAccess,
+  isFilmIndustryProfessionalRole,
+  getRemainingContacts,
+  getContactsLimit,
+  getRevealedContactCount,
+  hasRevealedContact,
+  hasReachedContactLimit,
+} from "../utils/industryAccess";
+import PremiumModelBadge from "../components/PremiumModelBadge";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -206,6 +216,10 @@ const Profile = () => {
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [connectionsType, setConnectionsType] = useState("followers");
   const [showContactDetails, setShowContactDetails] = useState(false);
+  const [contactRevealLoading, setContactRevealLoading] = useState(false);
+  const [contactRevealError, setContactRevealError] = useState("");
+  const [revealedProfileContact, setRevealedProfileContact] = useState(null);
+  const [contactRevealStats, setContactRevealStats] = useState(null);
   const messageTextareaRef = useRef(null);
   
   // Pitch
@@ -237,6 +251,7 @@ const Profile = () => {
   const [referralError, setReferralError] = useState("");
   const [referralCopyFeedback, setReferralCopyFeedback] = useState("");
   const [profileAccessMessage, setProfileAccessMessage] = useState("");
+  const [profileRequiresBusinessEmail, setProfileRequiresBusinessEmail] = useState(false);
   const isFetchingProfileRef = useRef(false);
   const bookmarkRefreshTimerRef = useRef(null);
   const tabInitializedForProfileRef = useRef(null);
@@ -282,8 +297,13 @@ const Profile = () => {
       const serverMessage = error?.response?.data?.message;
       const isPrivateAccount = Boolean(error?.response?.data?.privateAccount);
       const isBlockedView = Boolean(error?.response?.data?.blockedByProfile);
+      const requiresBusinessEmail = Boolean(error?.response?.data?.requiresBusinessEmail);
 
-      if (status === 403 && isPrivateAccount) {
+      if (status === 403 && requiresBusinessEmail) {
+        setProfile(null);
+        setProfileRequiresBusinessEmail(true);
+        setProfileAccessMessage(serverMessage || "You need a business email or a plan to view this profile.");
+      } else if (status === 403 && isPrivateAccount) {
         setProfile(null);
         setFollowRequestPending(Boolean(error?.response?.data?.followRequestPending));
         setProfileAccessMessage(serverMessage || "This account is private.");
@@ -550,12 +570,27 @@ const Profile = () => {
   const isOwnProfile = currentUser._id === profile?._id;
   const isWriterUser = isWriter(profile?.role);
   const isInvestorProfile = String(profile?.role || "").toLowerCase() === "investor";
+  const viewerIsIndustryRole = ["investor", "producer", "director", "industry", "professional"].includes(
+    String(currentUser?.role || "").toLowerCase()
+  );
+  const viewerHasBusinessEmail = viewerIsIndustryRole && hasBusinessEmail(currentUser?.email);
+  const viewerHasProAccess = viewerIsIndustryRole && hasActiveFilmIndustryProfessionalAccess(currentUser);
   const canViewContactDetails = Boolean(
     !isOwnProfile &&
     currentUser?._id &&
-    ["investor", "producer", "director", "industry", "professional"].includes(String(currentUser?.role || "").toLowerCase()) &&
-    hasBusinessEmail(currentUser?.email) || hasActiveFilmIndustryProfessionalAccess(currentUser)
+    (viewerHasProAccess)
   );
+  // For pro-access viewers: contact reveal state
+  const profileWriterId = String(profile?._id || "");
+  const profileContactAlreadyRevealed = Boolean(
+    revealedProfileContact ||
+    (viewerHasProAccess && hasRevealedContact(currentUser, profileWriterId))
+  );
+  const profileRemainingContacts = contactRevealStats?.remainingContacts ?? getRemainingContacts(currentUser);
+  const profileContactsLimit = contactRevealStats?.contactsLimit ?? getContactsLimit(currentUser);
+  const profileContactsUsed = contactRevealStats?.contactsUsed ?? getRevealedContactCount(currentUser);
+  const profileContactRevealBlocked = viewerHasProAccess && !profileContactAlreadyRevealed &&
+    (contactRevealStats ? contactRevealStats.remainingContacts <= 0 : hasReachedContactLimit(currentUser));
   const connectionsLabel = connectionsType === "followers" ? "Followers" : "Following";
   const connectionList =
     connectionsType === "followers" ? profile?.followers || [] : profile?.following || [];
@@ -659,6 +694,9 @@ const Profile = () => {
 
   useEffect(() => {
     setShowContactDetails(false);
+    setRevealedProfileContact(null);
+    setContactRevealStats(null);
+    setContactRevealError("");
   }, [profile?._id]);
 
   useEffect(() => {
@@ -685,6 +723,54 @@ const Profile = () => {
 
   /* â”€â”€ Not found â”€â”€ */
   if (!profile) {
+    if (profileRequiresBusinessEmail) {
+      return (
+        <div className="flex justify-center items-center min-h-[60vh] px-4">
+          <div className={`max-w-md w-full rounded-2xl border p-6 sm:p-8 ${dark ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200"}`}>
+            <div className={`w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-4 border ${dark ? "bg-white/[0.03] border-white/[0.05]" : "bg-gray-50 border-gray-200"}`}>
+              <svg className={`w-5 h-5 ${dark ? "text-white/30" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h2 className={`text-base font-extrabold mb-1 text-center ${dark ? "text-white" : "text-gray-900"}`}>Access Restricted</h2>
+            <p className={`text-[13px] text-center leading-relaxed mb-5 ${dark ? "text-white/40" : "text-gray-500"}`}>
+              Your account uses a personal email. Choose an option below to continue.
+            </p>
+            <div className="space-y-3">
+              <div className={`rounded-xl border p-4 ${dark ? "bg-white/[0.03] border-white/[0.05]" : "bg-gray-50 border-gray-200"}`}>
+                <p className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${dark ? "text-white/30" : "text-gray-400"}`}>Free Access</p>
+                <p className={`text-sm font-semibold mb-0.5 ${dark ? "text-white" : "text-gray-900"}`}>Sign up with a business email</p>
+                <p className={`text-[12px] leading-relaxed mb-3 ${dark ? "text-white/40" : "text-gray-500"}`}>
+                  Use a company email address to browse scripts and view writer profiles at no cost.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
+                >
+                  Update Account Email
+                </button>
+              </div>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wide mb-1 text-amber-500">Premium Plan</p>
+                <p className={`text-sm font-semibold mb-0.5 ${dark ? "text-white" : "text-gray-900"}`}>Film Industry Professional</p>
+                <p className={`text-[12px] leading-relaxed mb-3 ${dark ? "text-white/40" : "text-gray-500"}`}>
+                  Full access to scripts, writer profiles, and verified contact details (email, phone &amp; links) for up to 15 writers per month.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/pricing")}
+                  className="px-4 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                >
+                  Get the Plan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col justify-center items-center h-[60vh] gap-3">
         <div
@@ -916,6 +1002,9 @@ const Profile = () => {
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.roleBg}`}>
                         {profile.role}
                       </span>
+                      {hasActiveFilmIndustryProfessionalAccess(profile) && (
+                        <PremiumModelBadge size="md" dark={dark} />
+                      )}
                       {profile.writerProfile?.wgaMember && (
                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.wgaBadge}`}>WGA</span>
                       )}
@@ -1078,6 +1167,9 @@ const Profile = () => {
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.roleBg}`}>
                             Investor
                           </span>
+                          {hasActiveFilmIndustryProfessionalAccess(profile) && (
+                            <PremiumModelBadge size="md" dark={dark} />
+                          )}
                         </div>
 
                         {(profile.industryProfile?.company || profile.industryProfile?.jobTitle) && (
@@ -1160,6 +1252,9 @@ const Profile = () => {
                           <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] border ${t.roleBg}`}>
                             {profile.role}
                           </span>
+                          {hasActiveFilmIndustryProfessionalAccess(profile) && (
+                            <PremiumModelBadge size="md" dark={dark} />
+                          )}
                         </div>
                       </div>
                       {isOwnProfile && <p className={`text-[13px] font-medium mt-2 ${t.email}`}>{profile.email}</p>}
@@ -1480,23 +1575,141 @@ const Profile = () => {
                   </>
                 ) : canViewContactDetails ? (
                   <>
+                    {/* ── Header row ── */}
                     <div className="flex items-center justify-between gap-3">
-                      <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${t.statLabel}`}>View Contact Details</p>
-                      <button
-                        type="button"
-                        onClick={() => setShowContactDetails((prev) => !prev)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${t.followIdle}`}
-                      >
-                        {showContactDetails ? "Hide" : "View"}
-                      </button>
+                      <div className="min-w-0">
+                        <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${t.statLabel}`}>Writer Contact</p>
+                        {/* Counter line for pro-access users */}
+                        {viewerHasProAccess && (
+                          <p className={`text-[11px] mt-0.5 ${dark ? "text-white/35" : "text-gray-400"}`}>
+                            {profileContactRevealBlocked
+                              ? `Limit reached · ${profileContactsUsed}/${profileContactsLimit} contacts used`
+                              : `You can view ${profileRemainingContacts} more writer contact${profileRemainingContacts === 1 ? "" : "s"} · ${profileContactsUsed}/${profileContactsLimit} used`}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action button */}
+                      {profileContactAlreadyRevealed ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowContactDetails((prev) => !prev)}
+                          className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${t.followIdle}`}
+                        >
+                          {showContactDetails ? "Hide" : "View"}
+                        </button>
+                      ) : profileContactRevealBlocked ? (
+                        <span className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border ${dark ? "border-white/10 text-white/25 bg-white/5" : "border-gray-200 text-gray-400 bg-gray-50"}`}>
+                          Limit reached
+                        </span>
+                      ) : viewerHasProAccess ? (
+                        <button
+                          type="button"
+                          disabled={contactRevealLoading}
+                          onClick={async () => {
+                            if (!profileWriterId || contactRevealLoading) return;
+                            setContactRevealError("");
+                            setContactRevealLoading(true);
+                            try {
+                              const { data } = await api.post(`/payment/reveal-contact/${profileWriterId}`);
+                              setRevealedProfileContact(data.contact);
+                              setContactRevealStats({
+                                contactsUsed: data.contactsUsed,
+                                contactsLimit: data.contactsLimit,
+                                remainingContacts: data.remainingContacts,
+                              });
+                              setShowContactDetails(true);
+                              // Update global user so counts stay in sync
+                              if (data.contactsUsed !== undefined) {
+                                setUser((prev) => {
+                                  if (!prev) return prev;
+                                  const updated = {
+                                    ...prev,
+                                    subscription: {
+                                      ...(prev.subscription || {}),
+                                      revealedContacts: [
+                                        ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
+                                        { writerId: profileWriterId, revealedAt: new Date().toISOString() },
+                                      ],
+                                    },
+                                  };
+                                  localStorage.setItem("user", JSON.stringify(updated));
+                                  return updated;
+                                });
+                              }
+                            } catch (err) {
+                              setContactRevealError(err?.response?.data?.message || "Failed to reveal contact.");
+                            } finally {
+                              setContactRevealLoading(false);
+                            }
+                          }}
+                          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-60"
+                        >
+                          {contactRevealLoading ? (
+                            <>
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                              </svg>
+                              Revealing...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Reveal Contact
+                            </>
+                          )}
+                        </button>
+                      ) : null}
                     </div>
-                    {showContactDetails && (
+
+                    {/* Reveal error */}
+                    {contactRevealError && (
+                      <p className="mt-1 text-[11px] text-rose-400">{contactRevealError}</p>
+                    )}
+
+                    {/* Usage bar for pro users */}
+                    {viewerHasProAccess && (
+                      <div className={`h-[3px] w-full rounded-full overflow-hidden mt-2 ${dark ? "bg-white/8" : "bg-gray-100"}`}>
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            profileContactsUsed >= profileContactsLimit
+                              ? "bg-rose-500"
+                              : profileContactsUsed >= profileContactsLimit * 0.8
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${Math.min(100, (profileContactsUsed / Math.max(profileContactsLimit, 1)) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Contact details (shown when revealed) */}
+                    {(profileContactAlreadyRevealed) && showContactDetails && (
                       <div className="space-y-3 pt-2">
+                        {/* After-reveal remaining counter banner */}
+                        {viewerHasProAccess && profileRemainingContacts <= Math.ceil(profileContactsLimit * 0.3) && (
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-semibold ${
+                            profileRemainingContacts === 0
+                              ? dark ? "bg-rose-500/10 border border-rose-500/20 text-rose-400" : "bg-rose-50 border border-rose-200 text-rose-600"
+                              : dark ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" : "bg-amber-50 border border-amber-200 text-amber-600"
+                          }`}>
+                            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                            {profileRemainingContacts === 0
+                              ? `You've used all ${profileContactsLimit} contact reveals for this period`
+                              : `Now only ${profileRemainingContacts} more you can view details`}
+                          </div>
+                        )}
+
                         <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
                           <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Email</span>
-                          {profile.email ? (
-                            <a href={`mailto:${profile.email}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
-                              {profile.email}
+                          {(revealedProfileContact?.email || profile.email) ? (
+                            <a href={`mailto:${revealedProfileContact?.email || profile.email}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
+                              {revealedProfileContact?.email || profile.email}
                             </a>
                           ) : (
                             <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
@@ -1504,9 +1717,9 @@ const Profile = () => {
                         </div>
                         <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
                           <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Phone</span>
-                          {profile.phone ? (
-                            <a href={`tel:${profile.phone}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
-                              {profile.phone}
+                          {(revealedProfileContact?.phone || profile.phone) ? (
+                            <a href={`tel:${revealedProfileContact?.phone || profile.phone}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
+                              {revealedProfileContact?.phone || profile.phone}
                             </a>
                           ) : (
                             <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
