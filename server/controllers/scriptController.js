@@ -29,6 +29,11 @@ import {
   hasActiveFilmIndustryProfessionalAccess,
   hasBusinessEmail,
   isIndustryProfessionalWithPersonalEmail,
+  hasRevealedContact,
+  hasReachedContactLimit,
+  getRevealedContactCount,
+  getContactsLimit,
+  getRemainingContacts,
 } from "../utils/industryAccess.js";
 import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
@@ -3411,14 +3416,35 @@ export const getScriptById = async (req, res) => {
       }
     });
 
-    const viewerCanSeeWriterContact = canViewerAccessWriterContact(req.user, script.creator?._id || script.creator);
-    const writerContact = viewerCanSeeWriterContact
-      ? buildWriterContactPayload(
-          await User.findById(script.creator?._id || script.creator)
-            .select("email phone writerProfile.links")
-            .lean()
-        )
-      : null;
+    const writerId = String(script.creator?._id || script.creator || "");
+    const viewerCanSeeWriterContact = canViewerAccessWriterContact(req.user, writerId);
+    const viewerHasBusinessEmail = viewerCanSeeWriterContact && hasBusinessEmail(req.user?.email);
+    const viewerHasProAccess = viewerCanSeeWriterContact && hasActiveFilmIndustryProfessionalAccess(req.user);
+
+    let writerContact = null;
+    let writerContactRevealStatus = null;
+
+    if (viewerCanSeeWriterContact) {
+      if (viewerHasBusinessEmail) {
+        writerContact = buildWriterContactPayload(
+          await User.findById(writerId).select("email phone writerProfile.links").lean()
+        );
+      } else if (viewerHasProAccess) {
+        const alreadyRevealed = hasRevealedContact(req.user, writerId);
+        if (alreadyRevealed) {
+          writerContact = buildWriterContactPayload(
+            await User.findById(writerId).select("email phone writerProfile.links").lean()
+          );
+        }
+        writerContactRevealStatus = {
+          canReveal: !hasReachedContactLimit(req.user) || alreadyRevealed,
+          alreadyRevealed,
+          remainingContacts: getRemainingContacts(req.user),
+          contactsLimit: getContactsLimit(req.user),
+          contactsUsed: getRevealedContactCount(req.user),
+        };
+      }
+    }
 
     const response = {
       ...script.toObject(),
@@ -3443,6 +3469,7 @@ export const getScriptById = async (req, res) => {
       viewBreakdown,
       reviewBreakdown,
       writerContact,
+      writerContactRevealStatus,
       viewableScript: hasViewablePreview,
       scriptPreviewAccess: normalizedPreviewAccess,
       scriptPreviewSummary: previewSummary,
@@ -3529,14 +3556,35 @@ export const getPublicScriptById = async (req, res) => {
       ? `${synopsis.slice(0, 320)}${synopsis.length > 320 ? "..." : ""}`
       : "";
     const collaborationSummary = getPublicCollaborationSummary(script);
-    const viewerCanSeeWriterContact = canViewerAccessWriterContact(req.user, creator?._id || script.creator);
-    const writerContact = viewerCanSeeWriterContact
-      ? buildWriterContactPayload(
-          await User.findById(creator?._id || script.creator)
-            .select("email phone writerProfile.links")
-            .lean()
-        )
-      : null;
+    const publicWriterId = String(creator?._id || script.creator || "");
+    const viewerCanSeeWriterContact = canViewerAccessWriterContact(req.user, publicWriterId);
+    const pubViewerHasBusinessEmail = viewerCanSeeWriterContact && hasBusinessEmail(req.user?.email);
+    const pubViewerHasProAccess = viewerCanSeeWriterContact && hasActiveFilmIndustryProfessionalAccess(req.user);
+
+    let writerContact = null;
+    let writerContactRevealStatus = null;
+
+    if (viewerCanSeeWriterContact) {
+      if (pubViewerHasBusinessEmail) {
+        writerContact = buildWriterContactPayload(
+          await User.findById(publicWriterId).select("email phone writerProfile.links").lean()
+        );
+      } else if (pubViewerHasProAccess) {
+        const alreadyRevealed = hasRevealedContact(req.user, publicWriterId);
+        if (alreadyRevealed) {
+          writerContact = buildWriterContactPayload(
+            await User.findById(publicWriterId).select("email phone writerProfile.links").lean()
+          );
+        }
+        writerContactRevealStatus = {
+          canReveal: !hasReachedContactLimit(req.user) || alreadyRevealed,
+          alreadyRevealed,
+          remainingContacts: getRemainingContacts(req.user),
+          contactsLimit: getContactsLimit(req.user),
+          contactsUsed: getRevealedContactCount(req.user),
+        };
+      }
+    }
     const hasViewablePreview = hasViewableScriptPreview(script);
     const normalizedPreviewAccess = hasViewablePreview
       ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
@@ -3634,6 +3682,7 @@ export const getPublicScriptById = async (req, res) => {
         bio: creator.bio || "",
         username: creator.writerProfile?.username || "",
       },
+      writerContactRevealStatus,
       canonicalPath: buildScriptCanonicalPath(script),
       shareMeta: buildScriptShareMeta(req, script),
     };

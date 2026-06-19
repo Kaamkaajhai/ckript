@@ -1,6 +1,15 @@
 import Stripe from "stripe";
+import mongoose from "mongoose";
 import User from "../models/User.js";
-import { hasActiveFilmIndustryProfessionalAccess, isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  isFilmIndustryProfessionalRole,
+  hasRevealedContact,
+  hasReachedContactLimit,
+  getRevealedContactCount,
+  getContactsLimit,
+  getRemainingContacts,
+} from "../utils/industryAccess.js";
 
 // Initialize Stripe only if the secret key is provided
 const stripe = process.env.STRIPE_SECRET 
@@ -124,5 +133,76 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to activate test checkout" });
+  }
+};
+
+export const revealWriterContact = async (req, res) => {
+  try {
+    const { writerId } = req.params;
+
+    if (!writerId || !mongoose.Types.ObjectId.isValid(writerId)) {
+      return res.status(400).json({ message: "Invalid writer ID" });
+    }
+
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!hasActiveFilmIndustryProfessionalAccess(user)) {
+      return res.status(403).json({
+        message: "Film Industry Professional subscription required to reveal writer contacts.",
+        requiresUpgrade: true,
+      });
+    }
+
+    const writerObjectId = String(writerId);
+    const alreadyRevealed = hasRevealedContact(user, writerObjectId);
+
+    if (!alreadyRevealed) {
+      if (hasReachedContactLimit(user)) {
+        return res.status(403).json({
+          message: "You've reached your 15 writer contact limit for this subscription period.",
+          limitReached: true,
+          contactsUsed: getRevealedContactCount(user),
+          contactsLimit: getContactsLimit(user),
+          remainingContacts: 0,
+        });
+      }
+
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $push: {
+            "subscription.revealedContacts": {
+              writerId: new mongoose.Types.ObjectId(writerId),
+              revealedAt: new Date(),
+            },
+          },
+        }
+      );
+    }
+
+    const writer = await User.findById(writerId)
+      .select("email phone writerProfile.links name username")
+      .lean();
+    if (!writer) return res.status(404).json({ message: "Writer not found" });
+
+    const refreshedUser = await User.findById(user._id).select("subscription").lean();
+    const contactsUsed = getRevealedContactCount(refreshedUser || user);
+    const contactsLimit = getContactsLimit(refreshedUser || user);
+    const remainingContacts = getRemainingContacts(refreshedUser || user);
+
+    return res.json({
+      contact: {
+        email: String(writer.email || "").trim(),
+        phone: String(writer.phone || "").trim(),
+        links: writer.writerProfile?.links || {},
+      },
+      alreadyRevealed,
+      contactsUsed,
+      contactsLimit,
+      remainingContacts,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to reveal contact" });
   }
 };

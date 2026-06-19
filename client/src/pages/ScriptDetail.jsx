@@ -38,7 +38,13 @@ import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
-import { hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
+import {
+  hasBusinessEmail,
+  hasActiveFilmIndustryProfessionalAccess,
+  getRemainingContacts,
+  getContactsLimit,
+  getRevealedContactCount,
+} from "../utils/industryAccess";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -165,6 +171,10 @@ const ScriptDetail = () => {
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showWriterInfo, setShowWriterInfo] = useState(false);
+  const [revealedContact, setRevealedContact] = useState(null);
+  const [revealLoading, setRevealLoading] = useState(false);
+  const [revealError, setRevealError] = useState("");
+  const [revealStats, setRevealStats] = useState(null);
   const viewStartRef = useRef(Date.now());
   const noticeTimerRef = useRef(null);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
@@ -185,13 +195,28 @@ const ScriptDetail = () => {
   const writerCustomConditions = String(script?.legal?.customInvestorTerms || "").trim();
   const hasWriterCustomConditions = writerCustomConditions.length > 0;
   const canViewWriterCustomConditions = Boolean(!script?.isCreator && script?.canPurchase);
-  const canViewWriterInfo = Boolean(
-    !script?.isCreator &&
+  const isIndustryRole = !script?.isCreator &&
     user?._id &&
-    ["investor", "producer", "director", "industry", "professional"].includes(String(user?.role || "").toLowerCase()) &&
-    hasBusinessEmail(user?.email) || hasActiveFilmIndustryProfessionalAccess(user)
+    ["investor", "producer", "director", "industry", "professional"].includes(String(user?.role || "").toLowerCase());
+  const viewerHasBusinessEmail = isIndustryRole && hasBusinessEmail(user?.email);
+  const viewerHasProAccess = isIndustryRole && hasActiveFilmIndustryProfessionalAccess(user);
+  const canViewWriterInfo = Boolean(viewerHasBusinessEmail || viewerHasProAccess);
+
+  const revealStatus = script?.writerContactRevealStatus || null;
+  // Use locally revealed contact (after clicking reveal) or the contact from the API response
+  const activeWriterContact = revealedContact || script?.writerContact || {};
+  const writerContact = activeWriterContact;
+  const contactAlreadyRevealed = Boolean(
+    revealedContact ||
+    revealStatus?.alreadyRevealed ||
+    (viewerHasBusinessEmail && script?.writerContact)
   );
-  const writerContact = script?.writerContact || {};
+  const contactRevealBlocked = viewerHasProAccess && !viewerHasBusinessEmail && !contactAlreadyRevealed &&
+    (revealStats ? revealStats.remainingContacts <= 0 : revealStatus?.remainingContacts <= 0);
+  const remainingContacts = revealStats?.remainingContacts ?? revealStatus?.remainingContacts ?? getRemainingContacts(user);
+  const contactsLimit = revealStats?.contactsLimit ?? revealStatus?.contactsLimit ?? getContactsLimit(user);
+  const contactsUsed = revealStats?.contactsUsed ?? revealStatus?.contactsUsed ?? getRevealedContactCount(user);
+
   const writerLinks = writerContact?.links || script?.creator?.writerProfile?.links || {};
   const availableWriterLinks = [
     { key: "portfolio", label: "Portfolio", href: writerLinks.portfolio },
@@ -857,6 +882,41 @@ const ScriptDetail = () => {
       alert(err.response?.data?.message || "Failed to unlock script");
     } finally {
       setUnlockLoading(false);
+    }
+  };
+
+  const handleRevealContact = async () => {
+    const writerId = String(script?.creator?._id || "");
+    if (!writerId || revealLoading) return;
+    setRevealError("");
+    setRevealLoading(true);
+    try {
+      const { data } = await api.post(`/payment/reveal-contact/${writerId}`);
+      setRevealedContact(data.contact);
+      setRevealStats({
+        contactsUsed: data.contactsUsed,
+        contactsLimit: data.contactsLimit,
+        remainingContacts: data.remainingContacts,
+      });
+      setShowWriterInfo(true);
+      if (data.contactsUsed !== undefined && user) {
+        setUser((prev) => {
+          if (!prev) return prev;
+          const updatedSubscription = {
+            ...(prev.subscription || {}),
+            revealedContacts: [
+              ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
+              { writerId, revealedAt: new Date().toISOString() },
+            ],
+          };
+          return { ...prev, subscription: updatedSubscription };
+        });
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Failed to reveal contact.";
+      setRevealError(msg);
+    } finally {
+      setRevealLoading(false);
     }
   };
 
@@ -1686,23 +1746,108 @@ const ScriptDetail = () => {
                   </div>
 
                   {canViewWriterInfo && (
-                    <div className={`rounded-2xl p-4 border ${t.priceSub}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Writer Info</p>
-                          <p className={`text-[12px] ${t.muted}`}>View contact details and links</p>
+                    <div className={`rounded-2xl border overflow-hidden ${t.priceSub}`}>
+                      {/* Header */}
+                      <div className="px-4 pt-4 pb-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Writer Contact</p>
+                              {viewerHasProAccess && !viewerHasBusinessEmail && (
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-amber-400">
+                                  <span className="h-[4px] w-[4px] rounded-full bg-amber-400" />
+                                  Premium
+                                </span>
+                              )}
+                            </div>
+                            {viewerHasProAccess && !viewerHasBusinessEmail && (
+                              <p className={`text-[11px] mt-0.5 ${t.muted}`}>
+                                {contactAlreadyRevealed
+                                  ? `Contact revealed · ${remainingContacts} of ${contactsLimit} remaining`
+                                  : contactRevealBlocked
+                                    ? `${contactsUsed}/${contactsLimit} contacts used · limit reached`
+                                    : `${remainingContacts} of ${contactsLimit} reveals remaining`}
+                              </p>
+                            )}
+                            {viewerHasBusinessEmail && (
+                              <p className={`text-[11px] mt-0.5 ${t.muted}`}>View contact details and links</p>
+                            )}
+                          </div>
+
+                          {/* Action button */}
+                          {contactAlreadyRevealed || viewerHasBusinessEmail ? (
+                            <button
+                              type="button"
+                              onClick={() => setShowWriterInfo((prev) => !prev)}
+                              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition border ${t.btnSec}`}
+                            >
+                              {showWriterInfo ? "Hide" : "View"}
+                            </button>
+                          ) : contactRevealBlocked ? (
+                            <span className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border ${dark ? "border-white/10 text-white/25 bg-white/5" : "border-gray-200 text-gray-400 bg-gray-50"}`}>
+                              Limit reached
+                            </span>
+                          ) : viewerHasProAccess ? (
+                            <button
+                              type="button"
+                              onClick={handleRevealContact}
+                              disabled={revealLoading}
+                              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-60"
+                            >
+                              {revealLoading ? (
+                                <>
+                                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
+                                  Revealing...
+                                </>
+                              ) : (
+                                <>
+                                  <BadgeCheck className="h-3 w-3" />
+                                  Reveal Contact
+                                </>
+                              )}
+                            </button>
+                          ) : null}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowWriterInfo((prev) => !prev)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold transition border ${t.btnSec}`}
-                        >
-                          {showWriterInfo ? "Hide" : "View"}
-                        </button>
+
+                        {revealError && (
+                          <p className="mt-2 text-[11px] text-rose-400">{revealError}</p>
+                        )}
                       </div>
 
-                      {showWriterInfo && (
-                        <div className={`mt-4 pt-4 border-t space-y-3 ${t.divider}`}>
+                      {/* Limit bar — only for pro subscribers */}
+                      {viewerHasProAccess && !viewerHasBusinessEmail && (
+                        <div className={`px-4 pb-3`}>
+                          <div className={`h-[3px] w-full rounded-full overflow-hidden ${dark ? "bg-white/8" : "bg-gray-100"}`}>
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                contactsUsed >= contactsLimit
+                                  ? "bg-rose-500"
+                                  : contactsUsed >= contactsLimit * 0.8
+                                    ? "bg-amber-500"
+                                    : "bg-amber-400"
+                              }`}
+                              style={{ width: `${Math.min(100, (contactsUsed / contactsLimit) * 100)}%` }}
+                            />
+                          </div>
+                          <p className={`text-[9px] mt-1 text-right ${t.muted}`}>
+                            {contactsUsed} / {contactsLimit} contacts used this period
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Limit reached — upgrade prompt */}
+                      {contactRevealBlocked && (
+                        <div className={`mx-4 mb-4 rounded-xl border border-rose-500/20 bg-rose-500/8 px-4 py-3`}>
+                          <p className="text-[11px] font-semibold text-rose-400">
+                            You've used all {contactsLimit} writer contact reveals for this subscription period.
+                            Renew your Film Industry Professional plan to get 15 more.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Revealed contact details */}
+                      {(contactAlreadyRevealed || viewerHasBusinessEmail) && showWriterInfo && (
+                        <div className={`px-4 pb-4 pt-3 border-t space-y-3 ${t.divider}`}>
                           <div>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${t.label}`}>Email</p>
                             {writerContact?.email ? (
