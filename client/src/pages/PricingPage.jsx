@@ -118,7 +118,7 @@ export default function PricingPage() {
     if (loading) return "Working...";
     if (hasAccess) return "Return to previous page";
     if (!user) return "Sign in to continue";
-    if (!isEligibleRole) return "Not available";
+    if (!isEligibleRole) return "Not available for your account type";
     return "Pay securely with Razorpay";
   }, [authLoading, hasAccess, isEligibleRole, loading, user]);
 
@@ -304,106 +304,149 @@ export default function PricingPage() {
   }
 
   return (
-    <main className="relative min-h-screen bg-[#0f1320] text-white">
-      <div className="absolute left-4 top-4 z-20">
+    <main className="relative min-h-screen bg-[#080c14] text-white overflow-hidden">
+
+      {/* Ambient background glows */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute top-[-10%] left-[-5%] h-[40vh] w-[40vw] rounded-full bg-indigo-600/10 blur-[100px]" />
+        <div className="absolute bottom-[-5%] right-[-5%] h-[35vh] w-[35vw] rounded-full bg-violet-600/8 blur-[120px]" />
+      </div>
+
+      {/* Back button — top right */}
+      <div className="absolute right-4 top-4 z-20">
         <button
           type="button"
           onClick={goBackSafely}
-          className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-4 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/75 backdrop-blur-xl transition hover:bg-white/[0.06] hover:text-white"
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50 backdrop-blur-xl transition hover:border-white/20 hover:text-white/80"
         >
           Back
         </button>
       </div>
 
-      <div className="mx-auto max-w-[460px] px-4 py-6">
-        <section className="mt-10 rounded-[24px] border border-white/10 bg-[#151a2a] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+      <div className="relative flex min-h-screen flex-col justify-center px-5 py-16 sm:px-8">
+        <div className="w-full max-w-[360px]">
 
-          {/* Premium badge — shown when plan is already active */}
-          {hasAccess && (
-            <div className="mb-6">
-              <PremiumBadge user={user} />
-            </div>
-          )}
+          {/* Page heading */}
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-indigo-400/70">Membership</p>
+          <h1 className="mb-6 text-[22px] font-bold leading-tight tracking-tight text-white">
+            Film Industry Professional
+          </h1>
 
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              {!hasAccess && (
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04]">
-                  <Sparkles className="h-6 w-6 text-white/90" />
+          {/* Card */}
+          <div className="relative overflow-hidden rounded-[20px] border border-white/[0.08] bg-[#0e1220] shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
+
+            {/* Top accent line */}
+            <div className="absolute top-0 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
+
+            {/* Subtle inner glow */}
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_0%,rgba(99,102,241,0.06),transparent_60%)]" />
+
+            <div className="relative p-5">
+
+              {/* Header row */}
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  {!hasAccess && (
+                    <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.04]">
+                      <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                    </div>
+                  )}
+                  <h2 className="text-[18px] font-semibold tracking-tight text-white">Premium Model</h2>
+                  <div className="mt-2 flex items-baseline gap-1.5">
+                    <span className="text-[34px] font-black tracking-tight text-white leading-none">₹1999</span>
+                    <span className="text-[12px] font-medium text-white/30">/ month</span>
+                  </div>
+                </div>
+                <div className="mt-1 flex flex-col items-end gap-1.5 shrink-0">
+                  {(authLoading || hasAccess || !user) && (
+                    <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.18em] ${
+                      hasAccess
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                        : "border-white/10 bg-white/[0.03] text-white/35"
+                    }`}>
+                      {authLoading ? "..." : hasAccess ? "Active" : "Login required"}
+                    </span>
+                  )}
+                  {hasAccess && (() => {
+                    const expiresAt = user?.subscription?.accessExpiresAt;
+                    const daysLeft = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24))) : null;
+                    return daysLeft !== null ? (
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/[0.08] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-amber-400/80">
+                        {daysLeft}d left
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="mb-4 h-px bg-white/[0.06]" />
+
+              {/* Features */}
+              <ul className="mb-5 space-y-2.5">
+                {included.map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-[12.5px] leading-[1.5] text-white/55">
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA button */}
+              <button
+                type="button"
+                onClick={() => handleRazorpayCheckout(false)}
+                disabled={authLoading || loading || (!user ? false : !isEligibleRole)}
+                className={`flex h-[48px] w-full items-center justify-center rounded-xl text-[13.5px] font-semibold tracking-wide transition-all ${
+                  hasAccess
+                    ? "bg-emerald-500 text-[#051a0f] hover:bg-emerald-400"
+                    : !user
+                      ? "bg-indigo-600 text-white hover:bg-indigo-500"
+                      : !isEligibleRole
+                        ? "cursor-not-allowed bg-white/[0.05] text-white/25"
+                        : "bg-indigo-600 text-white hover:bg-indigo-500"
+                }`}
+              >
+                {buttonLabel}
+              </button>
+
+              {hasAccess && (
+                <button
+                  type="button"
+                  onClick={() => handleRazorpayCheckout(true)}
+                  disabled={authLoading || loading}
+                  className="mt-2 flex h-[44px] w-full items-center justify-center rounded-xl text-[13px] font-semibold transition border border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.07] hover:text-white/90"
+                >
+                  {loading ? "Working..." : "Renew Plan"}
+                </button>
+              )}
+
+              {/* Status / error / message */}
+              {message && (
+                <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.08] px-3 py-2 text-[11px] text-emerald-300">
+                  {message}
                 </div>
               )}
-              <h1 className="text-[32px] font-black leading-tight tracking-tight text-white">
-                Film industry professional Model
-              </h1>
-              <p className="mt-4 text-[52px] font-black leading-none tracking-tight text-white">
-                1999 rs.
-                <span className="ml-2 text-[22px] font-semibold text-white/45">/ Month</span>
-              </p>
-            </div>
-            <span className={`rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] shrink-0 ${
-              hasAccess
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                : "border-white/10 bg-white/[0.04] text-white/65"
-            }`}>
-              {authLoading ? "Checking" : hasAccess ? "Active" : user ? "Test mode" : "Login required"}
-            </span>
-          </div>
+              {error && (
+                <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/[0.08] px-3 py-2 text-[11px] text-rose-300">
+                  {error}
+                </div>
+              )}
 
-          <button
-            type="button"
-            onClick={() => handleRazorpayCheckout(false)}
-            disabled={authLoading || loading || (!user ? false : !isEligibleRole)}
-            className={`flex h-[64px] w-full items-center justify-center rounded-full text-[18px] font-extrabold transition ${
-              hasAccess
-                ? "bg-emerald-500/90 text-[#07130e] hover:bg-emerald-400"
-                : !user
-                  ? "bg-[#4a5165] text-white hover:bg-[#555d75]"
+              <div className={`mt-3 rounded-lg border px-3 py-2 text-[11px] ${
+                user && !isEligibleRole
+                  ? "border-rose-500/15 bg-rose-500/[0.07] text-rose-300/70"
+                  : "border-white/[0.05] bg-white/[0.02] text-white/30"
+              }`}>
+                {!user
+                  ? "Sign in first to activate this plan."
                   : !isEligibleRole
-                    ? "cursor-not-allowed bg-white/10 text-white/35"
-                    : "bg-[#4a5165] text-white hover:bg-[#555d75]"
-            }`}
-          >
-            {buttonLabel}
-          </button>
-
-          {hasAccess && (
-            <button
-              type="button"
-              onClick={() => handleRazorpayCheckout(true)}
-              disabled={authLoading || loading}
-              className="mt-3 flex h-[64px] w-full items-center justify-center rounded-full text-[18px] font-extrabold transition border border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
-            >
-              {loading ? "Working..." : "Renew Plan"}
-            </button>
-          )}
-
-          <div className="mt-4 h-px bg-white/8" />
-
-          <ul className="mt-4 space-y-4">
-            {included.map((item) => (
-              <li key={item} className="flex items-start gap-3 text-[18px] leading-[1.55] text-white/78">
-                <Check className="mt-1 h-5 w-5 shrink-0 text-emerald-300" />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-
-          {message && (
-            <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-              {message}
+                    ? `This plan is for film industry professionals. Your account type (${roleLabel}) is not eligible.`
+                    : "film industry professional account detected"}
+              </div>
             </div>
-          )}
-
-          {error && (
-            <div className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-              {error}
-            </div>
-          )}
-
-          <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-white/65">
-            {user ? `${roleLabel} account detected` : "Sign in first to activate this plan."}
           </div>
-        </section>
+        </div>
       </div>
     </main>
   );
