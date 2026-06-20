@@ -28,7 +28,7 @@ import { jsPDF } from "jspdf";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
-import { Film, BadgeCheck } from "lucide-react";
+import { Film, BadgeCheck, MessageCircle } from "lucide-react";
 import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 import SocialShareButton from "../components/SocialShareButton";
 import ScreenplayViewer from "../components/ScreenplayViewer";
@@ -919,6 +919,52 @@ const ScriptDetail = () => {
     }
   };
 
+  const handleMessageWriter = async () => {
+    const writerId = String(script?.creator?._id || "");
+    if (!writerId || revealLoading) return;
+
+    const navigateToMessages = () => {
+      navigate(`/messages?recipientId=${writerId}&recipientName=${encodeURIComponent(script?.creator?.name || "Writer")}`);
+    };
+
+    if (contactAlreadyRevealed || script?.isUnlocked) {
+      navigateToMessages();
+      return;
+    }
+
+    setRevealError("");
+    setRevealLoading(true);
+    try {
+      const { data } = await api.post(`/payment/reveal-contact/${writerId}`);
+      setRevealedContact(data.contact);
+      setRevealStats({
+        contactsUsed: data.contactsUsed,
+        contactsLimit: data.contactsLimit,
+        remainingContacts: data.remainingContacts,
+      });
+      setShowWriterInfo(true);
+      if (data.contactsUsed !== undefined && user) {
+        setUser((prev) => {
+          if (!prev) return prev;
+          const updatedSubscription = {
+            ...(prev.subscription || {}),
+            revealedContacts: [
+              ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
+              { writerId, revealedAt: new Date().toISOString() },
+            ],
+          };
+          return { ...prev, subscription: updatedSubscription };
+        });
+      }
+      navigateToMessages();
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Failed to initiate message.";
+      setRevealError(msg);
+    } finally {
+      setRevealLoading(false);
+    }
+  };
+
   const handleToggleBookmark = async () => {
     if (!user?._id || !script?._id || script?.creator?._id === user?._id) return;
     try {
@@ -1799,62 +1845,85 @@ const ScriptDetail = () => {
                         <>
                       {/* Header */}
                       <div className="px-4 pt-4 pb-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Writer Contact</p>
-                              {viewerHasProAccess && (
-                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-amber-400">
-                                  <span className="h-[4px] w-[4px] rounded-full bg-amber-400" />
-                                  Premium
-                                </span>
-                              )}
-                            </div>
-                            {viewerHasProAccess ? (
-                              <p className={`text-[11px] mt-0.5 ${
-                                remainingContacts === 0
-                                  ? "text-rose-400"
-                                  : remainingContacts <= Math.ceil(contactsLimit * 0.3)
-                                    ? "text-amber-400"
-                                    : t.muted
-                              }`}>
-                                {remainingContacts === 0
-                                  ? `Limit reached · ${contactsUsed}/${contactsLimit} contacts used`
-                                  : `You can view ${remainingContacts} more writer contact${remainingContacts === 1 ? "" : "s"} · ${contactsUsed}/${contactsLimit} used`}
-                              </p>
-                            ) : (
-                              <p className={`text-[11px] mt-0.5 ${t.muted}`}>View contact details and links</p>
-                            )}
-                          </div>
+                        {/* Row 1: label + premium badge */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Writer Contact</p>
+                          {viewerHasProAccess && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.18em] text-amber-400">
+                              <span className="h-[4px] w-[4px] rounded-full bg-amber-400" />
+                              Premium
+                            </span>
+                          )}
+                        </div>
 
-                          {/* Action button */}
+                        {/* Row 2: quota subtitle */}
+                        {viewerHasProAccess ? (
+                          <p className={`mb-3 text-[11px] leading-relaxed ${
+                            remainingContacts === 0
+                              ? "text-rose-400"
+                              : remainingContacts <= Math.ceil(contactsLimit * 0.3)
+                                ? "text-amber-400"
+                                : t.muted
+                          }`}>
+                            {remainingContacts === 0
+                              ? `All ${contactsLimit} slots used — renew to unlock more`
+                              : `${contactsUsed}/${contactsLimit} slots used · ${remainingContacts} remaining`}
+                          </p>
+                        ) : (
+                          <p className={`mb-3 text-[11px] ${t.muted}`}>View writer's contact details and social links</p>
+                        )}
+
+                        {/* Row 3: action buttons — full width, side by side */}
+                        <div className="flex gap-2">
+                          {(contactAlreadyRevealed || (viewerHasProAccess && !contactRevealBlocked)) && script?.creator?._id && (
+                            <button
+                              type="button"
+                              onClick={handleMessageWriter}
+                              disabled={revealLoading}
+                              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all border disabled:opacity-60 ${
+                                isDarkMode
+                                  ? "bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20"
+                                  : "bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100"
+                              }`}
+                            >
+                              {revealLoading && !contactAlreadyRevealed ? (
+                                <svg className="animate-spin h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
+                              ) : (
+                                <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+                              )}
+                              Message Writer
+                            </button>
+                          )}
+
                           {contactAlreadyRevealed ? (
                             <button
                               type="button"
                               onClick={() => setShowWriterInfo((prev) => !prev)}
-                              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold transition border ${t.btnSec}`}
+                              className={`flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all border ${t.btnSec}`}
                             >
-                              {showWriterInfo ? "Hide" : "View"}
+                              {showWriterInfo ? "Hide Details" : "View Details"}
                             </button>
                           ) : contactRevealBlocked ? (
-                            <span className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border ${isDarkMode ? "border-white/10 text-white/25 bg-white/5" : "border-gray-200 text-gray-400 bg-gray-50"}`}>
-                              Limit reached
+                            <span className={`flex-1 inline-flex items-center justify-center px-3 py-2 rounded-xl text-[11px] font-semibold border ${
+                              isDarkMode ? "border-white/10 text-white/30 bg-white/5" : "border-gray-200 text-gray-400 bg-gray-50"
+                            }`}>
+                              Limit Reached
                             </span>
                           ) : viewerHasProAccess ? (
                             <button
                               type="button"
                               onClick={handleRevealContact}
                               disabled={revealLoading}
-                              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-60"
+                              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold border border-amber-500/30 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-all disabled:opacity-60"
                             >
                               {revealLoading ? (
                                 <>
-                                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
+                                  <svg className="animate-spin h-3 w-3 shrink-0" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
                                   Revealing...
                                 </>
                               ) : (
                                 <>
-                                  <BadgeCheck className="h-3 w-3" />
+                                  <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
                                   Reveal Contact
                                 </>
                               )}
@@ -1899,48 +1968,7 @@ const ScriptDetail = () => {
                       {contactAlreadyRevealed && showWriterInfo && (
                         <div className={`px-4 pb-4 pt-3 border-t space-y-3 ${t.divider}`}>
 
-                          {/* Contact usage counter — always visible for pro subscribers */}
-                          {viewerHasProAccess && (
-                            <div className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border ${
-                              remainingContacts === 0
-                                ? "bg-rose-500/10 border-rose-500/20"
-                                : remainingContacts <= Math.ceil(contactsLimit * 0.3)
-                                  ? "bg-amber-500/10 border-amber-500/20"
-                                  : isDarkMode
-                                    ? "bg-white/[0.04] border-white/10"
-                                    : "bg-gray-50 border-gray-200"
-                            }`}>
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className={`h-[6px] w-[6px] shrink-0 rounded-full ${
-                                  remainingContacts === 0
-                                    ? "bg-rose-400"
-                                    : remainingContacts <= Math.ceil(contactsLimit * 0.3)
-                                      ? "bg-amber-400 animate-pulse"
-                                      : "bg-emerald-400"
-                                }`} />
-                                <p className={`text-[11px] font-semibold leading-snug ${
-                                  remainingContacts === 0
-                                    ? "text-rose-400"
-                                    : remainingContacts <= Math.ceil(contactsLimit * 0.3)
-                                      ? "text-amber-400"
-                                      : isDarkMode ? "text-white/55" : "text-gray-500"
-                                }`}>
-                                  {remainingContacts === 0
-                                    ? `You've used all ${contactsLimit} contact reveals for this period`
-                                    : `You can view ${remainingContacts} more writer contact${remainingContacts === 1 ? "" : "s"}`}
-                                </p>
-                              </div>
-                              <span className={`shrink-0 text-[10px] font-bold tabular-nums ${
-                                remainingContacts === 0
-                                  ? "text-rose-400"
-                                  : remainingContacts <= Math.ceil(contactsLimit * 0.3)
-                                    ? "text-amber-400"
-                                    : isDarkMode ? "text-white/30" : "text-gray-400"
-                              }`}>
-                                {contactsUsed}/{contactsLimit}
-                              </span>
-                            </div>
-                          )}
+
 
                           <div>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${t.label}`}>Email</p>

@@ -28,7 +28,7 @@ export const BADGE_DEFS = [
   {
     id: "first_read",
     label: "First Chapter",
-    description: "Read your very first script on ScriptBridge.",
+    description: "Read your very first script on Ckript.",
     emoji: "📖",
     Icon: BookOpen,
     color: "text-emerald-500",

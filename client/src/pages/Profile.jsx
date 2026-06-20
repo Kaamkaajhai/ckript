@@ -1583,8 +1583,8 @@ const Profile = () => {
                         {viewerHasProAccess && (
                           <p className={`text-[11px] mt-0.5 ${dark ? "text-white/35" : "text-gray-400"}`}>
                             {profileContactRevealBlocked
-                              ? `Limit reached · ${profileContactsUsed}/${profileContactsLimit} contacts used`
-                              : `You can view ${profileRemainingContacts} more writer contact${profileRemainingContacts === 1 ? "" : "s"} · ${profileContactsUsed}/${profileContactsLimit} used`}
+                              ? `Limit reached · ${profileContactsUsed}/${profileContactsLimit} used`
+                              : `You can message or view ${profileRemainingContacts} more writer${profileRemainingContacts === 1 ? "" : "s"} · ${profileContactsUsed}/${profileContactsLimit} used`}
                           </p>
                         )}
                       </div>

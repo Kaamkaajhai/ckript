@@ -24,7 +24,11 @@ const normalizeReturnPath = (value = "") => {
   return path;
 };
 
-const PremiumBadge = () => (
+const PremiumBadge = ({ user }) => {
+  const expiresAt = user?.subscription?.accessExpiresAt;
+  const daysLeft = expiresAt ? Math.max(0, Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24))) : 0;
+
+  return (
   <div className="relative mx-auto w-full max-w-[340px]">
     {/* Ambient glow behind the card */}
     <div className="pointer-events-none absolute -inset-6 rounded-[40px] bg-gradient-to-br from-amber-400/15 via-yellow-300/5 to-purple-600/10 blur-3xl" />
@@ -68,6 +72,11 @@ const PremiumBadge = () => (
             <span className="h-[5px] w-[5px] rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-400">Active</span>
           </span>
+          {daysLeft > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3.5 py-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-[0.1em] text-amber-400/90">{daysLeft} days left</span>
+            </span>
+          )}
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5">
             <BadgeCheck className="h-3 w-3 text-amber-400/70" />
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Verified</span>
@@ -79,7 +88,8 @@ const PremiumBadge = () => (
       <div className="absolute bottom-0 left-[15%] right-[15%] h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
     </div>
   </div>
-);
+  );
+};
 
 export default function PricingPage() {
   const { user, setUser, loading: authLoading } = useContext(AuthContext);
@@ -109,7 +119,7 @@ export default function PricingPage() {
     if (hasAccess) return "Return to previous page";
     if (!user) return "Sign in to continue";
     if (!isEligibleRole) return "Not available";
-    return "Start Test Checkout";
+    return "Pay securely with Razorpay";
   }, [authLoading, hasAccess, isEligibleRole, loading, user]);
 
   const goBackSafely = () => {
@@ -141,14 +151,28 @@ export default function PricingPage() {
     }, 1000);
   };
 
-  const handleStartCheckout = async () => {
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleRazorpayCheckout = async (isRenew = false) => {
     setError("");
     setMessage("");
 
     if (authLoading) return;
 
     if (!user) {
-      openAuthModal({ redirect: "/pricing" });
+      if (!isRenew) openAuthModal({ redirect: "/pricing" });
       return;
     }
 
@@ -157,33 +181,77 @@ export default function PricingPage() {
       return;
     }
 
-    if (hasAccess) {
+    if (hasAccess && !isRenew) {
       goBackSafely();
       return;
     }
 
     setLoading(true);
-    try {
-      const { data } = await api.post("/payment/film-industry-professional/test-checkout", {
-        returnTo: normalizeReturnPath(location.state?.from),
-      });
 
-      const storedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
-      const updatedUser = {
-        ...storedUser,
-        ...(data?.user || {}),
-        token: storedUser.token,
-        expiresAt: storedUser.expiresAt || data?.user?.expiresAt,
+    try {
+      const res = await loadRazorpayScript();
+      if (!res) {
+        setError("Razorpay SDK failed to load. Are you connected to the internet?");
+        setLoading(false);
+        return;
+      }
+
+      const { data: orderData } = await api.post("/payment/film-industry-professional/create-razorpay-order");
+      
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Ckript",
+        description: "Film Industry Professional Plan",
+        order_id: orderData.orderId,
+        handler: async (response) => {
+          try {
+            setMessage("Verifying payment...");
+            const { data: verifyData } = await api.post("/payment/film-industry-professional/verify-razorpay-payment", {
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+              returnTo: normalizeReturnPath(location.state?.from),
+            });
+
+            const storedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
+            const updatedUser = {
+              ...storedUser,
+              ...(verifyData?.user || {}),
+              token: storedUser.token,
+              expiresAt: storedUser.expiresAt || verifyData?.user?.expiresAt,
+            };
+
+            setUser(updatedUser);
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            
+            setMessage(isRenew ? "Plan renewed successfully! Redirecting..." : "Payment successful!");
+            setCheckoutSuccess(true);
+            startCountdownRedirect(verifyData?.redirectTo || "/home");
+          } catch (verifyError) {
+            setError(verifyError?.response?.data?.message || "Payment verification failed.");
+            setLoading(false);
+          }
+        },
+        prefill: {
+          name: user.name || "",
+          email: user.email || "",
+        },
+        theme: {
+          color: "#0f1320",
+        },
+        modal: {
+          ondismiss: () => {
+            setLoading(false);
+          }
+        }
       };
 
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      setMessage(data?.message || "Test checkout activated successfully.");
-      setCheckoutSuccess(true);
-      startCountdownRedirect(data?.redirectTo);
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to activate test checkout.");
-    } finally {
+      setError(err?.response?.data?.message || "Failed to initiate payment.");
       setLoading(false);
     }
   };
@@ -253,7 +321,7 @@ export default function PricingPage() {
           {/* Premium badge — shown when plan is already active */}
           {hasAccess && (
             <div className="mb-6">
-              <PremiumBadge />
+              <PremiumBadge user={user} />
             </div>
           )}
 
@@ -283,9 +351,9 @@ export default function PricingPage() {
 
           <button
             type="button"
-            onClick={handleStartCheckout}
+            onClick={() => handleRazorpayCheckout(false)}
             disabled={authLoading || loading || (!user ? false : !isEligibleRole)}
-            className={`mb-4 flex h-[64px] w-full items-center justify-center rounded-full text-[18px] font-extrabold transition ${
+            className={`flex h-[64px] w-full items-center justify-center rounded-full text-[18px] font-extrabold transition ${
               hasAccess
                 ? "bg-emerald-500/90 text-[#07130e] hover:bg-emerald-400"
                 : !user
@@ -298,7 +366,18 @@ export default function PricingPage() {
             {buttonLabel}
           </button>
 
-          <div className="h-px bg-white/8" />
+          {hasAccess && (
+            <button
+              type="button"
+              onClick={() => handleRazorpayCheckout(true)}
+              disabled={authLoading || loading}
+              className="mt-3 flex h-[64px] w-full items-center justify-center rounded-full text-[18px] font-extrabold transition border border-white/10 bg-white/[0.04] text-white hover:bg-white/10"
+            >
+              {loading ? "Working..." : "Renew Plan"}
+            </button>
+          )}
+
+          <div className="mt-4 h-px bg-white/8" />
 
           <ul className="mt-4 space-y-4">
             {included.map((item) => (
