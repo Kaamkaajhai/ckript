@@ -378,22 +378,20 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
             </div>
             <div class="content">
               <p>Hi ${name},</p>
-              <p>You're now part of <strong>ckript</strong> — India's dedicated marketplace built for film and media professionals like you.</p>
+              <p>Welcome to <strong>ckript</strong>. You're officially in.</p>
 
               <div class="highlight-box">
-                <p>Discover original scripts, secure IP rights, and connect directly with talented writers — all in one place.</p>
+                <p>Find your next big project. Connect with writers. Secure IP rights seamlessly.</p>
               </div>
 
-              <p>Here's what you can do on ckript:</p>
               <ul class="feature-list">
-                <li><span class="icon">✦</span> Browse scripts across genres, formats, and tones — curated for production-ready projects</li>
-                <li><span class="icon">✦</span> Acquire IP and secure rights for your upcoming films, series, or web projects</li>
-                <li><span class="icon">✦</span> Connect directly with verified writers and negotiate on your terms</li>
-                <li><span class="icon">✦</span> Watch pitch videos from writers and evaluate scripts before committing</li>
-                <li><span class="icon">✦</span> Build your portfolio of owned properties and track your acquisitions</li>
+                <li><span class="icon">✦</span> <strong>Curated Scripts:</strong> Browse production-ready stories across genres.</li>
+                <li><span class="icon">✦</span> <strong>Direct Access:</strong> Connect and negotiate directly with verified writers.</li>
+                <li><span class="icon">✦</span> <strong>Smart Evaluation:</strong> Watch pitch videos and evaluate scripts instantly.</li>
+                <li><span class="icon">✦</span> <strong>Seamless IP:</strong> Acquire rights and build your portfolio in one place.</li>
               </ul>
 
-              <p>Great stories are already waiting for you. Start exploring now.</p>
+              <p>The next great story is waiting for you.</p>
 
               <div class="cta">
                 <a href="https://ckript.com/search">Explore Scripts on ckript</a>
@@ -407,7 +405,7 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nWelcome to ckript — India's dedicated marketplace for film and media professionals.\n\nDiscover original scripts, acquire IP rights, and connect directly with writers.\n\nWhat you can do:\n- Browse scripts by genre, format & tone\n- Acquire IP and secure rights for your productions\n- Connect with verified writers\n- Watch pitch videos and evaluate scripts\n\nStart exploring: https://ckript.com/search\n\nThe ckript Team`,
+      text: `Hi ${name},\n\nWelcome to ckript. You're officially in.\n\nFind your next big project. Connect with writers. Secure IP rights seamlessly.\n\nWhat you can do:\n- Curated Scripts: Browse production-ready stories\n- Direct Access: Connect with verified writers\n- Smart Evaluation: Watch pitch videos\n- Seamless IP: Acquire rights and build your portfolio\n\nThe next great story is waiting for you.\n\nExplore Scripts: https://ckript.com/search\n\nThe ckript Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);

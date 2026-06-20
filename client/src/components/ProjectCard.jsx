@@ -27,6 +27,7 @@ const FORMAT_LABEL = {
   web_series: "Web Series",
   documentary: "Documentary",
   drama_school: "Drama School",
+  micro_drama: "Micro Drama",
   anime: "Anime",
   cartoon: "Cartoon",
   songs: "Songs",

@@ -27,6 +27,7 @@ const formats = [
   { value: "short", label: "Short" },
   { value: "web_series", label: "Web Series" },
   { value: "drama_school", label: "Drama School" },
+  { value: "micro_drama", label: "Micro Drama" },
   { value: "anime", label: "Anime" },
   { value: "movie", label: "Movie" },
   { value: "tv_serial", label: "TV Serial" },
@@ -50,6 +51,8 @@ const CONTENT_TYPE_BY_FORMAT = {
   short: "short_film",
   web_series: "web_series",
   documentary: "documentary",
+  drama_school: "drama_school",
+  micro_drama: "micro_drama",
   anime: "anime",
   cartoon: "anime",
   songs: "songs",
@@ -67,13 +70,14 @@ const FORMAT_PAGE_RANGES = {
   short: { min: 1, max: 40, typical: "5-25", label: "Short" },
   web_series: { min: 20, max: 80, typical: "25-45", label: "Web Series" },
   drama_school: { min: 10, max: 60, typical: "15-35", label: "Drama School" },
+  micro_drama: { min: 1, max: 15, typical: "3-10", label: "Micro Drama" },
   anime: { min: 18, max: 65, typical: "22-45", label: "Anime" },
   movie: { min: 70, max: 180, typical: "90-120", label: "Movie" },
   tv_serial: { min: 18, max: 50, typical: "20-35", label: "TV Serial" },
   cartoon: { min: 7, max: 45, typical: "10-25", label: "Cartoon" },
   limited_series: { min: 45, max: 75, typical: "50-65", label: "Limited Series" },
   documentary: { min: 60, max: 120, typical: "70-100", label: "Documentary" },
-  songs: { min: 1, max: 30, typical: "2-10", label: "Songs" },
+  songs: { min: 1, max: 10, typical: "3-5", label: "Songs" },
   standup_comedy: { min: 3, max: 50, typical: "8-20", label: "Standup Comedy" },
   dialogues: { min: 1, max: 80, typical: "5-25", label: "Dialogues" },
   poet: { min: 1, max: 60, typical: "3-20", label: "Poet" },
@@ -222,7 +226,6 @@ const STEPS = [
   { num: 3, label: "Classify", shortLabel: "Class", desc: "Tags & tone" },
   { num: 4, label: "Film Info", shortLabel: "Film", desc: "Direction & language" },
   { num: 5, label: "Publish", shortLabel: "Publish", desc: "Plan & pricing" },
-  { num: 6, label: "Review", shortLabel: "Review", desc: "Legal & checkout" },
 ];
 
 const FILM_LANGUAGE_OPTIONS = [
@@ -567,6 +570,7 @@ const ScriptUpload = () => {
     short:        { label: "Short Film",    min: 5,  max: 15, suggest: 5  },
     web_series:   { label: "Web Series",    min: 8,  max: 35, suggest: 15 },
     drama_school: { label: "Drama School",  min: 5,  max: 20, suggest: 10 },
+    micro_drama:  { label: "Micro Drama",   min: 1,  max: 10, suggest: 5  },
     anime:        { label: "Anime",         min: 8,  max: 35, suggest: 15 },
     movie:        { label: "Movie",         min: 15, max: 50, suggest: 25 },
     tv_serial:    { label: "TV Serial",     min: 5,  max: 25, suggest: 10 },
@@ -1380,10 +1384,7 @@ const ScriptUpload = () => {
           setError("Preview start page must be at least 1.");
           return false;
         }
-        if (!formData.primaryGenre) {
-          setError("Primary genre is required.");
-          return false;
-        }
+
         if (!formData.logline.trim()) {
           setError("Logline is required.");
           return false;
@@ -1424,7 +1425,10 @@ const ScriptUpload = () => {
         return true;
 
       case 3:
-        // Classify step is optional
+        if (!formData.primaryGenre) {
+          setError("Primary genre is required.");
+          return false;
+        }
         return true;
 
       case 4:
@@ -1439,16 +1443,6 @@ const ScriptUpload = () => {
         return true;
 
       case 5:
-        {
-          const rightsError = getRightsValidationMessage(buildRightsPayload());
-          if (rightsError) {
-            setError(rightsError);
-            return false;
-          }
-        }
-        return true;
-
-      case 6:
         {
           const rightsError = getRightsValidationMessage(buildRightsPayload());
           if (rightsError) {
@@ -1475,7 +1469,7 @@ const ScriptUpload = () => {
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
     if (!validateStep(step)) return;
-    if (step < 6) {
+    if (step < 5) {
       setStep(step + 1);
       setError("");
     }
@@ -2175,25 +2169,6 @@ const ScriptUpload = () => {
                   </div>
                   )}
 
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Primary Genre *
-                    </label>
-                    <select
-                      name="primaryGenre"
-                      value={formData.primaryGenre}
-                      onChange={handleChange}
-                      required
-                      className={inputCls}
-                    >
-                      <option value="">Select a genre</option>
-                      {genres.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
 
                   <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                     <div className="flex flex-col gap-0.5">
@@ -2382,6 +2357,26 @@ const ScriptUpload = () => {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
+                  <div>
+                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
+                      Primary Genre *
+                    </label>
+                    <select
+                      name="primaryGenre"
+                      value={formData.primaryGenre}
+                      onChange={handleChange}
+                      required
+                      className={inputCls}
+                    >
+                      <option value="">Select a genre...</option>
+                      {genres.map((g) => (
+                        <option key={g} value={g}>
+                          {g}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <p className="text-sm text-neutral-400 mb-4">
                     Select up to 3 options per category to power the Smart Match algorithm.
                   </p>
@@ -2391,18 +2386,35 @@ const ScriptUpload = () => {
                     <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Tone ({classification.tones.length}/3)
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {toneOptions.map((tone) => (
-                        <button
-                          key={tone}
-                          type="button"
-                          onClick={() => toggleClassification("tones", tone)}
-                          className={chipCls(classification.tones.includes(tone))}
-                        >
-                          {tone}
-                        </button>
+                    <select
+                      className={inputCls}
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && classification.tones.length < 3 && !classification.tones.includes(e.target.value)) {
+                          toggleClassification("tones", e.target.value);
+                        }
+                      }}
+                      disabled={classification.tones.length >= 3}
+                    >
+                      <option value="" disabled>Select a tone...</option>
+                      {toneOptions.filter(t => !classification.tones.includes(t)).map(tone => (
+                        <option key={tone} value={tone}>{tone}</option>
                       ))}
-                    </div>
+                    </select>
+                    {classification.tones.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {classification.tones.map((tone) => (
+                          <button
+                            key={tone}
+                            type="button"
+                            onClick={() => toggleClassification("tones", tone)}
+                            className={chipCls(true)}
+                          >
+                            {tone} <span className="ml-1 opacity-60">×</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Themes */}
@@ -2410,18 +2422,35 @@ const ScriptUpload = () => {
                     <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Theme ({classification.themes.length}/3)
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {themeOptions.map((theme) => (
-                        <button
-                          key={theme}
-                          type="button"
-                          onClick={() => toggleClassification("themes", theme)}
-                          className={chipCls(classification.themes.includes(theme))}
-                        >
-                          {theme}
-                        </button>
+                    <select
+                      className={inputCls}
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && classification.themes.length < 3 && !classification.themes.includes(e.target.value)) {
+                          toggleClassification("themes", e.target.value);
+                        }
+                      }}
+                      disabled={classification.themes.length >= 3}
+                    >
+                      <option value="" disabled>Select a theme...</option>
+                      {themeOptions.filter(t => !classification.themes.includes(t)).map(theme => (
+                        <option key={theme} value={theme}>{theme}</option>
                       ))}
-                    </div>
+                    </select>
+                    {classification.themes.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {classification.themes.map((theme) => (
+                          <button
+                            key={theme}
+                            type="button"
+                            onClick={() => toggleClassification("themes", theme)}
+                            className={chipCls(true)}
+                          >
+                            {theme} <span className="ml-1 opacity-60">×</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {/* Settings */}
@@ -2429,18 +2458,35 @@ const ScriptUpload = () => {
                     <label className={`block text-sm ${labelCls} font-medium mb-2`}>
                       Setting ({classification.settings.length}/3)
                     </label>
-                    <div className="flex flex-wrap gap-2">
-                      {settingOptions.map((setting) => (
-                        <button
-                          key={setting}
-                          type="button"
-                          onClick={() => toggleClassification("settings", setting)}
-                          className={chipCls(classification.settings.includes(setting))}
-                        >
-                          {setting}
-                        </button>
+                    <select
+                      className={inputCls}
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && classification.settings.length < 3 && !classification.settings.includes(e.target.value)) {
+                          toggleClassification("settings", e.target.value);
+                        }
+                      }}
+                      disabled={classification.settings.length >= 3}
+                    >
+                      <option value="" disabled>Select a setting...</option>
+                      {settingOptions.filter(t => !classification.settings.includes(t)).map(setting => (
+                        <option key={setting} value={setting}>{setting}</option>
                       ))}
-                    </div>
+                    </select>
+                    {classification.settings.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {classification.settings.map((setting) => (
+                          <button
+                            key={setting}
+                            type="button"
+                            onClick={() => toggleClassification("settings", setting)}
+                            className={chipCls(true)}
+                          >
+                            {setting} <span className="ml-1 opacity-60">×</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className={`rounded-2xl border p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
@@ -3637,174 +3683,14 @@ const ScriptUpload = () => {
                       ← Back
                     </button>
                     <button
-                      type="button"
-                      onClick={handleNext}
-                      className="w-full min-[420px]:w-auto px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 6: Legal & Checkout ── */}
-              {step === 6 && (
-                <motion.div
-                  key="step6"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Final Review</h2>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Validate your invoice and submission details, then submit your project for admin review.</p>
-                  </div>
-
-                  <div className={`rounded-xl px-3 py-2 ${isDarkMode ? "bg-white/[0.04] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Available Credits</p>
-                    <p className={`text-sm font-bold mt-1 ${creditsBalance < totalServiceCost ? "text-red-400" : isDarkMode ? "text-emerald-300" : "text-emerald-700"}`}>{creditsBalance} credits</p>
-                  </div>
-
-                  <div className={`rounded-3xl border overflow-hidden ${isDarkMode ? "border-[#223a58] bg-gradient-to-b from-[#0a1320] to-[#08111b] shadow-[0_12px_28px_rgba(2,6,23,0.35)]" : "border-gray-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"}`}>
-                    <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b ${isDarkMode ? "border-[#1b2e46]" : "border-gray-200"}`}>
-                      <div>
-                        <p className={`text-[10px] font-extrabold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Invoice Preview</p>
-                        <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Calculated from your current pricing and services.</p>
-                      </div>
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold border ${isDarkMode ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-300" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>Auto-updating</span>
-                    </div>
-
-                    <div className={`max-[520px]:hidden grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "bg-[#091525] text-gray-500 border-b border-[#1b2e46]" : "bg-gray-50 text-gray-500 border-b border-gray-200"}`}>
-                      <span>Invoice Item</span>
-                      <span>Type</span>
-                      <span className="text-right">Amount</span>
-                    </div>
-
-                    <div>
-                      {publishInvoiceRows.map((row, index) => (
-                        <div key={row.item} className={`grid grid-cols-1 min-[521px]:grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-3.5 items-start gap-2 text-[12px] ${isDarkMode ? `${index % 2 === 0 ? "bg-white/[0.01]" : "bg-[#0b1625]"} border-b border-[#15273d] last:border-b-0` : `${index % 2 === 0 ? "bg-white" : "bg-gray-50/70"} border-b border-gray-100 last:border-b-0`}`}>
-                          <div>
-                            <p className={`font-semibold ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}>{row.item}</p>
-                            <p className={`text-[11px] mt-0.5 leading-relaxed ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{row.detail}</p>
-                          </div>
-                          <div className="pt-0.5 max-[520px]:pt-0">
-                            <span className={`inline-flex items-center whitespace-nowrap text-[10px] font-semibold px-2.5 py-1 rounded-full border ${row.type === "Credit Charge"
-                              ? isDarkMode ? "border-blue-400/30 bg-blue-500/12 text-blue-300" : "border-blue-200 bg-blue-100 text-blue-700"
-                              : row.type === "Revenue Setting"
-                                ? isDarkMode ? "border-indigo-400/30 bg-indigo-500/14 text-indigo-300" : "border-indigo-200 bg-indigo-100 text-indigo-700"
-                              : row.type === "Platform Commission"
-                                ? isDarkMode ? "border-amber-400/30 bg-amber-500/12 text-amber-300" : "border-amber-200 bg-amber-100 text-amber-700"
-                              : row.type === "Checkout Total"
-                                ? isDarkMode ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-300" : "border-cyan-200 bg-cyan-100 text-cyan-700"
-                              : row.type === "Future Earnings"
-                                ? isDarkMode ? "border-emerald-400/30 bg-emerald-500/12 text-emerald-300" : "border-emerald-200 bg-emerald-100 text-emerald-700"
-                                : isDarkMode ? "border-white/[0.16] bg-white/[0.08] text-gray-300" : "border-gray-300 bg-gray-100 text-gray-700"
-                              }`}>{row.type}</span>
-                          </div>
-                          <p className={`text-left min-[521px]:text-right font-extrabold tabular-nums tracking-tight pt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{row.amount}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className={`rounded-xl px-4 py-4 ${isDarkMode ? "bg-blue-500/10 border border-blue-500/15" : "bg-blue-50 border border-blue-100"}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>Publish Cost</p>
-                      <p className={`text-xl font-black mt-1 ${totalServiceCost > creditsBalance ? "text-red-400" : isDarkMode ? "text-white" : "text-gray-900"}`}>{totalServiceCost} cr</p>
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Charged from current balance</p>
-                    </div>
-                    <div className={`rounded-xl px-4 py-4 ${isDarkMode ? "bg-emerald-500/10 border border-emerald-500/15" : "bg-emerald-50 border border-emerald-100"}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-emerald-300" : "text-emerald-700"}`}>Remaining Credits</p>
-                      <p className={`text-xl font-black mt-1 ${creditsAfterPublish < 0 ? "text-red-400" : isDarkMode ? "text-emerald-300" : "text-emerald-700"}`}>{creditsAfterPublish}</p>
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>After this publish action</p>
-                    </div>
-                    <div className={`rounded-xl px-4 py-4 ${isDarkMode ? "bg-purple-500/10 border border-purple-500/15" : "bg-purple-50 border border-purple-100"}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-purple-300" : "text-purple-700"}`}>Writer / Premium Sale</p>
-                      <p className={`text-xl font-black mt-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{formatCurrency(writerPayout)}</p>
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Writer gets full script fee per paid purchase</p>
-                    </div>
-                  </div>
-
-                  <div className={`rounded-2xl border p-5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                      <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Rights</p>
-                        <p className={`text-[12px] mt-2 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>You retain ownership of your script.</p>
-                      </div>
-                      <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>License</p>
-                        <p className={`text-[12px] mt-2 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Platform gets a non-exclusive display and promotion license.</p>
-                      </div>
-                      <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Refunds</p>
-                        <p className={`text-[12px] mt-2 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Service charges are non-refundable after processing starts.</p>
-                      </div>
-                    </div>
-
-                    <p className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                      Review the full legal document:
-                      {" "}
-                      <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-500 hover:text-blue-400 underline underline-offset-2">
-                        Script Upload Terms & Conditions
-                      </Link>
-                    </p>
-
-                    <div
-                      ref={agreementRef}
-                      className={`rounded-xl p-4 h-48 overflow-y-auto text-xs leading-relaxed border ${isDarkMode ? "border-[#182840] text-gray-400 bg-[#050b14]" : "border-gray-200 text-gray-500 bg-white"}`}
-                    >
-                      <pre className="whitespace-pre-wrap font-sans">{LEGAL_AGREEMENT}</pre>
-                    </div>
-
-                    <div className={`rounded-xl px-4 py-4 mt-4 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                      <div className="flex items-start gap-2.5">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${legal.agreedToTerms ? isDarkMode ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700" : isDarkMode ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>
-                          {legal.agreedToTerms ? (
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            "!"
-                          )}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-[12px] font-semibold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>{legal.agreedToTerms ? "Agreement confirmed" : "Agreement required"}</p>
-                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{legal.agreedToTerms ? "Everything is ready. You can submit for admin approval now." : "Please accept the submission agreement to continue."}</p>
-                          <label className="flex items-start gap-2.5 cursor-pointer mt-3">
-                            <input
-                              type="checkbox"
-                              checked={legal.agreedToTerms}
-                              onChange={(e) => setLegal({ ...legal, agreedToTerms: e.target.checked })}
-                              className="w-4 h-4 rounded mt-0.5 accent-[#1e3a5f] disabled:opacity-50"
-                            />
-                            <span className={`text-[11px] leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                              I agree to the Script Upload Terms & Conditions (v{SCRIPT_UPLOAD_TERMS_VERSION}) and confirm publishing rights.
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
                       type="submit"
                       disabled={loading || !legal.agreedToTerms}
-                      className="flex-1 px-6 py-3 bg-[#1e3a5f] text-white rounded-xl text-sm font-bold hover:bg-[#162d4a] transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
+                      className="w-full min-[420px]:w-auto px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {loading ? "Submitting..." : "Submit for Approval"}
                     </button>
                   </div>
-                  <p className={`text-[11px] text-center ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Submitting will send your project for admin approval with the current pricing, services, and invoice settings.</p>
+                  <p className={`text-[11px] text-center mt-3 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Submitting will send your project for admin approval with the current pricing, services, and invoice settings.</p>
                 </motion.div>
               )}
             </AnimatePresence>

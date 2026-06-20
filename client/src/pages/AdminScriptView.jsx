@@ -39,6 +39,7 @@ const FORMAT_LABELS = {
   movie: "Movie",
   tv_serial: "TV Serial",
   cartoon: "Cartoon",
+  micro_drama: "Micro Drama",
   songs: "Songs",
   standup_comedy: "Standup Comedy",
   dialogues: "Dialogues",

@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,6 +31,8 @@ const InvestorDashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [revealedWriters, setRevealedWriters] = useState([]);
+  const [writersLoading, setWritersLoading] = useState(false);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -51,6 +53,31 @@ const InvestorDashboard = () => {
       setLoading(false);
     }
   };
+
+  const fetchRevealedWriters = useCallback(async () => {
+    const contacts = (user?.subscription?.revealedContacts || []).filter(c => c.writerId);
+    if (!contacts.length) return;
+    try {
+      setWritersLoading(true);
+      const results = await Promise.allSettled(
+        contacts.map(c => api.get(`/users/${c.writerId}`))
+      );
+      const writers = results
+        .map((r, i) => {
+          if (r.status !== "fulfilled") return null;
+          const w = r.value.data?.user || r.value.data;
+          return w ? { ...w, revealedAt: contacts[i].revealedAt } : null;
+        })
+        .filter(Boolean);
+      setRevealedWriters(writers);
+    } catch {
+      setRevealedWriters([]);
+    } finally {
+      setWritersLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => { fetchRevealedWriters(); }, [fetchRevealedWriters]);
 
   /* ── Derived data ──────────────────────────────────────────── */
   const stats = data?.stats || {};
@@ -177,10 +204,6 @@ const InvestorDashboard = () => {
                 key: "overview", label: "Overview",
                 d: "M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
               },
-              {
-                key: "finance", label: "Finance",
-                d: "M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-              },
             ].map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-all shrink-0 whitespace-nowrap
@@ -238,7 +261,7 @@ const InvestorDashboard = () => {
                     icon={<path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />}
                     iconBg={dark ? "bg-white/[0.06]" : "bg-gray-100"}
                     iconColor={dark ? "text-gray-300" : "text-[#1e3a5f]"}
-                    title="My Mandates"
+                    title="My Preferences"
                     action={<Link to="/mandates" className={`text-[11px] font-semibold ${dark ? "text-gray-300 hover:text-gray-200" : "text-[#1e3a5f] hover:text-[#162d4a]"}`}>Edit →</Link>} />
                   {mandates.genres?.length > 0 || mandates.formats?.length > 0 ? (
                     <div className="mt-4 space-y-3">
@@ -283,7 +306,7 @@ const InvestorDashboard = () => {
                       )}
                     </div>
                   ) : (
-                    <EmptySmall dark={dark} text="Set up your mandates to get matched scripts" cta={{ label: "Set Mandates", to: "/mandates" }} />
+                    <EmptySmall dark={dark} text="Set up your preferences to get matched scripts" cta={{ label: "Set Preferences", to: "/mandates" }} />
                   )}
                 </Card>
               </div>
@@ -431,40 +454,105 @@ const InvestorDashboard = () => {
                 </Card>
               )}
 
-              {/* ─ Messages Quick Access ─ */}
-              <Card dark={dark} className="p-5 mt-4">
-                <div className="flex items-center justify-between">
+              {/* ─ Writer Inbox ─ */}
+              <Card dark={dark} className="mt-4 overflow-hidden">
+                {/* Header */}
+                <div className={`flex items-center justify-between px-5 py-4 border-b ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`}>
-                      <svg className={`w-4 h-4 ${dark ? "text-gray-300" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dark ? "bg-indigo-500/10" : "bg-indigo-50"}`}>
+                      <svg className={`w-4 h-4 ${dark ? "text-indigo-400" : "text-indigo-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                       </svg>
                     </div>
-                    <h3 className={`text-sm font-bold ${dark ? "text-gray-200" : "text-gray-800"}`}>Writer Messages</h3>
+                    <div>
+                      <h3 className={`text-sm font-bold leading-none ${dark ? "text-gray-100" : "text-gray-800"}`}>Writer Inbox</h3>
+                      <p className={`text-[10px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>
+                        {revealedWriters.length} contact{revealedWriters.length !== 1 ? "s" : ""} unlocked
+                      </p>
+                    </div>
                   </div>
                   <Link to="/messages"
-                    className={`text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${dark ? "bg-white/[0.06] text-gray-300 hover:bg-white/[0.12]" : "bg-gray-100 text-[#1e3a5f] hover:bg-gray-200"}`}>
-                    Open Messages →
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${dark ? "bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
+                    View all
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
+                    </svg>
                   </Link>
                 </div>
-                <p className={`text-xs mt-3 leading-relaxed ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                  After purchasing a project, you can directly message the writer to discuss collaboration, rights, and production details.
-                </p>
-                <div className={`mt-3 flex items-center gap-2 p-3 rounded-xl ${dark ? "bg-white/[0.03] border border-white/[0.04]" : "bg-gray-50 border border-gray-100"}`}>
-                  <svg className={`w-3.5 h-3.5 shrink-0 ${dark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className={`text-[11px] font-medium ${dark ? "text-gray-400" : "text-gray-500"}`}>
-                    Purchase any project to unlock direct messaging with its writer.
-                  </p>
-                </div>
+
+                {/* Writer list */}
+                {writersLoading ? (
+                  <div className="px-5 py-6 space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="flex items-center gap-3 animate-pulse">
+                        <div className={`w-9 h-9 rounded-full shrink-0 ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`} />
+                        <div className="flex-1 space-y-1.5">
+                          <div className={`h-2.5 w-28 rounded-full ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`} />
+                          <div className={`h-2 w-16 rounded-full ${dark ? "bg-white/[0.04]" : "bg-gray-50"}`} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : revealedWriters.length === 0 ? (
+                  <div className="px-5 py-8 flex flex-col items-center text-center gap-2">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-1 ${dark ? "bg-white/[0.04]" : "bg-gray-50"}`}>
+                      <svg className={`w-5 h-5 ${dark ? "text-gray-600" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+                      </svg>
+                    </div>
+                    <p className={`text-xs font-semibold ${dark ? "text-gray-400" : "text-gray-500"}`}>No writers unlocked yet</p>
+                    <p className={`text-[11px] ${dark ? "text-gray-600" : "text-gray-400"}`}>Reveal a writer contact to start messaging</p>
+                  </div>
+                ) : (
+                  <div className={`divide-y ${dark ? "divide-white/[0.04]" : "divide-gray-50"}`}>
+                    {revealedWriters.map((writer) => {
+                      const initials = (writer.name || "W").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
+                      const revealedDate = writer.revealedAt ? new Date(writer.revealedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+                      const msgUrl = `/messages?recipientId=${writer._id}&recipientName=${encodeURIComponent(writer.name || "Writer")}`;
+                      const profileUrl = getProfileCanonicalPath(writer, { viewerId: user?._id, viewerRole: user?.role });
+                      return (
+                        <div key={writer._id} className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${dark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/60"}`}>
+                          {/* Avatar */}
+                          <Link to={profileUrl} className="shrink-0">
+                            {writer.profileImage ? (
+                              <img src={writer.profileImage} alt={writer.name} className="w-9 h-9 rounded-full object-cover ring-1 ring-white/10" />
+                            ) : (
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold ring-1 ${dark ? "bg-indigo-500/10 text-indigo-300 ring-indigo-500/20" : "bg-indigo-50 text-indigo-600 ring-indigo-100"}`}>
+                                {initials}
+                              </div>
+                            )}
+                          </Link>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <Link to={profileUrl} className={`text-[13px] font-semibold truncate block ${dark ? "text-gray-100 hover:text-white" : "text-gray-800 hover:text-gray-900"}`}>
+                              {writer.name || "Writer"}
+                            </Link>
+                            <p className={`text-[10px] truncate ${dark ? "text-gray-500" : "text-gray-400"}`}>
+                              {writer.bio ? writer.bio.slice(0, 40) + (writer.bio.length > 40 ? "…" : "") : writer.genre || "Writer"}
+                              {revealedDate && <span className={`ml-1.5 ${dark ? "text-gray-600" : "text-gray-300"}`}>· {revealedDate}</span>}
+                            </p>
+                          </div>
+
+                          {/* Message button */}
+                          <Link to={msgUrl}
+                            className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${dark ? "bg-white/[0.05] text-gray-300 hover:bg-indigo-500/15 hover:text-indigo-300" : "bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"}`}>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                            Message
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </Card>
 
             </motion.div>
           )}
 
-          {/* ═══ FINANCE ═══ */}
-          {activeTab === "finance" && (
+          {activeTab === "finance_removed" && (
             <motion.div key="finance" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
 
               {/* Transaction Activity — Area Sparkline */}
