@@ -27,7 +27,7 @@ const Join = lazy(() => import("./pages/Join"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
 const WriterOnboarding = lazy(() => import("./pages/WriterOnboarding"));
-const InvestorOnboarding = lazy(() => import("./pages/InvestorOnboarding"));
+const ProducerOnboardingRoute = lazy(() => import("./pages/ProducerOnboardingRoute"));
 const IndustryOnboarding = lazy(() => import("./pages/IndustryOnboarding"));
 const Profile = lazy(() => import("./pages/Profile"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
@@ -282,7 +282,7 @@ function App() {
               <Route path="/share/profile/:id" element={<PublicProfile />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
               <Route path="/writer-onboarding" element={<WriterOnboarding />} />
-              <Route path="/producer-director-onboarding" element={<InvestorOnboarding />} />
+              <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
               <Route element={<ProtectedMainLayout />}>
                 <Route path="/industry-onboarding" element={<IndustryOnboarding />} />
