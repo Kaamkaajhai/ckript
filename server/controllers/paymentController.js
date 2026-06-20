@@ -11,11 +11,10 @@ import {
   getRemainingContacts,
 } from "../utils/industryAccess.js";
 
-import Razorpay from "razorpay";
 import crypto from "crypto";
 
 // Initialize Stripe only if the secret key is provided
-const stripe = process.env.STRIPE_SECRET 
+const stripe = process.env.STRIPE_SECRET
   ? new Stripe(process.env.STRIPE_SECRET)
   : null;
 
@@ -29,18 +28,18 @@ const FILM_INDUSTRY_PRO_MODEL = {
   accessTier: "film_industry_professional",
 };
 
-const getRazorpayInstance = () => {
+const getRazorpayInstance = async () => {
   try {
-    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-      return new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID,
-        key_secret: process.env.RAZORPAY_KEY_SECRET,
-      });
-    }
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return null;
+    const { default: Razorpay } = await import("razorpay");
+    return new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
   } catch (err) {
     console.error("Error initializing Razorpay:", err);
+    return null;
   }
-  return null;
 };
 
 const normalizeReturnPath = (value = "") => {
@@ -167,7 +166,7 @@ export const createRazorpayOrder = async (req, res) => {
     console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID);
     console.log("RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET);
 
-    const razorpay = getRazorpayInstance();
+    const razorpay = await getRazorpayInstance();
     if (!razorpay) {
       return res.status(503).json({ 
         message: "Razorpay is not configured. Keys are missing.",
