@@ -38,6 +38,7 @@ const filmFormats = [
   { value: "tv_halfhour", label: "TV Series (30 min)", icon: "TV" },
   { value: "limited_series", label: "Limited Series", icon: "SERIES" },
   { value: "documentary", label: "Documentary", icon: "DOC" },
+  { value: "micro_drama", label: "Micro Drama", icon: "SHORT" },
 ];
 
 const publishingFormats = [
@@ -65,6 +66,7 @@ const CONTENT_TYPE_BY_FORMAT = {
   tv_halfhour: "tv_series",
   limited_series: "tv_series",
   documentary: "documentary",
+  micro_drama: "micro_drama",
   fiction_novel: "book",
   non_fiction: "book",
   novella: "book",
@@ -173,6 +175,7 @@ const FORMAT_PAGE_RANGES = {
   documentary: { min: 60, max: 120, typical: "70-100", label: "Documentary", wordsPerPage: 250 },
   web_series: { min: 20, max: 80, typical: "25-45", label: "Web Series", wordsPerPage: 250 },
   drama_school: { min: 10, max: 60, typical: "15-35", label: "Drama School", wordsPerPage: 250 },
+  micro_drama: { min: 1, max: 15, typical: "3-10", label: "Micro Drama", wordsPerPage: 250 },
   anime: { min: 18, max: 65, typical: "22-45", label: "Anime", wordsPerPage: 250 },
   movie: { min: 70, max: 180, typical: "90-120", label: "Movie", wordsPerPage: 250 },
   tv_serial: { min: 18, max: 50, typical: "20-35", label: "TV Serial", wordsPerPage: 250 },
@@ -407,7 +410,6 @@ const STEPS = [
   { num: 3, label: "Classify", shortLabel: "Class", desc: "Tones & themes" },
   { num: 4, label: "Film Info", shortLabel: "Film", desc: "Direction & language" },
   { num: 5, label: "Publish", shortLabel: "Pub", desc: "Pricing & services" },
-  { num: 6, label: "Review", shortLabel: "Review", desc: "Final review" },
 ];
 
 const CP_FILM_LANGUAGE_OPTIONS = [
@@ -1853,7 +1855,9 @@ const CreateProject = () => {
     { label: "Estimated Pages", value: `${estimatedPages} pages` },
     {
       label: "Viewable Script",
-      value: `Pages ${buildScriptPreviewPayload(formData).start} to ${buildScriptPreviewPayload(formData).end}`,
+      value: buildScriptPreviewPayload(formData)
+        ? `Pages ${buildScriptPreviewPayload(formData).start} to ${buildScriptPreviewPayload(formData).end}`
+        : "Not viewable",
     },
     { label: "Access", value: isPremium ? "Premium paid access" : "Free public access" },
   ];
@@ -1879,7 +1883,7 @@ const CreateProject = () => {
         setError("Please specify the format when selecting Other.");
         return false;
       }
-      if (!formData.primaryGenre) { setError("Primary genre is required."); return false; }
+
       if (!formData.logline.trim()) { setError("Logline is required."); return false; }
       if (formData.logline.length > 500) { setError("Logline must be 500 characters or less."); return false; }
       {
@@ -1907,7 +1911,10 @@ const CreateProject = () => {
       if (ageRangeError) { setError(ageRangeError); return false; }
       return true;
     }
-    if (s === 3) return true;
+    if (s === 3) {
+      if (!formData.primaryGenre) { setError("Primary genre is required."); return false; }
+      return true;
+    }
     if (s === 4) {
       if (!String(filmDetails.filmLanguage || "").trim()) {
         setError("Film language is required.");
@@ -1925,24 +1932,12 @@ const CreateProject = () => {
         setError(rightsError);
         return false;
       }
-      return true;
-    }
-    if (s === 6) {
-      const rightsError = getRightsValidationMessage(buildRightsPayload());
-      if (rightsError) {
-        setError(rightsError);
-        return false;
-      }
-      if (!legal.agreedToTerms) { setError("You must agree to the terms."); return false; }
-      if (String(legal.customInvestorTerms || "").trim().length > MAX_CUSTOM_INVESTOR_TERMS_LENGTH) {
-        setError(`Custom investor terms cannot exceed ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters.`);
-        return false;
-      }
+      if (!legal.agreedToTerms) { setError("Please accept the Submission Agreement."); return false; }
       return true;
     }
     return true;
   };
-  const handleNext = () => { if (validateStep(step) && step < 6) { setStep(step + 1); setError(""); } };
+  const handleNext = () => { if (validateStep(step) && step < 5) { setStep(step + 1); setError(""); } };
   const handleBack = () => { if (step > 1) { setStep(step - 1); setError(""); } };
 
   const uploadSelectedProjectMedia = async (targetScriptId) => {
@@ -3392,19 +3387,7 @@ const CreateProject = () => {
                   </p>
                 </div>
               </div>
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${dark ? "text-gray-300" : "text-gray-700"}`}>Primary Genre *</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {genres.map(g => (
-                    <button key={g} type="button"
-                      onClick={() => setFormData(fd => ({ ...fd, primaryGenre: fd.primaryGenre === g ? "" : g }))}
-                      className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all ${formData.primaryGenre === g
-                          ? "bg-[#1e3a5f] border-[#1e3a5f] text-white"
-                          : dark ? "border-[#1d3350] text-gray-400 hover:border-[#2a4a6a] hover:text-gray-200" : "border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                        }`}>{g}</button>
-                  ))}
-                </div>
-              </div>
+
               {targetFilm && (
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -3815,14 +3798,50 @@ const CreateProject = () => {
             <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Deep Classification</h2>
-                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Select up to 3 in each category. This helps readers discover your script.</p>
+                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help readers discover your script by specifying its genre and tone.</p>
+              </div>
+
+              <div>
+                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Primary Genre *</h3>
+                <select
+                  name="primaryGenre"
+                  value={formData.primaryGenre}
+                  onChange={(e) => setFormData(fd => ({ ...fd, primaryGenre: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="" disabled>Select a Primary Genre...</option>
+                  {genres.map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
               </div>
               {[{ label: "Tones", key: "tones", opts: toneOptions }, { label: "Themes", key: "themes", opts: themeOptions }, { label: "Settings", key: "settings", opts: settingOptions }].map(({ label, key, opts }) => (
                 <div key={key}>
                   <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>{label} <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>({classification[key].length}/3)</span></h3>
-                  <div className="flex flex-wrap gap-2">
-                    {opts.map(v => <button key={v} type="button" onClick={() => toggleChip(key, v)} className={chipCls(classification[key].includes(v))}>{v}</button>)}
-                  </div>
+                  <select
+                    className={inputCls}
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value && classification[key].length < 3 && !classification[key].includes(e.target.value)) {
+                        toggleChip(key, e.target.value);
+                      }
+                    }}
+                    disabled={classification[key].length >= 3}
+                  >
+                    <option value="" disabled>Select {label.toLowerCase().slice(0, -1)}...</option>
+                    {opts.filter(v => !classification[key].includes(v)).map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                  {classification[key].length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {classification[key].map(v => (
+                        <button key={v} type="button" onClick={() => toggleChip(key, v)} className={chipCls(true)}>
+                          {v} <span className="ml-1 opacity-60">×</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -4628,114 +4647,7 @@ const CreateProject = () => {
           </motion.div>
         )}
 
-        {/* -- STEP 6: Final Review -- */}
-        {step === 6 && (
-          <motion.div key="s5" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-            <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
-              <div>
-                <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Final Review</h2>
-                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Validate submission details, then submit your project for admin review.</p>
-              </div>
 
-              <div className={`rounded-3xl border overflow-hidden ${dark ? "border-[#223a58] bg-gradient-to-b from-[#0a1320] to-[#08111b] shadow-[0_12px_28px_rgba(2,6,23,0.35)]" : "border-gray-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"}`}>
-                <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b ${dark ? "border-[#1b2e46]" : "border-gray-200"}`}>
-                  <div>
-                    <p className={`text-[10px] font-extrabold uppercase tracking-[0.16em] ${dark ? "text-gray-400" : "text-gray-500"}`}>Invoice Preview</p>
-                    <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>Calculated from your current pricing and services.</p>
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold border ${dark ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-300" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>Auto-updating</span>
-                </div>
-
-                <div className={`max-[520px]:hidden grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "bg-[#091525] text-gray-500 border-b border-[#1b2e46]" : "bg-gray-50 text-gray-500 border-b border-gray-200"}`}>
-                  <span>Summary Item</span>
-                  <span>Type</span>
-                  <span className="text-right">Amount</span>
-                </div>
-
-                <div>
-                  {publishSummaryRows.map((row, index) => (
-                    <div key={row.item} className={`grid grid-cols-1 min-[521px]:grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-3.5 items-start gap-2 text-[12px] ${dark ? `${index % 2 === 0 ? "bg-white/[0.01]" : "bg-[#0b1625]"} border-b border-[#15273d] last:border-b-0` : `${index % 2 === 0 ? "bg-white" : "bg-gray-50/70"} border-b border-gray-100 last:border-b-0`}`}>
-                      <div>
-                        <p className={`font-semibold ${dark ? "text-gray-100" : "text-gray-800"}`}>{row.item}</p>
-                        <p className={`text-[11px] mt-0.5 leading-relaxed ${dark ? "text-gray-500" : "text-gray-500"}`}>{row.detail}</p>
-                      </div>
-                      <div className="pt-0.5 max-[520px]:pt-0">
-                        <span className={`inline-flex items-center whitespace-nowrap text-[10px] font-semibold px-2.5 py-1 rounded-full border ${row.type === "Credit Charge"
-                          ? dark ? "border-blue-400/30 bg-blue-500/12 text-blue-300" : "border-blue-200 bg-blue-100 text-blue-700"
-                          : row.type === "Revenue Setting"
-                            ? dark ? "border-indigo-400/30 bg-indigo-500/14 text-indigo-300" : "border-indigo-200 bg-indigo-100 text-indigo-700"
-                          : row.type === "Platform Commission"
-                            ? dark ? "border-amber-400/30 bg-amber-500/12 text-amber-300" : "border-amber-200 bg-amber-100 text-amber-700"
-                          : row.type === "Checkout Total"
-                            ? dark ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-300" : "border-cyan-200 bg-cyan-100 text-cyan-700"
-                          : row.type === "Future Earnings"
-                            ? dark ? "border-emerald-400/30 bg-emerald-500/12 text-emerald-300" : "border-emerald-200 bg-emerald-100 text-emerald-700"
-                            : dark ? "border-white/[0.16] bg-white/[0.08] text-gray-300" : "border-gray-300 bg-gray-100 text-gray-700"
-                          }`}>{row.type}</span>
-                      </div>
-                      <p className={`text-left min-[521px]:text-right font-extrabold tabular-nums tracking-tight pt-0.5 ${dark ? "text-white" : "text-gray-900"}`}>{row.amount}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={`rounded-xl px-4 py-4 ${dark ? "bg-blue-500/10 border border-blue-500/15" : "bg-blue-50 border border-blue-100"}`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-blue-300" : "text-blue-700"}`}>Publish Cost</p>
-                  <p className={`text-xl font-black mt-1 ${totalServiceCost > creditsBalance ? "text-red-400" : dark ? "text-white" : "text-gray-900"}`}>{totalServiceCost} cr</p>
-                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Charged from current balance</p>
-                </div>
-                <div className={`rounded-xl px-4 py-4 ${dark ? "bg-emerald-500/10 border border-emerald-500/15" : "bg-emerald-50 border border-emerald-100"}`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-emerald-300" : "text-emerald-700"}`}>Remaining Credits</p>
-                  <p className={`text-xl font-black mt-1 ${creditsAfterPublish < 0 ? "text-red-400" : dark ? "text-emerald-300" : "text-emerald-700"}`}>{creditsAfterPublish}</p>
-                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>After this publish action</p>
-                </div>
-                <div className={`rounded-xl px-4 py-4 ${dark ? "bg-purple-500/10 border border-purple-500/15" : "bg-purple-50 border border-purple-100"}`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-purple-300" : "text-purple-700"}`}>Writer / Premium Sale</p>
-                  <p className={`text-xl font-black mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{isPremium ? `₹${writerPayout}` : "₹0"}</p>
-                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Writer gets full script fee per paid purchase</p>
-                </div>
-              </div>
-
-              <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                <div className="flex items-start gap-2.5">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${legal.agreedToTerms ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700" : dark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>
-                    {legal.agreedToTerms ? (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      "!"
-                    )}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[12px] font-semibold ${dark ? "text-gray-200" : "text-gray-800"}`}>{legal.agreedToTerms ? "Agreement confirmed" : "Agreement required"}</p>
-                    <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>{legal.agreedToTerms ? "Everything is ready. You can submit for admin approval now." : "Please accept the submission agreement to continue."}</p>
-                    {!legal.agreedToTerms && (
-                      <label className="flex items-start gap-2.5 cursor-pointer mt-3">
-                        <input
-                          type="checkbox"
-                          checked={legal.agreedToTerms}
-                          onChange={e => setLegal((prev) => ({ ...prev, agreedToTerms: e.target.checked }))}
-                          className="w-4 h-4 rounded mt-0.5 accent-[#1e3a5f]"
-                        />
-                        <span className={`text-[11px] leading-relaxed ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                          I agree to the Script Upload Terms & Conditions (v{SCRIPT_UPLOAD_TERMS_VERSION}) and confirm publishing rights.
-                        </span>
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <button onClick={handlePublish} disabled={loading || !legal.agreedToTerms}
-                className="w-full py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#1e3a5f] hover:bg-[#162d4a] text-white shadow-md">
-                {loading ? "Submitting..." : "Submit for Approval"}
-              </button>
-              <p className={`text-[11px] text-center ${dark ? "text-gray-500" : "text-gray-400"}`}>Submitting will send your project for admin approval with the current pricing and services.</p>
-            </div>
-          </motion.div>
-        )}
       </AnimatePresence>
 
       {/* -- Navigation Buttons -- */}
@@ -4746,12 +4658,17 @@ const CreateProject = () => {
               ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
             Back
           </button>
-          {step < 6 && (
+          {step < 5 ? (
             <button onClick={handleNext}
               className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${dark
                 ? "bg-[#1e3a5f] text-white hover:bg-[#2a4a70] shadow-lg shadow-[#1e3a5f]/20"
                 : "bg-[#1e3a5f] text-white hover:bg-[#162d4a] shadow-lg shadow-[#1e3a5f]/20"}`}>
               Next -
+            </button>
+          ) : (
+            <button onClick={handlePublish} disabled={loading || !legal.agreedToTerms}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#1e3a5f] hover:bg-[#162d4a] text-white shadow-md`}>
+              {loading ? "Submitting..." : "Submit for Approval"}
             </button>
           )}
         </motion.div>

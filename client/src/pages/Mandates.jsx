@@ -24,6 +24,7 @@ const FORMAT_OPTIONS = [
   { value: "anime", label: "Anime" },
   { value: "cartoon", label: "Cartoon" },
   { value: "drama_school", label: "Drama School" },
+  { value: "micro_drama", label: "Micro Drama" },
   { value: "songs", label: "Songs" },
   { value: "standup_comedy", label: "Standup Comedy" },
   { value: "dialogues", label: "Dialogues" },

@@ -745,7 +745,7 @@ const Profile = () => {
                 </p>
                 <button
                   type="button"
-                  onClick={() => navigate("/settings")}
+                  onClick={() => navigate("/producer-director-onboarding")}
                   className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
                 >
                   Update Account Email

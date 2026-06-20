@@ -52,6 +52,7 @@ const FORMAT_OPTIONS = [
   { value: "anime", label: "Anime" },
   { value: "cartoon", label: "Cartoon" },
   { value: "drama_school", label: "Drama School" },
+  { value: "micro_drama", label: "Micro Drama" },
   { value: "songs", label: "Songs" },
   { value: "standup_comedy", label: "Standup Comedy" },
   { value: "dialogues", label: "Dialogues" },
@@ -72,6 +73,7 @@ const normalizePreferredFormat = (value = "") => {
     "web series": "web_series",
     "limited series": "limited_series",
     "drama school": "drama_school",
+    "micro drama": "micro_drama",
     "standup comedy": "standup_comedy",
   };
 

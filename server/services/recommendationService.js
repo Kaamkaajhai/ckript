@@ -43,6 +43,7 @@ const normalizeFormat = (value = "") => {
   if (raw.includes("documentary")) return "documentary";
   if (raw.includes("anime") || raw.includes("animation") || raw.includes("cartoon")) return "anime";
   if (raw.includes("drama school")) return "drama-school";
+  if (raw.includes("micro drama")) return "micro_drama";
   if (raw.includes("tv") || raw.includes("series")) return "tv-series";
   return raw.replace(/[\s_]+/g, "-");
 };

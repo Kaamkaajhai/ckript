@@ -47,16 +47,18 @@ router.get("/", authMiddleware, async (req, res) => {
 
       const userDocs = await User.aggregate([
         {
-          $search: {
-            index: "default",
-            text: {
-              query: q.trim(),
-              path: ["name", "sid", "bio", "skills", "writerProfile.genres", "writerProfile.specializedTags"],
-              fuzzy: { maxEdits: 1 }
-            }
+          $match: {
+            ...userMatch,
+            $or: [
+              { name: searchRegex },
+              { sid: searchRegex },
+              { bio: searchRegex },
+              { skills: searchRegex },
+              { "writerProfile.genres": searchRegex },
+              { "writerProfile.specializedTags": searchRegex }
+            ]
           }
         },
-        { $match: userMatch },
         { $limit: 30 },
         { 
           $project: { 
@@ -97,16 +99,17 @@ router.get("/", authMiddleware, async (req, res) => {
 
       const scriptDocs = await Script.aggregate([
         {
-          $search: {
-            index: "default",
-            text: {
-              query: q.trim(),
-              path: ["title", "sid", "description", "genre", "contentType"],
-              fuzzy: { maxEdits: 1 }
-            }
+          $match: {
+            ...scriptMatch,
+            $or: [
+              { title: searchRegex },
+              { sid: searchRegex },
+              { description: searchRegex },
+              { genre: searchRegex },
+              { contentType: searchRegex }
+            ]
           }
         },
-        { $match: scriptMatch },
         { $limit: 30 },
         {
           $lookup: {
@@ -146,13 +149,7 @@ router.get("/suggestions", authMiddleware, async (req, res) => {
     const [scripts, users] = await Promise.all([
       Script.aggregate([
         {
-          $search: {
-            index: "default",
-            autocomplete: {
-              query: q.trim(),
-              path: "title"
-            }
-          }
+          $match: { title: new RegExp(escapeRegExp(q.trim()), "i") }
         },
         { $sort: { readsCount: -1 } },
         { $limit: 5 },
@@ -172,15 +169,11 @@ router.get("/suggestions", authMiddleware, async (req, res) => {
       ]),
       User.aggregate([
         {
-          $search: {
-            index: "default",
-            autocomplete: {
-              query: q.trim(),
-              path: "name"
-            }
-          }
+          $match: { 
+            role: { $in: ["writer", "investor"] },
+            name: new RegExp(escapeRegExp(q.trim()), "i")
+          } 
         },
-        { $match: { role: { $in: ["writer", "investor"] } } },
         { $limit: 3 },
         { $project: { name: 1, profileImage: 1, role: 1 } }
       ])
