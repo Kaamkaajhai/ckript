@@ -4,6 +4,8 @@ import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
 import publicApi from "../services/publicApi";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
+import PremiumModelBadge from "../components/PremiumModelBadge";
 
 const formatIndustrySubRole = (value = "", otherValue = "") => {
   const normalized = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -159,7 +161,12 @@ const PublicProfile = () => {
                 />
                 <div>
                   <p className={`text-[11px] uppercase tracking-wider font-bold ${dark ? "text-blue-200" : "text-blue-700"}`}>Shared Profile</p>
-                  <h1 className={`text-2xl sm:text-3xl font-extrabold leading-tight ${dark ? "text-white" : "text-gray-900"}`}>{profile.name || "User"}</h1>
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                    <h1 className={`text-2xl sm:text-3xl font-extrabold leading-tight ${dark ? "text-white" : "text-gray-900"}`}>{profile.name || "User"}</h1>
+                    {hasActiveFilmIndustryProfessionalAccess(profile) && (
+                      <PremiumModelBadge size="md" dark={dark} />
+                    )}
+                  </div>
                   <p className={`text-sm font-semibold capitalize ${dark ? "text-gray-300" : "text-gray-600"}`}>{profile.role || "member"}</p>
                 </div>
               </div>

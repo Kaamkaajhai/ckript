@@ -1358,33 +1358,6 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                 </div>
               </div>
 
-              <div>
-                <label className={labelClass}>
-                  <span className="flex items-center gap-1.5"><IndianRupee size={12} /> Investment Range</span>
-                </label>
-                <select
-                  value={investorData.investmentRange}
-                  onChange={(e) => setInvestorData({ ...investorData, investmentRange: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">Select typical investment range</option>
-                  <option value="under_50l">Under ₹50 Lakhs</option>
-                  <option value="50l_2cr">₹50 Lakhs – ₹2 Crore</option>
-                  <option value="2cr_10cr">₹2 Crore – ₹10 Crore</option>
-                  <option value="10cr_50cr">₹10 Crore – ₹50 Crore</option>
-                  <option value="50cr_plus">₹50 Crore+</option>
-                </select>
-              </div>
-
-              <div className={`rounded-xl border p-3.5 ${dark ? 'bg-[#0f2544]/18 border-[#1e3a5f]/35' : 'bg-[#f3f8ff] border-[#d7e6f8]'}`}>
-                <p className={`text-[11px] font-semibold mb-1.5 ${dark ? 'text-blue-300' : 'text-[#1e3a5f]'}`}>
-                  Profile tip for better inbound pitches
-                </p>
-                <p className={`text-[11px] leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Add your role, recent credits, and links. Writers and readers can quickly evaluate fit and send higher-quality, relevant pitches.
-                </p>
-              </div>
-
             </motion.div>
           )}
 

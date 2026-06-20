@@ -1,6 +1,18 @@
 import Stripe from "stripe";
+import mongoose from "mongoose";
 import User from "../models/User.js";
-import { hasActiveFilmIndustryProfessionalAccess, isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  isFilmIndustryProfessionalRole,
+  hasRevealedContact,
+  hasReachedContactLimit,
+  getRevealedContactCount,
+  getContactsLimit,
+  getRemainingContacts,
+} from "../utils/industryAccess.js";
+
+import Razorpay from "razorpay";
+import crypto from "crypto";
 
 // Initialize Stripe only if the secret key is provided
 const stripe = process.env.STRIPE_SECRET 
@@ -12,9 +24,23 @@ const FILM_INDUSTRY_PRO_MODEL = {
   amount: 199900,
   currency: "INR",
   durationDays: 30,
-  checkoutProvider: "razorpay_test",
-  checkoutMode: "test",
+  checkoutProvider: "razorpay",
+  checkoutMode: "live",
   accessTier: "film_industry_professional",
+};
+
+const getRazorpayInstance = () => {
+  try {
+    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+      return new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+      });
+    }
+  } catch (err) {
+    console.error("Error initializing Razorpay:", err);
+  }
+  return null;
 };
 
 const normalizeReturnPath = (value = "") => {
@@ -104,6 +130,8 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
         "subscription.checkoutProvider": FILM_INDUSTRY_PRO_MODEL.checkoutProvider,
         "subscription.checkoutReference": checkoutReference,
         "subscription.sourcePath": returnTo || "/home",
+        "subscription.revealedContacts": [],
+        "subscription.contactsLimit": 15,
       },
     };
 
@@ -124,5 +152,179 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to activate test checkout" });
+  }
+};
+
+export const createRazorpayOrder = async (req, res) => {
+  try {
+    const currentUser = await User.findById(req.user._id).select("role");
+    if (!currentUser) return res.status(404).json({ message: "User not found" });
+
+    if (!isFilmIndustryProfessionalRole(currentUser)) {
+      return res.status(403).json({ message: "Only film industry professionals can purchase this plan." });
+    }
+
+    console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID);
+    console.log("RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET);
+
+    const razorpay = getRazorpayInstance();
+    if (!razorpay) {
+      return res.status(503).json({ 
+        message: "Razorpay is not configured. Keys are missing.",
+        debug: {
+          keyId: process.env.RAZORPAY_KEY_ID || "undefined",
+          keySecret: process.env.RAZORPAY_KEY_SECRET ? "exists" : "undefined",
+        }
+      });
+    }
+
+    const options = {
+      amount: FILM_INDUSTRY_PRO_MODEL.amount,
+      currency: FILM_INDUSTRY_PRO_MODEL.currency,
+      receipt: `rcpt_${currentUser._id.toString().substring(18)}_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
+
+    return res.status(200).json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error("Razorpay Create Order Error:", error);
+    return res.status(500).json({ message: error.message || error.description || "Failed to create order" });
+  }
+};
+
+export const verifyRazorpayPayment = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, returnTo } = req.body;
+    
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ message: "Missing required payment details" });
+    }
+
+    const currentUser = await User.findById(req.user._id).select("role subscription");
+    if (!currentUser) return res.status(404).json({ message: "User not found" });
+
+    // Verify signature
+    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
+    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+    const generated_signature = hmac.digest("hex");
+
+    if (generated_signature !== razorpay_signature) {
+      return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + FILM_INDUSTRY_PRO_MODEL.durationDays * 24 * 60 * 60 * 1000);
+
+    const update = {
+      $set: {
+        "subscription.plan": FILM_INDUSTRY_PRO_MODEL.plan,
+        "subscription.expiresAt": expiresAt,
+        "subscription.accessTier": FILM_INDUSTRY_PRO_MODEL.accessTier,
+        "subscription.accessStatus": "active",
+        "subscription.accessActivatedAt": now,
+        "subscription.accessExpiresAt": expiresAt,
+        "subscription.checkoutMode": "live",
+        "subscription.checkoutProvider": "razorpay",
+        "subscription.checkoutReference": razorpay_payment_id,
+        "subscription.sourcePath": normalizeReturnPath(returnTo) || "/home",
+        "subscription.revealedContacts": [],
+        "subscription.contactsLimit": 15,
+      },
+    };
+
+    await User.updateOne({ _id: currentUser._id }, update);
+
+    const refreshedUser = await User.findById(currentUser._id).select("-password");
+
+    return res.json({
+      message: "Payment verified and subscription activated.",
+      redirectTo: normalizeReturnPath(returnTo) || "/home",
+      access: {
+        hasAccess: true,
+        isEligibleRole: true,
+      },
+      subscription: refreshedUser?.subscription || currentUser.subscription,
+      user: refreshedUser?.toObject ? refreshedUser.toObject() : refreshedUser,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Payment verification failed" });
+  }
+};
+
+export const revealWriterContact = async (req, res) => {
+  try {
+    const { writerId } = req.params;
+
+    if (!writerId || !mongoose.Types.ObjectId.isValid(writerId)) {
+      return res.status(400).json({ message: "Invalid writer ID" });
+    }
+
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!hasActiveFilmIndustryProfessionalAccess(user)) {
+      return res.status(403).json({
+        message: "Film Industry Professional subscription required to reveal writer contacts.",
+        requiresUpgrade: true,
+      });
+    }
+
+    const writerObjectId = String(writerId);
+    const alreadyRevealed = hasRevealedContact(user, writerObjectId);
+
+    if (!alreadyRevealed) {
+      if (hasReachedContactLimit(user)) {
+        return res.status(403).json({
+          message: "You've reached your 15 writer contact limit for this subscription period.",
+          limitReached: true,
+          contactsUsed: getRevealedContactCount(user),
+          contactsLimit: getContactsLimit(user),
+          remainingContacts: 0,
+        });
+      }
+
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $push: {
+            "subscription.revealedContacts": {
+              writerId: new mongoose.Types.ObjectId(writerId),
+              revealedAt: new Date(),
+            },
+          },
+        }
+      );
+    }
+
+    const writer = await User.findById(writerId)
+      .select("email phone writerProfile.links name username")
+      .lean();
+    if (!writer) return res.status(404).json({ message: "Writer not found" });
+
+    const refreshedUser = await User.findById(user._id).select("subscription").lean();
+    const contactsUsed = getRevealedContactCount(refreshedUser || user);
+    const contactsLimit = getContactsLimit(refreshedUser || user);
+    const remainingContacts = getRemainingContacts(refreshedUser || user);
+
+    return res.json({
+      contact: {
+        email: String(writer.email || "").trim(),
+        phone: String(writer.phone || "").trim(),
+        links: writer.writerProfile?.links || {},
+      },
+      alreadyRevealed,
+      contactsUsed,
+      contactsLimit,
+      remainingContacts,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to reveal contact" });
   }
 };

@@ -660,7 +660,7 @@ export const getPublicUserProfile = async (req, res) => {
     }
 
     const user = await User.findOne(profileLookupQuery)
-      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated")
+      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated subscription")
       .lean();
 
     if (!user || user.isDeactivated) {
@@ -744,6 +744,14 @@ export const getPublicUserProfile = async (req, res) => {
         : undefined,
       shareMeta: buildUserShareMeta(req, userForShareMeta),
       canonicalPath: buildUserCanonicalPath(userForShareMeta),
+      // Expose only the badge-relevant tier info — no sensitive billing data
+      subscription: user.subscription
+        ? {
+            accessTier: user.subscription.accessTier || "",
+            accessStatus: user.subscription.accessStatus || "",
+            accessExpiresAt: user.subscription.accessExpiresAt || user.subscription.expiresAt || null,
+          }
+        : undefined,
     };
 
     const scripts = publicScripts.map((script) => {
@@ -847,7 +855,10 @@ export const getUserProfile = async (req, res) => {
         isIndustryProfessionalWithPersonalEmail(currentUser || req.user) &&
         !hasActiveFilmIndustryProfessionalAccess(currentUser || req.user)
       ) {
-        return res.status(403).json({ message: INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE });
+        return res.status(403).json({
+            message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
+            requiresBusinessEmail: true,
+          });
       }
       if (isWriterProfile) {
         await User.updateOne({ _id: user._id }, { $inc: { profileViews: 1 } });

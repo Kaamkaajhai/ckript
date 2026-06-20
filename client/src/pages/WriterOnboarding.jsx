@@ -62,10 +62,11 @@ const REFERRAL_MAX_LENGTH = 40;
 
 const WRITER_ONBOARDING_DRAFT_KEY = "sb-writer-onboarding-draft-v1";
 
-const normalizeReferralInput = (value = "") =>
-  String(value || "")
-    .trim()
-    .slice(0, REFERRAL_MAX_LENGTH);
+const normalizeReferralInput = (value = "") => {
+  const str = String(value || "").trim();
+  if (str === "null" || str === "undefined") return "";
+  return str.slice(0, REFERRAL_MAX_LENGTH);
+};
 
 const DEFAULT_ACCOUNT_DATA = {
   name: "",

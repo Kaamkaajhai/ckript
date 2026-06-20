@@ -290,6 +290,13 @@ const userSchema = new mongoose.Schema({
     },
     checkoutReference: { type: String },
     sourcePath: { type: String },
+    contactsLimit: { type: Number, default: 15 },
+    revealedContacts: [
+      {
+        writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        revealedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   // Actor-specific fields for Talent Attachment
   actorProfile: {
