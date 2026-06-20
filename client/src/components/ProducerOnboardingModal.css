@@ -1,0 +1,650 @@
+/* Ckript — Producer / Director onboarding modal (Variation A: split editorial).
+   Port of the "Producer Onboarding Modal.dc.html" Claude Design handoff.
+
+   Bundled by Vite (imported from ProducerOnboardingModal.jsx) so every rule is in
+   the document <head> before the overlay ever paints — this sheet has NO @import,
+   so it can never wait on a network fetch and render unstyled in normal flow.
+   Brand fonts (Baskervville + PT Serif) load separately via <link>; the modal
+   lays out instantly on the system stack and swaps when they arrive. */
+
+.pom-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgba(20, 18, 16, 0.55);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+/* When the modal owns a whole route (no page behind it), the wrapper paints the
+   warm dark studio backdrop the design sits on, so the tinted overlay never
+   reveals a blank white page underneath. */
+.pom-route-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background:
+    radial-gradient(circle at 22% 8%, rgba(181, 18, 27, 0.1), transparent 30%),
+    radial-gradient(circle at 82% 88%, rgba(255, 255, 255, 0.04), transparent 26%),
+    #15120e;
+}
+
+.pom-card {
+  position: relative;
+  width: min(1000px, 100%);
+  min-height: min(660px, calc(100vh - 48px));
+  margin: auto;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.5);
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Left editorial image column ─────────────────────────────── */
+.pom-img-col {
+  flex: 0 0 42%;
+  padding: 18px 0 18px 18px;
+}
+.pom-img-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #e9e7e2;
+}
+.pom-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.05);
+  transition: opacity 0.55s ease, transform 0.7s ease;
+  will-change: opacity, transform;
+}
+.pom-img-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 12, 9, 0.55) 0%,
+    rgba(15, 12, 9, 0.05) 32%,
+    rgba(15, 12, 9, 0.12) 60%,
+    rgba(15, 12, 9, 0.86) 100%
+  );
+}
+.pom-img-tag {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.pom-img-tag i {
+  width: 8px;
+  height: 8px;
+  background: #b5121b;
+  display: inline-block;
+}
+.pom-img-tag span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+}
+.pom-img-caption {
+  position: absolute;
+  left: 22px;
+  bottom: 24px;
+  right: 22px;
+}
+.pom-img-num {
+  font-family: "Baskervville", Georgia, serif;
+  font-size: 62px;
+  line-height: 0.9;
+  color: #fff;
+}
+.pom-img-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 8px;
+}
+.pom-img-quote {
+  font-family: "PT Serif", Georgia, serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.72);
+  margin-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  padding-top: 12px;
+}
+
+/* ── Right content column ────────────────────────────────────── */
+.pom-content {
+  flex: 1;
+  min-width: 0;
+  padding: 26px 42px 24px;
+  display: flex;
+  flex-direction: column;
+}
+.pom-stepline {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #9a948b;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.pom-progress {
+  height: 3px;
+  background: #e6e3dd;
+  margin-bottom: 22px;
+}
+.pom-progress-fill {
+  height: 100%;
+  background: #b5121b;
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pom-kicker {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: #b5121b;
+}
+.pom-title {
+  /* Mixed-case Baskervville, exactly like the landing hero <h1> and section
+     headings — never uppercased (that made the same face read as a different
+     one). The small SANS kicker above stays uppercase, matching the landing's
+     small eyebrow labels. */
+  font-family: "Baskervville", Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: 33px;
+  line-height: 1.02;
+  letter-spacing: 0.3px;
+  color: #0b0a06;
+  margin: 9px 0 0;
+}
+.pom-sub {
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 14px;
+  color: #57544f;
+  margin: 7px 0 18px;
+}
+
+/* Body wrapper grows so the action row sits at a stable baseline. */
+.pom-body {
+  flex: 1;
+}
+
+/* ── Fields ──────────────────────────────────────────────────── */
+.pom-field {
+  margin-bottom: 15px;
+}
+.pom-field:last-child {
+  margin-bottom: 0;
+}
+.pom-row {
+  display: flex;
+  gap: 12px;
+}
+.pom-row > .pom-field {
+  flex: 1;
+  min-width: 0;
+}
+.pom-label {
+  display: block;
+  font-weight: 600;
+  font-size: 12.5px;
+  color: #2a2a2a;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
+}
+.pom-label .pom-opt {
+  font-weight: 400;
+  text-transform: none;
+  color: #a39e96;
+}
+.pom-input,
+.pom-select,
+.pom-textarea {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #cfcfcf;
+  border-radius: 0;
+  padding: 0 13px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  color: #1a1a1a;
+  background: #fff;
+  box-sizing: border-box;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.pom-input:focus,
+.pom-select:focus,
+.pom-textarea:focus {
+  border-color: #1a1a1a;
+  box-shadow: inset 0 -2px 0 #b5121b;
+}
+.pom-input[aria-invalid="true"] {
+  border-color: #b5121b;
+}
+.pom-textarea {
+  height: auto;
+  min-height: 84px;
+  padding: 11px 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.pom-select {
+  padding: 0 34px 0 13px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23777' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+}
+.pom-input-prefix {
+  position: relative;
+}
+.pom-input-prefix span {
+  position: absolute;
+  left: 13px;
+  top: 11px;
+  color: #8a857d;
+  font-size: 14px;
+  font-weight: 600;
+}
+.pom-input-prefix .pom-input {
+  padding-left: 30px;
+}
+/* PasswordInput wraps the field + a show/hide toggle; keep room for the icon. */
+.pom-password .pom-input {
+  padding-right: 42px;
+}
+
+.pom-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+.pom-hint--err {
+  color: #b5121b;
+}
+.pom-hint--ok {
+  color: #1f7a43;
+}
+.pom-hint--muted {
+  color: #9a948b;
+}
+
+/* ── Password requirement checklist ──────────────────────────── */
+.pom-pwreqs {
+  padding: 13px 15px;
+  background: #faf8f5;
+  border: 1px solid #ebe7e1;
+  margin-top: 12px;
+}
+.pom-pwreq {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2.5px 0;
+  color: #9b9893;
+}
+.pom-pwreq--ok {
+  color: #1f7a43;
+}
+.pom-pwreq i {
+  width: 14px;
+  text-align: center;
+  font-size: 11px;
+  font-style: normal;
+}
+
+/* ── Chips (genres / formats) ────────────────────────────────── */
+.pom-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.pom-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 13px;
+  border-radius: 0;
+  border: 1px solid #d2cfc9;
+  background: #fff;
+  color: #5c5852;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s ease;
+}
+.pom-chip:hover {
+  border-color: #b5121b;
+  color: #b5121b;
+}
+.pom-chip--active {
+  border-color: #b5121b;
+  background: #fcf3f3;
+  color: #b5121b;
+}
+.pom-rule {
+  height: 1px;
+  background: #e6e3dd;
+  margin: 16px 0;
+}
+
+/* ── Upload dropzone + attachment chips ──────────────────────── */
+.pom-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 17px;
+  border: 1.5px dashed #cfcfcf;
+  background: #faf8f5;
+  color: #8a857d;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.pom-upload:hover {
+  border-color: #b5121b;
+  color: #6f6a62;
+}
+.pom-files {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pom-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid #d2cfc9;
+  background: #fff;
+  font-size: 12px;
+  color: #3a3833;
+}
+.pom-file--pending {
+  opacity: 0.6;
+}
+.pom-file span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pom-file button {
+  flex: none;
+  background: none;
+  border: none;
+  color: #b5121b;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 15px;
+}
+
+/* ── Terms step ──────────────────────────────────────────────── */
+.pom-legal-links {
+  display: flex;
+  gap: 11px;
+  margin-bottom: 16px;
+}
+.pom-legal-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  border: 1px solid #cfcfcf;
+  color: #3a3833;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.3px;
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.pom-legal-link:hover {
+  border-color: #b5121b;
+  color: #b5121b;
+}
+.pom-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  cursor: pointer;
+  margin-bottom: 13px;
+}
+.pom-agree:last-child {
+  margin-bottom: 0;
+}
+.pom-agree-box {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  margin-top: 1px;
+  border: 1.5px solid #bdb9b1;
+  background: #fff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.pom-agree-box--on {
+  border-color: #b5121b;
+  background: #b5121b;
+}
+.pom-agree-text {
+  font-size: 13px;
+  color: #4a4843;
+  line-height: 1.5;
+  font-family: "PT Serif", Georgia, serif;
+}
+
+/* ── Inline error banner ─────────────────────────────────────── */
+.pom-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: #fcf2f2;
+  border: 1px solid #f0c9c9;
+  color: #a31019;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pom-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: #faf8f5;
+  border: 1px solid #ebe7e1;
+  color: #6f6a62;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ── Actions ─────────────────────────────────────────────────── */
+.pom-actions {
+  margin-top: 22px;
+}
+.pom-primary {
+  height: 44px;
+  width: 100%;
+  background: #121212;
+  color: #fff;
+  border: none;
+  border-radius: 0;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14.5px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  transition: background 0.2s ease;
+}
+.pom-primary:hover {
+  background: #000;
+}
+.pom-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.pom-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pom-spin 0.7s linear infinite;
+}
+.pom-subrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  min-height: 22px;
+  gap: 12px;
+}
+.pom-back,
+.pom-finish {
+  background: none;
+  border: none;
+  padding: 6px 2px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+.pom-back {
+  color: #6f6f6f;
+}
+.pom-back:hover {
+  color: #b5121b;
+}
+.pom-finish {
+  color: #9a948b;
+  font-size: 12.5px;
+  margin-left: auto;
+}
+.pom-finish:hover {
+  color: #3a3833;
+}
+.pom-signin {
+  font-size: 13px;
+  color: #8a857d;
+  font-family: "PT Serif", Georgia, serif;
+}
+.pom-signin button {
+  color: #b5121b;
+  font-weight: 700;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.pom-signin button:hover {
+  text-decoration: underline;
+}
+
+.pom-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #333;
+  z-index: 3;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.pom-close:hover {
+  color: #b5121b;
+  background: #fff;
+}
+
+@keyframes pom-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 880px) {
+  .pom-img-col {
+    display: none;
+  }
+  .pom-content {
+    padding: 48px 30px 28px;
+  }
+}
+@media (max-width: 480px) {
+  .pom-overlay {
+    padding: 0;
+  }
+  .pom-card {
+    border-radius: 0;
+    width: 100%;
+    min-height: 100vh;
+  }
+  .pom-content {
+    padding: 56px 22px 28px;
+  }
+  .pom-row {
+    flex-direction: column;
+    gap: 0;
+  }
+  .pom-row > .pom-field {
+    margin-bottom: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pom-img,
+  .pom-progress-fill {
+    transition: opacity 0.2s ease;
+  }
+}
