@@ -7,6 +7,7 @@ import Notification from "../models/Notification.js";
 import { sendOTPEmail } from "../utils/emailService.js";
 import {
   INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE,
+  hasActiveFilmIndustryProfessionalAccess,
   isIndustryProfessionalWithPersonalEmail,
 } from "../utils/industryAccess.js";
 import {
@@ -659,7 +660,7 @@ export const getPublicUserProfile = async (req, res) => {
     }
 
     const user = await User.findOne(profileLookupQuery)
-      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated")
+      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated subscription")
       .lean();
 
     if (!user || user.isDeactivated) {
@@ -732,9 +733,6 @@ export const getPublicUserProfile = async (req, res) => {
               formats: Array.isArray(user.industryProfile.mandates?.formats)
                 ? user.industryProfile.mandates.formats.filter(Boolean).slice(0, 20)
                 : [],
-              budgetTiers: Array.isArray(user.industryProfile.mandates?.budgetTiers)
-                ? user.industryProfile.mandates.budgetTiers.filter(Boolean).slice(0, 20)
-                : [],
               specificHooks: Array.isArray(user.industryProfile.mandates?.specificHooks)
                 ? user.industryProfile.mandates.specificHooks.filter(Boolean).slice(0, 20)
                 : [],
@@ -746,6 +744,14 @@ export const getPublicUserProfile = async (req, res) => {
         : undefined,
       shareMeta: buildUserShareMeta(req, userForShareMeta),
       canonicalPath: buildUserCanonicalPath(userForShareMeta),
+      // Expose only the badge-relevant tier info — no sensitive billing data
+      subscription: user.subscription
+        ? {
+            accessTier: user.subscription.accessTier || "",
+            accessStatus: user.subscription.accessStatus || "",
+            accessExpiresAt: user.subscription.accessExpiresAt || user.subscription.expiresAt || null,
+          }
+        : undefined,
     };
 
     const scripts = publicScripts.map((script) => {
@@ -844,8 +850,15 @@ export const getUserProfile = async (req, res) => {
       }
 
       const isWriterProfile = ["writer", "creator"].includes(String(user?.role || "").toLowerCase());
-      if (isWriterProfile && isIndustryProfessionalWithPersonalEmail(currentUser || req.user)) {
-        return res.status(403).json({ message: INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE });
+      if (
+        isWriterProfile &&
+        isIndustryProfessionalWithPersonalEmail(currentUser || req.user) &&
+        !hasActiveFilmIndustryProfessionalAccess(currentUser || req.user)
+      ) {
+        return res.status(403).json({
+            message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
+            requiresBusinessEmail: true,
+          });
       }
       if (isWriterProfile) {
         await User.updateOne({ _id: user._id }, { $inc: { profileViews: 1 } });
@@ -1064,12 +1077,7 @@ export const updateUserProfile = async (req, res) => {
       if (!user.industryProfile) user.industryProfile = {};
       if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
       user.industryProfile.mandates.genres = preferredGenres;
-      user.markModified("industryProfile");
-    }
-    if (preferredBudgets !== undefined) {
-      if (!user.industryProfile) user.industryProfile = {};
-      if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
-      user.industryProfile.mandates.budgetTiers = preferredBudgets;
+      delete user.industryProfile.mandates.budgetTiers;
       user.markModified("industryProfile");
     }
     if (preferredFormats !== undefined) {
@@ -1080,6 +1088,7 @@ export const updateUserProfile = async (req, res) => {
       user.industryProfile.mandates.formats = normalizeStringArray(preferredFormats, 40)
         .map(normalizePreferredFormat)
         .filter(Boolean);
+      delete user.industryProfile.mandates.budgetTiers;
       user.markModified("industryProfile");
     }
 

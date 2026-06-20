@@ -7,6 +7,8 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { formatCurrency } from "../utils/currency";
+import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
+import ScreenplayViewer from "../components/ScreenplayViewer";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
@@ -218,8 +220,27 @@ const STEPS = [
   { num: 1, label: "Upload", shortLabel: "Upload", desc: "Files" },
   { num: 2, label: "Basics", shortLabel: "Basic", desc: "Essentials" },
   { num: 3, label: "Classify", shortLabel: "Class", desc: "Tags & tone" },
-  { num: 4, label: "Publish", shortLabel: "Publish", desc: "Plan & pricing" },
-  { num: 5, label: "Review", shortLabel: "Review", desc: "Legal & checkout" },
+  { num: 4, label: "Film Info", shortLabel: "Film", desc: "Direction & language" },
+  { num: 5, label: "Publish", shortLabel: "Publish", desc: "Plan & pricing" },
+  { num: 6, label: "Review", shortLabel: "Review", desc: "Legal & checkout" },
+];
+
+const FILM_LANGUAGE_OPTIONS = [
+  "Hindi", "English", "Hinglish", "Urdu", "Tamil", "Telugu", "Marathi",
+  "Bengali", "Kannada", "Malayalam", "Punjabi", "Gujarati", "Odia", "Other",
+];
+
+const SCRIPT_STYLE_OPTIONS = [
+  { id: "Professional", desc: "Industry-standard structure", path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
+  { id: "Modern", desc: "Contemporary voice & fresh approach", path: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
+  { id: "Clean", desc: "Minimal prose, tight & uncluttered", path: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" },
+  { id: "Concise", desc: "Every scene earns its place", path: "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" },
+  { id: "Commercial", desc: "Broad appeal, market-friendly", path: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+  { id: "Realistic", desc: "Grounded characters & authentic dialogue", path: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" },
+  { id: "Poetic", desc: "Lyrical prose & metaphorical language", path: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
+  { id: "Experimental", desc: "Non-linear, unconventional structure", path: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5" },
+  { id: "Dialogue-Heavy", desc: "Character-driven through conversation", path: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" },
+  { id: "Visual-Heavy", desc: "Scene-led, strong visual prose", path: "M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
 ];
 
 const LEGAL_AGREEMENT = SCRIPT_UPLOAD_TERMS_TEXT;
@@ -391,6 +412,16 @@ const getFileNameFromUrl = (url = "") => {
   }
 };
 
+const MAX_PREVIEW_SNIPPET_LENGTH = 900;
+const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
+  const index = Math.max(0, Number(pageNumber || 0) - 1);
+  const raw = String(pageTexts?.[index] || "").trim();
+  if (!raw) return "";
+  return raw.length > MAX_PREVIEW_SNIPPET_LENGTH
+    ? `${raw.slice(0, MAX_PREVIEW_SNIPPET_LENGTH).trimEnd()}...`
+    : raw;
+};
+
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
@@ -408,9 +439,12 @@ const ScriptUpload = () => {
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedPdfFile, setUploadedPdfFile] = useState(null);
   const [existingUploadedFile, setExistingUploadedFile] = useState(null);
   const [textContent, setTextContent] = useState("");
+  const [pdfPageTexts, setPdfPageTexts] = useState([]);
   const [pdfTextExtracted, setPdfTextExtracted] = useState(false);
+  const [scriptContentEditOpen, setScriptContentEditOpen] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
   const [creditsBalance, setCreditsBalance] = useState(0);
@@ -459,6 +493,10 @@ const ScriptUpload = () => {
     format: "feature",
     formatOther: "",
     pageCount: "",
+    viewableScript: true,
+    previewWindowMode: "pages",
+    previewWindowStart: "1",
+    previewWindowEnd: "8",
     primaryGenre: "",
     logline: "",
     synopsis: "",
@@ -495,6 +533,16 @@ const ScriptUpload = () => {
   // Tags as comma-separated input
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
+
+  // Film production details (step 4)
+  const [filmDetails, setFilmDetails] = useState({
+    filmLanguage: "",
+    filmLanguageCustom: "",
+    dialoguesPresent: "yes",
+    wantToDirect: false,
+    wantToProduce: false,
+    scriptStyle: [],
+  });
 
   // AI metadata generation (per-section: "logline" | "synopsis" | "roles")
   const [metaLoadingField, setMetaLoadingField] = useState("");
@@ -553,6 +601,17 @@ const ScriptUpload = () => {
       },
       termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
       lastUpdatedAt: new Date().toISOString(),
+    };
+  };
+
+  const buildScriptPreviewPayload = (source = formData) => {
+    const mode = "pages";
+    const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
+    const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
+    return {
+      mode,
+      start,
+      end,
     };
   };
 
@@ -628,10 +687,15 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          viewableScript: Boolean(data.viewableScript),
+          previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
+          previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
+          previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || data.genre || "",
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
         });
+        setPdfPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
         setTagsInput((data.tags || []).join(", "));
         setClassification({
           tones: data.classification?.tones || [],
@@ -664,6 +728,15 @@ const ScriptUpload = () => {
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         });
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        if (data?.filmDetails) {
+          setFilmDetails({
+            filmLanguage: data.filmDetails.filmLanguage || "",
+            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+            wantToDirect: Boolean(data.filmDetails.wantToDirect),
+            wantToProduce: Boolean(data.filmDetails.wantToProduce),
+            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+          });
+        }
       } catch {
         // proceed normally
       } finally {
@@ -681,6 +754,7 @@ const ScriptUpload = () => {
         const { data } = await api.get(`/scripts/${draftId}`);
         setScriptId(data._id);
         setTextContent(data.textContent || "");
+        setPdfPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
         setFormData((prev) => ({
           ...prev,
           title: data.title || "",
@@ -688,6 +762,10 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          viewableScript: Boolean(data.viewableScript),
+          previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
+          previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
+          previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || "",
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
@@ -710,6 +788,15 @@ const ScriptUpload = () => {
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         }));
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        if (data?.filmDetails) {
+          setFilmDetails({
+            filmLanguage: data.filmDetails.filmLanguage || "",
+            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+            wantToDirect: Boolean(data.filmDetails.wantToDirect),
+            wantToProduce: Boolean(data.filmDetails.wantToProduce),
+            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+          });
+        }
         setFromDraft(true);
         setPurchasedServiceCredits({ evaluation: false, aiTrailer: false, spotlight: false });
       } catch {
@@ -721,7 +808,8 @@ const ScriptUpload = () => {
 
   // Handle form field changes
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const nextValue = type === "checkbox" ? checked : value;
     setFormData((prev) => {
       if (name === "format") {
         return {
@@ -731,7 +819,7 @@ const ScriptUpload = () => {
         };
       }
 
-      return { ...prev, [name]: value };
+      return { ...prev, [name]: nextValue };
     });
   };
 
@@ -849,6 +937,27 @@ const ScriptUpload = () => {
   };
 
   const pageCountWarning = getPageCountWarning(formData.format, formData.pageCount);
+  useEffect(() => {
+    const pageCount = Number(formData.pageCount || 0);
+    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
+    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
+
+    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowEnd: String(start),
+      }));
+      return;
+    }
+
+    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
+        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
+      }));
+    }
+  }, [formData.pageCount, formData.previewWindowStart, formData.previewWindowEnd]);
 
   // Toggle classification chips (max 3 per category)
   const toggleClassification = (category, value) => {
@@ -885,11 +994,15 @@ const ScriptUpload = () => {
 
     setUploadProgress(0);
     setUploadedFile(null);
+    setUploadedPdfFile(file);
     setTextContent("");
+    setPdfPageTexts([]);
+    setFormData((prev) => ({ ...prev, pageCount: "" }));
     setPdfNotice("");
     setPdfTextExtracted(false);
     setIsExtracting(true);
     setError("");
+    const localPreviewUrl = URL.createObjectURL(file);
 
     // Simulate upload progress while we process
     const interval = setInterval(() => {
@@ -915,8 +1028,10 @@ const ScriptUpload = () => {
         name: file.name,
         size: file.size,
         url: data.fileUrl || "",
+        previewUrl: localPreviewUrl,
       });
       setPdfTextExtracted(Boolean(data.extractedTextAvailable));
+      setPdfPageTexts(Array.isArray(data.pageTexts) ? data.pageTexts : []);
 
       if (data.numItems > 0) {
         setFormData((prev) => ({ ...prev, pageCount: String(data.numItems) }));
@@ -934,6 +1049,8 @@ const ScriptUpload = () => {
       }
     } catch (err) {
       clearInterval(interval);
+      URL.revokeObjectURL(localPreviewUrl);
+      setUploadedPdfFile(null);
       setPdfNotice("");
       setPdfTextExtracted(false);
       setError(err.response?.data?.message || "Failed to extract text from PDF.");
@@ -941,6 +1058,14 @@ const ScriptUpload = () => {
       setIsExtracting(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (uploadedFile?.previewUrl) {
+        URL.revokeObjectURL(uploadedFile.previewUrl);
+      }
+    };
+  }, [uploadedFile?.previewUrl]);
 
   // Handle drag and drop
   const handleDrop = (e) => {
@@ -1164,7 +1289,7 @@ const ScriptUpload = () => {
 
   // Handle agreement scroll
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== 6) return;
 
     const agreementElement = agreementRef.current;
     if (!agreementElement) return;
@@ -1251,6 +1376,10 @@ const ScriptUpload = () => {
           setError("Page count could not be detected. Please go back and re-upload your PDF.");
           return false;
         }
+        if (formData.viewableScript && Number(formData.previewWindowStart || 0) < 1) {
+          setError("Preview start page must be at least 1.");
+          return false;
+        }
         if (!formData.primaryGenre) {
           setError("Primary genre is required.");
           return false;
@@ -1274,6 +1403,17 @@ const ScriptUpload = () => {
           setError("Synopsis is required.");
           return false;
         }
+        if (formData.viewableScript) {
+          const previewPayload = buildScriptPreviewPayload(formData);
+          if (previewPayload.end < previewPayload.start) {
+            setError("The ending page must be greater than or equal to the starting page.");
+            return false;
+          }
+          if (Number(formData.pageCount || 0) > 0 && (previewPayload.start > Number(formData.pageCount || 0) || previewPayload.end > Number(formData.pageCount || 0))) {
+            setError("The preview range cannot exceed the detected page count.");
+            return false;
+          }
+        }
         {
           const ageRangeError = getInvalidRoleAgeRangeMessage();
           if (ageRangeError) {
@@ -1284,10 +1424,21 @@ const ScriptUpload = () => {
         return true;
 
       case 3:
-        // Classify step is optional, but we can validate if needed
+        // Classify step is optional
         return true;
 
       case 4:
+        if (!String(filmDetails.filmLanguage || "").trim()) {
+          setError("Film language is required.");
+          return false;
+        }
+        if (filmDetails.filmLanguage === "Other" && !String(filmDetails.filmLanguageCustom || "").trim()) {
+          setError("Please specify the film language.");
+          return false;
+        }
+        return true;
+
+      case 5:
         {
           const rightsError = getRightsValidationMessage(buildRightsPayload());
           if (rightsError) {
@@ -1297,7 +1448,7 @@ const ScriptUpload = () => {
         }
         return true;
 
-      case 5:
+      case 6:
         {
           const rightsError = getRightsValidationMessage(buildRightsPayload());
           if (rightsError) {
@@ -1324,7 +1475,7 @@ const ScriptUpload = () => {
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
     if (!validateStep(step)) return;
-    if (step < 5) {
+    if (step < 6) {
       setStep(step + 1);
       setError("");
     }
@@ -1371,12 +1522,22 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        viewableScript: Boolean(formData.viewableScript),
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
+        scriptPreviewPageTexts: pdfPageTexts,
         legal: {
           agreedToTerms: legal.agreedToTerms,
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
       };
 
       await api.post("/scripts/draft", payload);
@@ -1452,7 +1613,7 @@ const ScriptUpload = () => {
     }
 
     if (!isContentOnlyEditMode) {
-      if (!validateStep(5)) return;
+      if (!validateStep(6)) return;
 
       const isEditingExistingScript = Boolean(editId);
       if (!isEditingExistingScript) {
@@ -1527,7 +1688,10 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        viewableScript: Boolean(formData.viewableScript),
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
         scriptCompletion: buildScriptCompletionPayload(formData),
+        scriptPreviewPageTexts: pdfPageTexts,
         // Send script URL only when we have a remote file URL.
         ...(isHttpUrl(uploadedFile?.url)
           ? { scriptUrl: uploadedFile.url }
@@ -1545,6 +1709,13 @@ const ScriptUpload = () => {
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
         premium: isPremium && effectivePrice > 0,
         price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         // If this was created via the editor, attach the draftId so the backend updates/converts it
@@ -1909,6 +2080,101 @@ const ScriptUpload = () => {
                     </div>
                   </div>
 
+                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col gap-0.5">
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
+                        <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                          Set the exact pages film professionals can view before unlocking the rest.
+                        </p>
+                      </div>
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${isDarkMode ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200"}`}>
+                        Free preview
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <input
+                          type="number"
+                          min="1"
+                          name="previewWindowStart"
+                          value={formData.previewWindowStart}
+                          onChange={handleChange}
+                          className={inputCls}
+                          placeholder="e.g. 1"
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          min={Math.max(1, Number(formData.previewWindowStart || 1) || 1)}
+                          name="previewWindowEnd"
+                          value={formData.previewWindowEnd}
+                          onChange={handleChange}
+                          className={inputCls}
+                          placeholder="e.g. 8"
+                        />
+                      </div>
+                    </div>
+
+                    <div className={`mt-4 rounded-xl px-4 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                      {formData.viewableScript ? (
+                        <>
+                          <p className={`text-sm font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
+                            Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
+                          </p>
+                          <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
+                            Admin review will also show this exact page range before approval.
+                          </p>
+                        </>
+                      ) : (
+                        <p className={`text-sm font-medium ${isDarkMode ? "text-yellow-400/80" : "text-yellow-700"}`}>
+                          Preview is hidden — producers will not see any pages before purchasing.
+                        </p>
+                      )}
+                    </div>
+
+                    <label className="mt-4 flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={!formData.viewableScript}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, viewableScript: !e.target.checked }))
+                        }
+                        className="w-4 h-4 rounded border-gray-300 accent-yellow-500 cursor-pointer"
+                      />
+                      <span className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                        Hide preview from producers
+                      </span>
+                    </label>
+                  </div>
+
+                  {formData.viewableScript && (
+                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Viewable Script Preview</h3>
+                      </div>
+                    </div>
+                    <ScreenplayPdfViewer
+                      pdfFile={uploadedPdfFile}
+                      pdfUrl={uploadedFile?.previewUrl || uploadedFile?.url || existingUploadedFile?.url || ""}
+                      title={formData.title || "Script"}
+                      startPage={Number(formData.previewWindowStart || 1)}
+                      endPage={Number(formData.previewWindowEnd || 1)}
+                      fallbackPages={pdfPageTexts.slice(
+                        Math.max(0, Number(formData.previewWindowStart || 1) - 1),
+                        Math.max(0, Number(formData.previewWindowEnd || 1))
+                      ).map((pageText, index) => ({
+                        pageNumber: Number(formData.previewWindowStart || 1) + index,
+                        text: String(pageText || ""),
+                      }))}
+                      fallbackText={pdfPageTexts.join("\n\n")}
+                    />
+                  </div>
+                  )}
+
                   <div>
                     <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
                       Primary Genre *
@@ -1944,7 +2210,6 @@ const ScriptUpload = () => {
                         {[
                           { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
                           { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
-                          { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
                         ].map((opt) => (
                           <button
                             key={opt.value}
@@ -1975,7 +2240,7 @@ const ScriptUpload = () => {
                       </div>
                     </div>
 
-                    {/* Parts inputs — only relevant for partial / ongoing */}
+                {/* Parts inputs — only relevant for partial */}
                     {formData.completionStatus !== "complete" && (
                       <div className="mt-4 grid grid-cols-2 gap-3">
                         <div>
@@ -2392,6 +2657,7 @@ const ScriptUpload = () => {
                             type="button"
                             onClick={() => {
                               setUploadedFile(null);
+                              setUploadedPdfFile(null);
                               setUploadProgress(0);
                               setTextContent("");
                               setPdfNotice("");
@@ -2421,16 +2687,44 @@ const ScriptUpload = () => {
 
                     {(editId || fromDraft || textContent.trim()) && (
                       <div className="mt-5 space-y-2">
-                        <label className={`block text-sm ${labelCls} font-medium`}>
-                          Script Content
-                        </label>
-                        <textarea
-                          value={textContent}
-                          onChange={(e) => setTextContent(e.target.value)}
-                          rows={8}
-                          placeholder="Paste or edit your script content here."
-                          className={`w-full rounded-xl border px-3 py-2 text-sm leading-6 outline-none transition ${isDarkMode ? "bg-[#0f1e30] border-white/[0.08] text-gray-200 placeholder:text-gray-500 focus:border-white/30" : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/40"}`}
-                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <label className={`block text-sm ${labelCls} font-medium`}>
+                            Script Content
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setScriptContentEditOpen((v) => !v)}
+                            className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition ${isDarkMode ? "border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 bg-white/[0.03]" : "border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 bg-gray-50"}`}
+                          >
+                            {scriptContentEditOpen ? "Done editing" : "Edit"}
+                          </button>
+                        </div>
+
+                        {scriptContentEditOpen ? (
+                          <textarea
+                            value={textContent}
+                            onChange={(e) => setTextContent(e.target.value)}
+                            rows={14}
+                            placeholder="Paste or edit your script content here."
+                            className={`w-full rounded-xl border px-3 py-2 text-sm font-mono leading-6 outline-none transition ${isDarkMode ? "bg-[#0f1e30] border-white/[0.08] text-gray-200 placeholder:text-gray-500 focus:border-white/30" : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/40"}`}
+                          />
+                        ) : (
+                          <div className={`rounded-xl border overflow-hidden ${isDarkMode ? "border-white/[0.08] bg-[#0f1e30]" : "border-gray-200 bg-white"}`}>
+                            <div className="px-5 py-5 max-h-72 overflow-y-auto">
+                              {textContent.trim() ? (
+                                <ScreenplayViewer
+                                  text={formatScreenplayLikeText(textContent)}
+                                  className={isDarkMode ? "text-gray-200" : "text-gray-900"}
+                                />
+                              ) : (
+                                <p className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
+                                  No content yet. Upload a PDF to auto-extract.
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
                           This content is used when publishing updates. Uploading a new PDF will auto-fill this field.
                         </p>
@@ -2668,8 +2962,145 @@ const ScriptUpload = () => {
                 </motion.div>
               )}
 
-              {/* ── Step 4: Services & Strategy ── */}
+              {/* ── Step 4: Film Info ── */}
               {step === 4 && (
+                <motion.div
+                  key="step-film-info"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
+                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. Film language is required.</p>
+                  </div>
+
+                  {/* Director / Producer intent */}
+                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-4 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Your Creative Role</h3>
+                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Do you intend to take on additional production roles for this project?</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setFilmDetails((fd) => ({ ...fd, wantToDirect: !fd.wantToDirect }))}
+                        className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails.wantToDirect
+                          ? isDarkMode ? "border-violet-500/50 bg-violet-500/10" : "border-violet-400 bg-violet-50"
+                          : isDarkMode ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${filmDetails.wantToDirect ? isDarkMode ? "bg-violet-500/20" : "bg-violet-100" : isDarkMode ? "bg-white/[0.05]" : "bg-gray-100"}`}>
+                          <svg className={`w-5 h-5 ${filmDetails.wantToDirect ? isDarkMode ? "text-violet-300" : "text-violet-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h7.5" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className={`text-sm font-bold ${filmDetails.wantToDirect ? isDarkMode ? "text-violet-200" : "text-violet-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Want to Direct</p>
+                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>I want to direct this script myself</p>
+                        </div>
+                        {filmDetails.wantToDirect && (
+                          <svg className={`w-4 h-4 ml-auto shrink-0 ${isDarkMode ? "text-violet-400" : "text-violet-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setFilmDetails((fd) => ({ ...fd, wantToProduce: !fd.wantToProduce }))}
+                        className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails.wantToProduce
+                          ? isDarkMode ? "border-amber-500/50 bg-amber-500/10" : "border-amber-400 bg-amber-50"
+                          : isDarkMode ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${filmDetails.wantToProduce ? isDarkMode ? "bg-amber-500/20" : "bg-amber-100" : isDarkMode ? "bg-white/[0.05]" : "bg-gray-100"}`}>
+                          <svg className={`w-5 h-5 ${filmDetails.wantToProduce ? isDarkMode ? "text-amber-300" : "text-amber-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className={`text-sm font-bold ${filmDetails.wantToProduce ? isDarkMode ? "text-amber-200" : "text-amber-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Want to Produce</p>
+                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>I am also the producer of this project</p>
+                        </div>
+                        {filmDetails.wantToProduce && (
+                          <svg className={`w-4 h-4 ml-auto shrink-0 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Film Language */}
+                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Film Language <span className="text-red-500">*</span></h3>
+                    <div className="flex flex-wrap gap-2">
+                      {FILM_LANGUAGE_OPTIONS.map((lang) => (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => setFilmDetails((fd) => ({ ...fd, filmLanguage: fd.filmLanguage === lang ? "" : lang }))}
+                          className={chipCls(filmDetails.filmLanguage === lang)}
+                        >
+                          {lang}
+                        </button>
+                      ))}
+                    </div>
+                    {filmDetails.filmLanguage === "Other" && (
+                      <input
+                        type="text"
+                        placeholder="Specify language..."
+                        value={filmDetails.filmLanguageCustom || ""}
+                        onChange={(e) => setFilmDetails((fd) => ({ ...fd, filmLanguageCustom: e.target.value }))}
+                        className={`${inputCls} mt-2`}
+                        maxLength={80}
+                      />
+                    )}
+                  </div>
+
+                  {/* Dialogues */}
+                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Dialogues</h3>
+                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Are written dialogues included in your script?</p>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: "yes", label: "Yes — Full Dialogues" },
+                        { value: "partial", label: "Partial — Some Dialogues" },
+                        { value: "no", label: "No — Action/Direction Only" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setFilmDetails((fd) => ({ ...fd, dialoguesPresent: opt.value }))}
+                          className={chipCls(filmDetails.dialoguesPresent === opt.value)}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
+                    >
+                      ← Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      className="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ── Step 5: Services & Strategy ── */}
+              {step === 5 && (
                 <motion.div
                   key="step4"
                   initial={{ opacity: 0, x: -20 }}
@@ -3216,10 +3647,10 @@ const ScriptUpload = () => {
                 </motion.div>
               )}
 
-              {/* ── Step 5: Legal & Checkout ── */}
-              {step === 5 && (
+              {/* ── Step 6: Legal & Checkout ── */}
+              {step === 6 && (
                 <motion.div
-                  key="step5"
+                  key="step6"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
@@ -3571,3 +4002,7 @@ const ScriptUpload = () => {
 };
 
 export default ScriptUpload;
+
+
+
+

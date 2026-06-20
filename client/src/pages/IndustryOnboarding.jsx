@@ -38,8 +38,7 @@ const IndustryOnboarding = () => {
 
   const getDefaultMandates = () => ({
     formats: [],
-    budgetTiers: [],
-    genres: [],
+        genres: [],
     excludeGenres: [],
     specificHooks: []
   });
@@ -100,14 +99,6 @@ const IndustryOnboarding = () => {
     "Limited Series",
     "Short Film",
     "Web Series"
-  ];
-
-  const budgetTierOptions = [
-    { value: "micro", label: "Micro (<₹50L)", desc: "Executable indie scripts" },
-    { value: "low", label: "Low (₹50L - ₹5Cr)", desc: "Independent features" },
-    { value: "medium", label: "Medium (₹5Cr - ₹25Cr)", desc: "Mid-budget productions" },
-    { value: "high", label: "High (₹25Cr - ₹75Cr)", desc: "Studio features" },
-    { value: "blockbuster", label: "Blockbuster (>₹75Cr)", desc: "Big IP & franchises" }
   ];
 
   const genreOptions = [
@@ -331,16 +322,6 @@ const IndustryOnboarding = () => {
         : [...prev.formats, format]
     }));
   };
-
-  const toggleBudgetTier = (tier) => {
-    setMandates(prev => ({
-      ...prev,
-      budgetTiers: prev.budgetTiers.includes(tier)
-        ? prev.budgetTiers.filter(t => t !== tier)
-        : [...prev.budgetTiers, tier]
-    }));
-  };
-
   const toggleGenre = (genre) => {
     setMandates(prev => ({
       ...prev,
@@ -731,37 +712,6 @@ const IndustryOnboarding = () => {
               </div>
             </div>
 
-            {/* Budget Tiers */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Budget Range
-              </label>
-              <div className="space-y-2">
-                {budgetTierOptions.map((tier) => (
-                  <button
-                    key={tier.value}
-                    type="button"
-                    onClick={() => toggleBudgetTier(tier.value)}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition ${
-                      mandates.budgetTiers.includes(tier.value)
-                        ? 'border-[#0f2544] bg-[#f0f4f8]'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-semibold text-gray-900">{tier.label}</div>
-                        <div className="text-sm text-gray-600">{tier.desc}</div>
-                      </div>
-                      {mandates.budgetTiers.includes(tier.value) && (
-                        <CheckCircle className="text-[#0f2544]" size={20} />
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             {/* Genres to Include */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -1024,3 +974,8 @@ const IndustryOnboarding = () => {
 };
 
 export default IndustryOnboarding;
+
+
+
+
+

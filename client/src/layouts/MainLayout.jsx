@@ -14,7 +14,7 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
 const SOCKET_ORIGIN = getApiOrigin() || (typeof window !== "undefined" ? window.location.origin : "");
-const POPUP_STACK_LIMIT = 4;
+const POPUP_STACK_LIMIT = 1;
 const POPUP_STORAGE_LIMIT = 12;
 const NOTIFICATION_POLL_INTERVAL_MS = 30000;
 const NOTIFICATION_REFRESH_DEBOUNCE_MS = 350;
@@ -992,6 +992,14 @@ const MainLayout = ({ children }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 8.25v7.5a2.25 2.25 0 01-2.25 2.25h-15A2.25 2.25 0 012.25 15.75v-7.5m19.5 0A2.25 2.25 0 0019.5 6h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-8.69 5.214a2.25 2.25 0 01-2.32 0L2.25 8.25" />
                   </svg>
                   Contact
+                </button>
+
+                <button onClick={() => { navigate("/pricing"); setDropdownOpen(false); }}
+                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                  Pricing
                 </button>
 
                 <button onClick={() => { navigate("/terms-of-service"); setDropdownOpen(false); }}

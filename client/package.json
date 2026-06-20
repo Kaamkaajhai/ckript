@@ -29,6 +29,7 @@
     "framer-motion": "^12.38.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.575.0",
+    "pdfjs-dist": "^6.0.227",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

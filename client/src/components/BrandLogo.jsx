@@ -14,7 +14,7 @@ const BrandLogo = ({ className = "h-10 w-auto" }) => {
   return (
     <Link to="/" onClick={handleClick} className="flex items-center">
       <img
-        src="/ckript_logo_no_bg.PNG"
+        src="/ckript-logo-landscape-nobg.png"
         alt="Ckript Logo"
         className={`${className} object-contain`}
       />

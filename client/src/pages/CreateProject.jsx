@@ -17,6 +17,7 @@ import { AuthContext } from "../context/AuthContext";
 import { Image as ImageIcon, Film, CheckCircle2, Move, ZoomIn, RotateCw } from "lucide-react";
 import api from "../services/api";
 import { formatCurrency } from "../utils/currency";
+import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
   SCRIPT_COMPLETION_OPTIONS,
@@ -181,6 +182,43 @@ const FORMAT_PAGE_RANGES = {
   dialogues: { min: 1, max: 80, typical: "5-25", label: "Dialogues", wordsPerPage: 250 },
   poet: { min: 1, max: 60, typical: "3-20", label: "Poet", wordsPerPage: 250 },
   other: { min: 1, max: 250, typical: "Varies", label: "Other", wordsPerPage: 250 },
+};
+const MAX_PREVIEW_SNIPPET_LENGTH = 900;
+const normalizePreviewContent = (value = "") =>
+  String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
+  const index = Math.max(0, Number(pageNumber || 0) - 1);
+  const raw = String(pageTexts?.[index] || "").trim();
+  if (!raw) return "";
+  return raw.length > MAX_PREVIEW_SNIPPET_LENGTH
+    ? `${raw.slice(0, MAX_PREVIEW_SNIPPET_LENGTH).trimEnd()}...`
+    : raw;
+};
+const buildPagePreviewTexts = (html = "", pageCount = 1, wordsPerPage = 250) => {
+  const plainText = normalizePreviewContent(html);
+  if (!plainText) return [];
+
+  const words = plainText.split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const safePages = Math.max(1, Number(pageCount) || 1);
+  const chunks = [];
+  const wordsPerChunk = Math.max(50, Number(wordsPerPage) || 250);
+
+  for (let pageIndex = 0; pageIndex < safePages; pageIndex += 1) {
+    const startIndex = pageIndex * wordsPerChunk;
+    const endIndex = pageIndex === safePages - 1
+      ? words.length
+      : Math.min(words.length, (pageIndex + 1) * wordsPerChunk);
+    const pageText = words.slice(startIndex, endIndex).join(" ").trim();
+    chunks.push(pageText);
+  }
+
+  return chunks;
 };
 const LEGAL_AGREEMENT = SCRIPT_UPLOAD_TERMS_TEXT;
 
@@ -367,8 +405,27 @@ const STEPS = [
   { num: 1, label: "Write", shortLabel: "Write", desc: "Script content" },
   { num: 2, label: "Details", shortLabel: "Detail", desc: "Genre & media" },
   { num: 3, label: "Classify", shortLabel: "Class", desc: "Tones & themes" },
-  { num: 4, label: "Publish", shortLabel: "Pub", desc: "Pricing & services" },
-  { num: 5, label: "Review", shortLabel: "Review", desc: "Final review" },
+  { num: 4, label: "Film Info", shortLabel: "Film", desc: "Direction & language" },
+  { num: 5, label: "Publish", shortLabel: "Pub", desc: "Pricing & services" },
+  { num: 6, label: "Review", shortLabel: "Review", desc: "Final review" },
+];
+
+const CP_FILM_LANGUAGE_OPTIONS = [
+  "Hindi", "English", "Hinglish", "Urdu", "Tamil", "Telugu", "Marathi",
+  "Bengali", "Kannada", "Malayalam", "Punjabi", "Gujarati", "Odia", "Other",
+];
+
+const CP_SCRIPT_STYLE_OPTIONS = [
+  { id: "Professional", desc: "Industry-standard structure", path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
+  { id: "Modern", desc: "Contemporary voice & fresh approach", path: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
+  { id: "Clean", desc: "Minimal prose, tight & uncluttered", path: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" },
+  { id: "Concise", desc: "Every scene earns its place", path: "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" },
+  { id: "Commercial", desc: "Broad appeal, market-friendly", path: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+  { id: "Realistic", desc: "Grounded characters & authentic dialogue", path: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" },
+  { id: "Poetic", desc: "Lyrical prose & metaphorical language", path: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
+  { id: "Experimental", desc: "Non-linear, unconventional structure", path: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5" },
+  { id: "Dialogue-Heavy", desc: "Character-driven through conversation", path: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" },
+  { id: "Visual-Heavy", desc: "Scene-led, strong visual prose", path: "M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
 ];
 
 /* -- Toolbar Icon Button ---------------------------- */
@@ -628,6 +685,7 @@ const CreateProject = () => {
   const lastDraftSignatureRef = useRef("");
   const autoSaveInFlightRef = useRef(false);
   const localDraftHydratedRef = useRef(false);
+  const previewPageTextsSignatureRef = useRef("");
 
   // Grammar credit confirmation + undo/keep
   const GRAMMAR_COST = 5;
@@ -636,6 +694,7 @@ const CreateProject = () => {
   const [grammarCreditLoading, setGrammarCreditLoading] = useState(false);
   const [preGrammarContent, setPreGrammarContent] = useState(null); // for undo
   const [showUndoBar, setShowUndoBar] = useState(false);
+  const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
   // AI Prose Sample Generation
   const PROSE_COST = 20;
@@ -649,6 +708,10 @@ const CreateProject = () => {
     format: "feature_film",
     styleMedium: "",
     formatOther: "",
+    viewableScript: false,
+    previewWindowMode: "pages",
+    previewWindowStart: "1",
+    previewWindowEnd: "8",
     primaryGenre: "",
     logline: "",
     synopsis: "",
@@ -961,6 +1024,27 @@ const CreateProject = () => {
   const formatInfo = FORMAT_PAGE_RANGES[formData.format] || FORMAT_PAGE_RANGES.feature;
   const estimatedPages = Math.max(1, Math.round(wordCount / formatInfo.wordsPerPage));
   const pageStatus = estimatedPages < formatInfo.min ? "short" : estimatedPages > formatInfo.max ? "long" : "good";
+  useEffect(() => {
+    const pageCount = Number(estimatedPages || 0);
+    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
+    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
+
+    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowEnd: String(start),
+      }));
+      return;
+    }
+
+    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
+        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
+      }));
+    }
+  }, [estimatedPages, formData.previewWindowStart, formData.previewWindowEnd]);
   const renderPageMarkers = () => Array.from({ length: Math.max(estimatedPages, 1) }, (_, pageIndex) => (
     <div
       key={pageIndex}
@@ -974,6 +1058,14 @@ const CreateProject = () => {
   ));
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
+  const [filmDetails, setFilmDetails] = useState({
+    filmLanguage: "",
+    filmLanguageCustom: "",
+    dialoguesPresent: "yes",
+    wantToDirect: false,
+    wantToProduce: false,
+    scriptStyle: [],
+  });
 
   // AI metadata generation (per-section: "logline" | "synopsis" | "roles")
   const [metaLoadingField, setMetaLoadingField] = useState("");
@@ -1028,6 +1120,17 @@ const CreateProject = () => {
     };
   }, [legal.agreedToTerms, rightsLicensing]);
 
+  const buildScriptPreviewPayload = useCallback((source = formData) => {
+    if (!source.viewableScript) {
+      return null;
+    }
+
+    const mode = "pages";
+    const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
+    const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
+    return { mode, start, end };
+  }, [formData]);
+
   // TipTap Editor
   const editor = useEditor({
     extensions: [
@@ -1045,6 +1148,16 @@ const CreateProject = () => {
       setSaved(false);
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const editorHtmlForPreview = editor.getHTML?.() || "";
+    const nextPreviewTexts = buildPagePreviewTexts(editorHtmlForPreview, estimatedPages, formatInfo.wordsPerPage);
+    const nextSignature = JSON.stringify(nextPreviewTexts);
+    if (nextSignature === previewPageTextsSignatureRef.current) return;
+    previewPageTextsSignatureRef.current = nextSignature;
+    setPreviewPageTexts(nextPreviewTexts);
+  }, [editor, estimatedPages, formatInfo.wordsPerPage]);
 
   // Fetch credits
   useEffect(() => {
@@ -1091,6 +1204,10 @@ const CreateProject = () => {
       if (data.styleMedium !== undefined) setFormData(f => ({ ...f, styleMedium: data.styleMedium || "" }));
       if (data.formatOther !== undefined) setFormData(f => ({ ...f, formatOther: data.formatOther || "" }));
       if (data.pageCount) setFormData(f => ({ ...f, pageCount: String(data.pageCount) }));
+      setFormData(f => ({ ...f, viewableScript: Boolean(data.viewableScript) }));
+      if (data.scriptPreviewAccess?.start) setFormData(f => ({ ...f, previewWindowStart: String(data.scriptPreviewAccess.start) }));
+      if (data.scriptPreviewAccess?.end) setFormData(f => ({ ...f, previewWindowEnd: String(data.scriptPreviewAccess.end) }));
+      setPreviewPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
       if (data.classification?.primaryGenre || data.genre) setFormData(f => ({ ...f, primaryGenre: data.classification?.primaryGenre || data.genre || "" }));
       if (data.companyName !== undefined) setFormData(f => ({ ...f, companyName: data.companyName || "" }));
       if (data.logline) setFormData(f => ({ ...f, logline: data.logline }));
@@ -1123,6 +1240,16 @@ const CreateProject = () => {
         customInvestorTerms: data?.legal?.customInvestorTerms || "",
       }));
       setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+      if (data?.filmDetails) {
+        setFilmDetails({
+          filmLanguage: data.filmDetails.filmLanguage || "",
+          filmLanguageCustom: "",
+          dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+          wantToDirect: Boolean(data.filmDetails.wantToDirect),
+          wantToProduce: Boolean(data.filmDetails.wantToProduce),
+          scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+        });
+      }
       setCollabVisibility(data?.collabVisibility === "open" ? "open" : "private");
 
       // Hydrate Publishing Layer
@@ -1181,6 +1308,9 @@ const CreateProject = () => {
         themes: classification.themes,
         settings: classification.settings,
       },
+      viewableScript: Boolean(formData.viewableScript),
+      scriptPreviewAccess: buildScriptPreviewPayload(formData),
+      scriptPreviewPageTexts: previewPageTexts,
       scriptCompletion: buildScriptCompletionPayload(formData),
       legal: {
         agreedToTerms: Boolean(legal.agreedToTerms),
@@ -1189,6 +1319,13 @@ const CreateProject = () => {
       },
       collabVisibility,
       rightsLicensing: buildRightsPayload(),
+      filmDetails: {
+        filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+        dialoguesPresent: filmDetails.dialoguesPresent,
+        wantToDirect: filmDetails.wantToDirect,
+        wantToProduce: filmDetails.wantToProduce,
+        scriptStyle: filmDetails.scriptStyle,
+      },
       targetIndustry: [
         ...(targetFilm ? ["film"] : []),
         ...(targetPublishing ? ["publishing"] : [])
@@ -1196,7 +1333,7 @@ const CreateProject = () => {
       publishingDetails,
       ...(scriptId ? { scriptId } : {}),
     };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails]);
+  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails]);
 
   const getDraftSignature = useCallback((payload) => {
     if (!payload) return "";
@@ -1330,6 +1467,10 @@ const CreateProject = () => {
     setFormData({
       format: "feature",
       formatOther: "",
+      viewableScript: false,
+      previewWindowMode: "pages",
+      previewWindowStart: "1",
+      previewWindowEnd: "8",
       primaryGenre: "",
       logline: "",
       synopsis: "",
@@ -1562,7 +1703,8 @@ const CreateProject = () => {
 
   // Form handlers
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const nextValue = type === "checkbox" ? checked : value;
     setFormData((f) => {
       if (name === "format") {
         return {
@@ -1571,7 +1713,7 @@ const CreateProject = () => {
           formatOther: value === "other" ? f.formatOther : "",
         };
       }
-      return { ...f, [name]: value };
+      return { ...f, [name]: nextValue };
     });
   };
   const addRole = () => {
@@ -1709,6 +1851,10 @@ const CreateProject = () => {
     },
     { label: "Primary Genre", value: formData.primaryGenre || "Not selected" },
     { label: "Estimated Pages", value: `${estimatedPages} pages` },
+    {
+      label: "Viewable Script",
+      value: `Pages ${buildScriptPreviewPayload(formData).start} to ${buildScriptPreviewPayload(formData).end}`,
+    },
     { label: "Access", value: isPremium ? "Premium paid access" : "Free public access" },
   ];
   const publishReadiness = [
@@ -1743,6 +1889,19 @@ const CreateProject = () => {
           return false;
         }
       }
+      {
+        const previewPayload = buildScriptPreviewPayload(formData);
+        if (previewPayload) {
+          if (previewPayload.end < previewPayload.start) {
+            setError("The ending page must be greater than or equal to the starting page.");
+            return false;
+          }
+          if (Number(estimatedPages || 0) > 0 && (previewPayload.start > Number(estimatedPages || 0) || previewPayload.end > Number(estimatedPages || 0))) {
+            setError("The viewable script range cannot exceed the estimated page count.");
+            return false;
+          }
+        }
+      }
       if (!formData.synopsis || !formData.synopsis.trim()) { setError("Synopsis is required."); return false; }
       const ageRangeError = getInvalidRoleAgeRangeMessage();
       if (ageRangeError) { setError(ageRangeError); return false; }
@@ -1750,6 +1909,17 @@ const CreateProject = () => {
     }
     if (s === 3) return true;
     if (s === 4) {
+      if (!String(filmDetails.filmLanguage || "").trim()) {
+        setError("Film language is required.");
+        return false;
+      }
+      if (filmDetails.filmLanguage === "Other" && !String(filmDetails.filmLanguageCustom || "").trim()) {
+        setError("Please specify the film language.");
+        return false;
+      }
+      return true;
+    }
+    if (s === 5) {
       const rightsError = getRightsValidationMessage(buildRightsPayload());
       if (rightsError) {
         setError(rightsError);
@@ -1757,7 +1927,7 @@ const CreateProject = () => {
       }
       return true;
     }
-    if (s === 5) {
+    if (s === 6) {
       const rightsError = getRightsValidationMessage(buildRightsPayload());
       if (rightsError) {
         setError(rightsError);
@@ -1772,7 +1942,7 @@ const CreateProject = () => {
     }
     return true;
   };
-  const handleNext = () => { if (validateStep(step) && step < 5) { setStep(step + 1); setError(""); } };
+  const handleNext = () => { if (validateStep(step) && step < 6) { setStep(step + 1); setError(""); } };
   const handleBack = () => { if (step > 1) { setStep(step - 1); setError(""); } };
 
   const uploadSelectedProjectMedia = async (targetScriptId) => {
@@ -1837,7 +2007,7 @@ const CreateProject = () => {
       return;
     }
 
-    if (!validateStep(5)) return;
+    if (!validateStep(6)) return;
     const ageRangeError = getInvalidRoleAgeRangeMessage();
     if (ageRangeError) { setError(ageRangeError); return; }
     const isEditingExistingScript = Boolean(scriptId && loadedScriptStatus !== "draft");
@@ -1858,8 +2028,19 @@ const CreateProject = () => {
         styleMedium: targetFilm ? formData.styleMedium : undefined,
         contentType: getContentTypeFromFormat(formData.format),
         formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
-        pageCount: estimatedPages, textContent: editor.getHTML(), tags: tagsArr,
-        classification: { primaryGenre: formData.primaryGenre, secondaryGenre: null, tones: classification.tones, themes: classification.themes, settings: classification.settings },
+        pageCount: estimatedPages,
+        textContent: editor.getHTML(),
+        tags: tagsArr,
+        classification: {
+          primaryGenre: formData.primaryGenre,
+          secondaryGenre: null,
+          tones: classification.tones,
+          themes: classification.themes,
+          settings: classification.settings,
+        },
+        viewableScript: Boolean(formData.viewableScript),
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
+        scriptPreviewPageTexts: previewPageTexts,
         scriptCompletion: buildScriptCompletionPayload(formData),
         roles: roles
           .filter((role) => role.characterName?.trim())
@@ -1882,6 +2063,13 @@ const CreateProject = () => {
         },
         collabVisibility,
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
         targetIndustry: [
           ...(targetFilm ? ["film"] : []),
           ...(targetPublishing ? ["publishing"] : [])
@@ -3013,6 +3201,111 @@ const CreateProject = () => {
                   </div>
                 </div>
               )}
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Viewable Script</h3>
+                    <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      Turn this on if you want buyers to see a preview window from your uploaded script.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${formData.viewableScript ? (dark ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200") : (dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200")}`}>
+                    {formData.viewableScript ? "Enabled" : "Hidden"}
+                  </span>
+                </div>
+                <label className={`mt-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <input
+                    type="checkbox"
+                    name="viewableScript"
+                    checked={Boolean(formData.viewableScript)}
+                    onChange={handleChange}
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <span className={`text-sm font-medium ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                    Add a viewable script preview
+                  </span>
+                </label>
+                {!formData.viewableScript && (
+                  <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${dark ? "border-white/10 bg-white/[0.03] text-gray-400" : "border-gray-200 bg-white text-gray-600"}`}>
+                    No preview will be shown until you enable the viewable script option.
+                  </div>
+                )}
+              </div>
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`} style={formData.viewableScript ? undefined : { display: "none" }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
+                    <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      Set the exact pages film professionals can view before unlocking the rest.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200"}`}>
+                    Free preview
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="number"
+                      min="1"
+                      name="previewWindowStart"
+                      value={formData.previewWindowStart}
+                      onChange={handleChange}
+                      className={inputCls}
+                      placeholder="e.g. 1"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      min={Math.max(1, Number(formData.previewWindowStart || 1) || 1)}
+                      name="previewWindowEnd"
+                      value={formData.previewWindowEnd}
+                      onChange={handleChange}
+                      className={inputCls}
+                      placeholder="e.g. 8"
+                    />
+                  </div>
+                </div>
+
+                <div className={`mt-4 rounded-xl px-4 py-3 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                  <p className={`text-sm font-medium ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                    Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
+                  </p>
+                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                    Admin review will also show this exact page range before approval.
+                  </p>
+                </div>
+              </div>
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Viewable Script Preview</h3>
+                    <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      This is the exact page block buyers and admins will see.
+                    </p>
+                  </div>
+                </div>
+                <ScreenplayPdfViewer
+                  pdfUrl=""
+                  title={title || "Script"}
+                  startPage={Number(formData.previewWindowStart || 1)}
+                  endPage={Number(formData.previewWindowEnd || 1)}
+                  fallbackPages={previewPageTexts.slice(
+                    Math.max(0, Number(formData.previewWindowStart || 1) - 1),
+                    Math.max(0, Number(formData.previewWindowEnd || 1))
+                  ).map((pageText, index) => ({
+                    pageNumber: Number(formData.previewWindowStart || 1) + index,
+                    text: String(pageText || ""),
+                  }))}
+                  fallbackText={previewPageTexts.join("\n\n")}
+                />
+              </div>
+
               <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                 <div>
                   <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
@@ -3028,7 +3321,6 @@ const CreateProject = () => {
                     {[
                       { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
                       { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
-                      { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -3059,7 +3351,7 @@ const CreateProject = () => {
                   </div>
                 </div>
 
-                {/* Parts inputs — only relevant for partial / ongoing */}
+                {/* Parts inputs — only relevant for partial */}
                 {formData.completionStatus !== "complete" && (
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div>
@@ -3537,8 +3829,89 @@ const CreateProject = () => {
           </motion.div>
         )}
 
-        {/* -- STEP 4: Publish Setup -- */}
+        {/* -- STEP 4: Film Info -- */}
         {step === 4 && (
+          <motion.div key="s4-film" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
+            <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
+              <div>
+                <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
+                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. Film language is required.</p>
+              </div>
+
+              {/* Creative Role */}
+              <div>
+                <h3 className={`text-sm font-semibold mb-3 ${dark ? "text-gray-300" : "text-gray-700"}`}>Your Creative Role</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { key: "wantToDirect", label: "Want to Direct", sub: "I want to direct this script myself", color: dark ? "border-violet-500/50 bg-violet-500/10" : "border-violet-400 bg-violet-50", textColor: dark ? "text-violet-200" : "text-violet-700" },
+                    { key: "wantToProduce", label: "Want to Produce", sub: "I am also the producer of this project", color: dark ? "border-amber-500/50 bg-amber-500/10" : "border-amber-400 bg-amber-50", textColor: dark ? "text-amber-200" : "text-amber-700" },
+                  ].map(({ key, label, sub, color, textColor }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setFilmDetails((fd) => ({ ...fd, [key]: !fd[key] }))}
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails[key]
+                        ? color
+                        : dark ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <div>
+                        <p className={`text-sm font-bold ${filmDetails[key] ? textColor : dark ? "text-gray-200" : "text-gray-800"}`}>{label}</p>
+                        <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>{sub}</p>
+                      </div>
+                      {filmDetails[key] && (
+                        <svg className={`w-4 h-4 ml-auto shrink-0 ${textColor}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Film Language */}
+              <div>
+                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Film Language <span className="text-red-500">*</span></h3>
+                <div className="flex flex-wrap gap-2">
+                  {CP_FILM_LANGUAGE_OPTIONS.map((lang) => (
+                    <button key={lang} type="button"
+                      onClick={() => setFilmDetails((fd) => ({ ...fd, filmLanguage: fd.filmLanguage === lang ? "" : lang }))}
+                      className={chipCls(filmDetails.filmLanguage === lang)}>
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+                {filmDetails.filmLanguage === "Other" && (
+                  <input type="text" placeholder="Specify language..." value={filmDetails.filmLanguageCustom || ""}
+                    onChange={(e) => setFilmDetails((fd) => ({ ...fd, filmLanguageCustom: e.target.value }))}
+                    className={`${inputCls} mt-3`} maxLength={80} />
+                )}
+              </div>
+
+              {/* Dialogues */}
+              <div>
+                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Dialogues</h3>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: "yes", label: "Yes — Full Dialogues" },
+                    { value: "partial", label: "Partial — Some Dialogues" },
+                    { value: "no", label: "No — Action/Direction Only" },
+                  ].map((opt) => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setFilmDetails((fd) => ({ ...fd, dialoguesPresent: opt.value }))}
+                      className={chipCls(filmDetails.dialoguesPresent === opt.value)}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+
+        {/* -- STEP 5: Publish Setup -- */}
+        {step === 5 && (
           <motion.div key="s4" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
             <div className="space-y-6">
                 <div className={`${cardCls} p-4 min-[420px]:p-5 sm:p-8 space-y-5 min-[420px]:space-y-6`}>
@@ -4255,8 +4628,8 @@ const CreateProject = () => {
           </motion.div>
         )}
 
-        {/* -- STEP 5: Final Review -- */}
-        {step === 5 && (
+        {/* -- STEP 6: Final Review -- */}
+        {step === 6 && (
           <motion.div key="s5" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
             <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
               <div>
@@ -4325,47 +4698,6 @@ const CreateProject = () => {
               </div>
 
               <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-teal-300" : "text-teal-700"}`}>Collaboration Visibility</p>
-                    <p className={`text-[12px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>
-                      Choose whether this project stays private or accepts collaboration requests after publish.
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold ${collabVisibility === "open"
-                    ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"
-                    : dark ? "bg-gray-700/40 text-gray-200" : "bg-gray-200 text-gray-700"
-                  }`}>
-                    {collabVisibility === "open" ? "Open for collaboration" : "Private workspace"}
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCollabVisibility("private")}
-                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "private"
-                      ? dark ? "border-[#4f86c6] bg-[#0f2238]" : "border-[#1e3a5f] bg-[#eef4fb]"
-                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Private workspace</p>
-                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Only invited collaborators can join.</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCollabVisibility("open")}
-                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "open"
-                      ? dark ? "border-emerald-400 bg-emerald-500/10" : "border-emerald-600 bg-emerald-50"
-                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Open for collaboration</p>
-                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Writers can request editor, reader, merger, or admin access.</p>
-                  </button>
-                </div>
-              </div>
-
-              <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
                 <div className="flex items-start gap-2.5">
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${legal.agreedToTerms ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700" : dark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>
                     {legal.agreedToTerms ? (
@@ -4414,7 +4746,7 @@ const CreateProject = () => {
               ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
             Back
           </button>
-          {step < 5 && (
+          {step < 6 && (
             <button onClick={handleNext}
               className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${dark
                 ? "bg-[#1e3a5f] text-white hover:bg-[#2a4a70] shadow-lg shadow-[#1e3a5f]/20"
@@ -4429,3 +4761,7 @@ const CreateProject = () => {
 };
 
 export default CreateProject;
+
+
+
+

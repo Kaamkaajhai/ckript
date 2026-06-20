@@ -6,7 +6,6 @@ import { useDarkMode } from "../context/DarkModeContext";
 
 const getDefaultMandates = () => ({
   formats: [],
-  budgetTiers: [],
   genres: [],
   excludeGenres: [],
   specificHooks: [],
@@ -68,13 +67,6 @@ const Mandates = () => {
   const [message, setMessage] = useState("");
   const [mandates, setMandates] = useState(getDefaultMandates);
 
-  const budgetTiers = [
-    { value: "micro", label: "Micro (<₹50L)" },
-    { value: "low", label: "Low (₹50L–₹5Cr)" },
-    { value: "medium", label: "Medium (₹5Cr–₹25Cr)" },
-    { value: "high", label: "High (₹25Cr+)" },
-    { value: "any", label: "Any Budget" },
-  ];
   const genres = [
     "Action", "Adventure", "Animation", "Biography", "Comedy", "Crime",
     "Documentary", "Drama", "Family", "Fantasy", "Film Noir", "History",
@@ -125,7 +117,8 @@ const Mandates = () => {
     setMessage("");
 
     try {
-      await api.put("/onboarding/mandates", { mandates });
+      const { budgetTiers, ...safeMandates } = mandates;
+      await api.put("/onboarding/mandates", { mandates: safeMandates });
       navigate("/home", { replace: true });
     } catch (error) {
       console.error("Error saving mandates:", error);
@@ -146,15 +139,6 @@ const Mandates = () => {
       formats: prev.formats.includes(formatValue)
         ? prev.formats.filter(f => f !== formatValue)
         : [...prev.formats, formatValue]
-    }));
-  };
-
-  const toggleBudget = (tier) => {
-    setMandates(prev => ({
-      ...prev,
-      budgetTiers: prev.budgetTiers.includes(tier)
-        ? prev.budgetTiers.filter(t => t !== tier)
-        : [...prev.budgetTiers, tier]
     }));
   };
 
@@ -229,34 +213,11 @@ const Mandates = () => {
                     onClick={() => toggleFormat(format.value)}
                     className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
                       mandates.formats.includes(format.value)
-                        ? "bg-[#0f2544] text-white shadow-md"
+                        ? "bg-[#0f2544] !text-white shadow-md"
                         : dark ? "bg-white/[0.04] text-gray-300 hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     {format.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Budget Tiers */}
-            <div>
-              <label className={`block text-sm font-bold mb-3 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Budget Preference
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {budgetTiers.map((tier) => (
-                  <button
-                    key={tier.value}
-                    type="button"
-                    onClick={() => toggleBudget(tier.value)}
-                    className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
-                      mandates.budgetTiers.includes(tier.value)
-                        ? "bg-[#0f2544] text-white shadow-md"
-                        : dark ? "bg-white/[0.04] text-gray-300 hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {tier.label}
                   </button>
                 ))}
               </div>
@@ -275,7 +236,7 @@ const Mandates = () => {
                     onClick={() => toggleGenre(genre)}
                     className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                       mandates.genres.includes(genre)
-                        ? "bg-[#111111] text-white shadow-md"
+                        ? "bg-[#111111] !text-white shadow-md"
                         : dark ? "bg-white/[0.04] text-gray-300 hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -298,7 +259,7 @@ const Mandates = () => {
                     onClick={() => toggleExcludeGenre(genre)}
                     className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                       mandates.excludeGenres.includes(genre)
-                        ? "bg-red-600 text-white shadow-md"
+                        ? "bg-red-600 !text-white shadow-md"
                         : dark ? "bg-white/[0.04] text-gray-300 hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -321,7 +282,7 @@ const Mandates = () => {
                     onClick={() => toggleHook(hook)}
                     className={`px-4 py-3 rounded-lg text-sm font-semibold transition-all ${
                       mandates.specificHooks.includes(hook)
-                        ? "bg-[#0f2544] text-white shadow-md"
+                        ? "bg-[#0f2544] !text-white shadow-md"
                         : dark ? "bg-white/[0.04] text-gray-300 hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
@@ -346,17 +307,17 @@ const Mandates = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full py-4 bg-gradient-to-r from-[#0f2544] to-[#1a365d] text-white font-bold rounded-xl hover:from-[#0a1628] hover:to-[#0f2544] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-gradient-to-r from-[#0f2544] to-[#1a365d] !text-white font-bold rounded-xl hover:from-[#0a1628] hover:to-[#0f2544] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {saving ? (
                     <>
-                      <RefreshCw className="w-5 h-5 animate-spin" />
+                      <RefreshCw className="w-5 h-5 animate-spin !text-white" />
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Save className="w-5 h-5" />
-                      Save Mandates
+                      <Save className="w-5 h-5 !text-white" />
+                      Save Preferences
                     </>
                   )}
                 </button>

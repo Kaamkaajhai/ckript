@@ -1151,3 +1151,52 @@ export const sendAdminBroadcastEmail = async (
     return { success: false, error: error.message };
   }
 };
+
+export const sendNewMessageEmail = async (
+  email,
+  receiverName,
+  senderName,
+  { clientBaseUrl = "" } = {}
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+    const safeReceiverName = String(receiverName || "Writer").trim();
+    const safeSenderName = String(senderName || "An investor").trim();
+    const messagesUrl = buildClientUrl("/messages", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `New direct message from ${safeSenderName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">You have a new message! 🎬</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 12px; font-size: 16px;">Hi ${safeReceiverName},</p>
+              <p style="margin:0 0 16px; font-size: 16px;">Great news! Film industry professional <strong>${safeSenderName}</strong> has sent you a direct message regarding your work on ckript.</p>
+              <p style="margin:0 0 20px; font-size: 16px;">Don't keep them waiting—head over to your messages to reply and start the conversation!</p>
+              <a href="${messagesUrl}" style="display:inline-block;background:#2d5a8f;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 16px;">Go to Messages</a>
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${safeReceiverName},\n\nGreat news! Film industry professional ${safeSenderName} has sent you a direct message regarding your work on ckript.\n\nDon't keep them waiting—head over to your messages to reply and start the conversation!\n\nOpen Messages: ${messagesUrl}\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending new message email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+

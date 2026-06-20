@@ -25,7 +25,17 @@ import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { CREDIT_PRICES } from "./creditsController.js";
 import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
-import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, extractPdfTextWithPdftotext } from "../utils/pdfTextExtraction.js";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  hasBusinessEmail,
+  isIndustryProfessionalWithPersonalEmail,
+  hasRevealedContact,
+  hasReachedContactLimit,
+  getRevealedContactCount,
+  getContactsLimit,
+  getRemainingContacts,
+} from "../utils/industryAccess.js";
+import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import multer from "multer";
@@ -77,6 +87,97 @@ const PROJECT_SPOTLIGHT_ACTIVATION_CREDITS = 310;
 const PROJECT_SPOTLIGHT_EXTENSION_CREDITS = 150;
 const PROJECT_SPOTLIGHT_DURATION_DAYS = 30;
 const SCRIPT_UPLOAD_TERMS_VERSION = process.env.SCRIPT_UPLOAD_TERMS_VERSION || "2026-03-24";
+
+const WRITER_CONTACT_VIEWER_ROLES = ["investor", "producer", "director", "industry", "professional"];
+
+const canViewerAccessWriterContact = (viewer, creatorId) => {
+  const viewerId = String(viewer?._id || "");
+  const creatorObjectId = String(creatorId || "");
+  if (!viewerId || !creatorObjectId || viewerId === creatorObjectId) {
+    return false;
+  }
+
+  const role = String(viewer?.role || "").toLowerCase();
+  return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasActiveFilmIndustryProfessionalAccess(viewer);
+};
+
+const buildWriterContactPayload = (writerDoc) => {
+  if (!writerDoc) return null;
+
+  return {
+    email: String(writerDoc.email || "").trim(),
+    phone: String(writerDoc.phone || "").trim(),
+    links: writerDoc.writerProfile?.links || {},
+  };
+};
+const SCRIPT_PREVIEW_WORDS_PER_UNIT = 250;
+const normalizeScriptPreviewAccess = (previewAccess = {}, fallback = {}) => {
+  const rawMode = String(previewAccess?.mode || fallback?.mode || "pages").trim().toLowerCase();
+  const mode = rawMode === "episodes" ? "episodes" : "pages";
+  const fallbackStart = Number(fallback?.start || 1);
+  const fallbackEnd = Number(fallback?.end || 8);
+  const rawStart = Number(previewAccess?.start ?? previewAccess?.from ?? fallbackStart);
+  const rawEnd = Number(previewAccess?.end ?? previewAccess?.to ?? fallbackEnd);
+  const maxUnits = Number(fallback?.maxUnits || 0);
+
+  let start = Number.isFinite(rawStart) && rawStart > 0 ? Math.floor(rawStart) : 1;
+  let end = Number.isFinite(rawEnd) && rawEnd > 0 ? Math.floor(rawEnd) : Math.max(start, fallbackEnd);
+
+  if (maxUnits > 0) {
+    start = Math.min(start, maxUnits);
+    end = Math.min(end, maxUnits);
+  }
+
+  if (end < start) {
+    end = start;
+  }
+
+  return { mode, start, end };
+};
+
+const hasViewableScriptPreview = (script) => Boolean(script?.viewableScript);
+
+const getScriptPreviewLabel = (previewAccess) => {
+  const safePreview = normalizeScriptPreviewAccess(previewAccess);
+  const unitLabel = safePreview.mode === "episodes" ? "Episode" : "Page";
+  return `${unitLabel}s ${safePreview.start} to ${safePreview.end}`;
+};
+
+const getScriptPreviewExcerpt = (script, previewAccess) => {
+  const rawText = String(script?.textContent || script?.fullContent || "").trim();
+  if (!rawText) return "";
+
+  const plainText = rawText
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!plainText) return "";
+
+  const safePreview = normalizeScriptPreviewAccess(previewAccess);
+  const words = plainText.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "";
+
+  const startIndex = Math.max(0, (safePreview.start - 1) * SCRIPT_PREVIEW_WORDS_PER_UNIT);
+  const endIndex = Math.max(startIndex, Math.min(words.length, safePreview.end * SCRIPT_PREVIEW_WORDS_PER_UNIT));
+  if (startIndex >= words.length) return "";
+
+  const excerpt = words.slice(startIndex, endIndex).join(" ");
+  return excerpt ? `${excerpt}${endIndex < words.length ? "..." : ""}` : "";
+};
+const getScriptPreviewPageTexts = (script) => {
+  if (!script) return [];
+
+  return Array.isArray(script.scriptPreviewPageTexts)
+    ? script.scriptPreviewPageTexts
+      .map((pageText) => String(pageText || "").trim())
+    : [];
+};
+const getScriptPreviewPageTextByNumber = (script, pageNumber) => {
+  const pageTexts = getScriptPreviewPageTexts(script);
+  const index = Math.max(0, Number(pageNumber || 0) - 1);
+  return String(pageTexts[index] || "").trim();
+};
 const MAX_CUSTOM_INVESTOR_TERMS_LENGTH = 3000;
 const SCRIPT_PURCHASE_PLATFORM_TAX_RATE = 0.05;
 const MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH = 5000;
@@ -241,6 +342,9 @@ const archiveScriptSubmissionForAdmin = async ({ script, writer, approvalSource 
     writerEmail: writer?.email || "",
     status: script.status || "",
     approvalRequestType: script.approvalRequestType || "",
+    scriptPreviewAccess: hasViewableScriptPreview(script) ? script.scriptPreviewAccess || null : null,
+    scriptPreviewSummary: hasViewableScriptPreview(script) ? getScriptPreviewLabel(script.scriptPreviewAccess) : "",
+    scriptPreviewPageTexts: hasViewableScriptPreview(script) ? getScriptPreviewPageTexts(script) : [],
     fileUrl: script.fileUrl || "",
     projectSource: script.projectSource || "",
   };
@@ -265,7 +369,8 @@ const hydrateScriptTextFromStoredPdf = async (script, { source = "unknown" } = {
   if (!script) return { text: "", strategy: "missing-script" };
 
   const currentText = String(script.textContent || "").trim();
-  if (currentText) {
+  const hasPreviewPages = getScriptPreviewPageTexts(script).length > 0;
+  if (currentText && hasPreviewPages) {
     return { text: script.textContent, strategy: "already-present" };
   }
 
@@ -285,6 +390,9 @@ const hydrateScriptTextFromStoredPdf = async (script, { source = "unknown" } = {
     script.textContent = extraction.text;
     if (!Number(script.pageCount) && Number(extraction?.numItems) > 0) {
       script.pageCount = Number(extraction.numItems);
+    }
+    if (Array.isArray(extraction?.pageTexts) && extraction.pageTexts.length > 0) {
+      script.scriptPreviewPageTexts = extraction.pageTexts;
     }
     await script.save();
 
@@ -1382,16 +1490,17 @@ export const extractPdfText = async (req, res) => {
     const require = createRequire(import.meta.url);
     let text = "";
     let numItems = 0;
+    let pageTexts = [];
 
     if (docType === "pdf") {
-      const pdfParse = require('pdf-parse');
       try {
-        const data = await pdfParse(req.file.buffer);
-        text = normalizeExtractedPdfText(data?.text || "");
-        numItems = Number(data?.numpages) || 0;
+        const extraction = await extractTextFromPdfBuffer(req.file.buffer);
+        text = extraction?.text || "";
+        numItems = Number(extraction?.numItems) || 0;
+        pageTexts = Array.isArray(extraction?.pageTexts) ? extraction.pageTexts : [];
       } catch (parseError) {
-        console.warn("[extractPdfText] pdf-parse failed, falling back to pdftotext:", parseError?.message || parseError);
-        text = await extractPdfTextWithPdftotext(req.file.buffer);
+        console.warn("[extractPdfText] PDF extraction failed:", parseError?.message || parseError);
+        text = "";
       }
     } else if (docType === "docx") {
       try {
@@ -1407,6 +1516,13 @@ export const extractPdfText = async (req, res) => {
     } else if (docType === "doc") {
       return res.status(415).json({
         message: "Legacy .doc files aren't supported. Please save your file as .docx or .pdf and try again.",
+      });
+    }
+
+    const trimmedText = text.trim();
+    if (!trimmedText) {
+      return res.status(400).json({
+        message: "We couldn't extract readable text from this PDF. It may be scanned, image-based, or protected. Please upload a text-based PDF.",
       });
     }
 
@@ -1428,17 +1544,13 @@ export const extractPdfText = async (req, res) => {
       console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
     }
 
-    const trimmedText = text.trim();
-    const extractionWarning = trimmedText
-      ? ""
-      : "We couldn't extract readable text from this PDF. It may be scanned, image-based, or protected, but the PDF was uploaded and you can continue.";
-
     res.json({
       text,
       numItems,
+      pageTexts,
       fileUrl: uploadedPdfUrl,
-      extractedTextAvailable: Boolean(trimmedText),
-      extractionWarning,
+      extractedTextAvailable: true,
+      extractionWarning: "",
     });
   } catch (error) {
     console.error("Document Extraction Error:", error);
@@ -1753,7 +1865,7 @@ export const getMyScripts = async (req, res) => {
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-  .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion viewableScript scriptPreviewAccess scriptPreviewPageTexts")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 
@@ -1813,11 +1925,15 @@ export const updateScript = async (req, res) => {
       formatOther,
       scriptUrl, description, synopsis, textContent, fileUrl,
       coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal, collabVisibility,
+      scriptPreviewAccess,
+      viewableScript,
+      scriptPreviewPageTexts,
       rightsLicensing,
       scriptCompletion,
       // Publishing layer
       targetIndustry,
       publishingDetails,
+      filmDetails,
     } = req.body;
 
     const collaboratorSubmittedContentRevision = !isOwner
@@ -1847,6 +1963,19 @@ export const updateScript = async (req, res) => {
 
     let normalizedRights = script.rightsLicensing || {};
     if (!isContentOnlyCollaborator) {
+      let resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
+        ? scriptPreviewPageTexts.map((value) => String(value || "").trim())
+        : [];
+      if (!resolvedPreviewPageTexts.length && typeof scriptPreviewPageTexts === "string" && scriptPreviewPageTexts.trim()) {
+        try {
+          const parsedPreviewTexts = JSON.parse(scriptPreviewPageTexts);
+          if (Array.isArray(parsedPreviewTexts)) {
+            resolvedPreviewPageTexts = parsedPreviewTexts.map((value) => String(value || "").trim());
+          }
+        } catch {
+          resolvedPreviewPageTexts = [];
+        }
+      }
       normalizedRights = normalizeRightsLicensingInput(
         rightsLicensing || script.rightsLicensing || {},
         script.rightsLicensing || {}
@@ -1895,8 +2024,42 @@ export const updateScript = async (req, res) => {
         script.formatOther = String(formatOther || "").trim();
       }
       if (pageCount !== undefined) script.pageCount = Number(pageCount);
+      if (viewableScript !== undefined) {
+        script.viewableScript = Boolean(viewableScript);
+      }
+      if (scriptPreviewAccess !== undefined) {
+        script.scriptPreviewAccess = normalizeScriptPreviewAccess(scriptPreviewAccess || {}, {
+          mode: scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages",
+          start: scriptPreviewAccess?.start || script.scriptPreviewAccess?.start || 1,
+          end: scriptPreviewAccess?.end || script.scriptPreviewAccess?.end || 8,
+          maxUnits: Number(
+            String(scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
+              ? (script.scriptCompletion?.totalParts || 0)
+              : (script.pageCount || Number(pageCount || 0) || 0)
+          ),
+        });
+        script.markModified("scriptPreviewAccess");
+      }
       const realUrl = scriptUrl || fileUrl;
       if (realUrl && !realUrl.includes("placeholder-url.com")) script.fileUrl = realUrl;
+      if (scriptPreviewPageTexts !== undefined) {
+        script.scriptPreviewPageTexts = resolvedPreviewPageTexts;
+      } else if (!resolvedPreviewPageTexts.length && realUrl && !realUrl.includes("placeholder-url.com")) {
+        try {
+          const extraction = await extractTextFromPdfUrl(realUrl);
+          if (Array.isArray(extraction?.pageTexts) && extraction.pageTexts.length > 0) {
+            script.scriptPreviewPageTexts = extraction.pageTexts;
+          }
+          if (!Number(script.pageCount) && Number(extraction?.numItems) > 0) {
+            script.pageCount = Number(extraction.numItems);
+          }
+          if (!String(script.textContent || "").trim() && String(extraction?.text || "").trim()) {
+            script.textContent = extraction.text;
+          }
+        } catch (error) {
+          console.warn("[updateScript] Failed to refresh preview page texts:", error?.message || error);
+        }
+      }
       if (coverImage !== undefined) script.coverImage = coverImage;
       if (premium !== undefined) script.premium = premium;
       if (price !== undefined) script.price = Number(price);
@@ -1936,6 +2099,17 @@ export const updateScript = async (req, res) => {
       script.markModified("classification");
     } else if (!isContentOnlyCollaborator && genre) {
       script.genre = genre;
+    }
+
+    if (!isContentOnlyCollaborator && filmDetails) {
+      script.filmDetails = {
+        filmLanguage: String(filmDetails.filmLanguage || "").trim().slice(0, 100),
+        dialoguesPresent: ["yes", "no", "partial"].includes(filmDetails.dialoguesPresent) ? filmDetails.dialoguesPresent : (script.filmDetails?.dialoguesPresent || "yes"),
+        wantToDirect: Boolean(filmDetails.wantToDirect),
+        wantToProduce: Boolean(filmDetails.wantToProduce),
+        scriptStyle: Array.isArray(filmDetails.scriptStyle) ? filmDetails.scriptStyle.slice(0, 8) : (script.filmDetails?.scriptStyle || []),
+      };
+      script.markModified("filmDetails");
     }
 
     if (!isContentOnlyCollaborator && services) {
@@ -2228,6 +2402,8 @@ export const uploadScript = async (req, res) => {
       services,
       legal,
       collabVisibility,
+      scriptPreviewAccess,
+      viewableScript,
       rightsLicensing,
       scriptCompletion,
       // Publishing layer
@@ -2239,6 +2415,7 @@ export const uploadScript = async (req, res) => {
       fullContent,
       textContent,
       fileUrl,
+      scriptPreviewPageTexts,
       coverImage,
       genre,
       contentType,
@@ -2248,14 +2425,28 @@ export const uploadScript = async (req, res) => {
       roles,
       tags,
       budget,
-      holdFee
+      holdFee,
+      filmDetails,
     } = req.body;
 
     let resolvedTextContent = typeof textContent === "string" ? textContent : "";
     let resolvedPageCount = Number(pageCount) || 0;
+    let resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
+      ? scriptPreviewPageTexts.map((value) => String(value || "").trim())
+      : [];
+    if (!resolvedPreviewPageTexts.length && typeof scriptPreviewPageTexts === "string" && scriptPreviewPageTexts.trim()) {
+      try {
+        const parsedPreviewTexts = JSON.parse(scriptPreviewPageTexts);
+        if (Array.isArray(parsedPreviewTexts)) {
+          resolvedPreviewPageTexts = parsedPreviewTexts.map((value) => String(value || "").trim());
+        }
+      } catch {
+        resolvedPreviewPageTexts = [];
+      }
+    }
     const uploadedScriptUrl = scriptUrl || fileUrl || "";
 
-    if (!resolvedTextContent.trim() && uploadedScriptUrl) {
+    if (uploadedScriptUrl && (!resolvedTextContent.trim() || !resolvedPageCount || !resolvedPreviewPageTexts.length)) {
       try {
         const extraction = await extractTextFromPdfUrl(uploadedScriptUrl);
         if (String(extraction?.text || "").trim()) {
@@ -2263,6 +2454,9 @@ export const uploadScript = async (req, res) => {
         }
         if (!resolvedPageCount && Number(extraction?.numItems) > 0) {
           resolvedPageCount = Number(extraction.numItems);
+        }
+        if (!resolvedPreviewPageTexts.length && Array.isArray(extraction?.pageTexts) && extraction.pageTexts.length > 0) {
+          resolvedPreviewPageTexts = extraction.pageTexts;
         }
       } catch (extractionError) {
         console.warn("[uploadScript] Server-side PDF extraction failed:", extractionError?.message || extractionError);
@@ -2311,6 +2505,17 @@ export const uploadScript = async (req, res) => {
     if (completionValidationErrors.length > 0) {
       return res.status(400).json({ message: completionValidationErrors[0] });
     }
+    const normalizedScriptPreviewAccess = normalizeScriptPreviewAccess(scriptPreviewAccess || {}, {
+      mode: scriptPreviewAccess?.mode || "pages",
+      start: scriptPreviewAccess?.start || 1,
+      end: scriptPreviewAccess?.end || 8,
+      maxUnits: Number(
+        String(scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
+          ? (scriptCompletion?.totalParts || 0)
+          : (pageCount || resolvedPageCount || 0)
+      ),
+    });
+    const viewableScriptEnabled = Boolean(viewableScript);
 
     const isPremiumAccess = Boolean(isPremium || premium) && Number(price || 0) > 0;
     const effectivePrice = isPremiumAccess ? Number(price || 0) : 0;
@@ -2395,6 +2600,9 @@ export const uploadScript = async (req, res) => {
       textContent: resolvedTextContent,
       fileUrl: scriptUrl || fileUrl,
       pageCount: resolvedPageCount,
+      viewableScript: viewableScriptEnabled,
+      scriptPreviewPageTexts: resolvedPreviewPageTexts,
+      scriptPreviewAccess: normalizedScriptPreviewAccess,
       scriptCompletion: normalizeScriptCompletionInput(scriptCompletion || {}, {}),
       coverImage,
       genre: genre || classification?.primaryGenre,
@@ -2471,6 +2679,15 @@ export const uploadScript = async (req, res) => {
       approvalRequestType: "new_submission",
 
       status: "pending_approval", // Requires admin approval before publishing
+
+      // Film production details
+      filmDetails: filmDetails ? {
+        filmLanguage: String(filmDetails.filmLanguage || "").trim().slice(0, 100),
+        dialoguesPresent: ["yes", "no", "partial"].includes(filmDetails.dialoguesPresent) ? filmDetails.dialoguesPresent : "yes",
+        wantToDirect: Boolean(filmDetails.wantToDirect),
+        wantToProduce: Boolean(filmDetails.wantToProduce),
+        scriptStyle: Array.isArray(filmDetails.scriptStyle) ? filmDetails.scriptStyle.slice(0, 8) : [],
+      } : undefined,
 
       // Publishing layer
       targetIndustry: Array.isArray(targetIndustry) && targetIndustry.length > 0 ? targetIndustry : ["film"],
@@ -2819,6 +3036,83 @@ export const getPurchaseRequestAcceptancePdf = async (req, res) => {
   }
 };
 
+export const getScriptPdf = async (req, res) => {
+  try {
+    const scriptId = String(req.params.id || "").trim();
+    if (!mongoose.isValidObjectId(scriptId)) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    const script = await Script.findById(scriptId)
+      .populate("creator", "name email role")
+      .populate("heldBy", "name role");
+
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    if (
+      isIndustryProfessionalWithPersonalEmail(req.user) &&
+      !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
+    ) {
+      return res.status(403).json({
+        message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
+        requiresBusinessEmail: true,
+      });
+    }
+
+    const isOwner = String(script.creator?._id || script.creator || "") === String(req.user?._id || "");
+    const isAdmin = req.user.role === "admin";
+    const collaboratorRole = resolveScriptRole(script, req.user._id);
+    const isAcceptedCollaborator = !isOwner && Boolean(collaboratorRole);
+    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
+    let isBuyer = hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
+
+    if (!isBuyer) {
+      const [approvedPurchase, convertedOption] = await Promise.all([
+        ScriptPurchaseRequest.exists(getSettledPurchaseQuery({ script: script._id, investor: req.user._id })),
+        ScriptOption.exists({ script: script._id, holder: req.user._id, status: "converted" }),
+      ]);
+      isBuyer = Boolean(approvedPurchase || convertedOption);
+    }
+
+    if (script.isDeleted && !isAdmin && !isBuyer) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    if (script.status === "draft" && !isOwner && !isAcceptedCollaborator && !canCollaboratorRead && !isAdmin) {
+      return res.status(403).json({ message: "This draft is private" });
+    }
+
+    if (script.isSold && !isOwner && !isBuyer && !isAdmin && !canCollaboratorRead) {
+      return res.status(403).json({ message: "This script has been purchased and is no longer publicly available" });
+    }
+
+    const pdfUrl = String(script.fileUrl || "").trim();
+    if (!pdfUrl) {
+      return res.status(404).json({ message: "PDF file not available." });
+    }
+
+    const pdfResponse = await fetch(pdfUrl);
+    if (!pdfResponse.ok) {
+      return res.status(502).json({ message: "Failed to fetch script PDF from storage." });
+    }
+
+    const contentType = pdfResponse.headers.get("content-type") || "application/pdf";
+    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const shouldDownload = String(req.query.download || "") === "1";
+    const disposition = shouldDownload ? "attachment" : "inline";
+    const filename = sanitizePdfFileName(`${script.title || "script"}-full.pdf`);
+
+    res.setHeader("Content-Type", contentType.includes("pdf") ? contentType : "application/pdf");
+    res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
+    return res.send(fileBuffer);
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to load script PDF." });
+  }
+};
+
 export const getScriptById = async (req, res) => {
   try {
     const scriptId = String(req.params.id || "").trim();
@@ -2834,10 +3128,21 @@ export const getScriptById = async (req, res) => {
     await expireActiveExclusiveLicenses({ scriptId });
 
     const script = await Script.findById(scriptId)
-      .populate("creator", "name profileImage role bio followers username writerProfile.username")
+      .populate("creator", "name email phone profileImage role bio followers username writerProfile.username writerProfile.links")
       .populate("heldBy", "name role");
 
     if (!script) return res.status(404).json({ message: "Script not found" });
+
+    if (
+      isIndustryProfessionalWithPersonalEmail(req.user) &&
+      !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
+    ) {
+      return res.status(403).json({
+        message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
+        requiresBusinessEmail: true,
+      });
+    }
 
     await hydrateScriptTextFromStoredPdf(script, { source: "getScriptById" });
 
@@ -2966,6 +3271,21 @@ export const getScriptById = async (req, res) => {
     const userRole = req.user.role;
     const isWriter = userRole === 'writer' || userRole === 'creator';
     const canPurchase = !canCollaboratorRead && ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);
+    const hasViewablePreview = hasViewableScriptPreview(script);
+    const normalizedPreviewAccess = hasViewablePreview
+      ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+          mode: script.scriptPreviewAccess?.mode || "pages",
+          start: script.scriptPreviewAccess?.start || 1,
+          end: script.scriptPreviewAccess?.end || 8,
+          maxUnits: Number(
+            String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
+              ? (script.scriptCompletion?.totalParts || 0)
+              : (script.pageCount || 0)
+          ),
+        })
+      : null;
+    const previewSummary = hasViewablePreview ? getScriptPreviewLabel(normalizedPreviewAccess) : "";
+    const previewExcerpt = hasViewablePreview ? getScriptPreviewExcerpt(script, normalizedPreviewAccess) : "";
 
     // Get audition count
     const Audition = (await import("../models/Audition.js")).default;
@@ -3102,6 +3422,28 @@ export const getScriptById = async (req, res) => {
       }
     });
 
+    const writerId = String(script.creator?._id || script.creator || "");
+    const viewerCanSeeWriterContact = canViewerAccessWriterContact(req.user, writerId);
+
+    let writerContact = null;
+    let writerContactRevealStatus = null;
+
+    if (viewerCanSeeWriterContact) {
+      const alreadyRevealed = hasRevealedContact(req.user, writerId);
+      if (alreadyRevealed) {
+        writerContact = buildWriterContactPayload(
+          await User.findById(writerId).select("email phone writerProfile.links").lean()
+        );
+      }
+      writerContactRevealStatus = {
+        canReveal: !hasReachedContactLimit(req.user) || alreadyRevealed,
+        alreadyRevealed,
+        remainingContacts: getRemainingContacts(req.user),
+        contactsLimit: getContactsLimit(req.user),
+        contactsUsed: getRevealedContactCount(req.user),
+      };
+    }
+
     const response = {
       ...script.toObject(),
       collaborationStats: getCollaborationStats(script),
@@ -3124,6 +3466,13 @@ export const getScriptById = async (req, res) => {
       pendingRequestsCount,
       viewBreakdown,
       reviewBreakdown,
+      writerContact,
+      writerContactRevealStatus,
+      viewableScript: hasViewablePreview,
+      scriptPreviewAccess: normalizedPreviewAccess,
+      scriptPreviewSummary: previewSummary,
+      previewExcerpt,
+      scriptPreviewPageTexts: hasViewablePreview ? getScriptPreviewPageTexts(script) : [],
       // Always return full synopsis. Only script body/content remains gated.
       synopsis: script.synopsis,
       // Hide full content unless unlocked, creator, or admin.
@@ -3168,15 +3517,25 @@ export const getPublicScriptById = async (req, res) => {
     await expireActiveExclusiveLicenses({ scriptId });
 
     const script = await Script.findById(scriptId)
-      .populate("creator", "name profileImage role bio isPrivate isDeactivated writerProfile.username")
-      .populate("collaborators.userId", "name username writerProfile.username")
-      .lean();
+      .populate("creator", "name email phone profileImage role bio isPrivate isDeactivated writerProfile.username writerProfile.links")
+      .populate("collaborators.userId", "name username writerProfile.username");
 
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
 
     const creator = script.creator || {};
+
+    if (
+      isIndustryProfessionalWithPersonalEmail(req.user) &&
+      !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      String(creator?._id || creator || "") !== String(req.user?._id || "")
+    ) {
+      return res.status(403).json({
+        message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
+        requiresBusinessEmail: true,
+      });
+    }
     const isCreatorPrivate = Boolean(creator.isPrivate);
     const isCreatorDeactivated = Boolean(creator.isDeactivated);
 
@@ -3191,11 +3550,49 @@ export const getPublicScriptById = async (req, res) => {
       return res.status(404).json({ message: "Script not found" });
     }
 
+    await hydrateScriptTextFromStoredPdf(script, { source: "getPublicScriptById" });
+
     const synopsis = String(script.synopsis || "");
     const synopsisTeaser = synopsis
       ? `${synopsis.slice(0, 320)}${synopsis.length > 320 ? "..." : ""}`
       : "";
     const collaborationSummary = getPublicCollaborationSummary(script);
+    const publicWriterId = String(creator?._id || script.creator || "");
+    const viewerCanSeeWriterContact = canViewerAccessWriterContact(req.user, publicWriterId);
+
+    let writerContact = null;
+    let writerContactRevealStatus = null;
+
+    if (viewerCanSeeWriterContact) {
+      const alreadyRevealed = hasRevealedContact(req.user, publicWriterId);
+      if (alreadyRevealed) {
+        writerContact = buildWriterContactPayload(
+          await User.findById(publicWriterId).select("email phone writerProfile.links").lean()
+        );
+      }
+      writerContactRevealStatus = {
+        canReveal: !hasReachedContactLimit(req.user) || alreadyRevealed,
+        alreadyRevealed,
+        remainingContacts: getRemainingContacts(req.user),
+        contactsLimit: getContactsLimit(req.user),
+        contactsUsed: getRevealedContactCount(req.user),
+      };
+    }
+    const hasViewablePreview = hasViewableScriptPreview(script);
+    const normalizedPreviewAccess = hasViewablePreview
+      ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+          mode: script.scriptPreviewAccess?.mode || "pages",
+          start: script.scriptPreviewAccess?.start || 1,
+          end: script.scriptPreviewAccess?.end || 8,
+          maxUnits: Number(
+            String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
+              ? (script.scriptCompletion?.totalParts || 0)
+              : (script.pageCount || 0)
+          ),
+        })
+      : null;
+    const previewSummary = hasViewablePreview ? getScriptPreviewLabel(normalizedPreviewAccess) : "";
+    const previewExcerpt = hasViewablePreview ? getScriptPreviewExcerpt(script, normalizedPreviewAccess) : "";
 
     const publicScript = {
       _id: script._id,
@@ -3231,6 +3628,12 @@ export const getPublicScriptById = async (req, res) => {
         adaptationSource: script.contentIndicators?.adaptationSource || "",
       },
       scriptCompletion: normalizeScriptCompletionInput(script.scriptCompletion || {}, {}),
+      viewableScript: hasViewablePreview,
+      scriptPreviewAccess: normalizedPreviewAccess,
+      scriptPreviewSummary: previewSummary,
+      previewExcerpt,
+      scriptPreviewStartText: hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start) : "",
+      scriptPreviewEndText: hasViewablePreview ? getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end) : "",
       evaluation: script.scriptScore?.overall
         ? {
             overall: Number(script.scriptScore.overall || 0),
@@ -3263,6 +3666,7 @@ export const getPublicScriptById = async (req, res) => {
       publishedAt: script.publishedAt,
       collaborationStats: getCollaborationStats(script),
       collaborationSummary,
+      writerContact,
       creator: {
         _id: creator._id,
         name: creator.name || "",
@@ -3271,6 +3675,7 @@ export const getPublicScriptById = async (req, res) => {
         bio: creator.bio || "",
         username: creator.writerProfile?.username || "",
       },
+      writerContactRevealStatus,
       canonicalPath: buildScriptCanonicalPath(script),
       shareMeta: buildScriptShareMeta(req, script),
     };

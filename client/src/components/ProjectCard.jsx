@@ -44,7 +44,7 @@ const STATUS = {
   draft:            { label: "Draft",     dot: "bg-[#4a5a6e]",   dk: "text-[#4a5a6e]",  lt: "text-gray-400"  },
 };
 
-const ProjectCard = ({ project, userName }) => {
+const ProjectCard = ({ project, userName, onBlock }) => {
   const navigate = useNavigate();
   const { isDarkMode: dark } = useDarkMode();
   const { user, setUser } = useContext(AuthContext);
@@ -159,6 +159,7 @@ const ProjectCard = ({ project, userName }) => {
 
   const handleCardClick = async () => {
     if (!isClickable) return;
+    if (onBlock) { onBlock(); return; }
 
     if (project?._id) {
       api

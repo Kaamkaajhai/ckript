@@ -114,7 +114,7 @@ const sections = [
       "Withdraw consent where processing is based on consent",
       "Manage some account details, communication preferences, and visibility settings directly through your profile or account controls",
     ],
-    footer: "To exercise available privacy rights, contact us at info.ckript@gmail.com. We may need to verify your identity before responding, and we may decline requests where permitted by law.",
+    footer: "To exercise available privacy rights, contact us at contact@ckript.com. We may need to verify your identity before responding, and we may decline requests where permitted by law.",
   },
   {
     id: "marketing",
@@ -287,8 +287,8 @@ export default function PrivacyPolicy() {
                   </p>
                   <p>
                     <span className="text-gray-600">Email: </span>
-                    <a href="mailto:info.ckript@gmail.com" className="text-cyan-400 hover:underline">
-                      info.ckript@gmail.com
+                    <a href="mailto:contact@ckript.com" className="text-cyan-400 hover:underline">
+                      contact@ckript.com
                     </a>
                   </p>
                   <p>

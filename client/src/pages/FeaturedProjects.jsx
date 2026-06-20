@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback, useContext } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import { AuthContext } from "../context/AuthContext";
+import { isFilmIndustryProfessionalRole, hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import ProjectCard from "../components/ProjectCard";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -286,7 +288,7 @@ const AIDemo = ({ script, getImageUrl }) => {
   );
 };
 
-const TrailerModal = ({ script, onClose, getImageUrl }) => {
+const TrailerModal = ({ script, onClose, getImageUrl, onBlock }) => {
   const videoRef = useRef(null);
   const trailerCandidates = resolveTrailerCandidates(script);
   const [trailerSourceIndex, setTrailerSourceIndex] = useState(0);
@@ -373,7 +375,7 @@ const TrailerModal = ({ script, onClose, getImageUrl }) => {
             </div>
             <Link
               to={getScriptCanonicalPath(script)}
-              onClick={onClose}
+              onClick={(e) => { if (onBlock) { e.preventDefault(); onClose(); onBlock(); return; } onClose(); }}
               className="flex-shrink-0 px-4 py-1.5 bg-[#111111] hover:bg-[#2a5080] text-white text-xs font-bold rounded-xl transition-colors"
             >
               View Project
@@ -624,10 +626,11 @@ const CardSaveBtn = ({ scriptId, dark }) => {
 /* ── CARD COMPONENTS ── */
 /* ══════════════════════════════════════════════════════════════ */
 
-const SponsoredCard = ({ script }) => (
+const SponsoredCard = ({ script, onBlock }) => (
   <ProjectCard
     project={{ ...script, status: script?.status || "published" }}
     userName={script?.creator?.name}
+    onBlock={onBlock}
   />
 );
 
@@ -718,7 +721,17 @@ const HorizontalScroll = ({ children }) => (
 
 const FeaturedProjects = () => {
   const { isDarkMode: dark } = useDarkMode();
-  
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const isPersonalEmailBlocked =
+    isFilmIndustryProfessionalRole(user) &&
+    !hasBusinessEmail(user?.email) &&
+    !hasActiveFilmIndustryProfessionalAccess(user);
+
+  const handleScriptBlock = () => setShowUpgradeModal(true);
+
   // Data states
   const [scripts, setScripts] = useState([]);
   const [heroScript, setHeroScript] = useState(null);
@@ -1030,7 +1043,11 @@ const FeaturedProjects = () => {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2.5">
-                        <Link to={getScriptCanonicalPath(slide)} className={`inline-flex h-9 sm:h-10 items-center gap-2 rounded-xl px-3.5 sm:px-4 text-[12px] sm:text-[14px] font-bold tracking-[0.01em] transition-all duration-200 ${useLightFallbackText ? "bg-[#12385f] text-white hover:bg-[#0e2b49]" : "bg-white text-[#0d2037] hover:bg-[#e8f1ff]"}`}>
+                        <Link
+                          to={getScriptCanonicalPath(slide)}
+                          onClick={(e) => { if (isPersonalEmailBlocked) { e.preventDefault(); handleScriptBlock(); } }}
+                          className={`inline-flex h-9 sm:h-10 items-center gap-2 rounded-xl px-3.5 sm:px-4 text-[12px] sm:text-[14px] font-bold tracking-[0.01em] transition-all duration-200 ${useLightFallbackText ? "bg-[#12385f] text-white hover:bg-[#0e2b49]" : "bg-white text-[#0d2037] hover:bg-[#e8f1ff]"}`}
+                        >
                           View Project
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -1094,7 +1111,7 @@ const FeaturedProjects = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {sponsoredScripts.map((script, idx) => (
-              <SponsoredCard key={script._id} script={script} />
+              <SponsoredCard key={script._id} script={script} onBlock={isPersonalEmailBlocked ? handleScriptBlock : undefined} />
             ))}
           </div>
         </motion.div>
@@ -1136,9 +1153,57 @@ const FeaturedProjects = () => {
             script={previewScript}
             onClose={() => setPreviewScript(null)}
             getImageUrl={getImageUrl}
+            onBlock={isPersonalEmailBlocked ? handleScriptBlock : undefined}
           />
         )}
       </AnimatePresence>
+
+      {showUpgradeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowUpgradeModal(false)}
+        >
+          <div
+            className={`relative w-full max-w-sm rounded-2xl border p-6 shadow-2xl ${dark ? "bg-[#0d1926] border-[#1a2e47] text-white" : "bg-white border-gray-200 text-gray-900"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className={`absolute top-3 right-3 p-1.5 rounded-lg transition ${dark ? "hover:bg-white/10 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${dark ? "bg-amber-500/15" : "bg-amber-50"}`}>
+                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-base">Access Restricted</p>
+                <p className={`text-sm mt-1 ${dark ? "text-gray-400" : "text-gray-500"}`}>A business email or Film Industry Professional plan is required to view scripts.</p>
+              </div>
+              <div className="flex flex-col gap-2.5 w-full">
+                <button
+                  onClick={() => { setShowUpgradeModal(false); navigate("/pricing"); }}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                >
+                  Get Film Industry Professional plan
+                </button>
+                <button
+                  onClick={() => { setShowUpgradeModal(false); navigate("/producer-director-onboarding"); }}
+                  className={`w-full py-2.5 rounded-xl text-sm font-bold border transition ${dark ? "border-[#1a2e47] hover:bg-white/5 text-gray-300" : "border-gray-200 hover:bg-gray-50 text-gray-700"}`}
+                >
+                  Update to a business email
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

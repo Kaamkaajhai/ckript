@@ -5,7 +5,7 @@ import Notification from "../models/Notification.js";
 import multer from "multer";
 import path from "path";
 import { uploadToCloudinary } from "../config/cloudinary.js";
-import { sendAdminMessageEmail } from "../utils/emailService.js";
+import { sendAdminMessageEmail, sendNewMessageEmail } from "../utils/emailService.js";
 
 const detectFileType = (mimetype = "") => {
   if (mimetype.startsWith("image/")) return "image";
@@ -92,7 +92,7 @@ export const sendMessage = async (req, res) => {
     if (!receiverId) return res.status(400).json({ message: "receiverId is required." });
     if (!text?.trim() && !fileUrl) return res.status(400).json({ message: "Message cannot be empty." });
 
-    const sender = await User.findById(req.user._id).select("_id role name blockedUsers");
+    const sender = await User.findById(req.user._id).select("_id role name blockedUsers subscription");
     if (!sender) return res.status(404).json({ message: "Sender not found." });
 
     const receiver = await User.findById(receiverId).select("_id role name email blockedUsers");
@@ -134,10 +134,43 @@ export const sendMessage = async (req, res) => {
 
         const hasPurchased = await Script.exists({ creator: writerId, unlockedBy: investorId });
         if (!hasPurchased) {
-          return res.status(403).json({
-            message: "Messaging is locked until an investor purchases a script from this writer.",
-            code: "PURCHASE_REQUIRED",
-          });
+          if (isInvestor) {
+            const subscription = sender.subscription || {};
+            const accessTier = String(subscription.accessTier || "").trim().toLowerCase();
+            const accessStatus = String(subscription.accessStatus || "").trim().toLowerCase();
+            
+            if (accessTier === "film_industry_professional" && accessStatus === "active") {
+              const contactsLimit = subscription.contactsLimit || 15;
+              const revealedContacts = subscription.revealedContacts || [];
+              const writerAlreadyRevealed = revealedContacts.some(c => c.writerId && c.writerId.toString() === writerId.toString());
+              
+              if (!writerAlreadyRevealed) {
+                if (revealedContacts.length >= contactsLimit) {
+                  return res.status(403).json({
+                    message: `You have reached your limit of ${contactsLimit} direct messages/contact reveals.`,
+                    code: "QUOTA_EXCEEDED",
+                  });
+                } else {
+                  // Consume a quota slot
+                  sender.subscription.revealedContacts.push({
+                    writerId: writerId,
+                    revealedAt: new Date()
+                  });
+                  await sender.save();
+                }
+              }
+            } else {
+              return res.status(403).json({
+                message: "Messaging is locked until you purchase a script or upgrade to a Film Industry Professional plan.",
+                code: "PURCHASE_REQUIRED",
+              });
+            }
+          } else {
+            return res.status(403).json({
+              message: "You cannot initiate a conversation until an investor purchases your script or messages you first.",
+              code: "PURCHASE_REQUIRED",
+            });
+          }
         }
       }
     }
@@ -176,6 +209,14 @@ export const sendMessage = async (req, res) => {
         clientBaseUrl: resolveClientOriginFromRequest(req),
       }).catch((err) => {
         console.error("Failed to send admin message email:", err.message);
+      });
+    }
+
+    if (existingMessageCount === 0 && sender.role === "investor" && ["writer", "creator"].includes(receiver.role)) {
+      sendNewMessageEmail(receiver.email, receiver.name, sender.name, {
+        clientBaseUrl: resolveClientOriginFromRequest(req),
+      }).catch((err) => {
+        console.error("Failed to send new message email:", err.message);
       });
     }
 

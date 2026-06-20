@@ -56,7 +56,7 @@ const PlaceholderCover = ({ script, dark }) => {
   );
 };
 
-const ScriptCard = ({ script, index = 0 }) => {
+const ScriptCard = ({ script, index = 0, onClick }) => {
   const { isDarkMode: dark } = useDarkMode();
   const [imgErr, setImgErr] = useState(false);
   if (!script) return null;
@@ -80,7 +80,7 @@ const ScriptCard = ({ script, index = 0 }) => {
       transition={{ delay: index * 0.04, duration: 0.3 }}
       className="h-full"
     >
-      <Link to={getScriptCanonicalPath(script)} className="group block h-full">
+      <Link to={getScriptCanonicalPath(script)} onClick={onClick} className="group block h-full">
         <div
           className={`
             rounded-2xl overflow-hidden flex flex-col h-full
