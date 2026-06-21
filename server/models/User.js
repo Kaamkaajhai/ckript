@@ -292,6 +292,7 @@ const userSchema = new mongoose.Schema({
     sourcePath: { type: String },
     contactsLimit: { type: Number, default: 10 },
     messageWritersLimit: { type: Number, default: 10 },
+    meetingsLimit: { type: Number, default: 10 },
     revealedContacts: [
       {
         writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -302,6 +303,13 @@ const userSchema = new mongoose.Schema({
       {
         writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         messagedAt: { type: Date, default: Date.now },
+      },
+    ],
+    scheduledMeetings: [
+      {
+        writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        meetingId: { type: mongoose.Schema.Types.ObjectId, ref: "Meeting" },
+        scheduledAt: { type: Date, default: Date.now },
       },
     ],
   },

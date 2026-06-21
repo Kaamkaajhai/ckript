@@ -43,6 +43,7 @@ const TABS = [
     { key: "approvals", label: "Script Approvals", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "trailers", label: "AI Trailer Approvals", icon: "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375V5.625A1.125 1.125 0 016 4.5h12a1.125 1.125 0 011.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125h1.5" },
     { key: "evaluations", label: "AI Evaluations", icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
+    { key: "meetings", label: "Meetings", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
     { key: "messages", label: "Messages", icon: "M7.5 8.25h9m-9 3h6m-9 9h12A2.25 2.25 0 0018.75 18V6A2.25 2.25 0 0016.5 3.75h-9A2.25 2.25 0 005.25 6v12A2.25 2.25 0 007.5 20.25z" },
     { key: "membership-reviews", label: "SWA/WGA Reviews", icon: "M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 0h1.5A2.25 2.25 0 0115 2.25v1.134a9 9 0 11-6 0V2.25z" },
     { key: "queries", label: "Queries", icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
@@ -1006,6 +1007,7 @@ const AdminDashboard = () => {
     const [scripts, setScripts] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [invoices, setInvoices] = useState([]);
+    const [meetings, setMeetings] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
     const [page, setPage] = useState(1);
     const [searchInput, setSearchInput] = useState("");
@@ -1437,6 +1439,11 @@ const AdminDashboard = () => {
                         ]
                         : ["No records"],
                 };
+            case "meetings":
+                return {
+                    title: `Meetings (${meetings.length})`,
+                    lines: meetings.map((m, idx) => `${idx + 1}. ${m.title || "-"} | Producer: ${m.producer_name || "-"} | Writer: ${m.writer_name || "-"} | Script: ${m.script_name || "-"} | Status: ${m.status || "-"} | Date: ${formatExportDate(m.scheduledDate)} | Duration: ${m.duration} min | Link: ${m.meetingLink || "-"}`),
+                };
             case "messages":
                 return {
                     title: `Admin Messages (${messageUsers.length})`,
@@ -1751,6 +1758,11 @@ const AdminDashboard = () => {
                 case "payments": {
                     const { data } = await adminApi.get(`/admin/payments?page=${page}`);
                     setTransactions(data.transactions); setTotalPages(data.totalPages); setTotal(data.total);
+                    break;
+                }
+                case "meetings": {
+                    const { data } = await adminApi.get(`/meetings`);
+                    setMeetings(data); setTotalPages(1); setTotal(data.length);
                     break;
                 }
                 case "invoices": {
@@ -3438,6 +3450,58 @@ const AdminDashboard = () => {
                     </div>
                 );
             }
+
+            case "meetings":
+                return (
+                    <div>
+                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>Scheduled Meetings<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({meetings.length})</span></h2>
+                        <div className="space-y-4">
+                            {meetings.length === 0 ? (
+                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No meetings found.</p>
+                            ) : (
+                                meetings.map((meeting) => (
+                                    <div key={meeting._id} className={`p-4 rounded-xl border ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200"}`}>
+                                        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
+                                            <div>
+                                                <h3 className={`font-semibold text-lg ${isDark ? "text-white" : "text-gray-900"}`}>{meeting.title}</h3>
+                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"} mt-1`}>
+                                                    Producer: <span className="font-semibold">{meeting.producer_name}</span> | Writer: <span className="font-semibold">{meeting.writer_name}</span>
+                                                </p>
+                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                                                    Script: <a href={`/admin/scripts/${meeting.script}`} className="text-blue-500 hover:underline">{meeting.script_name}</a>
+                                                </p>
+                                                <div className={`mt-2 flex gap-4 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+                                                    <span>📅 {new Date(meeting.scheduledDate).toLocaleDateString()}</span>
+                                                    <span>⏰ {meeting.scheduledTime}</span>
+                                                    <span>⏱️ {meeting.duration} min</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col sm:items-end gap-2">
+                                                <span className={`px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider ${
+                                                    meeting.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                                                    meeting.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                    'bg-yellow-100 text-yellow-700'
+                                                }`}>
+                                                    {meeting.status}
+                                                </span>
+                                                {meeting.status === "accepted" && (
+                                                    <a
+                                                        href={meeting.meetingLink}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-1 text-xs font-bold text-[#D14D37] hover:underline"
+                                                    >
+                                                        Meeting Link
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                );
 
             case "messages": {
                 const selectedWriterId = String(activeMessageUser?._id || "");

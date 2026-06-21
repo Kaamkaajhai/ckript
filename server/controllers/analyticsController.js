@@ -686,6 +686,7 @@ export const trackEvent = async (req, res) => {
 
     return res.status(200).json({ ok: true });
   } catch (error) {
+    console.error("trackEvent error:", error);
     return res.status(500).json({ message: error.message || "Failed to track event.", stack: error.stack });
   }
 };

@@ -1242,3 +1242,167 @@ export const sendNewMessageEmail = async (
   }
 };
 
+export const sendMeetingInvitationEmail = async (
+  email,
+  {
+    producerName,
+    scriptName,
+    date,
+    time,
+    duration,
+    meetingId,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+    const dashboardUrl = buildClientUrl("/profile", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `Meeting Request from Producer on Ckript`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">New Meeting Request 🗓️</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 16px; font-size: 16px;">Hello,</p>
+              <p style="margin:0 0 16px; font-size: 16px;"><strong>${producerName}</strong> has requested a meeting with you regarding your script <strong>"${scriptName}"</strong>.</p>
+              
+              <div style="background:#f3f4f6; padding:16px; border-radius:8px; margin-bottom:20px;">
+                <p style="margin:0 0 8px;"><strong>Date:</strong> ${date}</p>
+                <p style="margin:0 0 8px;"><strong>Time:</strong> ${time}</p>
+                <p style="margin:0;"><strong>Duration:</strong> ${duration} minutes</p>
+              </div>
+
+              <p style="margin:0 0 20px; font-size: 16px;">Please review and respond to this request from your dashboard.</p>
+              
+              <a href="${dashboardUrl}" style="display:inline-block;background:#2d5a8f;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 16px;">View Request in Dashboard</a>
+              
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hello,\n\n${producerName} has requested a meeting with you regarding your script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nDuration: ${duration} minutes\n\nPlease review and respond to this request from your dashboard: ${dashboardUrl}\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending meeting invitation email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendMeetingAcceptedEmail = async (
+  email,
+  {
+    writerName,
+    scriptName,
+    date,
+    time,
+    meetingLink,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `Meeting Confirmed: ${writerName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">Meeting Confirmed ✅</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 16px; font-size: 16px;">Hello,</p>
+              <p style="margin:0 0 16px; font-size: 16px;"><strong>${writerName}</strong> has accepted your meeting request regarding the script <strong>"${scriptName}"</strong>.</p>
+              
+              <div style="background:#f3f4f6; padding:16px; border-radius:8px; margin-bottom:20px;">
+                <p style="margin:0 0 8px;"><strong>Date:</strong> ${date}</p>
+                <p style="margin:0 0 8px;"><strong>Time:</strong> ${time}</p>
+                <p style="margin:0; word-break: break-all;"><strong>Meeting Link:</strong> <a href="${meetingLink}" style="color:#2d5a8f;">${meetingLink}</a></p>
+              </div>
+
+              <a href="${meetingLink}" style="display:inline-block;background:#10b981;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 16px;">Join Meeting</a>
+              
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hello,\n\n${writerName} has accepted your meeting request regarding the script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nMeeting Link: ${meetingLink}\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending meeting acceptance email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendMeetingRejectedEmail = async (
+  email,
+  {
+    writerName,
+    scriptName,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `Meeting Declined: ${writerName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">Meeting Declined ❌</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 16px; font-size: 16px;">Hello,</p>
+              <p style="margin:0 0 16px; font-size: 16px;">Unfortunately, <strong>${writerName}</strong> has declined your meeting request regarding the script <strong>"${scriptName}"</strong>.</p>
+              
+              <p style="margin:0 0 20px; font-size: 16px;">Your meeting quota slot for this request has been consumed and will not be refunded. You may reach out to them via direct messages instead.</p>
+              
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hello,\n\nUnfortunately, ${writerName} has declined your meeting request regarding the script "${scriptName}".\n\nYour meeting quota slot for this request has been consumed. You may reach out to them via direct messages instead.\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending meeting rejection email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
