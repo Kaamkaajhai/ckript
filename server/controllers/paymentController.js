@@ -138,6 +138,7 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
         "subscription.messagedWriters": [],
         "subscription.contactsLimit": 10,
         "subscription.messageWritersLimit": 10,
+        "subscription.meetingsLimit": 10,
       },
     };
 
@@ -244,6 +245,7 @@ export const verifyRazorpayPayment = async (req, res) => {
         "subscription.messagedWriters": [],
         "subscription.contactsLimit": 10,
         "subscription.messageWritersLimit": 10,
+        "subscription.meetingsLimit": 10,
       },
     };
 

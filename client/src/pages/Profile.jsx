@@ -248,6 +248,8 @@ const Profile = () => {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [referralSummary, setReferralSummary] = useState(null);
   const [referralLoading, setReferralLoading] = useState(false);
+  const [meetings, setMeetings] = useState([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(false);
   const [referralError, setReferralError] = useState("");
   const [referralCopyFeedback, setReferralCopyFeedback] = useState("");
   const [profileAccessMessage, setProfileAccessMessage] = useState("");
@@ -693,6 +695,28 @@ const Profile = () => {
   }, [activeTab, isOwnProfile, isWriterUser]);
 
   useEffect(() => {
+    if (activeTab === "financial" && isOwnProfile && currentUser?._id && profile?.role !== "admin") {
+      fetchReferralSummary();
+    }
+  }, [activeTab, isOwnProfile, currentUser?._id, profile?.role]);
+  useEffect(() => {
+    if (activeTab === "meetings" && isOwnProfile && currentUser?._id) {
+      const fetchMeetings = async () => {
+        try {
+          setMeetingsLoading(true);
+          const { data } = await api.get("/meetings");
+          setMeetings(data);
+        } catch (error) {
+          console.error("Error fetching meetings:", error);
+        } finally {
+          setMeetingsLoading(false);
+        }
+      };
+      fetchMeetings();
+    }
+  }, [activeTab, isOwnProfile, currentUser?._id]);
+
+  useEffect(() => {
     setShowContactDetails(false);
     setRevealedProfileContact(null);
     setContactRevealStats(null);
@@ -825,9 +849,9 @@ const Profile = () => {
     );
   }
 
-  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  /* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
      Design tokens
-     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+     â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
   const t = {
     card: dark
       ? "bg-[#0d1520] border-white/[0.06]"
@@ -909,9 +933,9 @@ const Profile = () => {
     subtleBg: dark ? "bg-white/[0.02]" : "bg-gray-50/60",
   };
 
-  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  /* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
      RENDER
-     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+     â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
   return (
     <div className={`mx-auto space-y-5 ${isWriterUser || isInvestorProfile ? "max-w-6xl" : "max-w-3xl"}`}>
       <ProfileCompletionBanner
@@ -1340,6 +1364,7 @@ const Profile = () => {
           ...(isOwnProfile && ["investor", "producer", "director"].includes(profile.role)
             ? [{ key: "purchased", label: "Purchased", count: purchasedCount }]
             : []),
+          ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }] : []),
           ...(isOwnProfile ? [{ key: "financial", label: "Financial" }] : []),
           ...(isOwnProfile ? [{ key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
@@ -1373,6 +1398,129 @@ const Profile = () => {
           </button>
         ))}
       </div>
+
+      {/* ──────── MEETINGS TAB ──────── */}
+      {activeTab === "meetings" && isOwnProfile && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-6"
+        >
+          <SectionCard dark={dark} noBox title="Meeting Requests" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}>
+            {meetingsLoading ? (
+              <div className="flex justify-center items-center py-10">
+                <div className={`w-8 h-8 border-4 rounded-full animate-spin ${dark ? "border-white/10 border-t-white" : "border-gray-200 border-t-[#D14D37]"}`} />
+              </div>
+            ) : meetings.length === 0 ? (
+              <div className="text-center py-12">
+                <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${dark ? "bg-white/[0.03]" : "bg-gray-50"}`}>
+                  <svg className={`w-6 h-6 ${dark ? "text-white/20" : "text-gray-300"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className={`text-[13px] font-medium ${dark ? "text-white/40" : "text-gray-500"}`}>No meeting requests found.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {meetings.map((meeting) => {
+                  const isProducer = String(meeting.producer) === String(currentUser._id);
+                  return (
+                    <div key={meeting._id} className={`p-4 rounded-xl border ${dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-white border-gray-200"}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className={`font-semibold text-lg ${dark ? "text-white" : "text-gray-900"}`}>{meeting.title}</h3>
+                          <p className={`text-sm ${dark ? "text-white/60" : "text-gray-600"} mt-1`}>
+                            {isProducer ? "With: " : "From: "} <span className="font-semibold">{isProducer ? meeting.writer_name : meeting.producer_name}</span>
+                          </p>
+                          <p className={`text-sm ${dark ? "text-white/60" : "text-gray-600"}`}>
+                            Script: <span className="italic">{meeting.script_name}</span>
+                          </p>
+                          <div className={`mt-3 flex gap-4 text-sm ${dark ? "text-white/50" : "text-gray-500"}`}>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {new Date(meeting.scheduledDate).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {meeting.scheduledTime}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {meeting.duration} min
+                            </span>
+                          </div>
+                          {meeting.message && (
+                            <p className={`mt-3 text-sm italic ${dark ? "text-white/40" : "text-gray-500"}`}>
+                              "{meeting.message}"
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider ${
+                            meeting.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                            meeting.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {meeting.status}
+                          </span>
+                          {meeting.status === "accepted" && (
+                            <a
+                              href={meeting.meetingLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 bg-[#D14D37] text-white text-xs font-bold rounded-lg hover:bg-[#b53c29] transition-colors"
+                            >
+                              Join Meeting
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isProducer && meeting.status === "pending" && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-white/10 flex gap-3">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.patch(`/meetings/${meeting._id}/status`, { status: "accepted" });
+                                setMeetings(meetings.map(m => m._id === meeting._id ? { ...m, status: "accepted" } : m));
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.patch(`/meetings/${meeting._id}/status`, { status: "rejected" });
+                                setMeetings(meetings.map(m => m._id === meeting._id ? { ...m, status: "rejected" } : m));
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white text-sm font-semibold rounded-lg transition-colors"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </SectionCard>
+        </motion.div>
+      )}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ PROJECTS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "projects" && profile.role !== "investor" && (

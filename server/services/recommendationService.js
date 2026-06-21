@@ -157,6 +157,7 @@ const getExplicitSignals = (investor) => {
   return {
     genres: [...new Set([...mandateGenres, ...prefGenres, ...inferredGenres, ...hookGenres])].filter((g) => g && !excluded.includes(g)),
     formats: [...new Set([...mandateFormats, ...inferredFormats])].filter(Boolean),
+    budgets: [...new Set(inferredBudgets)].filter(Boolean),
     tags: [...new Set(profileTags)],
   };
 };

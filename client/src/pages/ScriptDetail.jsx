@@ -33,6 +33,7 @@ import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 import SocialShareButton from "../components/SocialShareButton";
 import ScreenplayViewer from "../components/ScreenplayViewer";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
+import MeetingModal from "../components/MeetingModal";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
@@ -48,6 +49,10 @@ import {
   getMessageWritersLimit,
   getMessagedWritersCount,
   hasMessagedWriter,
+  getRemainingMeetings,
+  getMeetingsLimit,
+  getScheduledMeetingsCount,
+  hasScheduledMeeting,
 } from "../utils/industryAccess";
 import {
   getScriptCompletionBadgeClasses,
@@ -180,6 +185,8 @@ const ScriptDetail = () => {
   const [revealLoading, setRevealLoading] = useState(false);
   const [revealError, setRevealError] = useState("");
   const [revealStats, setRevealStats] = useState(null);
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
+  const [meetingStats, setMeetingStats] = useState(null);
   const viewStartRef = useRef(Date.now());
   const noticeTimerRef = useRef(null);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
@@ -226,6 +233,12 @@ const ScriptDetail = () => {
   const messageWritersLimit = getMessageWritersLimit(user);
   const messageWritersUsed = getMessagedWritersCount(user);
   const messageWriterBlocked = viewerHasProAccess && !writerAlreadyMessaged && remainingMessageWriters <= 0;
+
+  const meetingAlreadyScheduled = hasScheduledMeeting(user, script?.creator?._id);
+  const remainingMeetings = meetingStats?.remainingMeetings ?? getRemainingMeetings(user);
+  const meetingsLimit = meetingStats?.meetingsLimit ?? getMeetingsLimit(user);
+  const meetingsUsed = meetingStats?.meetingsUsed ?? getScheduledMeetingsCount(user);
+  const meetingsBlocked = viewerHasProAccess && !meetingAlreadyScheduled && remainingMeetings <= 0;
 
   const writerLinks = writerContact?.links || script?.creator?.writerProfile?.links || {};
   const availableWriterLinks = [
@@ -1929,6 +1942,30 @@ const ScriptDetail = () => {
                             </button>
                           )}
                         </div>
+                        
+                        {(meetingAlreadyScheduled || (viewerHasProAccess && !meetingsBlocked) || script?.isUnlocked) && script?.creator?._id && (
+                          <div className="mt-2 flex flex-col items-center">
+                            <button
+                              type="button"
+                              onClick={() => setShowMeetingModal(true)}
+                              className={`flex w-full items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all border ${
+                                isDarkMode
+                                  ? "bg-purple-500/10 border-purple-500/20 text-purple-400 hover:bg-purple-500/20"
+                                  : "bg-purple-50 border-purple-200 text-purple-600 hover:bg-purple-100"
+                              }`}
+                            >
+                              <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              Schedule Meeting
+                            </button>
+                            {viewerHasProAccess && !meetingAlreadyScheduled && !script?.isUnlocked && (
+                              <p className={`mt-1.5 text-[9px] ${remainingMeetings === 0 ? "text-rose-400" : remainingMeetings <= Math.ceil(meetingsLimit * 0.3) ? "text-amber-400" : t.muted}`}>
+                                {remainingMeetings === 0 ? `All ${meetingsLimit} meetings used` : `${meetingsUsed}/${meetingsLimit} meetings used`}
+                              </p>
+                            )}
+                          </div>
+                        )}
 
                         {revealError && (
                           <p className="mt-2 text-[11px] text-rose-400">{revealError}</p>
@@ -3503,6 +3540,24 @@ const ScriptDetail = () => {
         script={script}
         type="hold"
         onSuccess={handlePaymentSuccess}
+      />
+
+      <MeetingModal
+        isOpen={showMeetingModal}
+        onClose={() => setShowMeetingModal(false)}
+        writerId={script?.creator?._id}
+        scriptId={script?._id}
+        writerName={script?.creator?.name || "Writer"}
+        scriptName={script?.title}
+        onMeetingScheduled={(data) => {
+          if (data.meetingsUsed !== undefined && data.meetingsLimit !== undefined && data.remainingMeetings !== undefined) {
+            setMeetingStats({
+              meetingsUsed: data.meetingsUsed,
+              meetingsLimit: data.meetingsLimit,
+              remainingMeetings: data.remainingMeetings,
+            });
+          }
+        }}
       />
     </div>
   );

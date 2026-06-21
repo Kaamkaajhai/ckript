@@ -962,6 +962,7 @@ export const grantPremiumModelToUser = async (req, res) => {
             messagedWriters: [],
             contactsLimit: 10,
             messageWritersLimit: 10,
+            meetingsLimit: 10,
         };
 
         targetUser.isPremium = true;

@@ -141,3 +141,38 @@ export const hasReachedMessageWritersLimit = (user = {}) =>
 
 export const getRemainingMessageWriters = (user = {}) =>
   Math.max(0, getMessageWritersLimit(user) - getMessagedWritersCount(user));
+
+// Scheduled Meetings Utilities
+export const getMeetingsLimit = (user = {}) =>
+  Number(user?.subscription?.meetingsLimit || 10);
+
+export const getScheduledMeetingsSinceActivation = (user = {}) => {
+  const subscription = user?.subscription || {};
+  const activatedAt = subscription?.accessActivatedAt
+    ? new Date(subscription.accessActivatedAt).getTime()
+    : 0;
+  const scheduledMeetings = Array.isArray(subscription?.scheduledMeetings)
+    ? subscription.scheduledMeetings
+    : [];
+  return scheduledMeetings.filter((entry) => {
+    const scheduledAt = entry?.scheduledAt ? new Date(entry.scheduledAt).getTime() : 0;
+    return scheduledAt >= activatedAt;
+  });
+};
+
+export const getScheduledMeetingsCount = (user = {}) =>
+  getScheduledMeetingsSinceActivation(user).length;
+
+export const hasScheduledMeeting = (user = {}, writerId = "") => {
+  const wId = String(writerId || "");
+  if (!wId) return false;
+  return getScheduledMeetingsSinceActivation(user).some(
+    (entry) => String(entry?.writerId || "") === wId
+  );
+};
+
+export const hasReachedMeetingsLimit = (user = {}) =>
+  getScheduledMeetingsCount(user) >= getMeetingsLimit(user);
+
+export const getRemainingMeetings = (user = {}) =>
+  Math.max(0, getMeetingsLimit(user) - getScheduledMeetingsCount(user));
