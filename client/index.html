@@ -8,6 +8,19 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/ckript-feather nobg.png?v=3" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Brand webfonts (match the landing hero): Baskervville for display
+         headings, PT Serif for body. Loaded once, globally, so every surface —
+         landing, auth modal, producer onboarding — renders in the brand face on
+         first paint instead of racing a per-component <link> injection. The id
+         is shared with the modals' ensure*Fonts() helpers so they no-op. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      id="ckript-authmodal-fonts"
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap"
+    />
     <meta
       name="description"
       content="Discover scripts, generate AI concept trailers, connect with producers and investors using Ckript's AI-powered entertainment marketplace."
