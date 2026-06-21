@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import OTPVerification from "./OTPVerification";
 import GoogleSignInButton from "./GoogleSignInButton";
 import PasswordInput from "./PasswordInput";
@@ -106,6 +107,7 @@ const defaultPathForRole = (role) => {
 
 function AuthModalInner({ redirect, onClose }) {
   const { user, login, setUser } = useContext(AuthContext);
+  const { openProducerOnboarding, openWriterOnboarding } = useAuthModal();
   const navigate = useNavigate();
   const titleId = useId();
 
@@ -180,9 +182,19 @@ function AuthModalInner({ redirect, onClose }) {
     }
   };
 
-  const goToRole = (to) => {
+  const goToRole = (card) => {
+    // Both roles now get the in-context onboarding modal (no page nav); the
+    // dedicated routes still exist for deep links / SEO.
+    if (card.key === "producer") {
+      openProducerOnboarding();
+      return;
+    }
+    if (card.key === "writer") {
+      openWriterOnboarding();
+      return;
+    }
     onClose();
-    navigate(to);
+    navigate(card.to);
   };
 
   const goToForgot = () => {
@@ -402,7 +414,7 @@ function AuthModalInner({ redirect, onClose }) {
               key={card.key}
               type="button"
               className="ckam-role"
-              onClick={() => goToRole(card.to)}
+              onClick={() => goToRole(card)}
               onMouseEnter={() => setHovered(card.key)}
               onMouseLeave={() => setHovered(null)}
               onFocus={() => setHovered(card.key)}
