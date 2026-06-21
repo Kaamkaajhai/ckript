@@ -14,10 +14,11 @@ const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const { q, type = "all", role, genre, contentType, budget, premium } = req.query;
-    if (!q || !q.trim()) {
-      return res.json({ users: [], scripts: [] });
+    const qValue = (q || "").trim();
+    let searchRegex = null;
+    if (qValue) {
+      searchRegex = new RegExp(escapeRegExp(qValue), "i");
     }
-    const searchRegex = new RegExp(escapeRegExp(q.trim()), "i");
 
     const currentUser = await User.findById(req.user._id).select("blockedUsers").lean();
     const usersWhoBlockedCurrent = await User.find({ blockedUsers: req.user._id }).select("_id").lean();
@@ -45,19 +46,20 @@ router.get("/", authMiddleware, async (req, res) => {
         userMatch._id = { $nin: blockedUserIds };
       }
 
+      if (searchRegex) {
+        userMatch.$or = [
+          { name: searchRegex },
+          { sid: searchRegex },
+          { bio: searchRegex },
+          { skills: searchRegex },
+          { "writerProfile.genres": searchRegex },
+          { "writerProfile.specializedTags": searchRegex }
+        ];
+      }
+
       const userDocs = await User.aggregate([
         {
-          $match: {
-            ...userMatch,
-            $or: [
-              { name: searchRegex },
-              { sid: searchRegex },
-              { bio: searchRegex },
-              { skills: searchRegex },
-              { "writerProfile.genres": searchRegex },
-              { "writerProfile.specializedTags": searchRegex }
-            ]
-          }
+          $match: userMatch
         },
         { $limit: 30 },
         { 
@@ -97,18 +99,19 @@ router.get("/", authMiddleware, async (req, res) => {
         scriptMatch.creator = { $nin: blockedUserIds };
       }
 
+      if (searchRegex) {
+        scriptMatch.$or = [
+          { title: searchRegex },
+          { sid: searchRegex },
+          { description: searchRegex },
+          { genre: searchRegex },
+          { contentType: searchRegex }
+        ];
+      }
+
       const scriptDocs = await Script.aggregate([
         {
-          $match: {
-            ...scriptMatch,
-            $or: [
-              { title: searchRegex },
-              { sid: searchRegex },
-              { description: searchRegex },
-              { genre: searchRegex },
-              { contentType: searchRegex }
-            ]
-          }
+          $match: scriptMatch
         },
         { $limit: 30 },
         {

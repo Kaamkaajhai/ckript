@@ -351,61 +351,52 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
         <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #1a1a2e; margin: 0; padding: 0; background: #f4f6fb; }
-            .container { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-            .header { background: linear-gradient(135deg, #0f2444 0%, #1e3a5f 60%, #1a5276 100%); color: white; padding: 40px 36px; text-align: center; }
-            .header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-            .header p { margin: 0; font-size: 14px; opacity: 0.75; letter-spacing: 0.4px; text-transform: uppercase; }
-            .badge { display: inline-block; margin-bottom: 16px; background: rgba(255,255,255,0.12); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); }
-            .content { padding: 36px; }
-            .content p { margin: 0 0 16px; font-size: 15px; color: #2c3e50; }
-            .highlight-box { background: #f0f4ff; border-left: 4px solid #1e3a5f; border-radius: 0 10px 10px 0; padding: 18px 20px; margin: 24px 0; }
-            .highlight-box p { margin: 0; font-size: 14px; color: #1e3a5f; font-weight: 600; }
-            .feature-list { list-style: none; padding: 0; margin: 20px 0; }
-            .feature-list li { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; font-size: 14px; color: #2c3e50; }
-            .feature-list li span.icon { background: #1e3a5f; color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
-            .cta { text-align: center; margin: 32px 0 8px; }
-            .cta a { background: #1e3a5f; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-weight: 700; font-size: 15px; letter-spacing: 0.2px; display: inline-block; }
-            .footer { text-align: center; padding: 20px 36px; background: #f8fafc; color: #94a3b8; font-size: 12px; border-top: 1px solid #e8edf4; }
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827; margin: 0; padding: 0; background: #fafafa; }
+            .container { max-width: 580px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05); border: 1px solid #f3f4f6; }
+            .header { background: #000000; color: white; padding: 48px 40px; text-align: left; }
+            .badge { display: inline-block; margin-bottom: 20px; color: #10b981; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 12px; border-radius: 4px; background: rgba(16, 185, 129, 0.1); }
+            .header h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+            .content { padding: 40px; }
+            .greeting { font-size: 18px; font-weight: 600; margin-bottom: 24px; color: #111827; }
+            .drama-text { font-size: 24px; font-weight: 700; color: #111827; line-height: 1.3; margin: 0 0 24px; letter-spacing: -0.5px; }
+            .sub-text { font-size: 15px; color: #4b5563; margin-bottom: 32px; }
+            .cta-wrapper { text-align: left; margin: 40px 0 20px; }
+            .cta { background: #111827; color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block; transition: background 0.2s; }
+            .footer { padding: 32px 40px; background: #f9fafb; color: #6b7280; font-size: 12px; border-top: 1px solid #f3f4f6; }
+            .footer a { color: #111827; text-decoration: none; font-weight: 500; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <div class="badge">Film Industry Professional</div>
-              <h1>Welcome to ckript</h1>
-              <p>Where Stories Meet the Screen</p>
+              <div class="badge">INDUSTRY ACCESS GRANTED</div>
+              <h1>The screen is waiting.</h1>
             </div>
             <div class="content">
-              <p>Hi ${name},</p>
-              <p>Welcome to <strong>ckript</strong>. You're officially in.</p>
-
-              <div class="highlight-box">
-                <p>Find your next big project. Connect with writers. Secure IP rights seamlessly.</p>
+              <div class="greeting">Hi ${name},</div>
+              
+              <div class="drama-text">
+                Every masterpiece starts with a single line.<br/>
+                Your next big project is hiding in plain sight.
+              </div>
+              
+              <div class="sub-text">
+                Welcome to <strong>ckript</strong>. You now have exclusive access to a curated marketplace of production-ready stories, brilliant writers, and untapped intellectual property. No middlemen. Just you and the script.
               </div>
 
-              <ul class="feature-list">
-                <li><span class="icon">✦</span> <strong>Curated Scripts:</strong> Browse production-ready stories across genres.</li>
-                <li><span class="icon">✦</span> <strong>Direct Access:</strong> Connect and negotiate directly with verified writers.</li>
-                <li><span class="icon">✦</span> <strong>Smart Evaluation:</strong> Watch pitch videos and evaluate scripts instantly.</li>
-                <li><span class="icon">✦</span> <strong>Seamless IP:</strong> Acquire rights and build your portfolio in one place.</li>
-              </ul>
-
-              <p>The next great story is waiting for you.</p>
-
-              <div class="cta">
-                <a href="https://ckript.com/search">Explore Scripts on ckript</a>
+              <div class="cta-wrapper">
+                <a href="${buildClientUrl('/search')}" class="cta">Discover Scripts</a>
               </div>
             </div>
             <div class="footer">
-              <p>© 2026 ckript. All rights reserved.</p>
-              <p style="margin: 4px 0 0;">Questions? Reach us at <a href="mailto:info.ckript@gmail.com" style="color:#1e3a5f;">info.ckript@gmail.com</a></p>
+              <p>If you have any questions, reply to this email. We're here to help.</p>
+              <p>© ${new Date().getFullYear()} ckript. All rights reserved.</p>
             </div>
           </div>
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nWelcome to ckript. You're officially in.\n\nFind your next big project. Connect with writers. Secure IP rights seamlessly.\n\nWhat you can do:\n- Curated Scripts: Browse production-ready stories\n- Direct Access: Connect with verified writers\n- Smart Evaluation: Watch pitch videos\n- Seamless IP: Acquire rights and build your portfolio\n\nThe next great story is waiting for you.\n\nExplore Scripts: https://ckript.com/search\n\nThe ckript Team`,
+      text: `Hi ${name},\n\nEvery masterpiece starts with a single line. Your next big project is hiding in plain sight.\n\nWelcome to ckript. You now have exclusive access to a curated marketplace of production-ready stories, brilliant writers, and untapped intellectual property. No middlemen. Just you and the script.\n\nDiscover Scripts: ${buildClientUrl('/search')}\n\nThe ckript Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);

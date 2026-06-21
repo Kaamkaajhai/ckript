@@ -51,6 +51,7 @@ const TABS = [
     { key: "investor-purchases", label: "Purchases", icon: "M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" },
     { key: "invoices", label: "Invoices", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H6.75A2.25 2.25 0 004.5 4.5v15A2.25 2.25 0 006.75 21.75h10.5A2.25 2.25 0 0019.5 19.5v-1.125M15 12h-6m6 3h-6m3-6h.008v.008H12V9z" },
     { key: "payments", label: "Payments", icon: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" },
+    { key: "premium-professionals", label: "Premium Professionals", icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
     { key: "scores", label: "Scores", icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" },
     { key: "deleted-film-professionals", label: "Deleted Film Professionals", icon: "M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" },
     { key: "deleted-writers", label: "Deleted Writers", icon: "M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" },
@@ -1350,10 +1351,12 @@ const AdminDashboard = () => {
             case "investors":
             case "writers":
             case "readers":
+            case "premium-professionals":
                 const sectionTitleByTab = {
                     investors: "Film Professionals",
                     writers: "Writers",
                     readers: "Readers",
+                    "premium-professionals": "Premium Professionals",
                 };
                 return {
                     title: `${sectionTitleByTab[activeTab] || activeTab} (${users.length})`,
@@ -1689,6 +1692,11 @@ const AdminDashboard = () => {
                 }
                 case "investors": {
                     const { data } = await adminApi.get(`/admin/users?role=investor&page=${page}&search=${encodeURIComponent(activeSearch)}`);
+                    setUsers(data.users); setTotalPages(data.totalPages); setTotal(data.total);
+                    break;
+                }
+                case "premium-professionals": {
+                    const { data } = await adminApi.get(`/admin/users?isPremium=true&role=investor&page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     setUsers(data.users); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
@@ -2954,6 +2962,73 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                );
+
+            case "premium-professionals":
+                return (
+                    <div>
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
+                                Premium Professionals
+                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredUsers.length : total})</span>
+                            </h2>
+                        </div>
+                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>User</th>
+                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Email</th>
+                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Joined</th>
+                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Premium Expiry</th>
+                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Days Left</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                        {filteredUsers.map((u) => {
+                                            const expiryDate = u.subscription?.accessExpiresAt ? new Date(u.subscription.accessExpiresAt) : null;
+                                            const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 3600 * 24))) : 0;
+                                            return (
+                                                <tr key={u._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
+                                                    <td className="px-5 py-3.5">
+                                                        <div className="flex items-center gap-3">
+                                                            {u.profileImage ? (
+                                                                <img src={u.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                                            ) : (
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
+                                                                    {u.name?.charAt(0)?.toUpperCase() || "?"}
+                                                                </div>
+                                                            )}
+                                                            <div>
+                                                                <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{u.name}</p>
+                                                                <p className={`text-[11px] mt-0.5 font-bold ${u.isDeactivated ? "text-red-500" : u.isFrozen ? "text-amber-500" : (isDark ? "text-emerald-400" : "text-emerald-600")}`}>
+                                                                    SID: {u.sid || "Pending"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{u.email}</td>
+                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                                                        {new Date(u.createdAt).toLocaleDateString()}
+                                                    </td>
+                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                                                        {expiryDate ? expiryDate.toLocaleDateString() : "Lifetime/None"}
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${daysLeft > 7 ? (isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-700") : daysLeft > 0 ? (isDark ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-700") : (isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-700")}`}>
+                                                            {daysLeft > 0 ? `${daysLeft} Days` : "Expired"}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
                     </div>
                 );
 

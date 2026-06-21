@@ -187,10 +187,17 @@ const FORMAT_PAGE_RANGES = {
   other: { min: 1, max: 250, typical: "Varies", label: "Other", wordsPerPage: 250 },
 };
 const MAX_PREVIEW_SNIPPET_LENGTH = 900;
+const PREVIEW_LINES_PER_PAGE = 42;
+
 const normalizePreviewContent = (value = "") =>
   String(value || "")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/ /g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 
 const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
@@ -201,23 +208,20 @@ const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
     ? `${raw.slice(0, MAX_PREVIEW_SNIPPET_LENGTH).trimEnd()}...`
     : raw;
 };
-const buildPagePreviewTexts = (html = "", pageCount = 1, wordsPerPage = 250) => {
+const buildPagePreviewTexts = (html = "", pageCount = 1) => {
   const plainText = normalizePreviewContent(html);
   if (!plainText) return [];
 
-  const words = plainText.split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
-
+  const lines = plainText.split("\n");
   const safePages = Math.max(1, Number(pageCount) || 1);
   const chunks = [];
-  const wordsPerChunk = Math.max(50, Number(wordsPerPage) || 250);
 
   for (let pageIndex = 0; pageIndex < safePages; pageIndex += 1) {
-    const startIndex = pageIndex * wordsPerChunk;
-    const endIndex = pageIndex === safePages - 1
-      ? words.length
-      : Math.min(words.length, (pageIndex + 1) * wordsPerChunk);
-    const pageText = words.slice(startIndex, endIndex).join(" ").trim();
+    const startLine = pageIndex * PREVIEW_LINES_PER_PAGE;
+    const endLine = Math.min(lines.length, (pageIndex + 1) * PREVIEW_LINES_PER_PAGE);
+    const pageText = startLine < lines.length
+      ? lines.slice(startLine, endLine).join("\n").trimEnd()
+      : "";
     chunks.push(pageText);
   }
 
@@ -1051,7 +1055,7 @@ const CreateProject = () => {
     <div
       key={pageIndex}
       className="absolute left-3 flex items-center justify-center max-[1200px]:hidden"
-      style={{ top: pageIndex * 1122 + 48, height: 28 }}
+      style={{ top: pageIndex * 1123 + 48, height: 28 }}
     >
       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-[#0d1520] text-gray-600 border border-[#182840]" : "bg-white text-gray-400 border border-gray-300 shadow-sm"}`}>
         {pageIndex + 1}
@@ -1142,7 +1146,23 @@ const CreateProject = () => {
       TextStyle, Color, Underline,
       Placeholder.configure({ placeholder: "Start writing your script here...  e.g.  INT. LIVING ROOM - DAY" }),
     ],
-    editorProps: { attributes: { class: `prose max-w-none focus:outline-none min-h-[1056px] px-16 max-[1200px]:px-10 py-14 max-[1200px]:py-12 max-[640px]:px-6 max-[520px]:px-4 max-[420px]:px-3 max-[640px]:py-10 text-[15px] max-[520px]:text-[14px] leading-[1.65] ${dark ? "prose-invert" : ""}` } },
+    editorProps: {
+      attributes: { class: `prose max-w-none focus:outline-none min-h-[1123px] px-16 max-[1200px]:px-10 py-14 max-[1200px]:py-12 max-[640px]:px-6 max-[520px]:px-4 max-[420px]:px-3 max-[640px]:py-10 text-[15px] max-[520px]:text-[14px] leading-[1.65] ${dark ? "prose-invert" : ""}` },
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData("text/plain");
+        if (!text) return false;
+        const { schema } = view.state;
+        const { from, to } = view.state.selection;
+        const nodes = text.split(/\r?\n/).map(line => {
+          if (!line) return schema.nodes.paragraph.create();
+          try { return schema.nodes.paragraph.create(null, [schema.text(line)]); }
+          catch { return schema.nodes.paragraph.create(); }
+        });
+        if (!nodes.length) return false;
+        view.dispatch(view.state.tr.replaceWith(from, to, nodes));
+        return true;
+      },
+    },
     onUpdate: ({ editor }) => {
       const t = editor.getText();
       setWordCount(t.split(/\s+/).filter(Boolean).length);
@@ -1154,7 +1174,7 @@ const CreateProject = () => {
   useEffect(() => {
     if (!editor) return;
     const editorHtmlForPreview = editor.getHTML?.() || "";
-    const nextPreviewTexts = buildPagePreviewTexts(editorHtmlForPreview, estimatedPages, formatInfo.wordsPerPage);
+    const nextPreviewTexts = buildPagePreviewTexts(editorHtmlForPreview, estimatedPages);
     const nextSignature = JSON.stringify(nextPreviewTexts);
     if (nextSignature === previewPageTextsSignatureRef.current) return;
     previewPageTextsSignatureRef.current = nextSignature;
@@ -3064,11 +3084,11 @@ const CreateProject = () => {
                 <div className="flex flex-col items-center max-[1200px]:items-start gap-0 py-8 max-[580px]:py-4 px-14 max-[1200px]:px-2 max-[380px]:px-1">
                   <div
                     className={`relative w-full max-w-[760px] max-[1200px]:max-w-none shadow-2xl ${dark ? "bg-[#111827]" : "bg-white"}`}
-                    style={{ minHeight: Math.max(estimatedPages, 1) * 1056 + "px" }}>
+                    style={{ minHeight: Math.max(estimatedPages, 1) * 1123 + "px" }}>
 
                     {/* Page break lines */}
                     {Array.from({ length: Math.max(estimatedPages - 1, 0) }).map((_, i) => (
-                      <div key={i} style={{ position: "absolute", top: (i + 1) * 1056, left: 0, right: 0, zIndex: 5 }}>
+                      <div key={i} style={{ position: "absolute", top: (i + 1) * 1123, left: 0, right: 0, zIndex: 5 }}>
                         <div className={`w-full flex items-center gap-3 px-4 ${dark ? "bg-[#05090f]" : "bg-[#e8eaed]"}`} style={{ height: 32 }}>
                           <div className={`flex-1 h-px ${dark ? "bg-[#1a2a3a]" : "bg-gray-300"}`} />
                           <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded ${dark ? "bg-[#0d1520] text-gray-600 border border-[#182840]" : "bg-white text-gray-400 border border-gray-300"}`}>
