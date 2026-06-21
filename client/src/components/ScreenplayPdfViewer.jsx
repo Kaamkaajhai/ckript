@@ -178,6 +178,17 @@ export default function ScreenplayPdfViewer({
   const [loading, setLoading] = useState(Boolean(pdfUrl));
   const [nativePdfUrl, setNativePdfUrl] = useState("");
   const [activePageIndex, setActivePageIndex] = useState(0);
+  const pagerRef = useRef(null);
+
+  const scrollToPager = () => {
+    const el = pagerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const fixedHeaderHeight = 72; // accounts for MainLayout fixed top bar (~56-64px) + buffer
+    const currentScrollY = window.scrollY || document.documentElement.scrollTop;
+    const targetY = currentScrollY + rect.top - fixedHeaderHeight;
+    window.scrollTo({ top: targetY, behavior: "smooth" });
+  };
   const requestedPages = useMemo(() => {
     const safeStart = Math.max(1, Number(startPage || 1));
     const safeEnd = Math.max(safeStart, Number(endPage || safeStart));
@@ -363,10 +374,13 @@ export default function ScreenplayPdfViewer({
 
       {visiblePages.length ? (
         <div className="space-y-6">
-          <div className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+          <div ref={pagerRef} style={{ scrollMarginTop: "1px" }} className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
             <button
               type="button"
-              onClick={() => setActivePageIndex((index) => Math.max(0, index - 1))}
+              onClick={() => {
+                setActivePageIndex((index) => Math.max(0, index - 1));
+                scrollToPager();
+              }}
               disabled={!hasPager || activePageIndex === 0}
               className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
             >
@@ -380,7 +394,10 @@ export default function ScreenplayPdfViewer({
             </div>
             <button
               type="button"
-              onClick={() => setActivePageIndex((index) => Math.min(Math.max(previewPages.length - 1, 0), index + 1))}
+              onClick={() => {
+                setActivePageIndex((index) => Math.min(Math.max(previewPages.length - 1, 0), index + 1));
+                scrollToPager();
+              }}
               disabled={!hasPager || activePageIndex >= previewPages.length - 1}
               className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
             >

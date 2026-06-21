@@ -1272,10 +1272,10 @@ const ScriptDetail = () => {
                     Use a company email address to browse scripts and view writer profiles at no cost.
                   </p>
                   <Link
-                    to="/producer-director-onboarding"
+                    to="/industry-onboarding"
                     className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition ${t.btnSec}`}
                   >
-                    Update Account Email
+                    Sign up as Film Industry Professional
                   </Link>
                 </div>
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">

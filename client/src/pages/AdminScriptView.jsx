@@ -458,8 +458,23 @@ const AdminScriptView = () => {
     return pages;
   }, [plainScriptText]);
 
+  // scriptPreviewPageTexts from server is already clean plain-text (newline-preserved).
+  // Prefer it over re-parsing textContent HTML when building main content fallback pages.
+  const serverPreviewPageTexts = useMemo(() => {
+    const pts = script?.scriptPreviewPageTexts;
+    if (!Array.isArray(pts) || !pts.some(Boolean)) return [];
+    return pts.map((t) => String(t || "").trim());
+  }, [script?.scriptPreviewPageTexts]);
+
+  const mainContentFallbackPages = useMemo(() => {
+    const source = serverPreviewPageTexts.length > 0 ? serverPreviewPageTexts : scriptPages;
+    return source.map((pageText, index) => ({ pageNumber: index + 1, text: pageText }));
+  }, [serverPreviewPageTexts, scriptPages]);
+
   const hasUploadedPdf = Boolean(uploadedPdfUrl);
-  const hasFullScriptText = Boolean(plainScriptText.trim());
+  const hasFullScriptText = Boolean(
+    plainScriptText.trim() || serverPreviewPageTexts.some(Boolean)
+  );
 
   const handleDownloadScript = () => {
     if (!plainScriptText.trim()) {
@@ -1569,10 +1584,7 @@ const AdminScriptView = () => {
               <ScreenplayPdfViewer
                 pdfUrl={uploadedPdfUrl}
                 title={script?.title || "Script"}
-                fallbackPages={scriptPages.map((pageText, index) => ({
-                  pageNumber: index + 1,
-                  text: pageText,
-                }))}
+                fallbackPages={mainContentFallbackPages}
                 fallbackText={plainScriptText}
                 showAllPages
               />
