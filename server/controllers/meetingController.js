@@ -31,6 +31,10 @@ export const requestMeeting = async (req, res) => {
       return res.status(400).json({ message: "All fields except message are required." });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(writerId) || !mongoose.Types.ObjectId.isValid(scriptId)) {
+      return res.status(400).json({ message: "Invalid writer or script ID format." });
+    }
+
     const producer = await User.findById(producerId).select("name subscription email role").lean();
     if (!producer) return res.status(404).json({ message: "Producer not found." });
 
