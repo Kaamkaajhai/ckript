@@ -140,21 +140,21 @@ export const sendMessage = async (req, res) => {
             const accessStatus = String(subscription.accessStatus || "").trim().toLowerCase();
             
             if (accessTier === "film_industry_professional" && accessStatus === "active") {
-              const contactsLimit = subscription.contactsLimit || 15;
-              const revealedContacts = subscription.revealedContacts || [];
-              const writerAlreadyRevealed = revealedContacts.some(c => c.writerId && c.writerId.toString() === writerId.toString());
+              const messageWritersLimit = subscription.messageWritersLimit || 10;
+              const messagedWriters = subscription.messagedWriters || [];
+              const writerAlreadyMessaged = messagedWriters.some(c => c.writerId && c.writerId.toString() === writerId.toString());
               
-              if (!writerAlreadyRevealed) {
-                if (revealedContacts.length >= contactsLimit) {
+              if (!writerAlreadyMessaged) {
+                if (messagedWriters.length >= messageWritersLimit) {
                   return res.status(403).json({
-                    message: `You have reached your limit of ${contactsLimit} direct messages/contact reveals.`,
+                    message: `You have reached your limit of ${messageWritersLimit} direct messages.`,
                     code: "QUOTA_EXCEEDED",
                   });
                 } else {
                   // Consume a quota slot
-                  sender.subscription.revealedContacts.push({
+                  sender.subscription.messagedWriters.push({
                     writerId: writerId,
-                    revealedAt: new Date()
+                    messagedAt: new Date()
                   });
                   await sender.save();
                 }

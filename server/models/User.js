@@ -290,11 +290,18 @@ const userSchema = new mongoose.Schema({
     },
     checkoutReference: { type: String },
     sourcePath: { type: String },
-    contactsLimit: { type: Number, default: 15 },
+    contactsLimit: { type: Number, default: 10 },
+    messageWritersLimit: { type: Number, default: 10 },
     revealedContacts: [
       {
         writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
         revealedAt: { type: Date, default: Date.now },
+      },
+    ],
+    messagedWriters: [
+      {
+        writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        messagedAt: { type: Date, default: Date.now },
       },
     ],
   },

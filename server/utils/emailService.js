@@ -1034,6 +1034,59 @@ export const sendAdminCreditsGrantedEmail = async (
   }
 };
 
+export const sendAdminPremiumGrantedEmail = async (
+  email,
+  name,
+  { adminName = "Admin", clientBaseUrl = "" } = {}
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+
+    const safeAdminName = String(adminName || "Admin").trim() || "Admin";
+    const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: "Welcome to ckript Premium!",
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
+              <h2 style="margin:0; font-size:20px;">Premium Model Activated</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
+              <p style="margin:0 0 12px;">We have great news! ${safeAdminName} has granted you full access to the <strong>ckript Premium Model</strong> for film industry professionals.</p>
+              <p style="margin:0 0 16px;">With Premium, you can now:</p>
+              <ul style="margin:0 0 20px 20px; padding:0;">
+                <li style="margin-bottom:8px;">Explore a curated library of high-quality scripts.</li>
+                <li style="margin-bottom:8px;">View comprehensive writer details and portfolios.</li>
+                <li style="margin-bottom:8px;">Access exclusive AI evaluation scores and tools.</li>
+                <li>Connect directly with emerging and established writers.</li>
+              </ul>
+              <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Explore ckript Premium</a>
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">Thank you for being part of the ckript community.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name || "there"},\n\nWe have great news! ${safeAdminName} has granted you full access to the ckript Premium Model.\n\nWith Premium, you can explore high-quality scripts, view writer details, and access exclusive AI tools.\n\nExplore ckript Premium: ${dashboardUrl}\n\nThank you for being part of the ckript community.`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending admin premium grant email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 // Send user email when admin sends a direct message
 export const sendAdminMessageEmail = async (
   email,

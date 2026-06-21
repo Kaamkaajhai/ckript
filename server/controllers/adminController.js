@@ -23,6 +23,7 @@ import {
     sendInvestorRejectionEmail,
     sendWriterMembershipDecisionEmail,
     sendAdminCreditsGrantedEmail,
+    sendAdminPremiumGrantedEmail,
     sendAdminBroadcastEmail,
 } from "../utils/emailService.js";
 import {
@@ -925,6 +926,62 @@ export const grantCreditsToUser = async (req, res) => {
             balanceAfter,
             emailSent: Boolean(emailResult?.success),
             emailError: emailResult?.success ? undefined : (emailResult?.error || "Email send failed"),
+            user: buildAdminManagedUserSummary(targetUser),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const grantPremiumModelToUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (!FILM_PROFESSIONAL_ROLE_LIST.includes(targetUser.role)) {
+            return res.status(403).json({ message: "Only film industry professionals can be granted the premium model." });
+        }
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot grant premium to a deleted account" });
+        }
+
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days as per FILM_INDUSTRY_PRO_MODEL
+
+        targetUser.subscription = {
+            plan: "pro",
+            accessTier: "film_industry_professional",
+            checkoutMode: "live",
+            checkoutProvider: "razorpay",
+            accessStatus: "active",
+            accessExpiresAt: expiresAt,
+            lastAccessUpdate: now,
+            isActive: true,
+            revealedContacts: [],
+            messagedWriters: [],
+            contactsLimit: 10,
+            messageWritersLimit: 10,
+        };
+
+        targetUser.isPremium = true;
+
+        await targetUser.save();
+
+        let emailResult = await sendAdminPremiumGrantedEmail(targetUser.email, targetUser.name, {
+            adminName: req.user?.name || "Admin",
+            clientBaseUrl: resolveClientOriginFromRequest(req),
+        });
+
+        if (!emailResult?.success) {
+            emailResult = await sendAdminPremiumGrantedEmail(targetUser.email, targetUser.name, {
+                adminName: req.user?.name || "Admin",
+                clientBaseUrl: resolveClientOriginFromRequest(req),
+            });
+        }
+
+        res.json({
+            message: "Premium model granted successfully",
             user: buildAdminManagedUserSummary(targetUser),
         });
     } catch (error) {

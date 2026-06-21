@@ -9,6 +9,11 @@ import {
   getRevealedContactCount,
   getContactsLimit,
   getRemainingContacts,
+  hasMessagedWriter,
+  hasReachedMessageWritersLimit,
+  getMessagedWritersCount,
+  getMessageWritersLimit,
+  getRemainingMessageWriters,
 } from "../utils/industryAccess.js";
 
 import crypto from "crypto";
@@ -130,7 +135,9 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
         "subscription.checkoutReference": checkoutReference,
         "subscription.sourcePath": returnTo || "/home",
         "subscription.revealedContacts": [],
-        "subscription.contactsLimit": 15,
+        "subscription.messagedWriters": [],
+        "subscription.contactsLimit": 10,
+        "subscription.messageWritersLimit": 10,
       },
     };
 
@@ -234,7 +241,9 @@ export const verifyRazorpayPayment = async (req, res) => {
         "subscription.checkoutReference": razorpay_payment_id,
         "subscription.sourcePath": normalizeReturnPath(returnTo) || "/home",
         "subscription.revealedContacts": [],
-        "subscription.contactsLimit": 15,
+        "subscription.messagedWriters": [],
+        "subscription.contactsLimit": 10,
+        "subscription.messageWritersLimit": 10,
       },
     };
 
@@ -325,5 +334,55 @@ export const revealWriterContact = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to reveal contact" });
+  }
+};
+
+export const consumeMessageWriterSlot = async (req, res) => {
+  try {
+    const { writerId } = req.params;
+    if (!writerId) return res.status(400).json({ message: "writerId is required" });
+
+    const user = await User.findById(req.user._id).select("subscription role isPremium").lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const alreadyMessaged = hasMessagedWriter(user, writerId);
+    
+    if (!alreadyMessaged) {
+      if (hasReachedMessageWritersLimit(user)) {
+        return res.status(403).json({
+          message: "You've reached your message limit for this subscription period.",
+          limitReached: true,
+          messagesUsed: getMessagedWritersCount(user),
+          messageWritersLimit: getMessageWritersLimit(user),
+          remainingMessageWriters: 0,
+        });
+      }
+
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $push: {
+            "subscription.messagedWriters": {
+              writerId: new mongoose.Types.ObjectId(writerId),
+              messagedAt: new Date(),
+            },
+          },
+        }
+      );
+    }
+
+    const refreshedUser = await User.findById(user._id).select("subscription").lean();
+    const messagesUsed = getMessagedWritersCount(refreshedUser || user);
+    const messageWritersLimit = getMessageWritersLimit(refreshedUser || user);
+    const remainingMessageWriters = getRemainingMessageWriters(refreshedUser || user);
+
+    return res.json({
+      alreadyMessaged,
+      messagesUsed,
+      messageWritersLimit,
+      remainingMessageWriters,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to consume message slot" });
   }
 };

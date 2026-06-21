@@ -12,6 +12,7 @@ import api from "../services/api";
 import { getApiOrigin } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { isFilmIndustryProfessionalRole } from "../utils/industryAccess";
 
 const SOCKET_ORIGIN = getApiOrigin() || (typeof window !== "undefined" ? window.location.origin : "");
 const POPUP_STACK_LIMIT = 1;
@@ -756,7 +757,7 @@ const MainLayout = ({ children }) => {
         <div className="order-2 sm:order-3 ml-auto flex items-center gap-1 max-[378px]:gap-0.5 sm:gap-1.5 md:gap-2 min-[640px]:max-[690px]:gap-1 relative z-[95] shrink-0">
           <button
             onClick={() => navigate("/search")}
-            className="sm:hidden min-[640px]:max-[690px]:flex max-[299px]:hidden w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a]"
+            className="order-1 sm:hidden min-[640px]:max-[690px]:flex max-[299px]:hidden w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a]"
             style={{ color: "#ffffff" }}
             aria-label="Open search"
             title="Search"
@@ -766,8 +767,20 @@ const MainLayout = ({ children }) => {
             </svg>
           </button>
 
+          {/* Pricing Link */}
+          {isFilmIndustryProfessionalRole(user) && (
+            <button
+              onClick={() => navigate("/pricing")}
+              className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all border border-[#D14D37] bg-transparent hover:bg-[#D14D37]/10 mr-1 sm:mr-0"
+              style={{ color: "#ffffff" }}
+              title="View Pricing"
+            >
+              Pricing
+            </button>
+          )}
+
           {/* Notification bell */}
-          <div className="relative" ref={notifRef}>
+          <div className="order-2 sm:order-3 relative" ref={notifRef}>
             <button onClick={handleNotifToggle}
               className="relative w-8 h-8 md:w-9 md:h-9 max-[378px]:w-[30px] max-[378px]:h-[30px] flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a] hover:scale-105"
               style={{ color: "#ffffff" }}>
@@ -944,7 +957,7 @@ const MainLayout = ({ children }) => {
           {showCreditSystem && (
             <button
               onClick={() => setShowBuyCredits(true)}
-              className="group shrink-0 flex items-center gap-1.5 max-[378px]:gap-1 md:gap-2 min-[640px]:max-[690px]:gap-1 px-2.5 max-[378px]:px-2 max-[340px]:px-1.5 md:px-3.5 min-[640px]:max-[690px]:px-2 py-1.5 max-[378px]:py-1 rounded-xl max-[378px]:rounded-lg border text-sm transition-all duration-200 bg-[#071224] border-white/[0.09] hover:bg-[#0a1729] hover:border-sky-500/25 hover:shadow-lg hover:shadow-sky-500/5"
+              className="order-4 group shrink-0 flex items-center gap-1.5 max-[378px]:gap-1 md:gap-2 min-[640px]:max-[690px]:gap-1 px-2.5 max-[378px]:px-2 max-[340px]:px-1.5 md:px-3.5 min-[640px]:max-[690px]:px-2 py-1.5 max-[378px]:py-1 rounded-xl max-[378px]:rounded-lg border text-sm transition-all duration-200 bg-[#071224] border-white/[0.09] hover:bg-[#0a1729] hover:border-sky-500/25 hover:shadow-lg hover:shadow-sky-500/5"
             >
               <svg className="w-3.5 h-3.5 max-[378px]:w-3 max-[378px]:h-3 flex-shrink-0 transition-colors text-sky-400 group-hover:text-sky-300" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" />
@@ -955,7 +968,7 @@ const MainLayout = ({ children }) => {
           )}
 
           {/* User menu */}
-          <div className="hidden sm:block min-[640px]:max-[690px]:hidden relative" ref={dropdownRef}>
+          <div className="order-5 hidden sm:block min-[640px]:max-[690px]:hidden relative" ref={dropdownRef}>
             <button onClick={() => setDropdownOpen(!dropdownOpen)}
               className="flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all duration-200 hover:bg-[#0d1a2a]">
               {resolvedProfileImage && !avatarLoadError ? (
@@ -994,13 +1007,6 @@ const MainLayout = ({ children }) => {
                   Contact
                 </button>
 
-                <button onClick={() => { navigate("/pricing"); setDropdownOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                  Pricing
-                </button>
 
                 <button onClick={() => { navigate("/terms-of-service"); setDropdownOpen(false); }}
                   className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
