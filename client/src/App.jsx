@@ -26,7 +26,7 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Join = lazy(() => import("./pages/Join"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
-const WriterOnboarding = lazy(() => import("./pages/WriterOnboarding"));
+const WriterOnboardingRoute = lazy(() => import("./pages/WriterOnboardingRoute"));
 const ProducerOnboardingRoute = lazy(() => import("./pages/ProducerOnboardingRoute"));
 const IndustryOnboarding = lazy(() => import("./pages/IndustryOnboarding"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -281,7 +281,7 @@ function App() {
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/share/profile/:id" element={<PublicProfile />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
-              <Route path="/writer-onboarding" element={<WriterOnboarding />} />
+              <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
               <Route element={<ProtectedMainLayout />}>

@@ -107,7 +107,7 @@ const defaultPathForRole = (role) => {
 
 function AuthModalInner({ redirect, onClose }) {
   const { user, login, setUser } = useContext(AuthContext);
-  const { openProducerOnboarding } = useAuthModal();
+  const { openProducerOnboarding, openWriterOnboarding } = useAuthModal();
   const navigate = useNavigate();
   const titleId = useId();
 
@@ -183,10 +183,14 @@ function AuthModalInner({ redirect, onClose }) {
   };
 
   const goToRole = (card) => {
-    // Producers get the new in-context onboarding modal (no page nav); writers
-    // continue to their dedicated full-page onboarding flow.
+    // Both roles now get the in-context onboarding modal (no page nav); the
+    // dedicated routes still exist for deep links / SEO.
     if (card.key === "producer") {
       openProducerOnboarding();
+      return;
+    }
+    if (card.key === "writer") {
+      openWriterOnboarding();
       return;
     }
     onClose();
