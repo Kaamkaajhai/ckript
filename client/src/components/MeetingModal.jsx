@@ -69,7 +69,7 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
           <h2 className="text-xl font-bold font-serif text-[#0B0A06] dark:text-[#f3f2ee]">Schedule Meeting</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="text-gray-400 hover:text-gray-600 dark:!text-white transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -103,7 +103,7 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-[#0B0A06] dark:text-[#f3f2ee] focus:ring-2 focus:ring-[#D14D37] focus:border-transparent outline-none transition-all"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-gray-900 dark:!text-white dark:[color-scheme:dark] placeholder-gray-500 dark:!placeholder-white focus:ring-2 focus:ring-[#D14D37] focus:border-transparent outline-none transition-all"
               placeholder="e.g. Script Review & Deal Discussion"
             />
           </div>
@@ -119,7 +119,7 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
                 min={new Date().toISOString().split("T")[0]}
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-[#0B0A06] dark:text-[#f3f2ee] focus:ring-2 focus:ring-[#D14D37] outline-none transition-all"
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-gray-900 dark:!text-white dark:[color-scheme:dark] placeholder-gray-500 dark:!placeholder-white focus:ring-2 focus:ring-[#D14D37] outline-none transition-all"
               />
             </div>
             <div>
@@ -131,7 +131,7 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
                 required
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-[#0B0A06] dark:text-[#f3f2ee] focus:ring-2 focus:ring-[#D14D37] outline-none transition-all"
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-gray-900 dark:!text-white dark:[color-scheme:dark] placeholder-gray-500 dark:!placeholder-white focus:ring-2 focus:ring-[#D14D37] outline-none transition-all"
               />
             </div>
           </div>
@@ -144,14 +144,10 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
               required
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-[#0B0A06] dark:text-[#f3f2ee] focus:ring-2 focus:ring-[#D14D37] outline-none transition-all"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-gray-900 dark:!text-white dark:[color-scheme:dark] placeholder-gray-500 dark:!placeholder-white focus:ring-2 focus:ring-[#D14D37] outline-none transition-all"
             >
-              <option value="15">15 Minutes</option>
               <option value="30">30 Minutes</option>
-              <option value="45">45 Minutes</option>
               <option value="60">1 Hour</option>
-              <option value="90">1.5 Hours</option>
-              <option value="120">2 Hours</option>
             </select>
           </div>
 
@@ -163,7 +159,7 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-[#0B0A06] dark:text-[#f3f2ee] focus:ring-2 focus:ring-[#D14D37] outline-none transition-all resize-none"
+              className="w-full px-3 py-2 bg-gray-50 dark:bg-[#11100C] border border-[#e4e2dc] dark:border-[#2C2A26] rounded-lg text-gray-900 dark:!text-white dark:[color-scheme:dark] placeholder-gray-500 dark:!placeholder-white focus:ring-2 focus:ring-[#D14D37] outline-none transition-all resize-none"
               placeholder="Any details to share beforehand?"
             />
           </div>
@@ -172,7 +168,7 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#D14D37] hover:bg-[#b53c29] text-white font-semibold rounded-lg transition-all shadow-md disabled:opacity-70"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#D14D37] hover:bg-[#b53c29] !text-white font-semibold rounded-lg transition-all shadow-md disabled:opacity-70"
             >
               {loading ? (
                 <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
