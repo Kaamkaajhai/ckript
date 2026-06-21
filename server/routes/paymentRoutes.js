@@ -7,6 +7,7 @@ import {
   createRazorpayOrder,
   verifyRazorpayPayment,
   revealWriterContact,
+  consumeMessageWriterSlot,
 } from "../controllers/paymentController.js";
 
 const router = express.Router();
@@ -25,5 +26,6 @@ router.get("/debug-razorpay", (req, res) => {
   });
 });
 router.post("/reveal-contact/:writerId", protect, revealWriterContact);
+router.post("/message-writer/:writerId", protect, consumeMessageWriterSlot);
 
 export default router;

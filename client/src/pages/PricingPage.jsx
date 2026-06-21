@@ -9,10 +9,10 @@ import {
   isFilmIndustryProfessionalRole,
 } from "../utils/industryAccess";
 
-const included = [
-  "Access 15 Verified Writer Contacts (Email, LinkedIn & Phone no.).",
-  "Message Directly to 15 Writers for Rights, IP, Negotiation & Deal Discussions.",
-  "Schedule max 15 Meetings with Writers Through the Platform.",
+const getIncludedFeatures = (quota = 10) => [
+  `Access ${quota} Verified Writer Contacts (Email, LinkedIn & Phone no.).`,
+  `Message Directly to ${quota} Writers for Rights, IP, Negotiation & Deal Discussions.`,
+  `Schedule max ${quota} Meetings with Writers Through the Platform.`,
   "Curated Script Delivered to Your Mail Based on Your Preferred Genre.",
 ];
 
@@ -384,7 +384,7 @@ export default function PricingPage() {
 
               {/* Features */}
               <ul className="mb-5 space-y-2.5">
-                {included.map((item) => (
+                {getIncludedFeatures(user?.subscription?.contactsLimit || 10).map((item) => (
                   <li key={item} className="flex items-start gap-2.5 text-[12.5px] leading-[1.5] text-white/55">
                     <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-400" />
                     <span>{item}</span>

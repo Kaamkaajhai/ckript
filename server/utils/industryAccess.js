@@ -74,7 +74,7 @@ export const hasActiveFilmIndustryProfessionalAccess = (user = {}) => {
 };
 
 export const getContactsLimit = (user = {}) =>
-  Number(user?.subscription?.contactsLimit || 15);
+  Number(user?.subscription?.contactsLimit || 10);
 
 export const getRevealedContactsSinceActivation = (user = {}) => {
   const subscription = user?.subscription || {};
@@ -106,3 +106,38 @@ export const hasReachedContactLimit = (user = {}) =>
 
 export const getRemainingContacts = (user = {}) =>
   Math.max(0, getContactsLimit(user) - getRevealedContactCount(user));
+
+// Message Writers Utilities
+export const getMessageWritersLimit = (user = {}) =>
+  Number(user?.subscription?.messageWritersLimit || 10);
+
+export const getMessagedWritersSinceActivation = (user = {}) => {
+  const subscription = user?.subscription || {};
+  const activatedAt = subscription?.accessActivatedAt
+    ? new Date(subscription.accessActivatedAt).getTime()
+    : 0;
+  const messagedWriters = Array.isArray(subscription?.messagedWriters)
+    ? subscription.messagedWriters
+    : [];
+  return messagedWriters.filter((entry) => {
+    const messagedAt = entry?.messagedAt ? new Date(entry.messagedAt).getTime() : 0;
+    return messagedAt >= activatedAt;
+  });
+};
+
+export const getMessagedWritersCount = (user = {}) =>
+  getMessagedWritersSinceActivation(user).length;
+
+export const hasMessagedWriter = (user = {}, writerId = "") => {
+  const wId = String(writerId || "");
+  if (!wId) return false;
+  return getMessagedWritersSinceActivation(user).some(
+    (entry) => String(entry?.writerId || "") === wId
+  );
+};
+
+export const hasReachedMessageWritersLimit = (user = {}) =>
+  getMessagedWritersCount(user) >= getMessageWritersLimit(user);
+
+export const getRemainingMessageWriters = (user = {}) =>
+  Math.max(0, getMessageWritersLimit(user) - getMessagedWritersCount(user));

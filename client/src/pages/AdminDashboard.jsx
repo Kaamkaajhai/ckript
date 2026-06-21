@@ -267,8 +267,8 @@ const BroadcastComposer = ({
 );
 
 // ─── User Table ───
-const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfreezeUser, onGrantCredits, onDeleteUser, userActionLoading = "" }) => {
-    const hasRowActions = Boolean(onLoginAs || onViewUser || onFreezeUser || onUnfreezeUser || onGrantCredits || onDeleteUser);
+const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfreezeUser, onGrantCredits, onGrantPremium, onDeleteUser, userActionLoading = "" }) => {
+    const hasRowActions = Boolean(onLoginAs || onViewUser || onFreezeUser || onUnfreezeUser || onGrantCredits || onGrantPremium || onDeleteUser);
 
     return (
         <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
@@ -339,6 +339,15 @@ const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfre
                                                 className="text-xs font-bold text-cyan-500 hover:text-cyan-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-cyan-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                             >
                                                 {userActionLoading === `credits-${u._id}` ? "Granting..." : "Grant Credits"}
+                                            </button>
+                                        )}
+                                        {onGrantPremium && ["investor", "producer", "director", "industry", "professional"].includes(String(u.role).toLowerCase()) && !u.isPremium && (
+                                            <button
+                                                onClick={() => onGrantPremium(u)}
+                                                disabled={Boolean(u.isDeactivated) || userActionLoading === `premium-${u._id}`}
+                                                className="text-xs font-bold text-purple-500 hover:text-purple-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                            >
+                                                {userActionLoading === `premium-${u._id}` ? "Granting..." : "Grant Premium"}
                                             </button>
                                         )}
                                         {onFreezeUser && !u.isFrozen && !u.isDeactivated && (
@@ -2655,6 +2664,45 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleGrantPremiumToUser = async (user) => {
+        if (!user?._id || userActionLoading) return;
+        if (user.isDeactivated) {
+            showToast("Cannot grant premium to a deleted account", "error");
+            return;
+        }
+
+        const confirmed = await openAdminDialog({
+            type: "confirm",
+            title: "Grant Premium",
+            message: `Grant 30 days of the premium model to ${user.name || user.email}?`,
+            confirmText: "Grant",
+            cancelText: "Cancel",
+        });
+
+        if (!confirmed) return;
+
+        const loadingKey = `premium-${user._id}`;
+        try {
+            setUserActionLoading(loadingKey);
+            const { data } = await adminApi.post(`/admin/users/${user._id}/grant-premium`);
+            showToast(data?.message || "Premium model granted successfully");
+
+            if (data?.user?._id) {
+                setSelectedUserDetail((prev) => {
+                    if (!prev || String(prev._id) !== String(data.user._id)) return prev;
+                    return { ...prev, ...data.user };
+                });
+            }
+
+            fetchData(search);
+        } catch (err) {
+            console.error(err);
+            showToast(err?.response?.data?.message || "Failed to grant premium model", "error");
+        } finally {
+            setUserActionLoading("");
+        }
+    };
+
     const handleDeleteUserAccount = async (user) => {
         if (!user?._id || userActionLoading) return;
         if (user.isDeactivated) {
@@ -3075,6 +3123,7 @@ const AdminDashboard = () => {
                             onFreezeUser={(user) => handleFreezeToggleUser(user, true)}
                             onUnfreezeUser={(user) => handleFreezeToggleUser(user, false)}
                             onGrantCredits={handleGrantCreditsToUser}
+                            onGrantPremium={handleGrantPremiumToUser}
                             onDeleteUser={handleDeleteUserAccount}
                             userActionLoading={userActionLoading}
                         />
