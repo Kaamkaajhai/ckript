@@ -3244,6 +3244,27 @@ export const getScriptById = async (req, res) => {
       await script.save();
     }
 
+    // Notify writer if an industry professional views their script
+    if (!isOwner && !isAcceptedCollaborator && hasActiveFilmIndustryProfessionalAccess(req.user) && creatorId) {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentNotif = await Notification.findOne({
+        user: creatorId,
+        from: viewerId,
+        type: "script_view",
+        script: script._id,
+        createdAt: { $gte: twentyFourHoursAgo }
+      });
+      if (!recentNotif) {
+        await Notification.create({
+          user: creatorId,
+          from: viewerId,
+          type: "script_view",
+          script: script._id,
+          message: `${req.user.name || "A film industry professional"} viewed your script "${script.title}".`
+        });
+      }
+    }
+
     // Update viewer's viewHistory so investor dashboard stats are accurate
     if (!isOwner && !isAcceptedCollaborator) {
       await User.findByIdAndUpdate(req.user._id, {

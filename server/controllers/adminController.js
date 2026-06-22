@@ -1007,6 +1007,8 @@ export const removePremiumModelFromUser = async (req, res) => {
             ...targetUser.subscription,
             plan: "free",
             isActive: false,
+            accessTier: "none",
+            accessStatus: "inactive",
             accessExpiresAt: undefined,
             lastAccessUpdate: new Date()
         };

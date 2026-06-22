@@ -812,7 +812,7 @@ export const getUserProfile = async (req, res) => {
     let blockedByProfile = false;
 
     if (!isOwnProfile) {
-      const currentUser = await User.findById(req.user._id).select("blockedUsers role email");
+      const currentUser = await User.findById(req.user._id).select("blockedUsers role email name subscription");
       blockedByCurrent = currentUser?.blockedUsers?.some((uid) => uid.toString() === targetUserId) || false;
       blockedByProfile = user?.blockedUsers?.some((uid) => {
         const blockedId = uid?._id?.toString?.() || uid?.toString?.();
@@ -838,6 +838,24 @@ export const getUserProfile = async (req, res) => {
         return followerId === viewerId;
       });
       const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
+
+      if (user?.role === "writer" && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const recentNotif = await Notification.findOne({
+          user: targetUserId,
+          from: req.user._id,
+          type: "profile_view",
+          createdAt: { $gte: twentyFourHoursAgo }
+        });
+        if (!recentNotif) {
+          await Notification.create({
+            user: targetUserId,
+            from: req.user._id,
+            type: "profile_view",
+            message: `${currentUser.name || "A film industry professional"} viewed your profile.`
+          });
+        }
+      }
 
       if (user?.isPrivate && !isFollower && !isAdminViewer) {
         const followRequestPending = (user?.followRequests || []).some(

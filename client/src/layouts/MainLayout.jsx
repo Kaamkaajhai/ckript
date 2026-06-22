@@ -378,6 +378,7 @@ const MainLayout = ({ children }) => {
       audition: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z",
       smart_match: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z",
       profile_view: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z",
+      script_view: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z",
       hold_expiring: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z",
     };
     return icons[type] || icons.like;
@@ -398,6 +399,7 @@ const MainLayout = ({ children }) => {
       audition:      isDarkMode ? "text-teal-400 bg-teal-500/10"       : "text-teal-600 bg-teal-50",
       smart_match:   isDarkMode ? "text-purple-400 bg-purple-500/10"   : "text-purple-600 bg-purple-50",
       profile_view:  isDarkMode ? "text-blue-400 bg-blue-500/10"       : "text-blue-600 bg-blue-50",
+      script_view:   isDarkMode ? "text-sky-400 bg-sky-500/10"         : "text-sky-600 bg-sky-50",
     };
     return map[type] || (isDarkMode ? "text-[#8896a7] bg-white/5" : "text-gray-500 bg-gray-100");
   };
@@ -429,6 +431,7 @@ const MainLayout = ({ children }) => {
       audition: "Audition update",
       smart_match: "Smart match",
       profile_view: "Profile view",
+      script_view: "Script view",
       script_approved: "Script approved",
       script_rejected: "Script update",
       purchase: "Purchase update",
