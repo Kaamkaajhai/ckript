@@ -1,13 +1,7 @@
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BadgeCheck, Check, Crown, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
-import { useAuthModal } from "../context/AuthModalContext";
-import api from "../services/api";
-import {
-  hasActiveFilmIndustryProfessionalAccess,
-  isFilmIndustryProfessionalRole,
-} from "../utils/industryAccess";
+import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
 
 const getIncludedFeatures = (quota = 10) => [
   `Access ${quota} Verified Writer Contacts (Email, LinkedIn & Phone no.).`,
@@ -92,19 +86,25 @@ const PremiumBadge = ({ user }) => {
 };
 
 export default function PricingPage() {
-  const { user, setUser, loading: authLoading } = useContext(AuthContext);
-  const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
   const location = useLocation();
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+
+  // The full-page surface and the landing Pricing modal share one checkout.
+  const {
+    user,
+    authLoading,
+    isEligibleRole,
+    hasAccess,
+    loading,
+    error,
+    message,
+    startCheckout,
+  } = useFilmIndustryProfessionalCheckout();
+
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
   const countdownRef = useRef(null);
 
-  const isEligibleRole = isFilmIndustryProfessionalRole(user);
-  const hasAccess = hasActiveFilmIndustryProfessionalAccess(user);
   const roleLabel = String(user?.role || "").trim() || "guest";
 
   useEffect(() => {
@@ -151,110 +151,17 @@ export default function PricingPage() {
     }, 1000);
   };
 
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
+  const handleCheckout = (isRenew = false) =>
+    startCheckout({
+      isRenew,
+      returnTo: normalizeReturnPath(location.state?.from),
+      signInRedirect: "/pricing",
+      onSuccess: (verifyData) => {
+        setCheckoutSuccess(true);
+        startCountdownRedirect(verifyData?.redirectTo || "/home");
+      },
+      onAlreadyActive: goBackSafely,
     });
-  };
-
-  const handleRazorpayCheckout = async (isRenew = false) => {
-    setError("");
-    setMessage("");
-
-    if (authLoading) return;
-
-    if (!user) {
-      if (!isRenew) openAuthModal({ redirect: "/pricing" });
-      return;
-    }
-
-    if (!isEligibleRole) {
-      setError("Only film industry professionals can activate this plan.");
-      return;
-    }
-
-    if (hasAccess && !isRenew) {
-      goBackSafely();
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await loadRazorpayScript();
-      if (!res) {
-        setError("Razorpay SDK failed to load. Are you connected to the internet?");
-        setLoading(false);
-        return;
-      }
-
-      const { data: orderData } = await api.post("/payment/film-industry-professional/create-razorpay-order");
-      
-      const options = {
-        key: orderData.key,
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: "Ckript",
-        description: "Film Industry Professional Plan",
-        order_id: orderData.orderId,
-        handler: async (response) => {
-          try {
-            setMessage("Verifying payment...");
-            const { data: verifyData } = await api.post("/payment/film-industry-professional/verify-razorpay-payment", {
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature,
-              returnTo: normalizeReturnPath(location.state?.from),
-            });
-
-            const storedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
-            const updatedUser = {
-              ...storedUser,
-              ...(verifyData?.user || {}),
-              token: storedUser.token,
-              expiresAt: storedUser.expiresAt || verifyData?.user?.expiresAt,
-            };
-
-            setUser(updatedUser);
-            localStorage.setItem("user", JSON.stringify(updatedUser));
-            
-            setMessage(isRenew ? "Plan renewed successfully! Redirecting..." : "Payment successful!");
-            setCheckoutSuccess(true);
-            startCountdownRedirect(verifyData?.redirectTo || "/home");
-          } catch (verifyError) {
-            setError(verifyError?.response?.data?.message || "Payment verification failed.");
-            setLoading(false);
-          }
-        },
-        prefill: {
-          name: user.name || "",
-          email: user.email || "",
-        },
-        theme: {
-          color: "#0f1320",
-        },
-        modal: {
-          ondismiss: () => {
-            setLoading(false);
-          }
-        }
-      };
-
-      const paymentObject = new window.Razorpay(options);
-      paymentObject.open();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to initiate payment.");
-      setLoading(false);
-    }
-  };
 
   /* ── Success state shown after checkout ── */
   if (checkoutSuccess) {
@@ -395,7 +302,7 @@ export default function PricingPage() {
               {/* CTA button */}
               <button
                 type="button"
-                onClick={() => handleRazorpayCheckout(false)}
+                onClick={() => handleCheckout(false)}
                 disabled={authLoading || loading || (!user ? false : !isEligibleRole)}
                 className={`flex h-[48px] w-full items-center justify-center rounded-xl text-[13.5px] font-semibold tracking-wide transition-all ${
                   hasAccess
@@ -413,7 +320,7 @@ export default function PricingPage() {
               {hasAccess && (
                 <button
                   type="button"
-                  onClick={() => handleRazorpayCheckout(true)}
+                  onClick={() => handleCheckout(true)}
                   disabled={authLoading || loading}
                   className="mt-2 flex h-[44px] w-full items-center justify-center rounded-xl text-[13px] font-semibold transition border border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.07] hover:text-white/90"
                 >

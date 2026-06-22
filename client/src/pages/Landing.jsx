@@ -306,8 +306,8 @@ const FOOTER_COLS = [
   {
     head: "Company",
     links: [
-      { label: "About", to: ROUTES.about },
-      { label: "Pricing", to: ROUTES.pricing },
+      { label: "About", action: "about" },
+      { label: "Pricing", action: "pricing" },
       { label: "Contact", to: ROUTES.contact },
       { label: "LinkedIn", to: ROUTES.linkedin, external: true },
     ],
@@ -383,7 +383,7 @@ export default function Landing() {
   const stepsStageRef = useRef(null);
   const [activeFeat, setActiveFeat] = useState(0);
   const { user } = useContext(AuthContext);
-  const { openAuthModal } = useAuthModal();
+  const { openAuthModal, openProducerOnboarding, openWriterOnboarding, openAboutModal, openPricingModal } = useAuthModal();
 
   const primaryPath = user?.role === "reader" ? "/reader" : "/dashboard";
   const signInLabel = user ? (user.role === "reader" ? "Reader" : "Dashboard") : "Sign in";
@@ -427,10 +427,10 @@ export default function Landing() {
             <Link to={ROUTES.home} style={{ fontFamily: SANS, fontWeight: 700, fontSize: 33, letterSpacing: "-1.2px", color: INK, lineHeight: 1, textDecoration: "none" }}>ckript</Link>
             <span style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
             <nav style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
-              <Link to={ROUTES.join} className="hov-red" style={navLink}>Scripts</Link>
+              <button type="button" onClick={() => openWriterOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Scripts</button>
               <Link to={ROUTES.pro} className="hov-red" style={navLink}>For Producers</Link>
-              <Link to={ROUTES.pricing} className="hov-red" style={navLink}>Pricing</Link>
-              <Link to={ROUTES.about} className="hov-red" style={navLink}>About</Link>
+              <button type="button" onClick={() => openPricingModal()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Pricing</button>
+              <button type="button" onClick={() => openAboutModal()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>About</button>
             </nav>
             {user ? (
               <Link to={primaryPath} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
@@ -449,8 +449,8 @@ export default function Landing() {
             Ckript is a curated marketplace where writers connect with producers and directors to showcase, discover, and acquire high-potential stories.
           </p>
           <div style={{ position: "absolute", top: 728, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 54, zIndex: 2, opacity: 0, animation: "ckl-fadeUpC .9s .65s cubic-bezier(.2,.7,.2,1) forwards" }}>
-            <Link to={ROUTES.join} className="hov-btn-lift" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 244, height: 70, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "0.2px", textDecoration: "none", transition: "transform .25s cubic-bezier(.2,.7,.2,1),background .25s ease" }}>Browse Scripts</Link>
-            <Link to={ROUTES.about} className="hov-underline" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 19, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 7, transition: "color .22s ease,border-color .22s ease" }}>Meet the Platform</Link>
+            <button type="button" onClick={openProducerOnboarding} className="hov-btn-lift" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 244, height: 70, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "0.2px", textDecoration: "none", border: "none", cursor: "pointer", transition: "transform .25s cubic-bezier(.2,.7,.2,1),background .25s ease" }}>Browse Scripts</button>
+            <button type="button" onClick={() => openAboutModal()} className="hov-underline" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 19, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 7, transition: "color .22s ease,border-color .22s ease", background: "none", borderTop: "none", borderLeft: "none", borderRight: "none", cursor: "pointer" }}>Meet the Platform</button>
           </div>
         </div>
       </section>
@@ -754,7 +754,9 @@ export default function Landing() {
                 <div key={col.head} style={{ display: "flex", flexDirection: "column", gap: 15 }}>
                   <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: "#76726a", marginBottom: 4 }}>{col.head}</div>
                   {col.links.map((l) =>
-                    l.external ? (
+                    l.action ? (
+                      <button key={l.label} type="button" onClick={() => (l.action === "pricing" ? openPricingModal() : openAboutModal())} className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>{l.label}</button>
+                    ) : l.external ? (
                       <a key={l.label} href={l.to} target="_blank" rel="noopener noreferrer" className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none" }}>{l.label}</a>
                     ) : (
                       <Link key={l.label} to={l.to} className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none" }}>{l.label}</Link>
