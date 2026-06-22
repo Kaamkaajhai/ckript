@@ -60,7 +60,7 @@ import {
   getScriptCompletionProgressText,
   getScriptCompletionStatusLabel,
 } from "../utils/scriptCompletion";
-import { getApiBaseUrl } from "../utils/apiOrigin";
+import { getApiBaseUrl, isSocketSupported } from "../utils/apiOrigin";
 
 const BUYER_COMMISSION_RATE = 0.05;
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
@@ -557,7 +557,7 @@ const ScriptDetail = () => {
   }, [script?._id, user?._id]);
 
   useEffect(() => {
-    if (!user?.token || !activeScriptId) return undefined;
+    if (!user?.token || !activeScriptId || !isSocketSupported()) return undefined;
 
     const socket = io(SOCKET_ORIGIN, {
       auth: { token: user.token },
