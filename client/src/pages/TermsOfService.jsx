@@ -176,6 +176,20 @@ const sections = [
     title: "18. Contact Us",
     contactBlock: true,
   },
+  {
+    id: "data-visibility-third-party",
+    title: "19. Data Visibility and Third-Party Services",
+    content: [
+      {
+        subtitle: "Profile Visibility",
+        text: "By registering on the platform, you acknowledge that certain profile details and professional information may be visible to registered Film Industry Professionals, Producers, and Investors to facilitate networking and industry opportunities."
+      },
+      {
+        subtitle: "Third-Party Services and Liability",
+        text: "The platform may integrate with third-party communication tools, such as Jitsi, for video meetings and collaboration. We assume no liability for the security, privacy practices, or data handling of any third-party service. Sharing confidential information via third-party platforms or due to user error is at your own risk. Ckript shall bear no fault or liability for any data breaches, unauthorized access, or theft of information that occurs outside of our secure infrastructure or as a result of user negligence."
+      }
+    ]
+  },
 ];
 
 const itemVariants = {

@@ -9,6 +9,8 @@ import {
   INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE,
   hasActiveFilmIndustryProfessionalAccess,
   isIndustryProfessionalWithPersonalEmail,
+  isFilmIndustryProfessionalRole,
+  hasBusinessEmail,
 } from "../utils/industryAccess.js";
 import {
   generateOTP,
@@ -2233,6 +2235,21 @@ export const verifyEmailVerificationCode = async (req, res) => {
 
       user.email = user.pendingEmail;
       user.pendingEmail = undefined;
+    }
+
+    if (isFilmIndustryProfessionalRole(user) && hasBusinessEmail(user.email)) {
+      if (!user.subscription) {
+        user.subscription = {
+          plan: "free",
+          accessTier: "film_industry_professional",
+          accessStatus: "active",
+          accessActivatedAt: new Date(),
+        };
+      } else if (user.subscription.accessTier !== "film_industry_professional" || user.subscription.accessStatus !== "active") {
+        user.subscription.accessTier = "film_industry_professional";
+        user.subscription.accessStatus = "active";
+        user.subscription.accessActivatedAt = new Date();
+      }
     }
 
     user.emailVerified = true;

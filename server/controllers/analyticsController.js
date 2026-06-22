@@ -321,7 +321,7 @@ const applyEventToUserSession = (session, payload) => {
     }
   }
 
-  session.actions.push({
+  session.events.push({
     eventType: sanitizeText(payload.eventType || "event", 80),
     action: sanitizeText(payload.action || "", 120),
     path,
@@ -329,8 +329,8 @@ const applyEventToUserSession = (session, payload) => {
     timestamp: now,
   });
 
-  if (session.actions.length > USER_SESSION_EVENT_LIMIT) {
-    session.actions = session.actions.slice(-USER_SESSION_EVENT_LIMIT);
+  if (session.events.length > USER_SESSION_EVENT_LIMIT) {
+    session.events = session.events.slice(-USER_SESSION_EVENT_LIMIT);
   }
 };
 

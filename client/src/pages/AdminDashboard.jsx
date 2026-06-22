@@ -268,8 +268,8 @@ const BroadcastComposer = ({
 );
 
 // ─── User Table ───
-const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfreezeUser, onGrantCredits, onGrantPremium, onDeleteUser, userActionLoading = "" }) => {
-    const hasRowActions = Boolean(onLoginAs || onViewUser || onFreezeUser || onUnfreezeUser || onGrantCredits || onGrantPremium || onDeleteUser);
+const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfreezeUser, onGrantCredits, onGrantPremium, onRemovePremium, onDeleteUser, userActionLoading = "" }) => {
+    const hasRowActions = Boolean(onLoginAs || onViewUser || onFreezeUser || onUnfreezeUser || onGrantCredits || onGrantPremium || onRemovePremium || onDeleteUser);
 
     return (
         <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
@@ -349,6 +349,15 @@ const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfre
                                                 className="text-xs font-bold text-purple-500 hover:text-purple-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                             >
                                                 {userActionLoading === `premium-${u._id}` ? "Granting..." : "Grant Premium"}
+                                            </button>
+                                        )}
+                                        {onRemovePremium && ["investor", "producer", "director", "industry", "professional"].includes(String(u.role).toLowerCase()) && u.isPremium && (
+                                            <button
+                                                onClick={() => onRemovePremium(u)}
+                                                disabled={Boolean(u.isDeactivated) || userActionLoading === `remove-premium-${u._id}`}
+                                                className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                            >
+                                                {userActionLoading === `remove-premium-${u._id}` ? "Removing..." : "Remove Premium"}
                                             </button>
                                         )}
                                         {onFreezeUser && !u.isFrozen && !u.isDeactivated && (
@@ -2715,6 +2724,45 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleRemovePremiumFromUser = async (user) => {
+        if (!user?._id || userActionLoading) return;
+        if (user.isDeactivated) {
+            showToast("Cannot modify a deleted account", "error");
+            return;
+        }
+
+        const confirmed = await openAdminDialog({
+            type: "confirm",
+            title: "Remove Premium",
+            message: `Remove the premium model from ${user.name || user.email}?`,
+            confirmText: "Remove",
+            cancelText: "Cancel",
+        });
+
+        if (!confirmed) return;
+
+        const loadingKey = `remove-premium-${user._id}`;
+        try {
+            setUserActionLoading(loadingKey);
+            const { data } = await adminApi.post(`/admin/users/${user._id}/remove-premium`);
+            showToast(data?.message || "Premium model removed successfully");
+
+            if (data?.user?._id) {
+                setSelectedUserDetail((prev) => {
+                    if (!prev || String(prev._id) !== String(data.user._id)) return prev;
+                    return { ...prev, ...data.user };
+                });
+            }
+
+            fetchData(search);
+        } catch (err) {
+            console.error(err);
+            showToast(err?.response?.data?.message || "Failed to remove premium model", "error");
+        } finally {
+            setUserActionLoading("");
+        }
+    };
+
     const handleDeleteUserAccount = async (user) => {
         if (!user?._id || userActionLoading) return;
         if (user.isDeactivated) {
@@ -3044,6 +3092,7 @@ const AdminDashboard = () => {
                                             <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Joined</th>
                                             <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Premium Expiry</th>
                                             <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Days Left</th>
+                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
@@ -3080,6 +3129,15 @@ const AdminDashboard = () => {
                                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${daysLeft > 7 ? (isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-700") : daysLeft > 0 ? (isDark ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-700") : (isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-700")}`}>
                                                             {daysLeft > 0 ? `${daysLeft} Days` : "Expired"}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        <button
+                                                            onClick={() => handleRemovePremiumFromUser(u)}
+                                                            disabled={Boolean(u.isDeactivated) || userActionLoading === `remove-premium-${u._id}`}
+                                                            className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                                        >
+                                                            {userActionLoading === `remove-premium-${u._id}` ? "Removing..." : "Remove Premium"}
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             );
@@ -3136,6 +3194,7 @@ const AdminDashboard = () => {
                             onUnfreezeUser={(user) => handleFreezeToggleUser(user, false)}
                             onGrantCredits={handleGrantCreditsToUser}
                             onGrantPremium={handleGrantPremiumToUser}
+                            onRemovePremium={handleRemovePremiumFromUser}
                             onDeleteUser={handleDeleteUserAccount}
                             userActionLoading={userActionLoading}
                         />

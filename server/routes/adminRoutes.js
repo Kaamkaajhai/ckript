@@ -12,6 +12,7 @@ import {
     deleteUserAccountAsAdmin,
     grantCreditsToUser,
     grantPremiumModelToUser,
+    removePremiumModelFromUser,
     getScripts,
     getAIUsageScripts,
     getEvaluationPurchases,
@@ -81,6 +82,7 @@ router.put("/users/:id/unfreeze", unfreezeUserAccount);
 router.delete("/users/:id", deleteUserAccountAsAdmin);
 router.post("/users/:id/credits", grantCreditsToUser);
 router.post("/users/:id/grant-premium", grantPremiumModelToUser);
+router.post("/users/:id/remove-premium", removePremiumModelFromUser);
 router.post("/broadcast/:audience", sendAudienceBroadcast);
 
 // Scripts
