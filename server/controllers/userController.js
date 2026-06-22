@@ -750,6 +750,7 @@ export const getPublicUserProfile = async (req, res) => {
       // Expose only the badge-relevant tier info — no sensitive billing data
       subscription: user.subscription
         ? {
+            plan: user.subscription.plan || "",
             accessTier: user.subscription.accessTier || "",
             accessStatus: user.subscription.accessStatus || "",
             accessExpiresAt: user.subscription.accessExpiresAt || user.subscription.expiresAt || null,

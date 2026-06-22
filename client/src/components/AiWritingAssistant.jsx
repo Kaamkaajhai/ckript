@@ -29,7 +29,7 @@ const LOADING_TIPS = [
   "Deepening character subtext...",
 ];
 
-const GRAMMAR_COST = 5;
+
 
 const AiWritingAssistant = ({ textContent, onApply, isDarkMode }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -43,10 +43,7 @@ const AiWritingAssistant = ({ textContent, onApply, isDarkMode }) => {
   const [appliedChanges, setAppliedChanges] = useState([]); // changes list after auto-apply
   const [showUndoBar, setShowUndoBar] = useState(false); // fixed bottom undo/keep bar
   const [undoTimer, setUndoTimer] = useState(null);
-  // Credit / grammar confirm modal
-  const [showGrammarModal, setShowGrammarModal] = useState(false);
-  const [creditBalance, setCreditBalance] = useState(null);
-  const [creditLoading, setCreditLoading] = useState(false);
+
   const panelRef = useRef(null);
   const tipInterval = useRef(null);
 
@@ -85,29 +82,14 @@ const AiWritingAssistant = ({ textContent, onApply, isDarkMode }) => {
     }
   }, [showUndoBar]);
 
-  // Fetch credit balance for grammar confirm modal
-  const fetchCredits = useCallback(async () => {
-    setCreditLoading(true);
-    try {
-      const { data } = await api.get("/credits/balance");
-      setCreditBalance(data.balance || 0);
-    } catch {
-      setCreditBalance(0);
-    } finally {
-      setCreditLoading(false);
-    }
-  }, []);
-
-  // When grammar button clicked — show confirmation modal first
   const handleGrammarClick = useCallback(() => {
     const text = textContent?.trim();
     if (!text || text.length < 10) {
       setError("Add some script text before using AI Grammar Fix.");
       return;
     }
-    fetchCredits();
-    setShowGrammarModal(true);
-  }, [textContent, fetchCredits]);
+    handleAction("grammar");
+  }, [textContent, handleAction]);
 
   // Direct-apply: click action → call AI → apply immediately → show undo bar
   const handleAction = useCallback(async (actionKey, custom = null) => {
@@ -152,8 +134,7 @@ const AiWritingAssistant = ({ textContent, onApply, isDarkMode }) => {
         setIsOpen(false);
         // Small delay so the dropdown close animation finishes before showing bar
         setTimeout(() => setShowUndoBar(true), 100);
-        // Refresh credit balance if grammar was used
-        if (actionKey === "grammar") fetchCredits();
+
       } else {
         setError("AI returned the same text. Try a different action.");
       }
@@ -164,13 +145,9 @@ const AiWritingAssistant = ({ textContent, onApply, isDarkMode }) => {
       setIsLoading(false);
       setActiveAction(null);
     }
-  }, [textContent, onApply, fetchCredits]);
+  }, [textContent, onApply]);
 
-  // Confirm grammar payment and run (defined after handleAction so deps work correctly)
-  const handleGrammarConfirm = useCallback(() => {
-    setShowGrammarModal(false);
-    handleAction("grammar");
-  }, [handleAction]);
+
 
   const handleUndo = () => {
     if (history.length === 0) return;
@@ -200,104 +177,7 @@ const AiWritingAssistant = ({ textContent, onApply, isDarkMode }) => {
   return (
     <div className="relative" ref={panelRef}>
 
-      {/*  Grammar Credit Confirmation Modal (portal)  */}
-      {showGrammarModal && createPortal(
-        <AnimatePresence>
-          <motion.div
-            key="grammar-modal-bg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
-            onClick={() => setShowGrammarModal(false)}
-          >
-            <motion.div
-              key="grammar-modal"
-              initial={{ opacity: 0, y: 24, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 24, scale: 0.94 }}
-              transition={{ type: "spring", damping: 22, stiffness: 280 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-[#0a1120] border border-white/[0.1] rounded-2xl shadow-2xl overflow-hidden"
-            >
-              {/* Modal header */}
-              <div className="px-5 pt-5 pb-4 border-b border-white/[0.06]">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-600/20 border border-emerald-500/20 flex items-center justify-center">
-                    
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white">AI Grammar Fix</h3>
-                    <p className="text-[11px] text-neutral-500">Powered by Gemini AI</p>
-                  </div>
-                </div>
-                <p className="text-xs text-neutral-400 leading-relaxed">
-                  Fix all grammar, spelling, punctuation, and readability issues in your script with professional AI proofreading.
-                </p>
-              </div>
 
-              {/* Credit info */}
-              <div className="px-5 py-4 space-y-3">
-                {/* Cost row */}
-                <div className="flex items-center justify-between px-3 py-2.5 bg-white/[0.03] border border-white/[0.05] rounded-xl">
-                  <div className="flex items-center gap-2">
-                    
-                    <span className="text-xs text-neutral-300 font-medium">Cost</span>
-                  </div>
-                  <span className="text-sm font-bold text-amber-300">{GRAMMAR_COST} credits</span>
-                </div>
-
-                {/* Balance row */}
-                <div className="flex items-center justify-between px-3 py-2.5 bg-white/[0.03] border border-white/[0.05] rounded-xl">
-                  <div className="flex items-center gap-2">
-                    
-                    <span className="text-xs text-neutral-300 font-medium">Your Balance</span>
-                  </div>
-                  {creditLoading ? (
-                    <span className="text-xs text-neutral-500">Loading...</span>
-                  ) : (
-                    <span className={`text-sm font-bold ${
-                      creditBalance >= GRAMMAR_COST ? "text-emerald-400" : "text-red-400"
-                    }`}>
-                      {creditBalance ?? "—"} credits
-                    </span>
-                  )}
-                </div>
-
-                {/* Insufficient credits warning */}
-                {!creditLoading && creditBalance !== null && creditBalance < GRAMMAR_COST && (
-                  <div className="px-3 py-2.5 bg-red-500/10 border border-red-500/15 rounded-xl">
-                    <p className="text-xs text-red-300 leading-relaxed">
-                      Not enough credits. You need {GRAMMAR_COST - creditBalance} more credit{GRAMMAR_COST - creditBalance > 1 ? "s" : ""} to use this feature.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Action buttons */}
-              <div className="px-5 pb-5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGrammarModal(false)}
-                  className="flex-1 px-4 py-2.5 bg-white/[0.04] border border-white/[0.06] text-neutral-400 rounded-xl text-sm font-medium hover:bg-white/[0.08] hover:text-white transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGrammarConfirm}
-                  disabled={creditLoading || creditBalance === null || creditBalance < GRAMMAR_COST}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-sm font-bold hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98]"
-                >
-                  Pay {GRAMMAR_COST} credits & Fix
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>,
-        document.body
-      )}
 
       {/*  Undo/Keep Bar — fixed at bottom of screen (always visible)  */}
       {showUndoBar && createPortal(
@@ -528,9 +408,7 @@ const AiWritingAssistant = ({ textContent, onApply, isDarkMode }) => {
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="text-sm">{action.icon}</span>
                             <span className="text-xs font-bold text-white/90">{action.label}</span>
-                            {isGrammar && (
-                              <span className="ml-auto text-[9px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">{GRAMMAR_COST}cr</span>
-                            )}
+
                           </div>
                           <p className="text-[10px] text-neutral-500 leading-tight group-hover:text-neutral-400 transition-colors">{action.desc}</p>
                         </div>

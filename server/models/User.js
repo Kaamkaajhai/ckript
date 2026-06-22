@@ -415,23 +415,9 @@ const userSchema = new mongoose.Schema({
     totalEarnings: { type: Number, default: 0 },
     totalWithdrawals: { type: Number, default: 0 }
   },
-  // Credits System
-  credits: {
-    balance: { type: Number, default: 0 },
-    totalPurchased: { type: Number, default: 0 },
-    totalSpent: { type: Number, default: 0 },
-    lastPurchase: { type: Date },
-    transactions: [{
-      type: { type: String, enum: ["purchase", "spent", "bonus", "refund"] },
-      amount: { type: Number },
-      description: { type: String },
-      reference: { type: String },
-      createdAt: { type: Date, default: Date.now }
-    }]
-  },
+
   referralStats: {
     successfulReferrals: { type: Number, default: 0 },
-    totalBonusCredits: { type: Number, default: 0 },
   },
   // Stripe Connected Account (for payouts)
   stripeAccountId: { type: String },

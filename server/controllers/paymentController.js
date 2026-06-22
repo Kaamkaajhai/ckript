@@ -33,6 +33,26 @@ const FILM_INDUSTRY_PRO_MODEL = {
   accessTier: "film_industry_professional",
 };
 
+const WRITER_SILVER_MODEL = {
+  plan: "silver",
+  amount: 39900, // 399 INR in paise
+  currency: "INR",
+  durationDays: 30,
+  checkoutProvider: "razorpay",
+  checkoutMode: "live",
+  accessTier: "writer_silver",
+};
+
+const WRITER_GOLD_MODEL = {
+  plan: "gold",
+  amount: 69900, // 699 INR in paise
+  currency: "INR",
+  durationDays: 30,
+  checkoutProvider: "razorpay",
+  checkoutMode: "live",
+  accessTier: "writer_gold",
+};
+
 const getRazorpayInstance = async () => {
   try {
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) return null;
@@ -203,6 +223,51 @@ export const createRazorpayOrder = async (req, res) => {
   } catch (error) {
     console.error("Razorpay Create Order Error:", error);
     return res.status(500).json({ message: error.message || error.description || "Failed to create order" });
+  }
+};
+
+export const activateTestWriterSubscription = async (req, res) => {
+  try {
+    const { tier } = req.body;
+    
+    if (!tier || !["silver", "gold"].includes(tier)) {
+      return res.status(400).json({ message: "Invalid tier for test subscription." });
+    }
+
+    const currentUser = await User.findById(req.user._id).select("role subscription");
+    if (!currentUser) return res.status(404).json({ message: "User not found" });
+
+    const model = tier === "gold" ? WRITER_GOLD_MODEL : WRITER_SILVER_MODEL;
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + model.durationDays * 24 * 60 * 60 * 1000);
+
+    const update = {
+      $set: {
+        "subscription.plan": model.plan,
+        "subscription.expiresAt": expiresAt,
+        "subscription.accessTier": model.accessTier,
+        "subscription.accessStatus": "active",
+        "subscription.accessActivatedAt": now,
+        "subscription.accessExpiresAt": expiresAt,
+        "subscription.checkoutMode": "test",
+        "subscription.checkoutProvider": "mock",
+        "subscription.checkoutReference": `mock_${Date.now()}`,
+      },
+    };
+
+    await User.updateOne({ _id: currentUser._id }, update);
+
+    const refreshedUser = await User.findById(currentUser._id).select("-password");
+
+    return res.status(200).json({ 
+      success: true, 
+      message: "Test Silver plan activated successfully!",
+      user: refreshedUser
+    });
+  } catch (error) {
+    console.error("Test Writer Payment Error:", error);
+    return res.status(500).json({ message: error.message || "Test payment failed" });
   }
 };
 

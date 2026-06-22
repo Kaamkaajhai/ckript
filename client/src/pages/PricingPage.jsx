@@ -91,7 +91,7 @@ const PremiumBadge = ({ user }) => {
   );
 };
 
-const WriterPlanCard = ({ title, price, features, tier, isPopular, onSubscribe }) => {
+const WriterPlanCard = ({ title, price, features, tier, isPopular, onSubscribe, buttonText = "Choose Plan" }) => {
   const isGold = tier === "gold";
   const isSilver = tier === "silver";
 
@@ -148,7 +148,7 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, onSubscribe }
         onClick={onSubscribe}
         className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
       >
-        Choose Plan
+        {buttonText}
       </button>
     </div>
   );
@@ -319,6 +319,48 @@ export default function PricingPage() {
     }
   };
 
+  const handleWriterTestCheckout = async (tier) => {
+    setError("");
+    setMessage("");
+
+    if (authLoading) return;
+
+    if (!user) {
+      openAuthModal({ redirect: "/pricing" });
+      return;
+    }
+
+    if (!["writer", "creator"].includes(String(user.role).toLowerCase())) {
+      setError("This plan is designed for writers and creators.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      setMessage("Processing test payment...");
+      const { data: verifyData } = await api.post("/payment/writer/activate-test-subscription", { tier });
+
+      const storedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
+      const updatedUser = {
+        ...storedUser,
+        ...(verifyData?.user || {}),
+        token: storedUser.token,
+        expiresAt: storedUser.expiresAt || verifyData?.user?.expiresAt,
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      
+      setMessage("Test payment successful!");
+      setCheckoutSuccess(true);
+      startCountdownRedirect("/dashboard");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Test payment failed.");
+      setLoading(false);
+    }
+  };
+
   /* ── Success state shown after checkout ── */
   if (checkoutSuccess) {
     return (
@@ -386,21 +428,18 @@ export default function PricingPage() {
         </button>
       </div>
 
-      <div className="relative flex flex-col items-center justify-start px-5 py-24 sm:px-8 w-full z-10">
+      <div className="relative flex flex-col items-center justify-start px-5 py-12 sm:px-8 w-full z-10">
         <div className="w-full max-w-5xl mx-auto">
 
           {/* Writer's Business Model Section */}
-          <div className="text-center mb-12">
-            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.3em] text-indigo-400/80">For Writers</p>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+          <div className="text-left mb-10">
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
               Writer's Business Model
             </h1>
-            <p className="mt-4 text-[14px] text-white/50 max-w-xl mx-auto">
-              Choose the perfect plan to showcase your scripts, connect with professionals, and take your career to the next level.
-            </p>
+            <div className="mt-4 h-[2px] w-20 bg-gradient-to-r from-indigo-500 to-transparent rounded-full"></div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-24">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
             <WriterPlanCard
               title="Free Tier"
               price="0"
@@ -410,7 +449,14 @@ export default function PricingPage() {
                 "Appear only in search section",
                 "AI generated synopsis and logline"
               ]}
-              onSubscribe={() => alert("Writer subscription backend connection coming soon!")}
+              buttonText={user ? "Go to Dashboard" : "Sign In to Continue"}
+              onSubscribe={() => {
+                if (user) {
+                  navigate("/dashboard");
+                } else {
+                  openAuthModal({ redirect: "/dashboard" });
+                }
+              }}
             />
             <WriterPlanCard
               title="Silver Model"
@@ -423,7 +469,14 @@ export default function PricingPage() {
                 "AI evaluation",
                 "View who see scripts/profile"
               ]}
-              onSubscribe={() => alert("Writer subscription backend connection coming soon!")}
+              onSubscribe={() => {
+                if (!user) {
+                  openAuthModal({ redirect: "/pricing" });
+                } else {
+                  handleWriterTestCheckout("silver");
+                }
+              }}
+              buttonText={loading ? "Processing..." : user ? "Test Silver Checkout" : "Sign In to Continue"}
             />
             <WriterPlanCard
               title="Gold Model"
@@ -440,20 +493,24 @@ export default function PricingPage() {
                 "Ckript professional reader evaluation",
                 "Upload Pitch video of script"
               ]}
-              onSubscribe={() => alert("Writer subscription backend connection coming soon!")}
+              onSubscribe={() => {
+                if (!user) {
+                  openAuthModal({ redirect: "/pricing" });
+                } else {
+                  handleWriterTestCheckout("gold");
+                }
+              }}
+              buttonText={loading ? "Processing..." : user ? "Pay Securely (Test Mode)" : "Sign In to Continue"}
             />
           </div>
 
           {/* Film Industry Professional Section */}
-          <div className="border-t border-white/[0.06] pt-20 flex flex-col items-center">
-            <div className="text-center mb-12">
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.3em] text-amber-400/80">For Producers & Directors</p>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+          <div className="border-t border-white/[0.06] pt-12 flex flex-col items-start">
+            <div className="text-left mb-10">
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
                 Film Industry Professional Model
               </h2>
-              <p className="mt-4 text-[14px] text-white/50 max-w-xl mx-auto">
-                Get full access to top scripts, verifiable writer contacts, and exclusive rights negotiation tools.
-              </p>
+              <div className="mt-4 h-[2px] w-20 bg-gradient-to-r from-amber-400 to-transparent rounded-full"></div>
             </div>
 
             <div className="w-full max-w-[380px]">

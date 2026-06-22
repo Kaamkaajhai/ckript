@@ -125,7 +125,7 @@ const CreatorDashboard = ({ user, dark }) => {
         setStats({
           totalScripts: 3, totalEarnings: 450, totalUnlocks: 12, holdEarnings: 360,
           totalViews: 1247, profileViews: 1247, trailersGenerated: 2, scoredScripts: 3, avgScore: 84,
-          auditionCount: 15, activeHolds: 1, scriptScoreCredits: 5, plan: "free",
+          auditionCount: 15, activeHolds: 1, plan: "free",
         });
       }
 
@@ -138,14 +138,19 @@ const CreatorDashboard = ({ user, dark }) => {
     } catch { } finally { setLoading(false); }
   };
 
+  const lockedValue = (
+    <span className={`flex items-center gap-1.5 text-[15px] sm:text-[16px] font-bold ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+      <svg className="w-4 h-4 mb-[2px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+      Locked
+    </span>
+  );
+
   const statCards = stats ? [
-    { label: "Profile Views", value: stats.profileViews ?? stats.totalViews ?? 0 },
+    { label: "Profile Views", value: stats.isAnalyticsLocked ? lockedValue : (stats.profileViews ?? stats.totalViews ?? 0), isLocked: stats.isAnalyticsLocked },
     { label: "Earnings", value: `₹${stats.totalEarnings || 0}` },
-
-    { label: "Unlocks", value: stats.totalUnlocks || 0 },
+    { label: "Unlocks", value: stats.isAnalyticsLocked ? lockedValue : (stats.totalUnlocks || 0), isLocked: stats.isAnalyticsLocked },
     { label: "AI Trailers", value: stats.trailersGenerated || 0 },
-    { label: "Avg Score", value: stats.avgScore ?? "N/A" },
-
+    { label: "Avg Score", value: stats.isAnalyticsLocked ? lockedValue : (stats.avgScore ?? "N/A"), isLocked: stats.isAnalyticsLocked },
   ] : [];
   const profileEditPath = getProfileCanonicalPath(user, {
     viewerId: user?._id,
@@ -212,9 +217,24 @@ const CreatorDashboard = ({ user, dark }) => {
               return (
                 <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04 }}
-                  className={`w-full sm:max-w-[200px] md:max-w-[180px] rounded-xl border max-[640px]:border-x-0 p-3.5 md:p-3 min-h-[104px] md:min-h-[92px] max-[640px]:min-h-[98px] hover:-translate-y-0.5 transition-all duration-200 group/card cursor-default ${dark ? 'bg-[#0d1520] border-[#1c2a3a] hover:shadow-lg hover:shadow-black/20 hover:border-[#2a3a4e]' : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300'}`}>
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 transition-colors ${dark ? 'text-[#3a4a5e] group-hover/card:text-[#8896a7]' : 'text-slate-500 group-hover/card:text-slate-600'}`}>{card.label}</p>
-                  <p className={`text-xl leading-none font-extrabold tabular-nums ${dark ? 'text-white' : 'text-slate-900'}`}>{card.value}</p>
+                  className={`relative w-full sm:max-w-[200px] md:max-w-[180px] rounded-xl border max-[640px]:border-x-0 p-3.5 md:p-3 min-h-[104px] md:min-h-[92px] max-[640px]:min-h-[98px] transition-all duration-200 group/card cursor-default ${
+                    card.isLocked 
+                      ? (dark ? 'bg-[#0a111a] border-[#18283b]/60 opacity-80' : 'bg-gray-50/80 border-gray-100 opacity-90')
+                      : (dark ? 'bg-[#0d1520] border-[#1c2a3a] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 hover:border-[#2a3a4e]' : 'bg-white border-slate-200 hover:-translate-y-0.5 shadow-sm hover:shadow-md hover:border-slate-300')
+                  }`}>
+                  {card.isLocked && (
+                    <Link to="/pricing" className="absolute inset-0 z-10 flex items-center justify-center bg-transparent" title="Upgrade to unlock analytics" />
+                  )}
+                  <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 transition-colors ${
+                    card.isLocked
+                      ? (dark ? 'text-[#3a4a5e]/70' : 'text-slate-400')
+                      : (dark ? 'text-[#3a4a5e] group-hover/card:text-[#8896a7]' : 'text-slate-500 group-hover/card:text-slate-600')
+                  }`}>{card.label}</p>
+                  <div className={`text-xl leading-none font-extrabold tabular-nums ${
+                    card.isLocked
+                      ? ''
+                      : (dark ? 'text-white' : 'text-slate-900')
+                  }`}>{card.value}</div>
                 </motion.div>
               );
             })}

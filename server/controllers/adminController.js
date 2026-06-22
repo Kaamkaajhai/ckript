@@ -1,5 +1,4 @@
 import User from "../models/User.js";
-import DiscountCode from "../models/DiscountCode.js";
 import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
 import ScriptPurchaseRequest from "../models/ScriptPurchaseRequest.js";
@@ -26,6 +25,7 @@ import {
     sendAdminPremiumGrantedEmail,
     sendAdminPremiumRemovedEmail,
     sendAdminBroadcastEmail,
+    sendWriterPlanGrantedEmail,
 } from "../utils/emailService.js";
 import {
     hasAdminScriptSectionPasswordConfigured,
@@ -532,13 +532,17 @@ export const getStats = async (req, res) => {
 // ─── User Lists by Role ───
 export const getUsers = async (req, res) => {
     try {
-        const { role, search, page = 1, limit = 20, isPremium } = req.query;
+        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
         const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
         if (role) filter.role = role;
         if (isPremium === 'true') {
             filter["subscription.accessTier"] = "film_industry_professional";
+            filter["subscription.accessStatus"] = "active";
+        }
+        if (hasActiveWriterPlan === 'true') {
+            filter.role = "writer";
             filter["subscription.accessStatus"] = "active";
         }
 
@@ -1033,6 +1037,80 @@ export const removePremiumModelFromUser = async (req, res) => {
             message: "Premium model removed successfully",
             user: buildAdminManagedUserSummary(targetUser),
         });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const removeWriterPlanFromUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+
+        // Revert writer subscription back to standard default "free"
+        targetUser.subscription = {
+            ...targetUser.subscription,
+            plan: "free",
+            isActive: false,
+            accessTier: "none",
+            accessStatus: "inactive",
+            accessExpiresAt: undefined,
+            lastAccessUpdate: new Date()
+        };
+
+        if (targetUser.writerProfile) {
+            targetUser.writerProfile.plan = "free";
+        }
+
+        await targetUser.save();
+
+        res.json({ message: "Writer plan successfully removed", user: buildAdminManagedUserSummary(targetUser) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const grantWriterPlanToUser = async (req, res) => {
+    try {
+        const { plan } = req.body;
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+        
+        if (!["silver", "gold"].includes(plan)) {
+            return res.status(400).json({ message: "Invalid plan specified" });
+        }
+
+        targetUser.subscription = {
+            ...targetUser.subscription,
+            plan: plan,
+            isActive: true,
+            accessTier: "standard",
+            accessStatus: "active",
+            accessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            lastAccessUpdate: new Date()
+        };
+
+        if (targetUser.writerProfile) {
+            targetUser.writerProfile.plan = plan;
+        }
+
+        await targetUser.save();
+
+        // Send email
+        await sendWriterPlanGrantedEmail(targetUser.email, {
+            writerName: targetUser.name || "Writer",
+            planName: plan,
+        });
+
+        res.json({ message: `Writer plan ${plan} successfully granted`, user: buildAdminManagedUserSummary(targetUser) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1554,6 +1632,14 @@ export const approveScript = async (req, res) => {
             script.publishedAt = new Date();
         }
         script.rejectionReason = undefined;
+
+        // Auto-feature scripts for Gold Model users
+        if (!script.isFeatured) {
+            const creatorUser = await User.findById(script.creator).select("subscription");
+            if (creatorUser?.subscription?.plan === "gold") {
+                script.isFeatured = true;
+            }
+        }
 
         if (shouldAutoActivateSpotlight) {
             const now = new Date();
@@ -2736,98 +2822,4 @@ export const createAdminPurchaseTermsVersion = async (req, res) => {
     }
 };
 
-// ─── Discount Code Management ───
-export const getDiscountCodes = async (req, res) => {
-    try {
-        const { page = 1, limit = 20, search = "" } = req.query;
-        const filter = {};
-        if (search) {
-            filter.$or = [
-                { code: { $regex: search, $options: "i" } },
-                { description: { $regex: search, $options: "i" } },
-            ];
-        }
-        const total = await DiscountCode.countDocuments(filter);
-        const codes = await DiscountCode.find(filter)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(Number(limit));
-        res.json({ codes, total, page: Number(page), totalPages: Math.ceil(total / limit) });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
 
-export const createDiscountCode = async (req, res) => {
-    try {
-        const {
-            code, discountType, discountValue, maxUses, maxUsesPerUser,
-            minPurchaseAmount, maxDiscountAmount, validFrom, validUntil,
-            description,
-        } = req.body;
-
-        if (!code || !discountType || discountValue == null || !validUntil) {
-            return res.status(400).json({ message: "code, discountType, discountValue, and validUntil are required" });
-        }
-        if (discountType === "percentage" && (discountValue < 1 || discountValue > 100)) {
-            return res.status(400).json({ message: "Percentage discount must be between 1 and 100" });
-        }
-
-        const existing = await DiscountCode.findOne({ code: code.toUpperCase().trim() });
-        if (existing) {
-            return res.status(409).json({ message: "A discount code with this name already exists" });
-        }
-
-        const discountCode = await DiscountCode.create({
-            code: code.toUpperCase().trim(),
-            discountType,
-            discountValue,
-            maxUses: maxUses || 0,
-            maxUsesPerUser: maxUsesPerUser || 1,
-            minPurchaseAmount: minPurchaseAmount || 0,
-            maxDiscountAmount: maxDiscountAmount || 0,
-            validFrom: validFrom || new Date(),
-            validUntil,
-            description: description || "",
-        });
-
-        res.status(201).json({ message: "Discount code created", discountCode });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-export const updateDiscountCode = async (req, res) => {
-    try {
-        const discountCode = await DiscountCode.findById(req.params.id);
-        if (!discountCode) return res.status(404).json({ message: "Discount code not found" });
-
-        const allowedFields = [
-            "discountType", "discountValue", "maxUses", "maxUsesPerUser",
-            "minPurchaseAmount", "maxDiscountAmount", "validFrom", "validUntil",
-            "isActive", "description",
-        ];
-        for (const field of allowedFields) {
-            if (req.body[field] !== undefined) discountCode[field] = req.body[field];
-        }
-        if (req.body.code) discountCode.code = req.body.code.toUpperCase().trim();
-
-        await discountCode.save();
-        res.json({ message: "Discount code updated", discountCode });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-export const deleteDiscountCode = async (req, res) => {
-    try {
-        const discountCode = await DiscountCode.findById(req.params.id);
-        if (!discountCode) return res.status(404).json({ message: "Discount code not found" });
-
-        discountCode.isActive = false;
-        await discountCode.save();
-        res.json({ message: "Discount code deactivated", discountCode });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};

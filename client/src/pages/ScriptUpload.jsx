@@ -147,13 +147,7 @@ const settingOptions = [
 ];
 const ROLE_GENDER_OPTIONS = ["Any", "Female", "Male", "Non-binary", "Other"];
 
-// Service pricing (in credits)
-const SERVICE_PRICES = {
-  hosting: 0, // Free
-  evaluation: 50, // 50 credits for AI evaluation
-  aiTrailer: 120, // 120 credits for AI trailer
-  spotlight: 310, // 310 credits for spotlight activation
-};
+
 
 const THUMBNAIL_ASPECT = 3 / 4;
 const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
@@ -450,7 +444,7 @@ const ScriptUpload = () => {
   const [scriptContentEditOpen, setScriptContentEditOpen] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
-  const [creditsBalance, setCreditsBalance] = useState(0);
+
   const agreementRef = useRef(null);
   const fileInputRef = useRef(null);
   const thumbnailInputRef = useRef(null);
@@ -520,11 +514,8 @@ const ScriptUpload = () => {
     aiTrailer: false,
     spotlight: false,
   });
-  const [purchasedServiceCredits, setPurchasedServiceCredits] = useState({
-    evaluation: false,
-    aiTrailer: false,
-    spotlight: false,
-  });
+
+
 
   // Legal data
   const [legal, setLegal] = useState({
@@ -619,20 +610,7 @@ const ScriptUpload = () => {
     };
   };
 
-  // Fetch credits balance on mount
-  useEffect(() => {
-    const fetchCreditsBalance = async () => {
-      try {
-        const { data } = await api.get("/credits/balance");
-        setCreditsBalance(data.balance || 0);
-      } catch {
-        setCreditsBalance(0);
-      }
-    };
-    if (user) {
-      fetchCreditsBalance();
-    }
-  }, [user]);
+
 
   // Load existing published script when entering edit mode
   useEffect(() => {
@@ -647,24 +625,7 @@ const ScriptUpload = () => {
           branchMode ? api.get(`/collab/${editId}/branch`).catch(() => null) : Promise.resolve(null),
         ]);
         const isEditApprovalPending = data?.status === "pending_approval" && data?.approvalRequestType === "edit_submission";
-        const purchasedFromHistory = {
-          evaluation: Boolean(
-            Number(data?.billing?.evaluationCreditsChargedAtUpload || 0) > 0
-            || Number(data?.billing?.evaluationCreditsCharged || 0) > 0
-            || data?.services?.evaluation
-          ),
-          aiTrailer: Boolean(
-            Number(data?.billing?.aiTrailerCreditsChargedAtUpload || 0) > 0
-            || Number(data?.billing?.aiTrailerCreditsCharged || 0) > 0
-            || data?.services?.aiTrailer
-          ),
-          spotlight: Boolean(
-            Number(data?.billing?.spotlightCreditsChargedAtUpload || 0) > 0
-            || data?.services?.spotlight
-          ),
-        };
-        setEditApprovalLocked(Boolean(isEditApprovalPending));
-        setPurchasedServiceCredits(purchasedFromHistory);
+
         if (isEditApprovalPending) {
           setError("This script edit is already in admin review. You can edit again after approval or rejection.");
         }
@@ -802,7 +763,7 @@ const ScriptUpload = () => {
           });
         }
         setFromDraft(true);
-        setPurchasedServiceCredits({ evaluation: false, aiTrailer: false, spotlight: false });
+
       } catch {
         // Draft not found, proceed normally
       }
@@ -1333,21 +1294,7 @@ const ScriptUpload = () => {
     return () => window.cancelAnimationFrame(frameId);
   }, [step]);
 
-  // Calculate total price
-  const calculateTotal = () => {
-    const getServiceCharge = (serviceKey, enabled) => {
-      if (!enabled) return 0;
-      if (isEditingExistingScriptFlow && purchasedServiceCredits?.[serviceKey]) return 0;
-      return SERVICE_PRICES[serviceKey] || 0;
-    };
 
-    let total = 0;
-    if (services.hosting) total += SERVICE_PRICES.hosting;
-    total += getServiceCharge("evaluation", services.evaluation);
-    total += getServiceCharge("aiTrailer", trailerOption === "ai");
-    total += getServiceCharge("spotlight", services.spotlight);
-    return total;
-  };
 
   // Validate step
   const validateStep = (stepNum) => {
@@ -1608,15 +1555,6 @@ const ScriptUpload = () => {
 
     if (!isContentOnlyEditMode) {
       if (!validateStep(6)) return;
-
-      const isEditingExistingScript = Boolean(editId);
-      if (!isEditingExistingScript) {
-        const creditsNeeded = calculateTotal();
-        if (creditsNeeded > creditsBalance) {
-          setError(`Insufficient credits. You need ${creditsNeeded} credits but have ${creditsBalance}. Please purchase more credits.`);
-          return;
-        }
-      }
     }
 
     console.log("Starting script submission...");
@@ -1777,22 +1715,14 @@ const ScriptUpload = () => {
         await uploadMediaForScript(newScriptId, "created");
         await downloadSubmissionSummaryPdf(newScriptId, payload.title);
 
-        // Refresh credits balance after successful upload
-        const { data: creditsData } = await api.get("/credits/balance");
-        setCreditsBalance(creditsData.balance || 0);
+
         openUnderReviewModal("/dashboard");
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
       setError(errorMsg);
 
-      // If insufficient credits error, refresh balance
-      if (err.response?.data?.requiresCredits) {
-        try {
-          const { data: creditsData } = await api.get("/credits/balance");
-          setCreditsBalance(creditsData.balance || 0);
-        } catch { /* ignore */ }
-      }
+
     } finally {
       setLoading(false);
     }
@@ -1832,13 +1762,11 @@ const ScriptUpload = () => {
     }`;
   const labelCls = isDarkMode ? "text-white" : "text-[#1e3a5f]";
   const aiBtnCls = `shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`;
-  const totalServiceCost = calculateTotal();
-  const creditsAfterPublish = creditsBalance - totalServiceCost;
   const selectedPublishServices = [
     { key: "hosting", label: "Hosting & Discovery", enabled: true, price: 0 },
-    { key: "spotlight", label: "Activate Spotlight", enabled: services.spotlight, price: SERVICE_PRICES.spotlight },
-    { key: "evaluation", label: "Professional Evaluation", enabled: services.evaluation, price: SERVICE_PRICES.evaluation },
-    { key: "aiTrailer", label: "AI Concept Trailer", enabled: trailerOption === "ai", price: SERVICE_PRICES.aiTrailer },
+    { key: "spotlight", label: "Activate Spotlight", enabled: services.spotlight, price: 1 },
+    { key: "evaluation", label: "Professional Evaluation", enabled: services.evaluation, price: 1 },
+    { key: "aiTrailer", label: "AI Concept Trailer", enabled: trailerOption === "ai", price: 1 },
   ];
   const paidPublishServices = selectedPublishServices.filter((item) => item.enabled && item.price > 0);
   const publishInvoiceRows = [
@@ -1854,12 +1782,7 @@ const ScriptUpload = () => {
       detail: "Added on top of the script access fee at checkout",
       amount: formatCurrency(buyerCommissionAmount),
     },
-    {
-      item: "Optional Services",
-      type: "Credit Charge",
-      detail: paidPublishServices.length > 0 ? `${paidPublishServices.length} paid add-on${paidPublishServices.length === 1 ? "" : "s"} selected` : "No paid add-ons selected",
-      amount: `${totalServiceCost} cr`,
-    },
+
     {
       item: "Film Industry Professional Pays at Checkout",
       type: "Checkout Total",
@@ -1980,8 +1903,19 @@ const ScriptUpload = () => {
         {/* Main form container */}
         <div className={`rounded-2xl border p-6 sm:p-8 max-[640px]:p-4 max-[420px]:p-3 ${isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200 shadow-sm"}`}>
           {error && (
-            <div className="mb-5 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm">
-              {error}
+            <div className="mb-5 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+                <span>{error}</span>
+              </div>
+              {error.toLowerCase().includes("limit") && (
+                <button 
+                  type="button"
+                  onClick={() => window.open('/pricing', '_blank')} 
+                  className="shrink-0 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
+                  Get Plan
+                </button>
+              )}
             </div>
           )}
           {pdfNotice && (
@@ -2907,10 +2841,22 @@ const ScriptUpload = () => {
                         </div>
 
                         {/* Pitch Video Upload */}
-                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                          <label className={`block text-sm font-medium mb-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Pitch Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                          </label>
+                        {["writer", "creator"].includes(user?.role) && (["free", "silver"].includes(user?.subscription?.plan) || !user?.subscription?.plan) ? (
+                          <div className={`rounded-2xl border p-4 ${isDarkMode ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
+                            <label className={`block text-sm font-medium mb-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                              Pitch Video <span className={`text-xs font-normal text-red-500`}>Locked</span>
+                            </label>
+                            <p className={`text-[11px] mb-2.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Upload Pitch Video is a premium feature.</p>
+                            <Link to="/pricing" className="block text-center rounded-xl p-4 transition flex flex-col items-center bg-gray-100/50 hover:bg-gray-200/50 cursor-pointer">
+                              <svg className="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upgrade to Unlock</p>
+                            </Link>
+                          </div>
+                        ) : (
+                          <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
+                            <label className={`block text-sm font-medium mb-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                              Pitch Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                            </label>
                           <p className={`text-[11px] mb-2.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>A short video pitch for your script. Max 1:30 min · Max 90MB</p>
                           <input
                             ref={pitchVideoInputRef}
@@ -2969,6 +2915,7 @@ const ScriptUpload = () => {
                             </div>
                           )}
                         </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -3217,163 +3164,7 @@ const ScriptUpload = () => {
                       </div>
                     </div>
 
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      <div className="flex items-center gap-2.5 mb-5">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                          <svg className={`w-4 h-4 ${isDarkMode ? "text-blue-300" : "text-blue-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h12M3.75 3h16.5A2.25 2.25 0 0122.5 5.25V9M3.75 3l5.25 5.25m0 0L12 11.25m-3-3L6 11.25m3-3v8.25" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Optional Services</h3>
-                          <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Select only services you want to add now.</p>
-                        </div>
-                      </div>
 
-                      <div className="space-y-2.5 min-[416px]:space-y-3">
-                        {[
-                          {
-                            key: "hosting",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" /></svg>,
-                            name: "Hosting & Discovery",
-                            price: "FREE",
-                            desc: "Marketplace listing and public discovery",
-                            locked: true,
-                            enabled: true,
-                          },
-                          {
-                            key: "spotlight",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l1.838 1.783a.75.75 0 00.384.2l2.53.36a.75.75 0 01.607.51l.806 2.435a.75.75 0 00.286.37l2.108 1.498a.75.75 0 010 1.227l-2.108 1.498a.75.75 0 00-.286.37l-.806 2.435a.75.75 0 01-.607.51l-2.53.36a.75.75 0 00-.384.2l-1.838 1.783a.75.75 0 01-1.04 0l-1.838-1.783a.75.75 0 00-.384-.2l-2.53-.36a.75.75 0 01-.607-.51l-.806-2.435a.75.75 0 00-.286-.37L2.92 11.882a.75.75 0 010-1.227L5.028 9.157a.75.75 0 00.286-.37l.806-2.435a.75.75 0 01.607-.51l2.53-.36a.75.75 0 00.384-.2L11.48 3.5z" /></svg>,
-                            name: "Activate Spotlight",
-                            price: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight ? "Already bought" : `${SERVICE_PRICES.spotlight} credits`,
-                            desc: "Verified badge, evaluation + trailer service, and featured top placement",
-                            locked: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight,
-                            enabled: services.spotlight,
-                          },
-                          {
-                            key: "aiTrailer",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>,
-                            name: "AI Concept Trailer",
-                            price: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "Already bought" : `${SERVICE_PRICES.aiTrailer} credits`,
-                            desc: "60-second cinematic teaser",
-                            badge: "BETA",
-                            locked: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer,
-                            enabled: trailerOption === "ai",
-                          },
-                          {
-                            key: "evaluation",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08" /></svg>,
-                            name: "Professional Evaluation",
-                            price: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation ? "Already bought" : `${SERVICE_PRICES.evaluation} credits`,
-                            desc: "Reader scorecard with strengths and weaknesses",
-                            locked: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation,
-                            enabled: services.evaluation,
-                          },
-                        ].map((service) => (
-                          <button
-                            key={service.key}
-                            type="button"
-                            onClick={() => {
-                              if (service.locked) {
-                                if (service.key === "hosting") {
-                                  setError("Hosting is required for your script to be searchable.");
-                                } else {
-                                  setError("");
-                                }
-                                return;
-                              }
-
-                              if (service.key === "evaluation") {
-                                setServices((current) => ({ ...current, evaluation: !current.evaluation }));
-                              }
-
-                              if (service.key === "spotlight") {
-                                setServices((current) => ({ ...current, spotlight: !current.spotlight }));
-                              }
-
-                              if (service.key === "aiTrailer") {
-                                if (trailerOption === "ai") {
-                                  setTrailerOption(trailerFile ? "upload" : "none");
-                                } else {
-                                  setTrailerOption("ai");
-                                }
-                              }
-
-                              setError("");
-                            }}
-                            className={`w-full text-left rounded-2xl border px-3.5 min-[416px]:px-4 py-3.5 min-[416px]:py-4 transition-all ${service.locked
-                              ? isDarkMode ? "border-[#22405f] bg-[#0e2032] cursor-default" : "border-blue-100 bg-blue-50/70 cursor-default"
-                              : service.enabled
-                                ? isDarkMode ? "border-[#2b5d8f] bg-[#122338]" : "border-[#1e3a5f]/25 bg-[#1e3a5f]/[0.05]"
-                                : isDarkMode ? "border-[#182840] hover:border-[#22405f] hover:bg-white/[0.02]" : "border-gray-200 hover:border-gray-300 hover:bg-white"
-                            }`}
-                          >
-                            <div className="flex items-start gap-2.5 min-[416px]:gap-3">
-                              <div className={`w-9 h-9 min-[416px]:w-10 min-[416px]:h-10 rounded-xl flex items-center justify-center shrink-0 ${service.enabled || service.locked ? isDarkMode ? "bg-white/[0.08] text-white" : "bg-white text-[#1e3a5f]" : isDarkMode ? "bg-white/[0.04] text-gray-400" : "bg-gray-100 text-gray-500"}`}>
-                                {service.icon}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-1.5 min-[416px]:gap-2">
-                                      <h4 className={`text-[13px] min-[416px]:text-sm font-bold leading-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.name}</h4>
-                                      {service.badge && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">{service.badge}</span>}
-                                      {service.locked && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{service.key === "hosting" ? "Included" : "Already Bought"}</span>}
-                                      {service.key === "aiTrailer" && trailerOption === "upload" && trailerFile && (
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>Replaces uploaded trailer</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="hidden min-[416px]:flex flex-col items-end justify-start gap-1.5 shrink-0">
-                                  <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      service.enabled 
-                                        ? isDarkMode ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : isDarkMode ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        service.enabled
-                                          ? isDarkMode ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : isDarkMode ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {service.enabled && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{service.enabled ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] mt-1 ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                                </div>
-                                <p className={`text-[12px] mt-1.5 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{service.desc}</p>
-                                <div className="mt-2 min-[416px]:hidden flex items-center justify-between gap-2">
-                                  <p className={`text-[13px] font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      service.enabled 
-                                        ? isDarkMode ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : isDarkMode ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        service.enabled
-                                          ? isDarkMode ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : isDarkMode ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {service.enabled && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{service.enabled ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
 
                     <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
                       <div className="flex items-center gap-2.5 mb-4">
@@ -3651,27 +3442,7 @@ const ScriptUpload = () => {
                       </label>
                     </div>
 
-                    <div className={`rounded-xl p-4 border ${isDarkMode ? "bg-white/[0.03] border-white/[0.08]" : "bg-gray-50 border-gray-200"}`}>
-                      <div className="flex flex-col gap-2 min-[460px]:flex-row min-[460px]:items-center min-[460px]:justify-between">
-                        <span className={`text-sm font-medium ${labelCls}`}>Total Credits Required</span>
-                        <span className={`text-xl min-[420px]:text-2xl font-black ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>{calculateTotal()} credits</span>
-                      </div>
-                      <p className={`text-xs mt-2 ${isDarkMode ? "text-neutral-500" : "text-gray-500"}`}>
-                        {services.hosting && <span>Hosting (FREE)</span>}
-                        {services.evaluation && (
-                          <span>{services.hosting ? " + " : ""}{isEditingExistingScriptFlow && purchasedServiceCredits.evaluation ? "Evaluation (already bought)" : `${SERVICE_PRICES.evaluation} credits evaluation`}</span>
-                        )}
-                        {services.spotlight && (
-                          <span>{services.hosting || services.evaluation ? " + " : ""}{isEditingExistingScriptFlow && purchasedServiceCredits.spotlight ? "Spotlight (already bought)" : `${SERVICE_PRICES.spotlight} credits spotlight`}</span>
-                        )}
-                        {trailerOption === "ai" && (
-                          <span>{services.hosting || services.evaluation || services.spotlight ? " + " : ""}{isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "AI trailer (already bought)" : `${SERVICE_PRICES.aiTrailer} credits AI trailer`}</span>
-                        )}
-                        {trailerOption === "upload" && trailerFile && (
-                          <span>{services.hosting || services.evaluation || services.spotlight ? " + " : ""}Trailer upload (FREE)</span>
-                        )}
-                      </p>
-                    </div>
+
                   </div>
 
                   <div className="flex flex-col-reverse min-[420px]:flex-row gap-2.5 min-[420px]:gap-3 justify-between pt-1 min-[420px]:pt-2">

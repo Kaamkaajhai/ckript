@@ -694,19 +694,11 @@ const CreateProject = () => {
   const previewPageTextsSignatureRef = useRef("");
 
   // Grammar credit confirmation + undo/keep
-  const GRAMMAR_COST = 5;
-  const [showGrammarModal, setShowGrammarModal] = useState(false);
-  const [grammarCreditBalance, setGrammarCreditBalance] = useState(null);
-  const [grammarCreditLoading, setGrammarCreditLoading] = useState(false);
   const [preGrammarContent, setPreGrammarContent] = useState(null); // for undo
   const [showUndoBar, setShowUndoBar] = useState(false);
   const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
   // AI Prose Sample Generation
-  const PROSE_COST = 20;
-  const [showProseModal, setShowProseModal] = useState(false);
-  const [proseCreditBalance, setProseCreditBalance] = useState(null);
-  const [proseCreditLoading, setProseCreditLoading] = useState(false);
   const [proseLoading, setProseLoading] = useState(false);
 
   // Step 2: Details
@@ -1085,7 +1077,6 @@ const CreateProject = () => {
   const [legal, setLegal] = useState({ agreedToTerms: false, customInvestorTerms: "" });
   const [rightsLicensing, setRightsLicensing] = useState(() => createDefaultRightsLicensing());
   const [collabVisibility, setCollabVisibility] = useState("private");
-  const [creditsBalance, setCreditsBalance] = useState(0);
 
   // Step 4: Script pricing
   const BUYER_COMMISSION_RATE = 0.05; // 5%
@@ -1180,11 +1171,6 @@ const CreateProject = () => {
     previewPageTextsSignatureRef.current = nextSignature;
     setPreviewPageTexts(nextPreviewTexts);
   }, [editor, estimatedPages, formatInfo.wordsPerPage]);
-
-  // Fetch credits
-  useEffect(() => {
-    if (user) api.get("/credits/balance").then(({ data }) => setCreditsBalance(data.balance || 0)).catch(() => { });
-  }, [user]);
 
   // Load drafts
   const fetchDrafts = useCallback(async () => {
@@ -1790,25 +1776,12 @@ const CreateProject = () => {
     });
   };
   const isEditingExistingScriptFlow = Boolean(scriptId && loadedScriptStatus !== "draft");
-  const getServiceCharge = (serviceKey, enabled) => {
-    if (!enabled) return 0;
-    if (isEditingExistingScriptFlow && purchasedServiceCredits?.[serviceKey]) return 0;
-    return SERVICE_PRICES[serviceKey] || 0;
-  };
-  const calculateTotal = () =>
-    getServiceCharge("evaluation", services.evaluation)
-    + getServiceCharge("aiTrailer", services.aiTrailer)
-    + getServiceCharge("spotlight", services.spotlight);
-  const totalServiceCost = calculateTotal();
   const selectedPublishServices = [
-    { key: "hosting", name: "Hosting & Discovery", price: 0, enabled: true, desc: "Listed in the marketplace for discovery" },
-    { key: "spotlight", name: "Activate Spotlight", price: SERVICE_PRICES.spotlight, enabled: services.spotlight, desc: "Priority visibility boost in marketplace placements", alreadyBought: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight, charge: getServiceCharge("spotlight", services.spotlight) },
-    { key: "aiTrailer", name: "AI Concept Trailer", price: SERVICE_PRICES.aiTrailer, enabled: services.aiTrailer, desc: "60-second cinematic concept trailer", alreadyBought: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer, charge: getServiceCharge("aiTrailer", services.aiTrailer) },
-    { key: "evaluation", name: "Professional Evaluation", price: SERVICE_PRICES.evaluation, enabled: services.evaluation, desc: "Scorecard and editorial coverage from a vetted reader", alreadyBought: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation, charge: getServiceCharge("evaluation", services.evaluation) },
+    { key: "hosting", name: "Hosting & Discovery", enabled: true, desc: "Listed in the marketplace for discovery" },
+    { key: "spotlight", name: "Activate Spotlight", enabled: services.spotlight, desc: "Priority visibility boost in marketplace placements" },
+    { key: "aiTrailer", name: "AI Concept Trailer", enabled: services.aiTrailer, desc: "60-second cinematic concept trailer" },
+    { key: "evaluation", name: "Professional Evaluation", enabled: services.evaluation, desc: "Scorecard and editorial coverage from a vetted reader" },
   ];
-  const paidPublishServices = selectedPublishServices.filter((item) => item.enabled && item.charge > 0);
-  const alreadyBoughtSelectedCount = selectedPublishServices.filter((item) => item.enabled && item.alreadyBought).length;
-  const creditsAfterPublish = creditsBalance - totalServiceCost;
   const trailerWorkflowHint = services.aiTrailer
     ? trailerFile
       ? {
@@ -1841,14 +1814,7 @@ const CreateProject = () => {
       type: "Platform Commission",
       amount: formatCurrency(buyerCommissionAmount),
     },
-    {
-      item: "Optional Services",
-      detail: paidPublishServices.length > 0
-        ? `${paidPublishServices.length} payable add-on${paidPublishServices.length === 1 ? "" : "s"} selected${alreadyBoughtSelectedCount > 0 ? `, ${alreadyBoughtSelectedCount} already bought` : ""}`
-        : (alreadyBoughtSelectedCount > 0 ? `${alreadyBoughtSelectedCount} already-bought service${alreadyBoughtSelectedCount === 1 ? "" : "s"} selected` : "No paid add-ons selected"),
-      type: "Credit Charge",
-      amount: `${totalServiceCost} cr`,
-    },
+
     {
       item: "Film Industry Professional Pays at Checkout",
       detail: "Script fee + platform commission",
@@ -2025,11 +1991,7 @@ const CreateProject = () => {
     if (!validateStep(6)) return;
     const ageRangeError = getInvalidRoleAgeRangeMessage();
     if (ageRangeError) { setError(ageRangeError); return; }
-    const isEditingExistingScript = Boolean(scriptId && loadedScriptStatus !== "draft");
-    if (!isEditingExistingScript) {
-      const creditsNeeded = calculateTotal();
-      if (creditsNeeded > creditsBalance) { setError(`Insufficient credits. Need ${creditsNeeded} but have ${creditsBalance}.`); return; }
-    }
+
     setLoading(true); setError("");
     try {
       const tagsArr = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
@@ -2108,7 +2070,12 @@ const CreateProject = () => {
 
       clearLocalWorkingDraft();
       openUnderReviewModal("/dashboard");
-    } catch (err) { setError(err.response?.data?.message || err.message || "Failed to publish."); } finally { setLoading(false); }
+    } catch (err) { 
+      setError(err.response?.data?.message || err.message || "Failed to publish."); 
+
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const escapeHtml = (str = "") =>
@@ -2132,20 +2099,9 @@ const CreateProject = () => {
       .join("");
   };
 
-  // Fetch credits for grammar modal
-  const fetchGrammarCredits = useCallback(async () => {
-    setGrammarCreditLoading(true);
-    try {
-      const { data } = await api.get("/credits/balance");
-      setGrammarCreditBalance(data.balance || 0);
-    } catch {
-      setGrammarCreditBalance(0);
-    } finally {
-      setGrammarCreditLoading(false);
-    }
-  }, []);
 
-  // Click "Fix Grammar" - show credit confirmation first
+
+  // Click "Fix Grammar"
   const handleGrammarClick = () => {
     if (!editor) return;
     const plainText = editor.getText().trim();
@@ -2153,13 +2109,11 @@ const CreateProject = () => {
       setError("Write some script text before running grammar correction.");
       return;
     }
-    fetchGrammarCredits();
-    setShowGrammarModal(true);
+    handleFixGrammar();
   };
 
   // Confirmed - actually run grammar fix
   const handleFixGrammar = async () => {
-    setShowGrammarModal(false);
     if (!editor) return;
     const plainText = editor.getText().trim();
     if (!plainText) return;
@@ -2183,18 +2137,8 @@ const CreateProject = () => {
       }
 
       setGrammarNotes(Array.isArray(data?.notes) ? data.notes : []);
-      // Refresh balance
-      api.get("/credits/balance").then(({ data: d }) => {
-        setCreditsBalance(d.balance || 0);
-        setGrammarCreditBalance(d.balance || 0);
-      }).catch(() => {});
     } catch (err) {
       const msg = err.response?.data?.message || "Failed to correct script text.";
-      // If credit error, show modal again
-      if (err.response?.status === 402) {
-        setGrammarCreditBalance(err.response.data?.balance ?? 0);
-        setShowGrammarModal(true);
-      }
       setError(msg);
     } finally {
       setGrammarLoading(false);
@@ -2218,18 +2162,7 @@ const CreateProject = () => {
     setPreGrammarContent(null);
   };
 
-  // Fetch credits for prose modal
-  const fetchProseCredits = useCallback(async () => {
-    setProseCreditLoading(true);
-    try {
-      const { data } = await api.get("/credits/balance");
-      setProseCreditBalance(data.balance || 0);
-    } catch {
-      setProseCreditBalance(0);
-    } finally {
-      setProseCreditLoading(false);
-    }
-  }, []);
+
 
   const handleProseClick = () => {
     if (!editor) return;
@@ -2238,12 +2171,10 @@ const CreateProject = () => {
       setError("Write at least 50 characters of script text before generating a prose sample.");
       return;
     }
-    fetchProseCredits();
-    setShowProseModal(true);
+    handleGenerateProse();
   };
 
   const handleGenerateProse = async () => {
-    setShowProseModal(false);
     if (!editor) return;
     const plainText = editor.getText().trim();
     if (!plainText) return;
@@ -2260,17 +2191,8 @@ const CreateProject = () => {
         setSaved(false);
       }
 
-      // Refresh balance
-      api.get("/credits/balance").then(({ data: d }) => {
-        setCreditsBalance(d.balance || 0);
-        setProseCreditBalance(d.balance || 0);
-      }).catch(() => {});
     } catch (err) {
       const msg = err.response?.data?.message || "Failed to generate prose sample.";
-      if (err.response?.status === 402) {
-        setProseCreditBalance(err.response.data?.balance ?? 0);
-        setShowProseModal(true);
-      }
       setError(msg);
     } finally {
       setProseLoading(false);
@@ -2474,281 +2396,7 @@ const CreateProject = () => {
         )}
       </AnimatePresence>
 
-      {/* --- Grammar Credit Confirmation Modal (portal) --- */}
-      {showGrammarModal && createPortal(
-        <AnimatePresence>
-          <motion.div
-            key="grammar-modal-bg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
-            onClick={() => setShowGrammarModal(false)}
-          >
-            <motion.div
-              key="grammar-modal"
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ type: "spring", damping: 24, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
-                dark
-                  ? "bg-[#0a1120] border border-white/[0.08]"
-                  : "bg-white border border-gray-200"
-              }`}
-            >
-              {/* Header */}
-              <div className={`px-6 pt-6 pb-4 border-b ${
-                dark ? "border-white/[0.06]" : "border-gray-100"
-              }`}>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-                    dark
-                      ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
-                      : "bg-emerald-50 border border-emerald-200"
-                  }`}>
-                    <span className="text-xs font-bold">AI</span>
-                  </div>
-                  <div>
-                    <h3 className={`text-base font-bold ${
-                      dark ? "text-white" : "text-gray-900"
-                    }`}>AI Grammar Fix</h3>
-                    <p className={`text-[11px] ${
-                      dark ? "text-neutral-500" : "text-gray-400"
-                    }`}>Powered by Gemini AI</p>
-                  </div>
-                </div>
-                <p className={`text-xs leading-relaxed ${
-                  dark ? "text-neutral-400" : "text-gray-500"
-                }`}>
-                  Fix grammar, spelling, punctuation, and readability with professional AI proofreading.
-                </p>
-              </div>
 
-              {/* Credit info */}
-              <div className="px-6 py-5 space-y-3">
-                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
-                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">₹</span>
-                    <span className={`text-xs font-medium ${
-                      dark ? "text-neutral-300" : "text-gray-600"
-                    }`}>Cost</span>
-                  </div>
-                  <span className={`text-sm font-bold ${
-                    dark ? "text-amber-300" : "text-amber-600"
-                  }`}>{GRAMMAR_COST} credits</span>
-                </div>
-
-                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
-                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold">CR</span>
-                    <span className={`text-xs font-medium ${
-                      dark ? "text-neutral-300" : "text-gray-600"
-                    }`}>Your Balance</span>
-                  </div>
-                  {grammarCreditLoading ? (
-                    <span className={`text-xs ${
-                      dark ? "text-neutral-500" : "text-gray-400"
-                    }`}>Loading...</span>
-                  ) : (
-                    <span className={`text-sm font-bold ${
-                      grammarCreditBalance >= GRAMMAR_COST
-                        ? dark ? "text-emerald-400" : "text-emerald-600"
-                        : "text-red-400"
-                    }`}>
-                      {grammarCreditBalance ?? "-"} credits
-                    </span>
-                  )}
-                </div>
-
-                {!grammarCreditLoading && grammarCreditBalance !== null && grammarCreditBalance < GRAMMAR_COST && (
-                  <div className={`px-4 py-3 rounded-xl ${
-                    dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
-                  }`}>
-                    <p className={`text-xs leading-relaxed ${
-                      dark ? "text-red-300" : "text-red-600"
-                    }`}>
-                      Not enough credits. You need {GRAMMAR_COST - grammarCreditBalance} more credit{GRAMMAR_COST - grammarCreditBalance > 1 ? "s" : ""} to use this feature.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Buttons */}
-              <div className="px-6 pb-6 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowGrammarModal(false)}
-                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    dark
-                      ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
-                      : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleFixGrammar}
-                  disabled={grammarCreditLoading || grammarCreditBalance === null || grammarCreditBalance < GRAMMAR_COST}
-                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
-                    dark
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
-                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
-                  }`}
-                >
-                  Pay {GRAMMAR_COST} Credits & Fix
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>,
-        document.body
-      )}
-
-      {/* --- AI Prose Generation Modal (portal) --- */}
-      {showProseModal && createPortal(
-        <AnimatePresence>
-          <motion.div
-            key="prose-modal-bg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
-            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
-            onClick={() => setShowProseModal(false)}
-          >
-            <motion.div
-              key="prose-modal"
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ type: "spring", damping: 24, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
-                dark
-                  ? "bg-[#0a1120] border border-white/[0.08]"
-                  : "bg-white border border-gray-200"
-              }`}
-            >
-              {/* Header */}
-              <div className={`px-6 pt-6 pb-4 border-b ${
-                dark ? "border-white/[0.06]" : "border-gray-100"
-              }`}>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
-                    dark
-                      ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
-                      : "bg-emerald-50 border border-emerald-200"
-                  }`}>
-                    <span className="text-xs font-bold">AI</span>
-                  </div>
-                  <div>
-                    <h3 className={`text-base font-bold ${
-                      dark ? "text-white" : "text-gray-900"
-                    }`}>AI Prose Generator</h3>
-                    <p className={`text-[11px] ${
-                      dark ? "text-neutral-500" : "text-gray-400"
-                    }`}>Powered by Gemini AI</p>
-                  </div>
-                </div>
-                <p className={`text-xs leading-relaxed ${
-                  dark ? "text-neutral-400" : "text-gray-500"
-                }`}>
-                  Convert your script format into a novel-ready prose excerpt for publishers.
-                </p>
-              </div>
-
-              {/* Credit info */}
-              <div className="px-6 py-5 space-y-3">
-                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
-                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">₹</span>
-                    <span className={`text-xs font-medium ${
-                      dark ? "text-neutral-300" : "text-gray-600"
-                    }`}>Cost</span>
-                  </div>
-                  <span className={`text-sm font-bold ${
-                    dark ? "text-amber-300" : "text-amber-600"
-                  }`}>{PROSE_COST} credits</span>
-                </div>
-
-                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
-                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
-                }`}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold">CR</span>
-                    <span className={`text-xs font-medium ${
-                      dark ? "text-neutral-300" : "text-gray-600"
-                    }`}>Your Balance</span>
-                  </div>
-                  {proseCreditLoading ? (
-                    <span className={`text-xs ${
-                      dark ? "text-neutral-500" : "text-gray-400"
-                    }`}>Loading...</span>
-                  ) : (
-                    <span className={`text-sm font-bold ${
-                      proseCreditBalance >= PROSE_COST
-                        ? dark ? "text-emerald-400" : "text-emerald-600"
-                        : "text-red-400"
-                    }`}>
-                      {proseCreditBalance ?? "-"} credits
-                    </span>
-                  )}
-                </div>
-
-                {!proseCreditLoading && proseCreditBalance !== null && proseCreditBalance < PROSE_COST && (
-                  <div className={`px-4 py-3 rounded-xl ${
-                    dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
-                  }`}>
-                    <p className={`text-xs leading-relaxed ${
-                      dark ? "text-red-300" : "text-red-600"
-                    }`}>
-                      Not enough credits. You need {PROSE_COST - proseCreditBalance} more credit{PROSE_COST - proseCreditBalance > 1 ? "s" : ""} to use this feature.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Buttons */}
-              <div className="px-6 pb-6 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowProseModal(false)}
-                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    dark
-                      ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
-                      : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                  }`}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateProse}
-                  disabled={proseCreditLoading || proseCreditBalance === null || proseCreditBalance < PROSE_COST}
-                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
-                    dark
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
-                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
-                  }`}
-                >
-                  Pay {PROSE_COST} Credits & Generate
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>,
-        document.body
-      )}
 
       {showUnderReviewModal && createPortal(
         <AnimatePresence>
@@ -2823,9 +2471,7 @@ const CreateProject = () => {
                   <span className={`text-xs font-bold ${
                     dark ? "text-emerald-400" : "text-emerald-600"
                   }`}>Grammar Fixed</span>
-                  <span className={`text-[10px] ${
-                    dark ? "text-neutral-500" : "text-gray-400"
-                  }`}>- {GRAMMAR_COST} credits used</span>
+
                 </div>
                 {grammarNotes.length > 0 && (
                   <p className={`text-[10px] truncate leading-snug ${
@@ -3021,9 +2667,19 @@ const CreateProject = () => {
       <AnimatePresence>
         {error && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex items-center gap-2">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-            {error}
+            className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+              <span>{error}</span>
+            </div>
+            {error.toLowerCase().includes("limit") && (
+              <button 
+                type="button"
+                onClick={() => window.open('/pricing', '_blank')} 
+                className="shrink-0 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
+                Get Plan
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -3063,7 +2719,7 @@ const CreateProject = () => {
                   </button>
                   <button onClick={handleGrammarClick} disabled={grammarLoading || saving}
                     className={`flex items-center justify-center gap-1.5 px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-bold border transition disabled:opacity-40 max-[860px]:w-full ${dark ? "border-emerald-500/25 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}>
-                    {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar <span className={`text-[9px] px-1 py-0.5 rounded ${dark ? "bg-amber-500/15 text-amber-400" : "bg-amber-50 text-amber-600"}`}>{GRAMMAR_COST}cr</span></>}
+                    {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar</>}
                   </button>
                 </div>
               </div>
@@ -3744,10 +3400,22 @@ const CreateProject = () => {
                   )}
 
                   {/* Pitch Video Upload */}
-                  <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <label className={`block text-sm font-medium mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
-                      Pitch Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                    </label>
+                  {["writer", "creator"].includes(user?.role) && (["free", "silver"].includes(user?.subscription?.plan) || !user?.subscription?.plan) ? (
+                    <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
+                      <label className={`block text-sm font-medium mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                        Pitch Video <span className={`text-xs font-normal text-red-500`}>Locked</span>
+                      </label>
+                      <p className={`text-[11px] mb-2.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>Upload Pitch Video is a premium feature.</p>
+                      <Link to="/pricing" className="block text-center rounded-xl p-4 transition flex flex-col items-center bg-gray-100/50 hover:bg-gray-200/50 cursor-pointer">
+                        <svg className="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                        <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upgrade to Unlock</p>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
+                      <label className={`block text-sm font-medium mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                        Pitch Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                      </label>
                     <p className={`text-[11px] mb-2.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>A short video pitch for your project. Max 1:30 min · Max 90MB</p>
                     <input
                       ref={pitchVideoInputRef}
@@ -3806,6 +3474,7 @@ const CreateProject = () => {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -4012,122 +3681,7 @@ const CreateProject = () => {
                     </div>
                   </div>
 
-                  <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-center gap-2.5 mb-5">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                        <svg className={`w-4 h-4 ${dark ? "text-blue-300" : "text-blue-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h12M3.75 3h16.5A2.25 2.25 0 0122.5 5.25V9M3.75 3l5.25 5.25m0 0L12 11.25m-3-3L6 11.25m3-3v8.25" /></svg>
-                      </div>
-                      <div>
-                        <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Optional Services</h3>
-                        <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Select only services you want to add now.</p>
-                      </div>
-                    </div>
 
-                    <div className="space-y-2.5 min-[416px]:space-y-3">
-                      {[
-                        { key: "hosting", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" /></svg>, name: "Hosting & Discovery", price: "FREE", desc: "Marketplace listing and public discovery", locked: true },
-                        { key: "spotlight", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l1.838 1.783a.75.75 0 00.384.2l2.53.36a.75.75 0 01.607.51l.806 2.435a.75.75 0 00.286.37l2.108 1.498a.75.75 0 010 1.227l-2.108 1.498a.75.75 0 00-.286.37l-.806 2.435a.75.75 0 01-.607.51l-2.53.36a.75.75 0 00-.384.2l-1.838 1.783a.75.75 0 01-1.04 0l-1.838-1.783a.75.75 0 00-.384-.2l-2.53-.36a.75.75 0 01-.607-.51l-.806-2.435a.75.75 0 00-.286-.37L2.92 11.882a.75.75 0 010-1.227L5.028 9.157a.75.75 0 00.286-.37l.806-2.435a.75.75 0 01.607-.51l2.53-.36a.75.75 0 00.384-.2L11.48 3.5z" /></svg>, name: "Activate Spotlight", price: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight ? "Already bought" : `${SERVICE_PRICES.spotlight} credits`, desc: "Verified badge, evaluation + trailer service, and featured top placement", locked: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight },
-                        ...(targetFilm ? [{ key: "aiTrailer", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>, name: "AI Concept Trailer", price: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "Already bought" : `${SERVICE_PRICES.aiTrailer} credits`, desc: "60-second cinematic teaser", badge: "BETA", locked: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer }] : []),
-                        { key: "evaluation", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08" /></svg>, name: "Professional Evaluation", price: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation ? "Already bought" : `${SERVICE_PRICES.evaluation} credits`, desc: "Reader scorecard with strengths and weaknesses", locked: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation },
-                      ].map((service) => (
-                        <button
-                          key={service.key}
-                          type="button"
-                          onClick={() => !service.locked && setServices((current) => ({ ...current, [service.key]: !current[service.key] }))}
-                          className={`w-full text-left rounded-2xl border px-3.5 min-[416px]:px-4 py-3.5 min-[416px]:py-4 transition-all ${service.locked
-                            ? dark ? "border-[#22405f] bg-[#0e2032] cursor-default" : "border-blue-100 bg-blue-50/70 cursor-default"
-                            : services[service.key]
-                              ? dark ? "border-[#2b5d8f] bg-[#122338]" : "border-[#1e3a5f]/25 bg-[#1e3a5f]/[0.05]"
-                              : dark ? "border-[#182840] hover:border-[#22405f] hover:bg-white/[0.02]" : "border-gray-200 hover:border-gray-300 hover:bg-white"
-                          }`}
-                        >
-                          <div className="flex items-start gap-2.5 min-[416px]:gap-3">
-                            <div className={`w-9 h-9 min-[416px]:w-10 min-[416px]:h-10 rounded-xl flex items-center justify-center shrink-0 ${services[service.key] || service.locked ? dark ? "bg-white/[0.08] text-white" : "bg-white text-[#1e3a5f]" : dark ? "bg-white/[0.04] text-gray-400" : "bg-gray-100 text-gray-500"}`}>
-                              {service.icon}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-1.5 min-[416px]:gap-2">
-                                    <h4 className={`text-[13px] min-[416px]:text-sm font-bold leading-tight ${dark ? "text-white" : "text-gray-900"}`}>{service.name}</h4>
-                                    {service.badge && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">{service.badge}</span>}
-                                    {service.locked && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{service.key === "hosting" ? "Included" : "Already Bought"}</span>}
-                                  </div>
-                                </div>
-                                <div className="hidden min-[416px]:flex flex-col items-end justify-start gap-1.5 shrink-0">
-                                  <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      services[service.key] 
-                                        ? dark ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : dark ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        services[service.key]
-                                          ? dark ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : dark ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {services[service.key] && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{services[service.key] ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] mt-1 ${dark ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                              </div>
-                              <p className={`text-[12px] mt-1.5 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{service.desc}</p>
-                              <div className="mt-2 min-[416px]:hidden flex items-center justify-between gap-2">
-                                  <p className={`text-[13px] font-bold ${dark ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      services[service.key] 
-                                        ? dark ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : dark ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        services[service.key]
-                                          ? dark ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : dark ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {services[service.key] && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{services[service.key] ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] ${dark ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {trailerWorkflowHint && (
-                      <div className={`mt-4 rounded-xl border px-3.5 py-3 ${trailerWorkflowHint.tone === "warn"
-                        ? dark
-                          ? "bg-amber-500/8 border-amber-400/25"
-                          : "bg-amber-50 border-amber-200"
-                        : trailerWorkflowHint.tone === "success"
-                          ? dark
-                            ? "bg-emerald-500/8 border-emerald-400/20"
-                            : "bg-emerald-50 border-emerald-200"
-                          : dark
-                            ? "bg-blue-500/8 border-blue-400/20"
-                            : "bg-blue-50 border-blue-200"
-                        }`}>
-                        <p className={`text-[11px] font-bold uppercase tracking-[0.14em] mb-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
-                          {trailerWorkflowHint.title}
-                        </p>
-                        <p className={`text-[12px] leading-relaxed ${dark ? "text-gray-300" : "text-gray-700"}`}>
-                          {trailerWorkflowHint.text}
-                        </p>
-                      </div>
-                    )}
-                  </div>
 
                   {targetFilm && (
                     <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>

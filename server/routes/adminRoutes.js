@@ -13,6 +13,8 @@ import {
     grantCreditsToUser,
     grantPremiumModelToUser,
     removePremiumModelFromUser,
+    removeWriterPlanFromUser,
+    grantWriterPlanToUser,
     getScripts,
     getAIUsageScripts,
     getEvaluationPurchases,
@@ -52,10 +54,6 @@ import {
     getAdminPurchaseTermsCurrent,
     getAdminPurchaseTermsVersions,
     createAdminPurchaseTermsVersion,
-    getDiscountCodes,
-    createDiscountCode,
-    updateDiscountCode,
-    deleteDiscountCode,
     sendAudienceBroadcast,
 } from "../controllers/adminController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
@@ -83,6 +81,9 @@ router.delete("/users/:id", deleteUserAccountAsAdmin);
 router.post("/users/:id/credits", grantCreditsToUser);
 router.post("/users/:id/grant-premium", grantPremiumModelToUser);
 router.post("/users/:id/remove-premium", removePremiumModelFromUser);
+// Writer Plan Management
+router.post("/users/:id/grant-writer-plan", grantWriterPlanToUser);
+router.post("/users/:id/remove-writer-plan", removeWriterPlanFromUser);
 router.post("/broadcast/:audience", sendAudienceBroadcast);
 
 // Scripts
@@ -140,11 +141,5 @@ router.post("/legal/terms/versions", createAdminPurchaseTermsVersion);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);
-
-// Discount Codes
-router.get("/discount-codes", getDiscountCodes);
-router.post("/discount-codes", createDiscountCode);
-router.put("/discount-codes/:id", updateDiscountCode);
-router.delete("/discount-codes/:id", deleteDiscountCode);
 
 export default router;
