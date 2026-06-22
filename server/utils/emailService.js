@@ -1087,6 +1087,54 @@ export const sendAdminPremiumGrantedEmail = async (
   }
 };
 
+export const sendAdminPremiumRemovedEmail = async (
+  email,
+  name,
+  { adminName = "Admin", clientBaseUrl = "" } = {}
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+
+    const safeAdminName = String(adminName || "Admin").trim() || "Admin";
+    const contactUrl = buildClientUrl("/contact", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: "Update Regarding Your ckript Premium Access",
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
+              <h2 style="margin:0; font-size:20px;">Premium Model Access Removed</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
+              <p style="margin:0 0 12px;">We are writing to inform you that ${safeAdminName} has removed your access to the <strong>ckript Premium Model</strong>.</p>
+              <p style="margin:0 0 16px;">As a result, your account has been reverted to the standard tier, and premium features (such as comprehensive writer details and exclusive AI evaluation tools) are no longer active on your account.</p>
+              <p style="margin:0 0 12px;">If you believe this was a mistake, or if you have any questions, please reach out to our support team.</p>
+              <a href="${contactUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Contact Support</a>
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">Thank you for being part of the ckript community.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name || "there"},\n\nWe are writing to inform you that ${safeAdminName} has removed your access to the ckript Premium Model.\n\nYour account has been reverted to the standard tier. If you have any questions, please reach out to our support team.\n\nContact Support: ${contactUrl}\n\nThank you for being part of the ckript community.`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending admin premium remove email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 // Send user email when admin sends a direct message
 export const sendAdminMessageEmail = async (
   email,

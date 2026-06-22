@@ -80,7 +80,7 @@ const sections = [
   {
     id: "cookies",
     title: "6. Cookies and Similar Technologies",
-    text: "We use cookies, local storage, pixels, session tokens, and similar technologies to authenticate users, remember preferences, measure engagement, prevent fraud, and improve the platform. You may control certain cookies through your browser or device settings, but disabling essential technologies may affect functionality, security, or access to parts of the service.",
+    text: "We use cookies, local storage, pixels, session tokens, and similar technologies to authenticate users, remember preferences, measure engagement, prevent fraud, and improve the platform. You may control certain cookies through your browser or device settings, but disabling essential technologies may affect functionality, security, or access to parts of the service. Additionally, if you accept the use of cookies, Ckript may track and process your device's location data to enhance your user experience, provide localized content, and improve our services.",
   },
   {
     id: "third-party-services",

@@ -17,6 +17,7 @@ import {
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import { getAdminBranchAccessStatus } from "../utils/adminBranchAccess.js";
+import { hasBusinessEmail, isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
@@ -1135,6 +1136,21 @@ export const verifyOTP = async (req, res) => {
     // Investors require admin approval — set pending status
     if (user.role === "investor") {
       user.approvalStatus = "pending";
+    }
+
+    if (isFilmIndustryProfessionalRole(user) && hasBusinessEmail(user.email)) {
+      if (!user.subscription) {
+        user.subscription = {
+          plan: "free",
+          accessTier: "film_industry_professional",
+          accessStatus: "active",
+          accessActivatedAt: new Date(),
+        };
+      } else if (user.subscription.accessTier !== "film_industry_professional" || user.subscription.accessStatus !== "active") {
+        user.subscription.accessTier = "film_industry_professional";
+        user.subscription.accessStatus = "active";
+        user.subscription.accessActivatedAt = new Date();
+      }
     }
 
     await user.save();

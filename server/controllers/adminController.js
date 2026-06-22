@@ -24,6 +24,7 @@ import {
     sendWriterMembershipDecisionEmail,
     sendAdminCreditsGrantedEmail,
     sendAdminPremiumGrantedEmail,
+    sendAdminPremiumRemovedEmail,
     sendAdminBroadcastEmail,
 } from "../utils/emailService.js";
 import {
@@ -983,6 +984,51 @@ export const grantPremiumModelToUser = async (req, res) => {
 
         res.json({
             message: "Premium model granted successfully",
+            user: buildAdminManagedUserSummary(targetUser),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const removePremiumModelFromUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+
+        // Revert subscription back to standard defaults for a professional (or basic if needed)
+        // Adjust these to standard defaults for film_industry_professional if they lose premium
+        // Typically, we might just set plan to "free" or clear it.
+        targetUser.subscription = {
+            ...targetUser.subscription,
+            plan: "free",
+            isActive: false,
+            accessExpiresAt: undefined,
+            lastAccessUpdate: new Date()
+        };
+
+        targetUser.isPremium = false;
+
+        await targetUser.save();
+
+        let emailResult = await sendAdminPremiumRemovedEmail(targetUser.email, targetUser.name, {
+            adminName: req.user?.name || "Admin",
+            clientBaseUrl: resolveClientOriginFromRequest(req),
+        });
+
+        if (!emailResult?.success) {
+            emailResult = await sendAdminPremiumRemovedEmail(targetUser.email, targetUser.name, {
+                adminName: req.user?.name || "Admin",
+                clientBaseUrl: resolveClientOriginFromRequest(req),
+            });
+        }
+
+        res.json({
+            message: "Premium model removed successfully",
             user: buildAdminManagedUserSummary(targetUser),
         });
     } catch (error) {

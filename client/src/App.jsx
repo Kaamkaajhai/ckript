@@ -286,9 +286,9 @@ function App() {
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
               <Route element={<ProtectedMainLayout />}>
                 <Route path="/industry-onboarding" element={<IndustryOnboarding />} />
-                <Route path="/top-list" element={<TopList />} />
+                <Route path="/top-script" element={<TopList />} />
                 <Route path="/featured" element={<FeaturedProjects />} />
-                <Route path="/trending" element={<Navigate to="/top-list" replace />} />
+                <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/profile/:id?" element={<Profile />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/credits" element={<Navigate to="/dashboard" replace />} />

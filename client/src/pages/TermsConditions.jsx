@@ -196,6 +196,14 @@ const writerSections = [
     title: "25. CONTACT",
     points: ["Email: support@ckript.com"],
   },
+  {
+    title: "26. DATA VISIBILITY AND THIRD-PARTY SERVICES",
+    points: [
+      "By using the Platform, you acknowledge and agree that your profile details and professional information may be visible to registered Film Industry Professionals, Producers, and Investors to facilitate networking and opportunities.",
+      "The Platform may integrate with or link to third-party services (such as Jitsi for video meetings). We assume no liability for the security, data handling, or privacy practices of any third-party service.",
+      "You acknowledge that sharing confidential information via third-party platforms or due to user error is entirely at your own risk. The Platform shall bear no fault or liability for any data breaches, unauthorized access, or theft of information resulting from external services or user negligence."
+    ],
+  },
 ];
 
 const investorSections = [
@@ -377,6 +385,14 @@ const investorSections = [
   {
     title: "25. CONTACT",
     points: ["Email: support@ckript.com"],
+  },
+  {
+    title: "26. DATA VISIBILITY AND THIRD-PARTY SERVICES",
+    points: [
+      "The Platform facilitates connections between users, and certain professional details of Writers and Industry Professionals may be mutually visible to facilitate opportunities.",
+      "The Platform may utilize or integrate with third-party communication tools (such as Jitsi). We assume no liability for the security, data handling, or privacy practices of these third-party tools.",
+      "Any exchange of confidential data during meetings or via third-party services is at your own risk. The Platform shall not be held liable for any data leaks, unauthorized access, or loss of information resulting from user error or third-party vulnerabilities."
+    ],
   },
 ];
 

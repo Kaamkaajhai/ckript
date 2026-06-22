@@ -52,7 +52,7 @@ const SIDEBAR_ROUTES = [
   { path: "/offer-holds",        label: "Offer Holds",      roles: ["creator", "writer"] },
   // Reader
   { path: "/reader",             label: "Reader Home",      roles: ["reader"] },
-  { path: "/top-list",           label: "Top Script",       roles: ["reader", "investor", "professional", "producer"] },
+  { path: "/top-script",           label: "Top Script",       roles: ["reader", "investor", "professional", "producer"] },
   { path: "/featured",           label: "Featured",         roles: ["reader", "investor", "professional", "producer"] },
   { path: "/writer-onboarding",  label: "Become a Writer",  roles: ["reader"] },
   // Industry
