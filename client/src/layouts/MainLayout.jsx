@@ -9,7 +9,7 @@ import BuyCreditsModal from "../components/BuyCreditsModal";
 import BrandLogo from "../components/BrandLogo";
 import ConfirmDialog from "../components/ConfirmDialog";
 import api from "../services/api";
-import { getApiOrigin } from "../utils/apiOrigin";
+import { getApiOrigin, isSocketSupported } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import { isFilmIndustryProfessionalRole } from "../utils/industryAccess";
@@ -271,7 +271,7 @@ const MainLayout = ({ children }) => {
   }, [fetchNotificationSnapshot, user?._id]);
 
   useEffect(() => {
-    if (!user?.token || !user?._id) return undefined;
+    if (!user?.token || !user?._id || !isSocketSupported()) return undefined;
 
     const socket = io(SOCKET_ORIGIN, {
       auth: { token: user.token },
