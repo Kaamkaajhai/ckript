@@ -12,7 +12,7 @@ import {
   ShieldCheck, ArrowRight, ChevronDown,
 } from "lucide-react";
 
-const API_ORIGIN = getApiOrigin();
+const API_ORIGIN = (import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 /* ── helpers ──────────────────────────────────────────────────── */
 const buildChatId = (a, b) => {
@@ -64,6 +64,309 @@ const formatFileSize = (bytes = 0) => {
 const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 const REACTION_HIDE_DELAY_MS = 900;
 const MAX_ATTACHMENT_SIZE_BYTES = 250 * 1024 * 1024;
+
+/* ═══════════════════════════════════════════════════════════════
+   MESSAGES PAGE
+═══════════════════════════════════════════════════════════════ */
+const Messages = () => {
+  const { user } = useContext(AuthContext);
+  const { isDarkMode: dark } = useDarkMode();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  /* state */
+  const [conversations, setConversations] = useState([]);
+  const [filteredConvs, setFilteredConvs] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState("");
+  const [socket, setSocket] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [sendError, setSendError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [emojiPicker, setEmojiPicker] = useState(null); // messageId
+  const [hoveredMsg, setHoveredMsg] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null); // messageId
+  const [trailerActionLoading, setTrailerActionLoading] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [showScrollToBottomButton, setShowScrollToBottomButton] = useState(false);
+
+  const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const typingTimerRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const activeChatRef = useRef(null);
+  const shouldAutoScrollRef = useRef(false);
+  const previousChatIdRef = useRef("");
+  const reactionHideTimerRef = useRef(null);
+
+  const scrollMessagesToBottom = (behavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+    setShowScrollToBottomButton(false);
+  };
+
+  const handleMessagesScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    setShowScrollToBottomButton(distanceFromBottom > 96);
+  };
+
+  const clearReactionHideTimer = () => {
+    if (!reactionHideTimerRef.current) return;
+    clearTimeout(reactionHideTimerRef.current);
+    reactionHideTimerRef.current = null;
+  };
+
+  const scheduleReactionHide = (delay = REACTION_HIDE_DELAY_MS) => {
+    clearReactionHideTimer();
+    reactionHideTimerRef.current = setTimeout(() => {
+      setHoveredMsg(null);
+      setEmojiPicker(null);
+      reactionHideTimerRef.current = null;
+    }, delay);
+  };
+
+  const isWriter = user && ["writer", "creator"].includes(user.role);
+  const isInvestor = user && user.role === "investor";
+
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
+
+  useEffect(() => () => clearReactionHideTimer(), []);
+
+  /* ── Socket setup ────────────────────────────────────────── */
+  useEffect(() => {
+    if (!user?._id || !isSocketSupported()) return;
+
+    const storedSession = localStorage.getItem("user");
+    let socketToken = "";
+
+    if (storedSession) {
+      try {
+        socketToken = JSON.parse(storedSession)?.token || "";
+      } catch {
+        socketToken = "";
+      }
+    }
+
+    const sock = io(API_ORIGIN, {
+      auth: {
+        token: socketToken,
+      },
+    });
+    setSocket(sock);
+
+    sock.on("receive-message", (msg) => {
+      const currentChat = activeChatRef.current;
+      const senderId = msg?.sender?._id || msg?.sender;
+      const isMine = senderId?.toString() === user?._id?.toString();
+      const isActiveThread = currentChat?.chatId === msg?.chatId;
+
+      // Only append directly to the currently open thread.
+      if (isActiveThread) {
+        setMessages((prev) => {
+          if (prev.some((m) => m._id === msg._id)) return prev;
+          return [...prev, msg];
+        });
+      }
+
+      // Refresh conversation preview/unread and keep the updated chat at top.
+      setConversations((prev) => {
+        const index = prev.findIndex((c) => c.chatId === msg.chatId);
+        if (index === -1) return prev;
+
+        const current = prev[index];
+        const updated = {
+          ...current,
+          lastMessage: getMessagePreview(msg),
+          timestamp: msg.createdAt || new Date().toISOString(),
+          unreadCount: isMine || isActiveThread ? 0 : (current.unreadCount || 0) + 1,
+        };
+
+        return [updated, ...prev.filter((_, i) => i !== index)];
+      });
+    });
+
+    sock.on("user-typing", ({ chatId, userId }) => {
+      if (activeChat?.chatId === chatId && userId !== user._id) {
+        setIsTyping(true);
+        clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => setIsTyping(false), 2500);
+      }
+    });
+
+    sock.on("message-deleted", ({ messageId }) => {
+      setMessages((prev) =>
+        prev.map((m) => (m._id === messageId ? { ...m, deleted: true, text: "" } : m))
+      );
+    });
+
+    loadConversations();
+    return () => sock.close();
+  }, [user?._id]);
+
+  /* Re-listen when activeChat changes */
+  useEffect(() => {
+    if (!socket) return;
+    socket.off("user-typing");
+    socket.on("user-typing", ({ chatId, userId }) => {
+      if (activeChat?.chatId === chatId && userId !== user._id) {
+        setIsTyping(true);
+        clearTimeout(typingTimerRef.current);
+        typingTimerRef.current = setTimeout(() => setIsTyping(false), 2500);
+      }
+    });
+  }, [socket, activeChat, user._id]);
+
+  /* ── URL param: open chat from ScriptDetail ─────────────── */
+  useEffect(() => {
+    if (loading) return;
+    const recipientId = searchParams.get("recipientId");
+    const recipientName = searchParams.get("recipientName") || "Writer";
+    const recipientRole = searchParams.get("recipientRole") || (isInvestor ? "writer" : "investor");
+    if (!recipientId || !(isInvestor || isWriter)) return;
+
+    const chatId = buildChatId(user._id, recipientId);
+    const existing = conversations.find((c) => c.chatId === chatId);
+    if (existing) { handleSelectChat(existing); return; }
+
+    const pendingChat = {
+      chatId,
+      user: { _id: recipientId, name: recipientName, role: recipientRole, profileImage: "" },
+      lastMessage: "",
+      timestamp: new Date().toISOString(),
+      isPending: true,
+    };
+    setActiveChat(pendingChat);
+    setMessages([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  /* ── Join socket room when chat changes ─────────────────── */
+  useEffect(() => {
+    if (socket && activeChat) {
+      socket.emit("join-chat", activeChat.chatId);
+    }
+  }, [socket, activeChat]);
+
+  /* ── Scroll to bottom ───────────────────────────────────── */
+  useEffect(() => {
+    const currentChatId = activeChat?.chatId || "";
+    if (!currentChatId) {
+      previousChatIdRef.current = "";
+      shouldAutoScrollRef.current = false;
+      setShowScrollToBottomButton(false);
+      return;
+    }
+
+    const chatChanged = previousChatIdRef.current !== currentChatId;
+    if (chatChanged) {
+      previousChatIdRef.current = currentChatId;
+      shouldAutoScrollRef.current = true;
+      scrollMessagesToBottom("auto");
+      return;
+    }
+
+    if (!shouldAutoScrollRef.current) return;
+    shouldAutoScrollRef.current = false;
+    scrollMessagesToBottom("smooth");
+  }, [activeChat?.chatId, messages.length]);
+
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!activeChat?.chatId || !container) {
+      setShowScrollToBottomButton(false);
+      return;
+    }
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    setShowScrollToBottomButton(distanceFromBottom > 96);
+  }, [activeChat?.chatId, messages.length, isTyping]);
+
+  /* ── Filter conversations by search query ───────────────── */
+  useEffect(() => {
+    if (!searchQuery.trim()) { setFilteredConvs(conversations); return; }
+    const q = searchQuery.toLowerCase();
+    setFilteredConvs(conversations.filter((c) => c.user?.name?.toLowerCase().includes(q)));
+  }, [searchQuery, conversations]);
+
+  /* ── Load conversations ─────────────────────────────────── */
+  const loadConversations = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
+    try {
+      const { data } = await api.get("/messages/conversations");
+      const next = Array.isArray(data) ? data : [];
+      setConversations(next);
+
+      // Keep active chat metadata fresh (name/avatar/role/timestamp/unread).
+      const activeId = activeChatRef.current?.chatId;
+      if (activeId) {
+        const refreshed = next.find((c) => c.chatId === activeId);
+        if (refreshed) {
+          setActiveChat((curr) => (curr ? { ...curr, ...refreshed } : curr));
+        }
+      }
+    } catch {
+      if (!silent) {
+        setConversations([]);
+        setFilteredConvs([]);
+      }
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
+  /* ── Load messages ──────────────────────────────────────── */
+  const loadMessages = useCallback(async (chatId, { silent = false } = {}) => {
+    if (!chatId) return;
+    if (!silent) setMessagesLoading(true);
+    try {
+      const { data } = await api.get(`/messages/${chatId}`);
+      const next = Array.isArray(data) ? data : [];
+      setMessages((prev) => {
+        const sameLength = prev.length === next.length;
+        const sameFirst = prev[0]?._id === next[0]?._id;
+        const sameLast = prev[prev.length - 1]?._id === next[next.length - 1]?._id;
+        if (sameLength && sameFirst && sameLast) return prev;
+        return next;
+      });
+    } catch {
+      if (!silent) setMessages([]);
+    } finally {
+      if (!silent) setMessagesLoading(false);
+    }
+  }, []);
+
+  /* ── Select conversation ────────────────────────────────── */
+  const handleSelectChat = useCallback((conv) => {
+    setSendError("");
+    setIsTyping(false);
+    setEmojiPicker(null);
+    setActiveChat(conv);
+    loadMessages(conv.chatId);
+    // Clear unread badge
+    setConversations((prev) =>
+      prev.map((c) => (c.chatId === conv.chatId ? { ...c, unreadCount: 0 } : c))
+    );
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [loadMessages]);
+
+  // Silent background sync so investors/writers see updates without refresh.
+  useEffect(() => {
+    if (!user?._id) return;
+
+    const interval = setInterval(async () => {
+      await loadConversations({ silent: true });
+      const activeId = activeChatRef.current?.chatId;
+      if (activeId) {
+        await loadMessages(activeId, { silent: true });
+      }
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [user?._id, loadConversations, loadMessages]);
