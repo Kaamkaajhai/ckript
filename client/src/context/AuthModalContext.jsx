@@ -4,6 +4,7 @@ import AuthModal from "../components/AuthModal";
 import ProducerOnboardingModal from "../components/ProducerOnboardingModal";
 import WriterOnboardingModal from "../components/WriterOnboardingModal";
 import AboutModal from "../components/AboutModal";
+import PricingModal from "../components/PricingModal";
 
 /* Global controller for the Ckript auth surfaces. Any component can pop the
    sign-in / join modal — or either role-specific onboarding modal — without
@@ -29,6 +30,9 @@ const AuthModalContext = createContext({
   openAboutModal: () => {},
   closeAboutModal: () => {},
   isAboutModalOpen: false,
+  openPricingModal: () => {},
+  closePricingModal: () => {},
+  isPricingModalOpen: false,
 });
 
 export const useAuthModal = () => useContext(AuthModalContext);
@@ -39,6 +43,7 @@ export const AuthModalProvider = ({ children }) => {
   const [producerOpen, setProducerOpen] = useState(false);
   const [writerOpen, setWriterOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
 
   const openAuthModal = useCallback((opts = {}) => {
     setState({ open: true, redirect: opts.redirect || "" });
@@ -76,6 +81,14 @@ export const AuthModalProvider = ({ children }) => {
     setAboutOpen(false);
   }, []);
 
+  const openPricingModal = useCallback(() => {
+    setPricingOpen(true);
+  }, []);
+
+  const closePricingModal = useCallback(() => {
+    setPricingOpen(false);
+  }, []);
+
   const value = useMemo(
     () => ({
       openAuthModal,
@@ -90,12 +103,16 @@ export const AuthModalProvider = ({ children }) => {
       openAboutModal,
       closeAboutModal,
       isAboutModalOpen: aboutOpen,
+      openPricingModal,
+      closePricingModal,
+      isPricingModalOpen: pricingOpen,
     }),
     [
       openAuthModal, closeAuthModal, state.open,
       openProducerOnboarding, closeProducerOnboarding, producerOpen,
       openWriterOnboarding, closeWriterOnboarding, writerOpen,
       openAboutModal, closeAboutModal, aboutOpen,
+      openPricingModal, closePricingModal, pricingOpen,
     ]
   );
 
@@ -120,6 +137,7 @@ export const AuthModalProvider = ({ children }) => {
         }}
       />
       <AboutModal open={aboutOpen} onClose={closeAboutModal} />
+      <PricingModal open={pricingOpen} onClose={closePricingModal} />
     </AuthModalContext.Provider>
   );
 };
