@@ -88,7 +88,7 @@ const PremiumBadge = ({ user }) => {
   );
 };
 
-const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, buttonText = "Choose Plan" }) => {
+const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, onRenew, isRenewing, buttonText = "Choose Plan" }) => {
   const isGold = tier === "gold";
   const isSilver = tier === "silver";
 
@@ -156,12 +156,30 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, day
           </li>
         ))}
       </ul>
-      <button
-        onClick={onSubscribe}
-        className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
-      >
-        {buttonText}
-      </button>
+      {isActive && onRenew ? (
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onSubscribe}
+            className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
+          >
+            Go to Dashboard
+          </button>
+          <button
+            onClick={onRenew}
+            disabled={isRenewing}
+            className="w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all border border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.07] hover:text-white/90 disabled:opacity-50"
+          >
+            {isRenewing ? "Working..." : "Renew Plan"}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onSubscribe}
+          className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
+        >
+          {buttonText}
+        </button>
+      )}
     </div>
   );
 };
@@ -486,6 +504,8 @@ export default function PricingPage() {
                   handleWriterRazorpayCheckout("silver");
                 }
               }}
+              onRenew={() => handleWriterRazorpayCheckout("silver")}
+              isRenewing={writerLoading}
               buttonText={writerLoading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
             <WriterPlanCard
@@ -514,6 +534,8 @@ export default function PricingPage() {
                   handleWriterRazorpayCheckout("gold");
                 }
               }}
+              onRenew={() => handleWriterRazorpayCheckout("gold")}
+              isRenewing={writerLoading}
               buttonText={writerLoading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
           </div>
