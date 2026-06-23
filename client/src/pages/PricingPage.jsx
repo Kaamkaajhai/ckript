@@ -88,7 +88,7 @@ const PremiumBadge = ({ user }) => {
   );
 };
 
-const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, onRenew, isRenewing, buttonText = "Choose Plan" }) => {
+const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, onRenew, isRenewing, buttonText = "Choose Plan", quota, uploadedCount }) => {
   const isGold = tier === "gold";
   const isSilver = tier === "silver";
 
@@ -156,6 +156,23 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, day
           </li>
         ))}
       </ul>
+      {isActive && quota !== undefined && uploadedCount !== undefined && (
+        <div className="mb-4 bg-white/[0.03] rounded-lg p-3 border border-white/[0.05]">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[11px] font-medium text-white/60">Scripts Uploaded</span>
+            <span className="text-[12px] font-bold text-white/90">{uploadedCount} <span className="text-white/40">/ {quota}</span></span>
+          </div>
+          <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all duration-500 ${uploadedCount >= quota ? 'bg-rose-500' : isGold ? 'bg-amber-400' : isSilver ? 'bg-slate-300' : 'bg-emerald-400'}`} 
+              style={{ width: `${Math.min(100, (uploadedCount / quota) * 100)}%` }}
+            ></div>
+          </div>
+          <p className="text-[10px] mt-2 font-medium text-white/50 text-right">
+            {Math.max(0, quota - uploadedCount)} more script{Math.max(0, quota - uploadedCount) !== 1 ? 's' : ''} available
+          </p>
+        </div>
+      )}
       {isActive && onRenew ? (
         <div className="flex flex-col gap-2">
           <button
@@ -237,6 +254,24 @@ export default function PricingPage() {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, []);
+
+  const [uploadedCount, setUploadedCount] = useState(0);
+
+  useEffect(() => {
+    if (user && ["writer", "creator"].includes(String(user.role).toLowerCase())) {
+      const fetchCount = async () => {
+        try {
+          const res = await api.get("/scripts/mine");
+          const allScripts = Array.isArray(res.data) ? res.data : [];
+          const myScripts = allScripts.filter((script) => !script?.isCollaborator);
+          setUploadedCount(myScripts.length);
+        } catch (error) {
+          console.error("Failed to fetch scripts count", error);
+        }
+      };
+      fetchCount();
+    }
+  }, [user]);
 
   const buttonLabel = useMemo(() => {
     if (authLoading) return "Checking session...";
@@ -468,6 +503,9 @@ export default function PricingPage() {
               title="Free Tier"
               price="0"
               tier="free"
+              isActive={!hasSilverAccess && !hasGoldAccess}
+              quota={1}
+              uploadedCount={uploadedCount}
               features={[
                 "Upload 1 script",
                 "Appear only in search section",
@@ -488,6 +526,8 @@ export default function PricingPage() {
               tier="silver"
               isActive={hasSilverAccess}
               daysLeft={writerDaysLeft}
+              quota={8}
+              uploadedCount={uploadedCount}
               features={[
                 "Upload 8 scripts",
                 "Appear in top script sections",
@@ -515,6 +555,8 @@ export default function PricingPage() {
               isPopular={true}
               isActive={hasGoldAccess}
               daysLeft={writerDaysLeft}
+              quota={20}
+              uploadedCount={uploadedCount}
               features={[
                 "Upload 20 scripts",
                 "Appear in top script section",
