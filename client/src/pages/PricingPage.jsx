@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import { BadgeCheck, Check, Crown, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuthModal } from "../context/AuthModalContext";
+import { AuthContext } from "../context/AuthContext";
+import api from "../services/api";
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
 
 const getIncludedFeatures = (quota = 10) => [
@@ -85,7 +88,7 @@ const PremiumBadge = ({ user }) => {
   );
 };
 
-const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, buttonText = "Choose Plan" }) => {
+const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, onRenew, isRenewing, buttonText = "Choose Plan", quota, uploadedCount }) => {
   const isGold = tier === "gold";
   const isSilver = tier === "silver";
 
@@ -153,12 +156,47 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, day
           </li>
         ))}
       </ul>
-      <button
-        onClick={onSubscribe}
-        className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
-      >
-        {buttonText}
-      </button>
+      {isActive && quota !== undefined && uploadedCount !== undefined && (
+        <div className="mb-4 bg-white/[0.03] rounded-lg p-3 border border-white/[0.05]">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-[11px] font-medium text-white/60">Scripts Uploaded</span>
+            <span className="text-[12px] font-bold text-white/90">{uploadedCount} <span className="text-white/40">/ {quota}</span></span>
+          </div>
+          <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all duration-500 ${uploadedCount >= quota ? 'bg-rose-500' : isGold ? 'bg-amber-400' : isSilver ? 'bg-slate-300' : 'bg-emerald-400'}`} 
+              style={{ width: `${Math.min(100, (uploadedCount / quota) * 100)}%` }}
+            ></div>
+          </div>
+          <p className="text-[10px] mt-2 font-medium text-white/50 text-right">
+            {Math.max(0, quota - uploadedCount)} more script{Math.max(0, quota - uploadedCount) !== 1 ? 's' : ''} available
+          </p>
+        </div>
+      )}
+      {isActive && onRenew ? (
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={onSubscribe}
+            className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
+          >
+            Go to Dashboard
+          </button>
+          <button
+            onClick={onRenew}
+            disabled={isRenewing}
+            className="w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all border border-white/[0.08] bg-white/[0.03] text-white/60 hover:bg-white/[0.07] hover:text-white/90 disabled:opacity-50"
+          >
+            {isRenewing ? "Working..." : "Renew Plan"}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onSubscribe}
+          className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
+        >
+          {buttonText}
+        </button>
+      )}
     </div>
   );
 };
@@ -166,6 +204,26 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, day
 export default function PricingPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { openAuthModal } = useAuthModal();
+  const { setUser } = useContext(AuthContext);
+
+  const [writerLoading, setWriterLoading] = useState(false);
+  const [writerMessage, setWriterMessage] = useState("");
+  const [writerError, setWriterError] = useState("");
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   // The full-page surface and the landing Pricing modal share one checkout.
   const {
@@ -196,6 +254,24 @@ export default function PricingPage() {
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, []);
+
+  const [uploadedCount, setUploadedCount] = useState(0);
+
+  useEffect(() => {
+    if (user && ["writer", "creator"].includes(String(user.role).toLowerCase())) {
+      const fetchCount = async () => {
+        try {
+          const res = await api.get("/scripts/mine");
+          const allScripts = Array.isArray(res.data) ? res.data : [];
+          const myScripts = allScripts.filter((script) => !script?.isCollaborator);
+          setUploadedCount(myScripts.length);
+        } catch (error) {
+          console.error("Failed to fetch scripts count", error);
+        }
+      };
+      fetchCount();
+    }
+  }, [user]);
 
   const buttonLabel = useMemo(() => {
     if (authLoading) return "Checking session...";
@@ -248,8 +324,8 @@ export default function PricingPage() {
     });
 
   const handleWriterRazorpayCheckout = async (tier) => {
-    setError("");
-    setMessage("");
+    setWriterError("");
+    setWriterMessage("");
 
     if (authLoading) return;
 
@@ -259,17 +335,17 @@ export default function PricingPage() {
     }
 
     if (!["writer", "creator"].includes(String(user.role).toLowerCase())) {
-      setError("This plan is designed for writers and creators.");
+      setWriterError("This plan is designed for writers and creators.");
       return;
     }
 
-    setLoading(true);
+    setWriterLoading(true);
 
     try {
       const res = await loadRazorpayScript();
       if (!res) {
-        setError("Razorpay SDK failed to load. Are you connected to the internet?");
-        setLoading(false);
+        setWriterError("Razorpay SDK failed to load. Are you connected to the internet?");
+        setWriterLoading(false);
         return;
       }
 
@@ -284,7 +360,7 @@ export default function PricingPage() {
         order_id: orderData.orderId,
         handler: async (response) => {
           try {
-            setMessage("Verifying payment...");
+            setWriterMessage("Verifying payment...");
             const { data: verifyData } = await api.post("/payment/writer/verify-razorpay-payment", {
               tier,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -303,12 +379,12 @@ export default function PricingPage() {
             setUser(updatedUser);
             localStorage.setItem("user", JSON.stringify(updatedUser));
             
-            setMessage("Payment successful!");
+            setWriterMessage("Payment successful!");
             setCheckoutSuccess(true);
             startCountdownRedirect("/dashboard");
           } catch (verifyError) {
-            setError(verifyError?.response?.data?.message || "Payment verification failed.");
-            setLoading(false);
+            setWriterError(verifyError?.response?.data?.message || "Payment verification failed.");
+            setWriterLoading(false);
           }
         },
         prefill: {
@@ -320,7 +396,7 @@ export default function PricingPage() {
         },
         modal: {
           ondismiss: () => {
-            setLoading(false);
+            setWriterLoading(false);
           }
         }
       };
@@ -328,8 +404,8 @@ export default function PricingPage() {
       const paymentObject = new window.Razorpay(options);
       paymentObject.open();
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to initiate payment.");
-      setLoading(false);
+      setWriterError(err?.response?.data?.message || "Failed to initiate payment.");
+      setWriterLoading(false);
     }
   };
 
@@ -411,11 +487,25 @@ export default function PricingPage() {
             <div className="mt-4 h-[2px] w-20 bg-gradient-to-r from-indigo-500 to-transparent rounded-full"></div>
           </div>
 
+          {writerMessage && (
+            <div className="mb-6 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.08] px-4 py-3 text-sm text-emerald-300">
+              {writerMessage}
+            </div>
+          )}
+          {writerError && (
+            <div className="mb-6 rounded-lg border border-rose-500/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-300">
+              {writerError}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
             <WriterPlanCard
               title="Free Tier"
               price="0"
               tier="free"
+              isActive={!hasSilverAccess && !hasGoldAccess}
+              quota={1}
+              uploadedCount={uploadedCount}
               features={[
                 "Upload 1 script",
                 "Appear only in search section",
@@ -436,6 +526,8 @@ export default function PricingPage() {
               tier="silver"
               isActive={hasSilverAccess}
               daysLeft={writerDaysLeft}
+              quota={8}
+              uploadedCount={uploadedCount}
               features={[
                 "Upload 8 scripts",
                 "Appear in top script sections",
@@ -452,7 +544,9 @@ export default function PricingPage() {
                   handleWriterRazorpayCheckout("silver");
                 }
               }}
-              buttonText={loading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              onRenew={() => handleWriterRazorpayCheckout("silver")}
+              isRenewing={writerLoading}
+              buttonText={writerLoading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
             <WriterPlanCard
               title="Gold Model"
@@ -461,6 +555,8 @@ export default function PricingPage() {
               isPopular={true}
               isActive={hasGoldAccess}
               daysLeft={writerDaysLeft}
+              quota={20}
+              uploadedCount={uploadedCount}
               features={[
                 "Upload 20 scripts",
                 "Appear in top script section",
@@ -480,7 +576,9 @@ export default function PricingPage() {
                   handleWriterRazorpayCheckout("gold");
                 }
               }}
-              buttonText={loading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              onRenew={() => handleWriterRazorpayCheckout("gold")}
+              isRenewing={writerLoading}
+              buttonText={writerLoading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
           </div>
 

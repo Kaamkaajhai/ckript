@@ -82,8 +82,8 @@ export const AuthModalProvider = ({ children }) => {
   }, []);
 
   const openPricingModal = useCallback(() => {
-    setPricingOpen(true);
-  }, []);
+    navigate("/pricing");
+  }, [navigate]);
 
   const closePricingModal = useCallback(() => {
     setPricingOpen(false);
