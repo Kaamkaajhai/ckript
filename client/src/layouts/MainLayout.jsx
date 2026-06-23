@@ -38,7 +38,18 @@ const MainLayout = ({ children }) => {
   const [creditsBalance, setCreditsBalance] = useState(0);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [sidebarToggleToken, setSidebarToggleToken] = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem("sidebarCollapsed") === "1"; } catch { return false; }
+  });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try { localStorage.setItem("sidebarCollapsed", next ? "1" : "0"); } catch { /* ignore */ }
+      return next;
+    });
+  }, []);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
   const notificationRefreshTimeoutRef = useRef(null);
@@ -697,10 +708,12 @@ const MainLayout = ({ children }) => {
         unreadMessageCount={unreadMessageCount}
         showFloatingToggle={false}
         mobileToggleToken={sidebarToggleToken}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapsed}
       />
 
       {/* Top bar */}
-      <header className="fixed top-0 right-0 left-0 md:left-[64px] lg:left-[270px] border-b px-3 max-[378px]:px-2.5 max-[340px]:px-2 sm:px-6 lg:px-8 py-2 sm:py-0 z-[90] bg-[#060b14]/98 border-[#132033] backdrop-blur-xl">
+      <header className={`fixed top-0 right-0 left-0 md:left-[64px] ${sidebarCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"} border-b px-3 max-[378px]:px-2.5 max-[340px]:px-2 sm:px-6 lg:px-8 py-2 sm:py-0 z-[90] bg-[#060b14]/98 border-[#132033] backdrop-blur-xl`}>
         <div className="flex flex-nowrap items-center gap-2 max-[378px]:gap-1.5 max-[340px]:gap-1 sm:gap-3 min-[640px]:max-[690px]:gap-2 min-h-14 sm:min-h-16">
           <button
             onClick={() => setSidebarToggleToken((v) => v + 1)}
@@ -1026,7 +1039,7 @@ const MainLayout = ({ children }) => {
       </header>
 
       {/* Main content */}
-      <main className="pt-20 sm:pt-16 pb-0 md:ml-[64px] lg:ml-[270px] min-h-screen">
+      <main className={`pt-20 sm:pt-16 pb-0 md:ml-[64px] ${sidebarCollapsed ? "lg:ml-[64px]" : "lg:ml-[270px]"} min-h-screen`}>
         <div className="w-full mx-auto p-4 sm:p-6 lg:p-8 max-w-[1400px]">
           {children}
         </div>

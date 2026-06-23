@@ -1476,6 +1476,21 @@ export const saveDraft = async (req, res) => {
 
       script.title = title || script.title;
       script.textContent = textContent !== undefined ? textContent : script.textContent;
+      if (otherData.fountainContent !== undefined) script.fountainContent = otherData.fountainContent;
+      if (otherData.sceneSynopses !== undefined) {
+        // Corkboard synopses: a plain map of normalized-heading -> one-line summary. Coerce to
+        // strings and cap each line so it stays lightweight metadata.
+        const incoming = otherData.sceneSynopses && typeof otherData.sceneSynopses === "object" ? otherData.sceneSynopses : {};
+        const cleaned = {};
+        for (const [k, v] of Object.entries(incoming)) {
+          if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300);
+        }
+        script.sceneSynopses = cleaned;
+        script.markModified("sceneSynopses");
+      }
+      if (otherData.outlineNotes !== undefined) {
+        script.outlineNotes = String(otherData.outlineNotes || "").slice(0, 50000);
+      }
       if (otherData.companyName !== undefined) script.companyName = String(otherData.companyName || "").trim();
       if (otherData.logline !== undefined) script.logline = otherData.logline;
       if (otherData.synopsis !== undefined) {
@@ -1651,6 +1666,7 @@ export const saveDraft = async (req, res) => {
 
     res.status(201).json(newDraft);
   } catch (error) {
+    console.error("[saveDraft] failed:", error.message);
     res.status(500).json({ message: error.message });
   }
 };
@@ -1919,6 +1935,7 @@ export const updateScript = async (req, res) => {
       if (holdFee !== undefined) script.holdFee = holdFee;
     }
     if (isOwner && textContent !== undefined) script.textContent = textContent;
+    if (isOwner && req.body.fountainContent !== undefined) script.fountainContent = req.body.fountainContent;
     if (!isContentOnlyCollaborator && description !== undefined) script.description = description;
     if (!isContentOnlyCollaborator && synopsis !== undefined) script.synopsis = synopsis;
 
@@ -2238,6 +2255,7 @@ export const uploadScript = async (req, res) => {
       synopsis,
       fullContent,
       textContent,
+      fountainContent,
       fileUrl,
       coverImage,
       genre,
@@ -2393,6 +2411,7 @@ export const uploadScript = async (req, res) => {
       synopsis: synopsis,
       fullContent,
       textContent: resolvedTextContent,
+      fountainContent: typeof fountainContent === "string" ? fountainContent : undefined,
       fileUrl: scriptUrl || fileUrl,
       pageCount: resolvedPageCount,
       scriptCompletion: normalizeScriptCompletionInput(scriptCompletion || {}, {}),

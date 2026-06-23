@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer", "full_admin"];
+const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer", "full_admin", "commenter"];
 const normalizeCollaboratorRole = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
   return VALID_COLLABORATOR_ROLES.includes(normalized) ? normalized : "editor";
@@ -25,7 +25,7 @@ const roleSchema = new mongoose.Schema({
 
 const collaboratorSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  role: { type: String, enum: ["editor", "merger", "viewer", "full_admin"], required: true, default: "editor", set: normalizeCollaboratorRole },
+  role: { type: String, enum: ["editor", "merger", "viewer", "full_admin", "commenter"], required: true, default: "editor", set: normalizeCollaboratorRole },
   accessLevel: {
     type: String,
     enum: ["full_access", "content_only"],
@@ -63,6 +63,13 @@ const scriptSchema = new mongoose.Schema({
   synopsis: { type: String }, // Short visible teaser
   fullContent: { type: String }, // Locked full content
   textContent: { type: String }, // Extracted text from PDF or raw input from editor
+  fountainContent: { type: String }, // Canonical Fountain markup for screenplay-format projects (source of truth when present)
+  // Corkboard scene synopses (Phase 4) — one-line summaries keyed by normalized scene heading.
+  // Pure editor metadata: NOT part of the screenplay text, never included in PDF/Fountain export.
+  sceneSynopses: { type: Map, of: String, default: undefined },
+  // Outline notes (Phase 4) — free-form beats/notes alongside the script. Editor metadata only,
+  // never included in the screenplay text or PDF/Fountain export.
+  outlineNotes: { type: String, default: "" },
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload
@@ -293,6 +300,15 @@ const scriptSchema = new mongoose.Schema({
     savedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     prId: { type: mongoose.Schema.Types.ObjectId, ref: "PullRequest", default: null },
   }],
+  // Screenplay editor version snapshots (Module 4 — version history & drafts)
+  versions: [{
+    label: { type: String, default: "", trim: true, maxlength: 80 },
+    fountainSnapshot: { type: String, default: "" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    authorName: { type: String, default: "" },
+    auto: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+  }],
   isDeleted: { type: Boolean, default: false, index: true },
   deletedAt: { type: Date },
   // AI Trailer (Text-to-Trailer)
@@ -397,10 +413,13 @@ const scriptSchema = new mongoose.Schema({
     // Free-text estimated word count range e.g. "60,000 – 90,000 words"
     estimatedWordCount: { type: String, trim: true, maxlength: 60 },
 
-    // Series potential (single-select)
+    // Series potential (single-select). An unselected value arrives as "" from the editor; coerce
+    // empty/blank to undefined so the enum validation treats it as "not set" instead of rejecting
+    // the whole save (a "" was failing every draft save with a ValidationError → 500).
     seriesPotential: {
       type: String,
       enum: ["standalone", "trilogy", "multi_part_universe"],
+      set: (v) => (v === "" || v == null ? undefined : v),
     },
 
     // Book pitch (200–400 words narrative pitch for publishers)

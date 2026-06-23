@@ -1,43 +1,29 @@
+// Server-side screenplay parser — mirrors client/src/utils/screenplayText.js so PDF
+// export, reports, and FDX mapping share the exact same element detection the editor
+// and viewer use. Keep the two in sync when changing heuristics.
+
 const SCENE_HEADING_PATTERN = /(^|[.!?]\s+|\n+)((?:\d+\s+)?(?:INT\.|EXT\.|INT\/EXT\.|EXT\/INT\.|I\/E\.|EST\.)[^\n]*)/gim;
 const TRANSITION_PATTERN = /(^|[.!?]\s+|\n+)((?:CUT TO:|FADE IN:|FADE OUT\.|SMASH CUT TO:|DISSOLVE TO:|MATCH CUT TO:|BACK TO SCENE:))/gim;
 const SHOT_CUE_PATTERN = /(^|[.!?]\s+|\n+)((?:CLOSE ON:|ANGLE ON:|INSERT:|SUPER:|POV:))/gim;
-const CHARACTER_CUE_PATTERN = /([.!?]\s+|\n+)([A-Z][A-Z0-9' .-]{1,30}(?:\s*\([^)]+\))?)(?=\s+[A-Za-z"\u201c\u201d])/g;
+const CHARACTER_CUE_PATTERN = /([.!?]\s+|\n+)([A-Z][A-Z0-9' .-]{1,30}(?:\s*\([^)]+\))?)(?=\s+[A-Za-z"“”])/g;
 
 const CHARACTER_CUE_EXCLUSIONS = new Set([
-  "INT.",
-  "EXT.",
-  "INT/EXT.",
-  "EXT/INT.",
-  "I/E.",
-  "EST.",
-  "CUT TO:",
-  "FADE IN:",
-  "FADE OUT.",
-  "SMASH CUT TO:",
-  "DISSOLVE TO:",
-  "MATCH CUT TO:",
-  "BACK TO SCENE:",
-  "CLOSE ON:",
-  "ANGLE ON:",
-  "INSERT:",
-  "SUPER:",
-  "POV:",
-  "UNKNOWN MESSAGE:",
-  "FLASH CUTS:",
-  "BACK TO SCENE.",
+  "INT.", "EXT.", "INT/EXT.", "EXT/INT.", "I/E.", "EST.",
+  "CUT TO:", "FADE IN:", "FADE OUT.", "SMASH CUT TO:", "DISSOLVE TO:", "MATCH CUT TO:", "BACK TO SCENE:",
+  "CLOSE ON:", "ANGLE ON:", "INSERT:", "SUPER:", "POV:", "UNKNOWN MESSAGE:", "FLASH CUTS:", "BACK TO SCENE.",
 ]);
 
-const dialogueLooksNatural = (value = "") => /^["'\u2018\u2019\u201c\u201d]?(?:[A-Z][a-z]|[a-z])/.test(String(value || "").trim());
+const dialogueLooksNatural = (value = "") => /^["'‘’“”]?(?:[A-Z][a-z]|[a-z])/.test(String(value || "").trim());
 const cueStartsLikeAction = (value = "") => /^(?:A|AN|THE|HER|HIS|THEIR|ITS)\b/.test(String(value || "").trim());
 
-// NOTE: This module is now a FORMATTER only. The old parseScreenplayBlocks/looksLikeCharacterCue
-// classifier was retired \u2014 element classification lives solely in screenplay/classify.js (the one
-// classifier the editor, viewer, reports, and FDX share). formatScreenplayLikeText below just
-// normalizes raw/imported text into clean Fountain; classify.js then types it.
+// NOTE: This module is now a FORMATTER only. Its old parseScreenplayBlocks/looksLikeCharacterCue/
+// extractScreenplayEntities classifier was retired — element classification lives solely in
+// classify.js (a lockstep copy of the client's, enforced by the parity test). PDF export
+// classifies via classify.js's textToBlocks; formatScreenplayLikeText below just normalizes text.
 
 export const formatScreenplayLikeText = (value = "") => {
   let text = String(value || "")
-    .replace(/^\uFEFF/, "")
+    .replace(/^﻿/, "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(/\f/g, "\n");
@@ -89,7 +75,7 @@ export const formatScreenplayLikeText = (value = "") => {
     /^((?:INT\.|EXT\.|INT\/EXT\.|EXT\/INT\.|I\/E\.|EST\.)[^\n]*?)\n([A-Z0-9' .-]+(?:DAY|NIGHT|EVENING|MORNING|AFTERNOON|CONTINUOUS|LATER))$/gim,
     "$1 $2"
   );
-  text = text.replace(/^([A-Z][A-Z0-9' .-]{1,30})(\s+\([^)]+\))?\s+([A-Za-z"\u2018\u2019\u201c\u201d].*)$/gm, (match, cue, parenthetical = "", dialogue = "") => {
+  text = text.replace(/^([A-Z][A-Z0-9' .-]{1,30})(\s+\([^)]+\))?\s+([A-Za-z"‘’“”].*)$/gm, (match, cue, parenthetical = "", dialogue = "") => {
     const cleanedCue = String(cue || "").trim();
     if (CHARACTER_CUE_EXCLUSIONS.has(cleanedCue) || cueStartsLikeAction(cleanedCue) || !dialogueLooksNatural(dialogue)) return match;
     return `${cleanedCue}${parenthetical || ""}\n${String(dialogue || "").trim()}`;
@@ -111,3 +97,4 @@ export const formatScreenplayLikeText = (value = "") => {
     .replace(/\n{2}([A-Z][A-Z0-9' .-]{1,30}(?:\s*\([^)]+\))?)\n{2}/g, "\n$1\n")
     .trim();
 };
+

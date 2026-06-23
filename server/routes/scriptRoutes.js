@@ -18,6 +18,22 @@ import {
   getInvestorHomeFeed, getTopList,
   requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
 } from "../controllers/scriptController.js";
+import {
+  exportFountain,
+  exportScreenplayPdf,
+  importFountain,
+} from "../controllers/screenplayController.js";
+import {
+  listVersions,
+  createVersion,
+  restoreVersion,
+} from "../controllers/versionController.js";
+import {
+  listComments,
+  createComment,
+  updateComment,
+  deleteComment,
+} from "../controllers/commentController.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -110,6 +126,20 @@ router.get("/investor-home", protect, getInvestorHomeFeed);
 router.get("/public/:id", getPublicScriptById);
 router.get("/path/:projectHeading/:writerUsername", protect, getScriptByPath);
 router.get("/:id/submission-summary-pdf", protect, getScriptSubmissionSummaryPdf);
+// Screenplay import / export (Fountain + formatted PDF)
+router.post("/import/fountain", protect, importFountain);
+router.get("/:id/export/fountain", protect, exportFountain);
+router.get("/:id/export/pdf", protect, exportScreenplayPdf);
+// Final Draft (.fdx) import/export are handled client-side (see client fdx.js) — see §0.
+// Version history (Module 4)
+router.get("/:id/versions", protect, listVersions);
+router.post("/:id/versions", protect, createVersion);
+router.post("/:id/versions/:versionId/restore", protect, restoreVersion);
+// Comments (Phase 3 — Slice 2)
+router.get("/:id/comments", protect, listComments);
+router.post("/:id/comments", protect, createComment);
+router.patch("/:id/comments/:commentId", protect, updateComment);
+router.delete("/:id/comments/:commentId", protect, deleteComment);
 router.get("/purchase-request/:id/acceptance-pdf", protect, getPurchaseRequestAcceptancePdf);
 // Purchase request routes (must be before /:id)
 router.post("/purchase-request", protect, requestScriptPurchase);

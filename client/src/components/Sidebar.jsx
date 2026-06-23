@@ -9,7 +9,7 @@ import ReferralShareCard from "./ReferralShareCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
-const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0 }) => {
+const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0, collapsed = false, onToggleCollapse }) => {
   const { user, logout } = useContext(AuthContext);
   const { isDarkMode: appDarkMode } = useDarkMode();
   const location = useLocation();
@@ -261,8 +261,20 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className="px-5 h-16 flex items-center shrink-0">
+      <div className="px-5 h-16 flex items-center justify-between shrink-0">
         <BrandLogo className="h-9 w-auto" />
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-[#4a5a6e] hover:text-[#8896a7] hover:bg-[#0d1520]" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className={`mx-3 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
@@ -393,11 +405,11 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
   return (
     <>
-      <aside className={`hidden lg:flex fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`${collapsed ? "hidden" : "hidden lg:flex"} fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <SidebarContent />
       </aside>
 
-      <aside className={`hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`${collapsed ? "hidden md:flex" : "hidden md:flex lg:hidden"} fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <div className="h-16 flex items-center justify-center">
           <Link to="/dashboard">
             <svg className={`w-7 h-7 ${isDarkMode ? "text-[#8896a7]" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -405,6 +417,18 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
             </svg>
           </Link>
         </div>
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            className={`hidden lg:inline-flex w-10 h-10 mb-1 items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-[#4a5a6e] hover:text-[#8896a7] hover:bg-[#0d1520]" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
         <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto">
           {mainNavItems.map((item) => {
             const active = isActive(item.path);
