@@ -2397,20 +2397,6 @@ const CreateProject = () => {
     }
   };
 
-  // Fetch credits for grammar modal
-  const fetchGrammarCredits = useCallback(async () => {
-    setGrammarCreditLoading(true);
-    try {
-      const { data } = await api.get("/credits/balance");
-      setGrammarCreditBalance(data.balance || 0);
-    } catch {
-      setGrammarCreditBalance(0);
-    } finally {
-      setGrammarCreditLoading(false);
-    }
-  }, []);
-
-
   // Click "Fix Grammar"
   const handleGrammarClick = () => {
     if (!editor) return;
@@ -3096,7 +3082,7 @@ const CreateProject = () => {
                   )}
                   <button onClick={handleGrammarClick} disabled={grammarLoading || saving}
                     className={`flex items-center justify-center gap-1.5 px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-bold border transition disabled:opacity-40 max-[860px]:w-full ${dark ? "border-emerald-500/25 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}>
-                    {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar <span className={`text-[9px] px-1 py-0.5 rounded ${dark ? "bg-amber-500/15 text-amber-400" : "bg-amber-50 text-amber-600"}`}>{GRAMMAR_COST}cr</span></>}
+                    {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar</>}
                   </button>
                 </div>
               </div>
