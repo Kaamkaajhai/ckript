@@ -536,7 +536,7 @@ export const getUsers = async (req, res) => {
         const pageNumber = Math.max(Number(page) || 1, 1);
         const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
-        if (role) filter.role = role;
+        if (role && typeof role === 'string') filter.role = role;
         if (isPremium === 'true') {
             filter["subscription.accessTier"] = "film_industry_professional";
             filter["subscription.accessStatus"] = "active";
