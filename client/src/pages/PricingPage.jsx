@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BadgeCheck, Check, Crown, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuthModal } from "../context/AuthModalContext";
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
 
 const getIncludedFeatures = (quota = 10) => [
@@ -166,6 +167,7 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, day
 export default function PricingPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { openAuthModal } = useAuthModal();
 
   // The full-page surface and the landing Pricing modal share one checkout.
   const {
