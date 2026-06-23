@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useContext, useRef } from "react";
+import { useState, useEffect, useCallback, useContext, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -25,6 +25,20 @@ import {
   createScriptCompletionFormState,
   getScriptCompletionValidationMessage,
 } from "../utils/scriptCompletion";
+import ScreenplayEditor from "../components/screenplay/ScreenplayEditor";
+import ScreenplayFocusMode from "../components/screenplay/ScreenplayFocusMode";
+import ScreenplayElementBar from "../components/screenplay/ScreenplayElementBar";
+import { CORE_ELEMENTS, MORE_ELEMENT_GROUPS } from "../components/screenplay/screenplayElements";
+import VersionHistoryModal from "../components/screenplay/VersionHistoryModal";
+import { extractOutline } from "../components/screenplay/screenplayMode";
+import { getScenes, sceneIdAtLine } from "../components/screenplay/sceneIdentity";
+import { moveScene } from "../components/screenplay/sceneReorder";
+import { fountainToFdx, fdxToFountain } from "../components/screenplay/fdx";
+import PresenceAvatars from "../components/screenplay/PresenceAvatars";
+import useScenePresence from "../hooks/useScenePresence";
+import useSceneComments from "../hooks/useSceneComments";
+import { buildAnchor, resolveAnchor } from "../components/screenplay/commentAnchor";
+import { formatScreenplayLikeText } from "../utils/screenplayText";
 
 const DRAFT_ENDPOINT = `${(import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "")}/api/scripts/draft`;
 const LOCAL_WORKING_DRAFT_KEY = "create-project-working-draft-v1";
@@ -75,6 +89,10 @@ const CONTENT_TYPE_BY_FORMAT = {
 };
 
 const getContentTypeFromFormat = (format) => CONTENT_TYPE_BY_FORMAT[format] || "movie";
+
+// Screenplay element dropdown — each option is rendered styled as its element, with a
+// The element-type list (all eleven, with Tab-order badges for the core six) lives with the
+// compact toolbar that renders it — see ScreenplayElementBar.
 const genres = [
   "Action", "Comedy", "Drama", "Horror", "Thriller", "Romance", "Sci-Fi", "Fantasy",
   "Mystery", "Adventure", "Crime", "Western", "Animation", "Documentary", "Historical",
@@ -1069,6 +1087,41 @@ const CreateProject = () => {
   const [metaLoadingField, setMetaLoadingField] = useState("");
   const [metaNotice, setMetaNotice] = useState({ field: "", text: "" });
 
+  // Fountain screenplay editor (Module 1). Canonical Fountain text + enable toggle.
+  const [screenplayValue, setScreenplayValue] = useState("");
+  // Corkboard synopses (Phase 4 §2) — one-line summaries keyed by normalized heading. Pure
+  // metadata: stored on the Script (sceneSynopses), never written into the Fountain text, so
+  // they never export into the script.
+  const [sceneSynopses, setSceneSynopses] = useState({});
+  // Outline notes (Phase 4 §4) — free-form beats/notes kept alongside the script. Script
+  // metadata only: autosaves with the draft, never exported into the screenplay.
+  const [outlineNotes, setOutlineNotes] = useState("");
+  // Transient notice after a Final Draft import (e.g. unmapped element types). Shown in focus mode.
+  const [importNotice, setImportNotice] = useState("");
+  const [screenplayEnabled, setScreenplayEnabled] = useState(true);
+  const [exportingScreenplay, setExportingScreenplay] = useState("");
+  const [currentElement, setCurrentElement] = useState("action");
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [canEditContent, setCanEditContent] = useState(true); // false for commenter/viewer collaborators
+  const [canComment, setCanComment] = useState(true);          // false for viewers
+  const [focusedCommentId, setFocusedCommentId] = useState(null);
+  // Navigator outline (sequences + scenes) — re-derived live from the current document.
+  const screenplayOutline = useMemo(() => extractOutline(screenplayValue), [screenplayValue]);
+
+  // Escape exits focus mode (drops back to Step 1 with all state intact).
+  useEffect(() => {
+    if (!focusMode) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setFocusMode(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [focusMode]);
+  const screenplayMirrorTimer = useRef(null);
+  const screenplayFileInputRef = useRef(null);
+  const screenplayApiRef = useRef(null);
+
   // Step 3: Classification
   const [classification, setClassification] = useState({ tones: [], themes: [], settings: [] });
 
@@ -1201,6 +1254,18 @@ const CreateProject = () => {
         ),
       };
       setTitle(data.title || ""); setScriptId(data._id);
+      {
+        // Editing rights: owner, or a collaborator with editor/full_admin role. Commenters
+        // and viewers get a read-only editor (they can still select text to comment).
+        const me = String(user?._id || "");
+        const isOwnerOfScript = String(data?.creator?._id || data?.creator || "") === me;
+        const myCollab = (data?.collaborators || []).find((c) =>
+          String(c?.userId?._id || c?.userId || "") === me && c?.status === "accepted" && c?.isActive !== false);
+        const role = isOwnerOfScript ? "full_admin" : String(myCollab?.role || "");
+        setCanEditContent(isOwnerOfScript || ["editor", "full_admin"].includes(role));
+        // Commenters can comment (not edit); viewers can do neither. Owners always can.
+        setCanComment(isOwnerOfScript || ["editor", "full_admin", "merger", "commenter"].includes(role));
+      }
       setLoadedScriptStatus(data.status || "draft");
       setEditApprovalLocked(Boolean(isEditApprovalPending));
       setPurchasedServiceCredits(purchasedFromHistory);
@@ -1208,6 +1273,16 @@ const CreateProject = () => {
         setError("This script edit is already in admin review. You can edit again after approval or rejection.");
       }
       if (editor && data.textContent) editor.commands.setContent(data.textContent);
+      // Seed the Fountain screenplay editor: prefer saved fountainContent, else derive
+      // from the stored text for screenplay-format projects.
+      {
+        const isScreenplay = getContentTypeFromFormat(data.format) !== "book";
+        const seeded = data.fountainContent
+          || (isScreenplay ? formatScreenplayLikeText(String(data.textContent || "").replace(/<[^>]*>/g, " ")) : "");
+        setScreenplayValue(seeded || "");
+      }
+      setSceneSynopses(data.sceneSynopses && typeof data.sceneSynopses === "object" ? data.sceneSynopses : {});
+      setOutlineNotes(typeof data.outlineNotes === "string" ? data.outlineNotes : "");
       if (data.format) setFormData(f => ({ ...f, format: data.format }));
       if (data.styleMedium !== undefined) setFormData(f => ({ ...f, styleMedium: data.styleMedium || "" }));
       if (data.formatOther !== undefined) setFormData(f => ({ ...f, formatOther: data.formatOther || "" }));
@@ -1297,9 +1372,13 @@ const CreateProject = () => {
 
   const buildDraftPayload = useCallback(() => {
     if (!editor) return null;
+    const screenplayMode = getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled;
     return {
       title: title?.trim() ? title.trim() : "Untitled Draft",
-      textContent: editor.getHTML(),
+      textContent: screenplayMode ? screenplayValue : editor.getHTML(),
+      fountainContent: screenplayMode ? screenplayValue : undefined,
+      sceneSynopses: screenplayMode ? sceneSynopses : undefined,
+      outlineNotes: screenplayMode ? outlineNotes : undefined,
       companyName: String(formData.companyName || "").trim(),
       format: formData.format,
       styleMedium: targetFilm ? formData.styleMedium : undefined,
@@ -1341,14 +1420,16 @@ const CreateProject = () => {
       publishingDetails,
       ...(scriptId ? { scriptId } : {}),
     };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails]);
+  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes]);
 
   const getDraftSignature = useCallback((payload) => {
     if (!payload) return "";
     const html = String(payload.textContent || "");
     const completion = payload.scriptCompletion || {};
     const classificationSignature = JSON.stringify(payload.classification || {});
-    return `${payload.title || ""}::${String(payload.companyName || "")}::${payload.format || ""}::${payload.primaryGenre || ""}::${payload.logline || ""}::${payload.synopsis || ""}::${payload.collabVisibility || "private"}::${completion.status || ""}::${completion.completedParts || 0}::${completion.totalParts || 0}::${completion.futurePlans || ""}::${classificationSignature}::${html.length}:${html.slice(0, 120)}:${html.slice(-120)}`;
+    const synopsesSignature = JSON.stringify(payload.sceneSynopses || {});
+    const outlineSignature = String(payload.outlineNotes || "");
+    return `${payload.title || ""}::${String(payload.companyName || "")}::${payload.format || ""}::${payload.primaryGenre || ""}::${payload.logline || ""}::${payload.synopsis || ""}::${payload.collabVisibility || "private"}::${completion.status || ""}::${completion.completedParts || 0}::${completion.totalParts || 0}::${completion.futurePlans || ""}::${classificationSignature}::${synopsesSignature}::${outlineSignature.length}:${outlineSignature.slice(0, 80)}::${html.length}:${html.slice(0, 120)}:${html.slice(-120)}`;
   }, []);
 
   const hasMeaningfulDraft = useCallback((payload) => {
@@ -1860,7 +1941,12 @@ const CreateProject = () => {
     setError("");
     if (s === 1) {
       if (!title.trim()) { setError("Title is required."); return false; }
-      if (!editor || editor.getText().trim().length < 10) { setError("Please write at least a few lines of content."); return false; }
+      {
+        const editorPlainText = (getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled)
+          ? screenplayValue
+          : (editor ? editor.getText() : "");
+        if (!editor || editorPlainText.trim().length < 10) { setError("Please write at least a few lines of content."); return false; }
+      }
       return true;
     }
     if (s === 2) {
@@ -2006,7 +2092,8 @@ const CreateProject = () => {
         contentType: getContentTypeFromFormat(formData.format),
         formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
         pageCount: estimatedPages,
-        textContent: editor.getHTML(),
+        textContent: (getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled) ? screenplayValue : editor.getHTML(),
+        fountainContent: (getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled) ? screenplayValue : undefined,
         tags: tagsArr,
         classification: {
           primaryGenre: formData.primaryGenre,
@@ -2099,12 +2186,235 @@ const CreateProject = () => {
       .join("");
   };
 
+  // ── Fountain screenplay editor wiring ──────────────────────────────────────
+  const isScreenplayFormat = getContentTypeFromFormat(formData.format) !== "book";
+  const useScreenplayEditor = isScreenplayFormat && screenplayEnabled;
+
+  // ── Phase 3 presence (live "who's here + which scene") ──────────────────────
+  const screenplayValueRef = useRef(screenplayValue);
+  screenplayValueRef.current = screenplayValue;
+  const presenceEnabled = useScreenplayEditor && Boolean(scriptId);
+  const {
+    people: collabPeople,
+    setActiveScene: collabSetActiveScene,
+    locks: collabLocks,
+    myUserId: collabMyUserId,
+    requestEdit: collabRequestEdit,
+    releaseHeld: collabReleaseHeld,
+    editRequest: collabEditRequest,
+    clearEditRequest: collabClearEditRequest,
+    commentsVersion: collabCommentsVersion,
+  } = useScenePresence({ scriptId, enabled: presenceEnabled, user, canEdit: canEditContent });
+
+  // Comments (Phase 3 — Slice 2); live-refreshes on the socket comment-change signal.
+  const { comments: sceneComments, addComment: addSceneComment, setResolved: setCommentResolved, deleteComment: deleteSceneComment } =
+    useSceneComments({ scriptId, enabled: presenceEnabled, refreshKey: collabCommentsVersion });
+
+  // "Add comment" — anchor to either an explicit range (the inline line-comment composer passes the
+  // clicked line's {from,to}) or, when none is given, the current editor selection (the rail flow).
+  const handleAddComment = useCallback(async (body, range) => {
+    const target = (range && Number.isFinite(range.from) && range.to > range.from)
+      ? range
+      : screenplayApiRef.current?.getSelection?.();
+    if (!target || !(target.to > target.from)) { setError("Select some script text — or use the line comment icon — to comment on first."); return false; }
+    const anchor = buildAnchor(screenplayValueRef.current, target.from, target.to);
+    return addSceneComment({ anchor, body });
+  }, [addSceneComment]);
+
+  // Reply to a thread.
+  const handleReplyComment = useCallback((parentId, body) => addSceneComment({ anchor: {}, body, parentId }), [addSceneComment]);
+
+  // Click a comment in the rail → scroll to + flash its anchored text.
+  const handleFocusComment = useCallback((comment) => {
+    const r = comment?.anchor ? resolveAnchor(screenplayValueRef.current, comment.anchor) : null;
+    if (r) screenplayApiRef.current?.scrollToRange?.(r.from, r.to);
+    setFocusedCommentId(comment?._id || null);
+  }, []);
+
+  // Is a comment's anchored text still present? (false → orphaned)
+  const isCommentOrphaned = useCallback((comment) => {
+    if (!comment?.anchor?.quote) return false;
+    return resolveAnchor(screenplayValueRef.current, comment.anchor) == null;
+  }, []);
+  // As the caret moves, tell the sync layer which scene we're in (it debounces).
+  const handleCaretLine = useCallback((line) => {
+    collabSetActiveScene(sceneIdAtLine(screenplayValueRef.current, line));
+  }, [collabSetActiveScene]);
+
+  // Enrich presence for the UI: scene heading per person + people-by-scene for navigator dots.
+  const presenceScenes = useMemo(() => getScenes(screenplayValue), [screenplayValue]);
+  const peopleEnriched = useMemo(() => collabPeople.map((p) => {
+    const scene = presenceScenes.find((s) => s.sceneId === p.activeSceneId);
+    return { ...p, sceneHeading: scene ? scene.heading : "" };
+  }), [collabPeople, presenceScenes]);
+  const presenceBySceneId = useMemo(() => {
+    const map = {};
+    for (const p of collabPeople) {
+      if (!p.activeSceneId) continue;
+      (map[p.activeSceneId] = map[p.activeSceneId] || []).push(p);
+    }
+    return map;
+  }, [collabPeople]);
+  // Navigator outline with each scene's sceneId attached (for presence/lock dots).
+  const outlineWithSceneIds = useMemo(() => {
+    const resolve = (line) => {
+      for (const s of presenceScenes) if (line >= s.startLine && line <= s.endLine) return s.sceneId;
+      return presenceScenes[presenceScenes.length - 1]?.sceneId;
+    };
+    return screenplayOutline.map((item) => item.type === "scene" ? { ...item, sceneId: resolve(item.line) } : item);
+  }, [screenplayOutline, presenceScenes]);
+
+  // Plain text the AI tools read — Fountain text in screenplay mode, else TipTap text.
+  const getEditorPlainText = () => (useScreenplayEditor ? screenplayValue : (editor ? editor.getText() : "")).trim();
+
+  // Update Fountain text; mirror (debounced) into the hidden TipTap model so existing
+  // word-count / AI-read flows keep working off editor.getText().
+  const handleScreenplayChange = useCallback((text) => {
+    setScreenplayValue(text);
+    setWordCount(text.split(/\s+/).filter(Boolean).length);
+    setCharCount(text.length);
+    setSaved(false);
+    if (screenplayMirrorTimer.current) clearTimeout(screenplayMirrorTimer.current);
+    screenplayMirrorTimer.current = setTimeout(() => {
+      if (editor) editor.commands.setContent(textToParagraphHtml(text));
+    }, 400);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  // Corkboard reorder (Phase 4 §2.2). Moving a card rewrites the Fountain text by moving the
+  // whole scene block; routing it through handleScreenplayChange feeds the new value to the
+  // (mounted-but-hidden) editor, which applies it as ONE transaction → a single undo step that
+  // survives switching back to the page. A scene locked by another writer is blocked here too,
+  // since the value-sync path bypasses the editor's lock guard.
+  const handleReorderScene = useCallback((fromIndex, toIndex) => {
+    const text = screenplayValueRef.current;
+    const scenes = getScenes(text);
+    const source = scenes[fromIndex];
+    const lock = source ? collabLocks[source.sceneId] : null;
+    if (lock && String(lock.holderId) !== String(collabMyUserId)) return;
+    const next = moveScene(text, fromIndex, toIndex);
+    if (next !== text) handleScreenplayChange(next);
+  }, [collabLocks, collabMyUserId, handleScreenplayChange]);
+
+  // Edit a scene's one-line synopsis (metadata only — never touches the script text).
+  const handleSynopsisChange = useCallback((key, value) => {
+    if (!key) return;
+    setSceneSynopses((prev) => ({ ...prev, [key]: value }));
+    setSaved(false);
+  }, []);
+
+  // Edit the outline notes (Phase 4 §4) — metadata only, autosaved with the draft.
+  const handleOutlineChange = useCallback((value) => {
+    setOutlineNotes(value);
+    setSaved(false);
+  }, []);
+
+  // kind: "pdf" (clean) | "pdf-wm" (watermarked with the user's identity) | "fountain" | "fdx"
+  const handleExportScreenplay = async (kind) => {
+    setExportMenuOpen(false);
+
+    // .fdx is generated CLIENT-SIDE so its element types come from the editor's one classifier
+    // (classifyText), never the server's separate parser (§0). No save/scriptId needed.
+    if (kind === "fdx") {
+      setExportingScreenplay(kind);
+      setError("");
+      try {
+        const xml = fountainToFdx(screenplayValue);
+        const url = window.URL.createObjectURL(new Blob([xml], { type: "application/xml" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${(title || "script").replace(/[^\w.-]+/g, "_")}.fdx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      } catch {
+        setError("Could not generate the Final Draft file.");
+      } finally {
+        setExportingScreenplay("");
+      }
+      return;
+    }
+
+    if (!scriptId) {
+      setError("Save your project once before exporting.");
+      return;
+    }
+    setExportingScreenplay(kind);
+    setError("");
+    try {
+      let path;
+      if (kind === "fountain") {
+        path = `/scripts/${scriptId}/export/fountain`;
+      } else if (kind === "pdf-wm") {
+        const stamp = encodeURIComponent(user?.email || user?.name || "Shared copy");
+        path = `/scripts/${scriptId}/export/pdf?download=1&titlePage=1&watermark=${stamp}`;
+      } else {
+        path = `/scripts/${scriptId}/export/pdf?download=1&titlePage=1`;
+      }
+      const { data } = await api.get(path, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const ext = kind === "fountain" ? "fountain" : "pdf";
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(title || "script").replace(/[^\w.-]+/g, "_")}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.response?.data?.message || "Export failed. Try again after saving.");
+    } finally {
+      setExportingScreenplay("");
+    }
+  };
+
+  const handleImportScreenplayFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const raw = await file.text();
+      const isFdx = /\.fdx$/i.test(file.name) || /^\s*<\?xml|<FinalDraft/i.test(raw);
+      if (isFdx) {
+        // Parse .fdx CLIENT-SIDE → Fountain that the editor's classifier re-reads (§0). High
+        // fidelity, so no review step — but surface a notice if any unknown paragraph types fell
+        // back to Action so the gap is visible rather than silent.
+        const { fountain, unmapped } = fdxToFountain(raw);
+        handleScreenplayChange(fountain);
+        setScreenplayValue(fountain);
+        setImportNotice(unmapped.length
+          ? `Imported. ${unmapped.length} unrecognized Final Draft element type${unmapped.length > 1 ? "s" : ""} kept as Action: ${unmapped.join(", ")}.`
+          : "Final Draft file imported.");
+        return;
+      }
+      const { data } = await api.post("/scripts/import/fountain", { text: raw });
+      const imported = data?.fountainContent || raw;
+      handleScreenplayChange(imported);
+      setScreenplayValue(imported);
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not import that file.");
+    }
+  };
+
+  // Fetch credits for grammar modal
+  const fetchGrammarCredits = useCallback(async () => {
+    setGrammarCreditLoading(true);
+    try {
+      const { data } = await api.get("/credits/balance");
+      setGrammarCreditBalance(data.balance || 0);
+    } catch {
+      setGrammarCreditBalance(0);
+    } finally {
+      setGrammarCreditLoading(false);
+    }
+  }, []);
 
 
   // Click "Fix Grammar"
   const handleGrammarClick = () => {
     if (!editor) return;
-    const plainText = editor.getText().trim();
+    const plainText = getEditorPlainText();
     if (!plainText || plainText.length < 10) {
       setError("Write some script text before running grammar correction.");
       return;
@@ -2115,7 +2425,7 @@ const CreateProject = () => {
   // Confirmed - actually run grammar fix
   const handleFixGrammar = async () => {
     if (!editor) return;
-    const plainText = editor.getText().trim();
+    const plainText = getEditorPlainText();
     if (!plainText) return;
 
     // Save current content for undo
@@ -2166,7 +2476,7 @@ const CreateProject = () => {
 
   const handleProseClick = () => {
     if (!editor) return;
-    const plainText = editor.getText().trim();
+    const plainText = getEditorPlainText();
     if (!plainText || plainText.length < 50) {
       setError("Write at least 50 characters of script text before generating a prose sample.");
       return;
@@ -2176,7 +2486,7 @@ const CreateProject = () => {
 
   const handleGenerateProse = async () => {
     if (!editor) return;
-    const plainText = editor.getText().trim();
+    const plainText = getEditorPlainText();
     if (!plainText) return;
 
     setProseLoading(true);
@@ -2202,7 +2512,7 @@ const CreateProject = () => {
   // Generate a single section (logline / synopsis / roles) by parsing the project content with AI
   const handleGenerateMetadata = async (field) => {
     if (!editor || metaLoadingField) return;
-    const plainText = editor.getText().trim();
+    const plainText = getEditorPlainText();
     if (!plainText || plainText.length < 50) {
       setError("Write at least 50 characters of script content before generating with AI.");
       return;
@@ -2284,10 +2594,18 @@ const CreateProject = () => {
           </div>
           <div className="flex items-center gap-2 max-[640px]:w-full max-[640px]:flex-wrap max-[640px]:justify-between max-[380px]:gap-1.5">
             <button onClick={() => setShowDrafts(!showDrafts)}
-              className={`flex items-center gap-2 px-4 max-[380px]:px-3 py-2 max-[380px]:py-1.5 rounded-xl text-xs font-semibold border transition-all ${dark
+              title="Switch between your projects"
+              className={`flex items-center gap-2 px-3.5 max-[380px]:px-3 py-2 max-[380px]:py-1.5 rounded-xl text-xs font-semibold border transition-all ${dark
                 ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-              Drafts {drafts.length > 0 && <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${dark ? "bg-white/[0.08]" : "bg-gray-100"}`}>{drafts.length}</span>}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" /></svg>
+              My projects {drafts.length > 0 && <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${dark ? "bg-white/[0.08]" : "bg-gray-100"}`}>{drafts.length}</span>}
+            </button>
+            <button onClick={() => setShowVersionHistory(true)}
+              title="View and restore earlier versions of this project"
+              className={`flex items-center gap-2 px-3.5 max-[380px]:px-3 py-2 max-[380px]:py-1.5 rounded-xl text-xs font-semibold border transition-all ${dark
+                ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              History
             </button>
             {/* Save indicator */}
             {saving && <span className={`flex items-center gap-1.5 text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}><div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />Saving...</span>}
@@ -2396,6 +2714,342 @@ const CreateProject = () => {
         )}
       </AnimatePresence>
 
+      {/* --- Grammar Credit Confirmation Modal (portal) --- */}
+      {focusMode && useScreenplayEditor && (
+        <ScreenplayFocusMode
+          value={screenplayValue}
+          onChange={handleScreenplayChange}
+          onElementChange={setCurrentElement}
+          onCaretLine={handleCaretLine}
+          apiRef={screenplayApiRef}
+          dark={dark}
+          title={title}
+          currentElement={currentElement}
+          onSetElement={(t) => screenplayApiRef.current?.setElementType(t)}
+          outline={outlineWithSceneIds}
+          presenceBySceneId={presenceBySceneId}
+          people={peopleEnriched}
+          myUserId={collabMyUserId}
+          locks={collabLocks}
+          onRequestEdit={collabRequestEdit}
+          editRequest={collabEditRequest}
+          onReleaseHeld={collabReleaseHeld}
+          onDismissEditRequest={collabClearEditRequest}
+          comments={sceneComments}
+          focusedCommentId={focusedCommentId}
+          canComment={canComment}
+          canEdit={canEditContent}
+          isCommentOrphaned={isCommentOrphaned}
+          onAddComment={handleAddComment}
+          onReplyComment={handleReplyComment}
+          onResolveComment={setCommentResolved}
+          onDeleteComment={deleteSceneComment}
+          onFocusComment={handleFocusComment}
+          onSceneClick={(line) => screenplayApiRef.current?.scrollToLine(line)}
+          synopses={sceneSynopses}
+          onSynopsisChange={handleSynopsisChange}
+          onReorderScene={handleReorderScene}
+          wordsPerPage={formatInfo.wordsPerPage}
+          outlineNotes={outlineNotes}
+          onOutlineChange={handleOutlineChange}
+          importNotice={importNotice}
+          onDismissImportNotice={() => setImportNotice("")}
+          onImport={() => screenplayFileInputRef.current?.click()}
+          onExport={handleExportScreenplay}
+          exporting={exportingScreenplay}
+          onOpenHistory={() => setShowVersionHistory(true)}
+          onRichText={() => { setScreenplayEnabled(false); setFocusMode(false); }}
+          onExit={() => setFocusMode(false)}
+        />
+      )}
+
+      <VersionHistoryModal
+        open={showVersionHistory}
+        onClose={() => setShowVersionHistory(false)}
+        scriptId={scriptId}
+        currentText={useScreenplayEditor ? screenplayValue : (editor ? editor.getText() : "")}
+        dark={dark}
+        onRestored={(fountainText) => {
+          setScreenplayValue(fountainText);
+          handleScreenplayChange(fountainText);
+          setSaved(false);
+        }}
+      />
+
+      {showGrammarModal && createPortal(
+        <AnimatePresence>
+          <motion.div
+            key="grammar-modal-bg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+            onClick={() => setShowGrammarModal(false)}
+          >
+            <motion.div
+              key="grammar-modal"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: "spring", damping: 24, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
+                dark
+                  ? "bg-[#0a1120] border border-white/[0.08]"
+                  : "bg-white border border-gray-200"
+              }`}
+            >
+              {/* Header */}
+              <div className={`px-6 pt-6 pb-4 border-b ${
+                dark ? "border-white/[0.06]" : "border-gray-100"
+              }`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                    dark
+                      ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
+                      : "bg-emerald-50 border border-emerald-200"
+                  }`}>
+                    <span className="text-xs font-bold">AI</span>
+                  </div>
+                  <div>
+                    <h3 className={`text-base font-bold ${
+                      dark ? "text-white" : "text-gray-900"
+                    }`}>AI Grammar Fix</h3>
+                    <p className={`text-[11px] ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Powered by Gemini AI</p>
+                  </div>
+                </div>
+                <p className={`text-xs leading-relaxed ${
+                  dark ? "text-neutral-400" : "text-gray-500"
+                }`}>
+                  Fix grammar, spelling, punctuation, and readability with professional AI proofreading.
+                </p>
+              </div>
+
+              {/* Credit info */}
+              <div className="px-6 py-5 space-y-3">
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">₹</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Cost</span>
+                  </div>
+                  <span className={`text-sm font-bold ${
+                    dark ? "text-amber-300" : "text-amber-600"
+                  }`}>{GRAMMAR_COST} credits</span>
+                </div>
+
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold">CR</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Your Balance</span>
+                  </div>
+                  {grammarCreditLoading ? (
+                    <span className={`text-xs ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Loading...</span>
+                  ) : (
+                    <span className={`text-sm font-bold ${
+                      grammarCreditBalance >= GRAMMAR_COST
+                        ? dark ? "text-emerald-400" : "text-emerald-600"
+                        : "text-red-400"
+                    }`}>
+                      {grammarCreditBalance ?? "-"} credits
+                    </span>
+                  )}
+                </div>
+
+                {!grammarCreditLoading && grammarCreditBalance !== null && grammarCreditBalance < GRAMMAR_COST && (
+                  <div className={`px-4 py-3 rounded-xl ${
+                    dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      dark ? "text-red-300" : "text-red-600"
+                    }`}>
+                      Not enough credits. You need {GRAMMAR_COST - grammarCreditBalance} more credit{GRAMMAR_COST - grammarCreditBalance > 1 ? "s" : ""} to use this feature.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Buttons */}
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowGrammarModal(false)}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    dark
+                      ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+                      : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFixGrammar}
+                  disabled={grammarCreditLoading || grammarCreditBalance === null || grammarCreditBalance < GRAMMAR_COST}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
+                    dark
+                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
+                  }`}
+                >
+                  Pay {GRAMMAR_COST} Credits & Fix
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* --- AI Prose Generation Modal (portal) --- */}
+      {showProseModal && createPortal(
+        <AnimatePresence>
+          <motion.div
+            key="prose-modal-bg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}
+            onClick={() => setShowProseModal(false)}
+          >
+            <motion.div
+              key="prose-modal"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ type: "spring", damping: 24, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden ${
+                dark
+                  ? "bg-[#0a1120] border border-white/[0.08]"
+                  : "bg-white border border-gray-200"
+              }`}
+            >
+              {/* Header */}
+              <div className={`px-6 pt-6 pb-4 border-b ${
+                dark ? "border-white/[0.06]" : "border-gray-100"
+              }`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${
+                    dark
+                      ? "bg-gradient-to-br from-emerald-500/15 to-teal-600/15 border border-emerald-500/20"
+                      : "bg-emerald-50 border border-emerald-200"
+                  }`}>
+                    <span className="text-xs font-bold">AI</span>
+                  </div>
+                  <div>
+                    <h3 className={`text-base font-bold ${
+                      dark ? "text-white" : "text-gray-900"
+                    }`}>AI Prose Generator</h3>
+                    <p className={`text-[11px] ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Powered by Gemini AI</p>
+                  </div>
+                </div>
+                <p className={`text-xs leading-relaxed ${
+                  dark ? "text-neutral-400" : "text-gray-500"
+                }`}>
+                  Convert your script format into a novel-ready prose excerpt for publishers.
+                </p>
+              </div>
+
+              {/* Credit info */}
+              <div className="px-6 py-5 space-y-3">
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">₹</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Cost</span>
+                  </div>
+                  <span className={`text-sm font-bold ${
+                    dark ? "text-amber-300" : "text-amber-600"
+                  }`}>{PROSE_COST} credits</span>
+                </div>
+
+                <div className={`flex items-center justify-between px-4 py-3 rounded-xl ${
+                  dark ? "bg-white/[0.03] border border-white/[0.05]" : "bg-gray-50 border border-gray-100"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold">CR</span>
+                    <span className={`text-xs font-medium ${
+                      dark ? "text-neutral-300" : "text-gray-600"
+                    }`}>Your Balance</span>
+                  </div>
+                  {proseCreditLoading ? (
+                    <span className={`text-xs ${
+                      dark ? "text-neutral-500" : "text-gray-400"
+                    }`}>Loading...</span>
+                  ) : (
+                    <span className={`text-sm font-bold ${
+                      proseCreditBalance >= PROSE_COST
+                        ? dark ? "text-emerald-400" : "text-emerald-600"
+                        : "text-red-400"
+                    }`}>
+                      {proseCreditBalance ?? "-"} credits
+                    </span>
+                  )}
+                </div>
+
+                {!proseCreditLoading && proseCreditBalance !== null && proseCreditBalance < PROSE_COST && (
+                  <div className={`px-4 py-3 rounded-xl ${
+                    dark ? "bg-red-500/10 border border-red-500/15" : "bg-red-50 border border-red-100"
+                  }`}>
+                    <p className={`text-xs leading-relaxed ${
+                      dark ? "text-red-300" : "text-red-600"
+                    }`}>
+                      Not enough credits. You need {PROSE_COST - proseCreditBalance} more credit{PROSE_COST - proseCreditBalance > 1 ? "s" : ""} to use this feature.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Buttons */}
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowProseModal(false)}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                    dark
+                      ? "bg-white/[0.04] border border-white/[0.06] text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+                      : "bg-gray-100 border border-gray-200 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateProse}
+                  disabled={proseCreditLoading || proseCreditBalance === null || proseCreditBalance < PROSE_COST}
+                  className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed ${
+                    dark
+                      ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-emerald-500/20"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-400 hover:to-teal-400 shadow-emerald-200"
+                  }`}
+                >
+                  Pay {PROSE_COST} Credits & Generate
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        </AnimatePresence>,
+        document.body
+      )}
 
 
       {showUnderReviewModal && createPortal(
@@ -2703,33 +3357,120 @@ const CreateProject = () => {
                     className={`w-full text-base max-[520px]:text-[15px] font-bold bg-transparent outline-none truncate ${dark ? "text-gray-100 placeholder:text-gray-700" : "text-gray-900 placeholder:text-gray-300"}`}
                   />
                 </div>
-                <div className="flex items-center gap-2 shrink-0 max-[860px]:w-full max-[860px]:grid max-[860px]:grid-cols-3 max-[860px]:gap-2 max-[419px]:grid-cols-1 max-[380px]:gap-1.5">
-                  {saving && <span className={`flex items-center gap-1.5 text-xs max-[860px]:col-span-3 max-[419px]:col-span-1 ${dark ? "text-gray-500" : "text-gray-400"}`}><div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />Saving...</span>}
-                  {saved && !saving && <span className={`flex items-center gap-1 text-xs max-[860px]:col-span-3 max-[419px]:col-span-1 ${dark ? "text-emerald-400" : "text-emerald-600"}`}><svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>Saved</span>}
-                  <button onClick={() => handleSave(false)} disabled={saving}
-                    className={`px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-semibold border transition max-[860px]:w-full ${dark ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06] hover:text-white" : "border-gray-200 text-gray-500 hover:bg-gray-100"}`}>
-                    Save Draft
-                  </button>
-                  <button
-                    onClick={handleDownloadMainContentPdf}
-                    disabled={saving}
-                    className={`px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-semibold border transition max-[860px]:w-full ${dark ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06] hover:text-white" : "border-gray-200 text-gray-500 hover:bg-gray-100"}`}
-                  >
-                    Download PDF
-                  </button>
+                <div className="flex items-center justify-end flex-wrap gap-2 shrink-0 max-[860px]:w-full">
+                  {/* Autosave handles saving; status lives in the page header. No manual Save Draft button. */}
+                  {!useScreenplayEditor && (
+                    <button
+                      onClick={handleDownloadMainContentPdf}
+                      disabled={saving}
+                      className={`px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-semibold border transition ${dark ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06] hover:text-white" : "border-gray-200 text-gray-500 hover:bg-gray-100"}`}
+                    >
+                      Download PDF
+                    </button>
+                  )}
                   <button onClick={handleGrammarClick} disabled={grammarLoading || saving}
                     className={`flex items-center justify-center gap-1.5 px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-bold border transition disabled:opacity-40 max-[860px]:w-full ${dark ? "border-emerald-500/25 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}>
-                    {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar</>}
+                    {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar <span className={`text-[9px] px-1 py-0.5 rounded ${dark ? "bg-amber-500/15 text-amber-400" : "bg-amber-50 text-amber-600"}`}>{GRAMMAR_COST}cr</span></>}
                   </button>
                 </div>
               </div>
 
-              {/* -- Toolbar -- */}
-              <EditorToolbar editor={editor} dark={dark} />
+              {/* -- Toolbar / Screenplay controls -- */}
+              {useScreenplayEditor ? (
+                <div className={`relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 border-b ${dark ? "border-[#182840] bg-[#080f1a]" : "border-gray-200 bg-white"}`}>
+                  {/* ── LEFT GROUP: writing controls (core six + More) ── */}
+                  <ScreenplayElementBar
+                    items={CORE_ELEMENTS}
+                    currentElement={currentElement}
+                    onSetElement={(t) => screenplayApiRef.current?.setElementType(t)}
+                    dark={dark}
+                  />
+
+                  {/* More — the rarer types, grouped with dividers, styled like the Export menu */}
+                  <div className="relative">
+                    <button type="button" onClick={() => setMoreMenuOpen((o) => !o)}
+                      className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] font-semibold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                      More
+                      <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {moreMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-[55]" onClick={() => setMoreMenuOpen(false)} />
+                        <div className={`absolute left-0 mt-1 w-48 rounded-lg border shadow-xl z-[60] py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
+                          {MORE_ELEMENT_GROUPS.map((group, gi) => (
+                            <div key={gi} className={gi > 0 ? `mt-1 pt-1 border-t ${dark ? "border-[#1d3350]" : "border-gray-100"}` : ""}>
+                              {group.map((el) => (
+                                <button key={el.value} type="button"
+                                  onClick={() => { setMoreMenuOpen(false); screenplayApiRef.current?.setElementType(el.value); }}
+                                  className={`w-full flex items-center gap-2 px-3 py-1.5 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>
+                                  <el.Icon className="w-3.5 h-3.5 opacity-70" strokeWidth={1.8} aria-hidden="true" />
+                                  {el.label}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <span className={`text-[10px] max-[1100px]:hidden ${dark ? "text-gray-600" : "text-gray-400"}`}>Enter · Tab to cycle</span>
+
+                  {/* ── Divider + RIGHT GROUP: file / mode actions ── */}
+                  <div className={`mx-1 w-px h-6 hidden min-[861px]:block ${dark ? "bg-[#182840]" : "bg-gray-200"}`} />
+                  <div className="ml-auto flex items-center gap-1.5">
+                    {collabPeople.length > 1 && (
+                      <PresenceAvatars people={peopleEnriched} dark={dark} onClick={() => setFocusMode(true)} />
+                    )}
+                    <button type="button" onClick={() => screenplayFileInputRef.current?.click()}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>Import</button>
+
+                    {/* Single Export ▾ menu: PDF · Watermarked PDF · Fountain · Final Draft */}
+                    <div className="relative">
+                      <button type="button" onClick={() => setExportMenuOpen((o) => !o)} disabled={Boolean(exportingScreenplay)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition disabled:opacity-50 ${dark ? "bg-[#1e3a5f] border-[#2a4a6a] text-white hover:bg-[#244873]" : "bg-[#1e3a5f] border-[#1e3a5f] text-white hover:bg-[#244873]"}`}>
+                        {exportingScreenplay ? "Exporting…" : "Export"}
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                      </button>
+                      {exportMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-[55]" onClick={() => setExportMenuOpen(false)} />
+                          <div className={`absolute right-0 mt-1 w-52 rounded-lg border shadow-xl z-[60] py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
+                            <button type="button" onClick={() => handleExportScreenplay("pdf")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>PDF</button>
+                            <button type="button" onClick={() => handleExportScreenplay("pdf-wm")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Watermarked PDF</button>
+                            <button type="button" onClick={() => handleExportScreenplay("fountain")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Fountain</button>
+                            <button type="button" onClick={() => handleExportScreenplay("fdx")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Final Draft (.fdx)</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <button type="button" onClick={() => setFocusMode(true)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition ${dark ? "bg-[#1e3a5f] border-[#2a4a6a] text-white hover:bg-[#244873]" : "bg-[#1e3a5f] border-[#1e3a5f] text-white hover:bg-[#244873]"}`}
+                      title="Full-screen distraction-free writing">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+                      Focus
+                    </button>
+                    <button type="button" onClick={() => setScreenplayEnabled(false)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition ${dark ? "border-[#2a4a6a] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>Rich text</button>
+                  </div>
+                  <input ref={screenplayFileInputRef} type="file" accept=".fountain,.txt,.fdx,text/plain" className="hidden" onChange={handleImportScreenplayFile} />
+                </div>
+              ) : (
+                <>
+                  <EditorToolbar editor={editor} dark={dark} />
+                  {isScreenplayFormat && (
+                    <div className={`px-3 py-1.5 border-b text-[11px] ${dark ? "border-[#182840] bg-[#080f1a] text-gray-500" : "border-gray-200 bg-white text-gray-400"}`}>
+                      <button type="button" onClick={() => setScreenplayEnabled(true)}
+                        className={`font-bold ${dark ? "text-blue-300" : "text-[#1e3a5f]"}`}>🎬 Switch to Screenplay mode</button>
+                      <span> — auto-format sluglines, character cues & dialogue.</span>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* -- Page Gutter + Document Canvas -- */}
-              <div className={`relative overflow-y-auto overflow-x-auto max-[1200px]:overflow-x-hidden max-h-[72vh] ${dark ? "bg-[#05090f]" : "bg-[#e8eaed]"}`}
-                style={{ backgroundImage: dark ? "radial-gradient(circle, #1a2a3a 1px, transparent 1px)" : "radial-gradient(circle, #c8cdd5 1px, transparent 1px)", backgroundSize: "20px 20px" }}>
+              <div className={`relative overflow-y-auto overflow-x-auto max-[1200px]:overflow-x-hidden max-h-[72vh] ${dark ? "bg-[#0a0f17]" : "bg-[#ece9e3]"}`}>
 
                 {/* Page number gutter labels */}
                 <div className="sticky top-0 left-0 z-10 pointer-events-none">
@@ -2742,10 +3483,15 @@ const CreateProject = () => {
                     className={`relative w-full max-w-[760px] max-[1200px]:max-w-none shadow-2xl ${dark ? "bg-[#111827]" : "bg-white"}`}
                     style={{ minHeight: Math.max(estimatedPages, 1) * 1123 + "px" }}>
 
+                    {/* Page number on the sheet's top-right corner (per spec) */}
+                    {useScreenplayEditor && (
+                      <span className={`absolute top-6 right-8 max-[640px]:right-4 z-[6] text-[12px] font-mono select-none ${dark ? "text-gray-500" : "text-gray-400"}`}>1.</span>
+                    )}
+
                     {/* Page break lines */}
                     {Array.from({ length: Math.max(estimatedPages - 1, 0) }).map((_, i) => (
-                      <div key={i} style={{ position: "absolute", top: (i + 1) * 1123, left: 0, right: 0, zIndex: 5 }}>
-                        <div className={`w-full flex items-center gap-3 px-4 ${dark ? "bg-[#05090f]" : "bg-[#e8eaed]"}`} style={{ height: 32 }}>
+                      <div key={i} style={{ position: "absolute", top: (i + 1) * 1056, left: 0, right: 0, zIndex: 5 }}>
+                        <div className={`w-full flex items-center gap-3 px-4 ${dark ? "bg-[#0a0f17]" : "bg-[#ece9e3]"}`} style={{ height: 32 }}>
                           <div className={`flex-1 h-px ${dark ? "bg-[#1a2a3a]" : "bg-gray-300"}`} />
                           <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded ${dark ? "bg-[#0d1520] text-gray-600 border border-[#182840]" : "bg-white text-gray-400 border border-gray-300"}`}>
                             Page {i + 2}
@@ -2755,12 +3501,35 @@ const CreateProject = () => {
                       </div>
                     ))}
 
-                    {/* TipTap content */}
-                    <div className={`relative z-0 ${dark
-                      ? "[&_.tiptap]:text-gray-200 [&_.tiptap_p.is-editor-empty:first-child::before]:text-gray-700 [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_h1]:text-white [&_.tiptap_h2]:text-gray-100 [&_.tiptap_blockquote]:border-[#1d3350] [&_.tiptap_blockquote]:text-gray-400 [&_.tiptap_code]:bg-white/[0.06] [&_.tiptap_pre]:bg-[#0a1220] [&_.tiptap_hr]:border-[#1e2a3a]"
-                      : "[&_.tiptap_p.is-editor-empty:first-child::before]:text-gray-300 [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_code]:bg-gray-100 [&_.tiptap_pre]:bg-gray-50 [&_.tiptap_blockquote]:border-gray-200 [&_.tiptap_hr]:border-gray-200 [&_.tiptap]:text-gray-900"}`}>
-                      <EditorContent editor={editor} />
-                    </div>
+                    {/* Editor content — Fountain screenplay editor or rich-text */}
+                    {useScreenplayEditor && focusMode ? (
+                      <div className={`relative z-0 flex items-center justify-center py-24 text-sm ${dark ? "text-gray-500" : "text-gray-400"}`}>
+                        Editing in focus mode…
+                      </div>
+                    ) : useScreenplayEditor ? (
+                      <div className="relative z-0">
+                        <ScreenplayEditor
+                          value={screenplayValue}
+                          onChange={handleScreenplayChange}
+                          onElementChange={setCurrentElement}
+                          onCaretLine={handleCaretLine}
+                          locks={collabLocks}
+                          myUserId={collabMyUserId}
+                          onRequestEdit={collabRequestEdit}
+                          comments={sceneComments}
+                          focusedCommentId={focusedCommentId}
+                          readOnly={!canEditContent}
+                          apiRef={screenplayApiRef}
+                          dark={dark}
+                        />
+                      </div>
+                    ) : (
+                      <div className={`relative z-0 ${dark
+                        ? "[&_.tiptap]:text-gray-200 [&_.tiptap_p.is-editor-empty:first-child::before]:text-gray-700 [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_h1]:text-white [&_.tiptap_h2]:text-gray-100 [&_.tiptap_blockquote]:border-[#1d3350] [&_.tiptap_blockquote]:text-gray-400 [&_.tiptap_code]:bg-white/[0.06] [&_.tiptap_pre]:bg-[#0a1220] [&_.tiptap_hr]:border-[#1e2a3a]"
+                        : "[&_.tiptap_p.is-editor-empty:first-child::before]:text-gray-300 [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_code]:bg-gray-100 [&_.tiptap_pre]:bg-gray-50 [&_.tiptap_blockquote]:border-gray-200 [&_.tiptap_hr]:border-gray-200 [&_.tiptap]:text-gray-900"}`}>
+                        <EditorContent editor={editor} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2768,6 +3537,11 @@ const CreateProject = () => {
               {/* -- Status Bar -- */}
               <div className={`flex items-center justify-between px-4 py-2 border-t text-[11px] ${dark ? "border-[#182840] bg-[#080f1a] text-gray-600" : "border-gray-100 bg-gray-50 text-gray-400"}`}>
                 <div className="flex items-center gap-4">
+                  {useScreenplayEditor && (
+                    <span className={`font-semibold uppercase tracking-wide ${dark ? "text-blue-400" : "text-[#1e3a5f]"}`}>
+                      {(currentElement === "blank" || currentElement === "shot" ? "action" : currentElement)}
+                    </span>
+                  )}
                   <span>{wordCount} <span className={dark ? "text-gray-700" : "text-gray-300"}>words</span></span>
                   <span>{charCount} <span className={dark ? "text-gray-700" : "text-gray-300"}>chars</span></span>
                   <span className={`font-semibold ${pageStatus === "good" ? dark ? "text-emerald-400" : "text-emerald-600" : pageStatus === "short" ? dark ? "text-amber-400" : "text-amber-600" : dark ? "text-blue-400" : "text-blue-600"}`}>

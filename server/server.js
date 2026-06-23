@@ -43,6 +43,7 @@ import agreementRoutes from "./routes/agreementRoutes.js";
 import collabRoutes from "./routes/collab.routes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import { registerCollabSocket } from "./socket/collab.socket.js";
+import { registerScenePresence } from "./socket/scenePresence.socket.js";
 import {
   applyGlobalSecurity,
   apiLimiter,
@@ -299,6 +300,7 @@ const createRealtimeServer = () => {
 
   app.set("io", io);
   registerCollabSocket(io);
+  registerScenePresence(io);
 
   return server;
 };
@@ -308,7 +310,7 @@ app.use(cors({
   origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-script-access-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-script-access-token', 'x-draft-save-reason'],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
