@@ -39,6 +39,7 @@ const FORMAT_LABELS = {
   movie: "Movie",
   tv_serial: "TV Serial",
   cartoon: "Cartoon",
+  micro_drama: "Micro Drama",
   songs: "Songs",
   standup_comedy: "Standup Comedy",
   dialogues: "Dialogues",
@@ -51,17 +52,21 @@ const SERVICE_LABELS = {
   aiTrailer: "AI Concept Trailer",
   evaluation: "Professional Evaluation",
 };
-
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
-import ScreenplayViewer from "../components/ScreenplayViewer";
+import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import {
+  getScriptCompletionFuturePlans,
+  getScriptCompletionProgressText,
+  getScriptCompletionStatusLabel,
+} from "../utils/scriptCompletion";
 import {
   attachAdminScriptAccessHeader,
   clearAdminScriptAccess,
@@ -126,8 +131,6 @@ const AdminScriptView = () => {
   const [script, setScript] = useState(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [activePage, setActivePage] = useState(1);
-  const [pageInput, setPageInput] = useState("1");
   const [scriptAccessReady, setScriptAccessReady] = useState(() => Boolean(getStoredAdminScriptAccess()?.token));
   const [scriptAccessPassword, setScriptAccessPassword] = useState("");
   const [scriptAccessError, setScriptAccessError] = useState("");
@@ -352,8 +355,11 @@ const AdminScriptView = () => {
     }
   };
 
-  const rawContent = typeof script?.textContent === "string" ? script.textContent : "";
+  const rawContent = typeof script?.fullContent === "string" && script.fullContent.trim()
+    ? script.fullContent
+    : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
+  const uploadedPdfProxyUrl = script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf`) : uploadedPdfUrl;
   const writerCustomTerms = String(script?.legal?.customInvestorTerms || "").trim();
   const hasWriterCustomTerms = writerCustomTerms.length > 0;
   const formatLabel = script?.format === "other"
@@ -368,6 +374,22 @@ const AdminScriptView = () => {
   const themes = Array.isArray(script?.classification?.themes) ? script.classification.themes.filter(Boolean) : [];
   const settings = Array.isArray(script?.classification?.settings) ? script.classification.settings.filter(Boolean) : [];
   const roles = Array.isArray(script?.roles) ? script.roles.filter((role) => role?.characterName || role?.type || role?.description) : [];
+  const filmDetails = script?.filmDetails || {};
+  const creativeRoleLabels = [
+    filmDetails.wantToDirect ? "Director" : null,
+    filmDetails.wantToProduce ? "Producer" : null,
+  ].filter(Boolean);
+  const dialoguesLabel = filmDetails.dialoguesPresent === "yes"
+    ? "Full Dialogues"
+    : filmDetails.dialoguesPresent === "partial"
+      ? "Partial Dialogues"
+      : filmDetails.dialoguesPresent === "no"
+        ? "Action / Direction Only"
+        : "-";
+  const filmLanguageLabel = String(filmDetails.filmLanguage || "").trim() || "-";
+  const completionStatusLabel = getScriptCompletionStatusLabel(script);
+  const completionProgressText = getScriptCompletionProgressText(script);
+  const completionFuturePlans = getScriptCompletionFuturePlans(script);
   const coverImageUrl = resolveMediaUrl(script?.coverImage || "");
   const trailerThumbnailUrl = resolveMediaUrl(script?.trailerThumbnail || "");
   const trailerVideoUrl = resolveMediaUrl(script?.uploadedTrailerUrl || script?.trailerUrl || "");
@@ -436,29 +458,23 @@ const AdminScriptView = () => {
     return pages;
   }, [plainScriptText]);
 
-  const totalPages = scriptPages.length;
-  const currentPage = totalPages > 0 ? scriptPages[Math.min(Math.max(activePage, 1), totalPages) - 1] : "";
+  // scriptPreviewPageTexts from server is already clean plain-text (newline-preserved).
+  // Prefer it over re-parsing textContent HTML when building main content fallback pages.
+  const serverPreviewPageTexts = useMemo(() => {
+    const pts = script?.scriptPreviewPageTexts;
+    if (!Array.isArray(pts) || !pts.some(Boolean)) return [];
+    return pts.map((t) => String(t || "").trim());
+  }, [script?.scriptPreviewPageTexts]);
+
+  const mainContentFallbackPages = useMemo(() => {
+    const source = serverPreviewPageTexts.length > 0 ? serverPreviewPageTexts : scriptPages;
+    return source.map((pageText, index) => ({ pageNumber: index + 1, text: pageText }));
+  }, [serverPreviewPageTexts, scriptPages]);
+
   const hasUploadedPdf = Boolean(uploadedPdfUrl);
-
-  useEffect(() => {
-    setActivePage(1);
-  }, [script?._id, plainScriptText]);
-
-  useEffect(() => {
-    setPageInput(String(Math.min(Math.max(activePage, 1), Math.max(totalPages, 1))));
-  }, [activePage, totalPages]);
-
-  const handleJumpToPage = () => {
-    if (!totalPages) return;
-    const parsed = Number.parseInt(String(pageInput || "").trim(), 10);
-    if (Number.isNaN(parsed)) {
-      setPageInput(String(activePage));
-      return;
-    }
-    const targetPage = Math.min(totalPages, Math.max(1, parsed));
-    setActivePage(targetPage);
-    setPageInput(String(targetPage));
-  };
+  const hasFullScriptText = Boolean(
+    plainScriptText.trim() || serverPreviewPageTexts.some(Boolean)
+  );
 
   const handleDownloadScript = () => {
     if (!plainScriptText.trim()) {
@@ -1117,6 +1133,64 @@ const AdminScriptView = () => {
 
         <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
           <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Script Completion</p>
+            <p className="text-xs text-white/60">Completion status and remaining work submitted by the writer.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Status</p>
+              <p className="text-sm font-semibold text-white/90">{completionStatusLabel}</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Progress</p>
+              <p className="text-sm font-semibold text-white/90">{completionProgressText || "-"}</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Future Plans</p>
+              <p className="text-sm text-white/90 whitespace-pre-wrap">{completionFuturePlans || "Not provided"}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Film Production Details</p>
+            <p className="text-xs text-white/60">Writer involvement, language, and dialogue setup submitted with the project.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Your Creative Role</p>
+              <div className="flex flex-wrap gap-2">
+                {creativeRoleLabels.length > 0 ? (
+                  creativeRoleLabels.map((label) => (
+                    <span key={label} className="px-2.5 py-1 rounded-full border border-white/10 bg-white/[0.04] text-xs text-white/85">
+                      {label}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-white/60">Not provided</span>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Film Language</p>
+              <p className="text-sm text-white/90">{filmLanguageLabel}</p>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Dialogues</p>
+              <p className="text-sm text-white/90">{dialoguesLabel}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
+          <div>
             <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Tones, Themes, Settings</p>
             <p className="text-xs text-white/60">Deep classification selected by the writer.</p>
           </div>
@@ -1443,119 +1517,90 @@ const AdminScriptView = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7">
+        {uploadedPdfUrl && script?.viewableScript && (
+          <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-emerald-400/70">Script Preview</p>
+                <p className="text-xs text-white/45 mt-0.5">
+                  {script?.viewableScript
+                    ? "Visible to producers before purchasing"
+                    : "Not currently visible to producers"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {script?.viewableScript ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
+                    Visible to Producers
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-white/8 text-white/40 border border-white/10">
+                    Hidden from Producers
+                  </span>
+                )}
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                  Pages {Number(script?.scriptPreviewAccess?.start || 1)} – {Number(script?.scriptPreviewAccess?.end || 8)}
+                </span>
+              </div>
+            </div>
+            <div className="max-w-[920px] mx-auto">
+              <ScreenplayPdfViewer
+                pdfUrl={uploadedPdfUrl}
+                title={script?.title || "Script"}
+                startPage={Number(script?.scriptPreviewAccess?.start || 1)}
+                endPage={Number(script?.scriptPreviewAccess?.end || 8)}
+                fallbackPages={Array.isArray(script?.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length > 0
+                  ? script.scriptPreviewPageTexts.slice(
+                      Math.max(0, Number(script?.scriptPreviewAccess?.start || 1) - 1),
+                      Number(script?.scriptPreviewAccess?.end || 8)
+                    ).map((pageText, index) => ({
+                      pageNumber: Number(script?.scriptPreviewAccess?.start || 1) + index,
+                      text: String(pageText || ""),
+                    }))
+                  : []}
+                fallbackText={script?.previewExcerpt || plainScriptText}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45">Main Content</p>
             <div className="flex items-center gap-2">
-              {totalPages > 0 && (
-                <p className="text-xs text-white/45">
-                  Page {Math.min(activePage, totalPages)} / {totalPages}
-                </p>
-              )}
               <button
                 type="button"
                 onClick={handleDownloadScript}
-                disabled={!plainScriptText.trim() && !hasUploadedPdf}
+                disabled={!hasFullScriptText && !hasUploadedPdf}
                 className="px-3 py-1.5 rounded-lg border border-emerald-400/30 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {plainScriptText.trim() ? "Download" : "Open PDF"}
+                {hasFullScriptText ? "Download" : "Open PDF"}
               </button>
             </div>
           </div>
 
-          {currentPage ? (
-            <>
-              <div className="mx-auto w-full max-w-[794px] aspect-[210/297] bg-white text-slate-900 rounded-md shadow-[0_18px_48px_rgba(0,0,0,0.35)] border border-slate-200 overflow-hidden">
-                <div className="h-full p-6 sm:p-10 lg:p-12 overflow-hidden">
-                  <div className="h-full overflow-hidden text-[13px] sm:text-[14px] leading-[1.55]">
-                    <ScreenplayViewer text={currentPage} className="text-slate-900" />
-                  </div>
-                </div>
-              </div>
-
-              {totalPages > 1 && (
-                <div className="mt-4 space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label htmlFor="admin-script-page-search" className="text-xs text-white/70 font-medium">
-                      Go to page
-                    </label>
-                    <input
-                      id="admin-script-page-search"
-                      type="number"
-                      min={1}
-                      max={totalPages}
-                      value={pageInput}
-                      onChange={(event) => setPageInput(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          handleJumpToPage();
-                        }
-                      }}
-                      className="w-24 px-2.5 py-1.5 rounded-lg border border-white/15 bg-white/5 text-white text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400/60"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleJumpToPage}
-                      className="px-3 py-1.5 rounded-lg border border-blue-400/40 bg-blue-500/20 hover:bg-blue-500/30 text-blue-100 text-xs font-semibold"
-                    >
-                      Open
-                    </button>
-                    <span className="text-xs text-white/50">of {totalPages}</span>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActivePage((prev) => Math.max(1, prev - 1))}
-                    disabled={activePage <= 1}
-                    className="px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <div className="text-xs text-white/60 font-medium">Showing script page-wise preview</div>
-                  <button
-                    type="button"
-                    onClick={() => setActivePage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={activePage >= totalPages}
-                    className="px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
-                </div>
-              )}
-            </>
+          {hasFullScriptText ? (
+            <div className="max-w-[920px] mx-auto">
+              <ScreenplayPdfViewer
+                pdfUrl={uploadedPdfUrl}
+                title={script?.title || "Script"}
+                fallbackPages={mainContentFallbackPages}
+                fallbackText={plainScriptText}
+                showAllPages
+              />
+            </div>
+          ) : hasUploadedPdf ? (
+            <div className="max-w-[920px] mx-auto">
+              <ScreenplayPdfViewer
+                pdfUrl={uploadedPdfUrl}
+                title={script?.title || "Script"}
+                fallbackPages={[]}
+                fallbackText=""
+                showAllPages
+              />
+            </div>
           ) : (
-            hasUploadedPdf ? (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-blue-400/20 bg-blue-500/10 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-blue-100">Uploaded PDF available</p>
-                    <p className="text-xs text-blue-100/75">
-                      No extracted script text was saved for this project, but the writer uploaded a PDF that admin can open and review.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer")}
-                    className="px-3 py-2 rounded-lg border border-blue-300/30 bg-blue-500/20 hover:bg-blue-500/30 text-blue-50 text-xs font-bold"
-                  >
-                    Open Uploaded PDF
-                  </button>
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-white">
-                  <iframe
-                    src={uploadedPdfUrl}
-                    title="Uploaded script PDF"
-                    className="w-full h-[720px]"
-                  />
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-white/55">No script body found.</p>
-            )
+            <p className="text-sm text-white/55">No script body found.</p>
           )}
         </div>
       </div>

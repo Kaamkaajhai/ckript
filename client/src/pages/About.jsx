@@ -3,7 +3,8 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import MarketingHeader from "../components/MarketingHeader";
 import aboutHero from "../assets/about_hero.png";
-import ckriptVideo from "../assets/ckript-video.mp4";
+
+const walkthroughVideoUrl = import.meta.env.VITE_ABOUT_VIDEO_URL || "";
 
 const FontInjection = () => (
 	<style>{`
@@ -158,53 +159,55 @@ const About = () => {
 				</div>
 			</section>
 
-			<section className="relative z-10 px-4 pb-10 sm:px-8 sm:pb-14">
-				<div className="mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0A0A0B] shadow-[0_28px_80px_rgba(0,0,0,0.5)]">
-					<div className="relative">
-						<video
-							ref={videoRef}
-							controls
-							controlsList="nodownload"
-							playsInline
-							preload="metadata"
-							onPlay={() => setIsVideoPlaying(true)}
-							onPause={() => setIsVideoPlaying(false)}
-							onEnded={() => setIsVideoPlaying(false)}
-							className="h-full max-h-[560px] w-full bg-black"
-							aria-label="How to use Ckript platform video"
-						>
-							<source src={ckriptVideo} type="video/mp4" />
-							Your browser does not support the video tag.
-						</video>
-
-						<div
-							className={`absolute inset-0 transition-opacity duration-300 ${isVideoPlaying ? "opacity-0 pointer-events-none" : "opacity-100"}`}
-						>
-							<div className="absolute inset-0 bg-[#0A0A0B]/80 backdrop-blur-sm" />
-							<button
-								type="button"
-								onClick={handleVideoOverlayClick}
-								className="relative z-10 flex h-full w-full items-center justify-center p-5 text-center sm:p-8"
-								aria-label="Play platform walkthrough video"
+			{walkthroughVideoUrl && (
+				<section className="relative z-10 px-4 pb-10 sm:px-8 sm:pb-14">
+					<div className="mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0A0A0B] shadow-[0_28px_80px_rgba(0,0,0,0.5)]">
+						<div className="relative">
+							<video
+								ref={videoRef}
+								controls
+								controlsList="nodownload"
+								playsInline
+								preload="metadata"
+								onPlay={() => setIsVideoPlaying(true)}
+								onPause={() => setIsVideoPlaying(false)}
+								onEnded={() => setIsVideoPlaying(false)}
+								className="h-full max-h-[560px] w-full bg-black"
+								aria-label="How to use Ckript platform video"
 							>
-								<div className="max-w-3xl">
-									<div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-md transition-transform hover:scale-110">
-										<svg viewBox="0 0 24 24" className="h-6 w-6 ml-1" fill="currentColor" aria-hidden="true">
-											<path d="M8 6v12l10-6z" />
-										</svg>
+								<source src={walkthroughVideoUrl} type="video/mp4" />
+								Your browser does not support the video tag.
+							</video>
+
+							<div
+								className={`absolute inset-0 transition-opacity duration-300 ${isVideoPlaying ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+							>
+								<div className="absolute inset-0 bg-[#0A0A0B]/80 backdrop-blur-sm" />
+								<button
+									type="button"
+									onClick={handleVideoOverlayClick}
+									className="relative z-10 flex h-full w-full items-center justify-center p-5 text-center sm:p-8"
+									aria-label="Play platform walkthrough video"
+								>
+									<div className="max-w-3xl">
+										<div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur-md transition-transform hover:scale-110">
+											<svg viewBox="0 0 24 24" className="h-6 w-6 ml-1" fill="currentColor" aria-hidden="true">
+												<path d="M8 6v12l10-6z" />
+											</svg>
+										</div>
+										<h2 className="font-display text-4xl leading-tight text-white sm:text-5xl font-medium">
+											How to Use the Platform
+										</h2>
+										<p className="font-body mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
+											Watch this quick walkthrough to understand how writers can upload securely and how producers can discover and evaluate scripts efficiently.
+										</p>
 									</div>
-									<h2 className="font-display text-4xl leading-tight text-white sm:text-5xl font-medium">
-										How to Use the Platform
-									</h2>
-									<p className="font-body mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
-										Watch this quick walkthrough to understand how writers can upload securely and how producers can discover and evaluate scripts efficiently.
-									</p>
-								</div>
-							</button>
+								</button>
+							</div>
 						</div>
 					</div>
-				</div> 
-			</section>
+				</section>
+			)}
 
 			<footer className="relative z-10 border-t border-white/10 bg-[#0A0A0B] px-4 py-8 sm:px-8 sm:py-10">
 				<div className="mx-auto flex w-full max-w-7xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -214,6 +217,7 @@ const About = () => {
 
 					<div className="font-body flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/50">
 						<Link to="/about" className="transition-colors hover:text-white">About</Link>
+						<Link to="/pricing" className="transition-colors hover:text-white">Pricing</Link>
 						<Link to="/contact" className="transition-colors hover:text-white">Contact</Link>
 						<Link to="/privacy-policy" className="transition-colors hover:text-white">Privacy Policy</Link>
 						<Link to="/terms-of-service" className="transition-colors hover:text-white">Terms of Service</Link>

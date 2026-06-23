@@ -121,7 +121,7 @@ const userSchema = new mongoose.Schema({
     // Specialized tags (themes, tones, settings)
     specializedTags: [String],
     // Plan selection
-    plan: { type: String, enum: ["free", "paid"], default: "free" },
+    plan: { type: String, enum: ["free", "paid", "silver", "gold"], default: "free" },
     // Diversity data (optional)
     diversity: {
       gender: { type: String },
@@ -228,7 +228,6 @@ const userSchema = new mongoose.Schema({
     // Mandates (what they're looking for)
     mandates: {
       formats: [String], // Feature Film, TV Pilot, etc.
-      budgetTiers: [String], // micro, low, medium, high, blockbuster
       genres: [String], // Genres they want
       excludeGenres: [String], // Genres they don't want
       specificHooks: [String] // Diverse Voices, Female-Led, etc.
@@ -256,7 +255,7 @@ const userSchema = new mongoose.Schema({
   preferences: {
     genres: [String],
     budgetRange: { min: { type: Number, default: 0 }, max: { type: Number, default: 1000000 } },
-    contentTypes: [{ type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup", "songs", "standup_comedy", "dialogues", "poet"] }],
+    contentTypes: [{ type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup", "songs", "standup_comedy", "dialogues", "poet", "micro_drama"] }],
   },
   viewHistory: [{
     script: { type: mongoose.Schema.Types.ObjectId, ref: "Script" },
@@ -264,9 +263,55 @@ const userSchema = new mongoose.Schema({
   }],
   // Subscription & credits
   subscription: {
-    plan: { type: String, enum: ["free", "pro", "enterprise"], default: "free" },
+    plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
     expiresAt: { type: Date },
     scriptScoreCredits: { type: Number, default: 0 },
+    accessTier: {
+      type: String,
+      enum: ["none", "film_industry_professional", "writer_silver", "writer_gold", "standard"],
+      default: "none",
+    },
+    accessStatus: {
+      type: String,
+      enum: ["inactive", "trial", "active", "expired", "cancelled"],
+      default: "inactive",
+    },
+    accessActivatedAt: { type: Date },
+    accessExpiresAt: { type: Date },
+    checkoutMode: {
+      type: String,
+      enum: ["test", "live"],
+      default: "test",
+    },
+    checkoutProvider: {
+      type: String,
+      enum: ["none", "razorpay", "razorpay_test", "manual", "mock"],
+      default: "none",
+    },
+    checkoutReference: { type: String },
+    sourcePath: { type: String },
+    contactsLimit: { type: Number, default: 10 },
+    messageWritersLimit: { type: Number, default: 10 },
+    meetingsLimit: { type: Number, default: 10 },
+    revealedContacts: [
+      {
+        writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        revealedAt: { type: Date, default: Date.now },
+      },
+    ],
+    messagedWriters: [
+      {
+        writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        messagedAt: { type: Date, default: Date.now },
+      },
+    ],
+    scheduledMeetings: [
+      {
+        writerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        meetingId: { type: mongoose.Schema.Types.ObjectId, ref: "Meeting" },
+        scheduledAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   // Actor-specific fields for Talent Attachment
   actorProfile: {
@@ -370,23 +415,9 @@ const userSchema = new mongoose.Schema({
     totalEarnings: { type: Number, default: 0 },
     totalWithdrawals: { type: Number, default: 0 }
   },
-  // Credits System
-  credits: {
-    balance: { type: Number, default: 0 },
-    totalPurchased: { type: Number, default: 0 },
-    totalSpent: { type: Number, default: 0 },
-    lastPurchase: { type: Date },
-    transactions: [{
-      type: { type: String, enum: ["purchase", "spent", "bonus", "refund"] },
-      amount: { type: Number },
-      description: { type: String },
-      reference: { type: String },
-      createdAt: { type: Date, default: Date.now }
-    }]
-  },
+
   referralStats: {
     successfulReferrals: { type: Number, default: 0 },
-    totalBonusCredits: { type: Number, default: 0 },
   },
   // Stripe Connected Account (for payouts)
   stripeAccountId: { type: String },

@@ -17,6 +17,7 @@ import { AuthContext } from "../context/AuthContext";
 import { Image as ImageIcon, Film, CheckCircle2, Move, ZoomIn, RotateCw } from "lucide-react";
 import api from "../services/api";
 import { formatCurrency } from "../utils/currency";
+import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import {
   SCRIPT_COMPLETION_OPTIONS,
@@ -51,6 +52,7 @@ const filmFormats = [
   { value: "tv_halfhour", label: "TV Series (30 min)", icon: "TV" },
   { value: "limited_series", label: "Limited Series", icon: "SERIES" },
   { value: "documentary", label: "Documentary", icon: "DOC" },
+  { value: "micro_drama", label: "Micro Drama", icon: "SHORT" },
 ];
 
 const publishingFormats = [
@@ -78,6 +80,7 @@ const CONTENT_TYPE_BY_FORMAT = {
   tv_halfhour: "tv_series",
   limited_series: "tv_series",
   documentary: "documentary",
+  micro_drama: "micro_drama",
   fiction_novel: "book",
   non_fiction: "book",
   novella: "book",
@@ -190,6 +193,7 @@ const FORMAT_PAGE_RANGES = {
   documentary: { min: 60, max: 120, typical: "70-100", label: "Documentary", wordsPerPage: 250 },
   web_series: { min: 20, max: 80, typical: "25-45", label: "Web Series", wordsPerPage: 250 },
   drama_school: { min: 10, max: 60, typical: "15-35", label: "Drama School", wordsPerPage: 250 },
+  micro_drama: { min: 1, max: 15, typical: "3-10", label: "Micro Drama", wordsPerPage: 250 },
   anime: { min: 18, max: 65, typical: "22-45", label: "Anime", wordsPerPage: 250 },
   movie: { min: 70, max: 180, typical: "90-120", label: "Movie", wordsPerPage: 250 },
   tv_serial: { min: 18, max: 50, typical: "20-35", label: "TV Serial", wordsPerPage: 250 },
@@ -199,6 +203,47 @@ const FORMAT_PAGE_RANGES = {
   dialogues: { min: 1, max: 80, typical: "5-25", label: "Dialogues", wordsPerPage: 250 },
   poet: { min: 1, max: 60, typical: "3-20", label: "Poet", wordsPerPage: 250 },
   other: { min: 1, max: 250, typical: "Varies", label: "Other", wordsPerPage: 250 },
+};
+const MAX_PREVIEW_SNIPPET_LENGTH = 900;
+const PREVIEW_LINES_PER_PAGE = 42;
+
+const normalizePreviewContent = (value = "") =>
+  String(value || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/ /g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
+  const index = Math.max(0, Number(pageNumber || 0) - 1);
+  const raw = String(pageTexts?.[index] || "").trim();
+  if (!raw) return "";
+  return raw.length > MAX_PREVIEW_SNIPPET_LENGTH
+    ? `${raw.slice(0, MAX_PREVIEW_SNIPPET_LENGTH).trimEnd()}...`
+    : raw;
+};
+const buildPagePreviewTexts = (html = "", pageCount = 1) => {
+  const plainText = normalizePreviewContent(html);
+  if (!plainText) return [];
+
+  const lines = plainText.split("\n");
+  const safePages = Math.max(1, Number(pageCount) || 1);
+  const chunks = [];
+
+  for (let pageIndex = 0; pageIndex < safePages; pageIndex += 1) {
+    const startLine = pageIndex * PREVIEW_LINES_PER_PAGE;
+    const endLine = Math.min(lines.length, (pageIndex + 1) * PREVIEW_LINES_PER_PAGE);
+    const pageText = startLine < lines.length
+      ? lines.slice(startLine, endLine).join("\n").trimEnd()
+      : "";
+    chunks.push(pageText);
+  }
+
+  return chunks;
 };
 const LEGAL_AGREEMENT = SCRIPT_UPLOAD_TERMS_TEXT;
 
@@ -385,8 +430,26 @@ const STEPS = [
   { num: 1, label: "Write", shortLabel: "Write", desc: "Script content" },
   { num: 2, label: "Details", shortLabel: "Detail", desc: "Genre & media" },
   { num: 3, label: "Classify", shortLabel: "Class", desc: "Tones & themes" },
-  { num: 4, label: "Publish", shortLabel: "Pub", desc: "Pricing & services" },
-  { num: 5, label: "Review", shortLabel: "Review", desc: "Final review" },
+  { num: 4, label: "Film Info", shortLabel: "Film", desc: "Direction & language" },
+  { num: 5, label: "Publish", shortLabel: "Pub", desc: "Pricing & services" },
+];
+
+const CP_FILM_LANGUAGE_OPTIONS = [
+  "Hindi", "English", "Hinglish", "Urdu", "Tamil", "Telugu", "Marathi",
+  "Bengali", "Kannada", "Malayalam", "Punjabi", "Gujarati", "Odia", "Other",
+];
+
+const CP_SCRIPT_STYLE_OPTIONS = [
+  { id: "Professional", desc: "Industry-standard structure", path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
+  { id: "Modern", desc: "Contemporary voice & fresh approach", path: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
+  { id: "Clean", desc: "Minimal prose, tight & uncluttered", path: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" },
+  { id: "Concise", desc: "Every scene earns its place", path: "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" },
+  { id: "Commercial", desc: "Broad appeal, market-friendly", path: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+  { id: "Realistic", desc: "Grounded characters & authentic dialogue", path: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" },
+  { id: "Poetic", desc: "Lyrical prose & metaphorical language", path: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
+  { id: "Experimental", desc: "Non-linear, unconventional structure", path: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5" },
+  { id: "Dialogue-Heavy", desc: "Character-driven through conversation", path: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" },
+  { id: "Visual-Heavy", desc: "Scene-led, strong visual prose", path: "M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
 ];
 
 /* -- Toolbar Icon Button ---------------------------- */
@@ -646,20 +709,14 @@ const CreateProject = () => {
   const lastDraftSignatureRef = useRef("");
   const autoSaveInFlightRef = useRef(false);
   const localDraftHydratedRef = useRef(false);
+  const previewPageTextsSignatureRef = useRef("");
 
   // Grammar credit confirmation + undo/keep
-  const GRAMMAR_COST = 5;
-  const [showGrammarModal, setShowGrammarModal] = useState(false);
-  const [grammarCreditBalance, setGrammarCreditBalance] = useState(null);
-  const [grammarCreditLoading, setGrammarCreditLoading] = useState(false);
   const [preGrammarContent, setPreGrammarContent] = useState(null); // for undo
   const [showUndoBar, setShowUndoBar] = useState(false);
+  const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
   // AI Prose Sample Generation
-  const PROSE_COST = 20;
-  const [showProseModal, setShowProseModal] = useState(false);
-  const [proseCreditBalance, setProseCreditBalance] = useState(null);
-  const [proseCreditLoading, setProseCreditLoading] = useState(false);
   const [proseLoading, setProseLoading] = useState(false);
 
   // Step 2: Details
@@ -667,6 +724,10 @@ const CreateProject = () => {
     format: "feature_film",
     styleMedium: "",
     formatOther: "",
+    viewableScript: false,
+    previewWindowMode: "pages",
+    previewWindowStart: "1",
+    previewWindowEnd: "8",
     primaryGenre: "",
     logline: "",
     synopsis: "",
@@ -979,11 +1040,32 @@ const CreateProject = () => {
   const formatInfo = FORMAT_PAGE_RANGES[formData.format] || FORMAT_PAGE_RANGES.feature;
   const estimatedPages = Math.max(1, Math.round(wordCount / formatInfo.wordsPerPage));
   const pageStatus = estimatedPages < formatInfo.min ? "short" : estimatedPages > formatInfo.max ? "long" : "good";
+  useEffect(() => {
+    const pageCount = Number(estimatedPages || 0);
+    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
+    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
+
+    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowEnd: String(start),
+      }));
+      return;
+    }
+
+    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
+        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
+      }));
+    }
+  }, [estimatedPages, formData.previewWindowStart, formData.previewWindowEnd]);
   const renderPageMarkers = () => Array.from({ length: Math.max(estimatedPages, 1) }, (_, pageIndex) => (
     <div
       key={pageIndex}
       className="absolute left-3 flex items-center justify-center max-[1200px]:hidden"
-      style={{ top: pageIndex * 1122 + 48, height: 28 }}
+      style={{ top: pageIndex * 1123 + 48, height: 28 }}
     >
       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-[#0d1520] text-gray-600 border border-[#182840]" : "bg-white text-gray-400 border border-gray-300 shadow-sm"}`}>
         {pageIndex + 1}
@@ -992,6 +1074,14 @@ const CreateProject = () => {
   ));
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
+  const [filmDetails, setFilmDetails] = useState({
+    filmLanguage: "",
+    filmLanguageCustom: "",
+    dialoguesPresent: "yes",
+    wantToDirect: false,
+    wantToProduce: false,
+    scriptStyle: [],
+  });
 
   // AI metadata generation (per-section: "logline" | "synopsis" | "roles")
   const [metaLoadingField, setMetaLoadingField] = useState("");
@@ -1040,7 +1130,6 @@ const CreateProject = () => {
   const [legal, setLegal] = useState({ agreedToTerms: false, customInvestorTerms: "" });
   const [rightsLicensing, setRightsLicensing] = useState(() => createDefaultRightsLicensing());
   const [collabVisibility, setCollabVisibility] = useState("private");
-  const [creditsBalance, setCreditsBalance] = useState(0);
 
   // Step 4: Script pricing
   const BUYER_COMMISSION_RATE = 0.05; // 5%
@@ -1081,6 +1170,17 @@ const CreateProject = () => {
     };
   }, [legal.agreedToTerms, rightsLicensing]);
 
+  const buildScriptPreviewPayload = useCallback((source = formData) => {
+    if (!source.viewableScript) {
+      return null;
+    }
+
+    const mode = "pages";
+    const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
+    const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
+    return { mode, start, end };
+  }, [formData]);
+
   // TipTap Editor
   const editor = useEditor({
     extensions: [
@@ -1090,7 +1190,23 @@ const CreateProject = () => {
       TextStyle, Color, Underline,
       Placeholder.configure({ placeholder: "Start writing your script here...  e.g.  INT. LIVING ROOM - DAY" }),
     ],
-    editorProps: { attributes: { class: `prose max-w-none focus:outline-none min-h-[1056px] px-16 max-[1200px]:px-10 py-14 max-[1200px]:py-12 max-[640px]:px-6 max-[520px]:px-4 max-[420px]:px-3 max-[640px]:py-10 text-[15px] max-[520px]:text-[14px] leading-[1.65] ${dark ? "prose-invert" : ""}` } },
+    editorProps: {
+      attributes: { class: `prose max-w-none focus:outline-none min-h-[1123px] px-16 max-[1200px]:px-10 py-14 max-[1200px]:py-12 max-[640px]:px-6 max-[520px]:px-4 max-[420px]:px-3 max-[640px]:py-10 text-[15px] max-[520px]:text-[14px] leading-[1.65] ${dark ? "prose-invert" : ""}` },
+      handlePaste: (view, event) => {
+        const text = event.clipboardData?.getData("text/plain");
+        if (!text) return false;
+        const { schema } = view.state;
+        const { from, to } = view.state.selection;
+        const nodes = text.split(/\r?\n/).map(line => {
+          if (!line) return schema.nodes.paragraph.create();
+          try { return schema.nodes.paragraph.create(null, [schema.text(line)]); }
+          catch { return schema.nodes.paragraph.create(); }
+        });
+        if (!nodes.length) return false;
+        view.dispatch(view.state.tr.replaceWith(from, to, nodes));
+        return true;
+      },
+    },
     onUpdate: ({ editor }) => {
       const t = editor.getText();
       setWordCount(t.split(/\s+/).filter(Boolean).length);
@@ -1099,10 +1215,15 @@ const CreateProject = () => {
     },
   });
 
-  // Fetch credits
   useEffect(() => {
-    if (user) api.get("/credits/balance").then(({ data }) => setCreditsBalance(data.balance || 0)).catch(() => { });
-  }, [user]);
+    if (!editor) return;
+    const editorHtmlForPreview = editor.getHTML?.() || "";
+    const nextPreviewTexts = buildPagePreviewTexts(editorHtmlForPreview, estimatedPages);
+    const nextSignature = JSON.stringify(nextPreviewTexts);
+    if (nextSignature === previewPageTextsSignatureRef.current) return;
+    previewPageTextsSignatureRef.current = nextSignature;
+    setPreviewPageTexts(nextPreviewTexts);
+  }, [editor, estimatedPages, formatInfo.wordsPerPage]);
 
   // Load drafts
   const fetchDrafts = useCallback(async () => {
@@ -1166,6 +1287,10 @@ const CreateProject = () => {
       if (data.styleMedium !== undefined) setFormData(f => ({ ...f, styleMedium: data.styleMedium || "" }));
       if (data.formatOther !== undefined) setFormData(f => ({ ...f, formatOther: data.formatOther || "" }));
       if (data.pageCount) setFormData(f => ({ ...f, pageCount: String(data.pageCount) }));
+      setFormData(f => ({ ...f, viewableScript: Boolean(data.viewableScript) }));
+      if (data.scriptPreviewAccess?.start) setFormData(f => ({ ...f, previewWindowStart: String(data.scriptPreviewAccess.start) }));
+      if (data.scriptPreviewAccess?.end) setFormData(f => ({ ...f, previewWindowEnd: String(data.scriptPreviewAccess.end) }));
+      setPreviewPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
       if (data.classification?.primaryGenre || data.genre) setFormData(f => ({ ...f, primaryGenre: data.classification?.primaryGenre || data.genre || "" }));
       if (data.companyName !== undefined) setFormData(f => ({ ...f, companyName: data.companyName || "" }));
       if (data.logline) setFormData(f => ({ ...f, logline: data.logline }));
@@ -1198,6 +1323,16 @@ const CreateProject = () => {
         customInvestorTerms: data?.legal?.customInvestorTerms || "",
       }));
       setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+      if (data?.filmDetails) {
+        setFilmDetails({
+          filmLanguage: data.filmDetails.filmLanguage || "",
+          filmLanguageCustom: "",
+          dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+          wantToDirect: Boolean(data.filmDetails.wantToDirect),
+          wantToProduce: Boolean(data.filmDetails.wantToProduce),
+          scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+        });
+      }
       setCollabVisibility(data?.collabVisibility === "open" ? "open" : "private");
 
       // Hydrate Publishing Layer
@@ -1260,6 +1395,9 @@ const CreateProject = () => {
         themes: classification.themes,
         settings: classification.settings,
       },
+      viewableScript: Boolean(formData.viewableScript),
+      scriptPreviewAccess: buildScriptPreviewPayload(formData),
+      scriptPreviewPageTexts: previewPageTexts,
       scriptCompletion: buildScriptCompletionPayload(formData),
       legal: {
         agreedToTerms: Boolean(legal.agreedToTerms),
@@ -1268,6 +1406,13 @@ const CreateProject = () => {
       },
       collabVisibility,
       rightsLicensing: buildRightsPayload(),
+      filmDetails: {
+        filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+        dialoguesPresent: filmDetails.dialoguesPresent,
+        wantToDirect: filmDetails.wantToDirect,
+        wantToProduce: filmDetails.wantToProduce,
+        scriptStyle: filmDetails.scriptStyle,
+      },
       targetIndustry: [
         ...(targetFilm ? ["film"] : []),
         ...(targetPublishing ? ["publishing"] : [])
@@ -1275,7 +1420,7 @@ const CreateProject = () => {
       publishingDetails,
       ...(scriptId ? { scriptId } : {}),
     };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes]);
+  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes]);
 
   const getDraftSignature = useCallback((payload) => {
     if (!payload) return "";
@@ -1411,6 +1556,10 @@ const CreateProject = () => {
     setFormData({
       format: "feature",
       formatOther: "",
+      viewableScript: false,
+      previewWindowMode: "pages",
+      previewWindowStart: "1",
+      previewWindowEnd: "8",
       primaryGenre: "",
       logline: "",
       synopsis: "",
@@ -1643,7 +1792,8 @@ const CreateProject = () => {
 
   // Form handlers
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    const nextValue = type === "checkbox" ? checked : value;
     setFormData((f) => {
       if (name === "format") {
         return {
@@ -1652,7 +1802,7 @@ const CreateProject = () => {
           formatOther: value === "other" ? f.formatOther : "",
         };
       }
-      return { ...f, [name]: value };
+      return { ...f, [name]: nextValue };
     });
   };
   const addRole = () => {
@@ -1707,25 +1857,12 @@ const CreateProject = () => {
     });
   };
   const isEditingExistingScriptFlow = Boolean(scriptId && loadedScriptStatus !== "draft");
-  const getServiceCharge = (serviceKey, enabled) => {
-    if (!enabled) return 0;
-    if (isEditingExistingScriptFlow && purchasedServiceCredits?.[serviceKey]) return 0;
-    return SERVICE_PRICES[serviceKey] || 0;
-  };
-  const calculateTotal = () =>
-    getServiceCharge("evaluation", services.evaluation)
-    + getServiceCharge("aiTrailer", services.aiTrailer)
-    + getServiceCharge("spotlight", services.spotlight);
-  const totalServiceCost = calculateTotal();
   const selectedPublishServices = [
-    { key: "hosting", name: "Hosting & Discovery", price: 0, enabled: true, desc: "Listed in the marketplace for discovery" },
-    { key: "spotlight", name: "Activate Spotlight", price: SERVICE_PRICES.spotlight, enabled: services.spotlight, desc: "Priority visibility boost in marketplace placements", alreadyBought: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight, charge: getServiceCharge("spotlight", services.spotlight) },
-    { key: "aiTrailer", name: "AI Concept Trailer", price: SERVICE_PRICES.aiTrailer, enabled: services.aiTrailer, desc: "60-second cinematic concept trailer", alreadyBought: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer, charge: getServiceCharge("aiTrailer", services.aiTrailer) },
-    { key: "evaluation", name: "Professional Evaluation", price: SERVICE_PRICES.evaluation, enabled: services.evaluation, desc: "Scorecard and editorial coverage from a vetted reader", alreadyBought: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation, charge: getServiceCharge("evaluation", services.evaluation) },
+    { key: "hosting", name: "Hosting & Discovery", enabled: true, desc: "Listed in the marketplace for discovery" },
+    { key: "spotlight", name: "Activate Spotlight", enabled: services.spotlight, desc: "Priority visibility boost in marketplace placements" },
+    { key: "aiTrailer", name: "AI Concept Trailer", enabled: services.aiTrailer, desc: "60-second cinematic concept trailer" },
+    { key: "evaluation", name: "Professional Evaluation", enabled: services.evaluation, desc: "Scorecard and editorial coverage from a vetted reader" },
   ];
-  const paidPublishServices = selectedPublishServices.filter((item) => item.enabled && item.charge > 0);
-  const alreadyBoughtSelectedCount = selectedPublishServices.filter((item) => item.enabled && item.alreadyBought).length;
-  const creditsAfterPublish = creditsBalance - totalServiceCost;
   const trailerWorkflowHint = services.aiTrailer
     ? trailerFile
       ? {
@@ -1758,14 +1895,7 @@ const CreateProject = () => {
       type: "Platform Commission",
       amount: formatCurrency(buyerCommissionAmount),
     },
-    {
-      item: "Optional Services",
-      detail: paidPublishServices.length > 0
-        ? `${paidPublishServices.length} payable add-on${paidPublishServices.length === 1 ? "" : "s"} selected${alreadyBoughtSelectedCount > 0 ? `, ${alreadyBoughtSelectedCount} already bought` : ""}`
-        : (alreadyBoughtSelectedCount > 0 ? `${alreadyBoughtSelectedCount} already-bought service${alreadyBoughtSelectedCount === 1 ? "" : "s"} selected` : "No paid add-ons selected"),
-      type: "Credit Charge",
-      amount: `${totalServiceCost} cr`,
-    },
+
     {
       item: "Film Industry Professional Pays at Checkout",
       detail: "Script fee + platform commission",
@@ -1790,6 +1920,12 @@ const CreateProject = () => {
     },
     { label: "Primary Genre", value: formData.primaryGenre || "Not selected" },
     { label: "Estimated Pages", value: `${estimatedPages} pages` },
+    {
+      label: "Viewable Script",
+      value: buildScriptPreviewPayload(formData)
+        ? `Pages ${buildScriptPreviewPayload(formData).start} to ${buildScriptPreviewPayload(formData).end}`
+        : "Not viewable",
+    },
     { label: "Access", value: isPremium ? "Premium paid access" : "Free public access" },
   ];
   const publishReadiness = [
@@ -1819,7 +1955,7 @@ const CreateProject = () => {
         setError("Please specify the format when selecting Other.");
         return false;
       }
-      if (!formData.primaryGenre) { setError("Primary genre is required."); return false; }
+
       if (!formData.logline.trim()) { setError("Logline is required."); return false; }
       if (formData.logline.length > 500) { setError("Logline must be 500 characters or less."); return false; }
       {
@@ -1829,16 +1965,35 @@ const CreateProject = () => {
           return false;
         }
       }
+      {
+        const previewPayload = buildScriptPreviewPayload(formData);
+        if (previewPayload) {
+          if (previewPayload.end < previewPayload.start) {
+            setError("The ending page must be greater than or equal to the starting page.");
+            return false;
+          }
+          if (Number(estimatedPages || 0) > 0 && (previewPayload.start > Number(estimatedPages || 0) || previewPayload.end > Number(estimatedPages || 0))) {
+            setError("The viewable script range cannot exceed the estimated page count.");
+            return false;
+          }
+        }
+      }
       if (!formData.synopsis || !formData.synopsis.trim()) { setError("Synopsis is required."); return false; }
       const ageRangeError = getInvalidRoleAgeRangeMessage();
       if (ageRangeError) { setError(ageRangeError); return false; }
       return true;
     }
-    if (s === 3) return true;
+    if (s === 3) {
+      if (!formData.primaryGenre) { setError("Primary genre is required."); return false; }
+      return true;
+    }
     if (s === 4) {
-      const rightsError = getRightsValidationMessage(buildRightsPayload());
-      if (rightsError) {
-        setError(rightsError);
+      if (!String(filmDetails.filmLanguage || "").trim()) {
+        setError("Film language is required.");
+        return false;
+      }
+      if (filmDetails.filmLanguage === "Other" && !String(filmDetails.filmLanguageCustom || "").trim()) {
+        setError("Please specify the film language.");
         return false;
       }
       return true;
@@ -1849,11 +2004,7 @@ const CreateProject = () => {
         setError(rightsError);
         return false;
       }
-      if (!legal.agreedToTerms) { setError("You must agree to the terms."); return false; }
-      if (String(legal.customInvestorTerms || "").trim().length > MAX_CUSTOM_INVESTOR_TERMS_LENGTH) {
-        setError(`Custom investor terms cannot exceed ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters.`);
-        return false;
-      }
+      if (!legal.agreedToTerms) { setError("Please accept the Submission Agreement."); return false; }
       return true;
     }
     return true;
@@ -1923,14 +2074,10 @@ const CreateProject = () => {
       return;
     }
 
-    if (!validateStep(5)) return;
+    if (!validateStep(6)) return;
     const ageRangeError = getInvalidRoleAgeRangeMessage();
     if (ageRangeError) { setError(ageRangeError); return; }
-    const isEditingExistingScript = Boolean(scriptId && loadedScriptStatus !== "draft");
-    if (!isEditingExistingScript) {
-      const creditsNeeded = calculateTotal();
-      if (creditsNeeded > creditsBalance) { setError(`Insufficient credits. Need ${creditsNeeded} but have ${creditsBalance}.`); return; }
-    }
+
     setLoading(true); setError("");
     try {
       const tagsArr = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
@@ -1948,7 +2095,16 @@ const CreateProject = () => {
         textContent: (getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled) ? screenplayValue : editor.getHTML(),
         fountainContent: (getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled) ? screenplayValue : undefined,
         tags: tagsArr,
-        classification: { primaryGenre: formData.primaryGenre, secondaryGenre: null, tones: classification.tones, themes: classification.themes, settings: classification.settings },
+        classification: {
+          primaryGenre: formData.primaryGenre,
+          secondaryGenre: null,
+          tones: classification.tones,
+          themes: classification.themes,
+          settings: classification.settings,
+        },
+        viewableScript: Boolean(formData.viewableScript),
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
+        scriptPreviewPageTexts: previewPageTexts,
         scriptCompletion: buildScriptCompletionPayload(formData),
         roles: roles
           .filter((role) => role.characterName?.trim())
@@ -1971,6 +2127,13 @@ const CreateProject = () => {
         },
         collabVisibility,
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
         targetIndustry: [
           ...(targetFilm ? ["film"] : []),
           ...(targetPublishing ? ["publishing"] : [])
@@ -1994,7 +2157,12 @@ const CreateProject = () => {
 
       clearLocalWorkingDraft();
       openUnderReviewModal("/dashboard");
-    } catch (err) { setError(err.response?.data?.message || err.message || "Failed to publish."); } finally { setLoading(false); }
+    } catch (err) { 
+      setError(err.response?.data?.message || err.message || "Failed to publish."); 
+
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const escapeHtml = (str = "") =>
@@ -2242,7 +2410,8 @@ const CreateProject = () => {
     }
   }, []);
 
-  // Click "Fix Grammar" - show credit confirmation first
+
+  // Click "Fix Grammar"
   const handleGrammarClick = () => {
     if (!editor) return;
     const plainText = getEditorPlainText();
@@ -2250,13 +2419,11 @@ const CreateProject = () => {
       setError("Write some script text before running grammar correction.");
       return;
     }
-    fetchGrammarCredits();
-    setShowGrammarModal(true);
+    handleFixGrammar();
   };
 
   // Confirmed - actually run grammar fix
   const handleFixGrammar = async () => {
-    setShowGrammarModal(false);
     if (!editor) return;
     const plainText = getEditorPlainText();
     if (!plainText) return;
@@ -2280,18 +2447,8 @@ const CreateProject = () => {
       }
 
       setGrammarNotes(Array.isArray(data?.notes) ? data.notes : []);
-      // Refresh balance
-      api.get("/credits/balance").then(({ data: d }) => {
-        setCreditsBalance(d.balance || 0);
-        setGrammarCreditBalance(d.balance || 0);
-      }).catch(() => {});
     } catch (err) {
       const msg = err.response?.data?.message || "Failed to correct script text.";
-      // If credit error, show modal again
-      if (err.response?.status === 402) {
-        setGrammarCreditBalance(err.response.data?.balance ?? 0);
-        setShowGrammarModal(true);
-      }
       setError(msg);
     } finally {
       setGrammarLoading(false);
@@ -2315,18 +2472,7 @@ const CreateProject = () => {
     setPreGrammarContent(null);
   };
 
-  // Fetch credits for prose modal
-  const fetchProseCredits = useCallback(async () => {
-    setProseCreditLoading(true);
-    try {
-      const { data } = await api.get("/credits/balance");
-      setProseCreditBalance(data.balance || 0);
-    } catch {
-      setProseCreditBalance(0);
-    } finally {
-      setProseCreditLoading(false);
-    }
-  }, []);
+
 
   const handleProseClick = () => {
     if (!editor) return;
@@ -2335,12 +2481,10 @@ const CreateProject = () => {
       setError("Write at least 50 characters of script text before generating a prose sample.");
       return;
     }
-    fetchProseCredits();
-    setShowProseModal(true);
+    handleGenerateProse();
   };
 
   const handleGenerateProse = async () => {
-    setShowProseModal(false);
     if (!editor) return;
     const plainText = getEditorPlainText();
     if (!plainText) return;
@@ -2357,17 +2501,8 @@ const CreateProject = () => {
         setSaved(false);
       }
 
-      // Refresh balance
-      api.get("/credits/balance").then(({ data: d }) => {
-        setCreditsBalance(d.balance || 0);
-        setProseCreditBalance(d.balance || 0);
-      }).catch(() => {});
     } catch (err) {
       const msg = err.response?.data?.message || "Failed to generate prose sample.";
-      if (err.response?.status === 402) {
-        setProseCreditBalance(err.response.data?.balance ?? 0);
-        setShowProseModal(true);
-      }
       setError(msg);
     } finally {
       setProseLoading(false);
@@ -2916,6 +3051,7 @@ const CreateProject = () => {
         document.body
       )}
 
+
       {showUnderReviewModal && createPortal(
         <AnimatePresence>
           <motion.div
@@ -2989,9 +3125,7 @@ const CreateProject = () => {
                   <span className={`text-xs font-bold ${
                     dark ? "text-emerald-400" : "text-emerald-600"
                   }`}>Grammar Fixed</span>
-                  <span className={`text-[10px] ${
-                    dark ? "text-neutral-500" : "text-gray-400"
-                  }`}>- {GRAMMAR_COST} credits used</span>
+
                 </div>
                 {grammarNotes.length > 0 && (
                   <p className={`text-[10px] truncate leading-snug ${
@@ -3187,9 +3321,19 @@ const CreateProject = () => {
       <AnimatePresence>
         {error && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex items-center gap-2">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-            {error}
+            className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+              <span>{error}</span>
+            </div>
+            {error.toLowerCase().includes("limit") && (
+              <button 
+                type="button"
+                onClick={() => window.open('/pricing', '_blank')} 
+                className="shrink-0 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
+                Get Plan
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -3225,7 +3369,7 @@ const CreateProject = () => {
                     </button>
                   )}
                   <button onClick={handleGrammarClick} disabled={grammarLoading || saving}
-                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-bold border transition disabled:opacity-40 ${dark ? "border-emerald-500/25 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}>
+                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-bold border transition disabled:opacity-40 max-[860px]:w-full ${dark ? "border-emerald-500/25 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}>
                     {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar <span className={`text-[9px] px-1 py-0.5 rounded ${dark ? "bg-amber-500/15 text-amber-400" : "bg-amber-50 text-amber-600"}`}>{GRAMMAR_COST}cr</span></>}
                   </button>
                 </div>
@@ -3337,7 +3481,7 @@ const CreateProject = () => {
                 <div className="flex flex-col items-center max-[1200px]:items-start gap-0 py-8 max-[580px]:py-4 px-14 max-[1200px]:px-2 max-[380px]:px-1">
                   <div
                     className={`relative w-full max-w-[760px] max-[1200px]:max-w-none shadow-2xl ${dark ? "bg-[#111827]" : "bg-white"}`}
-                    style={{ minHeight: Math.max(estimatedPages, 1) * 1056 + "px" }}>
+                    style={{ minHeight: Math.max(estimatedPages, 1) * 1123 + "px" }}>
 
                     {/* Page number on the sheet's top-right corner (per spec) */}
                     {useScreenplayEditor && (
@@ -3502,6 +3646,111 @@ const CreateProject = () => {
                   </div>
                 </div>
               )}
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Viewable Script</h3>
+                    <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      Turn this on if you want buyers to see a preview window from your uploaded script.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${formData.viewableScript ? (dark ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/20" : "bg-emerald-50 text-emerald-700 border border-emerald-200") : (dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200")}`}>
+                    {formData.viewableScript ? "Enabled" : "Hidden"}
+                  </span>
+                </div>
+                <label className={`mt-4 flex items-center gap-3 rounded-xl border px-4 py-3 ${dark ? "border-white/10 bg-white/[0.03]" : "border-gray-200 bg-white"}`}>
+                  <input
+                    type="checkbox"
+                    name="viewableScript"
+                    checked={Boolean(formData.viewableScript)}
+                    onChange={handleChange}
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-500 focus:ring-emerald-500"
+                  />
+                  <span className={`text-sm font-medium ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                    Add a viewable script preview
+                  </span>
+                </label>
+                {!formData.viewableScript && (
+                  <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${dark ? "border-white/10 bg-white/[0.03] text-gray-400" : "border-gray-200 bg-white text-gray-600"}`}>
+                    No preview will be shown until you enable the viewable script option.
+                  </div>
+                )}
+              </div>
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`} style={formData.viewableScript ? undefined : { display: "none" }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
+                    <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      Set the exact pages film professionals can view before unlocking the rest.
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200"}`}>
+                    Free preview
+                  </span>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="number"
+                      min="1"
+                      name="previewWindowStart"
+                      value={formData.previewWindowStart}
+                      onChange={handleChange}
+                      className={inputCls}
+                      placeholder="e.g. 1"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="number"
+                      min={Math.max(1, Number(formData.previewWindowStart || 1) || 1)}
+                      name="previewWindowEnd"
+                      value={formData.previewWindowEnd}
+                      onChange={handleChange}
+                      className={inputCls}
+                      placeholder="e.g. 8"
+                    />
+                  </div>
+                </div>
+
+                <div className={`mt-4 rounded-xl px-4 py-3 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
+                  <p className={`text-sm font-medium ${dark ? "text-gray-100" : "text-gray-900"}`}>
+                    Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
+                  </p>
+                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                    Admin review will also show this exact page range before approval.
+                  </p>
+                </div>
+              </div>
+
+              <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Viewable Script Preview</h3>
+                    <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>
+                      This is the exact page block buyers and admins will see.
+                    </p>
+                  </div>
+                </div>
+                <ScreenplayPdfViewer
+                  pdfUrl=""
+                  title={title || "Script"}
+                  startPage={Number(formData.previewWindowStart || 1)}
+                  endPage={Number(formData.previewWindowEnd || 1)}
+                  fallbackPages={previewPageTexts.slice(
+                    Math.max(0, Number(formData.previewWindowStart || 1) - 1),
+                    Math.max(0, Number(formData.previewWindowEnd || 1))
+                  ).map((pageText, index) => ({
+                    pageNumber: Number(formData.previewWindowStart || 1) + index,
+                    text: String(pageText || ""),
+                  }))}
+                  fallbackText={previewPageTexts.join("\n\n")}
+                />
+              </div>
+
               <div className={`rounded-2xl border p-4 sm:p-5 ${dark ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
                 <div>
                   <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
@@ -3517,7 +3766,6 @@ const CreateProject = () => {
                     {[
                       { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
                       { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
-                      { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -3548,7 +3796,7 @@ const CreateProject = () => {
                   </div>
                 </div>
 
-                {/* Parts inputs — only relevant for partial / ongoing */}
+                {/* Parts inputs — only relevant for partial */}
                 {formData.completionStatus !== "complete" && (
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div>
@@ -3589,19 +3837,7 @@ const CreateProject = () => {
                   </p>
                 </div>
               </div>
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${dark ? "text-gray-300" : "text-gray-700"}`}>Primary Genre *</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {genres.map(g => (
-                    <button key={g} type="button"
-                      onClick={() => setFormData(fd => ({ ...fd, primaryGenre: fd.primaryGenre === g ? "" : g }))}
-                      className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all ${formData.primaryGenre === g
-                          ? "bg-[#1e3a5f] border-[#1e3a5f] text-white"
-                          : dark ? "border-[#1d3350] text-gray-400 hover:border-[#2a4a6a] hover:text-gray-200" : "border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                        }`}>{g}</button>
-                  ))}
-                </div>
-              </div>
+
               {targetFilm && (
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -3938,10 +4174,22 @@ const CreateProject = () => {
                   )}
 
                   {/* Pitch Video Upload */}
-                  <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <label className={`block text-sm font-medium mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
-                      Pitch Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                    </label>
+                  {["writer", "creator"].includes(user?.role) && (["free", "silver"].includes(user?.subscription?.plan) || !user?.subscription?.plan) ? (
+                    <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
+                      <label className={`block text-sm font-medium mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                        Pitch Video <span className={`text-xs font-normal text-red-500`}>Locked</span>
+                      </label>
+                      <p className={`text-[11px] mb-2.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>Upload Pitch Video is a premium feature.</p>
+                      <Link to="/pricing" className="block text-center rounded-xl p-4 transition flex flex-col items-center bg-gray-100/50 hover:bg-gray-200/50 cursor-pointer">
+                        <svg className="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                        <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upgrade to Unlock</p>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className={`rounded-2xl border p-4 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
+                      <label className={`block text-sm font-medium mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>
+                        Pitch Video <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
+                      </label>
                     <p className={`text-[11px] mb-2.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>A short video pitch for your project. Max 1:30 min · Max 90MB</p>
                     <input
                       ref={pitchVideoInputRef}
@@ -4000,6 +4248,7 @@ const CreateProject = () => {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -4012,22 +4261,139 @@ const CreateProject = () => {
             <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Deep Classification</h2>
-                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Select up to 3 in each category. This helps readers discover your script.</p>
+                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help readers discover your script by specifying its genre and tone.</p>
+              </div>
+
+              <div>
+                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Primary Genre *</h3>
+                <select
+                  name="primaryGenre"
+                  value={formData.primaryGenre}
+                  onChange={(e) => setFormData(fd => ({ ...fd, primaryGenre: e.target.value }))}
+                  className={inputCls}
+                >
+                  <option value="" disabled>Select a Primary Genre...</option>
+                  {genres.map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
               </div>
               {[{ label: "Tones", key: "tones", opts: toneOptions }, { label: "Themes", key: "themes", opts: themeOptions }, { label: "Settings", key: "settings", opts: settingOptions }].map(({ label, key, opts }) => (
                 <div key={key}>
                   <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>{label} <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>({classification[key].length}/3)</span></h3>
-                  <div className="flex flex-wrap gap-2">
-                    {opts.map(v => <button key={v} type="button" onClick={() => toggleChip(key, v)} className={chipCls(classification[key].includes(v))}>{v}</button>)}
-                  </div>
+                  <select
+                    className={inputCls}
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value && classification[key].length < 3 && !classification[key].includes(e.target.value)) {
+                        toggleChip(key, e.target.value);
+                      }
+                    }}
+                    disabled={classification[key].length >= 3}
+                  >
+                    <option value="" disabled>Select {label.toLowerCase().slice(0, -1)}...</option>
+                    {opts.filter(v => !classification[key].includes(v)).map(v => (
+                      <option key={v} value={v}>{v}</option>
+                    ))}
+                  </select>
+                  {classification[key].length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {classification[key].map(v => (
+                        <button key={v} type="button" onClick={() => toggleChip(key, v)} className={chipCls(true)}>
+                          {v} <span className="ml-1 opacity-60">×</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </motion.div>
         )}
 
-        {/* -- STEP 4: Publish Setup -- */}
+        {/* -- STEP 4: Film Info -- */}
         {step === 4 && (
+          <motion.div key="s4-film" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
+            <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
+              <div>
+                <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
+                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. Film language is required.</p>
+              </div>
+
+              {/* Creative Role */}
+              <div>
+                <h3 className={`text-sm font-semibold mb-3 ${dark ? "text-gray-300" : "text-gray-700"}`}>Your Creative Role</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { key: "wantToDirect", label: "Want to Direct", sub: "I want to direct this script myself", color: dark ? "border-violet-500/50 bg-violet-500/10" : "border-violet-400 bg-violet-50", textColor: dark ? "text-violet-200" : "text-violet-700" },
+                    { key: "wantToProduce", label: "Want to Produce", sub: "I am also the producer of this project", color: dark ? "border-amber-500/50 bg-amber-500/10" : "border-amber-400 bg-amber-50", textColor: dark ? "text-amber-200" : "text-amber-700" },
+                  ].map(({ key, label, sub, color, textColor }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setFilmDetails((fd) => ({ ...fd, [key]: !fd[key] }))}
+                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails[key]
+                        ? color
+                        : dark ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
+                      }`}
+                    >
+                      <div>
+                        <p className={`text-sm font-bold ${filmDetails[key] ? textColor : dark ? "text-gray-200" : "text-gray-800"}`}>{label}</p>
+                        <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>{sub}</p>
+                      </div>
+                      {filmDetails[key] && (
+                        <svg className={`w-4 h-4 ml-auto shrink-0 ${textColor}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Film Language */}
+              <div>
+                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Film Language <span className="text-red-500">*</span></h3>
+                <div className="flex flex-wrap gap-2">
+                  {CP_FILM_LANGUAGE_OPTIONS.map((lang) => (
+                    <button key={lang} type="button"
+                      onClick={() => setFilmDetails((fd) => ({ ...fd, filmLanguage: fd.filmLanguage === lang ? "" : lang }))}
+                      className={chipCls(filmDetails.filmLanguage === lang)}>
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+                {filmDetails.filmLanguage === "Other" && (
+                  <input type="text" placeholder="Specify language..." value={filmDetails.filmLanguageCustom || ""}
+                    onChange={(e) => setFilmDetails((fd) => ({ ...fd, filmLanguageCustom: e.target.value }))}
+                    className={`${inputCls} mt-3`} maxLength={80} />
+                )}
+              </div>
+
+              {/* Dialogues */}
+              <div>
+                <h3 className={`text-sm font-semibold mb-2.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Dialogues</h3>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: "yes", label: "Yes — Full Dialogues" },
+                    { value: "partial", label: "Partial — Some Dialogues" },
+                    { value: "no", label: "No — Action/Direction Only" },
+                  ].map((opt) => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setFilmDetails((fd) => ({ ...fd, dialoguesPresent: opt.value }))}
+                      className={chipCls(filmDetails.dialoguesPresent === opt.value)}>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+
+        {/* -- STEP 5: Publish Setup -- */}
+        {step === 5 && (
           <motion.div key="s4" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
             <div className="space-y-6">
                 <div className={`${cardCls} p-4 min-[420px]:p-5 sm:p-8 space-y-5 min-[420px]:space-y-6`}>
@@ -4089,122 +4455,7 @@ const CreateProject = () => {
                     </div>
                   </div>
 
-                  <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-center gap-2.5 mb-5">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                        <svg className={`w-4 h-4 ${dark ? "text-blue-300" : "text-blue-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h12M3.75 3h16.5A2.25 2.25 0 0122.5 5.25V9M3.75 3l5.25 5.25m0 0L12 11.25m-3-3L6 11.25m3-3v8.25" /></svg>
-                      </div>
-                      <div>
-                        <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Optional Services</h3>
-                        <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Select only services you want to add now.</p>
-                      </div>
-                    </div>
 
-                    <div className="space-y-2.5 min-[416px]:space-y-3">
-                      {[
-                        { key: "hosting", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" /></svg>, name: "Hosting & Discovery", price: "FREE", desc: "Marketplace listing and public discovery", locked: true },
-                        { key: "spotlight", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l1.838 1.783a.75.75 0 00.384.2l2.53.36a.75.75 0 01.607.51l.806 2.435a.75.75 0 00.286.37l2.108 1.498a.75.75 0 010 1.227l-2.108 1.498a.75.75 0 00-.286.37l-.806 2.435a.75.75 0 01-.607.51l-2.53.36a.75.75 0 00-.384.2l-1.838 1.783a.75.75 0 01-1.04 0l-1.838-1.783a.75.75 0 00-.384-.2l-2.53-.36a.75.75 0 01-.607-.51l-.806-2.435a.75.75 0 00-.286-.37L2.92 11.882a.75.75 0 010-1.227L5.028 9.157a.75.75 0 00.286-.37l.806-2.435a.75.75 0 01.607-.51l2.53-.36a.75.75 0 00.384-.2L11.48 3.5z" /></svg>, name: "Activate Spotlight", price: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight ? "Already bought" : `${SERVICE_PRICES.spotlight} credits`, desc: "Verified badge, evaluation + trailer service, and featured top placement", locked: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight },
-                        ...(targetFilm ? [{ key: "aiTrailer", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>, name: "AI Concept Trailer", price: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "Already bought" : `${SERVICE_PRICES.aiTrailer} credits`, desc: "60-second cinematic teaser", badge: "BETA", locked: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer }] : []),
-                        { key: "evaluation", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08" /></svg>, name: "Professional Evaluation", price: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation ? "Already bought" : `${SERVICE_PRICES.evaluation} credits`, desc: "Reader scorecard with strengths and weaknesses", locked: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation },
-                      ].map((service) => (
-                        <button
-                          key={service.key}
-                          type="button"
-                          onClick={() => !service.locked && setServices((current) => ({ ...current, [service.key]: !current[service.key] }))}
-                          className={`w-full text-left rounded-2xl border px-3.5 min-[416px]:px-4 py-3.5 min-[416px]:py-4 transition-all ${service.locked
-                            ? dark ? "border-[#22405f] bg-[#0e2032] cursor-default" : "border-blue-100 bg-blue-50/70 cursor-default"
-                            : services[service.key]
-                              ? dark ? "border-[#2b5d8f] bg-[#122338]" : "border-[#1e3a5f]/25 bg-[#1e3a5f]/[0.05]"
-                              : dark ? "border-[#182840] hover:border-[#22405f] hover:bg-white/[0.02]" : "border-gray-200 hover:border-gray-300 hover:bg-white"
-                          }`}
-                        >
-                          <div className="flex items-start gap-2.5 min-[416px]:gap-3">
-                            <div className={`w-9 h-9 min-[416px]:w-10 min-[416px]:h-10 rounded-xl flex items-center justify-center shrink-0 ${services[service.key] || service.locked ? dark ? "bg-white/[0.08] text-white" : "bg-white text-[#1e3a5f]" : dark ? "bg-white/[0.04] text-gray-400" : "bg-gray-100 text-gray-500"}`}>
-                              {service.icon}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-1.5 min-[416px]:gap-2">
-                                    <h4 className={`text-[13px] min-[416px]:text-sm font-bold leading-tight ${dark ? "text-white" : "text-gray-900"}`}>{service.name}</h4>
-                                    {service.badge && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">{service.badge}</span>}
-                                    {service.locked && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{service.key === "hosting" ? "Included" : "Already Bought"}</span>}
-                                  </div>
-                                </div>
-                                <div className="hidden min-[416px]:flex flex-col items-end justify-start gap-1.5 shrink-0">
-                                  <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      services[service.key] 
-                                        ? dark ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : dark ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        services[service.key]
-                                          ? dark ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : dark ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {services[service.key] && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{services[service.key] ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] mt-1 ${dark ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                              </div>
-                              <p className={`text-[12px] mt-1.5 leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{service.desc}</p>
-                              <div className="mt-2 min-[416px]:hidden flex items-center justify-between gap-2">
-                                  <p className={`text-[13px] font-bold ${dark ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      services[service.key] 
-                                        ? dark ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : dark ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        services[service.key]
-                                          ? dark ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : dark ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {services[service.key] && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{services[service.key] ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] ${dark ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-
-                    {trailerWorkflowHint && (
-                      <div className={`mt-4 rounded-xl border px-3.5 py-3 ${trailerWorkflowHint.tone === "warn"
-                        ? dark
-                          ? "bg-amber-500/8 border-amber-400/25"
-                          : "bg-amber-50 border-amber-200"
-                        : trailerWorkflowHint.tone === "success"
-                          ? dark
-                            ? "bg-emerald-500/8 border-emerald-400/20"
-                            : "bg-emerald-50 border-emerald-200"
-                          : dark
-                            ? "bg-blue-500/8 border-blue-400/20"
-                            : "bg-blue-50 border-blue-200"
-                        }`}>
-                        <p className={`text-[11px] font-bold uppercase tracking-[0.14em] mb-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
-                          {trailerWorkflowHint.title}
-                        </p>
-                        <p className={`text-[12px] leading-relaxed ${dark ? "text-gray-300" : "text-gray-700"}`}>
-                          {trailerWorkflowHint.text}
-                        </p>
-                      </div>
-                    )}
-                  </div>
 
                   {targetFilm && (
                     <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
@@ -4744,155 +4995,7 @@ const CreateProject = () => {
           </motion.div>
         )}
 
-        {/* -- STEP 5: Final Review -- */}
-        {step === 5 && (
-          <motion.div key="s5" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-            <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
-              <div>
-                <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Final Review</h2>
-                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Validate submission details, then submit your project for admin review.</p>
-              </div>
 
-              <div className={`rounded-3xl border overflow-hidden ${dark ? "border-[#223a58] bg-gradient-to-b from-[#0a1320] to-[#08111b] shadow-[0_12px_28px_rgba(2,6,23,0.35)]" : "border-gray-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"}`}>
-                <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b ${dark ? "border-[#1b2e46]" : "border-gray-200"}`}>
-                  <div>
-                    <p className={`text-[10px] font-extrabold uppercase tracking-[0.16em] ${dark ? "text-gray-400" : "text-gray-500"}`}>Invoice Preview</p>
-                    <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>Calculated from your current pricing and services.</p>
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold border ${dark ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-300" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>Auto-updating</span>
-                </div>
-
-                <div className={`max-[520px]:hidden grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "bg-[#091525] text-gray-500 border-b border-[#1b2e46]" : "bg-gray-50 text-gray-500 border-b border-gray-200"}`}>
-                  <span>Summary Item</span>
-                  <span>Type</span>
-                  <span className="text-right">Amount</span>
-                </div>
-
-                <div>
-                  {publishSummaryRows.map((row, index) => (
-                    <div key={row.item} className={`grid grid-cols-1 min-[521px]:grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-3.5 items-start gap-2 text-[12px] ${dark ? `${index % 2 === 0 ? "bg-white/[0.01]" : "bg-[#0b1625]"} border-b border-[#15273d] last:border-b-0` : `${index % 2 === 0 ? "bg-white" : "bg-gray-50/70"} border-b border-gray-100 last:border-b-0`}`}>
-                      <div>
-                        <p className={`font-semibold ${dark ? "text-gray-100" : "text-gray-800"}`}>{row.item}</p>
-                        <p className={`text-[11px] mt-0.5 leading-relaxed ${dark ? "text-gray-500" : "text-gray-500"}`}>{row.detail}</p>
-                      </div>
-                      <div className="pt-0.5 max-[520px]:pt-0">
-                        <span className={`inline-flex items-center whitespace-nowrap text-[10px] font-semibold px-2.5 py-1 rounded-full border ${row.type === "Credit Charge"
-                          ? dark ? "border-blue-400/30 bg-blue-500/12 text-blue-300" : "border-blue-200 bg-blue-100 text-blue-700"
-                          : row.type === "Revenue Setting"
-                            ? dark ? "border-indigo-400/30 bg-indigo-500/14 text-indigo-300" : "border-indigo-200 bg-indigo-100 text-indigo-700"
-                          : row.type === "Platform Commission"
-                            ? dark ? "border-amber-400/30 bg-amber-500/12 text-amber-300" : "border-amber-200 bg-amber-100 text-amber-700"
-                          : row.type === "Checkout Total"
-                            ? dark ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-300" : "border-cyan-200 bg-cyan-100 text-cyan-700"
-                          : row.type === "Future Earnings"
-                            ? dark ? "border-emerald-400/30 bg-emerald-500/12 text-emerald-300" : "border-emerald-200 bg-emerald-100 text-emerald-700"
-                            : dark ? "border-white/[0.16] bg-white/[0.08] text-gray-300" : "border-gray-300 bg-gray-100 text-gray-700"
-                          }`}>{row.type}</span>
-                      </div>
-                      <p className={`text-left min-[521px]:text-right font-extrabold tabular-nums tracking-tight pt-0.5 ${dark ? "text-white" : "text-gray-900"}`}>{row.amount}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className={`rounded-xl px-4 py-4 ${dark ? "bg-blue-500/10 border border-blue-500/15" : "bg-blue-50 border border-blue-100"}`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-blue-300" : "text-blue-700"}`}>Publish Cost</p>
-                  <p className={`text-xl font-black mt-1 ${totalServiceCost > creditsBalance ? "text-red-400" : dark ? "text-white" : "text-gray-900"}`}>{totalServiceCost} cr</p>
-                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Charged from current balance</p>
-                </div>
-                <div className={`rounded-xl px-4 py-4 ${dark ? "bg-emerald-500/10 border border-emerald-500/15" : "bg-emerald-50 border border-emerald-100"}`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-emerald-300" : "text-emerald-700"}`}>Remaining Credits</p>
-                  <p className={`text-xl font-black mt-1 ${creditsAfterPublish < 0 ? "text-red-400" : dark ? "text-emerald-300" : "text-emerald-700"}`}>{creditsAfterPublish}</p>
-                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>After this publish action</p>
-                </div>
-                <div className={`rounded-xl px-4 py-4 ${dark ? "bg-purple-500/10 border border-purple-500/15" : "bg-purple-50 border border-purple-100"}`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-purple-300" : "text-purple-700"}`}>Writer / Premium Sale</p>
-                  <p className={`text-xl font-black mt-1 ${dark ? "text-white" : "text-gray-900"}`}>{isPremium ? `₹${writerPayout}` : "₹0"}</p>
-                  <p className={`text-[11px] mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>Writer gets full script fee per paid purchase</p>
-                </div>
-              </div>
-
-              <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${dark ? "text-teal-300" : "text-teal-700"}`}>Collaboration Visibility</p>
-                    <p className={`text-[12px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>
-                      Choose whether this project stays private or accepts collaboration requests after publish.
-                    </p>
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold ${collabVisibility === "open"
-                    ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"
-                    : dark ? "bg-gray-700/40 text-gray-200" : "bg-gray-200 text-gray-700"
-                  }`}>
-                    {collabVisibility === "open" ? "Open for collaboration" : "Private workspace"}
-                  </span>
-                </div>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCollabVisibility("private")}
-                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "private"
-                      ? dark ? "border-[#4f86c6] bg-[#0f2238]" : "border-[#1e3a5f] bg-[#eef4fb]"
-                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Private workspace</p>
-                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Only invited collaborators can join.</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCollabVisibility("open")}
-                    className={`rounded-2xl border p-4 text-left transition ${collabVisibility === "open"
-                      ? dark ? "border-emerald-400 bg-emerald-500/10" : "border-emerald-600 bg-emerald-50"
-                      : dark ? "border-[#1d3350] bg-[#0b1420]" : "border-gray-200 bg-white"
-                    }`}
-                  >
-                    <p className={`text-sm font-bold ${dark ? "text-white" : "text-gray-900"}`}>Open for collaboration</p>
-                    <p className={`mt-1 text-xs ${dark ? "text-gray-400" : "text-gray-600"}`}>Writers can request editor, reader, merger, or admin access.</p>
-                  </button>
-                </div>
-              </div>
-
-              <div className={`rounded-xl px-4 py-4 ${dark ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                <div className="flex items-start gap-2.5">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${legal.agreedToTerms ? dark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700" : dark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>
-                    {legal.agreedToTerms ? (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      "!"
-                    )}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-[12px] font-semibold ${dark ? "text-gray-200" : "text-gray-800"}`}>{legal.agreedToTerms ? "Agreement confirmed" : "Agreement required"}</p>
-                    <p className={`text-[11px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-500"}`}>{legal.agreedToTerms ? "Everything is ready. You can submit for admin approval now." : "Please accept the submission agreement to continue."}</p>
-                    {!legal.agreedToTerms && (
-                      <label className="flex items-start gap-2.5 cursor-pointer mt-3">
-                        <input
-                          type="checkbox"
-                          checked={legal.agreedToTerms}
-                          onChange={e => setLegal((prev) => ({ ...prev, agreedToTerms: e.target.checked }))}
-                          className="w-4 h-4 rounded mt-0.5 accent-[#1e3a5f]"
-                        />
-                        <span className={`text-[11px] leading-relaxed ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                          I agree to the Script Upload Terms & Conditions (v{SCRIPT_UPLOAD_TERMS_VERSION}) and confirm publishing rights.
-                        </span>
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <button onClick={handlePublish} disabled={loading || !legal.agreedToTerms}
-                className="w-full py-3.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#1e3a5f] hover:bg-[#162d4a] text-white shadow-md">
-                {loading ? "Submitting..." : "Submit for Approval"}
-              </button>
-              <p className={`text-[11px] text-center ${dark ? "text-gray-500" : "text-gray-400"}`}>Submitting will send your project for admin approval with the current pricing and services.</p>
-            </div>
-          </motion.div>
-        )}
       </AnimatePresence>
 
       {/* -- Navigation Buttons -- */}
@@ -4903,12 +5006,17 @@ const CreateProject = () => {
               ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
             Back
           </button>
-          {step < 5 && (
+          {step < 5 ? (
             <button onClick={handleNext}
               className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${dark
                 ? "bg-[#1e3a5f] text-white hover:bg-[#2a4a70] shadow-lg shadow-[#1e3a5f]/20"
                 : "bg-[#1e3a5f] text-white hover:bg-[#162d4a] shadow-lg shadow-[#1e3a5f]/20"}`}>
               Next -
+            </button>
+          ) : (
+            <button onClick={handlePublish} disabled={loading || !legal.agreedToTerms}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#1e3a5f] hover:bg-[#162d4a] text-white shadow-md`}>
+              {loading ? "Submitting..." : "Submit for Approval"}
             </button>
           )}
         </motion.div>
@@ -4918,3 +5026,7 @@ const CreateProject = () => {
 };
 
 export default CreateProject;
+
+
+
+

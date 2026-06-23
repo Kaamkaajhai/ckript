@@ -51,6 +51,7 @@ const CHARACTER_CUE_EXCLUSIONS = new Set([
 ]);
 const dialogueLooksNatural = (value = "") => /^[\"'\u2018\u2019\u201c\u201d]?(?:[A-Z][a-z]|[a-z])/.test(String(value || "").trim());
 const cueStartsLikeAction = (value = "") => /^(?:A|AN|THE|HER|HIS|THEIR|ITS)\b/.test(String(value || "").trim());
+const MAX_PAGE_PREVIEW_CHARACTERS = 1400;
 
 export const formatScreenplayLikeText = (value = "") => {
   let text = normalizeExtractedPdfText(value);
@@ -179,12 +180,36 @@ export const extractTextFromPdfBuffer = async (buffer) => {
   let text = "";
   let numItems = 0;
   let strategy = "none";
+  let pageTexts = [];
 
   try {
-    const data = await pdfParse(buffer);
+    const data = await pdfParse(buffer, {
+      pagerender: async (pageData) => {
+        try {
+          const textContent = await pageData.getTextContent();
+          const pageText = (textContent?.items || [])
+            .map((item) => String(item?.str || "").trim())
+            .filter(Boolean)
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+          const formattedPageText = formatScreenplayLikeText(pageText).slice(0, MAX_PAGE_PREVIEW_CHARACTERS);
+          pageTexts.push(formattedPageText);
+          return `${pageText}\n\n`;
+        } catch (pageError) {
+          console.warn("[extractTextFromPdfBuffer] page render failed:", pageError?.message || pageError);
+          pageTexts.push("");
+          return "\n\n";
+        }
+      },
+    });
     text = normalizeExtractedPdfText(data?.text || "");
     numItems = Number(data?.numpages) || 0;
     strategy = text.trim() ? "pdf-parse" : "pdf-parse-empty";
+    if (!pageTexts.length && numItems > 0) {
+      pageTexts = Array.from({ length: numItems }, () => "");
+    }
   } catch (parseError) {
     console.warn("[extractTextFromPdfBuffer] pdf-parse failed:", parseError?.message || parseError);
   }
@@ -211,6 +236,7 @@ export const extractTextFromPdfBuffer = async (buffer) => {
     text: formatScreenplayLikeText(text),
     numItems,
     strategy,
+    pageTexts,
   };
 };
 

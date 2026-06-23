@@ -351,63 +351,52 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
         <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #1a1a2e; margin: 0; padding: 0; background: #f4f6fb; }
-            .container { max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-            .header { background: linear-gradient(135deg, #0f2444 0%, #1e3a5f 60%, #1a5276 100%); color: white; padding: 40px 36px; text-align: center; }
-            .header h1 { margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
-            .header p { margin: 0; font-size: 14px; opacity: 0.75; letter-spacing: 0.4px; text-transform: uppercase; }
-            .badge { display: inline-block; margin-bottom: 16px; background: rgba(255,255,255,0.12); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); }
-            .content { padding: 36px; }
-            .content p { margin: 0 0 16px; font-size: 15px; color: #2c3e50; }
-            .highlight-box { background: #f0f4ff; border-left: 4px solid #1e3a5f; border-radius: 0 10px 10px 0; padding: 18px 20px; margin: 24px 0; }
-            .highlight-box p { margin: 0; font-size: 14px; color: #1e3a5f; font-weight: 600; }
-            .feature-list { list-style: none; padding: 0; margin: 20px 0; }
-            .feature-list li { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; font-size: 14px; color: #2c3e50; }
-            .feature-list li span.icon { background: #1e3a5f; color: #fff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 1px; }
-            .cta { text-align: center; margin: 32px 0 8px; }
-            .cta a { background: #1e3a5f; color: #ffffff; text-decoration: none; padding: 14px 36px; border-radius: 10px; font-weight: 700; font-size: 15px; letter-spacing: 0.2px; display: inline-block; }
-            .footer { text-align: center; padding: 20px 36px; background: #f8fafc; color: #94a3b8; font-size: 12px; border-top: 1px solid #e8edf4; }
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.5; color: #111827; margin: 0; padding: 0; background: #fafafa; }
+            .container { max-width: 580px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px -5px rgba(0,0,0,0.05); border: 1px solid #f3f4f6; }
+            .header { background: #000000; color: white; padding: 48px 40px; text-align: left; }
+            .badge { display: inline-block; margin-bottom: 20px; color: #10b981; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 6px 12px; border-radius: 4px; background: rgba(16, 185, 129, 0.1); }
+            .header h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; }
+            .content { padding: 40px; }
+            .greeting { font-size: 18px; font-weight: 600; margin-bottom: 24px; color: #111827; }
+            .drama-text { font-size: 24px; font-weight: 700; color: #111827; line-height: 1.3; margin: 0 0 24px; letter-spacing: -0.5px; }
+            .sub-text { font-size: 15px; color: #4b5563; margin-bottom: 32px; }
+            .cta-wrapper { text-align: left; margin: 40px 0 20px; }
+            .cta { background: #111827; color: #ffffff; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block; transition: background 0.2s; }
+            .footer { padding: 32px 40px; background: #f9fafb; color: #6b7280; font-size: 12px; border-top: 1px solid #f3f4f6; }
+            .footer a { color: #111827; text-decoration: none; font-weight: 500; }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <div class="badge">Film Industry Professional</div>
-              <h1>Welcome to ckript</h1>
-              <p>Where Stories Meet the Screen</p>
+              <div class="badge">INDUSTRY ACCESS GRANTED</div>
+              <h1>The screen is waiting.</h1>
             </div>
             <div class="content">
-              <p>Hi ${name},</p>
-              <p>You're now part of <strong>ckript</strong> — India's dedicated marketplace built for film and media professionals like you.</p>
-
-              <div class="highlight-box">
-                <p>Discover original scripts, secure IP rights, and connect directly with talented writers — all in one place.</p>
+              <div class="greeting">Hi ${name},</div>
+              
+              <div class="drama-text">
+                Every masterpiece starts with a single line.<br/>
+                Your next big project is hiding in plain sight.
+              </div>
+              
+              <div class="sub-text">
+                Welcome to <strong>ckript</strong>. You now have exclusive access to a curated marketplace of production-ready stories, brilliant writers, and untapped intellectual property. No middlemen. Just you and the script.
               </div>
 
-              <p>Here's what you can do on ckript:</p>
-              <ul class="feature-list">
-                <li><span class="icon">✦</span> Browse scripts across genres, formats, and tones — curated for production-ready projects</li>
-                <li><span class="icon">✦</span> Acquire IP and secure rights for your upcoming films, series, or web projects</li>
-                <li><span class="icon">✦</span> Connect directly with verified writers and negotiate on your terms</li>
-                <li><span class="icon">✦</span> Watch pitch videos from writers and evaluate scripts before committing</li>
-                <li><span class="icon">✦</span> Build your portfolio of owned properties and track your acquisitions</li>
-              </ul>
-
-              <p>Great stories are already waiting for you. Start exploring now.</p>
-
-              <div class="cta">
-                <a href="https://ckript.com/search">Explore Scripts on ckript</a>
+              <div class="cta-wrapper">
+                <a href="${buildClientUrl('/search')}" class="cta">Discover Scripts</a>
               </div>
             </div>
             <div class="footer">
-              <p>© 2026 ckript. All rights reserved.</p>
-              <p style="margin: 4px 0 0;">Questions? Reach us at <a href="mailto:info.ckript@gmail.com" style="color:#1e3a5f;">info.ckript@gmail.com</a></p>
+              <p>If you have any questions, reply to this email. We're here to help.</p>
+              <p>© ${new Date().getFullYear()} ckript. All rights reserved.</p>
             </div>
           </div>
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nWelcome to ckript — India's dedicated marketplace for film and media professionals.\n\nDiscover original scripts, acquire IP rights, and connect directly with writers.\n\nWhat you can do:\n- Browse scripts by genre, format & tone\n- Acquire IP and secure rights for your productions\n- Connect with verified writers\n- Watch pitch videos and evaluate scripts\n\nStart exploring: https://ckript.com/search\n\nThe ckript Team`,
+      text: `Hi ${name},\n\nEvery masterpiece starts with a single line. Your next big project is hiding in plain sight.\n\nWelcome to ckript. You now have exclusive access to a curated marketplace of production-ready stories, brilliant writers, and untapped intellectual property. No middlemen. Just you and the script.\n\nDiscover Scripts: ${buildClientUrl('/search')}\n\nThe ckript Team`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1045,6 +1034,107 @@ export const sendAdminCreditsGrantedEmail = async (
   }
 };
 
+export const sendAdminPremiumGrantedEmail = async (
+  email,
+  name,
+  { adminName = "Admin", clientBaseUrl = "" } = {}
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+
+    const safeAdminName = String(adminName || "Admin").trim() || "Admin";
+    const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: "Welcome to ckript Premium!",
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
+              <h2 style="margin:0; font-size:20px;">Premium Model Activated</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
+              <p style="margin:0 0 12px;">We have great news! ${safeAdminName} has granted you full access to the <strong>ckript Premium Model</strong> for film industry professionals.</p>
+              <p style="margin:0 0 16px;">With Premium, you can now:</p>
+              <ul style="margin:0 0 20px 20px; padding:0;">
+                <li style="margin-bottom:8px;">Explore a curated library of high-quality scripts.</li>
+                <li style="margin-bottom:8px;">View comprehensive writer details and portfolios.</li>
+                <li style="margin-bottom:8px;">Access exclusive AI evaluation scores and tools.</li>
+                <li>Connect directly with emerging and established writers.</li>
+              </ul>
+              <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Explore ckript Premium</a>
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">Thank you for being part of the ckript community.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name || "there"},\n\nWe have great news! ${safeAdminName} has granted you full access to the ckript Premium Model.\n\nWith Premium, you can explore high-quality scripts, view writer details, and access exclusive AI tools.\n\nExplore ckript Premium: ${dashboardUrl}\n\nThank you for being part of the ckript community.`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending admin premium grant email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendAdminPremiumRemovedEmail = async (
+  email,
+  name,
+  { adminName = "Admin", clientBaseUrl = "" } = {}
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+
+    const safeAdminName = String(adminName || "Admin").trim() || "Admin";
+    const contactUrl = buildClientUrl("/contact", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: "Update Regarding Your ckript Premium Access",
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
+              <h2 style="margin:0; font-size:20px;">Premium Model Access Removed</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
+              <p style="margin:0 0 12px;">We are writing to inform you that ${safeAdminName} has removed your access to the <strong>ckript Premium Model</strong>.</p>
+              <p style="margin:0 0 16px;">As a result, your account has been reverted to the standard tier, and premium features (such as comprehensive writer details and exclusive AI evaluation tools) are no longer active on your account.</p>
+              <p style="margin:0 0 12px;">If you believe this was a mistake, or if you have any questions, please reach out to our support team.</p>
+              <a href="${contactUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;">Contact Support</a>
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">Thank you for being part of the ckript community.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name || "there"},\n\nWe are writing to inform you that ${safeAdminName} has removed your access to the ckript Premium Model.\n\nYour account has been reverted to the standard tier. If you have any questions, please reach out to our support team.\n\nContact Support: ${contactUrl}\n\nThank you for being part of the ckript community.`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending admin premium remove email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
 // Send user email when admin sends a direct message
 export const sendAdminMessageEmail = async (
   email,
@@ -1148,6 +1238,286 @@ export const sendAdminBroadcastEmail = async (
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("Error sending admin broadcast email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendNewMessageEmail = async (
+  email,
+  receiverName,
+  senderName,
+  { clientBaseUrl = "" } = {}
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+    const safeReceiverName = String(receiverName || "Writer").trim();
+    const safeSenderName = String(senderName || "An investor").trim();
+    const messagesUrl = buildClientUrl("/messages", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `New direct message from ${safeSenderName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">You have a new message! 🎬</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 12px; font-size: 16px;">Hi ${safeReceiverName},</p>
+              <p style="margin:0 0 16px; font-size: 16px;">Great news! Film industry professional <strong>${safeSenderName}</strong> has sent you a direct message regarding your work on ckript.</p>
+              <p style="margin:0 0 20px; font-size: 16px;">Don't keep them waiting—head over to your messages to reply and start the conversation!</p>
+              <a href="${messagesUrl}" style="display:inline-block;background:#2d5a8f;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 16px;">Go to Messages</a>
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${safeReceiverName},\n\nGreat news! Film industry professional ${safeSenderName} has sent you a direct message regarding your work on ckript.\n\nDon't keep them waiting—head over to your messages to reply and start the conversation!\n\nOpen Messages: ${messagesUrl}\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending new message email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendMeetingInvitationEmail = async (
+  email,
+  {
+    producerName,
+    scriptName,
+    date,
+    time,
+    duration,
+    meetingId,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+    const dashboardUrl = buildClientUrl("/profile", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `Meeting Request from Producer on Ckript`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">New Meeting Request 🗓️</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 16px; font-size: 16px;">Hello,</p>
+              <p style="margin:0 0 16px; font-size: 16px;"><strong>${producerName}</strong> has requested a meeting with you regarding your script <strong>"${scriptName}"</strong>.</p>
+              
+              <div style="background:#f3f4f6; padding:16px; border-radius:8px; margin-bottom:20px;">
+                <p style="margin:0 0 8px;"><strong>Date:</strong> ${date}</p>
+                <p style="margin:0 0 8px;"><strong>Time:</strong> ${time}</p>
+                <p style="margin:0;"><strong>Duration:</strong> ${duration} minutes</p>
+              </div>
+
+              <p style="margin:0 0 20px; font-size: 16px;">Please review and respond to this request from your dashboard.</p>
+              
+              <a href="${dashboardUrl}" style="display:inline-block;background:#2d5a8f;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 16px;">View Request in Dashboard</a>
+              
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hello,\n\n${producerName} has requested a meeting with you regarding your script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nDuration: ${duration} minutes\n\nPlease review and respond to this request from your dashboard: ${dashboardUrl}\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending meeting invitation email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendMeetingAcceptedEmail = async (
+  email,
+  {
+    writerName,
+    scriptName,
+    date,
+    time,
+    meetingLink,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `Meeting Confirmed: ${writerName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">Meeting Confirmed ✅</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 16px; font-size: 16px;">Hello,</p>
+              <p style="margin:0 0 16px; font-size: 16px;"><strong>${writerName}</strong> has accepted your meeting request regarding the script <strong>"${scriptName}"</strong>.</p>
+              
+              <div style="background:#f3f4f6; padding:16px; border-radius:8px; margin-bottom:20px;">
+                <p style="margin:0 0 8px;"><strong>Date:</strong> ${date}</p>
+                <p style="margin:0 0 8px;"><strong>Time:</strong> ${time}</p>
+                <p style="margin:0; word-break: break-all;"><strong>Meeting Link:</strong> <a href="${meetingLink}" style="color:#2d5a8f;">${meetingLink}</a></p>
+              </div>
+
+              <a href="${meetingLink}" style="display:inline-block;background:#10b981;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 16px;">Join Meeting</a>
+              
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hello,\n\n${writerName} has accepted your meeting request regarding the script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nMeeting Link: ${meetingLink}\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending meeting acceptance email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendMeetingRejectedEmail = async (
+  email,
+  {
+    writerName,
+    scriptName,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `Meeting Declined: ${writerName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">Meeting Declined ❌</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 16px; font-size: 16px;">Hello,</p>
+              <p style="margin:0 0 16px; font-size: 16px;">Unfortunately, <strong>${writerName}</strong> has declined your meeting request regarding the script <strong>"${scriptName}"</strong>.</p>
+              
+              <p style="margin:0 0 20px; font-size: 16px;">Your meeting quota slot for this request has been consumed and will not be refunded. You may reach out to them via direct messages instead.</p>
+              
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hello,\n\nUnfortunately, ${writerName} has declined your meeting request regarding the script "${scriptName}".\n\nYour meeting quota slot for this request has been consumed. You may reach out to them via direct messages instead.\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending meeting rejection email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendWriterPlanGrantedEmail = async (
+  email,
+  {
+    writerName,
+    planName,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+    
+    const formattedPlanName = planName === "gold" ? "Gold Model" : planName === "silver" ? "Silver Model" : planName;
+    const loginUrl = buildClientUrl("/login", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `🎉 You've been upgraded to ${formattedPlanName} — ckript`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #d4af37 0%, #aa801a 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+            .badge { display: inline-block; background: #fef3c7; color: #92400e; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+            .button { display: inline-block; background: #1e3a5f; color: white !important; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin:0">Account Upgraded</h1>
+            </div>
+            <div class="content">
+              <p>Hi <strong>${writerName}</strong>,</p>
+              <div><span class="badge">💎 ${formattedPlanName} Granted</span></div>
+              <p>Great news! An administrator on <strong>ckript</strong> has granted your account the <strong>${formattedPlanName}</strong> plan.</p>
+              <p>You can now enjoy the premium benefits of your new plan, including higher visibility and premium features to accelerate your screenwriting career.</p>
+              <div style="text-align:center">
+                <a href="${loginUrl}" class="button">Log In to ckript</a>
+              </div>
+              <p style="color:#666;font-size:13px">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${loginUrl}" style="color:#1e3a5f">${loginUrl}</a></p>
+              <p>Welcome to the premium tier,<br/><strong>The ckript Team</strong></p>
+            </div>
+            <div class="footer">
+              <p>© 2026 ckript. All rights reserved.</p>
+              <p>This is an automated message, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${writerName},\n\nGreat news! An administrator on ckript has granted your account the ${formattedPlanName} plan.\n\nYou can now enjoy all the premium benefits. Log in to explore: ${loginUrl}\n\nThe ckript Team`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending writer plan granted email:", error.message);
     return { success: false, error: error.message };
   }
 };

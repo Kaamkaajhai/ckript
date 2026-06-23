@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useContext } from "react";
 import { io } from "socket.io-client";
-import { getApiBaseUrl } from "../utils/apiOrigin";
+import { getApiBaseUrl, isSocketSupported } from "../utils/apiOrigin";
+import { AuthContext } from "../context/AuthContext";
 
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 
@@ -10,24 +11,16 @@ export default function useCollabSocket(scriptId, enabled = true, options = {}) 
   const [sectionLocks, setSectionLocks] = useState({});
   const socketRef = useRef(null);
   const callbacksRef = useRef(options);
+  const { user } = useContext(AuthContext);
 
   useEffect(() => {
     callbacksRef.current = options;
   }, [options]);
 
   useEffect(() => {
-    if (!enabled || !scriptId) return undefined;
+    if (!enabled || !scriptId || !user?.token || !isSocketSupported()) return undefined;
 
-    const stored = localStorage.getItem("user");
-    let token = "";
-
-    try {
-      token = JSON.parse(stored || "{}")?.token || "";
-    } catch {
-      token = "";
-    }
-
-    if (!token) return undefined;
+    const token = user.token;
 
     const socket = io(SOCKET_ORIGIN, {
       auth: { token },

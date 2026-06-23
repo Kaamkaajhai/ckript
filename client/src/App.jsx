@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
 import PrivateRoute from "./utils/PrivateRoute";
@@ -14,6 +15,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SeoPage = lazy(() => import("./pages/SeoPage"));
+const PricingPage = lazy(() => import("./pages/PricingPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
@@ -24,8 +26,8 @@ const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Join = lazy(() => import("./pages/Join"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
-const WriterOnboarding = lazy(() => import("./pages/WriterOnboarding"));
-const InvestorOnboarding = lazy(() => import("./pages/InvestorOnboarding"));
+const WriterOnboardingRoute = lazy(() => import("./pages/WriterOnboardingRoute"));
+const ProducerOnboardingRoute = lazy(() => import("./pages/ProducerOnboardingRoute"));
 const IndustryOnboarding = lazy(() => import("./pages/IndustryOnboarding"));
 const Profile = lazy(() => import("./pages/Profile"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
@@ -222,6 +224,7 @@ function App() {
     <DarkModeProvider key="dm-root">
       <AuthProvider>
         <Router>
+          <AuthModalProvider>
           <LanguagePreferenceSync />
           <ScrollToTopOnRouteChange />
           <SeoManager />
@@ -251,7 +254,7 @@ function App() {
               <Route path="/resources/:slug" element={<SeoPage />} />
               <Route path="/tools" element={<SeoPage />} />
               <Route path="/tools/:slug" element={<SeoPage />} />
-              <Route path="/pricing" element={<SeoPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
               <Route path="/faq" element={<SeoPage />} />
               <Route path="/genre/:slug" element={<SeoPage />} />
               <Route path="/how-to-sell-a-script" element={<SeoPage />} />
@@ -278,17 +281,17 @@ function App() {
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/share/profile/:id" element={<PublicProfile />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
-              <Route path="/writer-onboarding" element={<WriterOnboarding />} />
-              <Route path="/producer-director-onboarding" element={<InvestorOnboarding />} />
+              <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
+              <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
               <Route element={<ProtectedMainLayout />}>
                 <Route path="/industry-onboarding" element={<IndustryOnboarding />} />
-                <Route path="/top-list" element={<TopList />} />
+                <Route path="/top-script" element={<TopList />} />
                 <Route path="/featured" element={<FeaturedProjects />} />
-                <Route path="/trending" element={<Navigate to="/top-list" replace />} />
+                <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/profile/:id?" element={<Profile />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/credits" element={<Navigate to="/dashboard" replace />} />
+
                 <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
@@ -332,6 +335,7 @@ function App() {
             </Routes>
             </Suspense>
           </AdminLoginHandler>
+          </AuthModalProvider>
         </Router>
       </AuthProvider>
     </DarkModeProvider>

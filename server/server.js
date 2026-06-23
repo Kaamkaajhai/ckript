@@ -33,7 +33,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
-import creditsRoutes from "./routes/creditsRoutes.js";
+
 import adminRoutes from "./routes/adminRoutes.js";
 import scriptPitchRoutes from "./routes/scriptPitchRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
@@ -41,6 +41,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
 import agreementRoutes from "./routes/agreementRoutes.js";
 import collabRoutes from "./routes/collab.routes.js";
+import meetingRoutes from "./routes/meetingRoutes.js";
 import { registerCollabSocket } from "./socket/collab.socket.js";
 import { registerScenePresence } from "./socket/scenePresence.socket.js";
 import {
@@ -355,7 +356,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/transactions", transactionRoutes);
-app.use("/api/credits", paymentLimiter, creditsRoutes);
+
 app.use("/api/admin", adminRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api/script-pitches", scriptPitchRoutes);
@@ -363,6 +364,7 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
 app.use("/api/collab", collabRoutes);
+app.use("/api/meetings", meetingRoutes);
 
 export default app;
 

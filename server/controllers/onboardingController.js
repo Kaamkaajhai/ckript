@@ -71,6 +71,7 @@ const normalizeMandateFormat = (value = "") => {
     "web series": "web_series",
     "limited series": "limited_series",
     "drama school": "drama_school",
+    "micro drama": "micro_drama",
     "standup comedy": "standup_comedy",
   };
 
@@ -1036,7 +1037,6 @@ export const updateMandates = async (req, res) => {
 
     user.industryProfile.mandates = {
       formats: normalizeFormatArray(mandates.formats),
-      budgetTiers: mandates.budgetTiers || [],
       genres: mandates.genres || [],
       excludeGenres: mandates.excludeGenres || [],
       specificHooks: mandates.specificHooks || [],
@@ -1092,7 +1092,6 @@ export const completeIndustryOnboarding = async (req, res) => {
     if (mandates) {
       user.industryProfile.mandates = {
         formats: normalizeFormatArray(mandates.formats),
-        budgetTiers: mandates.budgetTiers || [],
         genres: mandates.genres || [],
         excludeGenres: mandates.excludeGenres || [],
         specificHooks: mandates.specificHooks || []

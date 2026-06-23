@@ -26,6 +26,11 @@ const NEGOTIATION_MODE_LABELS = {
   open_to_discussion_after_purchase: "Open to discussion after purchase",
   ckript_not_involved: "Ckript not involved in negotiation",
 };
+const SCRIPT_COMPLETION_LABELS = {
+  complete: "Complete",
+  partial: "Partial",
+  ongoing: "Ongoing",
+};
 
 const toSafeText = (value, fallback = "-") => {
   if (value === undefined || value === null) return fallback;
@@ -101,6 +106,42 @@ const buildRoyaltyLabel = (rightsLicensing = {}) => {
   return `${pct}%`;
 };
 
+const buildCreativeRoleLabel = (filmDetails = {}) => {
+  const roles = [
+    filmDetails?.wantToDirect ? "I also want to direct my script" : null,
+    filmDetails?.wantToProduce ? "I also want to produce my script" : null,
+  ].filter(Boolean);
+  return roles.length ? roles.join(" and ") : "Not provided";
+};
+
+const buildDialoguesLabel = (filmDetails = {}) => {
+  if (filmDetails?.dialoguesPresent === "yes") return "Full Dialogues";
+  if (filmDetails?.dialoguesPresent === "partial") return "Partial Dialogues";
+  if (filmDetails?.dialoguesPresent === "no") return "Action / Direction Only";
+  return "-";
+};
+
+const buildScriptCompletionLabel = (scriptCompletion = {}) => {
+  const status = String(scriptCompletion?.status || "complete").trim().toLowerCase();
+  return SCRIPT_COMPLETION_LABELS[status] || SCRIPT_COMPLETION_LABELS.complete;
+};
+
+const buildScriptCompletionProgressLabel = (scriptCompletion = {}) => {
+  const completedParts = Number(scriptCompletion?.completedParts || 0);
+  const totalParts = Number(scriptCompletion?.totalParts || 0);
+
+  if (completedParts > 0 && totalParts > 0) {
+    return `${completedParts}/${totalParts} parts`;
+  }
+  if (totalParts > 0) {
+    return `${totalParts} planned parts`;
+  }
+  if (completedParts > 0) {
+    return `${completedParts} parts done`;
+  }
+  return "-";
+};
+
 const createScriptSubmissionPdfBuffer = async ({ script, creator }) =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 40 });
@@ -121,6 +162,9 @@ const createScriptSubmissionPdfBuffer = async ({ script, creator }) =>
     const rightsLicensing = script?.rightsLicensing || {};
     const legal = script?.legal || {};
     const services = script?.services || {};
+    const filmDetails = script?.filmDetails || {};
+    const scriptCompletion = script?.scriptCompletion || {};
+    const previewAccess = script?.scriptPreviewAccess || {};
     const buyerCommissionRate = 0.05;
     const basePrice = Number(script?.price || 0);
     const buyerCommission = Math.round(basePrice * buyerCommissionRate * 100) / 100;
@@ -147,6 +191,14 @@ const createScriptSubmissionPdfBuffer = async ({ script, creator }) =>
     addKeyValue(doc, "Status", script?.status);
     addKeyValue(doc, "Submitted At", formatDateTime(script?.updatedAt || script?.createdAt));
     addKeyValue(doc, "Script File URL", script?.fileUrl || "-");
+
+    addSectionHeader(doc, "Submission Details");
+    addKeyValue(doc, "Viewable Pages No.", `${Number(previewAccess?.start || 1)} to ${Number(previewAccess?.end || previewAccess?.start || 1)}`);
+    addKeyValue(doc, "Film Language", toSafeText(filmDetails?.filmLanguage));
+    addKeyValue(doc, "Dialogues", buildDialoguesLabel(filmDetails));
+    addKeyValue(doc, "Script Completion", buildScriptCompletionLabel(scriptCompletion));
+    addKeyValue(doc, "Completion Progress", buildScriptCompletionProgressLabel(scriptCompletion));
+    addKeyValue(doc, "Writer's Role", buildCreativeRoleLabel(filmDetails));
 
     addSectionHeader(doc, "Commercial Terms");
     addKeyValue(doc, "Premium Listing", script?.premium ? "Yes" : "No");
@@ -185,9 +237,6 @@ const createScriptSubmissionPdfBuffer = async ({ script, creator }) =>
 
     addSectionHeader(doc, "Logline");
     addParagraph(doc, script?.logline || "No logline provided.");
-
-    addSectionHeader(doc, "Synopsis");
-    addParagraph(doc, script?.synopsis || "No synopsis provided.");
 
     addSectionHeader(doc, "Writer Custom Terms For Investors");
     addParagraph(doc, legal?.customInvestorTerms || "No custom investor terms were provided.");

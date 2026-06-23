@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect, useContext } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import { AuthContext } from "../context/AuthContext";
+import { isFilmIndustryProfessionalRole, hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import ProjectCard from "../components/ProjectCard";
 
 /* ── Constants ─────────────────────────────────────── */ 
@@ -16,6 +18,7 @@ const CONTENT_TYPES = [
   { key: "short_film", label: "Short Film" },
   { key: "web_series", label: "Web Series" },
   { key: "documentary", label: "Documentary" },
+  { key: "micro_drama", label: "Micro Drama" },
   { key: "anime", label: "Anime" },
   { key: "book", label: "Book" },
   { key: "startup", label: "Startup" },
@@ -123,10 +126,18 @@ const SkeletonCard = ({ dark }) => (
 );
 
 /* ══════════════════════════════════════════════════════
-   MAIN COMPONENT — Top List (merged)
+   MAIN COMPONENT — Top Script (merged)
 ══════════════════════════════════════════════════════ */
 const TopList = () => {
   const { isDarkMode: dark } = useDarkMode();
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const isPersonalEmailBlocked =
+    isFilmIndustryProfessionalRole(user) &&
+    !hasBusinessEmail(user?.email) &&
+    !hasActiveFilmIndustryProfessionalAccess(user);
 
   const t = {
     card:        dark ? "bg-[#0d1926] border-[#1a2e47] hover:border-[#264060]" : "bg-white border-gray-100 hover:border-gray-200",
@@ -247,7 +258,7 @@ const TopList = () => {
           <div className="min-w-0">
             <div className="flex items-center gap-2.5 mb-1">
               <div className="w-1 h-6 rounded-full bg-gradient-to-b from-[#1e3a5f] to-[#3a7bd5]" />
-              <h1 className={`text-2xl font-extrabold tracking-tight ${t.header}`}>Top List</h1>
+              <h1 className={`text-2xl font-extrabold tracking-tight ${t.header}`}>Top Script</h1>
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
             </div>
             <p className={`text-[13px] min-[420px]:max-[640px]:text-[12px] font-medium ml-[18px] min-[420px]:max-[640px]:ml-[14px] ${t.sub}`}>{activeTab.desc}</p>
@@ -431,10 +442,57 @@ const TopList = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04, duration: 0.32, ease }}
               >
-                <ProjectCard project={script} userName={script.creator?.name || "Unknown"} />
+                <ProjectCard project={script} userName={script.creator?.name || "Unknown"} onBlock={isPersonalEmailBlocked ? () => setShowUpgradeModal(true) : undefined} />
               </motion.div>
             );
           })}
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowUpgradeModal(false)}
+        >
+          <div
+            className={`relative w-full max-w-sm rounded-2xl border p-6 shadow-2xl ${dark ? "bg-[#0d1926] border-[#1a2e47] text-white" : "bg-white border-gray-200 text-gray-900"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowUpgradeModal(false)}
+              className={`absolute top-3 right-3 p-1.5 rounded-lg transition ${dark ? "hover:bg-white/10 text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${dark ? "bg-amber-500/15" : "bg-amber-50"}`}>
+                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-bold text-base">Access Restricted</p>
+                <p className={`text-sm mt-1 ${dark ? "text-gray-400" : "text-gray-500"}`}>A business email or Film Industry Professional plan is required to view scripts.</p>
+              </div>
+              <div className="flex flex-col gap-2.5 w-full">
+                <button
+                  onClick={() => { setShowUpgradeModal(false); navigate("/pricing"); }}
+                  className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                >
+                  Get Film Industry Professional plan
+                </button>
+                <button
+                  onClick={() => { setShowUpgradeModal(false); navigate("/producer-director-onboarding"); }}
+                  className={`w-full py-2.5 rounded-xl text-sm font-bold border transition ${dark ? "border-[#1a2e47] hover:bg-white/5 text-gray-300" : "border-gray-200 hover:bg-gray-50 text-gray-700"}`}
+                >
+                  Update to a business email
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

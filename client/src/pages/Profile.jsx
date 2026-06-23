@@ -16,6 +16,18 @@ import PasswordInput from "../components/PasswordInput";
 import { applyLanguagePreference, getBackendLanguageValue, getProfileLanguageValue } from "../utils/languagePreference";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import {
+  hasBusinessEmail,
+  hasActiveFilmIndustryProfessionalAccess,
+  isFilmIndustryProfessionalRole,
+  getRemainingContacts,
+  getContactsLimit,
+  getRevealedContactCount,
+  hasRevealedContact,
+  hasReachedContactLimit,
+} from "../utils/industryAccess";
+import PremiumModelBadge from "../components/PremiumModelBadge";
+import WriterModelBadge from "../components/WriterModelBadge";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -204,6 +216,12 @@ const Profile = () => {
   const [requestSuccess, setRequestSuccess] = useState(false);
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [connectionsType, setConnectionsType] = useState("followers");
+  const [showContactDetails, setShowContactDetails] = useState(false);
+  const [contactRevealLoading, setContactRevealLoading] = useState(false);
+  const [contactRevealError, setContactRevealError] = useState("");
+  const [revealedProfileContact, setRevealedProfileContact] = useState(null);
+  const [contactRevealStats, setContactRevealStats] = useState(null);
+  const messageTextareaRef = useRef(null);
   
   // Pitch
   const [showPitchModal, setShowPitchModal] = useState(false);
@@ -231,9 +249,12 @@ const Profile = () => {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [referralSummary, setReferralSummary] = useState(null);
   const [referralLoading, setReferralLoading] = useState(false);
+  const [meetings, setMeetings] = useState([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(false);
   const [referralError, setReferralError] = useState("");
   const [referralCopyFeedback, setReferralCopyFeedback] = useState("");
   const [profileAccessMessage, setProfileAccessMessage] = useState("");
+  const [profileRequiresBusinessEmail, setProfileRequiresBusinessEmail] = useState(false);
   const isFetchingProfileRef = useRef(false);
   const bookmarkRefreshTimerRef = useRef(null);
   const tabInitializedForProfileRef = useRef(null);
@@ -279,8 +300,13 @@ const Profile = () => {
       const serverMessage = error?.response?.data?.message;
       const isPrivateAccount = Boolean(error?.response?.data?.privateAccount);
       const isBlockedView = Boolean(error?.response?.data?.blockedByProfile);
+      const requiresBusinessEmail = Boolean(error?.response?.data?.requiresBusinessEmail);
 
-      if (status === 403 && isPrivateAccount) {
+      if (status === 403 && requiresBusinessEmail) {
+        setProfile(null);
+        setProfileRequiresBusinessEmail(true);
+        setProfileAccessMessage(serverMessage || "You need a business email or a plan to view this profile.");
+      } else if (status === 403 && isPrivateAccount) {
         setProfile(null);
         setFollowRequestPending(Boolean(error?.response?.data?.followRequestPending));
         setProfileAccessMessage(serverMessage || "This account is private.");
@@ -547,6 +573,27 @@ const Profile = () => {
   const isOwnProfile = currentUser._id === profile?._id;
   const isWriterUser = isWriter(profile?.role);
   const isInvestorProfile = String(profile?.role || "").toLowerCase() === "investor";
+  const viewerIsIndustryRole = ["investor", "producer", "director", "industry", "professional"].includes(
+    String(currentUser?.role || "").toLowerCase()
+  );
+  const viewerHasBusinessEmail = viewerIsIndustryRole && hasBusinessEmail(currentUser?.email);
+  const viewerHasProAccess = viewerIsIndustryRole && hasActiveFilmIndustryProfessionalAccess(currentUser);
+  const canViewContactDetails = Boolean(
+    !isOwnProfile &&
+    currentUser?._id &&
+    (viewerHasProAccess)
+  );
+  // For pro-access viewers: contact reveal state
+  const profileWriterId = String(profile?._id || "");
+  const profileContactAlreadyRevealed = Boolean(
+    revealedProfileContact ||
+    (viewerHasProAccess && hasRevealedContact(currentUser, profileWriterId))
+  );
+  const profileRemainingContacts = contactRevealStats?.remainingContacts ?? getRemainingContacts(currentUser);
+  const profileContactsLimit = contactRevealStats?.contactsLimit ?? getContactsLimit(currentUser);
+  const profileContactsUsed = contactRevealStats?.contactsUsed ?? getRevealedContactCount(currentUser);
+  const profileContactRevealBlocked = viewerHasProAccess && !profileContactAlreadyRevealed &&
+    (contactRevealStats ? contactRevealStats.remainingContacts <= 0 : hasReachedContactLimit(currentUser));
   const connectionsLabel = connectionsType === "followers" ? "Followers" : "Following";
   const connectionList =
     connectionsType === "followers" ? profile?.followers || [] : profile?.following || [];
@@ -590,6 +637,15 @@ const Profile = () => {
     title: profile?.shareMeta?.title || `${profile?.name || "Profile"} | Ckript`,
     text: profile?.shareMeta?.text || `Check out ${profile?.name || "this creator"}'s profile on Ckript.`,
   };
+  const profileContactLinks = profile?.writerProfile?.links || {};
+  const profileContactLinkItems = [
+    { key: "portfolio", label: "Portfolio", href: profileContactLinks.portfolio },
+    { key: "linkedin", label: "LinkedIn", href: profileContactLinks.linkedin },
+    { key: "imdb", label: "IMDb", href: profileContactLinks.imdb },
+    { key: "instagram", label: "Instagram", href: profileContactLinks.instagram },
+    { key: "twitter", label: "X / Twitter", href: profileContactLinks.twitter },
+    { key: "facebook", label: "Facebook", href: profileContactLinks.facebook },
+  ].filter((item) => Boolean(String(item.href || "").trim()));
 
   const resolveImage = (url) => {
     if (!url) return "";
@@ -639,6 +695,43 @@ const Profile = () => {
     };
   }, [activeTab, isOwnProfile, isWriterUser]);
 
+  useEffect(() => {
+    if (activeTab === "financial" && isOwnProfile && currentUser?._id && profile?.role !== "admin") {
+      fetchReferralSummary();
+    }
+  }, [activeTab, isOwnProfile, currentUser?._id, profile?.role]);
+  useEffect(() => {
+    if (activeTab === "meetings" && isOwnProfile && currentUser?._id) {
+      const fetchMeetings = async () => {
+        try {
+          setMeetingsLoading(true);
+          const { data } = await api.get("/meetings");
+          setMeetings(data);
+        } catch (error) {
+          console.error("Error fetching meetings:", error);
+        } finally {
+          setMeetingsLoading(false);
+        }
+      };
+      fetchMeetings();
+    }
+  }, [activeTab, isOwnProfile, currentUser?._id]);
+
+  useEffect(() => {
+    setShowContactDetails(false);
+    setRevealedProfileContact(null);
+    setContactRevealStats(null);
+    setContactRevealError("");
+  }, [profile?._id]);
+
+  useEffect(() => {
+    if (!showMessageRequestModal || !messageTextareaRef.current) return;
+
+    const textarea = messageTextareaRef.current;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
+  }, [showMessageRequestModal, messageRequestText]);
+
   /* â”€â”€ Loading â”€â”€ */
   if (loading) {
     return (
@@ -655,6 +748,54 @@ const Profile = () => {
 
   /* â”€â”€ Not found â”€â”€ */
   if (!profile) {
+    if (profileRequiresBusinessEmail) {
+      return (
+        <div className="flex justify-center items-center min-h-[60vh] px-4">
+          <div className={`max-w-md w-full rounded-2xl border p-6 sm:p-8 ${dark ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200"}`}>
+            <div className={`w-12 h-12 mx-auto rounded-2xl flex items-center justify-center mb-4 border ${dark ? "bg-white/[0.03] border-white/[0.05]" : "bg-gray-50 border-gray-200"}`}>
+              <svg className={`w-5 h-5 ${dark ? "text-white/30" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h2 className={`text-base font-extrabold mb-1 text-center ${dark ? "text-white" : "text-gray-900"}`}>Access Restricted</h2>
+            <p className={`text-[13px] text-center leading-relaxed mb-5 ${dark ? "text-white/40" : "text-gray-500"}`}>
+              Your account uses a personal email. Choose an option below to continue.
+            </p>
+            <div className="space-y-3">
+              <div className={`rounded-xl border p-4 ${dark ? "bg-white/[0.03] border-white/[0.05]" : "bg-gray-50 border-gray-200"}`}>
+                <p className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${dark ? "text-white/30" : "text-gray-400"}`}>Free Access</p>
+                <p className={`text-sm font-semibold mb-0.5 ${dark ? "text-white" : "text-gray-900"}`}>Sign up with a business email</p>
+                <p className={`text-[12px] leading-relaxed mb-3 ${dark ? "text-white/40" : "text-gray-500"}`}>
+                  Use a company email address to browse scripts and view writer profiles at no cost.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/industry-onboarding")}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
+                >
+                  Sign up as Film Industry Professional
+                </button>
+              </div>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-wide mb-1 text-amber-500">Premium Plan</p>
+                <p className={`text-sm font-semibold mb-0.5 ${dark ? "text-white" : "text-gray-900"}`}>Film Industry Professional</p>
+                <p className={`text-[12px] leading-relaxed mb-3 ${dark ? "text-white/40" : "text-gray-500"}`}>
+                  Full access to scripts, writer profiles, and verified contact details (email, phone &amp; links) for up to 15 writers per month.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/pricing")}
+                  className="px-4 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                >
+                  Get the Plan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col justify-center items-center h-[60vh] gap-3">
         <div
@@ -709,9 +850,9 @@ const Profile = () => {
     );
   }
 
-  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  /* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
      Design tokens
-     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+     â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
   const t = {
     card: dark
       ? "bg-[#0d1520] border-white/[0.06]"
@@ -793,9 +934,9 @@ const Profile = () => {
     subtleBg: dark ? "bg-white/[0.02]" : "bg-gray-50/60",
   };
 
-  /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  /* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
      RENDER
-     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+     â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
   return (
     <div className={`mx-auto space-y-5 ${isWriterUser || isInvestorProfile ? "max-w-6xl" : "max-w-3xl"}`}>
       <ProfileCompletionBanner
@@ -886,6 +1027,12 @@ const Profile = () => {
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.roleBg}`}>
                         {profile.role}
                       </span>
+                      {hasActiveFilmIndustryProfessionalAccess(profile) && (
+                        <PremiumModelBadge size="md" dark={dark} />
+                      )}
+                      {isWriter(profile.role) && profile.subscription?.accessStatus === "active" && profile.subscription?.plan && (!profile.subscription?.accessExpiresAt || new Date(profile.subscription.accessExpiresAt) > new Date()) && (
+                        <WriterModelBadge plan={profile.subscription.plan} size="md" dark={dark} />
+                      )}
                       {profile.writerProfile?.wgaMember && (
                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.wgaBadge}`}>WGA</span>
                       )}
@@ -1048,6 +1195,12 @@ const Profile = () => {
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.roleBg}`}>
                             Investor
                           </span>
+                          {hasActiveFilmIndustryProfessionalAccess(profile) && (
+                            <PremiumModelBadge size="md" dark={dark} />
+                          )}
+                          {isWriter(profile.role) && profile.subscription?.accessStatus === "active" && profile.subscription?.plan && (!profile.subscription?.accessExpiresAt || new Date(profile.subscription.accessExpiresAt) > new Date()) && (
+                            <WriterModelBadge plan={profile.subscription.plan} size="md" dark={dark} />
+                          )}
                         </div>
 
                         {(profile.industryProfile?.company || profile.industryProfile?.jobTitle) && (
@@ -1130,6 +1283,9 @@ const Profile = () => {
                           <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.12em] border ${t.roleBg}`}>
                             {profile.role}
                           </span>
+                          {hasActiveFilmIndustryProfessionalAccess(profile) && (
+                            <PremiumModelBadge size="md" dark={dark} />
+                          )}
                         </div>
                       </div>
                       {isOwnProfile && <p className={`text-[13px] font-medium mt-2 ${t.email}`}>{profile.email}</p>}
@@ -1215,6 +1371,7 @@ const Profile = () => {
           ...(isOwnProfile && ["investor", "producer", "director"].includes(profile.role)
             ? [{ key: "purchased", label: "Purchased", count: purchasedCount }]
             : []),
+          ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }] : []),
           ...(isOwnProfile ? [{ key: "financial", label: "Financial" }] : []),
           ...(isOwnProfile ? [{ key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
@@ -1248,6 +1405,129 @@ const Profile = () => {
           </button>
         ))}
       </div>
+
+      {/* ──────── MEETINGS TAB ──────── */}
+      {activeTab === "meetings" && isOwnProfile && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-6"
+        >
+          <SectionCard dark={dark} noBox title="Meeting Requests" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}>
+            {meetingsLoading ? (
+              <div className="flex justify-center items-center py-10">
+                <div className={`w-8 h-8 border-4 rounded-full animate-spin ${dark ? "border-white/10 border-t-white" : "border-gray-200 border-t-[#D14D37]"}`} />
+              </div>
+            ) : meetings.length === 0 ? (
+              <div className="text-center py-12">
+                <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${dark ? "bg-white/[0.03]" : "bg-gray-50"}`}>
+                  <svg className={`w-6 h-6 ${dark ? "text-white/20" : "text-gray-300"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className={`text-[13px] font-medium ${dark ? "text-white/40" : "text-gray-500"}`}>No meeting requests found.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {meetings.map((meeting) => {
+                  const isProducer = String(meeting.producer) === String(currentUser._id);
+                  return (
+                    <div key={meeting._id} className={`p-4 rounded-xl border ${dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-white border-gray-200"}`}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className={`font-semibold text-lg ${dark ? "text-white" : "text-gray-900"}`}>{meeting.title}</h3>
+                          <p className={`text-sm ${dark ? "text-white/60" : "text-gray-600"} mt-1`}>
+                            {isProducer ? "With: " : "From: "} <span className="font-semibold">{isProducer ? meeting.writer_name : meeting.producer_name}</span>
+                          </p>
+                          <p className={`text-sm ${dark ? "text-white/60" : "text-gray-600"}`}>
+                            Script: <span className="italic">{meeting.script_name}</span>
+                          </p>
+                          <div className={`mt-3 flex gap-4 text-sm ${dark ? "text-white/50" : "text-gray-500"}`}>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              {new Date(meeting.scheduledDate).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {meeting.scheduledTime}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {meeting.duration} min
+                            </span>
+                          </div>
+                          {meeting.message && (
+                            <p className={`mt-3 text-sm italic ${dark ? "text-white/40" : "text-gray-500"}`}>
+                              "{meeting.message}"
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className={`px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider ${
+                            meeting.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
+                            meeting.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {meeting.status}
+                          </span>
+                          {meeting.status === "accepted" && (
+                            <a
+                              href={meeting.meetingLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 bg-[#D14D37] text-white text-xs font-bold rounded-lg hover:bg-[#b53c29] transition-colors"
+                            >
+                              Join Meeting
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isProducer && meeting.status === "pending" && (
+                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-white/10 flex gap-3">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.patch(`/meetings/${meeting._id}/status`, { status: "accepted" });
+                                setMeetings(meetings.map(m => m._id === meeting._id ? { ...m, status: "accepted" } : m));
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold rounded-lg transition-colors"
+                          >
+                            Accept
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await api.patch(`/meetings/${meeting._id}/status`, { status: "rejected" });
+                                setMeetings(meetings.map(m => m._id === meeting._id ? { ...m, status: "rejected" } : m));
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white text-sm font-semibold rounded-lg transition-colors"
+                          >
+                            Decline
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </SectionCard>
+        </motion.div>
+      )}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ PROJECTS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "projects" && profile.role !== "investor" && (
@@ -1325,7 +1605,7 @@ const Profile = () => {
                 </svg>
               </div>
               <p className={`text-[15px] font-bold mb-1 ${t.emptyH}`}>No bookmarks yet</p>
-              <p className={`text-[13px] max-w-xs mx-auto ${t.emptyP}`}>Bookmark projects from cards or project pages to quickly access them here.</p>
+              <p className={`text-[13px] max-w-xs mx-auto ${t.emptyP}`}>Save scripts from cards or project pages to quickly access them here.</p>
             </div>
           ) : (
             <div className={`grid grid-cols-1 min-[460px]:grid-cols-2 ${isWriterUser ? "lg:grid-cols-3" : ""} gap-4`}>
@@ -1436,19 +1716,198 @@ const Profile = () => {
                 </svg>
               }
             >
-              <div className="mt-2 space-y-1.5">
-                {isOwnProfile && (
-                  <p className={`text-[13px] font-medium ${t.contactTxt}`}>
-                    {profile.email}
-                  </p>
-                )}
-                {memberSince && (
-                  <p
-                    className={`text-[12px] font-medium ${t.contactSub}`}
-                  >
+              <div className="mt-2 space-y-2">
+                {isOwnProfile ? (
+                  <>
+                    <p className={`text-[13px] font-medium ${t.contactTxt}`}>
+                      {profile.email}
+                    </p>
+                    {profile.phone && (
+                      <p className={`text-[13px] font-medium ${t.contactTxt}`}>
+                        {profile.phone}
+                      </p>
+                    )}
+                  </>
+                ) : canViewContactDetails ? (
+                  <>
+                    {/* ── Header row ── */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${t.statLabel}`}>Writer Contact</p>
+                        {/* Counter line for pro-access users */}
+                        {viewerHasProAccess && (
+                          <p className={`text-[11px] mt-0.5 ${dark ? "text-white/35" : "text-gray-400"}`}>
+                            {profileContactRevealBlocked
+                              ? `Limit reached · ${profileContactsUsed}/${profileContactsLimit} used`
+                              : `You can message or view ${profileRemainingContacts} more writer${profileRemainingContacts === 1 ? "" : "s"} · ${profileContactsUsed}/${profileContactsLimit} used`}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action button */}
+                      {profileContactAlreadyRevealed ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowContactDetails((prev) => !prev)}
+                          className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${t.followIdle}`}
+                        >
+                          {showContactDetails ? "Hide" : "View"}
+                        </button>
+                      ) : profileContactRevealBlocked ? (
+                        <span className={`shrink-0 px-3 py-2 rounded-xl text-xs font-bold border ${dark ? "border-white/10 text-white/25 bg-white/5" : "border-gray-200 text-gray-400 bg-gray-50"}`}>
+                          Limit reached
+                        </span>
+                      ) : viewerHasProAccess ? (
+                        <button
+                          type="button"
+                          disabled={contactRevealLoading}
+                          onClick={async () => {
+                            if (!profileWriterId || contactRevealLoading) return;
+                            setContactRevealError("");
+                            setContactRevealLoading(true);
+                            try {
+                              const { data } = await api.post(`/payment/reveal-contact/${profileWriterId}`);
+                              setRevealedProfileContact(data.contact);
+                              setContactRevealStats({
+                                contactsUsed: data.contactsUsed,
+                                contactsLimit: data.contactsLimit,
+                                remainingContacts: data.remainingContacts,
+                              });
+                              setShowContactDetails(true);
+                              // Update global user so counts stay in sync
+                              if (data.contactsUsed !== undefined) {
+                                setUser((prev) => {
+                                  if (!prev) return prev;
+                                  const updated = {
+                                    ...prev,
+                                    subscription: {
+                                      ...(prev.subscription || {}),
+                                      revealedContacts: [
+                                        ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
+                                        { writerId: profileWriterId, revealedAt: new Date().toISOString() },
+                                      ],
+                                    },
+                                  };
+                                  localStorage.setItem("user", JSON.stringify(updated));
+                                  return updated;
+                                });
+                              }
+                            } catch (err) {
+                              setContactRevealError(err?.response?.data?.message || "Failed to reveal contact.");
+                            } finally {
+                              setContactRevealLoading(false);
+                            }
+                          }}
+                          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-60"
+                        >
+                          {contactRevealLoading ? (
+                            <>
+                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                              </svg>
+                              Revealing...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Reveal Contact
+                            </>
+                          )}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Reveal error */}
+                    {contactRevealError && (
+                      <p className="mt-1 text-[11px] text-rose-400">{contactRevealError}</p>
+                    )}
+
+                    {/* Usage bar for pro users */}
+                    {viewerHasProAccess && (
+                      <div className={`h-[3px] w-full rounded-full overflow-hidden mt-2 ${dark ? "bg-white/8" : "bg-gray-100"}`}>
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            profileContactsUsed >= profileContactsLimit
+                              ? "bg-rose-500"
+                              : profileContactsUsed >= profileContactsLimit * 0.8
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${Math.min(100, (profileContactsUsed / Math.max(profileContactsLimit, 1)) * 100)}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Contact details (shown when revealed) */}
+                    {(profileContactAlreadyRevealed) && showContactDetails && (
+                      <div className="space-y-3 pt-2">
+                        {/* After-reveal remaining counter banner */}
+                        {viewerHasProAccess && profileRemainingContacts <= Math.ceil(profileContactsLimit * 0.3) && (
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-semibold ${
+                            profileRemainingContacts === 0
+                              ? dark ? "bg-rose-500/10 border border-rose-500/20 text-rose-400" : "bg-rose-50 border border-rose-200 text-rose-600"
+                              : dark ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" : "bg-amber-50 border border-amber-200 text-amber-600"
+                          }`}>
+                            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                            {profileRemainingContacts === 0
+                              ? `You've used all ${profileContactsLimit} contact reveals for this period`
+                              : `Now only ${profileRemainingContacts} more you can view details`}
+                          </div>
+                        )}
+
+                        <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
+                          <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Email</span>
+                          {(revealedProfileContact?.email || profile.email) ? (
+                            <a href={`mailto:${revealedProfileContact?.email || profile.email}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
+                              {revealedProfileContact?.email || profile.email}
+                            </a>
+                          ) : (
+                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
+                          )}
+                        </div>
+                        <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
+                          <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Phone</span>
+                          {(revealedProfileContact?.phone || profile.phone) ? (
+                            <a href={`tel:${revealedProfileContact?.phone || profile.phone}`} className={`text-[15px] font-semibold break-all ${dark ? "text-gray-200" : "text-gray-700"}`}>
+                              {revealedProfileContact?.phone || profile.phone}
+                            </a>
+                          ) : (
+                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
+                          )}
+                        </div>
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] mb-2 ${t.statLabel}`}>Links</p>
+                          {profileContactLinkItems.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {profileContactLinkItems.map((item) => (
+                                <a
+                                  key={item.key}
+                                  href={item.href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border ${t.chip}`}
+                                >
+                                  {item.label}
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No links shared</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : memberSince ? (
+                  <p className={`text-[12px] font-medium ${t.contactSub}`}>
                     Member since {memberSince}
                   </p>
-                )}
+                ) : null}
               </div>
             </SectionCard>
           </div>
@@ -1556,19 +2015,6 @@ const Profile = () => {
                         </div>
                       ) : (
                         <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No formats selected</p>
-                      )}
-                    </div>
-                    {/* Budget Tiers */}
-                    <div>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Budget Tiers</p>
-                      {profile.industryProfile?.mandates?.budgetTiers?.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5">
-                          {profile.industryProfile.mandates.budgetTiers.map((b, i) => (
-                            <span key={i} className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border capitalize ${dark ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-amber-50 text-amber-700 border-amber-200"}`}>{b}</span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className={`text-[12px] italic ${dark ? "text-white/20" : "text-gray-300"}`}>No budget tiers selected</p>
                       )}
                     </div>
                     {/* Hooks */}
@@ -1972,7 +2418,10 @@ const Profile = () => {
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Email Verified</p>
                   <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.pendingEmail ? `Current: ${profile.email}` : profile.email}</p>
                   {profile.pendingEmail && (
-                    <p className={`text-[11px] mt-0.5 ${dark ? "text-amber-300/70" : "text-amber-700"}`}>Pending: {profile.pendingEmail}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className={`text-[11px] ${dark ? "text-amber-300/70" : "text-amber-700"}`}>Pending: {profile.pendingEmail}</p>
+                      <button onClick={() => { document.getElementById('change-email-input')?.focus(); document.getElementById('change-email-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className={`text-[10px] font-medium hover:underline ${dark ? "text-blue-400" : "text-blue-600"}`}>Edit</button>
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -2070,7 +2519,7 @@ const Profile = () => {
               <div className={`rounded-xl border p-4 ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
                 <p className={`text-[12px] font-bold uppercase tracking-wider mb-3 ${dark ? "text-white/30" : "text-gray-400"}`}>Change Email</p>
                 <div className="space-y-2.5">
-                  <input type="email" placeholder="New email address" value={emailForm.newEmail} onChange={e => setEmailForm({ ...emailForm, newEmail: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
+                  <input id="change-email-input" type="email" placeholder="New email address" value={emailForm.newEmail} onChange={e => setEmailForm({ ...emailForm, newEmail: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <PasswordInput placeholder="Current password" value={emailForm.password} onChange={e => setEmailForm({ ...emailForm, password: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <button disabled={savingSettings || !emailForm.newEmail || !emailForm.password} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); const { data } = await api.put("/users/change-email", emailForm); setProfile({ ...profile, email: data.email, pendingEmail: data.pendingEmail, emailVerified: true }); setEmailForm({ password: "", newEmail: "" }); setEmailVerificationCode(""); setVerificationCodeSent(true); setSettingsMsg(data.message || "Verification code sent to new email."); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || "Failed"); } finally { setSavingSettings(false); } }}
                     className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-30" : "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-40"}`}>{savingSettings ? "Saving..." : "Update Email"}</button>
@@ -2747,11 +3196,17 @@ const Profile = () => {
                     Your Message
                   </label>
                   <textarea
+                    ref={messageTextareaRef}
                     value={messageRequestText}
-                    onChange={(e) => setMessageRequestText(e.target.value)}
+                    onChange={(e) => {
+                      setMessageRequestText(e.target.value);
+                      const next = e.target;
+                      next.style.height = "auto";
+                      next.style.height = `${Math.min(next.scrollHeight, 220)}px`;
+                    }}
                     placeholder="Tell them about your work and why you'd like to connect..."
-                    rows={5}
-                    className={`w-full px-4 py-3 rounded-xl text-sm border outline-none transition-colors resize-none ${
+                    rows={3}
+                    className={`w-full px-4 py-3 rounded-xl text-sm border outline-none transition-colors resize-none overflow-hidden ${
                       dark
                         ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/25 focus:border-white/20"
                         : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:border-blue-400"

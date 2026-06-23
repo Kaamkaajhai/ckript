@@ -1,6 +1,6 @@
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
-import { getWriters, getBlockedUsers, blockUser,getCurrentUser,unblockUser, getUserProfile, getPublicUserProfile, updateUserProfile, followUser, unfollowUser, getFollowRequests, acceptFollowRequest, rejectFollowRequest, cancelFollowRequest, getWatchlist, addToWatchlist, removeFromWatchlist, uploadProfileImage, upload, uploadNotableCreditAttachmentsFile, uploadNotableCreditAttachments, getNotableCreditAttachmentAccessUrl, getNotableCreditAttachmentFile, removeNotableCreditAttachment, updateSettings, changePassword, changeEmail, deleteAccount } from "../controllers/userController.js";
+import { getWriters, getBlockedUsers, blockUser,getCurrentUser,unblockUser, getUserProfile, getPublicUserProfile, updateUserProfile, followUser, unfollowUser, getFollowRequests, acceptFollowRequest, rejectFollowRequest, cancelFollowRequest, getWatchlist, addToWatchlist, removeFromWatchlist, uploadProfileImage, upload, uploadNotableCreditAttachmentsFile, uploadNotableCreditAttachments, getNotableCreditAttachmentAccessUrl, getNotableCreditAttachmentFile, removeNotableCreditAttachment, updateSettings, changePassword, changeEmail, sendEmailVerificationCode, verifyEmailVerificationCode, deleteAccount } from "../controllers/userController.js";
 
 const router = express.Router();
 
@@ -26,6 +26,8 @@ router.post("/follow-requests/cancel", protect, cancelFollowRequest);
 router.put("/settings", protect, updateSettings);
 router.put("/change-password", protect, changePassword);
 router.put("/change-email", protect, changeEmail);
+router.post("/email-verification/send", protect, sendEmailVerificationCode);
+router.post("/email-verification/verify", protect, verifyEmailVerificationCode);
 router.delete("/account", protect, deleteAccount);
 
 // User profile routes

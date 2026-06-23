@@ -18,6 +18,7 @@ const CONTENT_TYPES = [
   { key: "short_film", label: "Short Film" },
   { key: "web_series", label: "Web Series" },
   { key: "documentary", label: "Documentary" },
+  { key: "micro_drama", label: "Micro Drama" },
   { key: "anime", label: "Anime" },
   { key: "book", label: "Book" },
   { key: "startup", label: "Startup" },

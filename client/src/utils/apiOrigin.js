@@ -18,3 +18,11 @@ export const getApiBaseUrl = () => {
   const origin = getApiOrigin();
   return origin ? `${origin}/api` : "/api";
 };
+
+export const isSocketSupported = () => {
+  const origin = getApiOrigin();
+  // Vercel serverless functions do not natively support WebSockets
+  if (origin.includes("vercel.app")) return false;
+  return true;
+};
+

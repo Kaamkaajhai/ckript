@@ -92,6 +92,9 @@ export const getDashboardStats = async (req, res) => {
       ? await Audition.countDocuments({ script: { $in: ss.scriptIds } })
       : 0;
 
+    // Obscure analytics for free tier writers
+    const isFreeWriter = ["writer", "creator"].includes(String(req.user.role).toLowerCase()) && (!user?.subscription?.plan || user?.subscription?.plan === "free");
+
     res.json({
       stats: {
         totalPosts:    ps.totalPosts,
@@ -103,8 +106,9 @@ export const getDashboardStats = async (req, res) => {
         holdEarnings,
         followersCount: user?.followers?.length || 0,
         followingCount: user?.following?.length || 0,
-        totalViews:      Number(user?.profileViews || 0),
-        profileViews:    Number(user?.profileViews || 0),
+        totalViews:      isFreeWriter ? null : Number(user?.profileViews || 0),
+        profileViews:    isFreeWriter ? null : Number(user?.profileViews || 0),
+        isAnalyticsLocked: isFreeWriter,
         trailersGenerated: ss.trailersGenerated,
         scoredScripts:   ss.scoredCount,
         avgScore,
@@ -125,9 +129,14 @@ export const getDashboardReviews = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const scripts = await Script.find({ creator: userId, status: "published", isDeleted: { $ne: true } })
-      .select("title scriptScore platformScore views unlockedBy genre price holdStatus trailerStatus createdAt")
-      .sort({ createdAt: -1 });
+    const [scripts, user] = await Promise.all([
+      Script.find({ creator: userId, status: "published", isDeleted: { $ne: true } })
+        .select("title scriptScore platformScore views unlockedBy genre price holdStatus trailerStatus createdAt")
+        .sort({ createdAt: -1 }),
+      User.findById(userId).select("role subscription")
+    ]);
+
+    const isFreeWriter = ["writer", "creator"].includes(String(user?.role || req.user.role).toLowerCase()) && (!user?.subscription?.plan || user?.subscription?.plan === "free");
 
     // AI Reviews — from scripts that have been scored
     const aiReviews = scripts
@@ -168,17 +177,20 @@ export const getDashboardReviews = async (req, res) => {
         scriptId: s._id,
         scriptTitle: s.title,
         source: "reader",
-        views,
-        unlocks,
-        conversionRate,
-        engagementScore,
-        insight: views === 0
-          ? "No views yet — share your script to get reader engagement."
-          : conversionRate > 10
-            ? "Strong reader interest — high conversion rate from views to unlocks."
-            : unlocks > 0
-              ? "Gaining traction — readers are discovering your content."
-              : "Getting views but no unlocks yet — consider adjusting your pricing or synopsis.",
+        views: isFreeWriter ? null : views,
+        unlocks: isFreeWriter ? null : unlocks,
+        conversionRate: isFreeWriter ? null : conversionRate,
+        engagementScore: isFreeWriter ? null : engagementScore,
+        isAnalyticsLocked: isFreeWriter,
+        insight: isFreeWriter 
+          ? "Reader insights are locked. Upgrade to premium to see views, unlocks, and engagement scores."
+          : views === 0
+            ? "No views yet — share your script to get reader engagement."
+            : conversionRate > 10
+              ? "Strong reader interest — high conversion rate from views to unlocks."
+              : unlocks > 0
+                ? "Gaining traction — readers are discovering your content."
+                : "Getting views but no unlocks yet — consider adjusting your pricing or synopsis.",
       };
     });
 
@@ -206,9 +218,10 @@ export const getDashboardReviews = async (req, res) => {
     platformInsights.push({
       type: "reach",
       title: "Audience Reach",
-      value: totalViews,
-      label: totalViews >= 1000 ? "High" : totalViews >= 100 ? "Growing" : "Getting Started",
-      detail: `${totalViews.toLocaleString()} total views and ${totalUnlocks} unlocks across ${scripts.length} project${scripts.length > 1 ? "s" : ""}.`,
+      value: isFreeWriter ? null : totalViews,
+      label: isFreeWriter ? "Locked" : totalViews >= 1000 ? "High" : totalViews >= 100 ? "Growing" : "Getting Started",
+      detail: isFreeWriter ? "Audience reach insights are a premium feature." : `${totalViews.toLocaleString()} total views and ${totalUnlocks} unlocks across ${scripts.length} project${scripts.length > 1 ? "s" : ""}.`,
+      isAnalyticsLocked: isFreeWriter,
     });
     if (heldCount > 0) {
       platformInsights.push({

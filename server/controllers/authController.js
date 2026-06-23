@@ -17,6 +17,7 @@ import {
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import { getAdminBranchAccessStatus } from "../utils/adminBranchAccess.js";
+import { hasBusinessEmail, isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
@@ -117,7 +118,11 @@ const DEFAULT_CLIENT_ORIGIN = "https://ckript.com";
 const normalizeInputValue = (value = "") => String(value).trim();
 const normalizeCountryName = (value = "") => normalizeInputValue(value);
 const isIndiaCountry = (value = "") => normalizeCountryName(value).toLowerCase() === "india";
-const normalizeReferralInput = (value = "") => normalizeInputValue(value).slice(0, REFERRAL_INPUT_MAX_LENGTH);
+const normalizeReferralInput = (value = "") => {
+  const str = normalizeInputValue(value);
+  if (str === "null" || str === "undefined") return "";
+  return str.slice(0, REFERRAL_INPUT_MAX_LENGTH);
+};
 const normalizeReferralCode = (value = "") => normalizeReferralInput(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
 const normalizeReferralUsername = (value = "") =>
   normalizeReferralInput(value)
@@ -805,6 +810,7 @@ export const join = async (req, res) => {
         email: user.email,
         role: user.role,
         referralCode: user.referralCode,
+        subscription: user.subscription,
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         referralBonusAwarded: referralBonusResult.awarded,
@@ -904,6 +910,7 @@ export const login = async (req, res) => {
         phone: user.phone,
         role: user.role,
         referralCode: user.referralCode,
+        subscription: user.subscription,
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         approvalStatus: user.approvalStatus,
@@ -1131,6 +1138,21 @@ export const verifyOTP = async (req, res) => {
       user.approvalStatus = "pending";
     }
 
+    if (isFilmIndustryProfessionalRole(user) && hasBusinessEmail(user.email)) {
+      if (!user.subscription) {
+        user.subscription = {
+          plan: "free",
+          accessTier: "film_industry_professional",
+          accessStatus: "active",
+          accessActivatedAt: new Date(),
+        };
+      } else if (user.subscription.accessTier !== "film_industry_professional" || user.subscription.accessStatus !== "active") {
+        user.subscription.accessTier = "film_industry_professional";
+        user.subscription.accessStatus = "active";
+        user.subscription.accessActivatedAt = new Date();
+      }
+    }
+
     await user.save();
 
     // Send welcome email
@@ -1156,6 +1178,7 @@ export const verifyOTP = async (req, res) => {
         name: user.name,
         phone: user.phone,
         referralCode: user.referralCode,
+        subscription: user.subscription,
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         approvalStatus: user.approvalStatus,
@@ -1180,6 +1203,7 @@ export const verifyOTP = async (req, res) => {
       phone: user.phone,
       role: user.role,
       referralCode: user.referralCode,
+      subscription: user.subscription,
       language: normalizeLanguagePreference(user.language),
       timezone: user.timezone || DEFAULT_TIMEZONE,
       profileCompletion: getProfileCompletion(user),
@@ -1491,6 +1515,7 @@ export const getMe = async (req, res) => {
       phone: user.phone,
       role: user.role,
       referralCode: user.referralCode,
+      subscription: user.subscription,
       language: normalizeLanguagePreference(user.language),
       timezone: user.timezone || DEFAULT_TIMEZONE,
       approvalStatus: user.approvalStatus,

@@ -5,6 +5,7 @@ import { io } from "socket.io-client";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { getApiOrigin, isSocketSupported } from "../utils/apiOrigin";
 import {
   MessageCircle, ChevronLeft, Send, Lock, Info, Search, X,
   Check, CheckCheck, Smile, Trash2, Video, FileText, Paperclip, Loader2, Download,
@@ -141,7 +142,7 @@ const Messages = () => {
 
   /* ── Socket setup ────────────────────────────────────────── */
   useEffect(() => {
-    if (!user?._id) return;
+    if (!user?._id || !isSocketSupported()) return;
 
     const storedSession = localStorage.getItem("user");
     let socketToken = "";

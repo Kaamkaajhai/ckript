@@ -1636,16 +1636,16 @@ html.dark-mode .script-content img {
 }
 
 /* Fallback: if dark-mode inputs miss explicit text classes, keep content readable. */
-html.dark-mode input:not([class*="text-"]):not([type="checkbox"]):not([type="radio"]),
-html.dark-mode textarea:not([class*="text-"]),
-html.dark-mode select:not([class*="text-"]) {
-  color: #e5edf7;
-  caret-color: #e5edf7;
+html.dark-mode input:not([type="checkbox"]):not([type="radio"]),
+html.dark-mode textarea,
+html.dark-mode select {
+  color: #e5edf7 !important;
+  caret-color: #e5edf7 !important;
 }
 
-html.dark-mode input:not([class*="placeholder:"])::placeholder,
-html.dark-mode textarea:not([class*="placeholder:"])::placeholder {
-  color: #94a3b8;
+html.dark-mode input::placeholder,
+html.dark-mode textarea::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
   opacity: 1;
 }
 
@@ -1681,6 +1681,16 @@ html.dark-mode textarea:not([class*="placeholder:"])::placeholder {
   .script-content h3 {
     color: #000 !important;
   }
+}
+/* ── Fix native inputs in dark mode ── */
+html.dark-mode input[type="date"]::-webkit-datetime-edit-text,
+html.dark-mode input[type="date"]::-webkit-datetime-edit-month-field,
+html.dark-mode input[type="date"]::-webkit-datetime-edit-day-field,
+html.dark-mode input[type="date"]::-webkit-datetime-edit-year-field,
+html.dark-mode input[type="time"]::-webkit-datetime-edit-text,
+html.dark-mode input[type="time"]::-webkit-datetime-edit-hour-field,
+html.dark-mode input[type="time"]::-webkit-datetime-edit-minute-field {
+  color: white !important;
 }
 
 /* ── Global Translate Engine (hidden widget) ── */

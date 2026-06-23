@@ -73,6 +73,17 @@ const scriptSchema = new mongoose.Schema({
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload
+  viewableScript: { type: Boolean, default: false },
+  scriptPreviewAccess: {
+    mode: {
+      type: String,
+      enum: ["pages", "episodes"],
+      default: "pages",
+    },
+    start: { type: Number, min: 1, default: 1 },
+    end: { type: Number, min: 1, default: 8 },
+  },
+  scriptPreviewPageTexts: [{ type: String, default: "" }],
   scriptCompletion: {
     status: {
       type: String,
@@ -85,7 +96,7 @@ const scriptSchema = new mongoose.Schema({
   },
   coverImage: { type: String },
   genre: { type: String },
-  contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup", "songs", "standup_comedy", "dialogues", "poet"], default: "movie" },
+  contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup", "songs", "standup_comedy", "dialogues", "poet", "micro_drama"], default: "movie" },
   status: { type: String, enum: ["draft", "published", "pending_approval", "rejected"], default: "draft" },
   approvalRequestType: { type: String, enum: ["new_submission", "edit_submission"], default: "new_submission" },
   adminApproved: { type: Boolean, default: false },
@@ -109,6 +120,7 @@ const scriptSchema = new mongoose.Schema({
       "fiction_novel",
       "documentary",
       "drama_school",
+      "micro_drama",
       "anime",
       "movie",
       "tv_serial",
@@ -144,12 +156,21 @@ const scriptSchema = new mongoose.Schema({
     settings: [{ type: String }] // Max 3
   },
 
+  // Film production details set by writer during upload
+  filmDetails: {
+    filmLanguage: { type: String, trim: true, maxlength: 100 },
+    dialoguesPresent: { type: String, enum: ["yes", "no", "partial"], default: "yes" },
+    wantToDirect: { type: Boolean, default: false },
+    wantToProduce: { type: Boolean, default: false },
+    scriptStyle: [{ type: String }],
+  },
+
   // Content indicators
   contentIndicators: {
     bechdelTest: { type: Boolean },
     basedOnTrueStory: { type: Boolean, default: false },
     adaptation: { type: Boolean, default: false },
-    adaptationSource: { type: String }, // What it's adapted from
+    adaptationSource: { type: String },
   },
 
   // Tag references (Many-to-Many)
@@ -163,15 +184,7 @@ const scriptSchema = new mongoose.Schema({
     spotlight: { type: Boolean, default: false }
   },
   billing: {
-    evaluationCreditsCharged: { type: Number, default: 0 },
-    aiTrailerCreditsCharged: { type: Number, default: 0 },
-    spotlightCreditsChargedAtUpload: { type: Number, default: 0 },
-    evaluationCreditsChargedAtUpload: { type: Number, default: 0 },
-    aiTrailerCreditsChargedAtUpload: { type: Number, default: 0 },
-    evaluationCreditsRefunded: { type: Number, default: 0 },
-    aiTrailerCreditsRefunded: { type: Number, default: 0 },
-    spotlightCreditsSpent: { type: Number, default: 0 },
-    lastSpotlightRefundCredits: { type: Number, default: 0 },
+
     lastSpotlightActivatedAt: { type: Date },
   },
   evaluationStatus: {
@@ -279,7 +292,7 @@ const scriptSchema = new mongoose.Schema({
     spotlightStartAt: { type: Date },
     spotlightEndAt: { type: Date },
     lastSpotlightPurchaseAt: { type: Date },
-    totalSpotlightCreditsSpent: { type: Number, default: 0 },
+
   },
   price: { type: Number, default: 0 },
   isSold: { type: Boolean, default: false }, // true once any buyer purchases — hides script from all public listings

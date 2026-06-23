@@ -23,7 +23,7 @@ const sections = [
     bullets: [
       "You must provide accurate, current, and complete information during registration",
       "You are responsible for maintaining the confidentiality of your account credentials",
-      "You must notify us immediately at info.ckript@gmail.com if you suspect unauthorized access to your account",
+      "You must notify us immediately at contact@ckript.com if you suspect unauthorized access to your account",
       "You may not create accounts on behalf of others without their explicit consent",
       "One person may not maintain more than one active account without prior written permission from Ckript",
       "We may suspend, restrict, or terminate accounts that violate these Terms or create risk for the platform or other users",
@@ -61,7 +61,7 @@ const sections = [
       },
       {
         subtitle: "Infringement Notices",
-        text: "If you believe content on the platform infringes your copyright or other intellectual property rights, send a notice to info.ckript@gmail.com with sufficient detail for us to identify the work, the allegedly infringing material, the basis of your claim, and your contact details. We may investigate and act as we consider appropriate.",
+        text: "If you believe content on the platform infringes your copyright or other intellectual property rights, send a notice to contact@ckript.com with sufficient detail for us to identify the work, the allegedly infringing material, the basis of your claim, and your contact details. We may investigate and act as we consider appropriate.",
       },
     ],
   },
@@ -84,7 +84,7 @@ const sections = [
       },
       {
         subtitle: "Refund Policy",
-        text: "Except where required by law or expressly stated otherwise, fees are non-refundable once billed or once processing of the purchased service has begun. If you believe you were charged in error, contact info.ckript@gmail.com promptly with supporting details. Any goodwill refund, credit, or reversal will be at our discretion unless otherwise required by law.",
+        text: "Except where required by law or expressly stated otherwise, fees are non-refundable once billed or once processing of the purchased service has begun. If you believe you were charged in error, contact contact@ckript.com promptly with supporting details. Any goodwill refund, credit, or reversal will be at our discretion unless otherwise required by law.",
       },
       {
         subtitle: "Payment Processing",
@@ -175,6 +175,20 @@ const sections = [
     id: "contact",
     title: "18. Contact Us",
     contactBlock: true,
+  },
+  {
+    id: "data-visibility-third-party",
+    title: "19. Data Visibility and Third-Party Services",
+    content: [
+      {
+        subtitle: "Profile Visibility",
+        text: "By registering on the platform, you acknowledge that certain profile details and professional information may be visible to registered Film Industry Professionals, Producers, and Investors to facilitate networking and industry opportunities."
+      },
+      {
+        subtitle: "Third-Party Services and Liability",
+        text: "The platform may integrate with third-party communication tools, such as Jitsi, for video meetings and collaboration. We assume no liability for the security, privacy practices, or data handling of any third-party service. Sharing confidential information via third-party platforms or due to user error is at your own risk. Ckript shall bear no fault or liability for any data breaches, unauthorized access, or theft of information that occurs outside of our secure infrastructure or as a result of user negligence."
+      }
+    ]
   },
 ];
 
@@ -317,8 +331,8 @@ export default function TermsOfService() {
                   </p>
                   <p>
                     <span className="text-gray-600">Email: </span>
-                    <a href="mailto:info.ckript@gmail.com" className="text-blue-400 hover:underline">
-                      info.ckript@gmail.com
+                    <a href="mailto:contact@ckript.com" className="text-blue-400 hover:underline">
+                      contact@ckript.com
                     </a>
                   </p>
                   <p>

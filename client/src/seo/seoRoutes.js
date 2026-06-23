@@ -140,7 +140,7 @@ export const noIndexPrefixes = [
   "/producer-director-onboarding",
   "/investor-onboarding",
   "/industry-onboarding",
-  "/top-list",
+  "/top-script",
   "/featured",
   "/trending",
   "/profile",

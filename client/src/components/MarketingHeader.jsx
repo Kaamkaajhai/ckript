@@ -3,10 +3,11 @@ import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import BrandLogo from "./BrandLogo"; // ✅ correct import
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 
 const links = [
   { to: "/", label: "Home" },
-  { to: "/about", label: "About us" },
+  { action: "about", label: "About us" },
   { to: "/contact", label: "Contact us" },
 ];
 
@@ -17,6 +18,7 @@ const isLinkActive = (pathname, to) => {
 
 const MarketingHeader = () => {
   const { user } = useContext(AuthContext);
+  const { openAuthModal, openAboutModal } = useAuthModal();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -44,18 +46,29 @@ const MarketingHeader = () => {
 
         {/* DESKTOP NAV */}
         <div className="hidden md:flex items-center gap-4">
-          {links.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`text-sm px-3 py-2 rounded-full ${isLinkActive(pathname, item.to)
-                  ? "text-white"
-                  : "text-gray-400 hover:text-white"
-                }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {links.map((item) =>
+            item.action === "about" ? (
+              <button
+                key="about"
+                type="button"
+                onClick={() => openAboutModal()}
+                className="text-sm px-3 py-2 rounded-full text-gray-400 hover:text-white"
+              >
+                {item.label}
+              </button>
+            ) : (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`text-sm px-3 py-2 rounded-full ${isLinkActive(pathname, item.to)
+                    ? "text-white"
+                    : "text-gray-400 hover:text-white"
+                  }`}
+              >
+                {item.label}
+              </Link>
+            )
+          )}
 
           {user ? (
             <>
@@ -71,15 +84,20 @@ const MarketingHeader = () => {
             </>
           ) : (
             <>
-              <Link to="/login" className="text-gray-400 hover:text-white">
+              <button
+                type="button"
+                onClick={() => openAuthModal()}
+                className="text-sm text-gray-400 hover:text-white"
+              >
                 Sign in
-              </Link>
-              <Link
-                to="/join"
+              </button>
+              <button
+                type="button"
+                onClick={() => openAuthModal()}
                 className="bg-white px-4 py-2 rounded-md text-[#0F172A] font-medium hover:bg-gray-100 transition-colors"
               >
                 Get Started
-              </Link>
+              </button>
             </>
           )}
         </div>
@@ -88,16 +106,27 @@ const MarketingHeader = () => {
       {/* MOBILE MENU */}
       {menuOpen && (
         <div className="md:hidden px-4 pb-4 flex flex-col gap-2 bg-black">
-          {links.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="text-gray-300 hover:text-white"
-              onClick={() => setMenuOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {links.map((item) =>
+            item.action === "about" ? (
+              <button
+                key="about"
+                type="button"
+                className="text-left text-gray-300 hover:text-white"
+                onClick={() => { setMenuOpen(false); openAboutModal(); }}
+              >
+                {item.label}
+              </button>
+            ) : (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="text-gray-300 hover:text-white"
+                onClick={() => setMenuOpen(false)}
+              >
+                {item.label}
+              </Link>
+            )
+          )}
 
           {user ? (
             <>
@@ -106,8 +135,8 @@ const MarketingHeader = () => {
             </>
           ) : (
             <>
-              <Link to="/login">Sign in</Link>
-              <Link to="/join">Get Started</Link>
+              <button type="button" className="text-left text-gray-300 hover:text-white" onClick={() => { setMenuOpen(false); openAuthModal(); }}>Sign in</button>
+              <button type="button" className="text-left text-gray-300 hover:text-white" onClick={() => { setMenuOpen(false); openAuthModal(); }}>Get Started</button>
             </>
           )}
         </div>

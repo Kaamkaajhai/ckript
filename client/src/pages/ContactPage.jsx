@@ -105,11 +105,11 @@ const ContactPage = () => {
 
               <div className="space-y-3">
                 <a
-                  href="mailto:info.ckript@gmail.com"
+                  href="mailto:contact@ckript.com"
                   className="flex items-center gap-3 text-sm font-medium rounded-xl px-4 py-3 border border-white/5 bg-white/[0.02] hover:bg-white/[0.06] transition-colors"
                 >
                   <Mail className="w-4 h-4 shrink-0 text-[#BAE6FD]" />
-                  <span className="break-all">info.ckript@gmail.com</span>
+                  <span className="break-all">contact@ckript.com</span>
                 </a>
 
                 <a
@@ -312,6 +312,7 @@ const ContactPage = () => {
           <div className="flex flex-wrap items-center justify-center sm:justify-end gap-6 text-xs sm:text-sm text-white/40">
             <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
             <Link to="/terms-of-service" className="hover:text-white transition-colors">T and C</Link>
+            <Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link to="/contact" className="hover:text-white transition-colors">Contact</Link>
           </div>
         </div>
