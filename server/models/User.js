@@ -121,7 +121,7 @@ const userSchema = new mongoose.Schema({
     // Specialized tags (themes, tones, settings)
     specializedTags: [String],
     // Plan selection
-    plan: { type: String, enum: ["free", "paid"], default: "free" },
+    plan: { type: String, enum: ["free", "paid", "silver", "gold"], default: "free" },
     // Diversity data (optional)
     diversity: {
       gender: { type: String },
@@ -263,12 +263,12 @@ const userSchema = new mongoose.Schema({
   }],
   // Subscription & credits
   subscription: {
-    plan: { type: String, enum: ["free", "pro", "enterprise"], default: "free" },
+    plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
     expiresAt: { type: Date },
     scriptScoreCredits: { type: Number, default: 0 },
     accessTier: {
       type: String,
-      enum: ["none", "film_industry_professional"],
+      enum: ["none", "film_industry_professional", "writer_silver", "writer_gold", "standard"],
       default: "none",
     },
     accessStatus: {
@@ -285,7 +285,7 @@ const userSchema = new mongoose.Schema({
     },
     checkoutProvider: {
       type: String,
-      enum: ["none", "razorpay", "razorpay_test", "manual"],
+      enum: ["none", "razorpay", "razorpay_test", "manual", "mock"],
       default: "none",
     },
     checkoutReference: { type: String },

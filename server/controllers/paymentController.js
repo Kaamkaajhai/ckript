@@ -453,3 +453,104 @@ export const consumeMessageWriterSlot = async (req, res) => {
     return res.status(500).json({ message: error.message || "Failed to consume message slot" });
   }
 };
+
+export const createWriterRazorpayOrder = async (req, res) => {
+  try {
+    const { tier } = req.body;
+    if (!tier || !["silver", "gold"].includes(tier)) {
+      return res.status(400).json({ message: "Invalid tier for subscription." });
+    }
+
+    const currentUser = await User.findById(req.user._id).select("role");
+    if (!currentUser) return res.status(404).json({ message: "User not found" });
+
+    if (!["writer", "creator"].includes(String(currentUser.role).toLowerCase())) {
+      return res.status(403).json({ message: "Only writers and creators can purchase this plan." });
+    }
+
+    const model = tier === "gold" ? WRITER_GOLD_MODEL : WRITER_SILVER_MODEL;
+
+    const razorpay = await getRazorpayInstance();
+    if (!razorpay) {
+      return res.status(503).json({ 
+        message: "Razorpay is not configured. Keys are missing."
+      });
+    }
+
+    const options = {
+      amount: model.amount,
+      currency: model.currency,
+      receipt: `rcpt_${currentUser._id.toString().substring(18)}_${tier}_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
+
+    return res.status(200).json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (error) {
+    console.error("Writer Razorpay Create Order Error:", error);
+    return res.status(500).json({ message: error.message || "Failed to create order" });
+  }
+};
+
+export const verifyWriterRazorpayPayment = async (req, res) => {
+  try {
+    const { tier, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    
+    if (!tier || !["silver", "gold"].includes(tier)) {
+      return res.status(400).json({ message: "Invalid tier for verification." });
+    }
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ message: "Missing required payment details" });
+    }
+
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: "Invalid payment signature" });
+    }
+
+    const currentUser = await User.findById(req.user._id).select("role subscription");
+    if (!currentUser) return res.status(404).json({ message: "User not found" });
+
+    const model = tier === "gold" ? WRITER_GOLD_MODEL : WRITER_SILVER_MODEL;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + model.durationDays * 24 * 60 * 60 * 1000);
+
+    const update = {
+      $set: {
+        "subscription.plan": model.plan,
+        "subscription.expiresAt": expiresAt,
+        "subscription.accessTier": model.accessTier,
+        "subscription.accessStatus": "active",
+        "subscription.accessActivatedAt": now,
+        "subscription.accessExpiresAt": expiresAt,
+        "subscription.checkoutMode": "live",
+        "subscription.checkoutProvider": "razorpay",
+        "subscription.checkoutReference": razorpay_order_id,
+        "subscription.paymentId": razorpay_payment_id,
+      },
+    };
+
+    await User.updateOne({ _id: currentUser._id }, update);
+    const refreshedUser = await User.findById(currentUser._id).select("-password");
+
+    return res.status(200).json({
+      success: true,
+      message: `${model.plan.charAt(0).toUpperCase() + model.plan.slice(1)} Model activated successfully!`,
+      user: refreshedUser
+    });
+  } catch (error) {
+    console.error("Writer Razorpay Verification Error:", error);
+    return res.status(500).json({ message: error.message || "Payment verification failed" });
+  }
+};

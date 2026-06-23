@@ -91,7 +91,7 @@ const PremiumBadge = ({ user }) => {
   );
 };
 
-const WriterPlanCard = ({ title, price, features, tier, isPopular, onSubscribe, buttonText = "Choose Plan" }) => {
+const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, buttonText = "Choose Plan" }) => {
   const isGold = tier === "gold";
   const isSilver = tier === "silver";
 
@@ -131,7 +131,22 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, onSubscribe, 
           Recommended
         </div>
       )}
-      <h3 className={`text-[17px] font-bold tracking-tight ${titleColor}`}>{title}</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className={`text-[17px] font-bold tracking-tight ${titleColor}`}>{title}</h3>
+        {isActive && (
+          <div className="flex items-center gap-2 mt-1">
+            {daysLeft > 0 && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-amber-400/90">{daysLeft} days left</span>
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2 py-0.5 shadow-[0_0_12px_rgba(52,211,153,0.06)]">
+              <span className="h-[4px] w-[4px] rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] animate-pulse" />
+              <span className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-400">Active</span>
+            </span>
+          </div>
+        )}
+      </div>
       <div className="mt-1.5 mb-5 flex items-baseline gap-1.5">
         <span className="text-[32px] font-black tracking-tight text-white leading-none">₹{price}</span>
         <span className="text-[11px] font-medium text-white/40">/ month</span>
@@ -169,6 +184,12 @@ export default function PricingPage() {
   const isEligibleRole = isFilmIndustryProfessionalRole(user);
   const hasAccess = hasActiveFilmIndustryProfessionalAccess(user);
   const roleLabel = String(user?.role || "").trim() || "guest";
+
+  const hasSilverAccess = user?.subscription?.accessTier === "writer_silver" && user?.subscription?.accessStatus === "active" && new Date(user?.subscription?.accessExpiresAt) > new Date();
+  const hasGoldAccess = user?.subscription?.accessTier === "writer_gold" && user?.subscription?.accessStatus === "active" && new Date(user?.subscription?.accessExpiresAt) > new Date();
+  
+  const writerExpDate = user?.subscription?.accessExpiresAt ? new Date(user.subscription.accessExpiresAt) : null;
+  const writerDaysLeft = writerExpDate ? Math.max(0, Math.ceil((writerExpDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24))) : 0;
 
   useEffect(() => {
     return () => {
@@ -319,7 +340,7 @@ export default function PricingPage() {
     }
   };
 
-  const handleWriterTestCheckout = async (tier) => {
+  const handleWriterRazorpayCheckout = async (tier) => {
     setError("");
     setMessage("");
 
@@ -338,25 +359,69 @@ export default function PricingPage() {
     setLoading(true);
 
     try {
-      setMessage("Processing test payment...");
-      const { data: verifyData } = await api.post("/payment/writer/activate-test-subscription", { tier });
+      const res = await loadRazorpayScript();
+      if (!res) {
+        setError("Razorpay SDK failed to load. Are you connected to the internet?");
+        setLoading(false);
+        return;
+      }
 
-      const storedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
-      const updatedUser = {
-        ...storedUser,
-        ...(verifyData?.user || {}),
-        token: storedUser.token,
-        expiresAt: storedUser.expiresAt || verifyData?.user?.expiresAt,
+      const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier });
+      
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Ckript",
+        description: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Model Subscription`,
+        order_id: orderData.orderId,
+        handler: async (response) => {
+          try {
+            setMessage("Verifying payment...");
+            const { data: verifyData } = await api.post("/payment/writer/verify-razorpay-payment", {
+              tier,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            const storedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
+            const updatedUser = {
+              ...storedUser,
+              ...(verifyData?.user || {}),
+              token: storedUser.token,
+              expiresAt: storedUser.expiresAt || verifyData?.user?.expiresAt,
+            };
+
+            setUser(updatedUser);
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            
+            setMessage("Payment successful!");
+            setCheckoutSuccess(true);
+            startCountdownRedirect("/dashboard");
+          } catch (verifyError) {
+            setError(verifyError?.response?.data?.message || "Payment verification failed.");
+            setLoading(false);
+          }
+        },
+        prefill: {
+          name: user.name || "",
+          email: user.email || "",
+        },
+        theme: {
+          color: "#0f1320",
+        },
+        modal: {
+          ondismiss: () => {
+            setLoading(false);
+          }
+        }
       };
 
-      setUser(updatedUser);
-      localStorage.setItem("user", JSON.stringify(updatedUser));
-      
-      setMessage("Test payment successful!");
-      setCheckoutSuccess(true);
-      startCountdownRedirect("/dashboard");
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
     } catch (err) {
-      setError(err?.response?.data?.message || "Test payment failed.");
+      setError(err?.response?.data?.message || "Failed to initiate payment.");
       setLoading(false);
     }
   };
@@ -462,6 +527,8 @@ export default function PricingPage() {
               title="Silver Model"
               price="399"
               tier="silver"
+              isActive={hasSilverAccess}
+              daysLeft={writerDaysLeft}
               features={[
                 "Upload 8 scripts",
                 "Appear in top script sections",
@@ -472,17 +539,21 @@ export default function PricingPage() {
               onSubscribe={() => {
                 if (!user) {
                   openAuthModal({ redirect: "/pricing" });
+                } else if (hasSilverAccess) {
+                  navigate("/dashboard");
                 } else {
-                  handleWriterTestCheckout("silver");
+                  handleWriterRazorpayCheckout("silver");
                 }
               }}
-              buttonText={loading ? "Processing..." : user ? "Test Silver Checkout" : "Sign In to Continue"}
+              buttonText={loading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
             <WriterPlanCard
               title="Gold Model"
               price="699"
               tier="gold"
               isPopular={true}
+              isActive={hasGoldAccess}
+              daysLeft={writerDaysLeft}
               features={[
                 "Upload 20 scripts",
                 "Appear in top script section",
@@ -496,11 +567,13 @@ export default function PricingPage() {
               onSubscribe={() => {
                 if (!user) {
                   openAuthModal({ redirect: "/pricing" });
+                } else if (hasGoldAccess) {
+                  navigate("/dashboard");
                 } else {
-                  handleWriterTestCheckout("gold");
+                  handleWriterRazorpayCheckout("gold");
                 }
               }}
-              buttonText={loading ? "Processing..." : user ? "Pay Securely (Test Mode)" : "Sign In to Continue"}
+              buttonText={loading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
           </div>
 

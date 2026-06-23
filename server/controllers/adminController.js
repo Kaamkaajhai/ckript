@@ -542,8 +542,9 @@ export const getUsers = async (req, res) => {
             filter["subscription.accessStatus"] = "active";
         }
         if (hasActiveWriterPlan === 'true') {
-            filter.role = "writer";
+            filter.role = { $in: ["writer", "creator"] };
             filter["subscription.accessStatus"] = "active";
+            filter["subscription.accessTier"] = { $in: ["writer_silver", "writer_gold", "standard"] };
         }
 
         const searchFilter = buildAdminUserSearchQuery(search);
@@ -1092,7 +1093,7 @@ export const grantWriterPlanToUser = async (req, res) => {
             ...targetUser.subscription,
             plan: plan,
             isActive: true,
-            accessTier: "standard",
+            accessTier: plan === "gold" ? "writer_gold" : "writer_silver",
             accessStatus: "active",
             accessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
             lastAccessUpdate: new Date()
