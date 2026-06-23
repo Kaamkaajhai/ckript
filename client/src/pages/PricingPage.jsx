@@ -88,7 +88,7 @@ const PremiumBadge = ({ user }) => {
   );
 };
 
-const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, onRenew, isRenewing, buttonText = "Choose Plan", quota, uploadedCount }) => {
+const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, onRenew, isRenewing, buttonText = "Choose Plan", quota, uploadedCount, isDisabled }) => {
   const isGold = tier === "gold";
   const isSilver = tier === "silver";
 
@@ -192,7 +192,8 @@ const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, day
       ) : (
         <button
           onClick={onSubscribe}
-          className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
+          disabled={isDisabled || buttonText === "Checking session..." || buttonText === "Processing..."}
+          className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle} disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           {buttonText}
         </button>
@@ -511,7 +512,8 @@ export default function PricingPage() {
                 "Appear only in search section",
                 "AI generated synopsis and logline"
               ]}
-              buttonText={user ? "Go to Dashboard" : "Sign In to Continue"}
+              buttonText={authLoading ? "Checking session..." : user ? "Go to Dashboard" : "Sign In to Continue"}
+              isDisabled={authLoading}
               onSubscribe={() => {
                 if (user) {
                   navigate("/dashboard");
@@ -546,7 +548,8 @@ export default function PricingPage() {
               }}
               onRenew={() => handleWriterRazorpayCheckout("silver")}
               isRenewing={writerLoading}
-              buttonText={writerLoading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              buttonText={authLoading ? "Checking session..." : writerLoading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              isDisabled={authLoading || writerLoading}
             />
             <WriterPlanCard
               title="Gold Model"
@@ -578,7 +581,8 @@ export default function PricingPage() {
               }}
               onRenew={() => handleWriterRazorpayCheckout("gold")}
               isRenewing={writerLoading}
-              buttonText={writerLoading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              buttonText={authLoading ? "Checking session..." : writerLoading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              isDisabled={authLoading || writerLoading}
             />
           </div>
 
