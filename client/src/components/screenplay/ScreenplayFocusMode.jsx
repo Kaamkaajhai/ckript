@@ -88,6 +88,20 @@ export default function ScreenplayFocusMode({
   const actionBtn = `px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition ${dark ? "border-[#22364f] text-gray-300 hover:bg-white/[0.06] hover:border-[#2f4a6e]" : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"}`;
   const dividerCls = `w-px h-6 shrink-0 ${divider}`;
 
+  // A header panel button toggles its section: opening the right panel to that single section, or
+  // closing the panel if it's already showing that section. The active section gets a filled state.
+  const panelActive = (tab) => rightOpen && rightTab === tab;
+  const togglePanel = (tab) => {
+    if (rightOpen && rightTab === tab) { setRightOpen(false); return; }
+    setRightTab(tab);
+    setRightOpen(true);
+  };
+  const panelBtnCls = (tab) => `px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition ${panelActive(tab)
+    ? "bg-[#1e3a5f] border-[#1e3a5f] text-white"
+    : (dark ? "border-[#22364f] text-gray-300 hover:bg-white/[0.06] hover:border-[#2f4a6e]" : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300")}`;
+  // Title shown in the single-section panel header.
+  const panelTitle = { people: "People", comments: "Comments", reports: "Reports", outline: "Outline" }[rightTab] || "";
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col" style={{ background: desk }}>
       {/* ── Primary top toolbar: view + collaboration + file actions ──────── */}
@@ -118,7 +132,7 @@ export default function ScreenplayFocusMode({
         <div className="ml-auto flex items-center gap-2.5">
           {people.length > 0 && (
             <>
-              <PresenceAvatars people={people} dark={dark} onClick={() => setRightOpen(true)} />
+              <PresenceAvatars people={people} dark={dark} onClick={() => togglePanel("people")} />
               <span className={dividerCls} />
             </>
           )}
@@ -147,10 +161,11 @@ export default function ScreenplayFocusMode({
 
           <span className={dividerCls} />
 
-          {/* Panel cluster */}
-          <button type="button" onClick={() => { setRightTab("reports"); setRightOpen(true); }} className={actionBtn}>Reports</button>
-          <button type="button" onClick={() => { setRightTab("outline"); setRightOpen(true); }} className={actionBtn}>Outline</button>
-          <button onClick={() => { setRightTab("comments"); setRightOpen(true); }} className={`${iconBtn} relative`} title="Comments">
+          {/* Panel cluster — each toggles the single-section right panel */}
+          <button type="button" onClick={() => togglePanel("reports")} className={panelBtnCls("reports")}>Reports</button>
+          <button type="button" onClick={() => togglePanel("outline")} className={panelBtnCls("outline")}>Outline</button>
+          <button onClick={() => togglePanel("comments")}
+            className={`${iconBtn} relative ${panelActive("comments") ? "bg-[#1e3a5f] text-white" : ""}`} title="Comments">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
             {openCount > 0 && <span className="absolute top-0.5 right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#d6a93a] text-white text-[9px] font-bold flex items-center justify-center">{openCount}</span>}
           </button>
@@ -305,19 +320,18 @@ export default function ScreenplayFocusMode({
           )}
         </div>
 
-        {/* Right — People / Comments */}
+        {/* Right — People / Comments. Responsive width so the panel never runs off-screen on
+            narrower viewports: full-width (capped) on small screens, fixed 340px on large. */}
         {rightOpen && (
-          <aside className={`w-[340px] shrink-0 border-l flex flex-col ${railCls}`}>
-            {/* Tabs */}
-            <div className={`flex items-center gap-1 px-3 h-14 shrink-0 border-b overflow-x-auto ${dark ? "border-[#182840]" : "border-gray-200"}`}>
-              {[["people", `People${people.length ? ` (${people.length})` : ""}`], ["comments", `Comments${openCount ? ` (${openCount})` : ""}`], ["reports", "Reports"], ["outline", "Outline"]].map(([id, label]) => (
-                <button key={id} type="button" onClick={() => setRightTab(id)}
-                  className={`px-3 py-3 text-[11px] font-bold uppercase tracking-[0.08em] border-b-2 -mb-px transition whitespace-nowrap ${rightTab === id
-                    ? (dark ? "border-blue-400 text-gray-100" : "border-[#1e3a5f] text-gray-800")
-                    : `border-transparent ${muted} hover:${dark ? "text-gray-300" : "text-gray-600"}`}`}>
-                  {label}
-                </button>
-              ))}
+          <aside className={`w-full max-w-[340px] min-[900px]:w-[340px] shrink-0 border-l flex flex-col overflow-hidden ${railCls}`}>
+            {/* Single-section header — title of the active section + close. The section is chosen
+                from the top toolbar (one panel at a time), so there's no in-panel tab bar. */}
+            <div className={`flex items-center px-4 h-14 shrink-0 border-b ${dark ? "border-[#182840]" : "border-gray-200"}`}>
+              <h2 className={`text-[13px] font-bold uppercase tracking-[0.1em] ${dark ? "text-gray-200" : "text-gray-800"}`}>
+                {panelTitle}
+                {rightTab === "people" && people.length > 0 && <span className={`ml-2 text-[11px] font-semibold ${muted}`}>{people.length}</span>}
+                {rightTab === "comments" && openCount > 0 && <span className={`ml-2 text-[11px] font-semibold ${muted}`}>{openCount}</span>}
+              </h2>
               <button onClick={() => setRightOpen(false)} className={`ml-auto ${iconBtn} w-8 h-8 shrink-0`} title="Close panel">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -439,8 +453,14 @@ export default function ScreenplayFocusMode({
             {/* Outline tab — free-form beats/notes kept alongside the script (Phase 4 §4).
                 Stored as script metadata; never exports into the screenplay. */}
             {rightTab === "outline" && (
-              <div className="flex flex-col min-h-0 flex-1">
-                <p className={`px-4 pt-4 pb-3 text-[12px] leading-relaxed ${muted}`}>Beats &amp; notes for this script. Not part of the screenplay — never exported.</p>
+              <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
+                <div className="px-4 pt-4 pb-3">
+                  <div className="flex items-center gap-2">
+                    <svg className={`w-4 h-4 shrink-0 ${dark ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h10" /></svg>
+                    <h3 className={`text-[12px] font-bold uppercase tracking-[0.1em] ${dark ? "text-gray-300" : "text-gray-700"}`}>Outline &amp; Beats</h3>
+                  </div>
+                  <p className={`mt-1.5 text-[11.5px] leading-relaxed ${muted}`}>Private notes for structure and beats. Saved with the script — never exported into the screenplay.</p>
+                </div>
                 <textarea
                   value={outlineNotes}
                   onChange={(e) => onOutlineChange?.(e.target.value)}
