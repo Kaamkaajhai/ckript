@@ -85,6 +85,84 @@ const PremiumBadge = ({ user }) => {
   );
 };
 
+const WriterPlanCard = ({ title, price, features, tier, isPopular, isActive, daysLeft, onSubscribe, buttonText = "Choose Plan" }) => {
+  const isGold = tier === "gold";
+  const isSilver = tier === "silver";
+
+  let borderStyle = "border-white/[0.08]";
+  let bgStyle = "bg-[#0e1220]";
+  let titleColor = "text-white";
+  let iconColor = "text-indigo-400";
+  let buttonStyle = "bg-white/10 text-white hover:bg-white/20 hover:shadow-white/10";
+
+  if (isGold) {
+    borderStyle = "border-amber-400/50";
+    bgStyle = "bg-gradient-to-b from-[#1a1309] to-[#0e1220]";
+    titleColor = "text-amber-400";
+    iconColor = "text-amber-400";
+    buttonStyle = "bg-amber-500 text-amber-950 hover:bg-amber-400 hover:shadow-amber-500/20";
+  } else if (isSilver) {
+    borderStyle = "border-slate-400/40";
+    bgStyle = "bg-gradient-to-b from-[#151921] to-[#0e1220]";
+    titleColor = "text-slate-300";
+    iconColor = "text-slate-400";
+    buttonStyle = "bg-slate-300 text-slate-900 hover:bg-slate-200 hover:shadow-slate-300/20";
+  }
+
+  return (
+    <div className={`relative overflow-hidden rounded-[20px] border ${borderStyle} ${bgStyle} p-6 shadow-xl flex flex-col`}>
+      {isGold && (
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600"></div>
+      )}
+      {isSilver && (
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-slate-400 via-slate-200 to-slate-400"></div>
+      )}
+      {isPopular && (
+        <div className={`absolute top-4 right-4 rounded-full px-3 py-1 text-[9px] font-bold uppercase tracking-wider ${
+          isGold ? "bg-amber-500/10 border border-amber-500/20 text-amber-400" :
+          "bg-slate-500/10 border border-slate-400/20 text-slate-300"
+        }`}>
+          Recommended
+        </div>
+      )}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className={`text-[17px] font-bold tracking-tight ${titleColor}`}>{title}</h3>
+        {isActive && (
+          <div className="flex items-center gap-2 mt-1">
+            {daysLeft > 0 && (
+              <span className="inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5">
+                <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-amber-400/90">{daysLeft} days left</span>
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/[0.08] px-2 py-0.5 shadow-[0_0_12px_rgba(52,211,153,0.06)]">
+              <span className="h-[4px] w-[4px] rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.8)] animate-pulse" />
+              <span className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-400">Active</span>
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="mt-1.5 mb-5 flex items-baseline gap-1.5">
+        <span className="text-[32px] font-black tracking-tight text-white leading-none">₹{price}</span>
+        <span className="text-[11px] font-medium text-white/40">/ month</span>
+      </div>
+      <ul className="mb-7 space-y-3 flex-1">
+        {features.map((item, idx) => (
+          <li key={idx} className="flex items-start gap-2.5 text-[12px] leading-[1.5] text-white/60">
+            <Check className={`mt-[2px] h-3.5 w-3.5 shrink-0 ${iconColor}`} />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+      <button
+        onClick={onSubscribe}
+        className={`w-full rounded-xl py-2.5 text-[12px] font-bold tracking-wide transition-all shadow-lg ${buttonStyle}`}
+      >
+        {buttonText}
+      </button>
+    </div>
+  );
+};
+
 export default function PricingPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -106,6 +184,12 @@ export default function PricingPage() {
   const countdownRef = useRef(null);
 
   const roleLabel = String(user?.role || "").trim() || "guest";
+
+  const hasSilverAccess = user?.subscription?.accessTier === "writer_silver" && user?.subscription?.accessStatus === "active" && new Date(user?.subscription?.accessExpiresAt) > new Date();
+  const hasGoldAccess = user?.subscription?.accessTier === "writer_gold" && user?.subscription?.accessStatus === "active" && new Date(user?.subscription?.accessExpiresAt) > new Date();
+  
+  const writerExpDate = user?.subscription?.accessExpiresAt ? new Date(user.subscription.accessExpiresAt) : null;
+  const writerDaysLeft = writerExpDate ? Math.max(0, Math.ceil((writerExpDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24))) : 0;
 
   useEffect(() => {
     return () => {
@@ -162,6 +246,92 @@ export default function PricingPage() {
       },
       onAlreadyActive: goBackSafely,
     });
+
+  const handleWriterRazorpayCheckout = async (tier) => {
+    setError("");
+    setMessage("");
+
+    if (authLoading) return;
+
+    if (!user) {
+      openAuthModal({ redirect: "/pricing" });
+      return;
+    }
+
+    if (!["writer", "creator"].includes(String(user.role).toLowerCase())) {
+      setError("This plan is designed for writers and creators.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await loadRazorpayScript();
+      if (!res) {
+        setError("Razorpay SDK failed to load. Are you connected to the internet?");
+        setLoading(false);
+        return;
+      }
+
+      const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier });
+      
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "Ckript",
+        description: `${tier.charAt(0).toUpperCase() + tier.slice(1)} Model Subscription`,
+        order_id: orderData.orderId,
+        handler: async (response) => {
+          try {
+            setMessage("Verifying payment...");
+            const { data: verifyData } = await api.post("/payment/writer/verify-razorpay-payment", {
+              tier,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            const storedUser = JSON.parse(localStorage.getItem("user") || "null") || {};
+            const updatedUser = {
+              ...storedUser,
+              ...(verifyData?.user || {}),
+              token: storedUser.token,
+              expiresAt: storedUser.expiresAt || verifyData?.user?.expiresAt,
+            };
+
+            setUser(updatedUser);
+            localStorage.setItem("user", JSON.stringify(updatedUser));
+            
+            setMessage("Payment successful!");
+            setCheckoutSuccess(true);
+            startCountdownRedirect("/dashboard");
+          } catch (verifyError) {
+            setError(verifyError?.response?.data?.message || "Payment verification failed.");
+            setLoading(false);
+          }
+        },
+        prefill: {
+          name: user.name || "",
+          email: user.email || "",
+        },
+        theme: {
+          color: "#0f1320",
+        },
+        modal: {
+          ondismiss: () => {
+            setLoading(false);
+          }
+        }
+      };
+
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to initiate payment.");
+      setLoading(false);
+    }
+  };
 
   /* ── Success state shown after checkout ── */
   if (checkoutSuccess) {
@@ -230,14 +400,100 @@ export default function PricingPage() {
         </button>
       </div>
 
-      <div className="relative flex min-h-screen flex-col justify-center px-5 py-16 sm:px-8">
-        <div className="w-full max-w-[360px]">
+      <div className="relative flex flex-col items-center justify-start px-5 py-12 sm:px-8 w-full z-10">
+        <div className="w-full max-w-5xl mx-auto">
 
-          {/* Page heading */}
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-indigo-400/70">Membership</p>
-          <h1 className="mb-6 text-[22px] font-bold leading-tight tracking-tight text-white">
-            Film Industry Professional
-          </h1>
+          {/* Writer's Business Model Section */}
+          <div className="text-left mb-10">
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
+              Writer's Business Model
+            </h1>
+            <div className="mt-4 h-[2px] w-20 bg-gradient-to-r from-indigo-500 to-transparent rounded-full"></div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+            <WriterPlanCard
+              title="Free Tier"
+              price="0"
+              tier="free"
+              features={[
+                "Upload 1 script",
+                "Appear only in search section",
+                "AI generated synopsis and logline"
+              ]}
+              buttonText={user ? "Go to Dashboard" : "Sign In to Continue"}
+              onSubscribe={() => {
+                if (user) {
+                  navigate("/dashboard");
+                } else {
+                  openAuthModal({ redirect: "/dashboard" });
+                }
+              }}
+            />
+            <WriterPlanCard
+              title="Silver Model"
+              price="399"
+              tier="silver"
+              isActive={hasSilverAccess}
+              daysLeft={writerDaysLeft}
+              features={[
+                "Upload 8 scripts",
+                "Appear in top script sections",
+                "AI generated synopsis, logline and Roles",
+                "AI evaluation",
+                "View who see scripts/profile"
+              ]}
+              onSubscribe={() => {
+                if (!user) {
+                  openAuthModal({ redirect: "/pricing" });
+                } else if (hasSilverAccess) {
+                  navigate("/dashboard");
+                } else {
+                  handleWriterRazorpayCheckout("silver");
+                }
+              }}
+              buttonText={loading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+            />
+            <WriterPlanCard
+              title="Gold Model"
+              price="699"
+              tier="gold"
+              isPopular={true}
+              isActive={hasGoldAccess}
+              daysLeft={writerDaysLeft}
+              features={[
+                "Upload 20 scripts",
+                "Appear in top script section",
+                "Appear in featured section",
+                "AI generated synopsis, logline and Roles",
+                "AI evaluation",
+                "View who see scripts/profile",
+                "Ckript professional reader evaluation",
+                "Upload Pitch video of script"
+              ]}
+              onSubscribe={() => {
+                if (!user) {
+                  openAuthModal({ redirect: "/pricing" });
+                } else if (hasGoldAccess) {
+                  navigate("/dashboard");
+                } else {
+                  handleWriterRazorpayCheckout("gold");
+                }
+              }}
+              buttonText={loading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+            />
+          </div>
+
+          {/* Film Industry Professional Section */}
+          <div className="border-t border-white/[0.06] pt-12 flex flex-col items-start">
+            <div className="text-left mb-10">
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/70">
+                Film Industry Professional Model
+              </h2>
+              <div className="mt-4 h-[2px] w-20 bg-gradient-to-r from-amber-400 to-transparent rounded-full"></div>
+            </div>
+
+            <div className="w-full max-w-[380px]">
 
           {/* Card */}
           <div className="relative overflow-hidden rounded-[20px] border border-white/[0.08] bg-[#0e1220] shadow-[0_24px_64px_rgba(0,0,0,0.5)]">
@@ -351,10 +607,12 @@ export default function PricingPage() {
                     ? `This plan is for film industry professionals. Your account type (${roleLabel}) is not eligible.`
                     : "film industry professional account detected"}
               </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
     </main>
   );
 }

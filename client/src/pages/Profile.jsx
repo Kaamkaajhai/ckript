@@ -27,6 +27,7 @@ import {
   hasReachedContactLimit,
 } from "../utils/industryAccess";
 import PremiumModelBadge from "../components/PremiumModelBadge";
+import WriterModelBadge from "../components/WriterModelBadge";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -1029,6 +1030,9 @@ const Profile = () => {
                       {hasActiveFilmIndustryProfessionalAccess(profile) && (
                         <PremiumModelBadge size="md" dark={dark} />
                       )}
+                      {isWriter(profile.role) && profile.subscription?.accessStatus === "active" && profile.subscription?.plan && (!profile.subscription?.accessExpiresAt || new Date(profile.subscription.accessExpiresAt) > new Date()) && (
+                        <WriterModelBadge plan={profile.subscription.plan} size="md" dark={dark} />
+                      )}
                       {profile.writerProfile?.wgaMember && (
                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.wgaBadge}`}>WGA</span>
                       )}
@@ -1193,6 +1197,9 @@ const Profile = () => {
                           </span>
                           {hasActiveFilmIndustryProfessionalAccess(profile) && (
                             <PremiumModelBadge size="md" dark={dark} />
+                          )}
+                          {isWriter(profile.role) && profile.subscription?.accessStatus === "active" && profile.subscription?.plan && (!profile.subscription?.accessExpiresAt || new Date(profile.subscription.accessExpiresAt) > new Date()) && (
+                            <WriterModelBadge plan={profile.subscription.plan} size="md" dark={dark} />
                           )}
                         </div>
 

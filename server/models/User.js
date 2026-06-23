@@ -121,7 +121,7 @@ const userSchema = new mongoose.Schema({
     // Specialized tags (themes, tones, settings)
     specializedTags: [String],
     // Plan selection
-    plan: { type: String, enum: ["free", "paid"], default: "free" },
+    plan: { type: String, enum: ["free", "paid", "silver", "gold"], default: "free" },
     // Diversity data (optional)
     diversity: {
       gender: { type: String },
@@ -263,12 +263,12 @@ const userSchema = new mongoose.Schema({
   }],
   // Subscription & credits
   subscription: {
-    plan: { type: String, enum: ["free", "pro", "enterprise"], default: "free" },
+    plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
     expiresAt: { type: Date },
     scriptScoreCredits: { type: Number, default: 0 },
     accessTier: {
       type: String,
-      enum: ["none", "film_industry_professional"],
+      enum: ["none", "film_industry_professional", "writer_silver", "writer_gold", "standard"],
       default: "none",
     },
     accessStatus: {
@@ -285,7 +285,7 @@ const userSchema = new mongoose.Schema({
     },
     checkoutProvider: {
       type: String,
-      enum: ["none", "razorpay", "razorpay_test", "manual"],
+      enum: ["none", "razorpay", "razorpay_test", "manual", "mock"],
       default: "none",
     },
     checkoutReference: { type: String },
@@ -415,23 +415,9 @@ const userSchema = new mongoose.Schema({
     totalEarnings: { type: Number, default: 0 },
     totalWithdrawals: { type: Number, default: 0 }
   },
-  // Credits System
-  credits: {
-    balance: { type: Number, default: 0 },
-    totalPurchased: { type: Number, default: 0 },
-    totalSpent: { type: Number, default: 0 },
-    lastPurchase: { type: Date },
-    transactions: [{
-      type: { type: String, enum: ["purchase", "spent", "bonus", "refund"] },
-      amount: { type: Number },
-      description: { type: String },
-      reference: { type: String },
-      createdAt: { type: Date, default: Date.now }
-    }]
-  },
+
   referralStats: {
     successfulReferrals: { type: Number, default: 0 },
-    totalBonusCredits: { type: Number, default: 0 },
   },
   // Stripe Connected Account (for payouts)
   stripeAccountId: { type: String },

@@ -310,7 +310,7 @@ const BankDetails = ({ dark }) => {
             </p>
             <p className={`text-xs mt-1 ${hasPendingReview ? dark ? "text-amber-200/80" : "text-amber-700" : dark ? "text-red-200/80" : "text-red-700"}`}>
               {hasPendingReview
-                ? `Your request is expected to be reviewed ${reviewDueAtText}. Credits can be purchased after approval.`
+                ? `Your request is expected to be reviewed ${reviewDueAtText}.`
                 : (bankDetailsReview?.adminNote || "Please update and resubmit your bank details.")}
             </p>
           </div>

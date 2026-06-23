@@ -177,15 +177,7 @@ const scriptSchema = new mongoose.Schema({
     spotlight: { type: Boolean, default: false }
   },
   billing: {
-    evaluationCreditsCharged: { type: Number, default: 0 },
-    aiTrailerCreditsCharged: { type: Number, default: 0 },
-    spotlightCreditsChargedAtUpload: { type: Number, default: 0 },
-    evaluationCreditsChargedAtUpload: { type: Number, default: 0 },
-    aiTrailerCreditsChargedAtUpload: { type: Number, default: 0 },
-    evaluationCreditsRefunded: { type: Number, default: 0 },
-    aiTrailerCreditsRefunded: { type: Number, default: 0 },
-    spotlightCreditsSpent: { type: Number, default: 0 },
-    lastSpotlightRefundCredits: { type: Number, default: 0 },
+
     lastSpotlightActivatedAt: { type: Date },
   },
   evaluationStatus: {
@@ -293,7 +285,7 @@ const scriptSchema = new mongoose.Schema({
     spotlightStartAt: { type: Date },
     spotlightEndAt: { type: Date },
     lastSpotlightPurchaseAt: { type: Date },
-    totalSpotlightCreditsSpent: { type: Number, default: 0 },
+
   },
   price: { type: Number, default: 0 },
   isSold: { type: Boolean, default: false }, // true once any buyer purchases — hides script from all public listings

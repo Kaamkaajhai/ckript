@@ -1,7 +1,7 @@
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { CREDIT_PRICES } from "./creditsController.js";
+
 import { generateJsonWithGoogleAI } from "../services/googleAiService.js";
 import { generateTrailerVideo } from "../services/videoGenerationService.js";
 
@@ -106,7 +106,7 @@ CRITICAL OUTPUT RULES:
 
 const scoreRequestLockMs = 10 * 60 * 1000;
 
-const runScriptScoreGeneration = async ({ scriptId, userId }) => {
+export const runScriptScoreGeneration = async ({ scriptId, userId }) => {
   const script = await Script.findById(scriptId);
   if (!script) return;
 
@@ -262,49 +262,15 @@ export const generateTrailer = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can generate a trailer" });
     }
 
-    // Check if credits were already paid during upload
-    const alreadyPaid = script.services?.aiTrailer === true;
+    // Ensure the user is on a premium plan before generating trailer
+    const user = await User.findById(req.user._id);
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
     
-    if (!alreadyPaid) {
-      // Check credits
-      const user = await User.findById(req.user._id);
-      const requiredCredits = CREDIT_PRICES.AI_TRAILER;
-      const userBalance = user.credits?.balance || 0;
-
-      if (userBalance < requiredCredits) {
-        return res.status(402).json({ 
-          message: `Insufficient credits. AI Trailer generation requires ${requiredCredits} credits.`,
-          requiresCredits: true,
-          required: requiredCredits,
-          balance: userBalance,
-          shortfall: requiredCredits - userBalance
-        });
-      }
-
-      // Deduct credits
-      user.credits.balance -= requiredCredits;
-      user.credits.totalSpent += requiredCredits;
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -requiredCredits,
-        description: `AI Trailer generation for "${script.title}"`,
-        reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date()
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({ 
+        message: "AI Trailer generation is a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
       });
-      await user.save();
-
-      const currentBilling = script.billing || {};
-      script.billing = {
-        ...currentBilling,
-        evaluationCreditsCharged: Number(currentBilling.evaluationCreditsCharged || 0),
-        aiTrailerCreditsCharged: Number(currentBilling.aiTrailerCreditsCharged || 0) + requiredCredits,
-        evaluationCreditsRefunded: Number(currentBilling.evaluationCreditsRefunded || 0),
-        aiTrailerCreditsRefunded: Number(currentBilling.aiTrailerCreditsRefunded || 0),
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0),
-        lastSpotlightRefundCredits: Number(currentBilling.lastSpotlightRefundCredits || 0),
-        lastSpotlightActivatedAt: currentBilling.lastSpotlightActivatedAt,
-      };
-      script.markModified("billing");
     }
 
     // Mark as generating
@@ -456,50 +422,15 @@ export const generateScriptScore = async (req, res) => {
       });
     }
 
-    // Treat an existing billing charge as paid too, not only services.evaluation.
-    const alreadyPaid =
-      script.services?.evaluation === true ||
-      Number(script.billing?.evaluationCreditsCharged || 0) > 0;
+    // Ensure the user is on a premium plan before generating evaluation
+    const user = await User.findById(req.user._id);
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
     
-    if (!alreadyPaid) {
-      const user = await User.findById(req.user._id);
-      const requiredCredits = CREDIT_PRICES.AI_EVALUATION;
-      const userBalance = user.credits?.balance || 0;
-      
-      if (userBalance < requiredCredits) {
-        return res.status(402).json({ 
-          message: `Insufficient credits. AI Script Evaluation requires ${requiredCredits} credits.`,
-          requiresCredits: true,
-          required: requiredCredits,
-          balance: userBalance,
-          shortfall: requiredCredits - userBalance
-        });
-      }
-
-      // Deduct credits
-      user.credits.balance -= requiredCredits;
-      user.credits.totalSpent += requiredCredits;
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -requiredCredits,
-        description: `AI Script Evaluation for "${script.title}"`,
-        reference: `EVAL-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date()
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({ 
+        message: "AI Script Evaluation is a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
       });
-      await user.save();
-
-      const currentBilling = script.billing || {};
-      script.billing = {
-        ...currentBilling,
-        evaluationCreditsCharged: Number(currentBilling.evaluationCreditsCharged || 0) + requiredCredits,
-        aiTrailerCreditsCharged: Number(currentBilling.aiTrailerCreditsCharged || 0),
-        evaluationCreditsRefunded: Number(currentBilling.evaluationCreditsRefunded || 0),
-        aiTrailerCreditsRefunded: Number(currentBilling.aiTrailerCreditsRefunded || 0),
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0),
-        lastSpotlightRefundCredits: Number(currentBilling.lastSpotlightRefundCredits || 0),
-        lastSpotlightActivatedAt: currentBilling.lastSpotlightActivatedAt,
-      };
-      script.markModified("billing");
     }
 
     script.services = {
@@ -542,36 +473,18 @@ export const correctScriptText = async (req, res) => {
       return res.status(400).json({ message: "Script text is required" });
     }
 
-    // ── Credit check (5 credits for grammar fix) ─────────────────────────
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    const required = CREDIT_PRICES.AI_GRAMMAR; // 5 credits
-    const balance = user.credits?.balance || 0;
-    const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
-
-    if (balance < required) {
-      return res.status(402).json({
-        message: `Insufficient credits. Grammar Fix requires ${required} credits. You have ${balance}.`,
-        requiresCredits: true,
-        required,
-        balance,
-        shortfall: required - balance,
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({ 
+        message: "AI Grammar Fix is a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
       });
     }
 
-    // Deduct credits before AI call
-    user.credits.balance -= required;
-    user.credits.totalSpent = (user.credits.totalSpent || 0) + required;
-    user.credits.transactions = user.credits.transactions || [];
-    user.credits.transactions.push({
-      type: "spent",
-      amount: -required,
-      description: "AI Grammar Fix (Script Editor)",
-      reference: `GRAMMAR-${Date.now().toString(36).toUpperCase()}`,
-      createdAt: new Date(),
-    });
-    await user.save();
+    const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
 
     const normalizedSource = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
     const truncatedSource = normalizedSource.slice(0, 25000);
@@ -799,32 +712,16 @@ export const generateProseSample = async (req, res) => {
       return res.status(400).json({ message: "Script has no content to convert." });
     }
 
-    // Check credits
+    // Check premium plan
     const user = await User.findById(req.user._id);
-    const requiredCredits = CREDIT_PRICES.AI_PROSE || 20;
-    const userBalance = user.credits?.balance || 0;
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
 
-    if (userBalance < requiredCredits) {
-      return res.status(402).json({
-        message: `Insufficient credits. AI Prose Sample generation requires ${requiredCredits} credits.`,
-        requiresCredits: true,
-        required: requiredCredits,
-        balance: userBalance,
-        shortfall: requiredCredits - userBalance
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({
+        message: "AI Prose Sample generation is a premium feature. Please upgrade your plan.",
+        requiresUpgrade: true
       });
     }
-
-    // Deduct credits
-    user.credits.balance -= requiredCredits;
-    user.credits.totalSpent += requiredCredits;
-    user.credits.transactions.push({
-      type: "spent",
-      amount: -requiredCredits,
-      description: `AI Prose Sample for "${script.title}"`,
-      reference: `PROSE-${Date.now().toString(36).toUpperCase()}`,
-      createdAt: new Date()
-    });
-    await user.save();
 
     // Take the first ~500 words
     const words = sourceText.split(/\s+/);
@@ -886,33 +783,16 @@ export const aiWritingAssist = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found." });
     const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
 
-    // ── Credit check for grammar action ──────────────────────────────────
+    // ── Check Premium Plan for Writing Assist ──────────────────────────────────
     if (action === "grammar") {
-      const required = CREDIT_PRICES.AI_GRAMMAR; // 5 credits
-      const balance = user.credits?.balance || 0;
+      const plan = String(user.subscription?.plan || "free").toLowerCase();
 
-      if (balance < required) {
-        return res.status(402).json({
-          message: `Insufficient credits. AI Grammar Fix requires ${required} credits. You have ${balance}.`,
-          requiresCredits: true,
-          required,
-          balance,
-          shortfall: required - balance,
+      if (plan === "free" || plan === "none") {
+        return res.status(403).json({
+          message: "AI Grammar Fix is a premium feature. Please upgrade your plan.",
+          requiresUpgrade: true
         });
       }
-
-      // Deduct credits
-      user.credits.balance -= required;
-      user.credits.totalSpent = (user.credits.totalSpent || 0) + required;
-      user.credits.transactions = user.credits.transactions || [];
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -required,
-        description: `AI Grammar Fix`,
-        reference: `GRAMMAR-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date(),
-      });
-      await user.save();
     }
 
     const normalizedSource = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
@@ -988,10 +868,10 @@ ${truncatedSource}`;
 export const getServiceCosts = async (req, res) => {
   try {
     res.json({
-      aiEvaluation: CREDIT_PRICES.AI_EVALUATION,
-      aiTrailer: CREDIT_PRICES.AI_TRAILER,
-      scriptAnalysis: CREDIT_PRICES.SCRIPT_ANALYSIS,
-      premiumReport: CREDIT_PRICES.PREMIUM_REPORT
+      aiEvaluation: "Premium Only",
+      aiTrailer: "Premium Only",
+      scriptAnalysis: "Premium Only",
+      premiumReport: "Premium Only"
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

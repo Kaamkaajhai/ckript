@@ -5,7 +5,6 @@ import { io } from "socket.io-client";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import Sidebar from "../components/Sidebar";
-import BuyCreditsModal from "../components/BuyCreditsModal";
 import BrandLogo from "../components/BrandLogo";
 import ConfirmDialog from "../components/ConfirmDialog";
 import api from "../services/api";
@@ -35,8 +34,7 @@ const MainLayout = ({ children }) => {
   const [pendingPurchaseCount, setPendingPurchaseCount] = useState(0);
   const [notificationPopups, setNotificationPopups] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
-  const [showBuyCredits, setShowBuyCredits] = useState(false);
-  const [creditsBalance, setCreditsBalance] = useState(0);
+
   const [avatarLoadError, setAvatarLoadError] = useState(false);
   const [sidebarToggleToken, setSidebarToggleToken] = useState(0);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -44,7 +42,7 @@ const MainLayout = ({ children }) => {
   const notifRef = useRef(null);
   const notificationRefreshTimeoutRef = useRef(null);
   const seenNotificationIdsRef = useRef(new Set());
-  const showCreditSystem = Boolean(user) && user?.role !== "investor" && user?.role !== "reader";
+
   const topBarHomePath = user?.role === "reader" ? "/reader" : "/dashboard";
   const topBarHomeLabel = user?.role === "reader" ? "Reader Home" : "Dashboard";
   const topBarProfilePath = getProfileCanonicalPath(user, {
@@ -211,15 +209,6 @@ const MainLayout = ({ children }) => {
     }
   }, [user?.role]);
 
-  const fetchCreditsBalance = useCallback(async () => {
-    try {
-      const { data } = await api.get("/credits/balance");
-      setCreditsBalance(data.balance || 0);
-    } catch {
-      setCreditsBalance(0);
-    }
-  }, []);
-
   const refreshHeaderState = useCallback(async () => {
     const tasks = [
       fetchUnreadCount(),
@@ -227,12 +216,8 @@ const MainLayout = ({ children }) => {
       fetchPendingPurchaseCount(),
     ];
 
-    if (showCreditSystem) {
-      tasks.push(fetchCreditsBalance());
-    }
-
     await Promise.allSettled(tasks);
-  }, [fetchCreditsBalance, fetchPendingPurchaseCount, fetchUnreadCount, fetchUnreadMessageCount, showCreditSystem]);
+  }, [fetchPendingPurchaseCount, fetchUnreadCount, fetchUnreadMessageCount]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -245,19 +230,6 @@ const MainLayout = ({ children }) => {
 
     return () => clearInterval(interval);
   }, [refreshHeaderState, user]);
-
-  useEffect(() => {
-    if (!showCreditSystem) return;
-    const params = new URLSearchParams(location.search || "");
-    if (params.get("openCredits") !== "1") return;
-
-    setShowBuyCredits(true);
-
-    params.delete("openCredits");
-    const nextSearch = params.toString();
-    navigate(`${location.pathname}${nextSearch ? `?${nextSearch}` : ""}`, { replace: true });
-  }, [location.pathname, location.search, navigate, showCreditSystem]);
-
   useEffect(() => {
     if (!user?._id) return undefined;
 
@@ -292,13 +264,14 @@ const MainLayout = ({ children }) => {
     };
   }, [scheduleNotificationRefresh, user?._id, user?.token]);
 
-  const handleCreditsUpdate = (data) => {
-    setCreditsBalance(data.credits.balance);
-  };
+
 
   const handleNotifToggle = () => {
     dismissAllNotificationPopups();
-    if (!notifOpen) fetchNotificationSnapshot({ showLoader: true });
+    if (!notifOpen) {
+      fetchNotificationSnapshot({ showLoader: true });
+      handleMarkAllRead();
+    }
     setNotifOpen(!notifOpen);
     setDropdownOpen(false);
   };
@@ -378,6 +351,7 @@ const MainLayout = ({ children }) => {
       audition: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z",
       smart_match: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z",
       profile_view: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z",
+      script_view: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z",
       hold_expiring: "M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z",
     };
     return icons[type] || icons.like;
@@ -398,6 +372,7 @@ const MainLayout = ({ children }) => {
       audition:      isDarkMode ? "text-teal-400 bg-teal-500/10"       : "text-teal-600 bg-teal-50",
       smart_match:   isDarkMode ? "text-purple-400 bg-purple-500/10"   : "text-purple-600 bg-purple-50",
       profile_view:  isDarkMode ? "text-blue-400 bg-blue-500/10"       : "text-blue-600 bg-blue-50",
+      script_view:   isDarkMode ? "text-sky-400 bg-sky-500/10"         : "text-sky-600 bg-sky-50",
     };
     return map[type] || (isDarkMode ? "text-[#8896a7] bg-white/5" : "text-gray-500 bg-gray-100");
   };
@@ -429,6 +404,7 @@ const MainLayout = ({ children }) => {
       audition: "Audition update",
       smart_match: "Smart match",
       profile_view: "Profile view",
+      script_view: "Script view",
       script_approved: "Script approved",
       script_rejected: "Script update",
       purchase: "Purchase update",
@@ -569,13 +545,7 @@ const MainLayout = ({ children }) => {
 
   return (
     <>
-      {showCreditSystem && (
-        <BuyCreditsModal 
-          isOpen={showBuyCredits} 
-          onClose={() => setShowBuyCredits(false)}
-          onSuccess={handleCreditsUpdate}
-        />
-      )}
+
 
       <div className="pointer-events-none fixed top-[78px] right-4 xl:right-6 z-[120] hidden lg:block w-[min(calc(100vw-2.5rem),28rem)]">
         <AnimatePresence initial={false}>
@@ -768,16 +738,14 @@ const MainLayout = ({ children }) => {
           </button>
 
           {/* Pricing Link */}
-          {isFilmIndustryProfessionalRole(user) && (
-            <button
-              onClick={() => navigate("/pricing")}
-              className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all border border-[#D14D37] bg-transparent hover:bg-[#D14D37]/10 mr-1 sm:mr-0"
-              style={{ color: "#ffffff" }}
-              title="View Pricing"
-            >
-              Pricing
-            </button>
-          )}
+          <button
+            onClick={() => navigate("/pricing")}
+            className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all border border-[#D14D37] bg-transparent hover:bg-[#D14D37]/10 mr-1 sm:mr-0"
+            style={{ color: "#ffffff" }}
+            title="View Pricing"
+          >
+            Pricing
+          </button>
 
           {/* Notification bell */}
           <div className="order-2 sm:order-3 relative" ref={notifRef}>
@@ -953,19 +921,7 @@ const MainLayout = ({ children }) => {
             )}
           </div>
 
-          {/* Credits Button - Hidden for investors and readers */}
-          {showCreditSystem && (
-            <button
-              onClick={() => setShowBuyCredits(true)}
-              className="order-4 group shrink-0 flex items-center gap-1.5 max-[378px]:gap-1 md:gap-2 min-[640px]:max-[690px]:gap-1 px-2.5 max-[378px]:px-2 max-[340px]:px-1.5 md:px-3.5 min-[640px]:max-[690px]:px-2 py-1.5 max-[378px]:py-1 rounded-xl max-[378px]:rounded-lg border text-sm transition-all duration-200 bg-[#071224] border-white/[0.09] hover:bg-[#0a1729] hover:border-sky-500/25 hover:shadow-lg hover:shadow-sky-500/5"
-            >
-              <svg className="w-3.5 h-3.5 max-[378px]:w-3 max-[378px]:h-3 flex-shrink-0 transition-colors text-sky-400 group-hover:text-sky-300" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z" />
-              </svg>
-              <span className="font-bold text-[12px] max-[378px]:text-[11px] md:text-[13px] tabular-nums tracking-tight text-white">{creditsBalance}</span>
-              <span className="hidden md:inline text-[11px] font-medium text-[#7f93b0]">CR</span>
-            </button>
-          )}
+
 
           {/* User menu */}
           <div className="order-5 hidden sm:block min-[640px]:max-[690px]:hidden relative" ref={dropdownRef}>

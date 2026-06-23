@@ -22,7 +22,8 @@ import { generateAndUploadAgreementPdfs } from "../utils/agreementPdf.js";
 import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionPdf.js";
 import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
-import { CREDIT_PRICES } from "./creditsController.js";
+import { runScriptScoreGeneration } from "./aiController.js";
+
 import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
 import {
@@ -1048,7 +1049,8 @@ const shouldAutoSyncUploadSpotlight = (script, now = new Date()) => {
   if (script.status !== "published") return false;
   if (isSpotlightActive(script, now)) return false;
   if (script.promotion?.lastSpotlightPurchaseAt) return false;
-  return Number(script.billing?.spotlightCreditsChargedAtUpload || 0) > 0;
+  // Without credits, if spotlight service was selected at upload, we consider it pending activation
+  return Boolean(script.services?.spotlight);
 };
 
 const isAdminUploadedTrailer = (script) => {
@@ -1065,7 +1067,6 @@ const shouldQueueSpotlightAiTrailer = (script) => {
 
 const applySpotlightPackageState = (script, now = new Date()) => {
   const spotlightEndsAt = new Date(now.getTime() + PROJECT_SPOTLIGHT_DURATION_DAYS * 24 * 60 * 60 * 1000);
-  const chargedAtUpload = Number(script.billing?.spotlightCreditsChargedAtUpload || 0);
 
   script.premium = true;
   script.isFeatured = true;
@@ -1083,25 +1084,16 @@ const applySpotlightPackageState = (script, now = new Date()) => {
   }
 
   script.promotion = {
+    ...(script.promotion || {}),
     spotlightActive: true,
     pendingSpotlightActivation: false,
     spotlightStartAt: now,
     spotlightEndAt: spotlightEndsAt,
     lastSpotlightPurchaseAt: now,
-    totalSpotlightCreditsSpent: Math.max(
-      Number(script.promotion?.totalSpotlightCreditsSpent || 0),
-      chargedAtUpload,
-      PROJECT_SPOTLIGHT_ACTIVATION_CREDITS
-    ),
   };
 
   script.billing = {
     ...(script.billing || {}),
-    spotlightCreditsSpent: Math.max(
-      Number(script.billing?.spotlightCreditsSpent || 0),
-      chargedAtUpload,
-      PROJECT_SPOTLIGHT_ACTIVATION_CREDITS
-    ),
     lastSpotlightActivatedAt: now,
   };
 
@@ -1566,6 +1558,31 @@ export const saveDraft = async (req, res) => {
 
     const { scriptId, title, textContent, ...otherData } = req.body;
 
+    // Enforce Writer limits for new drafts
+    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
+      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
+      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      
+      let limit = 1;
+      let requiredPlan = "silver";
+      
+      if (plan === "silver") {
+        limit = 8;
+        requiredPlan = "gold";
+      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
+        limit = 20;
+        requiredPlan = "custom";
+      }
+
+      if (existingScriptCount >= limit) {
+        return res.status(402).json({
+          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to create more scripts.`,
+          limitReached: true,
+          requiredPlan,
+        });
+      }
+    }
+
     // If we have an ID, update the existing draft
     if (scriptId) {
       const script = await Script.findById(scriptId);
@@ -1936,6 +1953,23 @@ export const updateScript = async (req, res) => {
       filmDetails,
     } = req.body;
 
+    // Enforce Free Tier restrictions on premium services (adding new ones)
+    if (!isContentOnlyCollaborator && services && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
+      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
+      if (plan === "free" || plan === "none") {
+        const tryingToAddEvaluation = services.evaluation && !script.services?.evaluation;
+        const tryingToAddTrailer = services.aiTrailer && !script.services?.aiTrailer;
+        const tryingToAddSpotlight = services.spotlight && !script.services?.spotlight;
+        
+        if (tryingToAddEvaluation || tryingToAddTrailer || tryingToAddSpotlight) {
+          return res.status(403).json({
+            message: "Premium services (Evaluation, AI Trailer, Spotlight) are not available on the Free plan. Please upgrade your plan.",
+            requiresUpgrade: true
+          });
+        }
+      }
+    }
+
     const collaboratorSubmittedContentRevision = !isOwner
       && textContent !== undefined
       && String(textContent) !== String(script.textContent || "");
@@ -2277,17 +2311,9 @@ export const updateScript = async (req, res) => {
     }
 
     const wasPendingApproval = script.status === "pending_approval";
-    const hasEvaluationEntitlement = Boolean(
-      script.services?.evaluation
-      || Number(script.billing?.evaluationCreditsChargedAtUpload || 0) > 0
-      || Number(script.billing?.evaluationCreditsCharged || 0) > 0
-    );
+    const hasEvaluationEntitlement = Boolean(script.services?.evaluation);
     const hasAiTrailerEntitlement = Boolean(
-      script.services?.aiTrailer
-      || script.services?.spotlight
-      || Number(script.billing?.aiTrailerCreditsChargedAtUpload || 0) > 0
-      || Number(script.billing?.aiTrailerCreditsCharged || 0) > 0
-      || Number(script.billing?.spotlightCreditsChargedAtUpload || 0) > 0
+      script.services?.aiTrailer || script.services?.spotlight
     );
 
     if (hasEvaluationEntitlement) {
@@ -2463,6 +2489,31 @@ export const uploadScript = async (req, res) => {
       }
     }
 
+    // Enforce Writer limits for new uploads
+    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
+      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
+      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      
+      let limit = 1;
+      let requiredPlan = "silver";
+      
+      if (plan === "silver") {
+        limit = 8;
+        requiredPlan = "gold";
+      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
+        limit = 20;
+        requiredPlan = "custom";
+      }
+
+      if (existingScriptCount >= limit) {
+        return res.status(402).json({
+          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to upload more scripts.`,
+          limitReached: true,
+          requiredPlan,
+        });
+      }
+    }
+
     // Validate required fields
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
@@ -2520,71 +2571,17 @@ export const uploadScript = async (req, res) => {
     const isPremiumAccess = Boolean(isPremium || premium) && Number(price || 0) > 0;
     const effectivePrice = isPremiumAccess ? Number(price || 0) : 0;
 
-    // Calculate credits needed for selected services
-    let creditsRequired = 0;
-    if (services?.evaluation) creditsRequired += CREDIT_PRICES.AI_EVALUATION;
-    if (services?.aiTrailer) creditsRequired += CREDIT_PRICES.AI_TRAILER;
-    if (services?.spotlight) creditsRequired += PROJECT_SPOTLIGHT_ACTIVATION_CREDITS;
-
-    const creator = await User.findById(req.user._id);
-    if (!creator) {
-      return res.status(404).json({ message: "User not found" });
+    // Enforce Free Tier restrictions on premium services
+    if ((services?.evaluation || services?.aiTrailer || services?.spotlight) && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
+      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
+      if (plan === "free" || plan === "none") {
+        return res.status(403).json({
+          message: "Premium services (Evaluation, AI Trailer, Spotlight) are not available on the Free plan. Please upgrade your plan.",
+          requiresUpgrade: true
+        });
+      }
     }
-    const creditsBalanceBefore = creator.credits?.balance || 0;
-    let creditsBalanceAfter = creditsBalanceBefore;
 
-    // Check and deduct credits if services are selected
-    if (creditsRequired > 0) {
-      const userBalance = creator.credits?.balance || 0;
-
-      if (userBalance < creditsRequired) {
-        return res.status(402).json({
-          message: `Insufficient credits. You need ${creditsRequired} credits but have ${userBalance}.`,
-          requiresCredits: true,
-          required: creditsRequired,
-          balance: userBalance,
-          shortfall: creditsRequired - userBalance
-        });
-      }
-
-      // Deduct credits
-      creator.credits.balance -= creditsRequired;
-      creator.credits.totalSpent += creditsRequired;
-
-      // Add transaction record for each service
-      if (services?.evaluation) {
-        creator.credits.transactions.push({
-          type: "spent",
-          amount: -CREDIT_PRICES.AI_EVALUATION,
-          description: `AI Evaluation for "${title}"`,
-          reference: `EVAL-${Date.now().toString(36).toUpperCase()}`,
-          createdAt: new Date()
-        });
-      }
-
-      if (services?.aiTrailer) {
-        creator.credits.transactions.push({
-          type: "spent",
-          amount: -CREDIT_PRICES.AI_TRAILER,
-          description: `AI Trailer for "${title}"`,
-          reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
-          createdAt: new Date()
-        });
-      }
-
-      if (services?.spotlight) {
-        creator.credits.transactions.push({
-          type: "spent",
-          amount: -PROJECT_SPOTLIGHT_ACTIVATION_CREDITS,
-          description: `Project Spotlight package for "${title}"`,
-          reference: `SPOTUP-${Date.now().toString(36).toUpperCase()}`,
-          createdAt: new Date()
-        });
-      }
-
-      await creator.save();
-      creditsBalanceAfter = creator.credits?.balance || 0;
-    }
 
     const inferredProjectSource = (scriptUrl || fileUrl) ? "uploaded" : "editor";
 
@@ -2629,32 +2626,28 @@ export const uploadScript = async (req, res) => {
         settings: classification.settings || []
       } : undefined,
 
-      // Services tracking
-      services: services ? {
-        hosting: services.hosting !== undefined ? services.hosting : true,
-        evaluation: services.evaluation || false,
-        aiTrailer: services.aiTrailer || false,
-        spotlight: services.spotlight || false,
-      } : { hosting: true, evaluation: false, aiTrailer: false, spotlight: false },
-      billing: {
-        evaluationCreditsCharged: services?.evaluation ? CREDIT_PRICES.AI_EVALUATION : 0,
-        aiTrailerCreditsCharged: services?.aiTrailer ? CREDIT_PRICES.AI_TRAILER : 0,
-        spotlightCreditsChargedAtUpload: services?.spotlight ? PROJECT_SPOTLIGHT_ACTIVATION_CREDITS : 0,
-        evaluationCreditsChargedAtUpload: services?.evaluation ? CREDIT_PRICES.AI_EVALUATION : 0,
-        aiTrailerCreditsChargedAtUpload: services?.aiTrailer ? CREDIT_PRICES.AI_TRAILER : 0,
-        evaluationCreditsRefunded: 0,
-        aiTrailerCreditsRefunded: 0,
-        spotlightCreditsSpent: services?.spotlight ? PROJECT_SPOTLIGHT_ACTIVATION_CREDITS : 0,
-        lastSpotlightRefundCredits: 0,
-      },
+      // Check for included evaluation based on premium plans
+      ...( () => {
+        const hasIncludedEvaluation = ["silver", "gold", "pro", "premium"].includes(String(req.user.subscription?.plan).toLowerCase());
+        const shouldEvaluate = services?.evaluation || hasIncludedEvaluation;
+        return {
+          services: {
+            hosting: services?.hosting !== undefined ? services.hosting : true,
+            evaluation: shouldEvaluate,
+            aiTrailer: services?.aiTrailer || false,
+            spotlight: services?.spotlight || false,
+          },
+          evaluationStatus: shouldEvaluate ? "requested" : "none",
+          evaluationRequestedAt: shouldEvaluate ? new Date() : undefined,
+        };
+      })(),
+      
       promotion: services?.spotlight
         ? {
             spotlightActive: false,
             pendingSpotlightActivation: true,
-            totalSpotlightCreditsSpent: PROJECT_SPOTLIGHT_ACTIVATION_CREDITS,
           }
         : undefined,
-      evaluationStatus: services?.evaluation ? "requested" : "none",
 
       // Legal compliance
       legal: legal ? {
@@ -2746,6 +2739,7 @@ export const uploadScript = async (req, res) => {
     } else {
       script = await Script.create(scriptData);
     }
+    const creator = req.user;
 
     try {
       script = await attachSubmissionSummaryPdfToScript({ script, creator });
@@ -2778,6 +2772,14 @@ export const uploadScript = async (req, res) => {
           },
         }),
       ];
+
+      if (["silver", "gold", "pro", "premium"].includes(String(req.user.subscription?.plan).toLowerCase())) {
+        tasks.push(
+          runScriptScoreGeneration({ scriptId: script._id, userId: req.user._id }).catch(e => {
+            console.error("[uploadScript] Included AI evaluation failed to start:", e.message);
+          })
+        );
+      }
 
       if (services?.aiTrailer) {
         tasks.push(
@@ -3242,6 +3244,27 @@ export const getScriptById = async (req, res) => {
 
     if (script.viewedBy.length !== viewedByBeforeCount || viewsChanged) {
       await script.save();
+    }
+
+    // Notify writer if an industry professional views their script
+    if (!isOwner && !isAcceptedCollaborator && hasActiveFilmIndustryProfessionalAccess(req.user) && creatorId) {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const recentNotif = await Notification.findOne({
+        user: creatorId,
+        from: viewerId,
+        type: "script_view",
+        script: script._id,
+        createdAt: { $gte: twentyFourHoursAgo }
+      });
+      if (!recentNotif) {
+        await Notification.create({
+          user: creatorId,
+          from: viewerId,
+          type: "script_view",
+          script: script._id,
+          message: `${req.user.name || "A film industry professional"} viewed your script "${script.title}".`
+        });
+      }
     }
 
     // Update viewer's viewHistory so investor dashboard stats are accurate
@@ -4485,14 +4508,36 @@ export const addRoles = async (req, res) => {
 export const getFeaturedScripts = async (req, res) => {
   try {
     const now = new Date();
-    const activeSpotlightFilter = {
-      "promotion.spotlightActive": true,
-      "promotion.spotlightEndAt": { $gte: now },
+    const featuredFilter = {
+      $or: [
+        {
+          "promotion.spotlightActive": true,
+          "promotion.spotlightEndAt": { $gte: now },
+        },
+        { isFeatured: true },
+      ],
     };
 
     // Step 1: rank published scripts by trendScore via aggregation
     const ranked = await Script.aggregate([
-      { $match: { ...PUBLIC_SCRIPT_FILTER, ...activeSpotlightFilter } },
+      { $match: { ...PUBLIC_SCRIPT_FILTER, ...featuredFilter } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "creator",
+          foreignField: "_id",
+          as: "creatorDoc",
+        },
+      },
+      { $unwind: { path: "$creatorDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          $or: [
+            { "creatorDoc.role": { $ne: "writer" } },
+            { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+          ],
+        },
+      },
       {
         $addFields: {
           verifiedPriority: {
@@ -4535,7 +4580,7 @@ export const getFeaturedScripts = async (req, res) => {
     const ids = ranked.map((s) => s._id);
 
     // Step 2: fetch full documents with populated creator (preserving sort order)
-    const docs = await Script.find({ _id: { $in: ids }, ...PUBLIC_SCRIPT_FILTER, ...activeSpotlightFilter }).populate(
+    const docs = await Script.find({ _id: { $in: ids }, ...PUBLIC_SCRIPT_FILTER, ...featuredFilter }).populate(
       "creator",
       "name profileImage role"
     );
@@ -4563,10 +4608,35 @@ export const getTopScripts = async (req, res) => {
     if (blockedUserIds.length > 0) {
       query.creator = { $nin: blockedUserIds };
     }
-    const scripts = await Script.find(query)
+    const scriptsAggregation = await Script.aggregate([
+      { $match: query },
+      {
+        $lookup: {
+          from: "users",
+          localField: "creator",
+          foreignField: "_id",
+          as: "creatorDoc",
+        },
+      },
+      { $unwind: { path: "$creatorDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          $or: [
+            { "creatorDoc.role": { $ne: "writer" } },
+            { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+          ],
+        },
+      },
+      { $sort: sortObj },
+      { $limit: 20 },
+      { $project: { _id: 1 } },
+    ]);
+
+    const ids = scriptsAggregation.map((s) => s._id);
+
+    const scripts = await Script.find({ _id: { $in: ids } })
       .populate("creator", "name profileImage role")
-      .sort(sortObj)
-      .limit(20);
+      .sort(sortObj);
 
     const boostedFirst = [...scripts].sort((a, b) => {
       const aVerified = a?.verifiedBadge ? 1 : 0;
@@ -4986,6 +5056,23 @@ export const getTopList = async (req, res) => {
     const pipeline = [
       { $match: match },
       {
+        $lookup: {
+          from: "users",
+          localField: "creator",
+          foreignField: "_id",
+          as: "creatorDoc",
+        },
+      },
+      { $unwind: { path: "$creatorDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $match: {
+          $or: [
+            { "creatorDoc.role": { $ne: "writer" } },
+            { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+          ],
+        },
+      },
+      {
         $addFields: {
           verifiedPriority: {
             $cond: [{ $eq: [{ $ifNull: ["$verifiedBadge", false] }, true] }, 1, 0],
@@ -5309,9 +5396,7 @@ export const activateProjectSpotlight = async (req, res) => {
     let user;
     let endAt;
     let isExtensionPurchase = false;
-    let spotlightCreditsCharged = PROJECT_SPOTLIGHT_ACTIVATION_CREDITS;
-    let refundCredits = 0;
-    let refundBreakdown = { evaluation: 0, aiTrailer: 0 };
+
     const scriptId = req.params?.id || req.body?.scriptId || req.query?.scriptId;
 
     if (!scriptId) {
@@ -5363,152 +5448,19 @@ export const activateProjectSpotlight = async (req, res) => {
         throw error;
       }
 
-      if (!user.credits) {
-        user.credits = { balance: 0, totalPurchased: 0, totalSpent: 0, transactions: [] };
-      }
-
       const now = new Date();
-
       const spotlightCurrentlyActive = isSpotlightActive(script, now);
-      let spotlightChargedAtUpload = Number(script.billing?.spotlightCreditsChargedAtUpload || 0);
-      if (!spotlightChargedAtUpload) {
-        const uploadInvoice = await Invoice.findOne({ script: script._id, creator: req.user._id })
-          .sort({ createdAt: -1 })
-          .session(session)
-          .lean();
-        if (uploadInvoice?.services?.spotlight) {
-          spotlightChargedAtUpload = PROJECT_SPOTLIGHT_ACTIVATION_CREDITS;
-        }
-      }
-
-      const hasUnusedUploadSpotlightPayment =
-        !spotlightCurrentlyActive &&
-        spotlightChargedAtUpload > 0 &&
-        !script.promotion?.lastSpotlightPurchaseAt;
-
-      const spotlightCreditsRequired = hasUnusedUploadSpotlightPayment
-        ? 0
-        : spotlightCurrentlyActive
-          ? PROJECT_SPOTLIGHT_EXTENSION_CREDITS
-          : PROJECT_SPOTLIGHT_ACTIVATION_CREDITS;
       isExtensionPurchase = spotlightCurrentlyActive;
-      spotlightCreditsCharged = spotlightCreditsRequired;
-
-      // Prefer billing-tracked service charges, then backfill from upload invoice for older scripts.
-      const currentBilling = script.billing || {};
-      let evaluationCharged = Number(currentBilling.evaluationCreditsCharged || 0);
-      let aiTrailerCharged = Number(currentBilling.aiTrailerCreditsCharged || 0);
-      let evaluationChargedAtUpload = Number(currentBilling.evaluationCreditsChargedAtUpload || 0);
-      let aiTrailerChargedAtUpload = Number(currentBilling.aiTrailerCreditsChargedAtUpload || 0);
-      let evaluationRefunded = Number(currentBilling.evaluationCreditsRefunded || 0);
-      let aiTrailerRefunded = Number(currentBilling.aiTrailerCreditsRefunded || 0);
-
-      const needsUploadBackfill =
-        (evaluationCharged > 0 && evaluationChargedAtUpload === 0) ||
-        (aiTrailerCharged > 0 && aiTrailerChargedAtUpload === 0);
-
-      // Backfill upload-time charge markers for legacy or partially-migrated scripts.
-      if (needsUploadBackfill) {
-        const uploadInvoice = await Invoice.findOne({ script: script._id, creator: req.user._id })
-          .sort({ createdAt: -1 })
-          .session(session)
-          .lean();
-
-        if (uploadInvoice?.services?.evaluation) {
-          evaluationCharged = Math.max(evaluationCharged, CREDIT_PRICES.AI_EVALUATION);
-          evaluationChargedAtUpload = CREDIT_PRICES.AI_EVALUATION;
-        }
-        if (uploadInvoice?.services?.aiTrailer) {
-          aiTrailerCharged = Math.max(aiTrailerCharged, CREDIT_PRICES.AI_TRAILER);
-          aiTrailerChargedAtUpload = CREDIT_PRICES.AI_TRAILER;
-        }
-      }
-
-      const hasPaidEvaluation = evaluationCharged > 0;
-      const refundableEvaluation = 0;
-      const nonUploadTrailerCharged = Math.max(0, aiTrailerCharged - aiTrailerChargedAtUpload);
-      const refundableTrailer = hasPaidEvaluation ? Math.max(0, nonUploadTrailerCharged - aiTrailerRefunded) : 0;
-      const refundableCredits = refundableEvaluation + refundableTrailer;
-
-      const balance = user.credits.balance || 0;
-      const effectiveBalance = balance + refundableCredits;
-      if (effectiveBalance < spotlightCreditsRequired) {
-        const actionLabel = spotlightCurrentlyActive ? "Spotlight extension" : "Project Spotlight activation";
-        const error = new Error(`Insufficient credits. ${actionLabel} requires ${spotlightCreditsRequired} credits.`);
-        error.statusCode = 402;
-        error.payload = {
-          requiresCredits: true,
-          required: spotlightCreditsRequired,
-          balance: effectiveBalance,
-          shortfall: spotlightCreditsRequired - effectiveBalance,
-        };
-        throw error;
-      }
-
-      if (refundableCredits > 0) {
-        const balanceBeforeRefund = user.credits.balance || 0;
-        user.credits.balance = balanceBeforeRefund + refundableCredits;
-        user.credits.totalSpent = Math.max(0, (user.credits.totalSpent || 0) - refundableCredits);
-        user.credits.transactions.push({
-          type: "refund",
-          amount: refundableCredits,
-          description: `Spotlight package credit adjustment for "${script.title}"`,
-          reference: `SPRF-${Date.now().toString(36).toUpperCase()}`,
-          createdAt: now,
-        });
-
-        await Transaction.create([
-          {
-            user: req.user._id,
-            type: "refund",
-            amount: refundableCredits,
-            currency: "INR",
-            status: "completed",
-            description: `Credit refund for previously paid services on "${script.title}"`,
-            reference: `SPRF-TX-${Date.now().toString(36).toUpperCase()}`,
-            paymentMethod: "wallet",
-            relatedScript: script._id,
-            balanceBefore: balanceBeforeRefund,
-            balanceAfter: user.credits.balance,
-            metadata: {
-              package: "project_spotlight_refund",
-              refundedEvaluationCredits: refundableEvaluation,
-              refundedAiTrailerCredits: refundableTrailer,
-            },
-          },
-        ], { session });
-
-        refundCredits = refundableCredits;
-        refundBreakdown = {
-          evaluation: refundableEvaluation,
-          aiTrailer: refundableTrailer,
-        };
-
-        evaluationRefunded += refundableEvaluation;
-        aiTrailerRefunded += refundableTrailer;
-      }
 
       const currentEnd = script.promotion?.spotlightEndAt ? new Date(script.promotion.spotlightEndAt) : null;
       const extensionStart = currentEnd && currentEnd > now ? currentEnd : now;
       endAt = new Date(extensionStart.getTime() + PROJECT_SPOTLIGHT_DURATION_DAYS * 24 * 60 * 60 * 1000);
 
-      if (spotlightCreditsRequired > 0) {
-        user.credits.balance = (user.credits.balance || 0) - spotlightCreditsRequired;
-        user.credits.totalSpent = (user.credits.totalSpent || 0) + spotlightCreditsRequired;
-        user.credits.transactions.push({
-          type: "spent",
-          amount: -spotlightCreditsRequired,
-          description: `${spotlightCurrentlyActive ? "Project Spotlight extended" : "Project Spotlight activated"} for "${script.title}"`,
-          reference: `SPOT-${Date.now().toString(36).toUpperCase()}`,
-          createdAt: now,
-        });
-      }
-      await user.save({ session });
-
       script.premium = true;
       script.isFeatured = true;
       script.verifiedBadge = true;
       script.services = {
+        ...(script.services || {}),
         hosting: true,
         evaluation: true,
         aiTrailer: true,
@@ -5520,56 +5472,22 @@ export const activateProjectSpotlight = async (req, res) => {
         script.trailerStatus = "requested";
       }
 
-      const previousSpent = script.promotion?.totalSpotlightCreditsSpent || 0;
       script.promotion = {
+        ...(script.promotion || {}),
         spotlightActive: true,
         pendingSpotlightActivation: false,
         spotlightStartAt: now,
         spotlightEndAt: endAt,
         lastSpotlightPurchaseAt: now,
-        totalSpotlightCreditsSpent: previousSpent + spotlightCreditsRequired,
       };
       script.billing = {
-        evaluationCreditsCharged: evaluationCharged,
-        aiTrailerCreditsCharged: aiTrailerCharged,
-        spotlightCreditsChargedAtUpload: spotlightChargedAtUpload,
-        evaluationCreditsChargedAtUpload: evaluationChargedAtUpload,
-        aiTrailerCreditsChargedAtUpload: aiTrailerChargedAtUpload,
-        evaluationCreditsRefunded: evaluationRefunded,
-        aiTrailerCreditsRefunded: aiTrailerRefunded,
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0) + spotlightCreditsRequired,
-        lastSpotlightRefundCredits: refundableCredits,
+        ...(script.billing || {}),
         lastSpotlightActivatedAt: now,
       };
       script.markModified("services");
       script.markModified("promotion");
       script.markModified("billing");
       await script.save({ session });
-
-      if (spotlightCreditsRequired > 0) {
-        await Transaction.create([
-          {
-            user: req.user._id,
-            type: "debit",
-            amount: -spotlightCreditsRequired,
-            currency: "INR",
-            status: "completed",
-            description: `Project Spotlight ${spotlightCurrentlyActive ? "extension" : "package"} for "${script.title}"`,
-            reference: `SPTD-${Date.now().toString(36).toUpperCase()}`,
-            paymentMethod: "wallet",
-            relatedScript: script._id,
-            metadata: {
-              package: spotlightCurrentlyActive ? "project_spotlight_extension" : "project_spotlight",
-              isExtension: spotlightCurrentlyActive,
-              includesVerifiedBadge: true,
-              includesFreeEvaluation: true,
-              includesFreeAITrailer: true,
-              featuredDurationDays: PROJECT_SPOTLIGHT_DURATION_DAYS,
-              spotlightEndAt: endAt.toISOString(),
-            },
-          },
-        ], { session });
-      }
     });
 
     await notifyAdminWorkflowEvent({
@@ -5592,9 +5510,6 @@ export const activateProjectSpotlight = async (req, res) => {
       package: {
         name: "Project Spotlight",
         isExtension: isExtensionPurchase,
-        creditsCharged: spotlightCreditsCharged,
-        creditsRefunded: refundCredits,
-        refundBreakdown,
         spotlightEndAt: endAt,
         benefits: [
           "Verified project badge (permanent once unlocked)",
@@ -5603,11 +5518,7 @@ export const activateProjectSpotlight = async (req, res) => {
           "Featured and top placement for 1 month",
         ],
       },
-      credits: {
-        balance: user.credits.balance,
-        spent: spotlightCreditsCharged,
-        refunded: refundCredits,
-      },
+
       script,
     });
   } catch (error) {
@@ -6554,6 +6465,16 @@ export const uploadScriptPitchVideo = async (req, res) => {
 
     if (script.creator.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Only the script creator can upload a pitch video" });
+    }
+
+    if (["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
+      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
+      if (plan === "free" || plan === "none") {
+        return res.status(403).json({ 
+          message: "Pitch video uploads are a premium feature. Please upgrade your plan to unlock this.",
+          requiresUpgrade: true
+        });
+      }
     }
 
     const result = await uploadToCloudinary(req.file.buffer, {

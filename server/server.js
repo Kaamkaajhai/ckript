@@ -33,7 +33,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
-import creditsRoutes from "./routes/creditsRoutes.js";
+
 import adminRoutes from "./routes/adminRoutes.js";
 import scriptPitchRoutes from "./routes/scriptPitchRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
@@ -354,7 +354,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/transactions", transactionRoutes);
-app.use("/api/credits", paymentLimiter, creditsRoutes);
+
 app.use("/api/admin", adminRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api/script-pitches", scriptPitchRoutes);

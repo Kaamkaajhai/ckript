@@ -277,6 +277,7 @@ const applyEventToUserSession = (session, payload) => {
   if (!Array.isArray(session.pages)) session.pages = [];
   if (!Array.isArray(session.clicks)) session.clicks = [];
   if (!Array.isArray(session.actions)) session.actions = [];
+  if (!Array.isArray(session.events)) session.events = [];
 
   if (payload.eventType === "page_enter") {
     if (!session.entryPath) session.entryPath = path;
@@ -686,6 +687,9 @@ export const trackEvent = async (req, res) => {
 
     return res.status(200).json({ ok: true });
   } catch (error) {
+    if (error.name === 'VersionError') {
+      return res.status(200).json({ ok: true, ignored: "concurrent_update" });
+    }
     console.error("trackEvent error:", error);
     return res.status(500).json({ message: error.message || "Failed to track event.", stack: error.stack });
   }
@@ -867,6 +871,10 @@ export const trackSession = async (req, res) => {
 
     return res.status(200).json({ ok: true, isReturning: visitor.isReturning });
   } catch (error) {
+    if (error.name === 'VersionError') {
+      return res.status(200).json({ ok: true, ignored: "concurrent_update" });
+    }
+    console.error("trackSession error:", error);
     return res.status(500).json({ message: error.message || "Failed to track session." });
   }
 };

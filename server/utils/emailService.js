@@ -1454,3 +1454,70 @@ export const sendMeetingRejectedEmail = async (
   }
 };
 
+export const sendWriterPlanGrantedEmail = async (
+  email,
+  {
+    writerName,
+    planName,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+    
+    const formattedPlanName = planName === "gold" ? "Gold Model" : planName === "silver" ? "Silver Model" : planName;
+    const loginUrl = buildClientUrl("/login", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `🎉 You've been upgraded to ${formattedPlanName} — ckript`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #d4af37 0%, #aa801a 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+            .badge { display: inline-block; background: #fef3c7; color: #92400e; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+            .button { display: inline-block; background: #1e3a5f; color: white !important; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin:0">Account Upgraded</h1>
+            </div>
+            <div class="content">
+              <p>Hi <strong>${writerName}</strong>,</p>
+              <div><span class="badge">💎 ${formattedPlanName} Granted</span></div>
+              <p>Great news! An administrator on <strong>ckript</strong> has granted your account the <strong>${formattedPlanName}</strong> plan.</p>
+              <p>You can now enjoy the premium benefits of your new plan, including higher visibility and premium features to accelerate your screenwriting career.</p>
+              <div style="text-align:center">
+                <a href="${loginUrl}" class="button">Log In to ckript</a>
+              </div>
+              <p style="color:#666;font-size:13px">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${loginUrl}" style="color:#1e3a5f">${loginUrl}</a></p>
+              <p>Welcome to the premium tier,<br/><strong>The ckript Team</strong></p>
+            </div>
+            <div class="footer">
+              <p>© 2026 ckript. All rights reserved.</p>
+              <p>This is an automated message, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${writerName},\n\nGreat news! An administrator on ckript has granted your account the ${formattedPlanName} plan.\n\nYou can now enjoy all the premium benefits. Log in to explore: ${loginUrl}\n\nThe ckript Team`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending writer plan granted email:", error.message);
+    return { success: false, error: error.message };
+  }
+};

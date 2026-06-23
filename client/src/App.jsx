@@ -291,7 +291,7 @@ function App() {
                 <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/profile/:id?" element={<Profile />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/credits" element={<Navigate to="/dashboard" replace />} />
+
                 <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />

@@ -33,6 +33,8 @@ import {
   computeDiff,
 } from "../utils/merge.js";
 import { generateScriptPdf } from "../utils/generateScriptPdf.js";
+import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
+import { runScriptScoreGeneration } from "./aiController.js";
 
 const VALID_COLLAB_ROLES = ["editor", "merger", "viewer", "full_admin"];
 const REQUESTABLE_ROLES = ["editor", "merger", "viewer", "full_admin"];
@@ -1313,7 +1315,29 @@ export const publishScript = async (req, res) => {
 
     script.status = "published";
     script.publishedAt = new Date();
+
+    if (!script.isFeatured) {
+      const creatorUser = await User.findById(script.creator).select("subscription");
+      if (creatorUser?.subscription?.plan === "gold") {
+        script.isFeatured = true;
+      }
+    }
     await script.save();
+
+    // Automatically trigger AI Evaluation after publishing
+    if (!script.evaluationStatus || script.evaluationStatus === "requested") {
+      script.evaluationStatus = "requested";
+      script.evaluationRequestedAt = new Date();
+      await script.save();
+      
+      setImmediate(async () => {
+        try {
+          await runScriptScoreGeneration({ scriptId: script._id, userId: script.creator });
+        } catch (err) {
+          console.error("[Auto-AI Evaluation] Failed to generate score for script:", script._id, err);
+        }
+      });
+    }
 
     const collaboratorIds = (script.collaborators || [])
       .filter((collab) => collab.isActive && collab.status === "accepted")
