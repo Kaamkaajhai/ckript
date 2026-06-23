@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import { BadgeCheck, Check, Crown, Sparkles } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthModal } from "../context/AuthModalContext";
+import { AuthContext } from "../context/AuthContext";
+import api from "../services/api";
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
 
 const getIncludedFeatures = (quota = 10) => [
@@ -168,6 +170,25 @@ export default function PricingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { openAuthModal } = useAuthModal();
+  const { setUser } = useContext(AuthContext);
+
+  const [writerLoading, setWriterLoading] = useState(false);
+  const [writerMessage, setWriterMessage] = useState("");
+  const [writerError, setWriterError] = useState("");
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   // The full-page surface and the landing Pricing modal share one checkout.
   const {
@@ -250,8 +271,8 @@ export default function PricingPage() {
     });
 
   const handleWriterRazorpayCheckout = async (tier) => {
-    setError("");
-    setMessage("");
+    setWriterError("");
+    setWriterMessage("");
 
     if (authLoading) return;
 
@@ -261,17 +282,17 @@ export default function PricingPage() {
     }
 
     if (!["writer", "creator"].includes(String(user.role).toLowerCase())) {
-      setError("This plan is designed for writers and creators.");
+      setWriterError("This plan is designed for writers and creators.");
       return;
     }
 
-    setLoading(true);
+    setWriterLoading(true);
 
     try {
       const res = await loadRazorpayScript();
       if (!res) {
-        setError("Razorpay SDK failed to load. Are you connected to the internet?");
-        setLoading(false);
+        setWriterError("Razorpay SDK failed to load. Are you connected to the internet?");
+        setWriterLoading(false);
         return;
       }
 
@@ -286,7 +307,7 @@ export default function PricingPage() {
         order_id: orderData.orderId,
         handler: async (response) => {
           try {
-            setMessage("Verifying payment...");
+            setWriterMessage("Verifying payment...");
             const { data: verifyData } = await api.post("/payment/writer/verify-razorpay-payment", {
               tier,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -305,12 +326,12 @@ export default function PricingPage() {
             setUser(updatedUser);
             localStorage.setItem("user", JSON.stringify(updatedUser));
             
-            setMessage("Payment successful!");
+            setWriterMessage("Payment successful!");
             setCheckoutSuccess(true);
             startCountdownRedirect("/dashboard");
           } catch (verifyError) {
-            setError(verifyError?.response?.data?.message || "Payment verification failed.");
-            setLoading(false);
+            setWriterError(verifyError?.response?.data?.message || "Payment verification failed.");
+            setWriterLoading(false);
           }
         },
         prefill: {
@@ -322,7 +343,7 @@ export default function PricingPage() {
         },
         modal: {
           ondismiss: () => {
-            setLoading(false);
+            setWriterLoading(false);
           }
         }
       };
@@ -330,8 +351,8 @@ export default function PricingPage() {
       const paymentObject = new window.Razorpay(options);
       paymentObject.open();
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to initiate payment.");
-      setLoading(false);
+      setWriterError(err?.response?.data?.message || "Failed to initiate payment.");
+      setWriterLoading(false);
     }
   };
 
@@ -413,6 +434,17 @@ export default function PricingPage() {
             <div className="mt-4 h-[2px] w-20 bg-gradient-to-r from-indigo-500 to-transparent rounded-full"></div>
           </div>
 
+          {writerMessage && (
+            <div className="mb-6 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.08] px-4 py-3 text-sm text-emerald-300">
+              {writerMessage}
+            </div>
+          )}
+          {writerError && (
+            <div className="mb-6 rounded-lg border border-rose-500/20 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-300">
+              {writerError}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
             <WriterPlanCard
               title="Free Tier"
@@ -454,7 +486,7 @@ export default function PricingPage() {
                   handleWriterRazorpayCheckout("silver");
                 }
               }}
-              buttonText={loading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              buttonText={writerLoading ? "Processing..." : hasSilverAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
             <WriterPlanCard
               title="Gold Model"
@@ -482,7 +514,7 @@ export default function PricingPage() {
                   handleWriterRazorpayCheckout("gold");
                 }
               }}
-              buttonText={loading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
+              buttonText={writerLoading ? "Processing..." : hasGoldAccess ? "Active Plan" : user ? "Pay securely with Razorpay" : "Sign In to Continue"}
             />
           </div>
 
