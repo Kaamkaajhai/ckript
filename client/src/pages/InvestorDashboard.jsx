@@ -98,18 +98,7 @@ const InvestorDashboard = () => {
   const totalDealsCount = Math.max(Number(stats.totalDeals || 0), closedDealsCount);
 
   /* ── Loading ─────────────────────────────────────────────── */
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className={`w-14 h-14 rounded-2xl ${dark ? "bg-white/[0.06]" : "bg-gray-100"} flex items-center justify-center`}>
-            <div className={`w-8 h-8 border-[3px] rounded-full animate-spin ${dark ? "border-gray-700 border-t-gray-400" : "border-gray-200 border-t-[#1e3a5f]"}`} />
-          </div>
-          <p className={`text-sm font-semibold ${dark ? "text-gray-400" : "text-gray-600"}`}>Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  /* ── Loading spinner removed to allow instantaneous dashboard shell rendering ── */
 
   /* ══════════════════════════════════════════════════════════
      RENDER

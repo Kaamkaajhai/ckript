@@ -158,16 +158,7 @@ const CreatorDashboard = ({ user, dark }) => {
   });
   const projectActionClass = "";
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className={`w-10 h-10 border-[3px] rounded-full animate-spin ${dark ? 'border-[#1c2a3a] border-t-[#8896a7]' : 'border-gray-200 border-t-[#1e3a5f]'}`}></div>
-          <p className={`text-sm font-medium animate-pulse ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  // Loading spinner removed to allow instantaneous dashboard shell rendering
 
   return (
     <div className="bg-white min-h-full relative max-[640px]:-mx-4 max-[640px]:-mt-4">
