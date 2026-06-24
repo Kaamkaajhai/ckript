@@ -138,10 +138,15 @@ export const AuthProvider = ({ children }) => {
             return;
           }
 
-          // Validate token with backend
+          // Optimistically set user and stop loading immediately for fast UI
+          setUser(parsed);
+          setLoading(false);
+
+          // Validate token with backend in the background
           const { data } = await axios.get(`${API_URL}/auth/me`, {
             headers: { Authorization: `Bearer ${parsed.token}` },
           });
+          
           // Merge fresh user data with stored token & expiry
           const refreshedUser = {
             ...data,
