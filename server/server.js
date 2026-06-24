@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import compression from "compression";
@@ -390,5 +390,3 @@ if (!isVercel) {
 
   startServer(requestedPort);
 }
-/ /   T r i g g e r   V e r c e l   b a c k e n d   b u i l d  
- 
