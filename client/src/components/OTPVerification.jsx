@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Shield, ArrowLeft, Loader } from 'lucide-react';
 import api from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 const DEFAULT_RESEND_COOLDOWN_SECONDS = 30;
 const DEFAULT_OTP_EXPIRY_SECONDS = 300;
@@ -48,9 +49,8 @@ const OTPVerification = ({
   startCooldownOnMount = false,
   darkBackground = false,
 }) => {
+  const toast = useToast();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [error, setError] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
@@ -122,8 +122,6 @@ const OTPVerification = ({
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-    setError('');
-    setStatusMessage('');
 
     // Auto-focus next input
     if (value && index < 5) {
@@ -157,18 +155,16 @@ const OTPVerification = ({
   const handleVerify = async () => {
     const otpString = otp.join('');
     if (otpString.length !== 6) {
-      setError('Please enter all 6 digits');
+      toast.error('Please enter all 6 digits.');
       return;
     }
 
     if (!normalizedEmail) {
-      setError('Missing email address. Go back and sign up again.');
+      toast.error('Missing email address. Go back and sign up again.');
       return;
     }
 
     setLoading(true);
-    setError('');
-    setStatusMessage('');
 
     try {
       const response = await api.post('/auth/verify-otp', {
@@ -182,7 +178,7 @@ const OTPVerification = ({
       // Call success callback
       onSuccess(response.data);
     } catch (err) {
-      setError(err.response?.data?.message || 'Verification failed. Please try again.');
+      toast.error(err.response?.data?.message || 'Verification failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -194,19 +190,17 @@ const OTPVerification = ({
     }
 
     if (!normalizedEmail) {
-      setError('Missing email address. Go back and sign up again.');
+      toast.error('Missing email address. Go back and sign up again.');
       return;
     }
 
     setResending(true);
-    setError('');
-    setStatusMessage('');
 
     try {
       const response = await api.post('/auth/resend-otp', { email: normalizedEmail });
       startResendCooldown(response.data?.resendCooldownSeconds);
       setOtp(['', '', '', '', '', '']);
-      setStatusMessage('A new verification code has been sent.');
+      toast.success('A new verification code has been sent.');
       inputRefs.current[0]?.focus();
     } catch (err) {
       const cooldownRemainingSeconds = Number(err.response?.data?.cooldownRemainingSeconds || 0);
@@ -214,7 +208,7 @@ const OTPVerification = ({
         startResendCooldown(cooldownRemainingSeconds);
       }
 
-      setError(err.response?.data?.message || 'Failed to resend code. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to resend code. Please try again.');
     } finally {
       setResending(false);
     }
@@ -285,27 +279,6 @@ const OTPVerification = ({
             </div>
             <p className="text-xs font-medium text-gray-600 text-center">Enter the 6-digit code</p>
           </div>
-
-          {/* Error Message */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg"
-            >
-              <p className="text-sm text-red-600 text-center">{error}</p>
-            </motion.div>
-          )}
-
-          {statusMessage && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg"
-            >
-              <p className="text-sm text-green-700 text-center">{statusMessage}</p>
-            </motion.div>
-          )}
 
           {/* Verify Button */}
           <button
