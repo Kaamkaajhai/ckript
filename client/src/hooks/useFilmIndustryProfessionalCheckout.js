@@ -12,10 +12,11 @@ import {
    Professional" membership checkout.
 
    This is the one place the Razorpay order → verify → session-update
-   contract lives, so the full-page /pricing surface (PricingPage) and
-   the editorial Pricing modal (PricingModal) can never drift apart.
-   Consumers own their own success / "already active" UX through the
-   callbacks passed to startCheckout — the hook only owns the payment.
+   contract lives, so every surface that sells this plan — the Pricing
+   modal's industry ribbon today, anything tomorrow — shares one flow and
+   can never drift apart. Consumers own their own success / "already active"
+   UX through the callbacks passed to startCheckout — the hook only owns the
+   payment. (Its writer-plan sibling is useWriterPlanCheckout.)
    ───────────────────────────────────────────────────────────── */
 
 const RAZORPAY_SDK_SRC = "https://checkout.razorpay.com/v1/checkout.js";

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { io } from "socket.io-client";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import Sidebar from "../components/Sidebar";
 import BrandLogo from "../components/BrandLogo";
@@ -22,6 +23,7 @@ const MotionDiv = motion.div;
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useDarkMode();
@@ -752,7 +754,7 @@ const MainLayout = ({ children }) => {
 
           {/* Pricing Link */}
           <button
-            onClick={() => navigate("/pricing")}
+            onClick={() => openPricingModal()}
             className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all border border-[#D14D37] bg-transparent hover:bg-[#D14D37]/10 mr-1 sm:mr-0"
             style={{ color: "#ffffff" }}
             title="View Pricing"
