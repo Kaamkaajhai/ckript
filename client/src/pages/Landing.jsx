@@ -528,8 +528,8 @@ const FOOTER_COLS = [
     head: "Platform",
     links: [
       { label: "Scripts", to: ROUTES.join },
-      { label: "For Producers", to: ROUTES.pro },
-      { label: "For Writers", to: ROUTES.writer },
+      { label: "For Producers", action: "producer" },
+      { label: "For Writers", action: "writer" },
     ],
   },
   {
@@ -615,6 +615,11 @@ export default function Landing() {
   const { user } = useContext(AuthContext);
   const { openAuthModal, openProducerOnboarding, openWriterOnboarding, openAboutModal, openPricingModal } = useAuthModal();
 
+  // Onboarding lives in modals (producer/director + writer), so landing CTAs pop
+  // the modal in-context rather than routing to the standalone onboarding page.
+  const openOnboarding = (kind) =>
+    kind === "writer" ? openWriterOnboarding() : openProducerOnboarding();
+
   const primaryPath = user?.role === "reader" ? "/reader" : "/dashboard";
   const signInLabel = user ? (user.role === "reader" ? "Reader" : "Dashboard") : "Sign in";
 
@@ -678,7 +683,7 @@ export default function Landing() {
             <span className="ckl-hero-nav-divider" style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
             <nav className="ckl-hero-nav-links" style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
               <button type="button" onClick={() => openWriterOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Scripts</button>
-              <Link to={ROUTES.pro} className="hov-red" style={navLink}>For Producers</Link>
+              <button type="button" onClick={() => openProducerOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>For Producers</button>
               <button type="button" onClick={() => openPricingModal()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Pricing</button>
             </nav>
             {user ? (
@@ -926,9 +931,9 @@ export default function Landing() {
                     </div>
                   ))}
                 </div>
-                <Link to={card.to} className="hov-underline" style={{ marginTop: 32, display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontWeight: 700, fontSize: 17, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 6, transition: "color .22s ease,border-color .22s ease" }}>
+                <button type="button" onClick={() => openOnboarding(card.to === ROUTES.writer ? "writer" : "producer")} className="hov-underline" style={{ marginTop: 32, display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontWeight: 700, fontSize: 17, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 6, background: "none", borderTop: "none", borderLeft: "none", borderRight: "none", cursor: "pointer", transition: "color .22s ease,border-color .22s ease" }}>
                   {card.cta}<Icon name="arrow_forward" size={17} />
-                </Link>
+                </button>
               </div>
             ))}
           </div>
@@ -1009,7 +1014,7 @@ export default function Landing() {
                   <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: "#76726a", marginBottom: 4 }}>{col.head}</div>
                   {col.links.map((l) =>
                     l.action ? (
-                      <button key={l.label} type="button" onClick={() => (l.action === "pricing" ? openPricingModal() : openAboutModal())} className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>{l.label}</button>
+                      <button key={l.label} type="button" onClick={() => { if (l.action === "pricing") openPricingModal(); else if (l.action === "about") openAboutModal(); else openOnboarding(l.action); }} className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>{l.label}</button>
                     ) : l.external ? (
                       <a key={l.label} href={l.to} target="_blank" rel="noopener noreferrer" className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none" }}>{l.label}</a>
                     ) : (

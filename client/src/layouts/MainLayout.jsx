@@ -23,7 +23,7 @@ const MotionDiv = motion.div;
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
-  const { openPricingModal } = useAuthModal();
+  const { openPricingModal, openAuthModal } = useAuthModal();
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useDarkMode();
@@ -531,7 +531,8 @@ const MainLayout = ({ children }) => {
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
+    openAuthModal();
   };
 
   const initials = user?.name
