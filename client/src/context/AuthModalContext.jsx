@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AuthModal from "../components/AuthModal";
 import ProducerOnboardingModal from "../components/ProducerOnboardingModal";
 import WriterOnboardingModal from "../components/WriterOnboardingModal";
@@ -39,6 +39,7 @@ export const useAuthModal = () => useContext(AuthModalContext);
 
 export const AuthModalProvider = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [state, setState] = useState({ open: false, redirect: "" });
   const [producerOpen, setProducerOpen] = useState(false);
   const [writerOpen, setWriterOpen] = useState(false);
@@ -81,13 +82,26 @@ export const AuthModalProvider = ({ children }) => {
     setAboutOpen(false);
   }, []);
 
+  // Open the pricing surface as an overlay on the current page — no route
+  // change, no scroll loss. The /pricing route still works for deep links and
+  // new-tab opens via PricingRoute, which calls this on mount.
   const openPricingModal = useCallback(() => {
-    navigate("/pricing");
-  }, [navigate]);
+    setState((prev) => ({ ...prev, open: false })); // never stack the surfaces
+    setPricingOpen(true);
+  }, []);
 
   const closePricingModal = useCallback(() => {
     setPricingOpen(false);
-  }, []);
+    // When the modal was reached by visiting /pricing directly, there's no page
+    // behind it — send the visitor somewhere sensible instead of a bare route.
+    if (location.pathname === "/pricing") {
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate("/", { replace: true });
+      }
+    }
+  }, [location.pathname, navigate]);
 
   const value = useMemo(
     () => ({
