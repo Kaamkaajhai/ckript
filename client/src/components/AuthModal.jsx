@@ -107,7 +107,7 @@ const defaultPathForRole = (role) => {
 
 function AuthModalInner({ redirect, onClose }) {
   const { user, login, setUser } = useContext(AuthContext);
-  const { openProducerOnboarding, openWriterOnboarding } = useAuthModal();
+  const { openProducerOnboarding, openWriterOnboarding, openForgotPasswordModal } = useAuthModal();
   const navigate = useNavigate();
   const titleId = useId();
 
@@ -198,8 +198,9 @@ function AuthModalInner({ redirect, onClose }) {
   };
 
   const goToForgot = () => {
-    onClose();
-    navigate("/forgot-password");
+    // Hand off to the recovery modal as an overlay — no route change. It closes
+    // this surface first so the two never stack.
+    openForgotPasswordModal();
   };
 
   // Esc to close + basic focus trap, scoped to the dialog while open.
