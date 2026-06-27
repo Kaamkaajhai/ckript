@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import api from "../services/api";
 import { sendPitch } from "../services/scriptPitchService";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import ProjectCard from "../components/ProjectCard";
 import EditProfileModal from "../components/EditProfileModal";
@@ -198,6 +199,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser, setUser, logout } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
 
   const [profile, setProfile] = useState(null);
@@ -784,7 +786,7 @@ const Profile = () => {
                 </p>
                 <button
                   type="button"
-                  onClick={() => navigate("/pricing")}
+                  onClick={() => openPricingModal()}
                   className="px-4 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
                 >
                   Get the Plan

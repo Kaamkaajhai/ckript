@@ -15,7 +15,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SeoPage = lazy(() => import("./pages/SeoPage"));
-const PricingPage = lazy(() => import("./pages/PricingPage"));
+const PricingRoute = lazy(() => import("./pages/PricingRoute"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
@@ -254,7 +254,7 @@ function App() {
               <Route path="/resources/:slug" element={<SeoPage />} />
               <Route path="/tools" element={<SeoPage />} />
               <Route path="/tools/:slug" element={<SeoPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/pricing" element={<PricingRoute />} />
               <Route path="/faq" element={<SeoPage />} />
               <Route path="/genre/:slug" element={<SeoPage />} />
               <Route path="/how-to-sell-a-script" element={<SeoPage />} />
