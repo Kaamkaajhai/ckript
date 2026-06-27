@@ -1,6 +1,7 @@
 import { useContext, useState } from "react";
 import { motion } from "framer-motion";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useNavigate, Link, useLocation, useSearchParams } from "react-router-dom";
 import { ArrowRight, AlertCircle } from "lucide-react";
 import OTPVerification from "../components/OTPVerification";
@@ -12,6 +13,7 @@ const FORCE_DEFAULT_REDIRECT_KEY = "auth:force-default-redirect";
 
 const Login = () => {
   const { login, setUser } = useContext(AuthContext);
+  const { openForgotPasswordModal } = useAuthModal();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -243,12 +245,13 @@ const Login = () => {
                 required
               />
               <div className="mt-1.5 text-right">
-                <Link
-                  to="/forgot-password"
+                <button
+                  type="button"
+                  onClick={() => openForgotPasswordModal()}
                   className="text-xs text-[#1e3a5f] font-medium hover:text-[#162d4a] transition-colors"
                 >
                   Forgot password?
-                </Link>
+                </button>
               </div>
             </div>
             <button
