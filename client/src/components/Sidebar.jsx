@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Fragment, useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
@@ -11,6 +12,7 @@ import { getProfileCanonicalPath } from "../utils/profilePath";
 
 const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0, collapsed = false, onToggleCollapse }) => {
   const { user, logout } = useContext(AuthContext);
+  const { openProducerOnboarding, openAuthModal } = useAuthModal();
   const { isDarkMode: appDarkMode } = useDarkMode();
   const location = useLocation();
   const navigate = useNavigate();
@@ -104,7 +106,8 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
+    openAuthModal();
   };
 
   const isActive = (path) => {
@@ -168,7 +171,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
   const actionItems = isAdmin ? [] : isReader ? [
     { path: "/writer-onboarding", label: "Become a Writer", icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
-    { path: "/producer-director-onboarding", label: "Become a Producer/Director", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { action: "producer-onboarding", label: "Become a Producer/Director", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
   ] : isIndustry ? [
     { path: "/writers", label: "Browse Writers", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" },
   ] : [
@@ -220,6 +223,26 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
     const active = isActive(item.path);
     const showPurchaseBadge = isPurchaseRequestsItem(item.path) && purchaseRequestCount > 0;
     const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
+    const baseClass = `group flex items-center gap-3 px-4 py-2.5 min-h-[44px] mx-2 rounded-xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
+      ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
+      : isDarkMode ? "text-[#8896a7] hover:bg-[#0d1520] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
+      }`;
+
+    // Onboarding entries open the modal in-context instead of routing to the
+    // standalone onboarding page.
+    if (item.action === "producer-onboarding") {
+      return (
+        <button
+          type="button"
+          onClick={() => { setMobileOpen(false); openProducerOnboarding(); }}
+          className={`${baseClass} w-[calc(100%-1rem)] text-left`}
+        >
+          <Icon d={item.icon} size="w-5 h-5 shrink-0" />
+          <span className="flex-1 min-w-0 truncate leading-none">{item.label}</span>
+        </button>
+      );
+    }
+
     return (
       <Link
         to={item.path}

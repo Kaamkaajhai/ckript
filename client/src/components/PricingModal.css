@@ -1,273 +1,554 @@
-/* Ckript — Pricing modal.
-   Port of "Pricing Modal.dc.html" · Design B (centered single column, compact)
-   from the Claude Design handoff. The membership shown is the ₹1999 / month
-   "Film Industry Professional" plan — the same plan the /pricing page sells,
-   sharing one Razorpay flow via useFilmIndustryProfessionalCheckout.
+/* Ckript — Pricing modal · Design E ("Writer trio + industry ribbon").
+   Port of "Pricing Modal v3.dc.html" from the Claude Design handoff.
 
-   Kept in its own pm- prefixed sheet, mirroring how AboutModal (abm-) and the
-   onboarding modals each own their styles. The handoff's #b5121b accent is
-   rendered in the shipped brand red (#D14D37) used by AboutModal + Landing, so
-   the surface is consistent with the rest of the product.
+   One editorial surface for the whole pricing story: the Free / Silver / Gold
+   writer tiers as a three-up grid, with the ₹1999 Film Industry Professional
+   plan as a full-width ribbon beneath. It replaces both the old single-column
+   modal and the /pricing page, and is a real, account-aware checkout — not a
+   decorative card. Writer plans run through useWriterPlanCheckout; the industry
+   ribbon through useFilmIndustryProfessionalCheckout. Both share one Razorpay
+   contract so no surface can drift.
 
-   No @import here — brand fonts (Baskervville + PT Serif) load via <link>,
-   sharing the auth modal's font link id, so the overlay can never paint
-   unstyled. */
+   The handoff's brand red (#D14D37) and serif pairing (Baskervville + PT Serif)
+   match AboutModal + the Landing page, so the overlay reads as part of the
+   product. Fonts load via <link> (shared id), so the surface can never paint
+   unstyled. The pmx- prefix keeps this sheet self-contained.
 
-.pm-overlay {
+   States added on top of the static design (production, not in the comp):
+   active badges, days-left, upload-quota meters, per-button loading, role
+   gating, inline error/info, and a unified success view. */
+
+.pmx-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   overflow-y: auto;
-  padding: 44px;
-  /* Editorial dimmed-page backdrop from the design, scaled to the viewport. */
-  background: radial-gradient(circle at 30% 20%, rgba(34, 29, 26, 0.62), rgba(20, 18, 16, 0.82) 70%);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  padding: 44px 20px;
+  background: radial-gradient(circle at 30% 18%, rgba(34, 29, 26, 0.66), rgba(20, 18, 16, 0.86) 72%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   font-family: "Helvetica Neue", Arial, sans-serif;
 }
 
 /* ── Card ─────────────────────────────────────────────────────── */
-.pm-card {
+.pmx-card {
   position: relative;
-  width: 428px;
+  width: 940px;
   max-width: 100%;
   margin: auto;
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.4);
   overflow: hidden;
-  padding: 42px 40px 32px;
-  text-align: center;
+  padding: 30px 32px;
 }
 
-/* ── Eyebrow ──────────────────────────────────────────────────── */
-.pm-eyebrow {
+/* ── Header ───────────────────────────────────────────────────── */
+.pmx-head {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-right: 40px; /* clear the close button */
 }
-.pm-eyebrow i {
-  width: 9px;
-  height: 9px;
-  background: #D14D37;
+.pmx-eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
 }
-.pm-eyebrow span {
+.pmx-eyebrow i {
+  width: 8px;
+  height: 8px;
+  background: #d14d37;
+  transform: rotate(45deg);
+}
+.pmx-eyebrow span {
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 2.6px;
+  letter-spacing: 2.4px;
   text-transform: uppercase;
-  color: #8a8a8a;
+  color: #9a978f;
 }
-
-/* ── Price ────────────────────────────────────────────────────── */
-.pm-price {
-  margin-top: 18px;
-  font-family: "Helvetica Neue", Arial, sans-serif;
-  font-weight: 700;
-  font-size: 54px;
-  line-height: 1;
-  letter-spacing: -1.5px;
-  color: #0b0a06;
-}
-.pm-per {
-  margin-top: 6px;
-  font-size: 12px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #8a8a8a;
-}
-
-/* ── Heading ──────────────────────────────────────────────────── */
-.pm-title {
-  margin: 18px 0 0;
+.pmx-title {
+  margin: 11px 0 0;
   font-family: "Baskervville", Georgia, serif;
   font-weight: 400;
-  font-size: 24px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-size: 28px;
+  line-height: 1;
   color: #0b0a06;
 }
-.pm-sub {
-  margin: 8px auto 0;
-  max-width: 30ch;
+.pmx-head-aside {
   font-family: "PT Serif", Georgia, serif;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #57544f;
+  font-size: 12px;
+  font-style: italic;
+  color: #b3afa7;
+  text-align: right;
+  flex: none;
+  max-width: 38%;
 }
 
-/* ── Divider ──────────────────────────────────────────────────── */
-.pm-rule {
-  margin: 22px 0 0;
+/* ── Writer trio ──────────────────────────────────────────────── */
+.pmx-trio {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.pmx-tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e3e1da;
+  padding: 20px 18px;
+}
+.pmx-tier--gold {
+  background: #161513;
+  border-color: #161513;
+}
+.pmx-tier-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #d14d37;
+}
+
+.pmx-tier-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+.pmx-tier-name {
+  font-family: "Baskervville", Georgia, serif;
+  font-size: 20px;
+  line-height: 1;
+  color: #0b0a06;
+}
+.pmx-tier--gold .pmx-tier-name {
+  color: #fff;
+}
+
+.pmx-chip {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+.pmx-chip--best {
+  color: #d14d37;
+  border: 1px solid rgba(209, 77, 55, 0.5);
+}
+
+.pmx-tier-price {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.pmx-tier-price b {
+  font-family: "Baskervville", Georgia, serif;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1;
+  color: #0b0a06;
+}
+.pmx-tier--gold .pmx-tier-price b {
+  color: #fff;
+}
+.pmx-tier-price span {
+  font-size: 11px;
+  color: #8a8a8a;
+}
+.pmx-tier--gold .pmx-tier-price span {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pmx-tier-divider {
+  margin: 14px 0;
   height: 1px;
-  background: #e3e0d9;
+  background: #eceae4;
+}
+.pmx-tier--gold .pmx-tier-divider {
+  background: rgba(255, 255, 255, 0.12);
 }
 
-/* ── Features ─────────────────────────────────────────────────── */
-.pm-features {
+.pmx-feats {
   list-style: none;
-  margin: 18px 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  text-align: left;
+  gap: 8px;
+  flex: 1;
 }
-.pm-features li {
+.pmx-feats li {
   display: flex;
-  gap: 11px;
+  gap: 9px;
   font-family: "PT Serif", Georgia, serif;
-  font-size: 13.5px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.35;
   color: #3f3c37;
 }
-.pm-features li i {
+.pmx-tier--gold .pmx-feats li {
+  color: rgba(255, 255, 255, 0.78);
+}
+.pmx-feats li i {
   flex: none;
   margin-top: 5px;
-  width: 6px;
-  height: 6px;
-  background: #D14D37;
+  width: 5px;
+  height: 5px;
+  background: #d14d37;
+  transform: rotate(45deg);
 }
 
-/* ── Status pill (shown above the heading for active members) ──── */
-.pm-status {
+/* ── Active state: status pills + quota meter ─────────────────── */
+.pmx-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.pmx-pill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  margin-top: 14px;
-  padding: 5px 12px;
+  gap: 6px;
+  padding: 4px 9px;
   border-radius: 100px;
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
 }
-.pm-status--active {
+.pmx-pill--active {
   border: 1px solid #bfe3cf;
   background: #f0f9f3;
   color: #2f8a55;
 }
-.pm-status--active i {
+.pmx-pill--active i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
   background: #2f8a55;
 }
-.pm-status--days {
+.pmx-pill--days {
   border: 1px solid #e7d3a8;
   background: #fdf7e9;
   color: #9a7416;
-  margin-left: 6px;
+}
+/* On the dark gold card the pills need a lighter footprint */
+.pmx-tier--gold .pmx-pill--active {
+  border-color: rgba(96, 209, 142, 0.4);
+  background: rgba(47, 138, 85, 0.18);
+  color: #79d7a1;
+}
+.pmx-tier--gold .pmx-pill--days {
+  border-color: rgba(231, 211, 168, 0.35);
+  background: rgba(154, 116, 22, 0.18);
+  color: #e2c684;
 }
 
-/* ── Primary action ───────────────────────────────────────────── */
-.pm-cta {
-  margin-top: 24px;
-  height: 46px;
-  width: 100%;
-  background: #121212;
+.pmx-quota {
+  margin-top: 12px;
+}
+.pmx-quota-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: #8a8a8a;
+}
+.pmx-tier--gold .pmx-quota-row {
+  color: rgba(255, 255, 255, 0.55);
+}
+.pmx-quota-row b {
+  font-weight: 700;
+  color: #3f3c37;
+}
+.pmx-tier--gold .pmx-quota-row b {
   color: #fff;
-  border: none;
-  border-radius: 0;
+}
+.pmx-quota-track {
+  margin-top: 6px;
+  height: 5px;
+  border-radius: 100px;
+  background: #eceae4;
+  overflow: hidden;
+}
+.pmx-tier--gold .pmx-quota-track {
+  background: rgba(255, 255, 255, 0.12);
+}
+.pmx-quota-fill {
+  height: 100%;
+  border-radius: 100px;
+  background: #d14d37;
+  transition: width 0.5s ease;
+}
+.pmx-quota-fill--full {
+  background: #b5402c;
+}
+
+/* ── Tier buttons ─────────────────────────────────────────────── */
+.pmx-tier-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pmx-btn {
+  height: 38px;
+  width: 100%;
   font-family: inherit;
   font-weight: 600;
-  font-size: 14.5px;
+  font-size: 12.5px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
+  border: 1px solid transparent;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+/* Outline (Free / Silver default) */
+.pmx-btn--outline {
+  background: #fff;
+  color: #0b0a06;
+  border-color: #161513;
+}
+.pmx-btn--outline:hover:not(:disabled) {
+  background: #161513;
+  color: #fff;
+}
+/* Accent (Gold) */
+.pmx-btn--accent {
+  background: #d14d37;
+  color: #fff;
+}
+.pmx-btn--accent:hover:not(:disabled) {
+  background: #b83c28;
+}
+/* Ghost (secondary "renew" line) */
+.pmx-btn--ghost {
+  background: transparent;
+  color: #8a8a8a;
+  border-color: #e3e1da;
+  font-weight: 600;
+}
+.pmx-btn--ghost:hover:not(:disabled) {
+  color: #d14d37;
+  border-color: #d8b6ad;
+}
+.pmx-tier--gold .pmx-btn--ghost {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.pmx-tier--gold .pmx-btn--ghost:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+/* Active confirmation (go to dashboard) */
+.pmx-btn--active {
+  background: #2f8a55;
+  color: #fff;
+}
+.pmx-btn--active:hover:not(:disabled) {
+  background: #277a49;
+}
+.pmx-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.pmx-btn--outline:disabled {
+  background: #f3f1ec;
+  color: #b3afa7;
+  border-color: #e3e1da;
+  opacity: 1;
+}
+
+/* ── Industry ribbon ──────────────────────────────────────────── */
+.pmx-ribbon {
+  position: relative;
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: #faf8f3;
+  border: 1px solid #e8e4db;
+  padding: 18px 22px;
+}
+.pmx-ribbon-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: #d14d37;
+}
+.pmx-ribbon-id {
+  flex: none;
+  max-width: 240px;
+}
+.pmx-ribbon-kicker {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #d14d37;
+}
+.pmx-ribbon-name {
+  margin-top: 4px;
+  font-family: "Baskervville", Georgia, serif;
+  font-size: 19px;
+  line-height: 1.05;
+  color: #0b0a06;
+}
+.pmx-ribbon-desc {
+  flex: 1;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6b6760;
+}
+.pmx-ribbon-right {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pmx-ribbon-price {
+  text-align: right;
+}
+.pmx-ribbon-price b {
+  font-family: "Baskervville", Georgia, serif;
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1;
+  color: #0b0a06;
+}
+.pmx-ribbon-price span {
+  display: block;
+  font-size: 10px;
+  color: #8a8a8a;
+}
+.pmx-ribbon-cta {
+  flex: none;
+  height: 42px;
+  padding: 0 20px;
+  background: #121212;
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
   transition: background 0.2s ease;
 }
-.pm-cta:hover:not(:disabled) {
+.pmx-ribbon-cta:hover:not(:disabled) {
   background: #000;
 }
-.pm-cta:disabled {
+.pmx-ribbon-cta--active {
+  background: #2f8a55;
+}
+.pmx-ribbon-cta--active:hover:not(:disabled) {
+  background: #277a49;
+}
+.pmx-ribbon-cta:disabled {
   cursor: not-allowed;
   background: #b8b5af;
 }
-.pm-cta--active {
-  background: #2f8a55;
+.pmx-ribbon-renew {
+  flex: none;
+  height: 42px;
+  padding: 0 16px;
+  background: transparent;
+  border: 1px solid #d8d3c8;
+  color: #6b6760;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.18s ease, border-color 0.18s ease;
 }
-.pm-cta--active:hover:not(:disabled) {
-  background: #277a49;
+.pmx-ribbon-renew:hover:not(:disabled) {
+  color: #d14d37;
+  border-color: #d8b6ad;
 }
-.pm-spinner {
-  width: 15px;
-  height: 15px;
+.pmx-ribbon-renew:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Spinner + lock icon ──────────────────────────────────────── */
+.pmx-spinner {
+  width: 14px;
+  height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.35);
   border-top-color: #fff;
   border-radius: 50%;
-  animation: pm-spin 0.7s linear infinite;
+  animation: pmx-spin 0.7s linear infinite;
+  flex: none;
 }
-@keyframes pm-spin {
+.pmx-btn--outline .pmx-spinner {
+  border-color: rgba(11, 10, 6, 0.25);
+  border-top-color: #0b0a06;
+}
+@keyframes pmx-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-/* Secondary "renew" / "maybe later" line */
-.pm-secondary {
-  margin-top: 10px;
-  background: none;
-  border: none;
-  padding: 6px;
-  font-family: inherit;
+/* ── Inline messages (global) ─────────────────────────────────── */
+.pmx-msgs {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pmx-msg {
+  padding: 9px 13px;
+  font-family: "PT Serif", Georgia, serif;
   font-size: 12.5px;
-  color: #8a8a8a;
-  cursor: pointer;
-  transition: color 0.18s ease;
-}
-.pm-secondary:hover:not(:disabled) {
-  color: #D14D37;
-}
-.pm-secondary:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.pm-note {
-  margin: 12px 0 0;
-  font-size: 12px;
-  color: #8a8a8a;
-}
-
-/* ── Inline status messages ───────────────────────────────────── */
-.pm-msg {
-  margin: 14px 0 0;
-  padding: 8px 12px;
-  font-size: 12px;
   line-height: 1.45;
-  text-align: left;
   border-radius: 4px;
 }
-.pm-msg--info {
+.pmx-msg--info {
   border: 1px solid #cfe3d6;
   background: #f1f8f4;
   color: #2f7a4d;
 }
-.pm-msg--error {
+.pmx-msg--error {
   border: 1px solid #ecc7c1;
   background: #fbf1ef;
   color: #b5402c;
 }
-.pm-msg--warn {
+.pmx-msg--warn {
   border: 1px solid #e7d3a8;
   background: #fdf7e9;
   color: #8a6a16;
 }
 
 /* ── Close ────────────────────────────────────────────────────── */
-.pm-close {
+.pmx-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 34px;
-  height: 34px;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -276,21 +557,27 @@
   border-radius: 50%;
   cursor: pointer;
   color: #333;
+  z-index: 2;
   transition: background 0.18s ease, color 0.18s ease;
 }
-.pm-close:hover {
+.pmx-close:hover:not(:disabled) {
   background: #f0eeea;
-  color: #D14D37;
+  color: #d14d37;
+}
+.pmx-close:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
-/* ── Success state ────────────────────────────────────────────── */
-.pm-success {
+/* ── Success view ─────────────────────────────────────────────── */
+.pmx-success {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 0 4px;
+  text-align: center;
+  padding: 26px 8px 14px;
 }
-.pm-success-mark {
+.pmx-success-mark {
   width: 58px;
   height: 58px;
   display: flex;
@@ -301,7 +588,7 @@
   background: #f0f9f3;
   color: #2f8a55;
 }
-.pm-success-kicker {
+.pmx-success-kicker {
   margin-top: 20px;
   font-size: 10px;
   font-weight: 700;
@@ -309,7 +596,7 @@
   text-transform: uppercase;
   color: #2f8a55;
 }
-.pm-success-title {
+.pmx-success-title {
   margin: 10px 0 0;
   font-family: "Baskervville", Georgia, serif;
   font-weight: 400;
@@ -317,35 +604,83 @@
   letter-spacing: 0.4px;
   color: #0b0a06;
 }
-.pm-success-body {
+.pmx-success-body {
   margin: 10px auto 0;
-  max-width: 32ch;
+  max-width: 40ch;
   font-family: "PT Serif", Georgia, serif;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: #57544f;
+}
+.pmx-success-cta {
+  margin-top: 24px;
+  height: 46px;
+  min-width: 220px;
+  padding: 0 28px;
+  background: #2f8a55;
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.pmx-success-cta:hover {
+  background: #277a49;
 }
 
 /* ── Responsive ───────────────────────────────────────────────── */
-@media (max-width: 520px) {
-  .pm-overlay {
-    padding: 16px;
+@media (max-width: 760px) {
+  .pmx-overlay {
+    padding: 0;
+    align-items: stretch;
   }
-  .pm-card {
-    padding: 36px 24px 26px;
+  .pmx-card {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 0;
+    padding: 56px 18px 28px;
   }
-  .pm-price {
-    font-size: 46px;
+  .pmx-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .pmx-head-aside {
+    display: none;
+  }
+  .pmx-trio {
+    grid-template-columns: 1fr;
+  }
+  .pmx-ribbon {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 18px 18px 22px;
+  }
+  .pmx-ribbon-id {
+    max-width: 100%;
+  }
+  .pmx-ribbon-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .pmx-ribbon-cta {
+    flex: 1;
+    justify-content: center;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pm-cta,
-  .pm-secondary,
-  .pm-close {
+  .pmx-btn,
+  .pmx-ribbon-cta,
+  .pmx-ribbon-renew,
+  .pmx-close,
+  .pmx-quota-fill {
     transition: none;
   }
-  .pm-spinner {
+  .pmx-spinner {
     animation-duration: 1.4s;
   }
 }

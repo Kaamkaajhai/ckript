@@ -27,6 +27,7 @@ import { io } from "socket.io-client";
 import { jsPDF } from "jspdf";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { Film, BadgeCheck, MessageCircle } from "lucide-react";
 import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
@@ -140,6 +141,7 @@ const buildPreviewPdfBlob = ({ title = "Script", pageBlocks = [], fallbackText =
 const ScriptDetail = () => {
   const { id, projectHeading, writerUsername } = useParams();
   const { user, setUser } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
   const { isDarkMode } = useDarkMode();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1292,7 +1294,7 @@ const ScriptDetail = () => {
                   </p>
                   <button
                     type="button"
-                    onClick={() => navigate("/pricing")}
+                    onClick={() => openPricingModal()}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
                   >
                     <BadgeCheck className="h-3.5 w-3.5" />
@@ -1841,7 +1843,7 @@ const ScriptDetail = () => {
                           <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${t.label}`}>Writer Contact</p>
                           <button
                             type="button"
-                            onClick={() => navigate("/pricing")}
+                            onClick={() => openPricingModal()}
                             className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
                           >
                             Get Plan
