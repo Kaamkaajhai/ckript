@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Share2,
@@ -8,6 +8,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useDarkMode } from "../context/DarkModeContext";
+import useScrollLock from "../hooks/useScrollLock";
 import whatsappIcon from "../assets/share-icons/whatsapp.svg";
 import linkedinIcon from "../assets/share-icons/linkedin.svg";
 import instagramIcon from "../assets/share-icons/instagram.svg";
@@ -154,16 +155,7 @@ const SocialShareButton = ({
 
   const platforms = useMemo(() => buildPlatformLinks({ url, title, text }), [url, title, text]);
 
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return undefined;
-
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open]);
+  useScrollLock(open);
 
   const markShared = (platform) => {
     if (typeof onShared === "function") {
