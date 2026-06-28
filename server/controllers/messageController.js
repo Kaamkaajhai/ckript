@@ -304,15 +304,27 @@ export const getConversations = async (req, res) => {
     const userId = req.user._id;
 
     // Fast indexed BSON dump
-    const msgs = await Message.find({
-      $or: [{ sender: userId }, { receiver: userId }],
-      deleted: { $ne: true },
-    })
-      .sort({ createdAt: -1 })
-      .limit(50) // Hard cap to prevent memory dumps
-      .populate("sender", "name profileImage role")
-      .populate("receiver", "name profileImage role")
-      .lean(); // Faster serialization!
+    // Fix massive performance bottleneck: Mongoose $or query with a sort causes slow in-memory sorts.
+    // Instead, query sender and receiver separately utilizing their explicit indexes, then merge.
+    const [sentMsgs, receivedMsgs] = await Promise.all([
+      Message.find({ sender: userId, deleted: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate("sender", "name profileImage role")
+        .populate("receiver", "name profileImage role")
+        .lean(),
+      Message.find({ receiver: userId, deleted: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate("sender", "name profileImage role")
+        .populate("receiver", "name profileImage role")
+        .lean()
+    ]);
+
+    // Merge, sort descending, and cap at 50
+    const msgs = [...sentMsgs, ...receivedMsgs]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 50);
 
     const seen = new Set();
     const conversations = [];

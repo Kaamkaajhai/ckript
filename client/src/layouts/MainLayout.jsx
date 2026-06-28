@@ -756,8 +756,7 @@ const MainLayout = ({ children }) => {
           {/* Pricing Link */}
           <button
             onClick={() => openPricingModal()}
-            className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all border border-[#D14D37] bg-transparent hover:bg-[#D14D37]/10 mr-1 sm:mr-0"
-            style={{ color: "#ffffff" }}
+            className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all bg-transparent !text-white hover:!text-[#cf3335] mr-1 sm:mr-0"
             title="View Pricing"
           >
             Pricing

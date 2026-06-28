@@ -562,7 +562,7 @@ const InvestorHome = () => {
             <div className="space-y-2.5">
               <button
                 type="button"
-                onClick={() => { setShowUpgradeModal(false); openPricingModal(); }}
+                onClick={() => { setShowUpgradeModal(false); openPricingModal("industry"); }}
                 className="w-full px-4 py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-left flex items-center justify-between"
               >
                 <span>

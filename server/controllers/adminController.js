@@ -957,6 +957,7 @@ export const grantPremiumModelToUser = async (req, res) => {
 
         targetUser.subscription = {
             plan: "pro",
+            aiImagesGeneratedTotal: 0,
             accessTier: "film_industry_professional",
             checkoutMode: "live",
             checkoutProvider: "razorpay",
@@ -1092,6 +1093,7 @@ export const grantWriterPlanToUser = async (req, res) => {
         targetUser.subscription = {
             ...targetUser.subscription,
             plan: plan,
+            aiImagesGeneratedTotal: 0,
             isActive: true,
             accessTier: plan === "gold" ? "writer_gold" : "writer_silver",
             accessStatus: "active",

@@ -145,6 +145,7 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
     const update = {
       $set: {
         "subscription.plan": FILM_INDUSTRY_PRO_MODEL.plan,
+        "subscription.aiImagesGeneratedTotal": 0,
         "subscription.expiresAt": expiresAt,
         "subscription.accessTier": FILM_INDUSTRY_PRO_MODEL.accessTier,
         "subscription.accessStatus": "active",
@@ -245,6 +246,7 @@ export const activateTestWriterSubscription = async (req, res) => {
     const update = {
       $set: {
         "subscription.plan": model.plan,
+        "subscription.aiImagesGeneratedTotal": 0,
         "subscription.expiresAt": expiresAt,
         "subscription.accessTier": model.accessTier,
         "subscription.accessStatus": "active",
@@ -297,6 +299,7 @@ export const verifyRazorpayPayment = async (req, res) => {
     const update = {
       $set: {
         "subscription.plan": FILM_INDUSTRY_PRO_MODEL.plan,
+        "subscription.aiImagesGeneratedTotal": 0,
         "subscription.expiresAt": expiresAt,
         "subscription.accessTier": FILM_INDUSTRY_PRO_MODEL.accessTier,
         "subscription.accessStatus": "active",
@@ -529,6 +532,7 @@ export const verifyWriterRazorpayPayment = async (req, res) => {
     const update = {
       $set: {
         "subscription.plan": model.plan,
+        "subscription.aiImagesGeneratedTotal": 0,
         "subscription.expiresAt": expiresAt,
         "subscription.accessTier": model.accessTier,
         "subscription.accessStatus": "active",

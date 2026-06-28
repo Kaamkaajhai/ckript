@@ -1882,7 +1882,7 @@ export const getMyScripts = async (req, res) => {
       ? {
         isDeleted: { $ne: true },
         $or: [
-          { creator: req.user._id, status: { $ne: "draft" } },
+          { creator: req.user._id },
           {
             collaborators: {
               $elemMatch: {
@@ -1894,11 +1894,11 @@ export const getMyScripts = async (req, res) => {
           },
         ],
       }
-      : { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      : { creator: req.user._id, isDeleted: { $ne: true } };
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion viewableScript scriptPreviewAccess scriptPreviewPageTexts")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 
