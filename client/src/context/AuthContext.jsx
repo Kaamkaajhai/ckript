@@ -269,7 +269,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
 
     if (redirect && typeof window !== "undefined") {
-      window.location.replace("/login");
+      window.location.replace("/");
     }
   };
 

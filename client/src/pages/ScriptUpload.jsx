@@ -6,6 +6,7 @@ import Cropper from "react-easy-crop";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { formatCurrency } from "../utils/currency";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import ScreenplayViewer from "../components/ScreenplayViewer";
@@ -422,6 +423,7 @@ const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
+  const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
@@ -1152,9 +1154,32 @@ const ScriptUpload = () => {
     return () => URL.revokeObjectURL(previewUrl);
   }, [thumbnailFile]);
 
+  const [aiCoverAttempts, setAiCoverAttempts] = useState(0);
+  const [aiCoverHistory, setAiCoverHistory] = useState([]);
+  const [aiCoverIndex, setAiCoverIndex] = useState(-1);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = useCallback((msg, type = "error", action = null) => {
+    setToastMessage({ text: msg, type, action });
+    setTimeout(() => setToastMessage(null), 5000);
+  }, []);
+
   const generateAiCover = async () => {
+    const plan = user?.subscription?.plan || "free";
+    if (plan === "free") {
+      showToast(
+        "Purchase a plan to use AI thumbnail generation.",
+        "warning",
+        { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+      );
+      return;
+    }
     if (!formData.title) {
-      alert("Please enter a title in Step 1 first to generate an AI cover.");
+      showToast("Please enter a title in Step 1 first to generate an AI cover.", "warning");
+      return;
+    }
+    if (aiCoverAttempts >= 3) {
+      showToast("You have reached the limit of 3 AI cover generations for this script.", "warning");
       return;
     }
     try {
@@ -1172,15 +1197,58 @@ const ScriptUpload = () => {
         const blob = await resFetch.blob();
         const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
         setThumbnailFile(file);
+        setAiCoverAttempts(res.data.attempts || (aiCoverAttempts + 1));
+        const newHistory = [...aiCoverHistory.slice(0, aiCoverIndex + 1), file];
+        setAiCoverHistory(newHistory);
+        setAiCoverIndex(newHistory.length - 1);
       } else {
-        alert("Failed to generate AI cover. Please try again.");
+        showToast("Failed to generate AI cover. Please try again.", "error");
       }
     } catch (error) {
       console.error("AI cover generation failed:", error);
-      alert("Failed to generate AI cover: " + (error.response?.data?.message || error.message));
+      const errMsg = error.response?.data?.message || error.message;
+      showToast(errMsg, "error");
     } finally {
       setIsGeneratingAiCover(false);
     }
+  };
+
+  const downloadWatermarkedImage = (file) => {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+      
+      // Add watermark
+      ctx.font = "bold 120px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 1)"; // Fully opaque white for clarity
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      
+      // Add a crisp black outline (stroke) instead of a blurry shadow
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.strokeText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Draw the solid white text over the outline
+      ctx.fillText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Download
+      const a = document.createElement("a");
+      a.download = `watermarked-${file.name}`;
+      a.href = canvas.toDataURL("image/jpeg");
+      a.click();
+      URL.revokeObjectURL(url);
+    };
   };
 
   useEffect(() => () => {
@@ -2588,6 +2656,39 @@ const ScriptUpload = () => {
                       </label>
                     </div>
 
+                    {/* Professional Toast Notification */}
+                    {toastMessage && (
+                      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-5">
+                        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border ${
+                          toastMessage.type === 'error' ? 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200' :
+                          toastMessage.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200' :
+                          'bg-blue-50 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+                        }`}>
+                          {toastMessage.type === 'error' ? (
+                            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                          ) : (
+                            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          )}
+                          <p className="text-sm font-medium">{toastMessage.text}</p>
+                          {toastMessage.action && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setToastMessage(null);
+                                toastMessage.action.onClick();
+                              }} 
+                              className="ml-3 px-3 py-1.5 text-xs font-bold bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-md transition whitespace-nowrap"
+                            >
+                              {toastMessage.action.label}
+                            </button>
+                          )}
+                          <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100 transition">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {fromDraft && textContent ? (
                       <div className={`flex items-center gap-3 p-4 rounded-xl mb-4 ${isDarkMode ? "bg-green-500/10 border border-green-500/20" : "bg-green-50 border border-green-200"}`}>
                         <svg className="w-5 h-5 text-green-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -2787,45 +2888,83 @@ const ScriptUpload = () => {
                               </div>
                             </div>
                           ) : (
-                            <div className={`border rounded-xl p-3 flex items-center gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
-                                <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
+                            <div className={`border rounded-xl p-3 flex flex-col gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                              <div className="flex items-center gap-3">
+                                <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
+                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openThumbnailEditor(thumbnailFile)}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                                  >
+                                    Adjust
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadWatermarkedImage(thumbnailFile)}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-green-300 border-green-500/20 hover:bg-white/[0.12]" : "bg-white text-green-600 border-green-200 hover:bg-green-50"}`}
+                                  >
+                                    Download
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setThumbnailFile(null);
+                                      setError("");
+                                    }}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex flex-col gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => openThumbnailEditor(thumbnailFile)}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                >
-                                  Adjust
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const url = URL.createObjectURL(thumbnailFile);
-                                    const a = document.createElement('a');
-                                    a.href = url;
-                                    a.download = thumbnailFile.name || 'thumbnail.jpg';
-                                    a.click();
-                                    URL.revokeObjectURL(url);
-                                  }}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-green-300 border-green-500/20 hover:bg-white/[0.12]" : "bg-white text-green-600 border-green-200 hover:bg-green-50"}`}
-                                >
-                                  Download
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setThumbnailFile(null);
-                                    setError("");
-                                  }}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                >
-                                  Remove
-                                </button>
-                              </div>
+                              {thumbnailFile.name?.startsWith("ai-cover") && (
+                                <div className={`pt-3 border-t flex items-center justify-between ${isDarkMode ? "border-green-500/20" : "border-green-200"}`}>
+                                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                                    <button
+                                      type="button"
+                                      disabled={aiCoverIndex <= 0}
+                                      onClick={() => {
+                                        const newIndex = aiCoverIndex - 1;
+                                        setAiCoverIndex(newIndex);
+                                        setThumbnailFile(aiCoverHistory[newIndex]);
+                                      }}
+                                      className={`p-1 rounded-full ${aiCoverIndex <= 0 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                    </button>
+                                    <span className="text-[10px] font-bold">History ({aiCoverIndex + 1}/{aiCoverHistory.length})</span>
+                                    <button
+                                      type="button"
+                                      disabled={aiCoverIndex >= aiCoverHistory.length - 1}
+                                      onClick={() => {
+                                        const newIndex = aiCoverIndex + 1;
+                                        setAiCoverIndex(newIndex);
+                                        setThumbnailFile(aiCoverHistory[newIndex]);
+                                      }}
+                                      className={`p-1 rounded-full ${aiCoverIndex >= aiCoverHistory.length - 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                  </div>
+                                  {aiCoverAttempts < 3 ? (
+                                    <button
+                                      type="button"
+                                      onClick={isGeneratingAiCover ? null : generateAiCover}
+                                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5 ${isGeneratingAiCover ? "opacity-70 cursor-not-allowed" : ""} ${isDarkMode ? "bg-purple-600 hover:bg-purple-500 text-white" : "bg-purple-100 hover:bg-purple-200 text-purple-700"}`}
+                                    >
+                                      {isGeneratingAiCover ? "Generating..." : "Try Another Concept"}
+                                      {!isGeneratingAiCover && <span className="font-normal opacity-70">({3 - aiCoverAttempts} left)</span>}
+                                    </button>
+                                  ) : (
+                                    <span className={`text-[10px] font-semibold ${isDarkMode ? "text-red-400" : "text-red-600"}`}>Max attempts reached</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

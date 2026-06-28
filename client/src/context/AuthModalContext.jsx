@@ -49,6 +49,7 @@ export const AuthModalProvider = ({ children }) => {
   const [writerOpen, setWriterOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [pricingTab, setPricingTab] = useState("all");
   const [forgotOpen, setForgotOpen] = useState(false);
 
   const openAuthModal = useCallback((opts = {}) => {
@@ -90,8 +91,9 @@ export const AuthModalProvider = ({ children }) => {
   // Open the pricing surface as an overlay on the current page — no route
   // change, no scroll loss. The /pricing route still works for deep links and
   // new-tab opens via PricingRoute, which calls this on mount.
-  const openPricingModal = useCallback(() => {
+  const openPricingModal = useCallback((tab = "all") => {
     setState((prev) => ({ ...prev, open: false })); // never stack the surfaces
+    setPricingTab(tab);
     setPricingOpen(true);
   }, []);
 
@@ -188,7 +190,7 @@ export const AuthModalProvider = ({ children }) => {
         }}
       />
       <AboutModal open={aboutOpen} onClose={closeAboutModal} />
-      <PricingModal open={pricingOpen} onClose={closePricingModal} />
+      <PricingModal open={pricingOpen} onClose={closePricingModal} tab={pricingTab} />
       <ForgotPasswordModal
         open={forgotOpen}
         onClose={closeForgotPasswordModal}
