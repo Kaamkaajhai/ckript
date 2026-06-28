@@ -70,18 +70,19 @@ const exportPdf = (heading, columns, rows, filename) => {
   doc.save(filename);
 };
 
-// A compact sort control pill (the report rail is too narrow for a multi-column table header).
+// A small, text-style sort control — reads as a quiet sort link, not a chunky button. The active
+// column is tinted with the brand color and shows a tiny direction caret; others are muted text.
 const SortPill = ({ label, col, sort, setSort, dark }) => {
   const active = sort.col === col;
   return (
     <button
       type="button"
       onClick={() => setSort({ col, dir: active && sort.dir === "desc" ? "asc" : "desc" })}
-      className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition whitespace-nowrap ${active
-        ? "bg-[#1e3a5f] text-white"
-        : (dark ? "text-gray-400 hover:bg-white/[0.06]" : "text-gray-500 hover:bg-gray-200/60")}`}
+      className={`px-1 py-0.5 text-[10px] font-semibold tracking-tight transition whitespace-nowrap rounded ${active
+        ? (dark ? "text-blue-300" : "text-[#1e3a5f]")
+        : (dark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600")}`}
     >
-      {label}{active ? (sort.dir === "asc" ? " ↑" : " ↓") : ""}
+      {label}<span className="ml-0.5 text-[8px]">{active ? (sort.dir === "asc" ? "▲" : "▼") : ""}</span>
     </button>
   );
 };
@@ -169,8 +170,8 @@ export default function ReportsPanel({ value = "", wordsPerPage = 250, title = "
       </div>
 
       {/* Sort toolbar */}
-      <div className={`flex items-center gap-1 px-4 pb-2.5 border-b overflow-x-auto ${dark ? "border-[#182840]" : "border-gray-200"}`}>
-        <span className={`text-[9px] font-bold uppercase tracking-wide mr-0.5 shrink-0 ${muted}`}>Sort</span>
+      <div className={`flex items-center gap-2.5 px-4 pb-2.5 border-b overflow-x-auto ${dark ? "border-[#182840]" : "border-gray-200"}`}>
+        <span className={`text-[9px] font-bold uppercase tracking-wide shrink-0 ${muted}`}>Sort by</span>
         {sub === "scenes" ? (
           <>
             <SortPill label="#" col="number" sort={sceneSort} setSort={setSceneSort} dark={dark} />

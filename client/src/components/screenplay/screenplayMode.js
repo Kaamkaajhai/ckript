@@ -221,6 +221,51 @@ export const applyElementType = (view, type) => {
   return true;
 };
 
+// Fountain inline emphasis markers. These are STANDARD Fountain (and the FDX/PDF export already
+// understands them via the formatter), so wrapping a selection keeps the text plain — the
+// classifier still sees a normal line, only the emphasis renders. This is what "rich text" means
+// in a screenplay: *italic*, **bold**, ***bold italic***, _underline_.
+const EMPHASIS = {
+  italic: { mark: "*", re: /^\*([\s\S]+)\*$/ },
+  bold: { mark: "**", re: /^\*\*([\s\S]+)\*\*$/ },
+  underline: { mark: "_", re: /^_([\s\S]+)_$/ },
+};
+
+// Toggle a Fountain emphasis marker around the current selection. If the selection is already
+// wrapped in that exact marker, unwrap it (toggle off); otherwise wrap it. No selection → insert an
+// empty marker pair and place the caret inside, so the writer can type emphasized text.
+export const applyEmphasis = (view, kind) => {
+  if (!view) return false;
+  const spec = EMPHASIS[kind];
+  if (!spec) return false;
+  const { from, to } = view.state.selection.main;
+  const sel = view.state.sliceDoc(from, to);
+
+  if (from === to) {
+    const pair = `${spec.mark}${spec.mark}`;
+    view.dispatch({ changes: { from, insert: pair }, selection: { anchor: from + spec.mark.length } });
+    view.focus();
+    return true;
+  }
+
+  const m = spec.re.exec(sel);
+  if (m) {
+    // Already wrapped → unwrap.
+    view.dispatch({
+      changes: { from, to, insert: m[1] },
+      selection: { anchor: from, head: from + m[1].length },
+    });
+  } else {
+    const wrapped = `${spec.mark}${sel}${spec.mark}`;
+    view.dispatch({
+      changes: { from, to, insert: wrapped },
+      selection: { anchor: from, head: from + wrapped.length },
+    });
+  }
+  view.focus();
+  return true;
+};
+
 const cycle = (view, dir) => {
   const current = currentElementType(view.state);
   const base = current === "shot" ? "scene" : current;
@@ -313,6 +358,45 @@ const markerHideRanges = (type, line) => {
   return ranges;
 };
 
+// Inline Fountain emphasis decorations (style the text bold/italic/underlined) plus marker hiding
+// (the * and _ characters render at zero width via the same non-atomic .cm-sp-marker as other
+// markers, so click-to-cursor stays accurate). Order matters: *** before ** before * so the longest
+// marker wins. Returns an array of { from, to, deco } for one line.
+const boldItalicDeco = Decoration.mark({ class: "cm-sp-em cm-sp-em-bolditalic" });
+const boldDeco = Decoration.mark({ class: "cm-sp-em cm-sp-em-bold" });
+const italicDeco = Decoration.mark({ class: "cm-sp-em cm-sp-em-italic" });
+const underlineDeco = Decoration.mark({ class: "cm-sp-em cm-sp-em-underline" });
+
+const EMPHASIS_SCANS = [
+  { re: /\*\*\*([^*\n]+)\*\*\*/g, mark: 3, deco: boldItalicDeco },
+  { re: /\*\*([^*\n]+)\*\*/g, mark: 2, deco: boldDeco },
+  { re: /\*([^*\n]+)\*/g, mark: 1, deco: italicDeco },
+  { re: /_([^_\n]+)_/g, mark: 1, deco: underlineDeco },
+];
+
+const emphasisRanges = (line) => {
+  const out = [];
+  const claimed = []; // [from,to) spans already taken by a longer marker, so we don't double-mark
+  const overlaps = (a, b) => claimed.some((c) => a < c.to && b > c.from);
+  for (const scan of EMPHASIS_SCANS) {
+    scan.re.lastIndex = 0;
+    let m;
+    while ((m = scan.re.exec(line.text)) !== null) {
+      const start = line.from + m.index;
+      const end = start + m[0].length;
+      if (overlaps(start, end)) continue;
+      claimed.push({ from: start, to: end });
+      const innerFrom = start + scan.mark;
+      const innerTo = end - scan.mark;
+      // Hide the opening + closing markers; style the inner text.
+      out.push({ from: start, to: innerFrom, deco: hideDeco });
+      out.push({ from: innerFrom, to: innerTo, deco: scan.deco });
+      out.push({ from: innerTo, to: end, deco: hideDeco });
+    }
+  }
+  return out;
+};
+
 const decorationPlugin = ViewPlugin.fromClass(
   class {
     constructor(view) {
@@ -325,9 +409,9 @@ const decorationPlugin = ViewPlugin.fromClass(
     }
     build(view) {
       const types = classifyDocument(view.state);
-      // Line decorations and marker-hide (mark) decorations can both start at line.from; collect
-      // them in document order and let Decoration.set sort by side (line decos sort before marks at
-      // the same position). Mark decos are non-atomic, so the caret stays placeable on every line.
+      // Collect line decorations, marker-hide decorations, and inline emphasis decorations. They are
+      // pushed in document order; Decoration.set(...,true) sorts by (from, side) so line decos sort
+      // before marks at the same position. All marks are non-atomic, so the caret stays placeable.
       const deco = [];
       for (let i = 1; i <= view.state.doc.lines; i += 1) {
         const line = view.state.doc.line(i);
@@ -337,7 +421,11 @@ const decorationPlugin = ViewPlugin.fromClass(
         deco.push(decoFor(type).range(line.from));
         // Suppress any syntax markers on this line so the rendered text reads as a clean label.
         for (const r of markerHideRanges(type, line)) deco.push(hideDeco.range(r.from, r.to));
+        // Inline Fountain emphasis (*italic* **bold** ***both*** _underline_).
+        for (const r of emphasisRanges(line)) deco.push(r.deco.range(r.from, r.to));
       }
+      // Sort by from then startSide so overlapping ranges are well-ordered for CodeMirror.
+      deco.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
       return Decoration.set(deco, true);
     }
   },
