@@ -651,10 +651,13 @@ ${sourceText}`;
       payload = await generateJsonWithGoogleAI({
         prompt,
         temperature: 0.4,
-        maxOutputTokens: 2600,
+        // Logline + a 2–4 paragraph synopsis + up to 12 roles can easily exceed a small cap and
+        // truncate the JSON mid-output (the synopsis is the long part — that's why logline-only
+        // worked but synopsis failed). Give it room; gemini-2.5-flash supports up to 8192.
+        maxOutputTokens: 8192,
       });
     } catch (aiError) {
-      console.error("[AI Metadata] AI call failed:", aiError.message);
+      console.error("[AI Metadata] AI call failed:", aiError.message, aiError.rawSnippet ? `| snippet: ${aiError.rawSnippet}` : "");
       usedFallback = true;
       payload = {};
     }

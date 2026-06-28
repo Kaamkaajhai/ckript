@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef, useEffect, useCallback } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
 import ConfirmDialog from "./ConfirmDialog";
@@ -12,6 +13,7 @@ import { useDarkMode } from "../context/DarkModeContext";
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
+  const { openAuthModal } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,7 +72,8 @@ const Navbar = () => {
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
+    openAuthModal();
   };
 
   return (

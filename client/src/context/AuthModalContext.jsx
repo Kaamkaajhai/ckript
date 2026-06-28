@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AuthModal from "../components/AuthModal";
 import ProducerOnboardingModal from "../components/ProducerOnboardingModal";
 import WriterOnboardingModal from "../components/WriterOnboardingModal";
 import AboutModal from "../components/AboutModal";
 import PricingModal from "../components/PricingModal";
+import ForgotPasswordModal from "../components/ForgotPasswordModal";
 
 /* Global controller for the Ckript auth surfaces. Any component can pop the
    sign-in / join modal — or either role-specific onboarding modal — without
@@ -33,17 +34,22 @@ const AuthModalContext = createContext({
   openPricingModal: () => {},
   closePricingModal: () => {},
   isPricingModalOpen: false,
+  openForgotPasswordModal: () => {},
+  closeForgotPasswordModal: () => {},
+  isForgotPasswordModalOpen: false,
 });
 
 export const useAuthModal = () => useContext(AuthModalContext);
 
 export const AuthModalProvider = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [state, setState] = useState({ open: false, redirect: "" });
   const [producerOpen, setProducerOpen] = useState(false);
   const [writerOpen, setWriterOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const openAuthModal = useCallback((opts = {}) => {
     setState({ open: true, redirect: opts.redirect || "" });
@@ -81,13 +87,54 @@ export const AuthModalProvider = ({ children }) => {
     setAboutOpen(false);
   }, []);
 
+  // Open the pricing surface as an overlay on the current page — no route
+  // change, no scroll loss. The /pricing route still works for deep links and
+  // new-tab opens via PricingRoute, which calls this on mount.
   const openPricingModal = useCallback(() => {
-    navigate("/pricing");
-  }, [navigate]);
+    setState((prev) => ({ ...prev, open: false })); // never stack the surfaces
+    setPricingOpen(true);
+  }, []);
 
   const closePricingModal = useCallback(() => {
     setPricingOpen(false);
+    // When the modal was reached by visiting /pricing directly, there's no page
+    // behind it — send the visitor somewhere sensible instead of a bare route.
+    if (location.pathname === "/pricing") {
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate("/", { replace: true });
+      }
+    }
+  }, [location.pathname, navigate]);
+
+  // Password recovery, as an overlay. Like pricing, the /forgot-password route
+  // still works for deep links via ForgotPasswordRoute.
+  const openForgotPasswordModal = useCallback(() => {
+    setState((prev) => ({ ...prev, open: false })); // never stack on sign-in
+    setForgotOpen(true);
   }, []);
+
+  const closeForgotPasswordModal = useCallback(() => {
+    setForgotOpen(false);
+    if (location.pathname === "/forgot-password") {
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        navigate(-1);
+      } else {
+        navigate("/", { replace: true });
+      }
+    }
+  }, [location.pathname, navigate]);
+
+  // "Sign in" / "Back to sign in" from the recovery modal: dismiss it (leaving
+  // the bare /forgot-password route if that's where we are) then open sign-in.
+  const goToSignInFromForgot = useCallback(() => {
+    setForgotOpen(false);
+    if (location.pathname === "/forgot-password") {
+      navigate("/", { replace: true });
+    }
+    setState({ open: true, redirect: "" });
+  }, [location.pathname, navigate]);
 
   const value = useMemo(
     () => ({
@@ -106,6 +153,9 @@ export const AuthModalProvider = ({ children }) => {
       openPricingModal,
       closePricingModal,
       isPricingModalOpen: pricingOpen,
+      openForgotPasswordModal,
+      closeForgotPasswordModal,
+      isForgotPasswordModalOpen: forgotOpen,
     }),
     [
       openAuthModal, closeAuthModal, state.open,
@@ -113,6 +163,7 @@ export const AuthModalProvider = ({ children }) => {
       openWriterOnboarding, closeWriterOnboarding, writerOpen,
       openAboutModal, closeAboutModal, aboutOpen,
       openPricingModal, closePricingModal, pricingOpen,
+      openForgotPasswordModal, closeForgotPasswordModal, forgotOpen,
     ]
   );
 
@@ -138,6 +189,11 @@ export const AuthModalProvider = ({ children }) => {
       />
       <AboutModal open={aboutOpen} onClose={closeAboutModal} />
       <PricingModal open={pricingOpen} onClose={closePricingModal} />
+      <ForgotPasswordModal
+        open={forgotOpen}
+        onClose={closeForgotPasswordModal}
+        onSignIn={goToSignInFromForgot}
+      />
     </AuthModalContext.Provider>
   );
 };

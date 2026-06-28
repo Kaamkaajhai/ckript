@@ -992,6 +992,12 @@ html.dark-mode .script-content img {
   letter-spacing: 0 !important;
 }
 
+/* Inline Fountain emphasis rendering (the * and _ markers themselves are hidden via .cm-sp-marker). */
+.screenplay-editor .cm-sp-em-bold { font-weight: 700; }
+.screenplay-editor .cm-sp-em-italic { font-style: italic; }
+.screenplay-editor .cm-sp-em-underline { text-decoration: underline; text-underline-offset: 2px; }
+.screenplay-editor .cm-sp-em-bolditalic { font-weight: 700; font-style: italic; }
+
 /* Scene lock layer (Phase 3) — scenes held by another writer: faint tint + badge */
 .screenplay-editor .cm-sp-locked { background: rgba(0, 0, 0, 0.03); }
 .screenplay-editor--dark .cm-sp-locked { background: rgba(255, 255, 255, 0.04); }

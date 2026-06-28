@@ -708,6 +708,10 @@ const CreateProject = () => {
   const [grammarNotes, setGrammarNotes] = useState([]);
   const lastDraftSignatureRef = useRef("");
   const autoSaveInFlightRef = useRef(false);
+  // Once the server rejects a NEW draft with a hard, non-transient error (e.g. 402 plan limit,
+  // 403), stop the autosave loop from hammering the endpoint. Reset when the user edits again so a
+  // later manual save can retry.
+  const saveBlockedRef = useRef(false);
   const localDraftHydratedRef = useRef(false);
   const previewPageTextsSignatureRef = useRef("");
 
@@ -1471,6 +1475,8 @@ const CreateProject = () => {
 
   const queueKeepaliveDraftSave = useCallback((reason = "close") => {
     if (scriptId && loadedScriptStatus !== "draft") return false;
+    // Don't fire a keepalive save we already know the server will reject (plan limit / 403).
+    if (saveBlockedRef.current) return false;
 
     const payload = buildDraftPayload();
     if (!hasMeaningfulDraft(payload)) return false;
@@ -1507,6 +1513,11 @@ const CreateProject = () => {
   const handleSave = useCallback(async (auto = false) => {
     if (!editor) return;
     if (auto && autoSaveInFlightRef.current) return;
+    // A hard server rejection (plan limit / not authorized) latched the save off — don't keep the
+    // autosave loop firing the same doomed request every few seconds. A manual click still retries
+    // (clears the latch first), and any real edit clears it via handleScreenplayChange/TipTap onChange.
+    if (auto && saveBlockedRef.current) return;
+    if (!auto) saveBlockedRef.current = false;
     if (scriptId && loadedScriptStatus !== "draft") {
       if (editApprovalLocked && !auto) {
         setError("This script edit is already in admin review. You can edit again after approval or rejection.");
@@ -1536,9 +1547,19 @@ const CreateProject = () => {
       setSaved(true);
       setLastSaved(new Date());
       lastDraftSignatureRef.current = signature;
+      saveBlockedRef.current = false;
       if (!auto) fetchDrafts();
     } catch (err) {
       console.error("Save failed:", err);
+      const status = err?.response?.status;
+      // Hard, non-transient failures: stop autosaving and tell the user once why. 402 = plan/credit
+      // limit reached, 403 = not authorized. (Transient errors like 5xx/network are left to retry.)
+      if (status === 402 || status === 403) {
+        saveBlockedRef.current = true;
+        setError(err?.response?.data?.message || "This project couldn't be saved. You may have reached your plan's project limit — upgrade to create more.");
+      } else if (!auto) {
+        setError(err?.response?.data?.message || "Couldn't save your project. Please try again.");
+      }
     } finally {
       if (auto) {
         autoSaveInFlightRef.current = false;
@@ -2742,7 +2763,9 @@ const CreateProject = () => {
           dark={dark}
           title={title}
           currentElement={currentElement}
+          scriptId={scriptId}
           onSetElement={(t) => screenplayApiRef.current?.setElementType(t)}
+          onEmphasis={(kind) => screenplayApiRef.current?.applyEmphasis(kind)}
           outline={outlineWithSceneIds}
           presenceBySceneId={presenceBySceneId}
           people={peopleEnriched}
@@ -2771,11 +2794,12 @@ const CreateProject = () => {
           onOutlineChange={handleOutlineChange}
           importNotice={importNotice}
           onDismissImportNotice={() => setImportNotice("")}
+          notice={error}
+          onDismissNotice={() => setError("")}
           onImport={() => screenplayFileInputRef.current?.click()}
           onExport={handleExportScreenplay}
           exporting={exportingScreenplay}
           onOpenHistory={() => setShowVersionHistory(true)}
-          onRichText={() => { setScreenplayEnabled(false); setFocusMode(false); }}
           onExit={() => setFocusMode(false)}
         />
       )}

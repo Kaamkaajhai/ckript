@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { isFilmIndustryProfessionalRole, hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import ProjectCard from "../components/ProjectCard";
 import { resolveMediaUrl } from "../utils/mediaUrl";
@@ -723,6 +724,7 @@ const HorizontalScroll = ({ children }) => (
 const FeaturedProjects = () => {
   const { isDarkMode: dark } = useDarkMode();
   const { user } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -1189,7 +1191,7 @@ const FeaturedProjects = () => {
               </div>
               <div className="flex flex-col gap-2.5 w-full">
                 <button
-                  onClick={() => { setShowUpgradeModal(false); navigate("/pricing"); }}
+                  onClick={() => { setShowUpgradeModal(false); openPricingModal(); }}
                   className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
                 >
                   Get Film Industry Professional plan

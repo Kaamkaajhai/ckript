@@ -4,7 +4,7 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/vi
 import { history, defaultKeymap, historyKeymap } from "@codemirror/commands";
 import { closeBrackets, completionKeymap } from "@codemirror/autocomplete";
 import { textToBlocks } from "./classify";
-import { createScreenplayExtensions, applyElementType } from "./screenplayMode";
+import { createScreenplayExtensions, applyElementType, applyEmphasis } from "./screenplayMode";
 import { createLockExtensions, setLockState, remoteSync } from "./lockLayer";
 import { createCommentExtensions, setCommentState } from "./commentLayer";
 import { createLineCommentExtensions, setLineCommentHandler } from "./lineCommentLayer";
@@ -128,6 +128,7 @@ export default function ScreenplayEditor({
     if (apiRef) {
       apiRef.current = {
         setElementType: (type) => applyElementType(viewRef.current, type),
+        applyEmphasis: (kind) => applyEmphasis(viewRef.current, kind),
         scrollToLine: (lineNo) => {
           const v = viewRef.current;
           if (!v) return;

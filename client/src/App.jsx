@@ -15,14 +15,14 @@ const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SeoPage = lazy(() => import("./pages/SeoPage"));
-const PricingPage = lazy(() => import("./pages/PricingPage"));
+const PricingRoute = lazy(() => import("./pages/PricingRoute"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
 const Login = lazy(() => import("./pages/Login"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
 const Join = lazy(() => import("./pages/Join"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
@@ -254,7 +254,7 @@ function App() {
               <Route path="/resources/:slug" element={<SeoPage />} />
               <Route path="/tools" element={<SeoPage />} />
               <Route path="/tools/:slug" element={<SeoPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/pricing" element={<PricingRoute />} />
               <Route path="/faq" element={<SeoPage />} />
               <Route path="/genre/:slug" element={<SeoPage />} />
               <Route path="/how-to-sell-a-script" element={<SeoPage />} />
@@ -275,7 +275,7 @@ function App() {
               <Route path="/investor-terms" element={<Navigate to="/terms-conditions?tab=investor" replace />} />
               <Route path="/script-upload-terms" element={<ScriptUploadTermsConditions />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
               <Route path="/join" element={<RoleSelection />} />
               <Route path="/signup" element={<Join />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
