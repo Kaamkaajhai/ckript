@@ -149,7 +149,7 @@ const ROLE_GENDER_OPTIONS = ["Any", "Female", "Male", "Non-binary", "Other"];
 
 
 
-const THUMBNAIL_ASPECT = 3 / 4;
+const THUMBNAIL_ASPECT = 16 / 10;
 const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
 const MAX_TRAILER_SIZE = 250 * 1024 * 1024;
 const MAX_PDF_SIZE = 30 * 1024 * 1024;
@@ -454,6 +454,7 @@ const ScriptUpload = () => {
 
   // Thumbnail and Trailer states
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [isGeneratingAiCover, setIsGeneratingAiCover] = useState(false);
   const [trailerFile, setTrailerFile] = useState(null);
   const [trailerOption, setTrailerOption] = useState("none"); // "none", "ai", "upload"
   const [pitchVideoFile, setPitchVideoFile] = useState(null);
@@ -1151,6 +1152,37 @@ const ScriptUpload = () => {
     return () => URL.revokeObjectURL(previewUrl);
   }, [thumbnailFile]);
 
+  const generateAiCover = async () => {
+    if (!formData.title) {
+      alert("Please enter a title in Step 1 first to generate an AI cover.");
+      return;
+    }
+    try {
+      setIsGeneratingAiCover(true);
+      const res = await api.post("/scripts/generate-ai-cover", {
+        title: formData.title,
+        genre: formData.primaryGenre || "",
+        logline: formData.logline || "",
+        scriptText: textContent ? textContent.substring(0, 4000) : ""
+      });
+      if (res.data && res.data.base64Image) {
+        // Convert Base64 directly to Blob to avoid browser fetch/CORS blocks
+        const resUrl = res.data.base64Image;
+        const resFetch = await fetch(resUrl);
+        const blob = await resFetch.blob();
+        const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
+        setThumbnailFile(file);
+      } else {
+        alert("Failed to generate AI cover. Please try again.");
+      }
+    } catch (error) {
+      console.error("AI cover generation failed:", error);
+      alert("Failed to generate AI cover: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsGeneratingAiCover(false);
+    }
+  };
+
   useEffect(() => () => {
     if (reviewRedirectTimerRef.current) {
       clearTimeout(reviewRedirectTimerRef.current);
@@ -1302,6 +1334,10 @@ const ScriptUpload = () => {
 
     switch (stepNum) {
       case 1:
+        if (!formData.title) {
+          setError("Title is required.");
+          return false;
+        }
         // Upload step — script content/file required
         if ((fromDraft || editId) && textContent.trim()) return true;
         if (!uploadedFile && !textContent.trim()) {
@@ -1311,10 +1347,6 @@ const ScriptUpload = () => {
         return true;
 
       case 2:
-        if (!formData.title) {
-          setError("Title is required.");
-          return false;
-        }
         if (!formData.format) {
           setError("Format is required.");
           return false;
@@ -1939,20 +1971,7 @@ const ScriptUpload = () => {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-5"
                 >
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter your script title"
-                      className={inputCls}
-                    />
-                  </div>
+
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -2548,6 +2567,21 @@ const ScriptUpload = () => {
                   className="space-y-6"
                 >
                   <div className={`rounded-2xl p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "bg-[#0b1626]" : "bg-white"}`}>
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter your script title"
+                      className={inputCls}
+                    />
+                  </div>
+                  
+                  <div className={`rounded-2xl p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "bg-[#0b1626]" : "bg-white"}`}>
                     <div className="flex items-center justify-between mb-2">
                       <label className={`block text-sm ${labelCls} font-medium`}>
                         Script File (PDF) *
@@ -2726,20 +2760,31 @@ const ScriptUpload = () => {
                             Script Thumbnail <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
                           </label>
                           {!thumbnailFile ? (
-                            <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload & Adjust Cover</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG, WEBP (Max 5MB)</p>
-                              <input
-                                ref={thumbnailInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                onChange={(e) => {
-                                  handleThumbnailSelect(e.target.files?.[0]);
-                                  e.target.value = "";
-                                }}
-                                className="hidden"
-                              />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center justify-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"} border border-dashed ${isDarkMode ? "border-gray-700" : "border-gray-300"}`}>
+                                <svg className={`w-6 h-6 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
+                                <p className={`text-[11px] font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload Cover</p>
+                                <p className={`text-[9px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Max 5MB</p>
+                                <input
+                                  ref={thumbnailInputRef}
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  onChange={(e) => {
+                                    handleThumbnailSelect(e.target.files?.[0]);
+                                    e.target.value = "";
+                                  }}
+                                  className="hidden"
+                                />
+                              </div>
+                              <div onClick={isGeneratingAiCover ? null : generateAiCover} className={`rounded-xl p-3 text-center ${isGeneratingAiCover ? "cursor-not-allowed opacity-70" : "cursor-pointer"} transition flex flex-col items-center justify-center ${isDarkMode ? "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30" : "bg-purple-50 hover:bg-purple-100 border-purple-200"} border`}>
+                                {isGeneratingAiCover ? (
+                                  <div className="w-6 h-6 mb-2 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <svg className="w-6 h-6 mb-2 text-purple-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" /></svg>
+                                )}
+                                <p className={`text-[11px] font-medium mb-1 ${isDarkMode ? "text-purple-300" : "text-purple-700"}`}>{isGeneratingAiCover ? "Generating..." : "AI Generate"}</p>
+                                <p className={`text-[9px] ${isDarkMode ? "text-purple-400/70" : "text-purple-600/70"}`}>Cinematic Cover</p>
+                              </div>
                             </div>
                           ) : (
                             <div className={`border rounded-xl p-3 flex items-center gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
@@ -2755,6 +2800,20 @@ const ScriptUpload = () => {
                                   className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
                                 >
                                   Adjust
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const url = URL.createObjectURL(thumbnailFile);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = thumbnailFile.name || 'thumbnail.jpg';
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                  }}
+                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-green-300 border-green-500/20 hover:bg-white/[0.12]" : "bg-white text-green-600 border-green-200 hover:bg-green-50"}`}
+                                >
+                                  Download
                                 </button>
                                 <button
                                   type="button"
@@ -3495,7 +3554,7 @@ const ScriptUpload = () => {
               <div className={`px-4 sm:px-5 py-3 sm:py-4 border-b flex items-center justify-between shrink-0 ${isDarkMode ? "border-white/[0.08]" : "border-gray-100"}`}>
                 <div>
                   <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Set Script Cover Image</h3>
-                  <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Drag to frame the best angle. Cover ratio is 3:4.</p>
+                  <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Drag to frame the best angle. Cover ratio is 16:10.</p>
                 </div>
                 <button
                   type="button"
@@ -3515,6 +3574,7 @@ const ScriptUpload = () => {
                     image={thumbnailSourceUrl}
                     crop={thumbnailCrop}
                     zoom={thumbnailZoom}
+                    minZoom={0.1}
                     rotation={thumbnailRotation}
                     aspect={THUMBNAIL_ASPECT}
                     showGrid
@@ -3534,7 +3594,7 @@ const ScriptUpload = () => {
                     </div>
                     <input
                       type="range"
-                      min={1}
+                      min={0.1}
                       max={3}
                       step={0.01}
                       value={thumbnailZoom}

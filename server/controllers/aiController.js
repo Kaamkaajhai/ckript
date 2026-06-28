@@ -4,6 +4,12 @@ import Notification from "../models/Notification.js";
 
 import { generateJsonWithGoogleAI } from "../services/googleAiService.js";
 import { generateTrailerVideo } from "../services/videoGenerationService.js";
+import Groq from "groq-sdk";
+
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || "f94659ac266fc9dbeec2eff4f18e18de", // Fallback to the requested key if env is missing
+});
+
 
 const clampScore = (value) => {
   const n = Number(value);
@@ -1062,3 +1068,122 @@ function generateAIScriptScore(script) {
     comparables: `Similar ${genreLabel.toLowerCase()} titles in the current market across streaming and independent film circuits`,
   };
 }
+
+export const generateCoverImage = async (req, res) => {
+  try {
+    const { title, logline, genre, scriptText } = req.body;
+    let generatedPrompt = "";
+
+    try {
+      const systemPrompt = `You are an award-winning Hollywood Key Art Designer, Creative Director, and Cinematic Concept Artist who has designed official movie posters and streaming platform cover arts for Netflix, HBO, A24, Marvel, DC, Warner Bros, and Amazon Prime.
+
+Your task is to create a PREMIUM CINEMATIC SCRIPT THUMBNAIL prompt that represents the uploaded script.
+
+The thumbnail must NOT look AI-generated.
+It must feel like an official movie or OTT platform cover.
+
+----------------------------------------------------
+OBJECTIVE
+----------------------------------------------------
+Create one high-end cinematic cover image prompt that instantly communicates the story's mood and genre while making users want to click it.
+The image should look like an official Netflix/A24/Warner Bros movie artwork.
+The design must be premium, elegant, modern, realistic and visually striking.
+
+----------------------------------------------------
+STYLE
+----------------------------------------------------
+• Hyper realistic, Cinematic lighting, Premium color grading, Movie key art quality
+• Ultra detailed, Clean composition, Professional poster design, Editorial photography quality
+• Real camera look, Natural skin textures, Realistic depth of field, Film grain
+• High dynamic range, 8K quality, Global illumination, Volumetric lighting
+• Premium aesthetic, Luxury visual language
+Never produce cartoon, illustration, anime, vector art, clipart or low-quality AI artwork unless the uploaded script itself belongs to those categories.
+
+----------------------------------------------------
+TITLE
+----------------------------------------------------
+The most important requirement is the typography. You MUST explicitly instruct the image generator to write the exact title: "${title || "Untitled"}".
+Example phrase to include in your prompt: 'The text "${title || "Untitled"}" is written in large, premium, elegant, cinematic typography. The spelling must be 100% exact and correct, exactly as "${title || "Untitled"}".'
+Place it naturally inside the composition. The title should integrate with the artwork rather than looking pasted.
+Never add subtitles. Never add taglines. Never add fake production studios. Never add actor names. Never add logos. Never add watermarks.
+
+----------------------------------------------------
+COMPOSITION & REALISM
+----------------------------------------------------
+Use professional movie poster composition. Strong focal point. Rule of thirds. Natural visual hierarchy. Balanced spacing. Minimal clutter. Powerful storytelling through visuals.
+Everything must look photographed using high-end cinema cameras. Use realistic Faces, Skin, Eyes, Clothing, Hair, Environments, Lighting, Reflections, Materials.
+Avoid common AI mistakes. Do NOT generate: AI-looking faces, Plastic skin, Extra fingers/limbs, Deformed anatomy, Poor typography, Blurry text, Generic stock images.
+
+----------------------------------------------------
+OUTPUT
+----------------------------------------------------
+Generate exactly ONE highly detailed image generation prompt string (for the Flux AI image generator) based on all the rules above.
+Make sure the prompt is HIGHLY UNIQUE based on the script synopsis provided. Do not use generic elements.
+Return ONLY the raw prompt string, nothing else.`;
+
+      const userPrompt = `Script Title:
+${title || "Untitled"}
+
+Genre:
+${genre || "Drama"}
+
+Synopsis/Context:
+${logline || ""}
+
+Script Excerpt (Study this to capture the exact mood, characters, and setting of the actual script):
+${scriptText || "A deeply compelling and visually striking story."}`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        model: "deepseek-r1-distill-llama-70b",
+        temperature: 0.8,
+        max_completion_tokens: 400,
+      });
+
+      let rawOutput = completion.choices[0]?.message?.content?.trim() || "";
+      // DeepSeek generates reasoning tokens inside <think> tags. Strip them out.
+      generatedPrompt = rawOutput.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      
+      // Also strip markdown code blocks if the model wrapped the output in them
+      generatedPrompt = generatedPrompt.replace(/^```[\s\S]*?\n/g, '').replace(/```$/g, '').trim();
+
+    } catch (groqError) {
+      console.warn("Groq failed (key might be invalid), using fallback prompt:", groqError.message);
+      generatedPrompt = `A premium 8K cinematic movie poster, highly realistic, Hollywood key art quality. The text "${title || "Untitled"}" is written in large, elegant, cinematic typography. Genre: ${genre || "Drama"}. ${logline ? "Story concept: " + logline : ""}. Ultra detailed, cinematic lighting, masterpiece.`;
+    }
+
+    if (!generatedPrompt) {
+      generatedPrompt = `A premium 8K cinematic movie poster, highly realistic, Hollywood key art quality. The text "${title || "Untitled"}" is written in large, elegant, cinematic typography. Genre: ${genre || "Drama"}. Ultra detailed, cinematic lighting, masterpiece.`;
+    }
+
+    // Now call pollinations AI which returns an image blob
+    const encodedPrompt = encodeURIComponent(generatedPrompt);
+    // Seed for some randomness, plus dimensions for a typical poster/thumbnail
+    const seed = Math.floor(Math.random() * 1000000);
+    // Fetch the image in the backend to avoid frontend CORS/0-byte issues
+    // Using width 1280 and height 800 (16:10 ratio) to perfectly match frontend ScriptCard aspect ratio!
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=800&nologo=true&seed=${seed}&model=flux`;
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch image from Pollinations: ${imageResponse.statusText}`);
+    }
+    
+    const arrayBuffer = await imageResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = `data:image/jpeg;base64,${buffer.toString("base64")}`;
+
+    res.status(200).json({
+      success: true,
+      prompt: generatedPrompt,
+      imageUrl: imageUrl,
+      base64Image: base64Image
+    });
+
+  } catch (error) {
+    console.error("AI Cover Generation Error:", error);
+    res.status(500).json({ success: false, message: "Failed to generate AI cover image.", error: error.message });
+  }
+};

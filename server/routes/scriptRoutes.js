@@ -35,6 +35,7 @@ import {
   updateComment,
   deleteComment,
 } from "../controllers/commentController.js";
+import { generateCoverImage } from "../controllers/aiController.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -105,6 +106,9 @@ router.post("/:id/trailer-feedback", protect, submitTrailerFeedback);
 router.post("/:id/activate-spotlight", protect, activateProjectSpotlight);
 router.post("/activate-spotlight", protect, activateProjectSpotlight);
 router.post("/spotlight/activate", protect, activateProjectSpotlight);
+
+// AI Cover Generation Route
+router.post("/generate-ai-cover", protect, generateCoverImage);
 
 // Razorpay payment routes for scripts
 router.post("/purchase/create-order", protect, createScriptPurchaseOrder);

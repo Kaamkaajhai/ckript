@@ -766,6 +766,7 @@ const CreateProject = () => {
   // File Upload State
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
+  const [isGeneratingAiCover, setIsGeneratingAiCover] = useState(false);
   const [trailerFile, setTrailerFile] = useState(null);
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
@@ -831,6 +832,36 @@ const CreateProject = () => {
   const handleThumbnailSelect = (file) => {
     if (!file) return;
     openThumbnailEditor(file);
+  };
+
+  const generateAiCover = async () => {
+    if (!title) {
+      alert("Please enter a title in Step 1 first to generate an AI cover.");
+      return;
+    }
+    try {
+      setIsGeneratingAiCover(true);
+      const res = await api.post("/scripts/generate-ai-cover", {
+        title: title,
+        genre: formData.primaryGenre || "",
+        logline: formData.logline || "",
+        scriptText: ""
+      });
+      if (res.data && res.data.base64Image) {
+        const resUrl = res.data.base64Image;
+        const resFetch = await fetch(resUrl);
+        const blob = await resFetch.blob();
+        const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
+        setThumbnailFile(file);
+      } else {
+        alert("Failed to generate AI cover. Please try again.");
+      }
+    } catch (error) {
+      console.error("AI cover generation failed:", error);
+      alert("Failed to generate AI cover: " + (error.response?.data?.message || error.message));
+    } finally {
+      setIsGeneratingAiCover(false);
+    }
   };
 
   const handleApplyThumbnail = async () => {
@@ -2932,6 +2963,7 @@ const CreateProject = () => {
                     image={thumbnailSourceUrl}
                     crop={thumbnailCrop}
                     zoom={thumbnailZoom}
+                    minZoom={0.1}
                     rotation={thumbnailRotation}
                     aspect={THUMBNAIL_ASPECT}
                     showGrid
@@ -2952,7 +2984,7 @@ const CreateProject = () => {
                     </div>
                     <input
                       type="range"
-                      min={1}
+                      min={0.1}
                       max={3}
                       step={0.01}
                       value={thumbnailZoom}
@@ -3281,7 +3313,8 @@ const CreateProject = () => {
           <motion.div key="s2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
             <div className={`${cardCls} p-6 sm:p-8 space-y-5`}>
               
-              {/* -- Target Industry Toggle -- */}
+              {/* -- Target Industry Toggle -- (Hidden for now, will add Publishing in future) */}
+              {/*
               <div className={`rounded-xl border p-4 ${dark ? "bg-[#0d1520] border-[#1d3350]" : "bg-gray-50 border-gray-200"}`}>
                 <h3 className={`text-sm font-bold mb-3 ${dark ? "text-gray-200" : "text-gray-800"}`}>Make this script available for:</h3>
                 <div className="flex flex-wrap gap-4">
@@ -3295,6 +3328,7 @@ const CreateProject = () => {
                   </label>
                 </div>
               </div>
+              */}
 
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Project Details</h2>
@@ -3769,20 +3803,27 @@ const CreateProject = () => {
                       Script Thumbnail <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
                     </label>
                     {!thumbnailFile ? (
-                      <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${dark ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                        <ImageIcon className={`w-8 h-8 mb-2 ${dark ? "text-[#1d3350]" : "text-gray-400"}`} />
-                        <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload & Adjust Cover</p>
-                        <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG, WEBP (Max 5MB)</p>
-                        <input
-                          ref={thumbnailInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(e) => {
-                            handleThumbnailSelect(e.target.files?.[0]);
-                            e.target.value = "";
-                          }}
-                          className="hidden"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center justify-center border ${dark ? "bg-white/[0.03] hover:bg-white/[0.06] border-white/5" : "bg-white hover:bg-gray-50 border-gray-200"}`}>
+                          <ImageIcon className={`w-6 h-6 mb-2 ${dark ? "text-gray-500" : "text-gray-400"}`} />
+                          <p className={`text-xs font-bold mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload Cover</p>
+                          <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>JPEG/PNG (Max 5MB)</p>
+                          <input
+                            ref={thumbnailInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={(e) => {
+                              handleThumbnailSelect(e.target.files?.[0]);
+                              e.target.value = "";
+                            }}
+                            className="hidden"
+                          />
+                        </div>
+                        <div onClick={isGeneratingAiCover ? null : generateAiCover} className={`rounded-xl p-3 text-center transition flex flex-col items-center justify-center border ${isGeneratingAiCover ? "cursor-not-allowed opacity-70" : "cursor-pointer"} ${dark ? "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-400" : "bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"}`}>
+                          <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                          <p className="text-xs font-bold mb-0.5">{isGeneratingAiCover ? "Generating..." : "AI Generate"}</p>
+                          <p className={`text-[10px] ${dark ? "text-purple-400/70" : "text-purple-600/70"}`}>Uses title & logline</p>
+                        </div>
                       </div>
                     ) : (
                       <div className={`border rounded-xl p-3 flex items-center gap-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>

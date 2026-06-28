@@ -1882,7 +1882,7 @@ export const getMyScripts = async (req, res) => {
       ? {
         isDeleted: { $ne: true },
         $or: [
-          { creator: req.user._id, status: { $ne: "draft" } },
+          { creator: req.user._id },
           {
             collaborators: {
               $elemMatch: {
@@ -1894,7 +1894,7 @@ export const getMyScripts = async (req, res) => {
           },
         ],
       }
-      : { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      : { creator: req.user._id, isDeleted: { $ne: true } };
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
