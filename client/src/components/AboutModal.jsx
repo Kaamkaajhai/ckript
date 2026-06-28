@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuthModal } from "../context/AuthModalContext";
+import useScrollLock from "../hooks/useScrollLock";
 import "./AboutModal.css";
 
 /* ─────────────────────────────────────────────────────────────
@@ -113,14 +114,13 @@ function AboutModalInner({ onClose }) {
     go(i + 1);
   }, [last, go, i, onClose, openAuthModal]);
 
-  // Modal chrome: fonts, scroll lock, Esc, focus restore.
+  useScrollLock();
+
+  // Modal chrome: fonts, Esc, focus restore.
   useEffect(() => {
     ensureModalFonts();
     previouslyFocused.current = document.activeElement;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = overflow;
       const prev = previouslyFocused.current;
       if (prev && typeof prev.focus === "function") prev.focus({ preventScroll: true });
     };

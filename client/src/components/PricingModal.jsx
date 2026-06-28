@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import useWriterPlanCheckout, { WRITER_TIERS } from "../hooks/useWriterPlanCheckout";
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
 import { useAuthModal } from "../context/AuthModalContext";
+import { useToast } from "../context/ToastContext";
+import useScrollLock from "../hooks/useScrollLock";
 import api from "../services/api";
 import "./PricingModal.css";
 
@@ -194,6 +196,7 @@ function PricingModalInner({ onClose }) {
   const writer = useWriterPlanCheckout();
   const fip = useFilmIndustryProfessionalCheckout();
   const { openAuthModal } = useAuthModal();
+  const toast = useToast();
 
   // Unified success view: whichever plan was purchased, we land the new member
   // with one confident screen. null | { kicker, title, body, redirectTo }
@@ -391,12 +394,12 @@ function PricingModalInner({ onClose }) {
     };
   }, [fip, goTo, buyFip]);
 
-  // ── Modal chrome: fonts, scroll-lock, focus restore ───────────
+  useScrollLock();
+
+  // ── Modal chrome: fonts, focus restore ────────────────────────
   useEffect(() => {
     ensureModalFonts();
     previouslyFocused.current = document.activeElement;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     // Move focus into the dialog for screen readers + keyboard users.
     const id = window.setTimeout(() => {
       const node = cardRef.current?.querySelector(FOCUSABLE);
@@ -404,7 +407,6 @@ function PricingModalInner({ onClose }) {
     }, 30);
     return () => {
       window.clearTimeout(id);
-      document.body.style.overflow = prevOverflow;
       const prev = previouslyFocused.current;
       if (prev && typeof prev.focus === "function") prev.focus({ preventScroll: true });
     };
@@ -438,6 +440,16 @@ function PricingModalInner({ onClose }) {
 
   const globalMsg = writer.message || fip.message;
   const globalErr = writer.error || fip.error;
+
+  // Checkout feedback surfaces as a toast above the modal, never as an in-card
+  // banner — consistent with the auth surfaces. The terminal success *screen*
+  // (a deliberate post-payment confirmation) is intentionally kept.
+  useEffect(() => {
+    if (globalErr) toast.error(globalErr);
+  }, [globalErr, toast]);
+  useEffect(() => {
+    if (globalMsg) toast.info(globalMsg);
+  }, [globalMsg, toast]);
 
   return (
     <motion.div
@@ -542,12 +554,6 @@ function PricingModalInner({ onClose }) {
               </div>
             </div>
 
-            {(globalMsg || globalErr) && (
-              <div className="pmx-msgs">
-                {globalMsg && <div className="pmx-msg pmx-msg--info">{globalMsg}</div>}
-                {globalErr && <div className="pmx-msg pmx-msg--error">{globalErr}</div>}
-              </div>
-            )}
           </>
         )}
 
