@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
 import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
@@ -221,6 +222,7 @@ function App() {
   const appTree = (
     <DarkModeProvider key="dm-root">
       <AuthProvider>
+        <ToastProvider>
         <Router>
           <AuthModalProvider>
           <LanguagePreferenceSync />
@@ -335,6 +337,7 @@ function App() {
           </AdminLoginHandler>
           </AuthModalProvider>
         </Router>
+        </ToastProvider>
       </AuthProvider>
     </DarkModeProvider>
   );

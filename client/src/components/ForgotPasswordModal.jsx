@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useId, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import useForgotPasswordFlow from "../hooks/useForgotPasswordFlow";
+import { useToast } from "../context/ToastContext";
+import useScrollLock from "../hooks/useScrollLock";
 import "./ForgotPasswordModal.css";
 
 /* ─────────────────────────────────────────────────────────────
@@ -48,12 +50,6 @@ const HEADS = {
     title: "Check your inbox.",
     subtitle: "Enter the code we emailed you, then choose a new password.",
   },
-  done: {
-    num: "03",
-    kicker: "All Set",
-    title: "Password updated.",
-    subtitle: "",
-  },
 };
 
 const FOCUSABLE =
@@ -72,7 +68,8 @@ function ForgotPasswordModalInner({ onClose, onSignIn }) {
   const emailRef = useRef(null);
   const previouslyFocused = useRef(null);
 
-  const fp = useForgotPasswordFlow();
+  const toast = useToast();
+  const fp = useForgotPasswordFlow({ notify: toast, onComplete: onSignIn });
   const {
     step,
     email,
@@ -82,8 +79,6 @@ function ForgotPasswordModalInner({ onClose, onSignIn }) {
     setNewPassword,
     confirmPassword,
     setConfirmPassword,
-    error,
-    info,
     loading,
     resendLoading,
     resendCooldown,
@@ -99,16 +94,15 @@ function ForgotPasswordModalInner({ onClose, onSignIn }) {
 
   const head = HEADS[step];
 
-  // Fonts, scroll-lock, focus restore.
+  useScrollLock();
+
+  // Fonts, focus restore.
   useEffect(() => {
     ensureModalFonts();
     previouslyFocused.current = document.activeElement;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const t = window.setTimeout(() => emailRef.current?.focus({ preventScroll: true }), 60);
     return () => {
       window.clearTimeout(t);
-      document.body.style.overflow = prevOverflow;
       const prev = previouslyFocused.current;
       if (prev && typeof prev.focus === "function") prev.focus({ preventScroll: true });
     };
@@ -201,8 +195,6 @@ function ForgotPasswordModalInner({ onClose, onSignIn }) {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                {error && <InlineError msg={error} />}
-                {info && <InlineInfo msg={info} />}
                 <button type="submit" className="fpm-cta" disabled={loading}>
                   {loading ? <span className="fpm-spinner" aria-hidden="true" /> : (<>Send reset code <ArrowIcon /></>)}
                 </button>
@@ -277,27 +269,10 @@ function ForgotPasswordModalInner({ onClose, onSignIn }) {
                   </div>
                 </div>
 
-                {error && <InlineError msg={error} />}
-                {info && !error && <InlineInfo msg={info} />}
-
                 <button type="submit" className="fpm-cta" disabled={loading}>
                   {loading ? <span className="fpm-spinner" aria-hidden="true" /> : "Reset password"}
                 </button>
               </form>
-            )}
-
-            {step === "done" && (
-              <div className="fpm-done">
-                <div className="fpm-done-mark" aria-hidden="true">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#b5121b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <p>Your password has been reset successfully. You can now sign in with your new password.</p>
-                <button type="button" className="fpm-cta" onClick={onSignIn}>
-                  Back to sign in <ArrowIcon />
-                </button>
-              </div>
             )}
           </div>
 
@@ -328,27 +303,6 @@ function ForgotPasswordModalInner({ onClose, onSignIn }) {
     </motion.div>
   );
 }
-
-const InlineError = ({ msg }) => (
-  <div className="fpm-error" role="alert">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-    {msg}
-  </div>
-);
-
-const InlineInfo = ({ msg }) => (
-  <div className="fpm-info">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-    {msg}
-  </div>
-);
 
 export default function ForgotPasswordModal({ open, onClose, onSignIn }) {
   return (

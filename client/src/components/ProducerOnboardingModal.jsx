@@ -9,9 +9,11 @@ import {
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle, ArrowRight, FileText } from "lucide-react";
+import { ArrowRight, FileText } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
+import { useToast } from "../context/ToastContext";
+import useScrollLock from "../hooks/useScrollLock";
 import api from "../services/api";
 import OTPVerification from "./OTPVerification";
 import PasswordInput from "./PasswordInput";
@@ -215,6 +217,7 @@ const clearDraft = () => {
 function ProducerOnboardingModalInner({ onClose, onComplete }) {
   const { join, setUser } = useContext(AuthContext);
   const { openAuthModal } = useAuthModal();
+  const toast = useToast();
   const navigate = useNavigate();
   const titleId = useId();
 
@@ -281,6 +284,15 @@ function ProducerOnboardingModalInner({ onClose, onComplete }) {
     };
     window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
   }, [step, account, profile, genres, formats, accountCreated, creditAttachments]);
+
+  // Global (non-field) errors surface as a toast rather than an in-modal
+  // banner; per-field validation stays inline next to the input it concerns.
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      setError("");
+    }
+  }, [error, toast]);
 
   // ── Live username availability (debounced) ──────────────────
   useEffect(() => {
@@ -627,13 +639,12 @@ function ProducerOnboardingModalInner({ onClose, onComplete }) {
     [onClose, handlePrimary]
   );
 
+  useScrollLock();
+
   useEffect(() => {
     ensureModalFonts();
     previouslyFocused.current = document.activeElement;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = overflow;
       const prev = previouslyFocused.current;
       if (prev && typeof prev.focus === "function") prev.focus({ preventScroll: true });
     };
@@ -735,13 +746,6 @@ function ProducerOnboardingModalInner({ onClose, onComplete }) {
           </div>
           <h2 className="pom-title" id={titleId}>{meta.title}</h2>
           <p className="pom-sub">{meta.sub}</p>
-
-          {error && (
-            <div className="pom-error" role="alert">
-              <AlertCircle size={16} style={{ flex: "none" }} />
-              <span>{error}</span>
-            </div>
-          )}
 
           <div className="pom-body">{renderStep()}</div>
 
