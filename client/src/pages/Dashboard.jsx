@@ -7,6 +7,7 @@ import api from "../services/api";
 import ProjectCard from "../components/ProjectCard";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -59,6 +60,7 @@ const Dashboard = () => {
 };
 
 const CreatorDashboard = ({ user, dark }) => {
+  const { openPricingModal } = useAuthModal();
   const [myScripts, setMyScripts] = useState([]);
   const [sharedScripts, setSharedScripts] = useState([]);
   const [stats, setStats] = useState(null);
@@ -158,16 +160,7 @@ const CreatorDashboard = ({ user, dark }) => {
   });
   const projectActionClass = "";
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <div className="flex flex-col items-center gap-4">
-          <div className={`w-10 h-10 border-[3px] rounded-full animate-spin ${dark ? 'border-[#1c2a3a] border-t-[#8896a7]' : 'border-gray-200 border-t-[#1e3a5f]'}`}></div>
-          <p className={`text-sm font-medium animate-pulse ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  // Loading spinner removed to allow instantaneous dashboard shell rendering
 
   return (
     <div className="bg-white min-h-full relative max-[640px]:-mx-4 max-[640px]:-mt-4">
@@ -223,7 +216,7 @@ const CreatorDashboard = ({ user, dark }) => {
                       : (dark ? 'bg-[#0d1520] border-[#1c2a3a] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 hover:border-[#2a3a4e]' : 'bg-white border-slate-200 hover:-translate-y-0.5 shadow-sm hover:shadow-md hover:border-slate-300')
                   }`}>
                   {card.isLocked && (
-                    <Link to="/pricing" className="absolute inset-0 z-10 flex items-center justify-center bg-transparent" title="Upgrade to unlock analytics" />
+                    <button type="button" onClick={() => openPricingModal()} aria-label="Upgrade to unlock analytics" className="absolute inset-0 z-10 flex items-center justify-center bg-transparent" title="Upgrade to unlock analytics" />
                   )}
                   <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 transition-colors ${
                     card.isLocked

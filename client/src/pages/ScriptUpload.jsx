@@ -223,7 +223,7 @@ const STEPS = [
 ];
 
 const FILM_LANGUAGE_OPTIONS = [
-  "Hindi", "English", "Hinglish", "Urdu", "Tamil", "Telugu", "Marathi",
+  "Hindi", "English", "Hinglish", "Sindhi", "Urdu", "Tamil", "Telugu", "Marathi",
   "Bengali", "Kannada", "Malayalam", "Punjabi", "Gujarati", "Odia", "Other",
 ];
 

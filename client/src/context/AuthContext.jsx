@@ -138,10 +138,15 @@ export const AuthProvider = ({ children }) => {
             return;
           }
 
-          // Validate token with backend
+          // Optimistically set user and stop loading immediately for fast UI
+          setUser(parsed);
+          setLoading(false);
+
+          // Validate token with backend in the background
           const { data } = await axios.get(`${API_URL}/auth/me`, {
             headers: { Authorization: `Bearer ${parsed.token}` },
           });
+          
           // Merge fresh user data with stored token & expiry
           const refreshedUser = {
             ...data,
@@ -192,8 +197,9 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    await linkAnonymousSessionToUser(data);
-    await trackAuthEvent("login_success", data);
+    // Fire-and-forget tracking events for fast UI navigation
+    linkAnonymousSessionToUser(data).catch(console.error);
+    trackAuthEvent("login_success", data).catch(console.error);
     return data;
   };
 
@@ -232,8 +238,8 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    await linkAnonymousSessionToUser(data);
-    await trackAuthEvent("signup_success", data);
+    linkAnonymousSessionToUser(data).catch(console.error);
+    trackAuthEvent("signup_success", data).catch(console.error);
     return data;
   };
 
@@ -246,8 +252,8 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    await linkAnonymousSessionToUser(data);
-    await trackAuthEvent(data?.isNewUser ? "signup_success" : "login_success", data);
+    linkAnonymousSessionToUser(data).catch(console.error);
+    trackAuthEvent(data?.isNewUser ? "signup_success" : "login_success", data).catch(console.error);
     return data;
   };
 

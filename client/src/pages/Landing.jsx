@@ -78,13 +78,242 @@ html.ckl-scroll::-webkit-scrollbar-button{display:none;width:0;height:0;}
 .ckl .hov-format{transition:transform .35s cubic-bezier(.2,.7,.2,1);}
 .ckl .hov-format:hover{transform:translateY(-8px);}
 .ckl .hov-tab:hover{border-color:#c9c6bf;}
-.ckl .hov-bc-red:hover{border-color:${RED};}
+.ckl .hov-bc-red:hover{border-color:#D14D37;}
+
+.ckl .mobile-accordion-icon { display: none !important; }
+.ckl .ckl-feat-detail-mobile { display: none !important; }
+.ckl .ckl-feat-detail-desktop { display: block !important; }
 
 @media (max-width:900px){
   .ckl .ckl-feat-grid{grid-template-columns:1fr !important;}
   .ckl .ckl-feat-panel{grid-template-columns:1fr !important;}
   .ckl .ckl-format-grid{grid-template-columns:repeat(2,1fr) !important;}
   .ckl .ckl-problem-grid,.ckl .ckl-testi-grid{grid-template-columns:1fr !important;}
+  
+  /* Hero Overrides */
+  .ckl .ckl-hero-wrap {
+    height: auto !important;
+    padding-bottom: 60px !important;
+  }
+  .ckl .ckl-hero-stage {
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    transform: none !important;
+    left: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+
+  /* Nav Overrides */
+  .ckl .ckl-hero-nav {
+    position: relative !important;
+    padding: 24px 15px 0 !important;
+    height: auto !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .ckl .ckl-hero-nav > a:first-child {
+    flex: 0 0 auto !important;
+    text-align: left !important;
+    font-size: 24px !important; /* Scale logo down slightly */
+  }
+  .ckl .ckl-hero-nav-divider { display: none !important; }
+  .ckl .ckl-hero-nav-links {
+    margin-left: 0 !important;
+    gap: 12px !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    flex: 1 1 auto !important;
+  }
+  .ckl .ckl-hero-nav-links > * {
+    font-size: 13px !important;
+    white-space: nowrap !important;
+  }
+  .ckl .ckl-hero-nav-login {
+    margin-left: 0 !important;
+    flex: 0 0 auto !important;
+    text-align: right !important;
+    margin-top: 0 !important;
+    font-size: 14px !important;
+  }
+
+  /* Hero Content Overrides */
+  .ckl .ckl-hero-title {
+    position: relative !important;
+    top: auto !important;
+    margin-top: 50px !important;
+    font-size: 56px !important;
+    line-height: 1.1 !important;
+  }
+  .ckl .ckl-hero-title span {
+    width: 10px !important;
+    height: 10px !important;
+    margin-left: 6px !important;
+  }
+  .ckl .ckl-hero-line {
+    position: relative !important;
+    top: auto !important;
+    margin: 30px auto !important;
+    transform: none !important;
+    left: auto !important;
+  }
+  .ckl .ckl-hero-desc {
+    position: relative !important;
+    top: auto !important;
+    width: 90% !important;
+    max-width: 400px !important;
+    font-size: 18px !important;
+    line-height: 1.5 !important;
+    transform: none !important;
+    left: auto !important;
+    padding: 0 20px !important;
+  }
+  .ckl .ckl-hero-buttons {
+    position: relative !important;
+    top: auto !important;
+    margin-top: 40px !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    transform: none !important;
+    left: auto !important;
+  }
+  .ckl .ckl-hero-buttons > button {
+    width: 100% !important;
+    max-width: 300px !important;
+  }
+
+  /* Decorations */
+  .ckl .ckl-hero-decor-1 {
+    transform: scale(0.3) !important;
+    left: -800px !important;
+    top: 200px !important;
+  }
+  .ckl .ckl-hero-decor-2 {
+    transform: scale(0.3) !important;
+    left: 100px !important;
+    top: 100px !important;
+  }
+
+  /* Features Accordion */
+  .ckl .ckl-feat-tabs { position: relative !important; }
+  .ckl .mobile-accordion-icon { display: block !important; }
+  .ckl .ckl-feat-detail-mobile { display: block !important; }
+  .ckl .ckl-feat-detail-desktop { display: none !important; }
+
+  /* Steps Overrides */
+  .ckl .ckl-steps-wrap {
+    height: auto !important;
+    padding: 60px 20px !important;
+  }
+  .ckl .ckl-steps-stage {
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    transform: none !important;
+    left: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .ckl .ckl-steps-title {
+    position: relative !important;
+    top: auto !important;
+    font-size: 48px !important;
+    line-height: 1.1 !important;
+    order: 1;
+  }
+  .ckl .ckl-steps-desc {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    font-size: 18px !important;
+    line-height: 1.5 !important;
+    margin-top: 20px !important;
+    order: 2;
+    transform: none !important;
+    padding: 0 20px !important;
+  }
+  .ckl .ckl-steps-arrows {
+    display: none !important;
+  }
+  .ckl .ckl-steps-col-1 {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 400px !important;
+    height: auto !important;
+    margin-top: 60px !important;
+    order: 3;
+    transform: none !important;
+  }
+  .ckl .ckl-steps-col-2 {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 400px !important;
+    height: auto !important;
+    aspect-ratio: 460/326 !important;
+    margin-top: 60px !important;
+    order: 5;
+    transform: none !important;
+  }
+  .ckl .ckl-steps-col-3 {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 296px !important;
+    height: auto !important;
+    margin-top: 60px !important;
+    order: 7;
+    transform: none !important;
+  }
+  .ckl .ckl-steps-cap {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    margin-top: 20px !important;
+  }
+  .ckl .ckl-steps-cap-1 { order: 4; }
+  .ckl .ckl-steps-cap-2 { order: 6; }
+  .ckl .ckl-steps-cap-3 { order: 8; }
+  .ckl .ckl-steps-cta-line {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin-top: 60px !important;
+    order: 9;
+  }
+  .ckl .ckl-steps-cta-btn {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin-top: 20px !important;
+    order: 10;
+  }
+}
+@media (max-width:480px){
+  .ckl .ckl-hero-title {
+    font-size: 42px !important;
+  }
+  .ckl .ckl-hero-nav-links {
+    gap: 12px !important;
+  }
+  .ckl .ckl-hero-desc {
+    font-size: 16px !important;
+  }
 }
 `;
 
@@ -299,8 +528,8 @@ const FOOTER_COLS = [
     head: "Platform",
     links: [
       { label: "Scripts", to: ROUTES.join },
-      { label: "For Producers", to: ROUTES.pro },
-      { label: "For Writers", to: ROUTES.writer },
+      { label: "For Producers", action: "producer" },
+      { label: "For Writers", action: "writer" },
     ],
   },
   {
@@ -382,8 +611,14 @@ export default function Landing() {
   const stepsWrapRef = useRef(null);
   const stepsStageRef = useRef(null);
   const [activeFeat, setActiveFeat] = useState(0);
+  const [isFeatDropdownOpen, setIsFeatDropdownOpen] = useState(false);
   const { user } = useContext(AuthContext);
   const { openAuthModal, openProducerOnboarding, openWriterOnboarding, openAboutModal, openPricingModal } = useAuthModal();
+
+  // Onboarding lives in modals (producer/director + writer), so landing CTAs pop
+  // the modal in-context rather than routing to the standalone onboarding page.
+  const openOnboarding = (kind) =>
+    kind === "writer" ? openWriterOnboarding() : openProducerOnboarding();
 
   const primaryPath = user?.role === "reader" ? "/reader" : "/dashboard";
   const signInLabel = user ? (user.role === "reader" ? "Reader" : "Dashboard") : "Sign in";
@@ -391,6 +626,26 @@ export default function Landing() {
   useStageFit(heroWrapRef, heroStageRef, 1586, 992);
   useStageFit(stepsWrapRef, stepsStageRef, 1850, 1080);
   useReveal(rootRef);
+
+  const renderFeatDetail = (f) => (
+    <div className="ckl-feat-panel" style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", minHeight: 480 }}>
+      <div style={{ padding: "clamp(34px,3.4vw,52px)", display: "flex", flexDirection: "column" }}>
+        <span style={{ alignSelf: "flex-start", fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: RED, border: "1px solid #ecc9c1", padding: "6px 13px", borderRadius: 100 }}>{f.tag}</span>
+        <h3 style={{ margin: "24px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2rem,3.4vw,2.9rem)", lineHeight: 1.04, color: INK }}>{f.title}</h3>
+        <p style={{ margin: "10px 0 0", fontFamily: BODY, fontStyle: "italic", fontSize: 19, color: "#8d8a84" }}>{f.italic}</p>
+        <p style={{ margin: "24px 0 0", fontFamily: BODY, fontSize: 18, lineHeight: "29px", color: "#57544f" }}>{f.desc}</p>
+        <div style={{ marginTop: "auto", paddingTop: 30, display: "flex", flexDirection: "column", gap: 13 }}>
+          {f.bullets.map((b) => (
+            <div key={b} style={{ display: "flex", alignItems: "center", gap: 13 }}>
+              <Diamond size={7} />
+              <span style={{ fontFamily: SANS, fontSize: 16, color: "#33312e" }}>{b}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <FeatureMedia feat={f} />
+    </div>
+  );
 
   // Mark <html> so the page scrollbar styling applies only while the landing is
   // mounted. useLayoutEffect runs before paint, so the class is present on the
@@ -412,43 +667,42 @@ export default function Landing() {
       <style>{STYLES}</style>
 
       {/* ===================== HERO ===================== */}
-      <section ref={heroWrapRef} style={{ position: "relative", width: "100%", overflow: "hidden", background: "#fff", height: `${992 * initHeroScale}px` }}>
-        <div ref={heroStageRef} style={{ position: "absolute", top: 0, left: "50%", width: 1586, height: 992, transformOrigin: "top center", transform: `translateX(-50%) scale(${initHeroScale})`, background: "#fff" }}>
+      <section ref={heroWrapRef} className="ckl-hero-wrap" style={{ position: "relative", width: "100%", overflow: "hidden", background: "#fff", height: `${992 * initHeroScale}px` }}>
+        <div ref={heroStageRef} className="ckl-hero-stage" style={{ position: "absolute", top: 0, left: "50%", width: 1586, height: 992, transformOrigin: "top center", transform: `translateX(-50%) scale(${initHeroScale})`, background: "#fff" }}>
           {/* Decorations */}
-          <div style={{ position: "absolute", left: -623, top: 463, width: 1644, height: 1096, pointerEvents: "none", zIndex: 1, animation: "ckl-flA 11s ease-in-out infinite" }}>
+          <div className="ckl-hero-decor-1" style={{ position: "absolute", left: -623, top: 463, width: 1644, height: 1096, pointerEvents: "none", zIndex: 1, animation: "ckl-flA 11s ease-in-out infinite" }}>
             <img src={scriptOriginal} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "translate(-5px,-200px) rotate(9.7deg) scale(0.7)", transformOrigin: "center center", pointerEvents: "none", userSelect: "none" }} />
           </div>
-          <div style={{ position: "absolute", left: 605, top: 213, width: 1507, height: 1005, pointerEvents: "none", zIndex: 1, animation: "ckl-flB 13s ease-in-out infinite" }}>
+          <div className="ckl-hero-decor-2" style={{ position: "absolute", left: 605, top: 213, width: 1507, height: 1005, pointerEvents: "none", zIndex: 1, animation: "ckl-flB 13s ease-in-out infinite" }}>
             <img src={filmClean} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transform: "translate(105px,-120px) rotate(5.44deg) scale(1.05)", transformOrigin: "center center", pointerEvents: "none", userSelect: "none" }} />
           </div>
 
           {/* Nav */}
-          <div style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 104, display: "flex", alignItems: "center", padding: "0 52px", zIndex: 3, opacity: 0, animation: "ckl-fadeDown .8s .05s cubic-bezier(.2,.7,.2,1) forwards" }}>
+          <div className="ckl-hero-nav" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 104, display: "flex", alignItems: "center", padding: "0 52px", zIndex: 3, opacity: 0, animation: "ckl-fadeDown .8s .05s cubic-bezier(.2,.7,.2,1) forwards" }}>
             <Link to={ROUTES.home} style={{ fontFamily: SANS, fontWeight: 700, fontSize: 33, letterSpacing: "-1.2px", color: INK, lineHeight: 1, textDecoration: "none" }}>ckript</Link>
-            <span style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
-            <nav style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
+            <span className="ckl-hero-nav-divider" style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
+            <nav className="ckl-hero-nav-links" style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
               <button type="button" onClick={() => openWriterOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Scripts</button>
-              <Link to={ROUTES.pro} className="hov-red" style={navLink}>For Producers</Link>
+              <button type="button" onClick={() => openProducerOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>For Producers</button>
               <button type="button" onClick={() => openPricingModal()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Pricing</button>
-              <button type="button" onClick={() => openAboutModal()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>About</button>
             </nav>
             {user ? (
-              <Link to={primaryPath} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
+              <Link to={primaryPath} className="ckl-hero-nav-login hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
             ) : (
-              <button type="button" onClick={() => openAuthModal()} className="hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, background: "none", border: "none", padding: 0, cursor: "pointer", transition: "color .22s ease" }}>{signInLabel}</button>
+              <button type="button" onClick={() => openAuthModal()} className="ckl-hero-nav-login hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, background: "none", border: "none", padding: 0, cursor: "pointer", transition: "color .22s ease" }}>{signInLabel}</button>
             )}
           </div>
 
           {/* Hero content */}
-          <h1 style={{ margin: 0, padding: 0, position: "absolute", top: 248, left: 0, width: "100%", textAlign: "center", fontFamily: SERIF, fontWeight: 400, fontSize: 114, lineHeight: "128px", color: INK, zIndex: 2, opacity: 0, animation: "ckl-fadeUp 1s .18s cubic-bezier(.2,.7,.2,1) forwards" }}>
+          <h1 className="ckl-hero-title" style={{ margin: 0, padding: 0, position: "absolute", top: 248, left: 0, width: "100%", textAlign: "center", fontFamily: SERIF, fontWeight: 400, fontSize: 114, lineHeight: "128px", color: INK, zIndex: 2, opacity: 0, animation: "ckl-fadeUp 1s .18s cubic-bezier(.2,.7,.2,1) forwards" }}>
             THE SCRIPT<br />IS THE STORY
             <span style={{ display: "inline-block", width: 19, height: 19, background: RED, marginLeft: 18, verticalAlign: "1px" }} />
           </h1>
-          <span style={{ position: "absolute", top: 528, left: "50%", width: 1, height: 46, background: "#bdbbb5", transform: "translateX(-50%)", transformOrigin: "top", zIndex: 2, opacity: 0, animation: "ckl-growLineC .7s .55s ease forwards" }} />
-          <p style={{ position: "absolute", top: 594, left: "50%", transform: "translateX(-50%)", width: 530, margin: 0, textAlign: "center", fontFamily: BODY, fontWeight: 400, fontSize: 22, lineHeight: "32px", color: "#33312e", zIndex: 2, opacity: 0, animation: "ckl-fadeUpC .9s .5s cubic-bezier(.2,.7,.2,1) forwards" }}>
+          <span className="ckl-hero-line" style={{ position: "absolute", top: 528, left: "50%", width: 1, height: 46, background: "#bdbbb5", transform: "translateX(-50%)", transformOrigin: "top", zIndex: 2, opacity: 0, animation: "ckl-growLineC .7s .55s ease forwards" }} />
+          <p className="ckl-hero-desc" style={{ position: "absolute", top: 594, left: "50%", transform: "translateX(-50%)", width: 530, margin: 0, textAlign: "center", fontFamily: BODY, fontWeight: 400, fontSize: 22, lineHeight: "32px", color: "#33312e", zIndex: 2, opacity: 0, animation: "ckl-fadeUpC .9s .5s cubic-bezier(.2,.7,.2,1) forwards" }}>
             Ckript is a curated marketplace where writers connect with producers and directors to showcase, discover, and acquire high-potential stories.
           </p>
-          <div style={{ position: "absolute", top: 728, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 54, zIndex: 2, opacity: 0, animation: "ckl-fadeUpC .9s .65s cubic-bezier(.2,.7,.2,1) forwards" }}>
+          <div className="ckl-hero-buttons" style={{ position: "absolute", top: 728, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 54, zIndex: 2, opacity: 0, animation: "ckl-fadeUpC .9s .65s cubic-bezier(.2,.7,.2,1) forwards" }}>
             <button type="button" onClick={openProducerOnboarding} className="hov-btn-lift" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 244, height: 70, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "0.2px", textDecoration: "none", border: "none", cursor: "pointer", transition: "transform .25s cubic-bezier(.2,.7,.2,1),background .25s ease" }}>Browse Scripts</button>
             <button type="button" onClick={() => openAboutModal()} className="hov-underline" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 19, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 7, transition: "color .22s ease,border-color .22s ease", background: "none", borderTop: "none", borderLeft: "none", borderRight: "none", cursor: "pointer" }}>Meet the Platform</button>
           </div>
@@ -464,29 +718,29 @@ export default function Landing() {
       </div>
 
       {/* ===================== STEPS SECTION ===================== */}
-      <section ref={stepsWrapRef} style={{ position: "relative", width: "100%", overflow: "hidden", background: "#fff", height: `${1080 * initStepsScale}px` }}>
-        <div ref={stepsStageRef} style={{ position: "absolute", top: 0, left: "50%", width: 1586, height: 1080, transformOrigin: "top center", transform: `translateX(-50%) scale(${initStepsScale})`, background: "#fff" }}>
-          <h1 data-ra="ckl-fadeUp" data-rd="0" style={{ margin: 0, position: "absolute", top: 88, left: 0, width: "100%", textAlign: "center", fontFamily: SERIF, fontWeight: 400, fontSize: 94, lineHeight: "94px", color: INK, opacity: 0 }}>
+      <section ref={stepsWrapRef} className="ckl-steps-wrap" style={{ position: "relative", width: "100%", overflow: "hidden", background: "#fff", height: `${1080 * initStepsScale}px` }}>
+        <div ref={stepsStageRef} className="ckl-steps-stage" style={{ position: "absolute", top: 0, left: "50%", width: 1586, height: 1080, transformOrigin: "top center", transform: `translateX(-50%) scale(${initStepsScale})`, background: "#fff" }}>
+          <h1 className="ckl-steps-title" data-ra="ckl-fadeUp" data-rd="0" style={{ margin: 0, position: "absolute", top: 88, left: 0, width: "100%", textAlign: "center", fontFamily: SERIF, fontWeight: 400, fontSize: 94, lineHeight: "94px", color: INK, opacity: 0 }}>
             FIND IT. WATCH IT. OWN IT
             <span style={{ display: "inline-block", width: 17, height: 17, background: RED, marginLeft: 10, verticalAlign: "2px" }} />
           </h1>
-          <p data-ra="ckl-fadeUpC" data-rd="0.08" style={{ position: "absolute", top: 218, left: "50%", transform: "translateX(-50%)", width: 600, margin: 0, textAlign: "center", fontFamily: BODY, fontWeight: 400, fontSize: 23, lineHeight: "31px", color: "#57544f", opacity: 0 }}>
+          <p className="ckl-steps-desc" data-ra="ckl-fadeUpC" data-rd="0.08" style={{ position: "absolute", top: 218, left: "50%", transform: "translateX(-50%)", width: 600, margin: 0, textAlign: "center", fontFamily: BODY, fontWeight: 400, fontSize: 23, lineHeight: "31px", color: "#57544f", opacity: 0 }}>
             Producers can explore scripts, watch AI-generated trailers,<br />and acquire the ones that stand out.
           </p>
 
           {/* Arrows */}
-          <div data-ra="ckl-fadeIn" data-rd="0.5" style={{ position: "absolute", left: 482, top: 503, color: "#8d8a84", opacity: 0 }}>
+          <div className="ckl-steps-arrows" data-ra="ckl-fadeIn" data-rd="0.5" style={{ position: "absolute", left: 482, top: 503, color: "#8d8a84", opacity: 0 }}>
             <Icon name="arrow_right_alt" size={40} />
           </div>
-          <div data-ra="ckl-fadeIn" data-rd="0.62" style={{ position: "absolute", left: 1066, top: 503, color: "#8d8a84", opacity: 0 }}>
+          <div className="ckl-steps-arrows" data-ra="ckl-fadeIn" data-rd="0.62" style={{ position: "absolute", left: 1066, top: 503, color: "#8d8a84", opacity: 0 }}>
             <Icon name="arrow_right_alt" size={40} />
           </div>
 
           {/* Col 1: script image */}
-          <img data-ra="ckl-fadeUp" data-rd="0.18" src={scriptImg} alt="" style={{ position: "absolute", left: -125, top: 268, width: 766, height: 511, objectFit: "contain", pointerEvents: "none", userSelect: "none", opacity: 0 }} />
+          <img className="ckl-steps-col-1" data-ra="ckl-fadeUp" data-rd="0.18" src={scriptImg} alt="" style={{ position: "absolute", left: -125, top: 268, width: 766, height: 511, objectFit: "contain", pointerEvents: "none", userSelect: "none", opacity: 0 }} />
 
           {/* Col 2: trailer */}
-          <div data-ra="ckl-fadeUp" data-rd="0.3" className="hov-trailer" style={{ position: "absolute", left: 563, top: 360, width: 460, height: 326, borderRadius: 10, overflow: "hidden", background: "#0c0d0f", boxShadow: "0 22px 48px rgba(0,0,0,0.16)", opacity: 0, transition: "transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s ease" }}>
+          <div className="ckl-steps-col-2 hov-trailer" data-ra="ckl-fadeUp" data-rd="0.3" style={{ position: "absolute", left: 563, top: 360, width: 460, height: 326, borderRadius: 10, overflow: "hidden", background: "#0c0d0f", boxShadow: "0 22px 48px rgba(0,0,0,0.16)", opacity: 0, transition: "transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s ease" }}>
             <img src={trailerStill} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
             <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 62, background: "linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0))" }}>
               <div style={{ position: "absolute", left: 14, right: 14, top: 14, height: 3, borderRadius: 2, background: "rgba(255,255,255,0.32)" }}>
@@ -508,7 +762,7 @@ export default function Landing() {
           </div>
 
           {/* Col 3: rights card */}
-          <div data-ra="ckl-fadeUp" data-rd="0.42" className="hov-rights" style={{ position: "absolute", left: 1140, top: 345, width: 296, height: 372, background: "#fcfcfa", border: "1px solid #e4e2dc", borderRadius: 10, boxShadow: "0 20px 44px rgba(0,0,0,0.08)", padding: "30px 30px 28px", opacity: 0, transition: "transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s ease" }}>
+          <div className="ckl-steps-col-3 hov-rights" data-ra="ckl-fadeUp" data-rd="0.42" style={{ position: "absolute", left: 1140, top: 345, width: 296, height: 372, background: "#fcfcfa", border: "1px solid #e4e2dc", borderRadius: 10, boxShadow: "0 20px 44px rgba(0,0,0,0.08)", padding: "30px 30px 28px", opacity: 0, transition: "transform .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s ease" }}>
             <div style={{ fontFamily: SERIF, fontWeight: 400, fontSize: 23, lineHeight: 1, letterSpacing: "0.3px", whiteSpace: "nowrap", color: "#161513" }}>FORSAKEN HORIZON</div>
             <div style={{ marginTop: 22, fontFamily: BODY, fontSize: 18, lineHeight: "27px", color: "#3a3833" }}>Drama / Sci-Fi / Thriller<br />Feature Length</div>
             <div style={{ margin: "24px 0", height: 1, background: "#e3e1da" }} />
@@ -524,8 +778,8 @@ export default function Landing() {
             { left: 258, rd: "0.52", num: "01", title: "Discover a script.", desc: ["Explore original stories", "across every genre."] },
             { left: 793, rd: "0.6", num: "02", title: "Watch the trailer.", desc: ["Experience AI-generated trailers", "that bring the story to life."] },
             { left: 1288, rd: "0.68", num: "03", title: "Own the story.", desc: ["Secure exclusive rights", "to make it yours."] },
-          ].map((c) => (
-            <div key={c.num} data-ra="ckl-fadeUpC" data-rd={c.rd} style={{ position: "absolute", left: c.left, top: 742, width: 380, transform: "translateX(-50%)", textAlign: "center", opacity: 0 }}>
+          ].map((c, i) => (
+            <div key={c.num} className={`ckl-steps-cap ckl-steps-cap-${i + 1}`} data-ra="ckl-fadeUpC" data-rd={c.rd} style={{ position: "absolute", left: c.left, top: 742, width: 380, transform: "translateX(-50%)", textAlign: "center", opacity: 0 }}>
               <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "1px", color: RED }}>{c.num}</div>
               <div style={{ marginTop: 18, fontFamily: SERIF, fontWeight: 400, fontSize: 31, lineHeight: 1, color: INK }}>{c.title}</div>
               <div style={{ marginTop: 18, fontFamily: BODY, fontSize: 19, lineHeight: "27px", color: "#57544f" }}>{c.desc[0]}<br />{c.desc[1]}</div>
@@ -533,8 +787,9 @@ export default function Landing() {
           ))}
 
           {/* Browse Scripts CTA */}
-          <span data-ra="ckl-fadeUpC" data-rd="0.74" style={{ position: "absolute", left: "50%", top: 898, transform: "translateX(-50%)", width: 1, height: 40, background: "linear-gradient(to bottom, rgba(11,10,6,0), #c4c2bc)", opacity: 0 }} />
-          <Link to={ROUTES.join} data-ra="ckl-fadeUpC" data-rd="0.8" className="hov-btn" style={{ position: "absolute", left: "50%", top: 954, transform: "translateX(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 250, height: 70, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "0.2px", textDecoration: "none", opacity: 0 }}>Browse Scripts</Link>
+          <span className="ckl-steps-cta-line" data-ra="ckl-fadeUpC" data-rd="0.74" style={{ position: "absolute", left: "50%", top: 898, transform: "translateX(-50%)", width: 1, height: 40, background: "linear-gradient(to bottom, rgba(11,10,6,0), #c4c2bc)", opacity: 0 }} />
+          <Link to={ROUTES.join} className="ckl-steps-cta-btn hov-btn" data-ra="ckl-fadeUpC" data-rd="0.8" style={{ position: "absolute", left: "50%", top: 954, transform: "translateX(-50%)", display: "flex", alignItems: "center", justifyContent: "center", width: 250, height: 70, background: "#161513", color: "#fff", fontFamily: SANS, fontWeight: 600, fontSize: 19, letterSpacing: "0.2px", textDecoration: "none", opacity: 0 }}>Browse Scripts</Link>
+
         </div>
       </section>
 
@@ -567,37 +822,29 @@ export default function Landing() {
 
           <div className="ckl-feat-grid" style={{ marginTop: "clamp(44px,5vw,72px)", display: "grid", gridTemplateColumns: "340px 1fr", gap: 28, alignItems: "start" }}>
             {/* Tab rail */}
-            <div data-ra="ckl-fadeUp" data-rd="0.05" style={{ display: "flex", flexDirection: "column", gap: 8, opacity: 0 }}>
+            <div className="ckl-feat-tabs" data-ra="ckl-fadeUp" data-rd="0.05" style={{ display: "flex", flexDirection: "column", gap: 8, opacity: 0 }}>
               {FEATURES.map((f, i) => {
                 const on = activeFeat === i;
                 return (
-                  <button key={f.num} type="button" onClick={() => setActiveFeat(i)} className={on ? "" : "hov-tab"} style={{ display: "flex", alignItems: "center", gap: 14, padding: "17px 18px", border: `1px solid ${on ? "#0B0A06" : "#e4e2dc"}`, background: on ? "#0B0A06" : "#fff", borderRadius: 11, textAlign: "left", cursor: "pointer", transition: "border-color .25s ease,background .25s ease" }}>
-                    <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13, letterSpacing: "1px", color: on ? RED : "#a8a59d", flex: "none" }}>{f.num}</span>
-                    <span style={{ fontFamily: SANS, fontWeight: 500, fontSize: 17, color: on ? "#fff" : "#161513" }}>{f.tab}</span>
-                  </button>
+                  <div key={f.num} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button type="button" onClick={() => setActiveFeat(on ? -1 : i)} className={on ? "" : "hov-tab"} style={{ display: "flex", alignItems: "center", gap: 14, padding: "17px 18px", border: `1px solid ${on ? "#0B0A06" : "#e4e2dc"}`, background: on ? "#0B0A06" : "#fff", borderRadius: 11, textAlign: "left", cursor: "pointer", transition: "border-color .25s ease,background .25s ease" }}>
+                      <span style={{ fontFamily: SANS, fontWeight: 700, fontSize: 13, letterSpacing: "1px", color: on ? RED : "#a8a59d", flex: "none" }}>{f.num}</span>
+                      <span style={{ fontFamily: SANS, fontWeight: 500, fontSize: 17, color: on ? "#fff" : "#161513" }}>{f.tab}</span>
+                      <Icon name={on ? "expand_less" : "expand_more"} size={24} color={on ? "#fff" : "#161513"} style={{ marginLeft: "auto" }} className="mobile-accordion-icon" />
+                    </button>
+                    {on && (
+                      <div className="ckl-feat-detail-mobile" style={{ position: "relative", border: "1px solid #e7e5df", borderRadius: 16, background: "#fcfcfa", overflow: "hidden" }}>
+                        {renderFeatDetail(f)}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
 
-            {/* Detail panel */}
-            <div data-ra="ckl-fadeUp" data-rd="0.12" style={{ position: "relative", border: "1px solid #e7e5df", borderRadius: 16, background: "#fcfcfa", overflow: "hidden", opacity: 0 }}>
-              <div className="ckl-feat-panel" style={{ display: "grid", gridTemplateColumns: "1.05fr 0.95fr", minHeight: 480 }}>
-                <div style={{ padding: "clamp(34px,3.4vw,52px)", display: "flex", flexDirection: "column" }}>
-                  <span style={{ alignSelf: "flex-start", fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: RED, border: "1px solid #ecc9c1", padding: "6px 13px", borderRadius: 100 }}>{feat.tag}</span>
-                  <h3 style={{ margin: "24px 0 0", fontFamily: SERIF, fontWeight: 400, fontSize: "clamp(2rem,3.4vw,2.9rem)", lineHeight: 1.04, color: INK }}>{feat.title}</h3>
-                  <p style={{ margin: "10px 0 0", fontFamily: BODY, fontStyle: "italic", fontSize: 19, color: "#8d8a84" }}>{feat.italic}</p>
-                  <p style={{ margin: "24px 0 0", fontFamily: BODY, fontSize: 18, lineHeight: "29px", color: "#57544f" }}>{feat.desc}</p>
-                  <div style={{ marginTop: "auto", paddingTop: 30, display: "flex", flexDirection: "column", gap: 13 }}>
-                    {feat.bullets.map((b) => (
-                      <div key={b} style={{ display: "flex", alignItems: "center", gap: 13 }}>
-                        <Diamond size={7} />
-                        <span style={{ fontFamily: SANS, fontSize: 16, color: "#33312e" }}>{b}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <FeatureMedia feat={feat} />
-              </div>
+            {/* Detail panel (Desktop) */}
+            <div className="ckl-feat-detail-desktop" data-ra="ckl-fadeUp" data-rd="0.12" style={{ position: "relative", border: "1px solid #e7e5df", borderRadius: 16, background: "#fcfcfa", overflow: "hidden", opacity: 0 }}>
+              {renderFeatDetail(FEATURES[activeFeat >= 0 ? activeFeat : 0])}
             </div>
           </div>
         </div>
@@ -684,9 +931,9 @@ export default function Landing() {
                     </div>
                   ))}
                 </div>
-                <Link to={card.to} className="hov-underline" style={{ marginTop: 32, display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontWeight: 700, fontSize: 17, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 6, transition: "color .22s ease,border-color .22s ease" }}>
+                <button type="button" onClick={() => openOnboarding(card.to === ROUTES.writer ? "writer" : "producer")} className="hov-underline" style={{ marginTop: 32, display: "inline-flex", alignItems: "center", gap: 8, fontFamily: SANS, fontWeight: 700, fontSize: 17, color: INK, textDecoration: "none", borderBottom: "2px solid #0B0A06", paddingBottom: 6, background: "none", borderTop: "none", borderLeft: "none", borderRight: "none", cursor: "pointer", transition: "color .22s ease,border-color .22s ease" }}>
                   {card.cta}<Icon name="arrow_forward" size={17} />
-                </Link>
+                </button>
               </div>
             ))}
           </div>
@@ -748,6 +995,18 @@ export default function Landing() {
             <div style={{ maxWidth: 380 }}>
               <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 34, letterSpacing: "-1.2px", color: "#fff", lineHeight: 1 }}>ckript</div>
               <p style={{ margin: "20px 0 0", fontFamily: SERIF, fontStyle: "italic", fontSize: 23, lineHeight: 1.3, color: "#c7c2b8" }}>From the page to the screen.</p>
+              <div style={{ marginTop: 36 }}>
+                <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: "#76726a", marginBottom: 12 }}>Ckript Headquarters</div>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <Icon name="location_on" size={20} color="#76726a" style={{ flex: "none", marginTop: 2 }} />
+                  <p style={{ margin: 0, fontFamily: SANS, fontSize: 15, lineHeight: 1.6, color: "#cfccc5" }}>
+                    SUIT-D, 400-A, 4th Floor,<br />
+                    12 Ajit Singh House, Yusuf Sarai Commercial Complex,<br />
+                    New Delhi 110016, India<br />
+                    <span style={{ color: "#9a978f", fontSize: 14 }}>Near Green Park Metro Station Exit-2</span>
+                  </p>
+                </div>
+              </div>
             </div>
             <div style={{ display: "flex", gap: "clamp(40px,6vw,96px)", flexWrap: "wrap" }}>
               {FOOTER_COLS.map((col) => (
@@ -755,7 +1014,7 @@ export default function Landing() {
                   <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: "#76726a", marginBottom: 4 }}>{col.head}</div>
                   {col.links.map((l) =>
                     l.action ? (
-                      <button key={l.label} type="button" onClick={() => (l.action === "pricing" ? openPricingModal() : openAboutModal())} className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>{l.label}</button>
+                      <button key={l.label} type="button" onClick={() => { if (l.action === "pricing") openPricingModal(); else if (l.action === "about") openAboutModal(); else openOnboarding(l.action); }} className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none", background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer" }}>{l.label}</button>
                     ) : l.external ? (
                       <a key={l.label} href={l.to} target="_blank" rel="noopener noreferrer" className="hov-red" style={{ fontFamily: SANS, fontSize: 17, color: "#cfccc5", textDecoration: "none" }}>{l.label}</a>
                     ) : (

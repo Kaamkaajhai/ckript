@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Send, CheckCircle2, MessageSquare, Briefcase, HelpCircle, PhoneCall, Clock3 } from "lucide-react";
+import { Mail, Send, CheckCircle2, MessageSquare, Briefcase, HelpCircle, PhoneCall, Clock3, MapPin, ChevronDown } from "lucide-react";
 import api from "../services/api";
 import MarketingHeader from "../components/MarketingHeader";
 
@@ -88,9 +88,6 @@ const ContactPage = () => {
           <p className="flex w-full justify-center text-center px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-white/60 mb-5">
             Contact
           </p>
-          <h1 className="font-display text-4xl leading-[1.02] tracking-tight sm:text-5xl lg:text-6xl text-white font-medium">
-            Talk to the <span className="text-[#BAE6FD]">Ckript</span> Team
-          </h1>
         </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-8 sm:gap-12 lg:gap-16 items-start">
@@ -128,28 +125,19 @@ const ContactPage = () => {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur-md">
-              <p className="text-[11px] uppercase tracking-[0.14em] font-bold mb-4 text-white/50">Choose Topic</p>
-              <div className="space-y-2">
-                {contactReasons.map(({ value, label, icon: Icon }) => {
-                  const active = form.reason === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setForm((prev) => ({
-                        ...prev,
-                        reason: value,
-                        otherReason: value === "other" ? prev.otherReason : "",
-                      }))}
-                      className={`w-full text-left rounded-xl border px-4 py-3 transition-all duration-300 flex items-center gap-3 ${active ? "bg-white/[0.08] border-white/20 text-white" : "bg-white/[0.01] border-white/5 text-white/70 hover:bg-white/[0.04]"}`}
-                    >
-                      <Icon className={`w-4 h-4 shrink-0 ${active ? "text-[#BAE6FD]" : ""}`} />
-                      <span className="text-sm font-medium">{label}</span>
-                    </button>
-                  );
-                })}
+              <p className="text-[11px] uppercase tracking-[0.14em] font-bold mb-4 text-white/50">Ckript Headquarters</p>
+              <div className="flex gap-4 text-sm font-medium text-white/80">
+                <MapPin className="w-4 h-4 shrink-0 text-[#BAE6FD] mt-1" />
+                <div className="leading-relaxed">
+                  SUIT-D, 400-A, 4th Floor,<br />
+                  12 Ajit Singh House, Yusuf Sarai Commercial Complex,<br />
+                  New Delhi 110016, India<br />
+                  <span className="text-white/40 text-xs mt-1 block">Near Green Park Metro Station Exit-2</span>
+                </div>
               </div>
             </div>
+
+            {/* Choose Topic removed */}
           </motion.section>
 
           <motion.section 
@@ -228,22 +216,25 @@ const ContactPage = () => {
 
                   <label className="space-y-2 block">
                     <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/60">Reason</span>
-                    <select
-                      name="reason"
-                      value={form.reason}
-                      onChange={handleChange}
-                      required
-                      className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white outline-none focus:border-blue-500/50 focus:bg-white/[0.02] transition-colors appearance-none cursor-pointer"
-                    >
-                      <option value="" disabled className="bg-[#0F172A] text-white/50">
-                        Select a reason
-                      </option>
-                      {contactReasons.map((reason) => (
-                        <option key={reason.value} value={reason.value} className="bg-[#0F172A] text-white">
-                          {reason.label}
+                    <div className="relative">
+                      <select
+                        name="reason"
+                        value={form.reason}
+                        onChange={handleChange}
+                        required
+                        className="w-full rounded-xl border border-white/10 bg-black/40 px-4 py-3.5 text-sm text-white outline-none focus:border-blue-500/50 focus:bg-white/[0.02] transition-colors appearance-none cursor-pointer"
+                      >
+                        <option value="" disabled className="bg-[#0F172A] text-white/50">
+                          Select a reason
                         </option>
-                      ))}
-                    </select>
+                        {contactReasons.map((reason) => (
+                          <option key={reason.value} value={reason.value} className="bg-[#0F172A] text-white">
+                            {reason.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+                    </div>
                   </label>
 
                   {form.reason === "other" && (
