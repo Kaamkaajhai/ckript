@@ -17,7 +17,7 @@ import {
   activateProjectSpotlight,
   getInvestorHomeFeed, getTopList,
   requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
-  getScriptPdf,
+  getScriptPdf, generateAiCover
 } from "../controllers/scriptController.js";
 import {
   exportFountain,
@@ -145,6 +145,7 @@ router.get("/:id/comments", protect, listComments);
 router.post("/:id/comments", protect, createComment);
 router.patch("/:id/comments/:commentId", protect, updateComment);
 router.delete("/:id/comments/:commentId", protect, deleteComment);
+router.post("/generate-ai-cover", protect, generateAiCover);
 router.get("/:id/pdf", protect, getScriptPdf);
 router.get("/purchase-request/:id/acceptance-pdf", protect, getPurchaseRequestAcceptancePdf);
 // Purchase request routes (must be before /:id)

@@ -6696,3 +6696,27 @@ export const submitTrailerFeedback = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Generate an AI Cover Thumbnail (Fallback to pollinations.ai)
+export const generateAiCover = async (req, res) => {
+  try {
+    const { title, genre, logline } = req.body;
+    
+    const prompt = `A cinematic movie poster for a film titled "${title || 'Untitled'}", genre: ${genre || 'Drama'}. ${logline || ''}. Professional, high quality, 4k. No text other than the title.`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=1024&nologo=true`;
+    
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error("Failed to generate image from external service.");
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = `data:${response.headers.get('content-type') || 'image/jpeg'};base64,${buffer.toString('base64')}`;
+    
+    res.json({ base64Image });
+  } catch (error) {
+    console.error("[generateAiCover] Error:", error);
+    res.status(500).json({ message: "Failed to generate AI cover." });
+  }
+};
