@@ -5,6 +5,8 @@ import useWriterPlanCheckout, { WRITER_TIERS } from "../hooks/useWriterPlanCheck
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
 import { useAuthModal } from "../context/AuthModalContext";
 import { AuthContext } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import useScrollLock from "../hooks/useScrollLock";
 import { useContext } from "react";
 import api from "../services/api";
 import "./PricingModal.css";
