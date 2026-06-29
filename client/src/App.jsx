@@ -52,7 +52,6 @@ const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
-const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 
@@ -291,8 +290,6 @@ function App() {
                 <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/profile/:id?" element={<Profile />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-
-                <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
                 <Route path="/ai-tools" element={<Dashboard />} />

@@ -33,7 +33,6 @@ const MainLayout = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const [pendingPurchaseCount, setPendingPurchaseCount] = useState(0);
   const [notificationPopups, setNotificationPopups] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
 
@@ -206,31 +205,14 @@ const MainLayout = ({ children }) => {
     }
   }, [user]);
 
-  const fetchPendingPurchaseCount = useCallback(async () => {
-    const isWriter = ["writer", "creator"].includes(user?.role);
-    if (!isWriter) {
-      setPendingPurchaseCount(0);
-      return;
-    }
-
-    try {
-      const { data } = await api.get("/scripts/purchase-requests/mine");
-      const pendingRequests = Array.isArray(data) ? data.filter((r) => r.status === "pending") : [];
-      setPendingPurchaseCount(pendingRequests.length);
-    } catch {
-      setPendingPurchaseCount(0);
-    }
-  }, [user?.role]);
-
   const refreshHeaderState = useCallback(async () => {
     const tasks = [
       fetchUnreadCount(),
       fetchUnreadMessageCount(),
-      fetchPendingPurchaseCount(),
     ];
 
     await Promise.allSettled(tasks);
-  }, [fetchPendingPurchaseCount, fetchUnreadCount, fetchUnreadMessageCount]);
+  }, [fetchUnreadCount, fetchUnreadMessageCount]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -678,7 +660,6 @@ const MainLayout = ({ children }) => {
       
       <div className={`min-h-screen ${isDarkMode ? "bg-[#080e18]" : "bg-[#eef0f3]"}`}>
       <Sidebar
-        purchaseRequestCount={pendingPurchaseCount}
         unreadMessageCount={unreadMessageCount}
         showFloatingToggle={false}
         mobileToggleToken={sidebarToggleToken}
