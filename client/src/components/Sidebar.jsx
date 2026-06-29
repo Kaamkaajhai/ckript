@@ -10,7 +10,7 @@ import ReferralShareCard from "./ReferralShareCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
-const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0, collapsed = false, onToggleCollapse }) => {
+const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0, collapsed = false, onToggleCollapse }) => {
   const { user, logout } = useContext(AuthContext);
   const { openProducerOnboarding, openAuthModal } = useAuthModal();
   const { isDarkMode: appDarkMode } = useDarkMode();
@@ -142,7 +142,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
       items: [
         { path: profilePath, label: "My Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
         { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
-        { path: "/purchase-requests", label: "My Requests", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
       ],
     },
   ] : null;
@@ -166,7 +165,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
   ] : [
     { path: "/dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-    { path: "/purchase-requests", label: "Purchase Requests", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   ];
 
   const actionItems = isAdmin ? [] : isReader ? [
@@ -216,12 +214,10 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
     </svg>
   );
 
-  const isPurchaseRequestsItem = (itemPath) => itemPath === "/purchase-requests";
   const isMessagesItem = (itemPath) => itemPath === "/messages";
 
   const NavItem = ({ item }) => {
     const active = isActive(item.path);
-    const showPurchaseBadge = isPurchaseRequestsItem(item.path) && purchaseRequestCount > 0;
     const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
     const baseClass = `group flex items-center gap-3 px-4 py-2.5 min-h-[44px] mx-2 rounded-xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
       ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
@@ -258,11 +254,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         {showMessageBadge && (
           <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#0f766e] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
             +{unreadMessageCount > 99 ? "99" : unreadMessageCount}
-          </span>
-        )}
-        {showPurchaseBadge && (
-          <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#1e3a5f] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
-            +{purchaseRequestCount > 99 ? "99" : purchaseRequestCount}
           </span>
         )}
 
@@ -455,7 +446,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto">
           {mainNavItems.map((item) => {
             const active = isActive(item.path);
-            const showPurchaseBadge = isPurchaseRequestsItem(item.path) && purchaseRequestCount > 0;
             const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
             return (
               <Link key={item.label} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined} title={item.label}
@@ -467,11 +457,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
                 {showMessageBadge && (
                   <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[19px] h-[19px] px-1 rounded-full bg-[#0f766e] text-white text-[10px] font-extrabold leading-none ring-2 ring-white/80">
                     {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
-                  </span>
-                )}
-                {showPurchaseBadge && (
-                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[19px] h-[19px] px-1 rounded-full bg-[#1e3a5f] text-white text-[10px] font-extrabold leading-none ring-2 ring-white/80">
-                    {purchaseRequestCount > 9 ? "9+" : purchaseRequestCount}
                   </span>
                 )}
               </Link>

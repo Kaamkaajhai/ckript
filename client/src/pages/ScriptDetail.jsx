@@ -1625,64 +1625,7 @@ const ScriptDetail = () => {
                 {/* Left column */}
 
                 <div className="flex-1 min-w-0 space-y-4">
-                  {/* Contract & Licensing Terms - Horizontal Section */}
-                  <div className="contract-licensing-panel rounded-2xl border p-5 sm:p-6 mb-5 bg-[#0c1527]">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] mb-4 text-white/60">Contract & Licensing Terms</p>
-                    <div className="flex flex-wrap gap-x-8 gap-y-3">
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Rights Type</span>
-                        <span className="text-xs font-semibold text-white/90">{RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || "-"}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Exclusivity</span>
-                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.exclusivity ? "Exclusive" : "Non-exclusive"}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">License Duration (months)</span>
-                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.timeBound?.licenseDurationMonths || "-"}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Modification Rights</span>
-                        <span className="text-xs font-semibold text-white/90">{MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || "-"}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Payment Structure</span>
-                        <span className="text-xs font-semibold text-white/90">{PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || "-"}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Royalty %</span>
-                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.royaltySettings?.percentage || 0}%</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Royalty Duration</span>
-                        <span className="text-xs font-semibold text-white/90">{script?.rightsLicensing?.royaltySettings?.durationType === "years" ? `${script?.rightsLicensing?.royaltySettings?.durationYears} years` : (script?.rightsLicensing?.royaltySettings?.durationType === "project_lifetime" ? "Project lifetime" : "-")}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Negotiation Mode</span>
-                        <span className="text-xs font-semibold text-white/90">{NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || "-"}</span>
-                      </div>
-                      {script?.rightsLicensing?.customConditions && (
-                        <div className="col-span-full">
-                          <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Custom Conditions</span>
-                          <span className="text-xs whitespace-pre-wrap text-white/90">{script.rightsLicensing.customConditions}</span>
-                        </div>
-                      )}
-                      {canViewWriterCustomConditions && (
-                        <div className="col-span-full mt-1 pt-3 border-t border-white/10">
-                          <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Writer Custom Conditions</span>
-                          {hasWriterCustomConditions ? (
-                            <span className="text-xs whitespace-pre-wrap text-white/90">{writerCustomConditions}</span>
-                          ) : (
-                            <span className="text-xs text-white/60">Writer has not added custom conditions for film industry professionals.</span>
-                          )}
-                        </div>
-                      )}
-                      <div className="col-span-full">
-                        <span className="block text-[10px] uppercase tracking-wide font-bold text-white/45 mb-0.5">Terms Version</span>
-                        <span className="text-xs text-white/80">{script?.rightsLicensing?.termsVersion || script?.legal?.termsVersion || "-"}</span>
-                      </div>
-                    </div>
-                  </div>
+
 
                   {/* Project Overview and rest below */}
                   <div className={`rounded-2xl border p-5 sm:p-6 ${t.card}`}>
@@ -1748,15 +1691,7 @@ const ScriptDetail = () => {
                       <div className="max-h-56 overflow-y-auto sidebar-scroll pr-2">
                         <p className={`text-[14px] leading-relaxed whitespace-pre-wrap break-words ${t.sub}`}>{script.synopsis}</p>
                       </div>
-                      {script.isSynopsisLocked && (
-                        <div className={`mt-4 pt-3 border-t flex items-center gap-2 text-xs ${t.divider} ${t.muted}`}>
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                            <path d="M7 11V7a5 5 0 0110 0v4" />
-                          </svg>
-                          <span className="font-semibold">Full script locked &mdash; full synopsis is visible</span>
-                        </div>
-                      )}
+
                     </div>
                   )}
 
@@ -2117,51 +2052,7 @@ const ScriptDetail = () => {
 
                     {/* Spotlight info box removed */}
 
-                    {/* Purchase / Request Button for non-owners */}
-                    {!isOwner && script.canPurchase && !script.isUnlocked && (
-                      myPendingRequest ? (
-                        myPendingRequest?.status === "approved" &&
-                        myPendingRequest?.paymentStatus !== "released" ? (
-                          <div className="space-y-1.5">
-                            <button
-                              onClick={() => navigate(`/script/${script._id}/pay`)}
-                              className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition ${t.btnPrim}`}
-                            >
-                              {pendingRequestBaseAmount > 0
-                                ? `Pay & Get Full Script — ₹${pendingRequestCheckoutTotal.toLocaleString("en-IN")}`
-                                : "Confirm Access"}
-                            </button>
-                            <p className="text-[11px] text-amber-700/90 text-center">
-                              {pendingRequestBaseAmount > 0
-                                ? "Includes 5% platform commission • Payment window: 72 hours after approval."
-                                : "Approval granted. Confirm Access to unlock full script."}
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="w-full px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
-                            <div className="flex items-center justify-center gap-2 text-amber-700 text-sm font-bold">
-                              <svg className="w-4 h-4 animate-pulse flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Awaiting Writer Approval
-                            </div>
-                            <p className="text-xs text-amber-700/90 text-center mt-1">You can pay after the writer approves your request.</p>
-                          </div>
-                        )
-                      ) : (
-                        <button
-                          onClick={() => setShowRequestModal(true)}
-                          className={`w-full px-4 py-3 rounded-xl text-sm font-bold transition ${t.btnPrim}`}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            {script.price > 0 ? `Send Purchase Request — ₹${script.price} (+5% at payment)` : "Request Access"}
-                          </div>
-                        </button>
-                      )
-                    )}
+
 
                     {/* Already Purchased Badge + Message Writer CTA */}
                     {!isOwner && script.isUnlocked && (
@@ -2209,15 +2100,7 @@ const ScriptDetail = () => {
                       </button>
                     )}
 
-                    {["requested", "generating"].includes(script.trailerStatus) && !hasTrailer && (
-                      <div className={`w-full px-4 py-3 rounded-xl text-xs font-bold text-center border flex flex-col items-center justify-center gap-1.5 ${t.inset}`}>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 border-2 rounded-full animate-spin ${isDarkMode ? "border-neutral-600 border-t-amber-400" : "border-gray-300 border-t-amber-500"}`} />
-                          <span className={isDarkMode ? "text-amber-400" : "text-amber-600"}>AI Trailer In Queue</span>
-                        </div>
-                        <span className={`text-[10px] font-medium ${isDarkMode ? "text-neutral-500" : "text-gray-400"}`}>Expected delivery: 2-3 business days.</span>
-                      </div>
-                    )}
+
 
                     {/* Evaluation manual button removed */}
 
@@ -3083,62 +2966,6 @@ const ScriptDetail = () => {
                           <h4 className={`text-base font-bold mb-2 ${t.title}`}>Full Script Locked</h4>
                           {script.isWriter ? (
                             <p className={`text-sm ${t.muted}`}>Writers can review the preview window, but only qualified industry professionals can unlock the full script.</p>
-                          ) : script.canPurchase ? (
-                            <div>
-                              <p className={`text-sm mb-4 ${t.muted}`}>Send your request first. Once the writer approves, payment is enabled and full access unlocks instantly after successful payment.</p>
-                              {script.isUnlocked ? (
-                                <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                  Access Granted
-                                </div>
-                              ) : myPendingRequest ? (
-                                myPendingRequest?.status === "approved" &&
-                                myPendingRequest?.paymentStatus !== "released" ? (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-700 text-sm font-semibold">
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                      </svg>
-                                      {Number(myPendingRequest?.amount || script.price || 0) > 0
-                                        ? "Approved — Complete Payment to Unlock"
-                                        : "Approved — Confirm Access to Unlock"}
-                                    </div>
-                                    <button
-                                      onClick={() => navigate(`/script/${script._id}/pay`)}
-                                      className={`px-6 py-2.5 rounded-xl text-sm font-bold transition ${t.btnPrim}`}
-                                    >
-                                      {pendingRequestBaseAmount > 0
-                                        ? `Pay Now — ₹${pendingRequestCheckoutTotal.toLocaleString("en-IN")}`
-                                        : "Confirm Access"}
-                                    </button>
-                                    <p className={`text-xs ${t.muted}`}>
-                                      {pendingRequestBaseAmount > 0
-                                        ? "Includes 5% platform commission • Payment window: 72 hours after approval."
-                                        : "Approval granted. Confirm Access to unlock instantly."}
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-700 text-sm font-semibold">
-                                      <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                      </svg>
-                                      Request Pending — Awaiting Writer Approval
-                                    </div>
-                                    <p className={`text-xs ${t.muted}`}>Payment becomes available after approval.</p>
-                                  </div>
-                                )
-                              ) : (
-                                <button
-                                  onClick={() => setShowRequestModal(true)}
-                                  className={`px-6 py-2.5 rounded-xl text-sm font-bold transition ${t.btnPrim}`}
-                                >
-                                  {script.price > 0 ? `Send Purchase Request — ₹${script.price} (+5% at payment)` : "Request Access"}
-                                </button>
-                              )}
-                            </div>
                           ) : (
                             <p className={`text-sm ${t.muted}`}>Sign in as a producer or director to unlock.</p>
                           )}
