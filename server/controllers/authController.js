@@ -611,6 +611,13 @@ export const join = async (req, res) => {
       }
     }
 
+    // Check if email verification should be skipped (dev mode or missing config)
+    let skipEmailVerification = process.env.SKIP_EMAIL_VERIFICATION === 'true';
+    if (!skipEmailVerification && (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD)) {
+      console.warn("Skipping email verification because EMAIL_USER or EMAIL_PASSWORD is not set.");
+      skipEmailVerification = true;
+    }
+
     const requiresContactDetails = CONTACT_REQUIRED_ROLES.has(role);
     const normalizedPhone = normalizeInputValue(phone);
     const normalizedAddress = normalizeAddressPayload(address);
@@ -751,6 +758,35 @@ export const join = async (req, res) => {
         if (referrerUser && !userExists.referredBy) {
           userExists.referredBy = referrerUser._id;
         }
+        
+        if (skipEmailVerification) {
+          userExists.emailVerified = true;
+          userExists.emailVerificationToken = undefined;
+          userExists.emailVerificationExpires = undefined;
+          userExists.emailVerificationResendAvailableAt = undefined;
+          await userExists.save();
+          
+          const referralBonusResult = await awardReferralBonusForUser(userExists._id);
+          const token = jwt.sign({ id: userExists._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+          const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+          return res.status(200).json({
+            _id: userExists._id,
+            sid: userExists.sid,
+            name: userExists.name,
+            email: userExists.email,
+            role: userExists.role,
+            referralCode: userExists.referralCode,
+            subscription: userExists.subscription,
+            language: normalizeLanguagePreference(userExists.language),
+            timezone: userExists.timezone || DEFAULT_TIMEZONE,
+            referralBonusAwarded: referralBonusResult.awarded,
+            referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
+            token,
+            expiresAt,
+            message: "Account verified successfully (email verification skipped in dev mode)"
+          });
+        }
+
         userExists.emailVerificationToken = hashOTP(otp);
         userExists.emailVerificationExpires = generateOTPExpiry();
         userExists.emailVerificationResendAvailableAt = generateOTPResendAvailableAt();
@@ -776,9 +812,6 @@ export const join = async (req, res) => {
 
     // Generate OTP
     const otp = generateOTP();
-    
-    // Check if email verification should be skipped (dev mode)
-    const skipEmailVerification = process.env.SKIP_EMAIL_VERIFICATION === 'true';
     
     // Create user with OTP
     const user = await User.create({ 

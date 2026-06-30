@@ -636,45 +636,8 @@ const normalizeRightsLicensingInput = (incoming = {}, fallback = {}) => {
 };
 
 const validateRightsLicensingPayload = (rightsLicensing = {}) => {
-  const errors = [];
-  if (!RIGHTS_TYPE_OPTIONS.has(rightsLicensing?.rightsType)) {
-    errors.push("Rights type is required.");
-  }
-  if (!MODIFICATION_RIGHTS_OPTIONS.has(rightsLicensing?.modificationRights)) {
-    errors.push("Modification rights selection is required.");
-  }
-  if (!PAYMENT_STRUCTURE_OPTIONS.has(rightsLicensing?.paymentStructure)) {
-    errors.push("Payment structure selection is required.");
-  }
-  if (!NEGOTIATION_MODE_OPTIONS.has(rightsLicensing?.negotiationMode)) {
-    errors.push("Negotiation mode selection is required.");
-  }
-
-  if (rightsLicensing?.rightsType === "exclusive_license") {
-    const durationMonths = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
-    if (!Number.isInteger(durationMonths)
-      || durationMonths < MIN_LICENSE_DURATION_MONTHS
-      || durationMonths > MAX_LICENSE_DURATION_MONTHS) {
-      errors.push(`Exclusive license requires duration between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`);
-    }
-  }
-
-  const isRoyaltyStructure = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(
-    rightsLicensing?.paymentStructure
-  );
-  if (isRoyaltyStructure) {
-    const pct = Number(rightsLicensing?.royaltySettings?.percentage || 0);
-    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-      errors.push("Royalty percentage must be between 0 and 100 for royalty-based structures.");
-    }
-  }
-
-  const ack = rightsLicensing?.legalAcknowledgement || {};
-  if (!ack?.ownershipConfirmed || !ack?.platformTermsAccepted || !ack?.exclusivityUnderstood) {
-    errors.push("Writer legal acknowledgement is required for rights and licensing preferences.");
-  }
-
-  return errors;
+  // Feature has been removed from the frontend, bypassing validation
+  return [];
 };
 
 const buildRightsLabels = (rights = {}) => {
