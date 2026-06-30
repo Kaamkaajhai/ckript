@@ -1,4 +1,5 @@
-﻿import express from "express";
+// force vercel build
+import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import compression from "compression";
