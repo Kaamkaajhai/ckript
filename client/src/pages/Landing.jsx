@@ -33,6 +33,7 @@ const RED = "#D14D37";
 const SANS = "'Helvetica Neue',Arial,sans-serif";
 const SERIF = "'Baskervville',Georgia,serif";
 const BODY = "'PT Serif',Georgia,serif";
+const LOGO_SRC = "/ckript-logo-landscape-nobg.png";
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
@@ -686,7 +687,9 @@ export default function Landing() {
 
           {/* Nav */}
           <div className="ckl-hero-nav" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 104, display: "flex", alignItems: "center", padding: "0 52px", zIndex: 10, opacity: 0, animation: "ckl-fadeDown .8s .05s cubic-bezier(.2,.7,.2,1) forwards" }}>
-            <Link to={ROUTES.home} style={{ fontFamily: SANS, fontWeight: 700, fontSize: 33, letterSpacing: "-1.2px", color: INK, lineHeight: 1, textDecoration: "none" }}>ckript</Link>
+            <Link to={ROUTES.home} style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+              <img src={LOGO_SRC} alt="Ckript" style={{ height: 38, width: "auto", display: "block" }} />
+            </Link>
             <span className="ckl-hero-nav-divider desktop-only" style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
             <nav className="ckl-hero-nav-links desktop-only" style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
               <button type="button" onClick={() => openWriterOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Scripts</button>
@@ -746,7 +749,9 @@ export default function Landing() {
           {isMobileMenuOpen && (
             <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 9999, display: "flex", flexDirection: "column", padding: "24px 15px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Link to={ROUTES.home} onClick={() => setIsMobileMenuOpen(false)} style={{ fontFamily: SANS, fontWeight: 700, fontSize: 24, letterSpacing: "-1.2px", color: INK, lineHeight: 1, textDecoration: "none" }}>ckript</Link>
+                <Link to={ROUTES.home} onClick={() => setIsMobileMenuOpen(false)} style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+                  <img src={LOGO_SRC} alt="Ckript" style={{ height: 30, width: "auto", display: "block" }} />
+                </Link>
                 <button type="button" onClick={() => setIsMobileMenuOpen(false)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}>
                   <span className="msi" style={{ fontSize: 32 }}>close</span>
                 </button>
@@ -1065,7 +1070,7 @@ export default function Landing() {
         <div style={{ maxWidth: 1320, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 40, flexWrap: "wrap", paddingBottom: 42, borderBottom: "1px solid #211f1a" }}>
             <div style={{ maxWidth: 380 }}>
-              <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 34, letterSpacing: "-1.2px", color: "#fff", lineHeight: 1 }}>ckript</div>
+              <img src="/ckript_logo_no_bg.png" alt="Ckript" style={{ height: 44, width: "auto", display: "block" }} />
               <p style={{ margin: "20px 0 0", fontFamily: SERIF, fontStyle: "italic", fontSize: 23, lineHeight: 1.3, color: "#c7c2b8" }}>From the page to the screen.</p>
               <div style={{ marginTop: 36 }}>
                 <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: "#76726a", marginBottom: 12 }}>Ckript Headquarters</div>
