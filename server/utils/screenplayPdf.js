@@ -72,12 +72,15 @@ const drawPageNumber = (doc, n) => {
  * @param {object} [opts]
  * @param {string} [opts.title]
  * @param {string} [opts.author]
+ * @param {object} [opts.titlePage] - industry title-page fields { title, credit, author, source, draftDate }
  * @param {string} [opts.watermark] - per-page identity stamp (e.g. buyer email)
  * @returns {Promise<Buffer>}
  */
 export const generateScreenplayPdf = (scriptText, opts = {}) =>
   new Promise((resolve, reject) => {
     const { title, author, watermark } = opts;
+    // Title page can come as the structured object (preferred) or be synthesized from title/author.
+    const tp = opts.titlePage && typeof opts.titlePage === "object" ? opts.titlePage : null;
     const blocks = textToBlocks(formatScreenplayLikeText(scriptText));
 
     const doc = new PDFDocument({
@@ -102,20 +105,53 @@ export const generateScreenplayPdf = (scriptText, opts = {}) =>
       }
     };
 
-    // Optional title page
-    if (title) {
-      doc.font(FONT_BOLD).fontSize(FONT_SIZE);
-      doc.text(String(title).toUpperCase(), MARGIN.left, PAGE.height * 0.4, { width: ACTION_WIDTH, align: "center" });
-      if (author) {
+    // Title page — industry layout: TITLE centered upper-third, "Credit" + Author centered just
+    // below, and Source / Draft date lower on the page. Falls back to title/author when no structured
+    // titlePage was given. Rendered on its own page; the body starts on a fresh page after it.
+    const tpTitle = (tp?.title || title || "").trim();
+    const tpCredit = (tp?.credit || (author ? "Written by" : "")).trim();
+    const tpAuthor = (tp?.author || author || "").trim();
+    const tpSource = (tp?.source || "").trim();
+    const tpDraft = (tp?.draftDate || "").trim();
+    if (tpTitle || tpAuthor || tpSource || tpDraft) {
+      const cx = MARGIN.left;
+      doc.fillColor("#111111").fillOpacity(1);
+      let ty = PAGE.height * 0.38;
+      if (tpTitle) {
+        doc.font(FONT_BOLD).fontSize(FONT_SIZE);
+        doc.text(tpTitle.toUpperCase(), cx, ty, { width: ACTION_WIDTH, align: "center" });
+        ty += LINE * 2.4;
+      }
+      if (tpCredit) {
         doc.font(FONT).fontSize(FONT_SIZE);
-        doc.text("written by", MARGIN.left, PAGE.height * 0.4 + 40, { width: ACTION_WIDTH, align: "center" });
-        doc.text(String(author), MARGIN.left, PAGE.height * 0.4 + 60, { width: ACTION_WIDTH, align: "center" });
+        doc.text(tpCredit, cx, ty, { width: ACTION_WIDTH, align: "center" });
+        ty += LINE * 1.2;
+      }
+      if (tpAuthor) {
+        doc.font(FONT).fontSize(FONT_SIZE);
+        doc.text(tpAuthor, cx, ty, { width: ACTION_WIDTH, align: "center" });
+        ty += LINE * 1.4;
+      }
+      if (tpSource) {
+        doc.font(FONT).fontSize(FONT_SIZE);
+        doc.text(tpSource, cx, ty, { width: ACTION_WIDTH, align: "center" });
+      }
+      // Draft date sits low on the page (industry bottom-left/centre); keep it centred for simplicity.
+      if (tpDraft) {
+        doc.font(FONT).fontSize(FONT_SIZE);
+        doc.text(tpDraft, cx, PAGE.height * 0.82, { width: ACTION_WIDTH, align: "center" });
       }
       doc.addPage();
       y = MARGIN.top;
     }
 
     for (const block of blocks) {
+      // Forced page break ("==="): jump to a fresh page, don't render any glyph.
+      if (block.type === "pagebreak") {
+        doc.addPage();
+        y = MARGIN.top;
+        continue;
+      }
       const cfg = LAYOUT[block.type];
       if (!cfg) {
         // spacer or unknown — advance a line

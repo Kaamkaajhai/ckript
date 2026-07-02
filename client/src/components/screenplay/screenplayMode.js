@@ -5,11 +5,11 @@
 // Fountain — cycling an element never rewrites the writer's words.
 
 import { StateField, StateEffect, Prec } from "@codemirror/state";
-import { Decoration, ViewPlugin, EditorView, keymap, highlightActiveLine } from "@codemirror/view";
+import { Decoration, ViewPlugin, EditorView, WidgetType, keymap, highlightActiveLine } from "@codemirror/view";
 import { autocompletion, completionStatus } from "@codemirror/autocomplete";
 // The classifier lives in its own pure module so the editor, reports, and FDX all share ONE
 // implementation (see classify.js). screenplayMode just layers the forced-type overlay on top.
-import { SECTION, PAREN, stripActToken, heuristicType, applyForcedToContext, classifyText, stripForceMarker } from "./classify";
+import { SECTION, PAREN, stripActToken, heuristicType, applyForcedToContext, classifyText, stripForceMarker, CENTERED } from "./classify";
 
 export { classifyText };
 
@@ -225,10 +225,34 @@ export const applyElementType = (view, type) => {
 // understands them via the formatter), so wrapping a selection keeps the text plain — the
 // classifier still sees a normal line, only the emphasis renders. This is what "rich text" means
 // in a screenplay: *italic*, **bold**, ***bold italic***, _underline_.
+// Order matters for active-state detection: the longest marker (***) must be tested before its
+// prefixes (** and *), otherwise "***x***" would match the italic (*) probe first.
 const EMPHASIS = {
-  italic: { mark: "*", re: /^\*([\s\S]+)\*$/ },
+  bolditalic: { mark: "***", re: /^\*\*\*([\s\S]+)\*\*\*$/ },
   bold: { mark: "**", re: /^\*\*([\s\S]+)\*\*$/ },
+  italic: { mark: "*", re: /^\*(?!\*)([\s\S]+?)(?<!\*)\*$/ },
   underline: { mark: "_", re: /^_([\s\S]+)_$/ },
+};
+const EMPHASIS_ORDER = ["bolditalic", "bold", "italic", "underline"];
+
+// Which emphasis kinds currently wrap the selection (e.g. ["bold"] or ["bolditalic"]). Empty when
+// there's no selection or the selection isn't an exact emphasis span. Used to light up the toolbar.
+export const activeEmphasis = (view) => {
+  if (!view) return [];
+  const { from, to } = view.state.selection.main;
+  if (from === to) return [];
+  const sel = view.state.sliceDoc(from, to);
+  const active = [];
+  for (const kind of EMPHASIS_ORDER) {
+    if (EMPHASIS[kind].re.test(sel)) {
+      active.push(kind);
+      // *** counts as both bold and italic for highlighting; underline can stack independently but
+      // a single selection can't be exactly-wrapped by two different markers, so we stop here.
+      if (kind === "bolditalic") active.push("bold", "italic");
+      break;
+    }
+  }
+  return active;
 };
 
 // Toggle a Fountain emphasis marker around the current selection. If the selection is already
@@ -262,6 +286,78 @@ export const applyEmphasis = (view, kind) => {
       selection: { anchor: from, head: from + wrapped.length },
     });
   }
+  view.focus();
+  return true;
+};
+
+// Transform the selected text's CASE in place. This rewrites the actual characters (no markup), so
+// it persists everywhere and the classifier/reports/export see the changed text exactly as written.
+// kind: "upper" | "lower". No-op without a selection.
+export const applyCase = (view, kind) => {
+  if (!view) return false;
+  const { from, to } = view.state.selection.main;
+  if (from === to) return false;
+  const sel = view.state.sliceDoc(from, to);
+  const next = kind === "lower" ? sel.toLowerCase() : sel.toUpperCase();
+  if (next === sel) return false;
+  view.dispatch({
+    changes: { from, to, insert: next },
+    selection: { anchor: from, head: from + next.length },
+  });
+  view.focus();
+  return true;
+};
+
+// Fountain centered text: a line wrapped ">text<". The classifier recognizes ">…<" (BOTH a leading
+// ">" and trailing "<") as centered BEFORE the leading-">"-only transition force, so these never
+// collide. Centering is line-level — we toggle the marker on every non-blank line the selection (or
+// caret) touches.
+const CENTERED_LINE = /^\s*>(.*?)<\s*$/;
+export const applyCentered = (view) => {
+  if (!view) return false;
+  const { from, to } = view.state.selection.main;
+  const startLine = view.state.doc.lineAt(from);
+  const endLine = view.state.doc.lineAt(to);
+  const lines = [];
+  for (let n = startLine.number; n <= endLine.number; n++) lines.push(view.state.doc.line(n));
+  const targets = lines.filter((l) => l.text.trim());
+  if (!targets.length) return false;
+  // If every targeted line is already centered, toggle OFF; otherwise center them all.
+  const allCentered = targets.every((l) => CENTERED_LINE.test(l.text));
+  const changes = targets.map((l) => {
+    const m = CENTERED_LINE.exec(l.text);
+    const inner = m ? m[1].trim() : l.text.trim();
+    return { from: l.from, to: l.to, insert: allCentered ? inner : `>${inner}<` };
+  });
+  view.dispatch({ changes, selection: { anchor: startLine.from } });
+  view.focus();
+  return true;
+};
+
+// Is the caret's current line centered (>…<)? Lets the toolbar light up the Center button.
+export const isCenteredLine = (view) => {
+  if (!view) return false;
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  return CENTERED_LINE.test(line.text);
+};
+
+// Insert a Fountain forced page break ("===") on its own line at the caret, with blank lines around
+// it so it reads as a clean divider. Standard Fountain — the PDF export honors it as a hard page
+// break. The caret lands on the line AFTER the break, ready to keep writing.
+export const insertPageBreak = (view) => {
+  if (!view) return false;
+  const sel = view.state.selection.main;
+  const line = view.state.doc.lineAt(sel.head);
+  // If we're mid-line, push the break to the line's end; otherwise insert at the caret.
+  const at = line.to;
+  const atLineStart = line.from === line.to; // empty line
+  const insert = (atLineStart ? "===\n\n" : "\n\n===\n\n");
+  const caret = at + insert.length;
+  view.dispatch({
+    changes: { from: at, insert },
+    selection: { anchor: caret },
+    scrollIntoView: true,
+  });
   view.focus();
   return true;
 };
@@ -303,9 +399,16 @@ const screenplayKeymap = Prec.highest(
 );
 
 const lineDeco = {};
-const decoFor = (type) => {
-  if (!lineDeco[type]) lineDeco[type] = Decoration.line({ class: `cm-sp-line cm-sp-${type}` });
-  return lineDeco[type];
+// One line decoration per (type, centered) combo. Centered text (">words<") classifies as action
+// but needs the extra .cm-sp-centered class — folded into the SAME line decoration rather than a
+// second Decoration.line at the same position (stacking two line decos at one pos is invalid and
+// throws inside Decoration.set, which would silently disable the whole decoration plugin).
+const decoFor = (type, centered = false) => {
+  const key = centered ? `${type} c` : type;
+  if (!lineDeco[key]) {
+    lineDeco[key] = Decoration.line({ class: `cm-sp-line cm-sp-${type}${centered ? " cm-sp-centered" : ""}` });
+  }
+  return lineDeco[key];
 };
 
 // "Hide" decoration: visually collapses a marker span (the Fountain syntax characters ~, #,
@@ -417,8 +520,17 @@ const decorationPlugin = ViewPlugin.fromClass(
         const line = view.state.doc.line(i);
         const type = types[i - 1];
         if (!type || type === "blank") continue;
-        // Line-level formatting decoration (indent / case / weight via .cm-sp-* class).
-        deco.push(decoFor(type).range(line.from));
+        // Centered text ">words<" (classified as action): fold the centering class into the single
+        // line decoration and hide the ">" / "<" wrapper so the writer sees just the centered words.
+        const isCentered = CENTERED.test(line.text);
+        // Line-level formatting decoration (indent / case / weight / centering via .cm-sp-* class).
+        deco.push(decoFor(type, isCentered).range(line.from));
+        if (isCentered) {
+          const open = line.text.indexOf(">");
+          const close = line.text.lastIndexOf("<");
+          if (open >= 0) deco.push(hideDeco.range(line.from + open, line.from + open + 1));
+          if (close >= 0) deco.push(hideDeco.range(line.from + close, line.from + close + 1));
+        }
         // Suppress any syntax markers on this line so the rendered text reads as a clean label.
         for (const r of markerHideRanges(type, line)) deco.push(hideDeco.range(r.from, r.to));
         // Inline Fountain emphasis (*italic* **bold** ***both*** _underline_).
@@ -426,10 +538,127 @@ const decorationPlugin = ViewPlugin.fromClass(
       }
       // Sort by from then startSide so overlapping ranges are well-ordered for CodeMirror.
       deco.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
-      return Decoration.set(deco, true);
+      // Defensive: if any single range is somehow invalid, Decoration.set throws and CodeMirror
+      // PERMANENTLY disables this whole ViewPlugin — which silently kills ALL formatting (emphasis
+      // styling + marker hiding) document-wide until reload. Degrade to no decorations for this one
+      // build instead, so a bad line can never take the entire editor's formatting down with it.
+      try {
+        return Decoration.set(deco, true);
+      } catch (err) {
+        console.error("[screenplay] decoration build failed; skipping decorations this pass", err);
+        return Decoration.none;
+      }
     }
   },
   { decorations: (v) => v.decorations }
+);
+
+// ── Real page breaks ────────────────────────────────────────────────────────
+// A "===" line is a genuine page break: we add a block widget AFTER it whose height fills the rest
+// of the current page, so the following text actually starts at the top of the next page. The fill
+// height is MEASURED from the real on-screen geometry (the break line's bottom, relative to the top
+// of the page it sits on), so pages reflow from actual content — not a word-count estimate.
+//
+// The page boundary itself (desk gap + "next page" header) is drawn by the widget. Default page
+// height is provided by the editor host via the `--sp-page-height` CSS var (so zoom scales it too).
+
+const DEFAULT_PAGE_HEIGHT = 1056;
+
+const pageHeightOf = (view) => {
+  const raw = getComputedStyle(view.dom).getPropertyValue("--sp-page-height");
+  const n = parseFloat(raw);
+  return Number.isFinite(n) && n > 200 ? n : DEFAULT_PAGE_HEIGHT;
+};
+
+class PageBreakWidget extends WidgetType {
+  constructor(height) { super(); this.height = Math.max(0, Math.round(height)); }
+  eq(other) { return other.height === this.height; }
+  toDOM() {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-sp-pagebreak-gap";
+    wrap.style.height = `${this.height}px`;
+    wrap.setAttribute("aria-hidden", "true");
+    const inner = document.createElement("div");
+    inner.className = "cm-sp-pagebreak-rule";
+    wrap.appendChild(inner);
+    return wrap;
+  }
+  get estimatedHeight() { return this.height; }
+  ignoreEvent() { return true; }
+}
+
+// Spacer heights live in a StateField so the decorations are reactive and never loop: a measuring
+// ViewPlugin reads the real geometry and DISPATCHES the computed heights (only when they change); the
+// field turns them into block-widget decorations. The break line positions are mapped across edits.
+export const setPageSpacers = StateEffect.define();
+
+const pageSpacerField = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setPageSpacers)) {
+        const ranges = e.value
+          .filter((s) => s.pos <= tr.state.doc.length)
+          .map((s) => Decoration.widget({ widget: new PageBreakWidget(s.height), side: 1, block: true }).range(s.pos));
+        try { deco = Decoration.set(ranges, true); } catch { deco = Decoration.none; }
+      }
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+// Signature of the current spacer set in the field (pos:height,…) — so we only dispatch on change.
+const spacerSignature = (deco) => {
+  const out = []; const it = deco.iter();
+  while (it.value) { out.push(`${it.from}:${it.value.spec.widget?.height}`); it.next(); }
+  return out.join(",");
+};
+
+const pageBreakPlugin = ViewPlugin.fromClass(
+  class {
+    constructor(view) { this.raf = 0; this.scheduleMeasure(view); }
+    update(u) {
+      // Re-measure whenever the doc, viewport, or geometry changes (typing, scroll, resize, zoom).
+      if (u.docChanged || u.viewportChanged || u.geometryChanged) this.scheduleMeasure(u.view);
+    }
+    destroy() { if (this.raf) cancelAnimationFrame(this.raf); }
+    // Schedule on the next frame (so layout is settled) and outside the current update cycle (so we
+    // can dispatch the spacer heights without "dispatch during update" issues).
+    scheduleMeasure(view) {
+      if (this.raf) return;
+      this.raf = requestAnimationFrame(() => {
+        this.raf = 0;
+        let spacers = [];
+        try { spacers = this.compute(view); } catch { spacers = []; }
+        const next = spacers.map((s) => `${s.pos}:${s.height}`).join(",");
+        if (next !== spacerSignature(view.state.field(pageSpacerField))) {
+          view.dispatch({ effects: setPageSpacers.of(spacers) });
+        }
+      });
+    }
+    // For each "===" line, fill height = remaining space on its current page. Pages track cumulatively
+    // (each break resets the running page top to just after the spacer it adds). lineBlockAt returns
+    // document-space coords (0 = top of content), so the first page top is 0.
+    compute(view) {
+      const pageH = pageHeightOf(view);
+      const types = classifyDocument(view.state);
+      const spacers = [];
+      let pageTop = 0;
+      for (let i = 1; i <= view.state.doc.lines; i += 1) {
+        if (types[i - 1] !== "pagebreak") continue;
+        const line = view.state.doc.line(i);
+        const block = view.lineBlockAt(line.from); // throws only if pos invalid — caught above
+        const usedOnPage = block.bottom - pageTop;
+        const remaining = pageH - (((usedOnPage % pageH) + pageH) % pageH);
+        const fill = remaining < 24 ? pageH : remaining; // near a page edge → fill a whole gap
+        spacers.push({ pos: line.to, height: Math.round(fill) });
+        pageTop = block.bottom + fill;
+      }
+      return spacers;
+    }
+  }
 );
 
 // ── Autocomplete: characters, scene scaffolds, locations, times, transitions ──
@@ -475,7 +704,9 @@ const buildCompletionSource = (getEntities) => (context) => {
 // a character or two as needed; the unit (ch) is what matters.
 const SCREENPLAY_FONT = "'Courier Prime','Courier New',Courier,monospace";
 const screenplayTheme = EditorView.theme({
-  "&": { fontFamily: SCREENPLAY_FONT, fontSize: "15px", backgroundColor: "transparent" },
+  // fontSize reads a CSS var so the host can zoom the whole editor (the layout uses ch/em units, so
+  // scaling the base size scales every indent proportionally). Falls back to 15px when unset.
+  "&": { fontFamily: SCREENPLAY_FONT, fontSize: "var(--sp-font-size, 15px)", backgroundColor: "transparent" },
   // CodeMirror's baseTheme sets font-family directly on .cm-scroller/.cm-content, which beats
   // inheritance from "&" (.cm-editor). Set the font on the actual text containers too so
   // Courier Prime wins the cascade instead of silently falling back to the base monospace.
@@ -502,6 +733,8 @@ const screenplayTheme = EditorView.theme({
   // ~3 line-heights of air above each scene so scenes visibly separate as new units.
   ".cm-sp-scene, .cm-sp-shot": { fontWeight: "700", textTransform: "uppercase", paddingTop: "3.2em", paddingBottom: "0.4em" },
   ".cm-sp-action": { maxWidth: "62ch", paddingTop: "0.5em" },
+  // Centered text (">words<") — overrides the action left-anchor to center within the 62ch column.
+  ".cm-sp-centered": { textAlign: "center", maxWidth: "62ch", marginLeft: "0", marginRight: "auto" },
   // Cue: air ABOVE (separates from prior beat), hugs the dialogue BELOW (no bottom gap).
   ".cm-sp-character": { textTransform: "uppercase", fontWeight: "700", marginLeft: "22ch", paddingTop: "1.2em", paddingBottom: "0" },
   ".cm-sp-parenthetical": { marginLeft: "16ch", paddingTop: "0" },
@@ -520,6 +753,48 @@ const screenplayTheme = EditorView.theme({
     letterSpacing: "0.08em",
   },
   ".cm-sp-sequence": { textTransform: "uppercase", fontWeight: "700", letterSpacing: "0.08em", paddingTop: "2.4em", paddingBottom: "0.6em", fontSize: "0.85em" },
+  // Page break ("==="): the raw === characters are hidden, but the LINE always shows a clear labelled
+  // divider ("⤓ PAGE BREAK ⤓"), so a break is visible even before the measured page-fill spacer is
+  // applied. The block-widget spacer (.cm-sp-pagebreak-gap, added by pageBreakPlugin) then fills the
+  // rest of the page so the next line starts a fresh page.
+  ".cm-sp-pagebreak": {
+    position: "relative",
+    textAlign: "center",
+    color: "transparent",          // hide the raw "==="
+    userSelect: "none",
+    paddingTop: "1.1em",
+    paddingBottom: "1.1em",
+    margin: "0.4em 0",
+  },
+  ".cm-sp-pagebreak::after": {
+    content: '"⤓  PAGE BREAK  ⤓"',
+    position: "absolute",
+    left: "0",
+    right: "0",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "#9aa3ad",
+    fontSize: "0.68em",
+    fontWeight: "700",
+    letterSpacing: "0.2em",
+    borderTop: "1px dashed #cfd6df",
+    borderBottom: "1px dashed #cfd6df",
+    padding: "0.4em 0",
+  },
+  // The page-fill spacer that pushes the next page down. Desk-coloured so it reads as the gap between
+  // two pages; a dashed rule marks where the next page begins.
+  ".cm-sp-pagebreak-gap": {
+    position: "relative",
+    width: "100%",
+    margin: "0",
+  },
+  ".cm-sp-pagebreak-rule": {
+    position: "absolute",
+    left: "-4ch",
+    right: "-4ch",
+    bottom: "0",
+    borderTop: "1px dashed #cfd6df",
+  },
   ".cm-sp-lyrics": { marginLeft: "10ch", maxWidth: "35ch", fontStyle: "italic", paddingTop: "0", paddingBottom: "0.35em" },
   // Dual cue hints the second (right-hand) speaker; true side-by-side columns are a later pass.
   // Dual dialogue — Stage 1: render the second (^-marked) speaker as a normal stacked cue+dialogue
@@ -539,6 +814,8 @@ const screenplayTheme = EditorView.theme({
 export const createScreenplayExtensions = ({ getEntities, dark, onElementChange } = {}) => [
   forcedField,
   decorationPlugin,
+  pageSpacerField,
+  pageBreakPlugin,
   screenplayTheme,
   // Color model — deliberately minimal. Sluglines are the ONE accent (muted navy);
   // everything else is near-black on white / off-white on dark. Character cues are
@@ -560,6 +837,12 @@ export const createScreenplayExtensions = ({ getEntities, dark, onElementChange 
     // Sequence headers are subordinate structure, not disabled — darker than a faint grey so
     // they read as a deliberate, quieter tier (sits just above the parenthetical grey).
     ".cm-sp-sequence": { color: dark ? "#aeb8c4" : "#555555" },
+    // Page-break label + gutter + edge rule — desk colour on the dark page so it reads as a real gap.
+    ".cm-sp-pagebreak::after": dark
+      ? { color: "#5b6b7e", borderTopColor: "#243650", borderBottomColor: "#243650" }
+      : {},
+    ".cm-sp-pagebreak-gap": dark ? { background: "#0a0f17" } : { background: "#ece9e3" },
+    ".cm-sp-pagebreak-rule": dark ? { borderTopColor: "#243650" } : { borderTopColor: "#cfd6df" },
     // The ONLY line background: a barely-there neutral tint on the caret's current line.
     // Kept very faint so it reads as a soft band, never a solid grey row. It is constrained to
     // the text column (not the full page sheet) because .cm-content is itself 62ch and centered,

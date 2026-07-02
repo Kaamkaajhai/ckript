@@ -27,9 +27,10 @@ import {
   getScriptCompletionValidationMessage,
 } from "../utils/scriptCompletion";
 import ScreenplayEditor from "../components/screenplay/ScreenplayEditor";
-import ScreenplayFocusMode from "../components/screenplay/ScreenplayFocusMode";
+import ScreenplayFocusMode, { TitlePageSheet } from "../components/screenplay/ScreenplayFocusMode";
 import ScreenplayElementBar from "../components/screenplay/ScreenplayElementBar";
-import { CORE_ELEMENTS, MORE_ELEMENT_GROUPS } from "../components/screenplay/screenplayElements";
+import { CORE_ELEMENTS, MORE_ELEMENT_GROUPS, SCREENPLAY_ELEMENT_BAR } from "../components/screenplay/screenplayElements";
+import { TITLE_PAGE_FIELDS } from "../components/screenplay/classify";
 import VersionHistoryModal from "../components/screenplay/VersionHistoryModal";
 import { extractOutline } from "../components/screenplay/screenplayMode";
 import { getScenes, sceneIdAtLine } from "../components/screenplay/sceneIdentity";
@@ -183,6 +184,12 @@ const getCroppedThumbnailBlob = async (imageSrc, pixelCrop, rotation = 0, output
     cropCanvas.toBlob((blob) => resolve(blob), outputType, quality);
   });
 };
+
+// Page geometry for the screenplay sheet view. PAGE_CONTENT_H is the on-screen height of one page's
+// text area (kept in sync with the editor's --sp-page-height, which drives the REAL === page-break
+// spacers). PAGE_MARGIN_Y is the top/bottom paper margin so text never touches the sheet edge.
+const PAGE_CONTENT_H = 1056;
+const PAGE_MARGIN_Y = 56;
 
 /* -- Format-aware page ranges (industry standards) -- */
 const FORMAT_PAGE_RANGES = {
@@ -641,6 +648,220 @@ const EditorToolbar = ({ editor, dark }) => {
   );
 };
 
+/* -- Screenplay Format Bar --------------------------------------------------
+   The "Rich text" lower bar for SCREENPLAY mode. Every control writes through the
+   Fountain-native machinery (applyEmphasis / setElementType), so what the writer
+   formats is exactly what the classifier, reports, page count, and PDF/Fountain/FDX
+   export all see — no separate document model, nothing that can drift. Only controls
+   with a real Fountain representation live here (inline emphasis + element styles);
+   colour/highlight/headings deliberately do NOT, because Fountain can't store them. */
+const ScreenplayFormatBar = ({ onSetElement, onEmphasis, onCase, onCentered, onInsertPageBreak, onZoom, zoom = 1, onSwitchToProse, currentElement, emphasisState, dark }) => {
+  const [styleOpen, setStyleOpen] = useState(false);
+  const styleRef = useRef(null);
+  useEffect(() => {
+    const handler = (e) => { if (styleRef.current && !styleRef.current.contains(e.target)) setStyleOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const active = emphasisState?.active || [];
+  const hasSelection = Boolean(emphasisState?.hasSelection);
+  const currentLabel = (SCREENPLAY_ELEMENT_BAR.find((e) => e.value === currentElement)?.label)
+    || (currentElement === "blank" ? "Action" : "Action");
+
+  // mousedown + preventDefault keeps the editor selection alive while clicking the button.
+  const emBtn = (kind, glyph, title, cls) => (
+    <button key={kind} type="button" title={hasSelection ? title : `${title} — select text first`}
+      onMouseDown={(e) => { e.preventDefault(); onEmphasis?.(kind); }}
+      className={`w-8 h-8 inline-flex items-center justify-center rounded-md text-[13px] ${cls} transition ${
+        active.includes(kind)
+          ? "bg-[#1e3a5f] text-white shadow-sm"
+          : dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"
+      }`}>{glyph}</button>
+  );
+
+  return (
+    <div className={`relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 border-b ${dark ? "border-[#182840] bg-[#080f1a]" : "border-gray-200 bg-white"}`}>
+      {/* Style dropdown — the document's element styles (Scene / Action / Character …), Word-style. */}
+      <div className="relative" ref={styleRef}>
+        <button type="button" onClick={() => setStyleOpen((o) => !o)}
+          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[12px] font-semibold border min-w-[120px] justify-between transition ${dark ? "border-[#2a4a6a] text-gray-200 hover:bg-white/[0.06]" : "border-gray-200 text-gray-700 hover:bg-gray-50"}`}>
+          <span className="truncate">{currentLabel}</span>
+          <svg className="w-3 h-3 opacity-60 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        {styleOpen && (
+          <>
+            <div className="fixed inset-0 z-[55]" onClick={() => setStyleOpen(false)} />
+            <div className={`absolute left-0 mt-1 w-52 rounded-lg border shadow-xl z-[60] py-1 text-[12px] max-h-[60vh] overflow-y-auto ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
+              {SCREENPLAY_ELEMENT_BAR.map((el) => (
+                <button key={el.value} type="button"
+                  onClick={() => { setStyleOpen(false); onSetElement?.(el.value); }}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 ${
+                    currentElement === el.value ? (dark ? "bg-white/[0.08] text-white" : "bg-gray-100 text-gray-900") : (dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50")
+                  }`}>
+                  <el.Icon className="w-3.5 h-3.5 opacity-70" strokeWidth={1.8} aria-hidden="true" />
+                  <span className="flex-1 text-left">{el.label}</span>
+                  {el.tab && <span className={`text-[10px] font-mono ${dark ? "text-gray-600" : "text-gray-400"}`}>{el.tab}</span>}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <D dark={dark} />
+
+      {/* Inline emphasis — standard Fountain *italic* / **bold** / ***both*** / _underline_. */}
+      <div className="flex items-center gap-0.5">
+        {emBtn("bold", "B", "Bold", "font-bold")}
+        {emBtn("italic", "I", "Italic", "italic font-serif")}
+        {emBtn("underline", "U", "Underline", "underline")}
+        {emBtn("bolditalic", "BI", "Bold Italic", "font-bold italic font-serif text-[11px]")}
+      </div>
+
+      <D dark={dark} />
+
+      {/* Case transforms — rewrite the selected characters (persists, classifier-safe). */}
+      <div className="flex items-center gap-0.5">
+        <button type="button" title={hasSelection ? "UPPERCASE" : "UPPERCASE — select text first"}
+          onMouseDown={(e) => { e.preventDefault(); onCase?.("upper"); }}
+          className={`w-8 h-8 inline-flex items-center justify-center rounded-md text-[12px] font-bold tracking-tight transition ${dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>AA</button>
+        <button type="button" title={hasSelection ? "lowercase" : "lowercase — select text first"}
+          onMouseDown={(e) => { e.preventDefault(); onCase?.("lower"); }}
+          className={`w-8 h-8 inline-flex items-center justify-center rounded-md text-[12px] font-bold tracking-tight lowercase transition ${dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>aa</button>
+      </div>
+
+      <D dark={dark} />
+
+      {/* Center — wraps the line(s) as Fountain ">centered<" (line-level, export-safe in Fountain). */}
+      <button type="button" title="Center line"
+        onMouseDown={(e) => { e.preventDefault(); onCentered?.(); }}
+        className={`w-8 h-8 inline-flex items-center justify-center rounded-md transition ${
+          emphasisState?.centered ? "bg-[#1e3a5f] text-white shadow-sm" : dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>
+        <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z" /></svg>
+      </button>
+
+      {onInsertPageBreak && (
+        <>
+          <D dark={dark} />
+          {/* Insert a real page break (=== ): content after it starts on a fresh page. */}
+          <button type="button" title="Insert page break"
+            onMouseDown={(e) => { e.preventDefault(); onInsertPageBreak(); }}
+            className={`flex items-center gap-1 px-2 h-8 rounded-md text-[11px] font-semibold transition ${dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>
+            <svg className="w-[14px] h-[14px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 17h18M8 12h8" /></svg>
+            Page break
+          </button>
+        </>
+      )}
+
+      {onZoom && (
+        <>
+          <D dark={dark} />
+          {/* Editor zoom — scales how big the text LOOKS (view only); text/page count/export unchanged. */}
+          <div className="flex items-center gap-0.5">
+            <button type="button" title="Zoom out" onClick={() => onZoom(-1)}
+              className={`w-8 h-8 inline-flex items-center justify-center rounded-md transition ${dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>
+              <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z" /></svg>
+            </button>
+            <button type="button" title="Reset zoom to 100%" onClick={() => onZoom(0)}
+              className={`min-w-[3.25rem] h-8 px-1 inline-flex items-center justify-center rounded-md text-[11px] font-semibold tabular-nums transition ${dark ? "text-gray-300 hover:bg-white/[0.08]" : "text-gray-600 hover:bg-gray-100"}`}>
+              {Math.round((Number(zoom) || 1) * 100)}%
+            </button>
+            <button type="button" title="Zoom in" onClick={() => onZoom(1)}
+              className={`w-8 h-8 inline-flex items-center justify-center rounded-md transition ${dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>
+              <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+            </button>
+          </div>
+        </>
+      )}
+
+      <span className={`text-[10px] max-[1100px]:hidden ${dark ? "text-gray-600" : "text-gray-400"}`}>
+        Select text, then format
+      </span>
+
+      {/* Mode switch — screenplay uses Fountain emphasis; "Rich text (prose)" hands off to the full
+          TipTap editor (headings, colour, lists) for non-screenplay writing. Kept here so every
+          formatting choice lives under Text Format. */}
+      {onSwitchToProse && (
+        <button type="button" onClick={onSwitchToProse}
+          title="Switch to the prose / rich-text editor (headings, colour, lists)"
+          className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+          <svg className="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5h18M3 12h18M3 19h12" /></svg>
+          Rich text (prose)
+        </button>
+      )}
+    </div>
+  );
+};
+
+/* -- Title Page Configurator ------------------------------------------------
+   Industry-standard title page: Title, Credit ("Written by"), Author, Source
+   ("Based on…"), Draft date. Stored as structured data and rendered by the PDF /
+   Fountain export — NOT mixed into the editor body (keeps the classifier clean). */
+const TitlePageModal = ({ open, initial, defaultTitle, dark, onSave, onClose }) => {
+  // Seed once at mount. The call site remounts this (via `key`) each time it opens, so lazy initial
+  // state is the right place to seed — no setState-in-effect (which triggers cascading renders).
+  const [fields, setFields] = useState(() => {
+    const seed = { ...Object.fromEntries(TITLE_PAGE_FIELDS.map((f) => [f.key, ""])), ...(initial || {}) };
+    if (!String(seed.title || "").trim() && defaultTitle) seed.title = defaultTitle;
+    if (!String(seed.credit || "").trim()) seed.credit = "Written by";
+    return seed;
+  });
+
+  if (!open) return null;
+  const set = (k, v) => setFields((f) => ({ ...f, [k]: v }));
+  const inputCls = `w-full px-3 py-2 rounded-lg text-sm border outline-none transition ${dark ? "bg-[#0a1322] border-[#22364f] text-gray-100 focus:border-[#3a5a82] placeholder:text-gray-600" : "bg-white border-gray-200 text-gray-900 focus:border-[#1e3a5f] placeholder:text-gray-300"}`;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div onMouseDown={(e) => e.stopPropagation()}
+        className={`relative w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${dark ? "bg-[#0d1520] border-[#1d3350]" : "bg-white border-gray-200"}`}>
+        <div className={`px-5 py-4 border-b flex items-center justify-between ${dark ? "border-[#182840]" : "border-gray-100"}`}>
+          <div>
+            <h3 className={`text-base font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Title Page</h3>
+            <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Industry-standard fields — shown on the exported PDF.</p>
+          </div>
+          <button type="button" onClick={onClose} className={`w-8 h-8 inline-flex items-center justify-center rounded-lg ${dark ? "text-gray-400 hover:bg-white/[0.06]" : "text-gray-400 hover:bg-gray-100"}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* Centered preview of the title block */}
+        <div className={`mx-5 mt-4 rounded-lg border px-4 py-6 text-center font-mono ${dark ? "border-[#22364f] bg-[#0a1322]" : "border-gray-200 bg-gray-50"}`}>
+          <div className={`text-base font-bold uppercase tracking-wide ${dark ? "text-gray-100" : "text-gray-900"}`}>{fields.title?.trim() || "TITLE"}</div>
+          {fields.credit?.trim() && <div className={`text-[12px] mt-3 ${dark ? "text-gray-400" : "text-gray-500"}`}>{fields.credit}</div>}
+          {fields.author?.trim() && <div className={`text-[13px] ${dark ? "text-gray-200" : "text-gray-700"}`}>{fields.author}</div>}
+          {fields.source?.trim() && <div className={`text-[11px] mt-3 italic ${dark ? "text-gray-500" : "text-gray-400"}`}>{fields.source}</div>}
+          {fields.draftDate?.trim() && <div className={`text-[11px] mt-3 ${dark ? "text-gray-500" : "text-gray-400"}`}>{fields.draftDate}</div>}
+        </div>
+
+        <div className="p-5 space-y-3">
+          {TITLE_PAGE_FIELDS.map((f) => (
+            <div key={f.key}>
+              <label className={`block text-[11px] font-semibold mb-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>{f.label}</label>
+              <input type="text" value={fields[f.key] || ""} placeholder={f.placeholder || ""}
+                onChange={(e) => set(f.key, e.target.value)} className={inputCls} />
+            </div>
+          ))}
+        </div>
+
+        <div className={`px-5 py-4 border-t flex items-center gap-2 ${dark ? "border-[#182840]" : "border-gray-100"}`}>
+          <button type="button" onClick={() => { onSave(null); onClose(); }}
+            className={`px-3 py-2 rounded-xl text-[12px] font-semibold border transition mr-auto ${dark ? "border-red-500/30 text-red-400 hover:bg-red-500/10" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
+            Remove title page
+          </button>
+          <button type="button" onClick={onClose}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold border transition ${dark ? "border-[#22364f] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-100"}`}>Cancel</button>
+          <button type="button" onClick={() => { onSave(fields); onClose(); }}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition">Save title page</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 /* -- Draft Card -------------------------------------- */
 const DraftCard = ({ draft, onClick, onDelete, dark, isActive }) => {
   const wc = draft.textContent ? draft.textContent.replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length : 0;
@@ -692,7 +913,16 @@ const CreateProject = () => {
   const [saved, setSaved] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [scriptId, setScriptId] = useState(draftId || null);
+  // Always-current mirror of scriptId. setScriptId is async, so back-to-back autosaves would each
+  // fire with a stale (null) scriptId in their closure and CREATE a new draft every time. The ref
+  // is updated synchronously on create, so every save after the first carries the id → it UPDATES
+  // the one draft instead of spawning 15-20 duplicates.
+  const scriptIdRef = useRef(scriptId);
+  scriptIdRef.current = scriptId;
   const [loadedScriptStatus, setLoadedScriptStatus] = useState("draft");
+  // Writer "scripts per plan" limit (e.g. Free = 1). Fetched on mount so the gate is visible UPFRONT
+  // and blocks progression, rather than only erroring at submit. Shared rule with the server.
+  const [scriptLimit, setScriptLimit] = useState(null);
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [purchasedServiceCredits, setPurchasedServiceCredits] = useState({
     evaluation: false,
@@ -702,6 +932,10 @@ const CreateProject = () => {
   const [drafts, setDrafts] = useState([]);
   const [loadingDrafts, setLoadingDrafts] = useState(true);
   const [showDrafts, setShowDrafts] = useState(false);
+  // Exit-as-draft confirmation (asked when leaving with meaningful unsaved work).
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [exiting, setExiting] = useState(false);
+  const discardingRef = useRef(false); // suppresses the keepalive save while discarding on exit
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [error, setError] = useState("");
@@ -1187,17 +1421,6 @@ const CreateProject = () => {
       }));
     }
   }, [estimatedPages, formData.previewWindowStart, formData.previewWindowEnd]);
-  const renderPageMarkers = () => Array.from({ length: Math.max(estimatedPages, 1) }, (_, pageIndex) => (
-    <div
-      key={pageIndex}
-      className="absolute left-3 flex items-center justify-center max-[1200px]:hidden"
-      style={{ top: pageIndex * 1123 + 48, height: 28 }}
-    >
-      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-[#0d1520] text-gray-600 border border-[#182840]" : "bg-white text-gray-400 border border-gray-300 shadow-sm"}`}>
-        {pageIndex + 1}
-      </span>
-    </div>
-  ));
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
   const [filmDetails, setFilmDetails] = useState({
@@ -1227,6 +1450,28 @@ const CreateProject = () => {
   const [screenplayEnabled, setScreenplayEnabled] = useState(true);
   const [exportingScreenplay, setExportingScreenplay] = useState("");
   const [currentElement, setCurrentElement] = useState("action");
+  // Lower toolbar mode — "elements" (Scene/Action/Character…) or "format" (Word-style B/I/U etc.).
+  // The "Text Format" button in the top bar toggles between them, ribbon-tab style.
+  const [lowerBarMode, setLowerBarMode] = useState("elements");
+  // Which inline emphasis wraps the current screenplay selection, so the Format bar lights up B/I/U.
+  const [emphasisState, setEmphasisState] = useState({ active: [], hasSelection: false });
+  // Industry title page (Title / Credit / Author / Source / Draft date). Stored as structured data
+  // with the script — NOT interleaved into the editor body — so it never confuses the classifier;
+  // the PDF + Fountain export render it. `null`/empty = no title page.
+  const [titlePage, setTitlePage] = useState(null);
+  const [showTitlePageModal, setShowTitlePageModal] = useState(false);
+  const titlePageActive = Boolean(titlePage && Object.values(titlePage).some((v) => String(v || "").trim()));
+  // Editor zoom — scales how big the text LOOKS while writing (like Ctrl +/− in Docs). Purely visual:
+  // the underlying Fountain text, page count, and export are unaffected. 1 = 100%.
+  const [editorZoom, setEditorZoom] = useState(1);
+  const ZOOM_MIN = 0.7, ZOOM_MAX = 2, ZOOM_STEP = 0.1;
+  const adjustZoom = useCallback((dir) => {
+    if (dir === 0) { setEditorZoom(1); return; } // reset to 100%
+    setEditorZoom((z) => {
+      const next = Math.round((z + dir * ZOOM_STEP) * 100) / 100;
+      return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+    });
+  }, []);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -1409,6 +1654,7 @@ const CreateProject = () => {
       }
       setSceneSynopses(data.sceneSynopses && typeof data.sceneSynopses === "object" ? data.sceneSynopses : {});
       setOutlineNotes(typeof data.outlineNotes === "string" ? data.outlineNotes : "");
+      setTitlePage(data.titlePage && typeof data.titlePage === "object" && Object.keys(data.titlePage).length ? data.titlePage : null);
       if (data.format) setFormData(f => ({ ...f, format: data.format }));
       if (data.styleMedium !== undefined) setFormData(f => ({ ...f, styleMedium: data.styleMedium || "" }));
       if (data.formatOther !== undefined) setFormData(f => ({ ...f, formatOther: data.formatOther || "" }));
@@ -1505,6 +1751,7 @@ const CreateProject = () => {
       fountainContent: screenplayMode ? screenplayValue : undefined,
       sceneSynopses: screenplayMode ? sceneSynopses : undefined,
       outlineNotes: screenplayMode ? outlineNotes : undefined,
+      titlePage: screenplayMode ? (titlePageActive ? titlePage : null) : undefined,
       companyName: String(formData.companyName || "").trim(),
       format: formData.format,
       styleMedium: targetFilm ? formData.styleMedium : undefined,
@@ -1546,7 +1793,7 @@ const CreateProject = () => {
       publishingDetails,
       ...(scriptId ? { scriptId } : {}),
     };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes]);
+  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes, titlePage, titlePageActive]);
 
   const getDraftSignature = useCallback((payload) => {
     if (!payload) return "";
@@ -1555,22 +1802,32 @@ const CreateProject = () => {
     const classificationSignature = JSON.stringify(payload.classification || {});
     const synopsesSignature = JSON.stringify(payload.sceneSynopses || {});
     const outlineSignature = String(payload.outlineNotes || "");
-    return `${payload.title || ""}::${String(payload.companyName || "")}::${payload.format || ""}::${payload.primaryGenre || ""}::${payload.logline || ""}::${payload.synopsis || ""}::${payload.collabVisibility || "private"}::${completion.status || ""}::${completion.completedParts || 0}::${completion.totalParts || 0}::${completion.futurePlans || ""}::${classificationSignature}::${synopsesSignature}::${outlineSignature.length}:${outlineSignature.slice(0, 80)}::${html.length}:${html.slice(0, 120)}:${html.slice(-120)}`;
+    const titlePageSignature = JSON.stringify(payload.titlePage || null);
+    return `${payload.title || ""}::${String(payload.companyName || "")}::${payload.format || ""}::${payload.primaryGenre || ""}::${payload.logline || ""}::${payload.synopsis || ""}::${payload.collabVisibility || "private"}::${completion.status || ""}::${completion.completedParts || 0}::${completion.totalParts || 0}::${completion.futurePlans || ""}::${classificationSignature}::${synopsesSignature}::${outlineSignature.length}:${outlineSignature.slice(0, 80)}::${titlePageSignature}::${html.length}:${html.slice(0, 120)}:${html.slice(-120)}`;
   }, []);
 
+  // A script with 0 words AND no real title is empty — never save it as a draft. (Counts WORDS, not
+  // characters: a blank/whitespace-only document has no words.) NOTE: buildDraftPayload defaults the
+  // title to "Untitled Draft" because the server requires a title — so that placeholder must NOT
+  // count as a real title here, or every blank editor would be saved as a draft.
   const hasMeaningfulDraft = useCallback((payload) => {
     if (!payload) return false;
-    const htmlText = String(payload.textContent || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-    return Boolean((payload.title || "").trim() || htmlText.length >= 10);
+    const realTitle = String(payload.title || "").trim();
+    if (realTitle && realTitle !== "Untitled Draft") return true;
+    const words = String(payload.textContent || "").replace(/<[^>]*>/g, " ").split(/\s+/).filter(Boolean).length;
+    return words >= 1;
   }, []);
 
   const queueKeepaliveDraftSave = useCallback((reason = "close") => {
     if (scriptId && loadedScriptStatus !== "draft") return false;
-    // Don't fire a keepalive save we already know the server will reject (plan limit / 403).
-    if (saveBlockedRef.current) return false;
+    // Don't fire a keepalive save we already know the server will reject (plan limit / 403),
+    // or when the user chose to discard this script on exit.
+    if (saveBlockedRef.current || discardingRef.current) return false;
 
     const payload = buildDraftPayload();
     if (!hasMeaningfulDraft(payload)) return false;
+    // Update the existing draft (latest id from the ref), never create a duplicate on close.
+    if (scriptIdRef.current && !payload.scriptId) payload.scriptId = scriptIdRef.current;
 
     const signature = getDraftSignature(payload);
     if (!signature || signature === lastDraftSignatureRef.current) return false;
@@ -1603,6 +1860,10 @@ const CreateProject = () => {
   // Save draft
   const handleSave = useCallback(async (auto = false) => {
     if (!editor) return;
+    if (discardingRef.current) return; // user chose to discard on exit — don't resurrect the draft
+    // At the plan limit on a NEW script: don't even attempt the save — it would 402 and surface a
+    // second (red) limit banner on top of the upfront amber gate.
+    if (creationBlockedRef.current) return;
     if (auto && autoSaveInFlightRef.current) return;
     // A hard server rejection (plan limit / not authorized) latched the save off — don't keep the
     // autosave loop firing the same doomed request every few seconds. A manual click still retries
@@ -1618,6 +1879,9 @@ const CreateProject = () => {
 
     const payload = buildDraftPayload();
     if (!hasMeaningfulDraft(payload)) return;
+    // Attach the latest known draft id from the ref (beats a stale closure) so this save UPDATES the
+    // existing draft instead of creating a duplicate.
+    if (scriptIdRef.current && !payload.scriptId) payload.scriptId = scriptIdRef.current;
 
     const signature = getDraftSignature(payload);
     if (auto && signature === lastDraftSignatureRef.current) {
@@ -1633,6 +1897,8 @@ const CreateProject = () => {
 
     try {
       const { data } = await api.post("/scripts/draft", payload);
+      // Synchronously record the id so a save that fires before React re-renders still UPDATES.
+      scriptIdRef.current = data._id;
       setScriptId(data._id);
       setLoadedScriptStatus("draft");
       setSaved(true);
@@ -1809,24 +2075,32 @@ const CreateProject = () => {
     return () => clearInterval(iv);
   }, [editor, handleSave]);
 
+  // Keep the keepalive callback in a ref so the close/unmount listeners below DON'T re-bind on every
+  // keystroke. queueKeepaliveDraftSave changes each keystroke (buildDraftPayload does), and if it
+  // were an effect dependency the effect would tear down + re-run every keystroke — and its cleanup
+  // fires a keepalive draft-save. That was creating a NEW draft on every keystroke (15-40 drafts for
+  // a few lines). With the ref, the effect runs once and the keepalive only fires on a real unmount.
+  const queueKeepaliveDraftSaveRef = useRef(queueKeepaliveDraftSave);
+  queueKeepaliveDraftSaveRef.current = queueKeepaliveDraftSave;
+
   // Save draft when user closes tab, switches away, or navigates away.
   useEffect(() => {
     if (!editor) return;
 
     const handleBeforeUnload = (event) => {
-      const queued = queueKeepaliveDraftSave("beforeunload");
+      const queued = queueKeepaliveDraftSaveRef.current("beforeunload");
       if (!queued) return;
       event.preventDefault();
       event.returnValue = "";
     };
 
     const handlePageHide = () => {
-      queueKeepaliveDraftSave("pagehide");
+      queueKeepaliveDraftSaveRef.current("pagehide");
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        queueKeepaliveDraftSave("hidden");
+        queueKeepaliveDraftSaveRef.current("hidden");
       }
     };
 
@@ -1835,12 +2109,14 @@ const CreateProject = () => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      queueKeepaliveDraftSave("unmount");
+      queueKeepaliveDraftSaveRef.current("unmount");
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("pagehide", handlePageHide);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [editor, queueKeepaliveDraftSave]);
+    // Only (re)bind when the editor instance changes — NOT when the callback identity changes (the
+    // callback is read from a ref, so it needs no dependency here).
+  }, [editor]);
 
   // Delete draft
   const handleDeleteDraft = async (id) => {
@@ -1848,6 +2124,32 @@ const CreateProject = () => {
       await api.delete(`/scripts/${id}`); setDrafts(p => p.filter(d => d._id !== id));
       if (scriptId === id) { setScriptId(null); setLoadedScriptStatus("draft"); setEditApprovalLocked(false); setPurchasedServiceCredits({ evaluation: false, aiTrailer: false, spotlight: false }); setTitle(""); editor?.commands.clearContent(); }
     } catch { }
+  };
+
+  // Exit the editor (back/close). If there's meaningful work in a draft flow, ask whether to keep it
+  // as a draft; an empty script (no words, no title) just leaves without saving anything.
+  const handleExitEditor = () => {
+    const meaningful = hasMeaningfulDraft(buildDraftPayload());
+    const isDraftFlow = loadedScriptStatus === "draft" && !editApprovalLocked;
+    if (meaningful && isDraftFlow && !creationBlocked) {
+      setShowExitConfirm(true);
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
+  const confirmExitSaveDraft = async () => {
+    setExiting(true);
+    try { await handleSave(false); } catch { /* unmount keepalive still attempts a save */ }
+    navigate("/dashboard");
+  };
+
+  const confirmExitDiscard = async () => {
+    setExiting(true);
+    discardingRef.current = true; // stop autosave/keepalive from re-creating the draft
+    try { if (scriptId) await handleDeleteDraft(scriptId); } catch { /* ignore */ }
+    clearLocalWorkingDraft();
+    navigate("/dashboard");
   };
 
   const sanitizePdfFileName = (value = "") => {
@@ -2152,7 +2454,60 @@ const CreateProject = () => {
     }
     return true;
   };
-  const handleNext = () => { if (!enforceGoldPlan()) return; if (validateStep(step) && step < 5) { setStep(step + 1); setError(""); } };
+  // Fetch the writer's script-limit status once, so we can gate a NEW script before any work.
+  useEffect(() => {
+    let active = true;
+    api.get("/scripts/script-limit")
+      .then(({ data }) => {
+        if (!active) return;
+        setScriptLimit(data);
+        // The amber gate is the single message — clear any limit error a racing autosave may have set.
+        if (data?.limitReached) setError((e) => (String(e || "").toLowerCase().includes("limit") ? "" : e));
+      })
+      .catch(() => { if (active) setScriptLimit(null); });
+    return () => { active = false; };
+  }, []);
+
+  // Block creating a NEW script when the plan limit is reached. Editing an already-saved script
+  // (scriptId present) is never blocked — only the fresh "create another" path is.
+  const creationBlocked = Boolean(scriptLimit?.limitReached) && !scriptId;
+  // Ref mirror so the (memoized) autosave can bail without the limit message being set as a generic
+  // error — the upfront amber gate is the single message; we don't want a duplicate red banner.
+  const creationBlockedRef = useRef(false);
+  creationBlockedRef.current = creationBlocked;
+
+  // ── Browser/OS Back (back-swipe) → same "save as draft?" prompt as the in-app back button ──
+  // BrowserRouter has no useBlocker, so we intercept the history pop. exitGuardRef holds a fresh
+  // closure each render (read on Back) so the popstate effect can run once without re-binding.
+  const exitGuardRef = useRef(() => false);
+  exitGuardRef.current = () => {
+    try {
+      return hasMeaningfulDraft(buildDraftPayload()) && loadedScriptStatus === "draft" && !editApprovalLocked && !creationBlocked;
+    } catch { return false; }
+  };
+  useEffect(() => {
+    // Sentinel entry so the first Back is caught here instead of leaving the page immediately.
+    window.history.pushState(null, "", window.location.href);
+    const onPop = () => {
+      if (exitGuardRef.current()) {
+        window.history.pushState(null, "", window.location.href); // re-arm: stay put, then ask
+        setShowExitConfirm(true);
+      } else {
+        navigate("/dashboard"); // nothing worth keeping — just leave
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // Bind once; current state is read through exitGuardRef.
+  }, [navigate]);
+
+  const handleNext = () => {
+    // Two independent gates: the upfront amber script-limit gate (creationBlocked) and master's
+    // gold-plan enforcement. The amber gate already explains itself, so it just bails silently.
+    if (creationBlocked) return;
+    if (!enforceGoldPlan()) return;
+    if (validateStep(step) && step < 5) { setStep(step + 1); setError(""); }
+  };
   const handleBack = () => { if (step > 1) { setStep(step - 1); setError(""); } };
 
   const uploadSelectedProjectMedia = async (targetScriptId) => {
@@ -2517,7 +2872,33 @@ const CreateProject = () => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const name = (file.name || "").toLowerCase();
+    const isPdf = name.endsWith(".pdf") || file.type === "application/pdf";
+    const isDocx = name.endsWith(".docx") || name.endsWith(".doc")
+      || file.type.includes("officedocument.wordprocessingml") || file.type === "application/msword";
     try {
+      // PDF / DOCX are binary — extract their text server-side (pdf-parse / mammoth), then run it
+      // through the screenplay formatter so the editor's ONE classifier can type the lines.
+      if (isPdf || isDocx) {
+        setImportNotice(`Importing ${isPdf ? "PDF" : "Word"} — extracting text…`);
+        const form = new FormData();
+        form.append("pdf", file); // the extract endpoint's field name (accepts PDF + DOCX)
+        const { data } = await api.post("/scripts/extract-pdf", form, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        const extracted = String(data?.text || "").trim();
+        if (!extracted) {
+          setImportNotice("");
+          setError("We couldn't extract readable text from that file. If it's a scanned/image PDF, try a text-based export.");
+          return;
+        }
+        const formatted = formatScreenplayLikeText(extracted);
+        handleScreenplayChange(formatted);
+        setScreenplayValue(formatted);
+        setImportNotice(`${isPdf ? "PDF" : "Word document"} imported — review the formatting; some elements may need adjusting.`);
+        return;
+      }
+
       const raw = await file.text();
       const isFdx = /\.fdx$/i.test(file.name) || /^\s*<\?xml|<FinalDraft/i.test(raw);
       if (isFdx) {
@@ -2537,6 +2918,7 @@ const CreateProject = () => {
       handleScreenplayChange(imported);
       setScreenplayValue(imported);
     } catch (err) {
+      setImportNotice("");
       setError(err.response?.data?.message || "Could not import that file.");
     }
   };
@@ -2712,11 +3094,39 @@ const CreateProject = () => {
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
   return (
     <div className="max-w-5xl mx-auto px-4 max-[768px]:px-2.5 max-[420px]:px-1.5 py-4 overflow-x-hidden">
+      {/* -- Exit-as-draft confirmation -- */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => { if (!exiting) setShowExitConfirm(false); }}>
+          <div onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-sm rounded-2xl border shadow-2xl p-5 ${dark ? "bg-[#0d1520] border-[#1d3350]" : "bg-white border-gray-200"}`}>
+            <h3 className={`text-base font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Save as draft?</h3>
+            <p className={`text-sm mt-1.5 leading-relaxed ${dark ? "text-gray-400" : "text-gray-500"}`}>
+              This script will be saved as a draft so you can finish it later from <span className="font-semibold">My projects</span>. Discard it if you don't want to keep it.
+            </p>
+            <div className="flex flex-col gap-2 mt-5">
+              <button type="button" disabled={exiting} onClick={confirmExitSaveDraft}
+                className="w-full py-2.5 rounded-xl text-sm font-bold bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition disabled:opacity-50">
+                {exiting ? "Saving…" : "Save as draft & exit"}
+              </button>
+              <button type="button" disabled={exiting} onClick={confirmExitDiscard}
+                className={`w-full py-2.5 rounded-xl text-sm font-semibold border transition disabled:opacity-50 ${dark ? "border-red-500/30 text-red-400 hover:bg-red-500/10" : "border-red-200 text-red-500 hover:bg-red-50"}`}>
+                Discard &amp; exit
+              </button>
+              <button type="button" disabled={exiting} onClick={() => setShowExitConfirm(false)}
+                className={`w-full py-2 rounded-xl text-sm font-medium transition disabled:opacity-50 ${dark ? "text-gray-400 hover:bg-white/[0.06]" : "text-gray-500 hover:bg-gray-100"}`}>
+                Keep editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* -- Header -------------------------------- */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
         <div className="flex items-center justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate("/dashboard")} className={`p-2 rounded-xl transition ${dark ? "hover:bg-white/[0.06] text-gray-400" : "hover:bg-gray-100 text-gray-400"}`}>
+            <button onClick={handleExitEditor} className={`p-2 rounded-xl transition ${dark ? "hover:bg-white/[0.06] text-gray-400" : "hover:bg-gray-100 text-gray-400"}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             </button>
             <div>
@@ -2860,6 +3270,16 @@ const CreateProject = () => {
           scriptId={scriptId}
           onSetElement={(t) => screenplayApiRef.current?.setElementType(t)}
           onEmphasis={(kind) => screenplayApiRef.current?.applyEmphasis(kind)}
+          onCase={(kind) => screenplayApiRef.current?.applyCase(kind)}
+          onCentered={() => screenplayApiRef.current?.applyCentered()}
+          onInsertPageBreak={() => screenplayApiRef.current?.insertPageBreak()}
+          onConfigureTitlePage={() => setShowTitlePageModal(true)}
+          hasTitlePage={titlePageActive}
+          titlePageFields={titlePage}
+          onZoom={adjustZoom}
+          zoom={editorZoom}
+          emphasisState={emphasisState}
+          onEmphasisStateChange={setEmphasisState}
           outline={outlineWithSceneIds}
           presenceBySceneId={presenceBySceneId}
           people={peopleEnriched}
@@ -2897,6 +3317,20 @@ const CreateProject = () => {
           onExit={() => setFocusMode(false)}
         />
       )}
+
+      <TitlePageModal
+        key={showTitlePageModal ? "tp-open" : "tp-closed"}
+        open={showTitlePageModal}
+        initial={titlePage}
+        defaultTitle={title}
+        dark={dark}
+        onClose={() => setShowTitlePageModal(false)}
+        onSave={(fields) => {
+          const cleaned = fields && Object.values(fields).some((v) => String(v || "").trim()) ? fields : null;
+          setTitlePage(cleaned);
+          setSaved(false);
+        }}
+      />
 
       <VersionHistoryModal
         open={showVersionHistory}
@@ -3200,6 +3634,25 @@ const CreateProject = () => {
         )}
       </AnimatePresence>
 
+      {/* -- Plan script-limit gate: shown UPFRONT, blocks progression on a new script -- */}
+      {creationBlocked && (
+        <div className={`mb-5 rounded-2xl border p-4 sm:p-5 flex items-start gap-3.5 ${dark ? "border-amber-500/25 bg-amber-500/[0.08]" : "border-amber-200 bg-amber-50"}`}>
+          <svg className={`w-6 h-6 shrink-0 mt-0.5 ${dark ? "text-amber-400" : "text-amber-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-bold ${dark ? "text-amber-300" : "text-amber-800"}`}>
+              You've reached your {scriptLimit?.plan === "free" ? "Free plan" : "plan"} limit of {scriptLimit?.limit} script{scriptLimit?.limit > 1 ? "s" : ""}.
+            </p>
+            <p className={`text-[13px] mt-0.5 ${dark ? "text-amber-200/80" : "text-amber-700"}`}>
+              You already have {scriptLimit?.used} published {scriptLimit?.used === 1 ? "script" : "scripts"}. Upgrade your plan to create another — you can't proceed until then.
+            </p>
+            <Link to="/pricing" className={`inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg text-[13px] font-bold transition ${dark ? "bg-amber-400 text-[#1a1206] hover:bg-amber-300" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+              View plans &amp; upgrade
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* -- Step Content --------------------------- */}
       <AnimatePresence mode="wait">
         {/* -- STEP 1: Write -- */}
@@ -3235,87 +3688,124 @@ const CreateProject = () => {
 
               {/* -- Toolbar / Screenplay controls -- */}
               {useScreenplayEditor ? (
-                <div className={`relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 border-b ${dark ? "border-[#182840] bg-[#080f1a]" : "border-gray-200 bg-white"}`}>
-                  {/* ── LEFT GROUP: writing controls (core six + More) ── */}
-                  <ScreenplayElementBar
-                    items={CORE_ELEMENTS}
-                    currentElement={currentElement}
-                    onSetElement={(t) => screenplayApiRef.current?.setElementType(t)}
-                    dark={dark}
-                  />
-
-                  {/* More — the rarer types, grouped with dividers, styled like the Export menu */}
-                  <div className="relative">
-                    <button type="button" onClick={() => setMoreMenuOpen((o) => !o)}
-                      className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] font-semibold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                      More
-                      <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {moreMenuOpen && (
-                      <>
-                        <div className="fixed inset-0 z-[55]" onClick={() => setMoreMenuOpen(false)} />
-                        <div className={`absolute left-0 mt-1 w-48 rounded-lg border shadow-xl z-[60] py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
-                          {MORE_ELEMENT_GROUPS.map((group, gi) => (
-                            <div key={gi} className={gi > 0 ? `mt-1 pt-1 border-t ${dark ? "border-[#1d3350]" : "border-gray-100"}` : ""}>
-                              {group.map((el) => (
-                                <button key={el.value} type="button"
-                                  onClick={() => { setMoreMenuOpen(false); screenplayApiRef.current?.setElementType(el.value); }}
-                                  className={`w-full flex items-center gap-2 px-3 py-1.5 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>
-                                  <el.Icon className="w-3.5 h-3.5 opacity-70" strokeWidth={1.8} aria-hidden="true" />
-                                  {el.label}
-                                </button>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  <span className={`text-[10px] max-[1100px]:hidden ${dark ? "text-gray-600" : "text-gray-400"}`}>Enter · Tab to cycle</span>
-
-                  {/* ── Divider + RIGHT GROUP: file / mode actions ── */}
-                  <div className={`mx-1 w-px h-6 hidden min-[861px]:block ${dark ? "bg-[#182840]" : "bg-gray-200"}`} />
-                  <div className="ml-auto flex items-center gap-1.5">
-                    {collabPeople.length > 1 && (
-                      <PresenceAvatars people={peopleEnriched} dark={dark} onClick={() => setFocusMode(true)} />
-                    )}
-                    <button type="button" onClick={(e) => { if (enforceGoldPlan(e)) screenplayFileInputRef.current?.click(); }}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>Import</button>
-
-                    {/* Single Export ▾ menu: PDF · Watermarked PDF · Fountain · Final Draft */}
-                    <div className="relative">
-                      <button type="button" onClick={() => setExportMenuOpen((o) => !o)} disabled={Boolean(exportingScreenplay)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition disabled:opacity-50 ${dark ? "bg-[#1e3a5f] border-[#2a4a6a] text-white hover:bg-[#244873]" : "bg-[#1e3a5f] border-[#1e3a5f] text-white hover:bg-[#244873]"}`}>
-                        {exportingScreenplay ? "Exporting…" : "Export"}
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                <>
+                  {/* ── TOP ACTION BAR: file/mode actions + the Text Format ribbon-tab toggle ── */}
+                  <div className={`relative z-20 flex flex-wrap items-center gap-1.5 px-3 py-2 border-b ${dark ? "border-[#182840] bg-[#080f1a]" : "border-gray-200 bg-white"}`}>
+                    {/* Ribbon-tab toggle: swaps the lower bar between Elements and Text Format. */}
+                    <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-white/[0.04]" : "bg-gray-100"}`}>
+                      <button type="button" onClick={() => setLowerBarMode("elements")}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${lowerBarMode === "elements" ? (dark ? "bg-[#1e3a5f] text-white shadow-sm" : "bg-white text-gray-900 shadow-sm") : (dark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-800")}`}>
+                        Elements
                       </button>
-                      {exportMenuOpen && (
-                        <>
-                          <div className="fixed inset-0 z-[55]" onClick={() => setExportMenuOpen(false)} />
-                          <div className={`absolute right-0 mt-1 w-52 rounded-lg border shadow-xl z-[60] py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
-                            <button type="button" onClick={() => handleExportScreenplay("pdf")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>PDF</button>
-                            <button type="button" onClick={() => handleExportScreenplay("pdf-wm")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Watermarked PDF</button>
-                            <button type="button" onClick={() => handleExportScreenplay("fountain")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Fountain</button>
-                            <button type="button" onClick={() => handleExportScreenplay("fdx")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Final Draft (.fdx)</button>
-                          </div>
-                        </>
-                      )}
+                      <button type="button" onClick={() => setLowerBarMode("format")}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition ${lowerBarMode === "format" ? (dark ? "bg-[#1e3a5f] text-white shadow-sm" : "bg-white text-gray-900 shadow-sm") : (dark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-gray-800")}`}
+                        title="Text formatting — bold, italic, underline & element styles">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4z" /></svg>
+                        Text Format
+                      </button>
                     </div>
 
-                    <button type="button" onClick={() => setFocusMode(true)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition ${dark ? "bg-[#1e3a5f] border-[#2a4a6a] text-white hover:bg-[#244873]" : "bg-[#1e3a5f] border-[#1e3a5f] text-white hover:bg-[#244873]"}`}
-                      title="Full-screen distraction-free writing">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
-                      Focus
-                    </button>
-                    <button type="button" onClick={() => setScreenplayEnabled(false)}
-                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition ${dark ? "border-[#2a4a6a] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>Rich text</button>
+                    <span className={`text-[10px] ml-1 max-[1100px]:hidden ${dark ? "text-gray-600" : "text-gray-400"}`}>Enter · Tab to cycle</span>
+
+                    {/* ── RIGHT GROUP: file / mode actions ── */}
+                    <div className="ml-auto flex items-center gap-1.5">
+                      {collabPeople.length > 1 && (
+                        <PresenceAvatars people={peopleEnriched} dark={dark} onClick={() => setFocusMode(true)} />
+                      )}
+                      <button type="button" onClick={(e) => { if (enforceGoldPlan(e)) screenplayFileInputRef.current?.click(); }}
+                        title="Import a script — Fountain, Final Draft (.fdx), PDF, or Word (.docx)"
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>Import</button>
+
+                      {/* Single Export ▾ menu: PDF · Watermarked PDF · Fountain · Final Draft */}
+                      <div className="relative">
+                        <button type="button" onClick={() => setExportMenuOpen((o) => !o)} disabled={Boolean(exportingScreenplay)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold border transition disabled:opacity-50 ${dark ? "bg-[#1e3a5f] border-[#2a4a6a] text-white hover:bg-[#244873]" : "bg-[#1e3a5f] border-[#1e3a5f] text-white hover:bg-[#244873]"}`}>
+                          {exportingScreenplay ? "Exporting…" : "Export"}
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        {exportMenuOpen && (
+                          <>
+                            <div className="fixed inset-0 z-[55]" onClick={() => setExportMenuOpen(false)} />
+                            <div className={`absolute right-0 mt-1 w-52 rounded-lg border shadow-xl z-[60] py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
+                              <button type="button" onClick={() => handleExportScreenplay("pdf")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>PDF</button>
+                              <button type="button" onClick={() => handleExportScreenplay("pdf-wm")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Watermarked PDF</button>
+                              <button type="button" onClick={() => handleExportScreenplay("fountain")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Fountain</button>
+                              <button type="button" onClick={() => handleExportScreenplay("fdx")} className={`w-full text-left px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>Final Draft (.fdx)</button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      <button type="button" onClick={() => setFocusMode(true)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold border transition ${dark ? "bg-[#1e3a5f] border-[#2a4a6a] text-white hover:bg-[#244873]" : "bg-[#1e3a5f] border-[#1e3a5f] text-white hover:bg-[#244873]"}`}
+                        title="Full-screen distraction-free writing">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+                        Focus
+                      </button>
+                      {/* The screenplay⇄prose mode switch now lives inside the Text Format bar (below),
+                          so all formatting choices sit in one place — no stray "Rich text" button here. */}
+                    </div>
+                    <input ref={screenplayFileInputRef} type="file" accept=".fountain,.txt,.fdx,.pdf,.docx,.doc,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword" className="hidden" onChange={handleImportScreenplayFile} />
                   </div>
-                  <input ref={screenplayFileInputRef} type="file" accept=".fountain,.txt,.fdx,text/plain" className="hidden" onChange={handleImportScreenplayFile} />
-                </div>
+
+                  {/* ── LOWER BAR: Elements (writing) OR Text Format (Word-style) — toggled above ── */}
+                  {lowerBarMode === "format" ? (
+                    <ScreenplayFormatBar
+                      onSetElement={(t) => screenplayApiRef.current?.setElementType(t)}
+                      onEmphasis={(kind) => screenplayApiRef.current?.applyEmphasis(kind)}
+                      onCase={(kind) => screenplayApiRef.current?.applyCase(kind)}
+                      onCentered={() => screenplayApiRef.current?.applyCentered()}
+                      onInsertPageBreak={() => screenplayApiRef.current?.insertPageBreak()}
+                      onZoom={adjustZoom}
+                      zoom={editorZoom}
+                      onSwitchToProse={() => setScreenplayEnabled(false)}
+                      currentElement={currentElement}
+                      emphasisState={emphasisState}
+                      dark={dark}
+                    />
+                  ) : (
+                    <div className={`relative z-20 flex flex-wrap items-center gap-2 px-3 py-2 border-b ${dark ? "border-[#182840] bg-[#080f1a]" : "border-gray-200 bg-white"}`}>
+                      {/* core six + More */}
+                      <ScreenplayElementBar
+                        items={CORE_ELEMENTS}
+                        currentElement={currentElement}
+                        onSetElement={(t) => screenplayApiRef.current?.setElementType(t)}
+                        dark={dark}
+                      />
+                      <div className="relative">
+                        <button type="button" onClick={() => setMoreMenuOpen((o) => !o)}
+                          className={`flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] font-semibold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+                          More
+                          <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        {moreMenuOpen && (
+                          <>
+                            <div className="fixed inset-0 z-[55]" onClick={() => setMoreMenuOpen(false)} />
+                            <div className={`absolute left-0 mt-1 w-48 rounded-lg border shadow-xl z-[60] py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
+                              {MORE_ELEMENT_GROUPS.map((group, gi) => (
+                                <div key={gi} className={gi > 0 ? `mt-1 pt-1 border-t ${dark ? "border-[#1d3350]" : "border-gray-100"}` : ""}>
+                                  {group.map((el) => (
+                                    <button key={el.value} type="button"
+                                      onClick={() => { setMoreMenuOpen(false); screenplayApiRef.current?.setElementType(el.value); }}
+                                      className={`w-full flex items-center gap-2 px-3 py-1.5 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>
+                                      <el.Icon className="w-3.5 h-3.5 opacity-70" strokeWidth={1.8} aria-hidden="true" />
+                                      {el.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
               ) : (
                 <>
+                  {/* Book / prose mode IS a Word-style HTML editor already — keep its full TipTap
+                      toolbar (headings, colour, lists, alignment) visible; those formats are valid
+                      here because book content is stored as HTML, not Fountain. */}
                   <EditorToolbar editor={editor} dark={dark} />
                   {isScreenplayFormat && (
                     <div className={`px-3 py-1.5 border-b text-[11px] ${dark ? "border-[#182840] bg-[#080f1a] text-gray-500" : "border-gray-200 bg-white text-gray-400"}`}>
@@ -3327,37 +3817,35 @@ const CreateProject = () => {
                 </>
               )}
 
-              {/* -- Page Gutter + Document Canvas -- */}
+              {/* -- Document Canvas -- */}
               <div className={`relative overflow-y-auto overflow-x-auto max-[1200px]:overflow-x-hidden max-h-[72vh] ${dark ? "bg-[#0a0f17]" : "bg-[#ece9e3]"}`}>
 
-                {/* Page number gutter labels */}
-                <div className="sticky top-0 left-0 z-10 pointer-events-none">
-                  {renderPageMarkers()}
-                </div>
+                {/* Title page renders as its own sheet above the script page (click to edit). */}
+                {useScreenplayEditor && titlePageActive && (
+                  <div className="px-14 max-[1200px]:px-2 max-[380px]:px-1 pt-8 max-[580px]:pt-4 flex justify-center max-[1200px]:justify-start">
+                    <div className="w-full max-w-[760px] max-[1200px]:max-w-none">
+                      <TitlePageSheet fields={titlePage} hasTitlePage onEdit={() => setShowTitlePageModal(true)} dark={dark} />
+                    </div>
+                  </div>
+                )}
 
-                {/* The actual page(s) */}
+                {/* The actual page(s) — the sheet sizes to its content. Real page breaks come from the
+                    editor itself (=== inserts a measured page-fill spacer); we no longer draw fake
+                    fixed-interval (word-count-estimated) divider overlays here. */}
                 <div className="flex flex-col items-center max-[1200px]:items-start gap-0 py-8 max-[580px]:py-4 px-14 max-[1200px]:px-2 max-[380px]:px-1">
                   <div
                     className={`relative w-full max-w-[760px] max-[1200px]:max-w-none shadow-2xl ${dark ? "bg-[#111827]" : "bg-white"}`}
-                    style={{ minHeight: Math.max(estimatedPages, 1) * 1123 + "px" }}>
+                    style={{
+                      minHeight: useScreenplayEditor ? PAGE_CONTENT_H : undefined,
+                      // Top/bottom paper margin so text never touches the sheet edge.
+                      paddingTop: useScreenplayEditor ? PAGE_MARGIN_Y : 0,
+                      paddingBottom: useScreenplayEditor ? PAGE_MARGIN_Y : 0,
+                    }}>
 
                     {/* Page number on the sheet's top-right corner (per spec) */}
                     {useScreenplayEditor && (
                       <span className={`absolute top-6 right-8 max-[640px]:right-4 z-[6] text-[12px] font-mono select-none ${dark ? "text-gray-500" : "text-gray-400"}`}>1.</span>
                     )}
-
-                    {/* Page break lines */}
-                    {Array.from({ length: Math.max(estimatedPages - 1, 0) }).map((_, i) => (
-                      <div key={i} style={{ position: "absolute", top: (i + 1) * 1056, left: 0, right: 0, zIndex: 5 }}>
-                        <div className={`w-full flex items-center gap-3 px-4 ${dark ? "bg-[#0a0f17]" : "bg-[#ece9e3]"}`} style={{ height: 32 }}>
-                          <div className={`flex-1 h-px ${dark ? "bg-[#1a2a3a]" : "bg-gray-300"}`} />
-                          <span className={`text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded ${dark ? "bg-[#0d1520] text-gray-600 border border-[#182840]" : "bg-white text-gray-400 border border-gray-300"}`}>
-                            Page {i + 2}
-                          </span>
-                          <div className={`flex-1 h-px ${dark ? "bg-[#1a2a3a]" : "bg-gray-300"}`} />
-                        </div>
-                      </div>
-                    ))}
 
                     {/* Editor content — Fountain screenplay editor or rich-text */}
                     {useScreenplayEditor && focusMode ? (
@@ -3370,6 +3858,7 @@ const CreateProject = () => {
                           value={screenplayValue}
                           onChange={handleScreenplayChange}
                           onElementChange={setCurrentElement}
+                          onEmphasisStateChange={setEmphasisState}
                           onCaretLine={handleCaretLine}
                           locks={collabLocks}
                           myUserId={collabMyUserId}
@@ -3378,6 +3867,7 @@ const CreateProject = () => {
                           focusedCommentId={focusedCommentId}
                           readOnly={!canEditContent}
                           apiRef={screenplayApiRef}
+                          zoom={editorZoom}
                           dark={dark}
                         />
                       </div>
@@ -4733,14 +5223,15 @@ const CreateProject = () => {
             Back
           </button>
           {step < 5 ? (
-            <button onClick={handleNext}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${dark
+            <button onClick={handleNext} disabled={creationBlocked}
+              title={creationBlocked ? "Upgrade your plan to create another script" : undefined}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${dark
                 ? "bg-[#1e3a5f] text-white hover:bg-[#2a4a70] shadow-lg shadow-[#1e3a5f]/20"
                 : "bg-[#1e3a5f] text-white hover:bg-[#162d4a] shadow-lg shadow-[#1e3a5f]/20"}`}>
               Next -
             </button>
           ) : (
-            <button onClick={handlePublish} disabled={loading || !legal.agreedToTerms}
+            <button onClick={handlePublish} disabled={loading || !legal.agreedToTerms || creationBlocked}
               className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#1e3a5f] hover:bg-[#162d4a] text-white shadow-md`}>
               {loading ? "Submitting..." : "Submit for Approval"}
             </button>
