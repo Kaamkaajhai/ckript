@@ -70,6 +70,9 @@ const scriptSchema = new mongoose.Schema({
   // Outline notes (Phase 4) — free-form beats/notes alongside the script. Editor metadata only,
   // never included in the screenplay text or PDF/Fountain export.
   outlineNotes: { type: String, default: "" },
+  // Industry title page — structured fields (title/credit/author/source/draftDate). Stored separately
+  // from the body text (so it never confuses the classifier); the PDF and Fountain export render it.
+  titlePage: { type: Map, of: String, default: undefined },
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload

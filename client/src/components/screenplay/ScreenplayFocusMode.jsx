@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import ScreenplayEditor from "./ScreenplayEditor";
 import ScreenplayElementBar from "./ScreenplayElementBar";
 import PresenceAvatars from "./PresenceAvatars";
@@ -6,6 +6,50 @@ import Corkboard from "./Corkboard";
 import ReportsPanel from "./ReportsPanel";
 import InviteModal from "../collab/InviteModal";
 import { getScenes, DOC_SCENE_ID } from "./sceneIdentity";
+
+// A real, visible title-page sheet (same proportions/look as the script page) rendered at the top of
+// the canvas. Shows the centered industry block exactly as it prints; clicking anywhere opens the
+// field editor (the configurator modal). When there's no title page yet, shows an "Add title page"
+// placeholder so the writer can discover it as a page, Final Draft / WriterDuet style.
+export const TitlePageSheet = ({ fields, hasTitlePage, onEdit, dark, anchorRef }) => {
+  const f = fields || {};
+  const muted = dark ? "text-gray-500" : "text-gray-400";
+  return (
+    <div ref={anchorRef} className="flex justify-center pt-12 max-[640px]:pt-6 px-6">
+      <button type="button" onClick={onEdit}
+        title="Click to edit the title page"
+        className={`group relative w-full max-w-[820px] aspect-[8.5/11] rounded-sm shadow-2xl ring-1 transition outline-none text-left ${dark ? "bg-[#111827] ring-white/[0.04] hover:ring-blue-400/30" : "bg-white ring-black/[0.04] hover:ring-[#1e3a5f]/20"}`}>
+        {/* Edit affordance */}
+        <span className={`absolute top-4 right-4 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold opacity-0 group-hover:opacity-100 transition ${dark ? "bg-white/[0.08] text-gray-200" : "bg-gray-100 text-gray-600"}`}>
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+          Edit
+        </span>
+
+        {hasTitlePage ? (
+          <div className="absolute inset-0 flex flex-col items-center font-mono px-[10%]">
+            {/* Title block — upper third, centered (industry layout) */}
+            <div className="flex-1 flex flex-col items-center justify-center text-center w-full">
+              <div className={`text-[1.6vw] max-[820px]:text-base font-bold uppercase tracking-wide ${dark ? "text-gray-100" : "text-gray-900"}`}>{f.title?.trim() || "UNTITLED"}</div>
+              {f.credit?.trim() && <div className={`mt-[3vh] text-[1vw] max-[820px]:text-[11px] ${dark ? "text-gray-400" : "text-gray-500"}`}>{f.credit}</div>}
+              {f.author?.trim() && <div className={`mt-[0.6vh] text-[1.1vw] max-[820px]:text-[13px] ${dark ? "text-gray-200" : "text-gray-700"}`}>{f.author}</div>}
+              {f.source?.trim() && <div className={`mt-[3vh] text-[0.95vw] max-[820px]:text-[11px] italic ${muted}`}>{f.source}</div>}
+            </div>
+            {/* Draft date — low on the page */}
+            {f.draftDate?.trim() && (
+              <div className={`pb-[10%] text-[0.95vw] max-[820px]:text-[11px] ${muted}`}>{f.draftDate}</div>
+            )}
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+            <svg className={`w-10 h-10 ${muted}`} fill="none" stroke="currentColor" strokeWidth={1.4} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16v14H4zM8 9h8M8 13h8M10 17h4" /></svg>
+            <span className={`text-[13px] font-semibold ${dark ? "text-gray-400" : "text-gray-500"}`}>Add a title page</span>
+            <span className={`text-[11px] ${muted}`}>Title, author, credit & more</span>
+          </div>
+        )}
+      </button>
+    </div>
+  );
+};
 
 // Distraction-free, full-viewport screenwriting surface: scene navigator (left) ·
 // page canvas (center) · reserved comments/presence rail (right). This is purely a
@@ -23,6 +67,16 @@ export default function ScreenplayFocusMode({
   currentElement = "action",
   onSetElement,
   onEmphasis,
+  onCase,
+  onCentered,
+  onInsertPageBreak,
+  onConfigureTitlePage,
+  hasTitlePage = false,
+  titlePageFields = null,
+  onZoom,
+  zoom = 1,
+  emphasisState = { active: [], hasSelection: false },
+  onEmphasisStateChange,
   outline = [],
   presenceBySceneId = {},
   people = [],
@@ -62,6 +116,11 @@ export default function ScreenplayFocusMode({
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(false);
   const [centerView, setCenterView] = useState("page"); // "page" | "cards"
+  const [lowerBarMode, setLowerBarMode] = useState("elements"); // "elements" | "format"
+  const [leftTab, setLeftTab] = useState("scenes"); // "scenes" | "pages"
+  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
+  const titlePageRef = useRef(null);
+  const scrollToTitlePage = () => titlePageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const [rightTab, setRightTab] = useState("people"); // "people" | "comments"
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -73,6 +132,37 @@ export default function ScreenplayFocusMode({
   // Corkboard cards derive from the SAME scene identity (index+heading) the locks key off,
   // so a card's lock state lines up exactly with the editor's.
   const cardScenes = useMemo(() => getScenes(value).filter((s) => s.sceneId !== DOC_SCENE_ID), [value]);
+
+  // Page list for the Pages panel. There are no real pages (the doc is one Fountain string), so we
+  // estimate: walk the lines accumulating words, start a new page when the running count crosses
+  // wordsPerPage, AND force a new page at any explicit "===" Fountain page break. Each page records
+  // the 1-based line it starts on (so clicking scrolls the editor there) and a label from the first
+  // meaningful line on that page.
+  const pages = useMemo(() => {
+    const lines = String(value || "").split("\n");
+    const result = [];
+    let words = 0;
+    let pageStartLine = 1;
+    let firstText = "";
+    const flush = (endLineIdx) => {
+      result.push({ page: result.length + 1, line: pageStartLine, label: firstText.trim() || "(blank)" });
+      pageStartLine = endLineIdx + 2; // next page starts after this line (1-based)
+      firstText = "";
+      words = 0;
+    };
+    for (let i = 0; i < lines.length; i += 1) {
+      const t = lines[i].trim();
+      if (/^={3,}$/.test(t)) { flush(i); continue; } // explicit page break ends the page here
+      if (t && !firstText) firstText = t.replace(/^[.@>~#]+\s*/, "").replace(/^>|<$/g, "");
+      words += t ? t.split(/\s+/).filter(Boolean).length : 0;
+      if (words >= wordsPerPage) flush(i);
+    }
+    // Trailing partial page (or an empty doc → one page).
+    if (firstText || result.length === 0) {
+      result.push({ page: result.length + 1, line: pageStartLine, label: firstText.trim() || "(empty)" });
+    }
+    return result;
+  }, [value, wordsPerPage]);
 
   const topComments = comments.filter((c) => !c.parentId);
   const repliesOf = (id) => comments.filter((c) => String(c.parentId) === String(id));
@@ -186,28 +276,93 @@ export default function ScreenplayFocusMode({
         </div>
       </div>
 
-      {/* ── Secondary bar: element types + inline emphasis on their own row ── */}
+      {/* ── Secondary bar: ribbon-tab toggle → Elements OR Text Format (matches the normal screen) ── */}
       {centerView === "page" && (
         <div className={`shrink-0 flex items-center gap-3 px-4 py-1.5 border-b ${barCls}`}>
-          <ScreenplayElementBar currentElement={currentElement} onSetElement={onSetElement} dark={dark} />
-          <span className={dividerCls} />
-          {/* Fountain inline emphasis — wraps the selection with *italic* / **bold** / _underline_.
-              Plain-text markers, so the classifier/export are unaffected. */}
-          <div className="flex items-center gap-0.5">
-            {[
-              ["bold", "Bold", "B", "font-bold"],
-              ["italic", "Italic", "I", "italic font-serif"],
-              ["underline", "Underline", "U", "underline"],
-            ].map(([kind, title, glyph, cls]) => (
-              <button key={kind} type="button" onMouseDown={(e) => { e.preventDefault(); onEmphasis?.(kind); }}
-                title={`${title}`}
-                className={`w-8 h-8 inline-flex items-center justify-center rounded-md text-[13px] ${cls} transition ${dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>
-                {glyph}
-              </button>
-            ))}
+          {/* Elements ⇄ Text Format toggle */}
+          <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-white/[0.05]" : "bg-gray-100"}`}>
+            <button type="button" onClick={() => setLowerBarMode("elements")}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${lowerBarMode === "elements" ? (dark ? "bg-[#1e3a5f] text-white shadow-sm" : "bg-white text-gray-900 shadow-sm") : `${muted} hover:${dark ? "text-gray-300" : "text-gray-700"}`}`}>
+              Elements
+            </button>
+            <button type="button" onClick={() => setLowerBarMode("format")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition ${lowerBarMode === "format" ? (dark ? "bg-[#1e3a5f] text-white shadow-sm" : "bg-white text-gray-900 shadow-sm") : `${muted} hover:${dark ? "text-gray-300" : "text-gray-700"}`}`}
+              title="Text formatting — bold, italic, underline">
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4z" /></svg>
+              Text Format
+            </button>
           </div>
           <span className={dividerCls} />
-          <span className={`text-[11px] ${muted} max-[1100px]:hidden`}>Press <kbd className={`px-1.5 py-0.5 rounded border text-[10px] font-mono ${dark ? "border-[#22364f] bg-white/[0.04]" : "border-gray-200 bg-gray-50"}`}>Enter</kbd> for next element · <kbd className={`px-1.5 py-0.5 rounded border text-[10px] font-mono ${dark ? "border-[#22364f] bg-white/[0.04]" : "border-gray-200 bg-gray-50"}`}>Tab</kbd> to cycle</span>
+
+          {lowerBarMode === "format" ? (
+            <>
+              {/* Fountain inline emphasis — wraps the selection with *italic* / **bold** / ***both*** /
+                  _underline_. Plain-text markers, so the classifier/export are unaffected. */}
+              <div className="flex items-center gap-0.5">
+                {[
+                  ["bold", "Bold", "B", "font-bold"],
+                  ["italic", "Italic", "I", "italic font-serif"],
+                  ["underline", "Underline", "U", "underline"],
+                  ["bolditalic", "Bold Italic", "BI", "font-bold italic font-serif text-[11px]"],
+                ].map(([kind, title, glyph, cls]) => (
+                  <button key={kind} type="button" onMouseDown={(e) => { e.preventDefault(); onEmphasis?.(kind); }}
+                    title={emphasisState.hasSelection ? title : `${title} — select text first`}
+                    className={`w-8 h-8 inline-flex items-center justify-center rounded-md text-[13px] ${cls} transition ${
+                      emphasisState.active?.includes(kind)
+                        ? "bg-[#1e3a5f] text-white shadow-sm"
+                        : dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>
+                    {glyph}
+                  </button>
+                ))}
+              </div>
+              <span className={dividerCls} />
+              {/* Case transforms — rewrite the selected characters (persists, classifier-safe). */}
+              <div className="flex items-center gap-0.5">
+                <button type="button" title={emphasisState.hasSelection ? "UPPERCASE" : "UPPERCASE — select text first"}
+                  onMouseDown={(e) => { e.preventDefault(); onCase?.("upper"); }}
+                  className={`w-8 h-8 inline-flex items-center justify-center rounded-md text-[12px] font-bold tracking-tight transition ${dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>AA</button>
+                <button type="button" title={emphasisState.hasSelection ? "lowercase" : "lowercase — select text first"}
+                  onMouseDown={(e) => { e.preventDefault(); onCase?.("lower"); }}
+                  className={`w-8 h-8 inline-flex items-center justify-center rounded-md text-[12px] font-bold tracking-tight lowercase transition ${dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>aa</button>
+              </div>
+              <span className={dividerCls} />
+              {/* Center — wraps the line(s) as Fountain ">centered<". */}
+              <button type="button" title="Center line"
+                onMouseDown={(e) => { e.preventDefault(); onCentered?.(); }}
+                className={`w-8 h-8 inline-flex items-center justify-center rounded-md transition ${
+                  emphasisState.centered ? "bg-[#1e3a5f] text-white shadow-sm" : dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>
+                <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z" /></svg>
+              </button>
+              {onZoom && (
+                <>
+                  <span className={dividerCls} />
+                  {/* Editor zoom — visual only; text / page count / export unchanged. */}
+                  <div className="flex items-center gap-0.5">
+                    <button type="button" title="Zoom out" onClick={() => onZoom(-1)}
+                      className={`w-8 h-8 inline-flex items-center justify-center rounded-md transition ${dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>
+                      <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z" /></svg>
+                    </button>
+                    <button type="button" title="Reset zoom to 100%" onClick={() => onZoom(0)}
+                      className={`min-w-[3.25rem] h-8 px-1 inline-flex items-center justify-center rounded-md text-[11px] font-semibold tabular-nums transition ${dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>
+                      {Math.round((Number(zoom) || 1) * 100)}%
+                    </button>
+                    <button type="button" title="Zoom in" onClick={() => onZoom(1)}
+                      className={`w-8 h-8 inline-flex items-center justify-center rounded-md transition ${dark ? "text-gray-300 hover:bg-white/[0.06]" : "text-gray-600 hover:bg-gray-100"}`}>
+                      <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+                    </button>
+                  </div>
+                </>
+              )}
+              <span className={dividerCls} />
+              <span className={`text-[11px] ${muted} max-[1100px]:hidden`}>Select text, then format</span>
+            </>
+          ) : (
+            <>
+              <ScreenplayElementBar currentElement={currentElement} onSetElement={onSetElement} dark={dark} />
+              <span className={dividerCls} />
+              <span className={`text-[11px] ${muted} max-[1100px]:hidden`}>Press <kbd className={`px-1.5 py-0.5 rounded border text-[10px] font-mono ${dark ? "border-[#22364f] bg-white/[0.04]" : "border-gray-200 bg-gray-50"}`}>Enter</kbd> for next element · <kbd className={`px-1.5 py-0.5 rounded border text-[10px] font-mono ${dark ? "border-[#22364f] bg-white/[0.04]" : "border-gray-200 bg-gray-50"}`}>Tab</kbd> to cycle</span>
+            </>
+          )}
         </div>
       )}
 
@@ -249,11 +404,67 @@ export default function ScreenplayFocusMode({
         {/* Left — scene navigator */}
         {leftOpen && (
           <aside className={`w-[288px] shrink-0 border-r overflow-y-auto ${railCls}`}>
-            <div className={`px-5 pt-5 pb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.12em] ${muted}`}>
-              <span>Scenes</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${dark ? "bg-white/[0.06] text-gray-400" : "bg-gray-200/70 text-gray-500"}`}>{sceneCount}</span>
+            {/* Scenes ⇄ Pages tab toggle */}
+            <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+              <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-white/[0.05]" : "bg-gray-200/60"}`}>
+                {[["scenes", "Scenes", sceneCount], ["pages", "Pages", pages.length]].map(([id, label, count]) => (
+                  <button key={id} type="button" onClick={() => setLeftTab(id)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition ${leftTab === id ? (dark ? "bg-[#1e3a5f] text-white shadow-sm" : "bg-white text-gray-900 shadow-sm") : `${muted} hover:${dark ? "text-gray-300" : "text-gray-700"}`}`}>
+                    {label}
+                    <span className={`px-1.5 rounded-full text-[9px] ${leftTab === id ? "bg-white/20" : (dark ? "bg-white/[0.06]" : "bg-gray-300/50")}`}>{count}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            {outline.length === 0 ? (
+
+            {/* ── PAGES TAB ── */}
+            {leftTab === "pages" ? (
+              <div className="pb-5">
+                {/* Insert menu — blank page (===) or title page */}
+                <div className="px-4 pb-2 relative">
+                  <button type="button" onClick={() => setInsertMenuOpen((o) => !o)}
+                    className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border transition ${dark ? "border-[#2a4a6a] text-gray-200 hover:bg-white/[0.06]" : "border-gray-200 text-gray-700 hover:bg-white"}`}>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                    Insert
+                    <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {insertMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setInsertMenuOpen(false)} />
+                      <div className={`absolute left-4 right-4 mt-1 rounded-lg border shadow-xl z-50 py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
+                        <button type="button" onClick={() => { setInsertMenuOpen(false); onInsertPageBreak?.(); }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>
+                          <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M6 8h12M6 16h12" /></svg>
+                          <span className="text-left"><span className="font-semibold block">Blank page</span><span className={`text-[10px] ${muted}`}>Forced page break (===)</span></span>
+                        </button>
+                        <button type="button" onClick={() => { setInsertMenuOpen(false); onConfigureTitlePage?.(); }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>
+                          <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16v14H4zM8 9h8M8 13h8M10 17h4" /></svg>
+                          <span className="text-left"><span className="font-semibold block">{hasTitlePage ? "Edit title page" : "Title page"}</span><span className={`text-[10px] ${muted}`}>Title, author, credit…</span></span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="px-2 space-y-0.5">
+                  {hasTitlePage && (
+                    <button type="button" onClick={() => { setCenterView("page"); requestAnimationFrame(scrollToTitlePage); }}
+                      className={`group w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition ${dark ? "hover:bg-white/[0.05]" : "hover:bg-white hover:shadow-sm"}`}>
+                      <span className={`w-7 h-9 shrink-0 rounded-sm border flex items-center justify-center text-[8px] font-bold ${dark ? "border-[#2a4a6a] text-gray-400 bg-white/[0.03]" : "border-gray-300 text-gray-400 bg-gray-50"}`}>TITLE</span>
+                      <span className={`text-[12.5px] truncate ${dark ? "text-gray-300" : "text-gray-700"}`}>Title page</span>
+                    </button>
+                  )}
+                  {pages.map((p) => (
+                    <button key={p.page} type="button" onClick={() => onSceneClick?.(p.line)}
+                      className={`group w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition ${dark ? "hover:bg-white/[0.05]" : "hover:bg-white hover:shadow-sm"}`}>
+                      <span className={`w-7 h-9 shrink-0 rounded-sm border flex items-center justify-center text-[11px] font-mono font-bold ${dark ? "border-[#2a4a6a] text-gray-400 bg-white/[0.03]" : "border-gray-300 text-gray-500 bg-gray-50"}`}>{p.page}</span>
+                      <span className={`text-[12.5px] truncate ${muted}`}>{p.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : outline.length === 0 ? (
               <p className={`px-5 py-3 text-[12.5px] leading-relaxed italic ${muted}`}>No scenes yet. Add an INT./EXT. heading to begin building your outline.</p>
             ) : (
               <div className="px-2 pb-5 space-y-0.5">
@@ -305,6 +516,10 @@ export default function ScreenplayFocusMode({
             reorder applied to its value remains a single undo step that survives the toggle). */}
         <div className="flex-1 flex overflow-hidden" style={{ background: desk }}>
           <div className={`flex-1 overflow-y-auto ${centerView === "cards" ? "hidden" : ""}`}>
+            {/* Title page renders as its OWN sheet (a real first page), above the script page. */}
+            {hasTitlePage && (
+              <TitlePageSheet fields={titlePageFields} hasTitlePage={hasTitlePage} onEdit={onConfigureTitlePage} dark={dark} anchorRef={titlePageRef} />
+            )}
             <div className="flex justify-center py-12 max-[640px]:py-6 px-6">
               <div className={`w-full max-w-[820px] rounded-sm shadow-2xl ring-1 ${dark ? "bg-[#111827] ring-white/[0.04]" : "bg-white ring-black/[0.04]"}`}>
                 {title && (
@@ -314,6 +529,7 @@ export default function ScreenplayFocusMode({
                   value={value}
                   onChange={onChange}
                   onElementChange={onElementChange}
+                  onEmphasisStateChange={onEmphasisStateChange}
                   onCaretLine={onCaretLine}
                   locks={locks}
                   myUserId={myUserId}
@@ -323,6 +539,7 @@ export default function ScreenplayFocusMode({
                   onAddComment={canComment ? onAddComment : undefined}
                   readOnly={!canEdit}
                   apiRef={apiRef}
+                  zoom={zoom}
                   dark={dark}
                 />
               </div>
