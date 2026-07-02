@@ -216,7 +216,7 @@ const CreatorDashboard = ({ user, dark }) => {
                       : (dark ? 'bg-[#0d1520] border-[#1c2a3a] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 hover:border-[#2a3a4e]' : 'bg-white border-slate-200 hover:-translate-y-0.5 shadow-sm hover:shadow-md hover:border-slate-300')
                   }`}>
                   {card.isLocked && (
-                    <button type="button" onClick={() => openPricingModal()} aria-label="Upgrade to unlock analytics" className="absolute inset-0 z-10 flex items-center justify-center bg-transparent" title="Upgrade to unlock analytics" />
+                    <button type="button" onClick={() => openPricingModal("writer")} aria-label="Upgrade to unlock analytics" className="absolute inset-0 z-10 flex items-center justify-center bg-transparent" title="Upgrade to unlock analytics" />
                   )}
                   <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 transition-colors ${
                     card.isLocked

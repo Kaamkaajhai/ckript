@@ -33,6 +33,7 @@ const RED = "#D14D37";
 const SANS = "'Helvetica Neue',Arial,sans-serif";
 const SERIF = "'Baskervville',Georgia,serif";
 const BODY = "'PT Serif',Georgia,serif";
+const LOGO_SRC = "/ckript-logo-landscape-nobg.png";
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
@@ -83,7 +84,12 @@ html.ckl-scroll::-webkit-scrollbar-button{display:none;width:0;height:0;}
 .ckl .mobile-accordion-icon { display: none !important; }
 .ckl .ckl-feat-detail-mobile { display: none !important; }
 .ckl .ckl-feat-detail-desktop { display: block !important; }
+.ckl .mobile-only { display: none !important; }
 
+@media (max-width: 600px) {
+  .ckl .desktop-only { display: none !important; }
+  .ckl .mobile-only { display: block !important; }
+}
 @media (max-width:900px){
   .ckl .ckl-feat-grid{grid-template-columns:1fr !important;}
   .ckl .ckl-feat-panel{grid-template-columns:1fr !important;}
@@ -612,6 +618,8 @@ export default function Landing() {
   const stepsStageRef = useRef(null);
   const [activeFeat, setActiveFeat] = useState(0);
   const [isFeatDropdownOpen, setIsFeatDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPricingDropdownOpen, setIsPricingDropdownOpen] = useState(false);
   const { user } = useContext(AuthContext);
   const { openAuthModal, openProducerOnboarding, openWriterOnboarding, openAboutModal, openPricingModal } = useAuthModal();
 
@@ -678,20 +686,89 @@ export default function Landing() {
           </div>
 
           {/* Nav */}
-          <div className="ckl-hero-nav" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 104, display: "flex", alignItems: "center", padding: "0 52px", zIndex: 3, opacity: 0, animation: "ckl-fadeDown .8s .05s cubic-bezier(.2,.7,.2,1) forwards" }}>
-            <Link to={ROUTES.home} style={{ fontFamily: SANS, fontWeight: 700, fontSize: 33, letterSpacing: "-1.2px", color: INK, lineHeight: 1, textDecoration: "none" }}>ckript</Link>
-            <span className="ckl-hero-nav-divider" style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
-            <nav className="ckl-hero-nav-links" style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
+          <div className="ckl-hero-nav" style={{ position: "absolute", left: 0, top: 0, width: "100%", height: 104, display: "flex", alignItems: "center", padding: "0 52px", zIndex: 10, opacity: 0, animation: "ckl-fadeDown .8s .05s cubic-bezier(.2,.7,.2,1) forwards" }}>
+            <Link to={ROUTES.home} style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+              <img src={LOGO_SRC} alt="Ckript" style={{ height: 38, width: "auto", display: "block" }} />
+            </Link>
+            <span className="ckl-hero-nav-divider desktop-only" style={{ width: 1, height: 40, background: "#cfcdc7", margin: "0 0 0 34px" }} />
+            <nav className="ckl-hero-nav-links desktop-only" style={{ display: "flex", alignItems: "center", gap: 36, marginLeft: 48, fontFamily: SANS, fontWeight: 500, fontSize: 19, color: "#262523" }}>
               <button type="button" onClick={() => openWriterOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Scripts</button>
               <button type="button" onClick={() => openProducerOnboarding()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>For Producers</button>
-              <button type="button" onClick={() => openPricingModal()} className="hov-red" style={{ ...navLink, background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>Pricing</button>
+              
+              <div 
+                style={{ position: "relative" }} 
+                onMouseEnter={() => setIsPricingDropdownOpen(true)}
+                onMouseLeave={() => setIsPricingDropdownOpen(false)}
+              >
+                <button 
+                  type="button" 
+                  onClick={() => setIsPricingDropdownOpen(prev => !prev)} 
+                  className="hov-red" 
+                  style={{ ...navLink, background: "none", border: "none", padding: "10px 0", cursor: "pointer", lineHeight: 1, display: "flex", alignItems: "center", gap: 2 }}
+                >
+                  Pricing
+                  <span className="msi" style={{ fontSize: 20 }}>expand_more</span>
+                </button>
+                {isPricingDropdownOpen && (
+                  <div style={{ position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)", background: "#fff", border: "1px solid #cfcdc7", borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", padding: "8px 0", minWidth: 200, zIndex: 100, overflow: "hidden" }}>
+                    <button 
+                      type="button" 
+                      onClick={() => { setIsPricingDropdownOpen(false); openPricingModal("writer"); }} 
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: SANS, fontSize: 16, color: INK, transition: "background 0.2s" }} 
+                      onMouseEnter={(e) => e.target.style.background = "#f4f3f0"}
+                      onMouseLeave={(e) => e.target.style.background = "none"}
+                    >
+                      Writer Plans
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => { setIsPricingDropdownOpen(false); openPricingModal("industry"); }} 
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: SANS, fontSize: 16, color: INK, transition: "background 0.2s" }} 
+                      onMouseEnter={(e) => e.target.style.background = "#f4f3f0"}
+                      onMouseLeave={(e) => e.target.style.background = "none"}
+                    >
+                      Film Industry Plan
+                    </button>
+                  </div>
+                )}
+              </div>
             </nav>
-            {user ? (
-              <Link to={primaryPath} className="ckl-hero-nav-login hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
-            ) : (
-              <button type="button" onClick={() => openAuthModal()} className="ckl-hero-nav-login hov-red" style={{ marginLeft: "auto", fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, background: "none", border: "none", padding: 0, cursor: "pointer", transition: "color .22s ease" }}>{signInLabel}</button>
-            )}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+              {user ? (
+                <Link to={primaryPath} className="ckl-hero-nav-login hov-red desktop-only" style={{ fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, textDecoration: "none" }}>{signInLabel}</Link>
+              ) : (
+                <button type="button" onClick={() => openAuthModal()} className="ckl-hero-nav-login hov-red desktop-only" style={{ fontFamily: SANS, fontWeight: 500, fontSize: 19, color: INK, background: "none", border: "none", padding: 0, cursor: "pointer", transition: "color .22s ease" }}>{signInLabel}</button>
+              )}
+              <button type="button" className="mobile-only" onClick={() => setIsMobileMenuOpen(true)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}>
+                <span className="msi" style={{ fontSize: 32 }}>menu</span>
+              </button>
+            </div>
           </div>
+          
+          {/* Mobile Menu Overlay */}
+          {isMobileMenuOpen && (
+            <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 9999, display: "flex", flexDirection: "column", padding: "24px 15px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Link to={ROUTES.home} onClick={() => setIsMobileMenuOpen(false)} style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+                  <img src={LOGO_SRC} alt="Ckript" style={{ height: 30, width: "auto", display: "block" }} />
+                </Link>
+                <button type="button" onClick={() => setIsMobileMenuOpen(false)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}>
+                  <span className="msi" style={{ fontSize: 32 }}>close</span>
+                </button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 32, marginTop: 80, alignItems: "center", fontFamily: SANS, fontWeight: 500, fontSize: 22 }}>
+                <button type="button" onClick={() => { setIsMobileMenuOpen(false); openWriterOnboarding(); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}>Scripts</button>
+                <button type="button" onClick={() => { setIsMobileMenuOpen(false); openProducerOnboarding(); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}>For Producers</button>
+                <button type="button" onClick={() => { setIsMobileMenuOpen(false); openPricingModal("writer"); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}>Writer Plans</button>
+                <button type="button" onClick={() => { setIsMobileMenuOpen(false); openPricingModal("industry"); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK }}>Film Industry Plan</button>
+                {user ? (
+                  <Link to={primaryPath} onClick={() => setIsMobileMenuOpen(false)} style={{ color: INK, textDecoration: "none", marginTop: 24 }}>{signInLabel}</Link>
+                ) : (
+                  <button type="button" onClick={() => { setIsMobileMenuOpen(false); openAuthModal(); }} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: INK, marginTop: 24 }}>{signInLabel}</button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Hero content */}
           <h1 className="ckl-hero-title" style={{ margin: 0, padding: 0, position: "absolute", top: 248, left: 0, width: "100%", textAlign: "center", fontFamily: SERIF, fontWeight: 400, fontSize: 114, lineHeight: "128px", color: INK, zIndex: 2, opacity: 0, animation: "ckl-fadeUp 1s .18s cubic-bezier(.2,.7,.2,1) forwards" }}>
@@ -993,7 +1070,7 @@ export default function Landing() {
         <div style={{ maxWidth: 1320, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 40, flexWrap: "wrap", paddingBottom: 42, borderBottom: "1px solid #211f1a" }}>
             <div style={{ maxWidth: 380 }}>
-              <div style={{ fontFamily: SANS, fontWeight: 700, fontSize: 34, letterSpacing: "-1.2px", color: "#fff", lineHeight: 1 }}>ckript</div>
+              <img src="/ckript_logo_no_bg.png" alt="Ckript" style={{ height: 44, width: "auto", display: "block" }} />
               <p style={{ margin: "20px 0 0", fontFamily: SERIF, fontStyle: "italic", fontSize: 23, lineHeight: 1.3, color: "#c7c2b8" }}>From the page to the screen.</p>
               <div style={{ marginTop: 36 }}>
                 <div style={{ fontFamily: SANS, fontWeight: 600, fontSize: 12, letterSpacing: "2px", textTransform: "uppercase", color: "#76726a", marginBottom: 12 }}>Ckript Headquarters</div>

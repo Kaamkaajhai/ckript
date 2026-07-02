@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
 import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
@@ -21,7 +22,6 @@ const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
-const Login = lazy(() => import("./pages/Login"));
 const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
 const Join = lazy(() => import("./pages/Join"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
@@ -52,13 +52,11 @@ const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
-const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
-  () => import("./pages/Login"),
   () => import("./pages/Join"),
   () => import("./pages/AcceptInvite"),
   () => import("./pages/Dashboard"),
@@ -223,6 +221,7 @@ function App() {
   const appTree = (
     <DarkModeProvider key="dm-root">
       <AuthProvider>
+        <ToastProvider>
         <Router>
           <AuthModalProvider>
           <LanguagePreferenceSync />
@@ -274,7 +273,7 @@ function App() {
               <Route path="/writer-terms" element={<Navigate to="/terms-conditions?tab=writer" replace />} />
               <Route path="/investor-terms" element={<Navigate to="/terms-conditions?tab=investor" replace />} />
               <Route path="/script-upload-terms" element={<ScriptUploadTermsConditions />} />
-              <Route path="/login" element={<Login />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
               <Route path="/join" element={<RoleSelection />} />
               <Route path="/signup" element={<Join />} />
@@ -291,8 +290,6 @@ function App() {
                 <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/profile/:id?" element={<Profile />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-
-                <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
                 <Route path="/ai-tools" element={<Dashboard />} />
@@ -337,6 +334,7 @@ function App() {
           </AdminLoginHandler>
           </AuthModalProvider>
         </Router>
+        </ToastProvider>
       </AuthProvider>
     </DarkModeProvider>
   );

@@ -637,45 +637,8 @@ const normalizeRightsLicensingInput = (incoming = {}, fallback = {}) => {
 };
 
 const validateRightsLicensingPayload = (rightsLicensing = {}) => {
-  const errors = [];
-  if (!RIGHTS_TYPE_OPTIONS.has(rightsLicensing?.rightsType)) {
-    errors.push("Rights type is required.");
-  }
-  if (!MODIFICATION_RIGHTS_OPTIONS.has(rightsLicensing?.modificationRights)) {
-    errors.push("Modification rights selection is required.");
-  }
-  if (!PAYMENT_STRUCTURE_OPTIONS.has(rightsLicensing?.paymentStructure)) {
-    errors.push("Payment structure selection is required.");
-  }
-  if (!NEGOTIATION_MODE_OPTIONS.has(rightsLicensing?.negotiationMode)) {
-    errors.push("Negotiation mode selection is required.");
-  }
-
-  if (rightsLicensing?.rightsType === "exclusive_license") {
-    const durationMonths = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
-    if (!Number.isInteger(durationMonths)
-      || durationMonths < MIN_LICENSE_DURATION_MONTHS
-      || durationMonths > MAX_LICENSE_DURATION_MONTHS) {
-      errors.push(`Exclusive license requires duration between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`);
-    }
-  }
-
-  const isRoyaltyStructure = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(
-    rightsLicensing?.paymentStructure
-  );
-  if (isRoyaltyStructure) {
-    const pct = Number(rightsLicensing?.royaltySettings?.percentage || 0);
-    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-      errors.push("Royalty percentage must be between 0 and 100 for royalty-based structures.");
-    }
-  }
-
-  const ack = rightsLicensing?.legalAcknowledgement || {};
-  if (!ack?.ownershipConfirmed || !ack?.platformTermsAccepted || !ack?.exclusivityUnderstood) {
-    errors.push("Writer legal acknowledgement is required for rights and licensing preferences.");
-  }
-
-  return errors;
+  // Feature has been removed from the frontend, bypassing validation
+  return [];
 };
 
 const buildRightsLabels = (rights = {}) => {
@@ -1896,7 +1859,7 @@ export const getMyScripts = async (req, res) => {
       ? {
         isDeleted: { $ne: true },
         $or: [
-          { creator: req.user._id, status: { $ne: "draft" } },
+          { creator: req.user._id },
           {
             collaborators: {
               $elemMatch: {
@@ -1908,11 +1871,11 @@ export const getMyScripts = async (req, res) => {
           },
         ],
       }
-      : { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      : { creator: req.user._id, isDeleted: { $ne: true } };
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion viewableScript scriptPreviewAccess scriptPreviewPageTexts")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 
@@ -6692,5 +6655,29 @@ export const submitTrailerFeedback = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Generate an AI Cover Thumbnail (Fallback to pollinations.ai)
+export const generateAiCover = async (req, res) => {
+  try {
+    const { title, genre, logline } = req.body;
+    
+    const prompt = `A cinematic movie poster for a film titled "${title || 'Untitled'}", genre: ${genre || 'Drama'}. ${logline || ''}. Professional, high quality, 4k. No text other than the title.`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=1024&nologo=true`;
+    
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error("Failed to generate image from external service.");
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = `data:${response.headers.get('content-type') || 'image/jpeg'};base64,${buffer.toString('base64')}`;
+    
+    res.json({ base64Image });
+  } catch (error) {
+    console.error("[generateAiCover] Error:", error);
+    res.status(500).json({ message: "Failed to generate AI cover." });
   }
 };

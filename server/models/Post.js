@@ -10,4 +10,6 @@ const postSchema = new mongoose.Schema({
   saves: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 }, { timestamps: true });
 
+postSchema.index({ user: 1 });
+
 export default mongoose.model("Post", postSchema);

@@ -4,6 +4,10 @@ import { useNavigate } from "react-router-dom";
 import useWriterPlanCheckout, { WRITER_TIERS } from "../hooks/useWriterPlanCheckout";
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
 import { useAuthModal } from "../context/AuthModalContext";
+import { AuthContext } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import useScrollLock from "../hooks/useScrollLock";
+import { useContext } from "react";
 import api from "../services/api";
 import "./PricingModal.css";
 
@@ -48,15 +52,26 @@ const WRITER_PLANS = [
     key: "free",
     name: "Free",
     price: "₹0",
-    per: "/ forever",
-    feats: ["1 script upload.", "Search listing.", "AI synopsis & logline."],
+    per: "/ month",
+    feats: [
+      "Upload 1 script",
+      "Appear only in search section",
+      "AI generated synopsis and logline"
+    ],
   },
   {
     key: "silver",
     name: "Silver",
     price: "₹399",
     per: "/ month",
-    feats: ["8 script uploads.", "Top script sections.", "AI evaluation & views."],
+    feats: [
+      "Upload 8 scripts",
+      "Appear in top script sections",
+      "AI generated synopsis, logline and Roles",
+      "AI evaluation",
+      "Generate AI Thumbnail",
+      "View who see scripts/profile"
+    ],
   },
   {
     key: "gold",
@@ -65,13 +80,29 @@ const WRITER_PLANS = [
     per: "/ month",
     variant: "gold",
     chip: "Best",
-    feats: ["20 script uploads.", "Featured section.", "Reader eval & pitch video."],
+    feats: [
+      "Upload 20 scripts",
+      "Use writer studio tool",
+      "Appear in top script section",
+      "Appear in featured section",
+      "AI generated synopsis, logline and Roles",
+      "AI evaluation",
+      "Generate AI Thumbnail",
+      "View who see scripts/profile",
+      "Ckript professional reader evaluation",
+      "Upload Pitch video of script"
+    ],
   },
 ];
 
 const FIP = {
   name: "Film Industry Professional",
-  desc: "10 verified writer contacts · direct messaging · 10 meetings · curated inbox.",
+  feats: [
+    "Access 10 verified writer contacts",
+    "Direct message to 10 writers",
+    "Schedule 10 video meetings with writers",
+    "Curated genre-specific scripts delivered to your inbox"
+  ],
   price: "₹1999",
 };
 
@@ -185,7 +216,15 @@ function TierCard({ plan, state }) {
   );
 }
 
-function PricingModalInner({ onClose }) {
+function PricingModalInner({ onClose, tab = "all" }) {
+  const { user } = useContext(AuthContext);
+
+  let effectiveTab = tab;
+  if (tab === "all" && user?.role) {
+    const role = user.role.toLowerCase();
+    if (["writer", "creator"].includes(role)) effectiveTab = "writer";
+    else if (["producer", "investor", "director", "studio"].includes(role)) effectiveTab = "industry";
+  }
   const navigate = useNavigate();
   const titleId = useId();
   const cardRef = useRef(null);
@@ -194,6 +233,7 @@ function PricingModalInner({ onClose }) {
   const writer = useWriterPlanCheckout();
   const fip = useFilmIndustryProfessionalCheckout();
   const { openAuthModal } = useAuthModal();
+  const toast = useToast();
 
   // Unified success view: whichever plan was purchased, we land the new member
   // with one confident screen. null | { kicker, title, body, redirectTo }
@@ -391,12 +431,12 @@ function PricingModalInner({ onClose }) {
     };
   }, [fip, goTo, buyFip]);
 
-  // ── Modal chrome: fonts, scroll-lock, focus restore ───────────
+  useScrollLock();
+
+  // ── Modal chrome: fonts, focus restore ────────────────────────
   useEffect(() => {
     ensureModalFonts();
     previouslyFocused.current = document.activeElement;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     // Move focus into the dialog for screen readers + keyboard users.
     const id = window.setTimeout(() => {
       const node = cardRef.current?.querySelector(FOCUSABLE);
@@ -404,7 +444,6 @@ function PricingModalInner({ onClose }) {
     }, 30);
     return () => {
       window.clearTimeout(id);
-      document.body.style.overflow = prevOverflow;
       const prev = previouslyFocused.current;
       if (prev && typeof prev.focus === "function") prev.focus({ preventScroll: true });
     };
@@ -438,6 +477,16 @@ function PricingModalInner({ onClose }) {
 
   const globalMsg = writer.message || fip.message;
   const globalErr = writer.error || fip.error;
+
+  // Checkout feedback surfaces as a toast above the modal, never as an in-card
+  // banner — consistent with the auth surfaces. The terminal success *screen*
+  // (a deliberate post-payment confirmation) is intentionally kept.
+  useEffect(() => {
+    if (globalErr) toast.error(globalErr);
+  }, [globalErr, toast]);
+  useEffect(() => {
+    if (globalMsg) toast.info(globalMsg);
+  }, [globalMsg, toast]);
 
   return (
     <motion.div
@@ -481,73 +530,89 @@ function PricingModalInner({ onClose }) {
           </div>
         ) : (
           <>
-            <div className="pmx-head">
-              <div>
-                <div className="pmx-eyebrow">
-                  <i />
-                  <span>For Writers</span>
-                </div>
-                <h2 className="pmx-title" id={titleId}>
-                  Get your pages seen.
-                </h2>
-              </div>
-              <div className="pmx-head-aside">Choose a writer plan — or get industry access below.</div>
-            </div>
-
-            <div className="pmx-trio">
-              {WRITER_PLANS.map((plan) => (
-                <TierCard key={plan.key} plan={plan} state={stateByKey[plan.key]} />
-              ))}
-            </div>
-
-            {/* ── Industry ribbon ── */}
-            <div className="pmx-ribbon">
-              <span className="pmx-ribbon-bar" />
-              <div className="pmx-ribbon-id">
-                <div className="pmx-ribbon-kicker">For the Industry</div>
-                <div className="pmx-ribbon-name">{FIP.name}</div>
-                {fipState.active && (
-                  <div className="pmx-pills">
-                    <span className="pmx-pill pmx-pill--active"><i />Active</span>
-                    {fipState.daysLeft != null && fipState.daysLeft > 0 && (
-                      <span className="pmx-pill pmx-pill--days">{fipState.daysLeft} days left</span>
-                    )}
+            {(effectiveTab === "all" || effectiveTab === "writer") && (
+              <>
+                <div className="pmx-head">
+                  <div>
+                    <div className="pmx-eyebrow">
+                      <i />
+                      <span>For Writers</span>
+                    </div>
+                    <h2 className="pmx-title" id={titleId}>
+                      Get your pages seen.
+                    </h2>
                   </div>
-                )}
-              </div>
-              <div className="pmx-ribbon-desc">
-                {fipState.active
-                  ? "Your membership is active — full access to the writer network."
-                  : FIP.desc}
-              </div>
-              <div className="pmx-ribbon-right">
-                <div className="pmx-ribbon-price">
+                  <div className="pmx-head-aside">
+                    {effectiveTab === "writer" ? "Choose a writer plan below." : "Choose a writer plan — or get industry access below."}
+                  </div>
+                </div>
+
+                <div className="pmx-trio">
+                  {WRITER_PLANS.map((plan) => (
+                    <TierCard key={plan.key} plan={plan} state={stateByKey[plan.key]} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* ── Industry Card ── */}
+            {(effectiveTab === "all" || effectiveTab === "industry") && (
+              <div className="pmx-tier" style={{ margin: "40px auto 0", maxWidth: 300, width: "100%", alignSelf: "center", justifySelf: "center" }}>
+                <div className="pmx-tier-top">
+                  <span className="pmx-tier-name">{FIP.name}</span>
+                  {fipState.active && (
+                    <span className="pmx-pill pmx-pill--active" style={{ marginLeft: "auto" }}><i />Active</span>
+                  )}
+                </div>
+                
+                <div className="pmx-tier-price">
                   <b>{FIP.price}</b>
                   <span>/ month</span>
                 </div>
-                <button
-                  type="button"
-                  className={`pmx-ribbon-cta${fipState.kind === "active" ? " pmx-ribbon-cta--active" : ""}`}
-                  onClick={fipState.onClick}
-                  disabled={fipState.disabled || fipState.loading}
-                >
-                  {fipState.loading ? <Spinner /> : fipState.lock ? <LockIcon /> : null}
-                  {fipState.label}
-                </button>
-                {fipState.onRenew && (
-                  <button type="button" className="pmx-ribbon-renew" onClick={fipState.onRenew} disabled={Boolean(fip.loading)}>
-                    {fip.loading ? "Working…" : "Renew"}
-                  </button>
+                
+                {fipState.active && fipState.daysLeft > 0 && (
+                  <div className="pmx-pills">
+                    <span className="pmx-pill pmx-pill--days">{fipState.daysLeft} days left</span>
+                  </div>
                 )}
-              </div>
-            </div>
+                
+                <div className="pmx-tier-divider" />
+                
+                <div style={{ textAlign: "left", flex: 1 }}>
+                  {fipState.active ? (
+                    <span style={{ fontSize: 15, display: "block", marginTop: 12 }}>Your membership is active — full access to the writer network.</span>
+                  ) : (
+                    <ul className="pmx-feats">
+                      {FIP.feats.map((f, i) => (
+                        <li key={i}>
+                          <i />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
 
-            {(globalMsg || globalErr) && (
-              <div className="pmx-msgs">
-                {globalMsg && <div className="pmx-msg pmx-msg--info">{globalMsg}</div>}
-                {globalErr && <div className="pmx-msg pmx-msg--error">{globalErr}</div>}
+                <div className="pmx-tier-actions" style={{ marginTop: 24 }}>
+                  <button
+                    type="button"
+                    className={`pmx-btn${fipState.kind === "active" ? " pmx-btn--active" : ""}`}
+                    style={{ background: "#888782", color: "#fff", borderColor: "#888782", width: "100%" }}
+                    onClick={fipState.onClick}
+                    disabled={fipState.disabled || fipState.loading}
+                  >
+                    {fipState.loading ? <Spinner /> : fipState.lock ? <LockIcon /> : null}
+                    {fipState.label === "Upgrade to Film Industry Professional" ? "For industry pros" : fipState.label}
+                  </button>
+                  {fipState.onRenew && (
+                    <button type="button" className="pmx-btn pmx-btn--ghost" onClick={fipState.onRenew} disabled={Boolean(fipState.loading)}>
+                      {fipState.loading ? "Working…" : "Renew plan"}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
+
           </>
         )}
 
@@ -562,8 +627,8 @@ function PricingModalInner({ onClose }) {
   );
 }
 
-export default function PricingModal({ open, onClose }) {
+export default function PricingModal({ open, onClose, tab = "all" }) {
   return (
-    <AnimatePresence>{open && <PricingModalInner key="pricing-modal-v3" onClose={onClose} />}</AnimatePresence>
+    <AnimatePresence>{open && <PricingModalInner key="pricing-modal-v3" onClose={onClose} tab={tab} />}</AnimatePresence>
   );
 }

@@ -14,6 +14,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { jsPDF } from "jspdf";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { Image as ImageIcon, Film, CheckCircle2, Move, ZoomIn, RotateCw } from "lucide-react";
 import api from "../services/api";
 import { formatCurrency } from "../utils/currency";
@@ -894,6 +895,8 @@ const DraftCard = ({ draft, onClick, onDelete, dark, isActive }) => {
 const CreateProject = () => {
   const { isDarkMode: dark } = useDarkMode();
   const { user } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
+
   const navigate = useNavigate();
   const location = useLocation();
   const { draftId } = useParams();
@@ -1004,6 +1007,33 @@ const CreateProject = () => {
   // File Upload State
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
+  const [isGeneratingAiCover, setIsGeneratingAiCover] = useState(false);
+  const [aiCoverAttempts, setAiCoverAttempts] = useState(0);
+  const [aiCoverHistory, setAiCoverHistory] = useState([]);
+  const [aiCoverIndex, setAiCoverIndex] = useState(-1);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = useCallback((msg, type = "error", action = null) => {
+    setToastMessage({ text: msg, type, action });
+    setTimeout(() => setToastMessage(null), 5000);
+  }, []);
+
+  const enforceGoldPlan = useCallback((e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const plan = user?.subscription?.plan || "free";
+    if (plan !== "gold") {
+      showToast(
+        "Purchase the Gold plan to unlock premium tools.",
+        "warning",
+        { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+      );
+      return false;
+    }
+    return true;
+  }, [user, openPricingModal, showToast]);
   const [trailerFile, setTrailerFile] = useState(null);
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
@@ -1043,11 +1073,11 @@ const CreateProject = () => {
     if (!file) return;
 
     if (!file.type?.startsWith("image/")) {
-      setError("Please select an image file for thumbnail.");
+      showToast("Please select an image file for thumbnail.", "error");
       return;
     }
     if (file.size > MAX_THUMBNAIL_SOURCE_SIZE) {
-      setError("Thumbnail source image is too large. Please choose an image under 25MB.");
+      showToast("Thumbnail source image is too large. Please choose an image under 25MB.", "error");
       return;
     }
 
@@ -1069,6 +1099,98 @@ const CreateProject = () => {
   const handleThumbnailSelect = (file) => {
     if (!file) return;
     openThumbnailEditor(file);
+  };
+
+  const handleAnalyzeFormatting = async () => {
+    if (!enforceGoldPlan()) return;
+    if (!scriptId) return;
+    // Implementation details...
+  };
+
+  const generateAiCover = async () => {
+    const plan = user?.subscription?.plan || "free";
+    if (plan === "free") {
+      showToast(
+        "Purchase a plan to use AI thumbnail generation.",
+        "warning",
+        { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+      );
+      return;
+    }
+    if (!title) {
+      showToast("Please enter a title first to generate an AI cover.", "warning");
+      return;
+    }
+    if (aiCoverAttempts >= 3) {
+      showToast("You have reached the limit of 3 AI cover generations for this script.", "warning");
+      return;
+    }
+    try {
+      setIsGeneratingAiCover(true);
+      const res = await api.post("/scripts/generate-ai-cover", {
+        title: title,
+        genre: formData.primaryGenre || "",
+        logline: formData.logline || "",
+        scriptText: ""
+      });
+      if (res.data && res.data.base64Image) {
+        const resUrl = res.data.base64Image;
+        const resFetch = await fetch(resUrl);
+        const blob = await resFetch.blob();
+        const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
+        setThumbnailFile(file);
+        setAiCoverAttempts(res.data.attempts || (aiCoverAttempts + 1));
+        const newHistory = [...aiCoverHistory.slice(0, aiCoverIndex + 1), file];
+        setAiCoverHistory(newHistory);
+        setAiCoverIndex(newHistory.length - 1);
+      } else {
+        showToast("Failed to generate AI cover. Please try again.", "error");
+      }
+    } catch (error) {
+      console.error("AI cover generation failed:", error);
+      const errMsg = error.response?.data?.message || error.message;
+      showToast(errMsg, "error");
+    } finally {
+      setIsGeneratingAiCover(false);
+    }
+  };
+
+  const downloadWatermarkedImage = (file) => {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+      
+      // Add watermark
+      ctx.font = "bold 120px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 1)"; // Fully opaque white for clarity
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      
+      // Add a crisp black outline (stroke) instead of a blurry shadow
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.strokeText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Draw the solid white text over the outline
+      ctx.fillText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Download
+      const a = document.createElement("a");
+      a.download = `watermarked-${file.name}`;
+      a.href = canvas.toDataURL("image/jpeg");
+      a.click();
+      URL.revokeObjectURL(url);
+    };
   };
 
   const handleApplyThumbnail = async () => {
@@ -2380,9 +2502,10 @@ const CreateProject = () => {
   }, [navigate]);
 
   const handleNext = () => {
-    // The persistent amber gate already explains why; don't also set a generic error (avoids a
-    // duplicate banner).
+    // Two independent gates: the upfront amber script-limit gate (creationBlocked) and master's
+    // gold-plan enforcement. The amber gate already explains itself, so it just bails silently.
     if (creationBlocked) return;
+    if (!enforceGoldPlan()) return;
     if (validateStep(step) && step < 5) { setStep(step + 1); setError(""); }
   };
   const handleBack = () => { if (step > 1) { setStep(step - 1); setError(""); } };
@@ -2686,6 +2809,7 @@ const CreateProject = () => {
 
   // kind: "pdf" (clean) | "pdf-wm" (watermarked with the user's identity) | "fountain" | "fdx"
   const handleExportScreenplay = async (kind) => {
+    if (!enforceGoldPlan()) return;
     setExportMenuOpen(false);
 
     // .fdx is generated CLIENT-SIDE so its element types come from the editor's one classifier
@@ -2899,6 +3023,8 @@ const CreateProject = () => {
 
   // Generate a single section (logline / synopsis / roles) by parsing the project content with AI
   const handleGenerateMetadata = async (field) => {
+    if (!enforceGoldPlan()) return;
+    if (!scriptId) return;
     if (!editor || metaLoadingField) return;
     const plainText = getEditorPlainText();
     if (!plainText || plainText.length < 50) {
@@ -3389,6 +3515,7 @@ const CreateProject = () => {
                     image={thumbnailSourceUrl}
                     crop={thumbnailCrop}
                     zoom={thumbnailZoom}
+                    minZoom={0.1}
                     rotation={thumbnailRotation}
                     aspect={THUMBNAIL_ASPECT}
                     showGrid
@@ -3409,7 +3536,7 @@ const CreateProject = () => {
                     </div>
                     <input
                       type="range"
-                      min={1}
+                      min={0.1}
                       max={3}
                       step={0.01}
                       value={thumbnailZoom}
@@ -3556,10 +3683,6 @@ const CreateProject = () => {
                       Download PDF
                     </button>
                   )}
-                  <button onClick={handleGrammarClick} disabled={grammarLoading || saving}
-                    className={`flex items-center justify-center gap-1.5 px-3 py-1.5 max-[520px]:py-2 rounded-lg text-xs font-bold border transition disabled:opacity-40 max-[860px]:w-full ${dark ? "border-emerald-500/25 text-emerald-300 bg-emerald-500/5 hover:bg-emerald-500/10" : "border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"}`}>
-                    {grammarLoading ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Fixing...</> : <>AI Fix Grammar</>}
-                  </button>
                 </div>
               </div>
 
@@ -3589,7 +3712,7 @@ const CreateProject = () => {
                       {collabPeople.length > 1 && (
                         <PresenceAvatars people={peopleEnriched} dark={dark} onClick={() => setFocusMode(true)} />
                       )}
-                      <button type="button" onClick={() => screenplayFileInputRef.current?.click()}
+                      <button type="button" onClick={(e) => { if (enforceGoldPlan(e)) screenplayFileInputRef.current?.click(); }}
                         title="Import a script — Fountain, Final Draft (.fdx), PDF, or Word (.docx)"
                         className={`px-2.5 py-1 rounded-md text-[11px] font-bold border transition ${dark ? "border-[#2a4a6a] text-gray-300 hover:bg-white/[0.06]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>Import</button>
 
@@ -3794,7 +3917,8 @@ const CreateProject = () => {
           <motion.div key="s2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
             <div className={`${cardCls} p-6 sm:p-8 space-y-5`}>
               
-              {/* -- Target Industry Toggle -- */}
+              {/* -- Target Industry Toggle -- (Hidden for now, will add Publishing in future) */}
+              {/*
               <div className={`rounded-xl border p-4 ${dark ? "bg-[#0d1520] border-[#1d3350]" : "bg-gray-50 border-gray-200"}`}>
                 <h3 className={`text-sm font-bold mb-3 ${dark ? "text-gray-200" : "text-gray-800"}`}>Make this script available for:</h3>
                 <div className="flex flex-wrap gap-4">
@@ -3808,6 +3932,7 @@ const CreateProject = () => {
                   </label>
                 </div>
               </div>
+              */}
 
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Project Details</h2>
@@ -4282,47 +4407,105 @@ const CreateProject = () => {
                       Script Thumbnail <span className={`text-xs font-normal ${dark ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
                     </label>
                     {!thumbnailFile ? (
-                      <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${dark ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                        <ImageIcon className={`w-8 h-8 mb-2 ${dark ? "text-[#1d3350]" : "text-gray-400"}`} />
-                        <p className={`text-xs font-medium mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload & Adjust Cover</p>
-                        <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG, WEBP (Max 5MB)</p>
-                        <input
-                          ref={thumbnailInputRef}
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          onChange={(e) => {
-                            handleThumbnailSelect(e.target.files?.[0]);
-                            e.target.value = "";
-                          }}
-                          className="hidden"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center justify-center border ${dark ? "bg-white/[0.03] hover:bg-white/[0.06] border-white/5" : "bg-white hover:bg-gray-50 border-gray-200"}`}>
+                          <ImageIcon className={`w-6 h-6 mb-2 ${dark ? "text-gray-500" : "text-gray-400"}`} />
+                          <p className={`text-xs font-bold mb-0.5 ${dark ? "text-gray-300" : "text-gray-700"}`}>Upload Cover</p>
+                          <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>JPEG/PNG (Max 5MB)</p>
+                          <input
+                            ref={thumbnailInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={(e) => {
+                              handleThumbnailSelect(e.target.files?.[0]);
+                              e.target.value = "";
+                            }}
+                            className="hidden"
+                          />
+                        </div>
+                        <div onClick={isGeneratingAiCover ? null : generateAiCover} className={`rounded-xl p-3 text-center transition flex flex-col items-center justify-center border ${isGeneratingAiCover ? "cursor-not-allowed opacity-70" : "cursor-pointer"} ${dark ? "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30 text-purple-400" : "bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"}`}>
+                          <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                          <p className="text-xs font-bold mb-0.5">{isGeneratingAiCover ? "Generating..." : "AI Generate"}</p>
+                        </div>
                       </div>
                     ) : (
-                      <div className={`border rounded-xl p-3 flex items-center gap-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                        <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-bold truncate ${dark ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
-                          <p className={`text-[10px] ${dark ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
+                      <div className={`border rounded-xl p-3 flex flex-col gap-3 ${dark ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                        <div className="flex items-center gap-3">
+                          <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-bold truncate ${dark ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
+                            <p className={`text-[10px] ${dark ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openThumbnailEditor(thumbnailFile)}
+                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                            >
+                              Adjust
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => downloadWatermarkedImage(thumbnailFile)}
+                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-purple-300 border-purple-500/20 hover:bg-white/[0.12]" : "bg-white text-purple-700 border-purple-200 hover:bg-purple-50"}`}
+                            >
+                              Download
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setThumbnailFile(null);
+                                setError("");
+                              }}
+                              className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openThumbnailEditor(thumbnailFile)}
-                            className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                          >
-                            Adjust
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setThumbnailFile(null);
-                              setError("");
-                            }}
-                            className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${dark ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                          >
-                            Remove
-                          </button>
-                        </div>
+                        {thumbnailFile.name?.startsWith("ai-cover") && (
+                          <div className={`pt-3 border-t flex items-center justify-between ${dark ? "border-green-500/20" : "border-green-200"}`}>
+                            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                              <button
+                                type="button"
+                                disabled={aiCoverIndex <= 0}
+                                onClick={() => {
+                                  const newIndex = aiCoverIndex - 1;
+                                  setAiCoverIndex(newIndex);
+                                  setThumbnailFile(aiCoverHistory[newIndex]);
+                                }}
+                                className={`p-1 rounded-full ${aiCoverIndex <= 0 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                              </button>
+                              <span className="text-[10px] font-bold">History ({aiCoverIndex + 1}/{aiCoverHistory.length})</span>
+                              <button
+                                type="button"
+                                disabled={aiCoverIndex >= aiCoverHistory.length - 1}
+                                onClick={() => {
+                                  const newIndex = aiCoverIndex + 1;
+                                  setAiCoverIndex(newIndex);
+                                  setThumbnailFile(aiCoverHistory[newIndex]);
+                                }}
+                                className={`p-1 rounded-full ${aiCoverIndex >= aiCoverHistory.length - 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                              </button>
+                            </div>
+                            {aiCoverAttempts < 3 ? (
+                              <button
+                                type="button"
+                                onClick={isGeneratingAiCover ? null : generateAiCover}
+                                className={`text-[10px] font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5 ${isGeneratingAiCover ? "opacity-70 cursor-not-allowed" : ""} ${dark ? "bg-purple-600 hover:bg-purple-500 text-white" : "bg-purple-100 hover:bg-purple-200 text-purple-700"}`}
+                              >
+                                {isGeneratingAiCover ? "Generating..." : "Try Another Concept"}
+                                {!isGeneratingAiCover && <span className="font-normal opacity-70">({3 - aiCoverAttempts} left)</span>}
+                              </button>
+                            ) : (
+                              <span className={`text-[10px] font-semibold ${dark ? "text-red-400" : "text-red-600"}`}>Max attempts reached</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -4682,232 +4865,7 @@ const CreateProject = () => {
 
 
 
-                  {targetFilm && (
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-center gap-2.5 mb-4">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dark ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                        <svg className={`w-4 h-4 ${dark ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m5.25-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </div>
-                      <div>
-                        <h3 className={`text-sm font-bold ${dark ? "text-gray-100" : "text-gray-900"}`}>Rights & Licensing Preferences</h3>
-                        <p className={`text-[11px] ${dark ? "text-gray-500" : "text-gray-400"}`}>These terms are included in buyer consent and legal agreement PDFs.</p>
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Rights Type</label>
-                        <select
-                          value={rightsLicensing.rightsType}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, rightsType: e.target.value }))}
-                          className={inputCls}
-                        >
-                          {RIGHTS_TYPE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Modification Rights</label>
-                        <select
-                          value={rightsLicensing.modificationRights}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, modificationRights: e.target.value }))}
-                          className={inputCls}
-                        >
-                          {MODIFICATION_RIGHTS_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Payment Structure</label>
-                        <select
-                          value={rightsLicensing.paymentStructure}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, paymentStructure: e.target.value }))}
-                          className={inputCls}
-                        >
-                          {PAYMENT_STRUCTURE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Negotiation Mode</label>
-                        <select
-                          value={rightsLicensing.negotiationMode}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, negotiationMode: e.target.value }))}
-                          className={inputCls}
-                        >
-                          {NEGOTIATION_MODE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {rightsLicensing.rightsType === "exclusive_license" && (
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>License Duration</label>
-                          {(() => {
-                            const currentDuration = Number(rightsLicensing?.timeBound?.licenseDurationMonths || 12);
-                            const isCustomDuration = !LICENSE_DURATION_PRESET_MONTHS.includes(currentDuration);
-                            const customDurationFallback = isCustomDuration && currentDuration > 0 ? currentDuration : 30;
-
-                            return (
-                              <>
-                                <select
-                                  value={isCustomDuration ? "custom" : String(currentDuration)}
-                                  onChange={(e) => {
-                                    const selected = e.target.value;
-                                    setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                      ...prev,
-                                      timeBound: {
-                                        ...prev.timeBound,
-                                        licenseDurationMonths: selected === "custom" ? customDurationFallback : Number(selected),
-                                      },
-                                    }));
-                                  }}
-                                  className={inputCls}
-                                >
-                                  <option value="12">12 months</option>
-                                  <option value="18">18 months</option>
-                                  <option value="24">24 months</option>
-                                  <option value="custom">Custom duration...</option>
-                                </select>
-
-                                {isCustomDuration && (
-                                  <div className="mt-2">
-                                    <label className={`block text-[11px] font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Custom Duration (months)</label>
-                                    <input
-                                      type="number"
-                                      min={MIN_LICENSE_DURATION_MONTHS}
-                                      max={MAX_LICENSE_DURATION_MONTHS}
-                                      step="1"
-                                      value={currentDuration}
-                                      onChange={(e) => {
-                                        const nextRaw = Number(e.target.value);
-                                        const nextDuration = Number.isFinite(nextRaw)
-                                          ? Math.max(MIN_LICENSE_DURATION_MONTHS, Math.min(MAX_LICENSE_DURATION_MONTHS, Math.round(nextRaw)))
-                                          : MIN_LICENSE_DURATION_MONTHS;
-
-                                        setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                          ...prev,
-                                          timeBound: {
-                                            ...prev.timeBound,
-                                            licenseDurationMonths: nextDuration,
-                                          },
-                                        }));
-                                      }}
-                                      className={inputCls}
-                                    />
-                                  </div>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                      )}
-
-                      {["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing.paymentStructure) && (
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Royalty Percentage</label>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            value={rightsLicensing?.royaltySettings?.percentage ?? 0}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                              ...prev,
-                              royaltySettings: {
-                                ...prev.royaltySettings,
-                                percentage: Number(e.target.value || 0),
-                              },
-                            }))}
-                            className={inputCls}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4">
-                      <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Custom Conditions (Optional)</label>
-                      <textarea
-                        rows={4}
-                        value={rightsLicensing.customConditions}
-                        onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                          ...prev,
-                          customConditions: e.target.value,
-                        }))}
-                        className={`${inputCls} resize-y`}
-                        placeholder="Add contract-sensitive terms buyers must accept."
-                      />
-                      <p className={`text-[11px] mt-1 text-right ${dark ? "text-gray-500" : "text-gray-500"}`}>
-                        {String(rightsLicensing.customConditions || "").length}/{MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH}
-                      </p>
-                    </div>
-
-                    <div className={`mt-4 rounded-xl border px-3 py-3 ${dark ? "border-[#1b2e46] bg-[#07101c]" : "border-gray-200 bg-white"}`}>
-                      <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${dark ? "text-gray-500" : "text-gray-400"}`}>Rights Summary Preview</p>
-                      <p className={`text-sm font-semibold mt-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>{RIGHTS_LABEL_MAP[rightsLicensing.rightsType]}</p>
-                      <p className={`text-[12px] mt-1 ${dark ? "text-gray-400" : "text-gray-600"}`}>{MODIFICATION_LABEL_MAP[rightsLicensing.modificationRights]}</p>
-                      <p className={`text-[12px] ${dark ? "text-gray-400" : "text-gray-600"}`}>{PAYMENT_LABEL_MAP[rightsLicensing.paymentStructure]}</p>
-                      <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700">
-                        EXCLUSIVE RIGHTS: no multi-buyer sales once agreement is settled.
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 gap-2.5">
-                      <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed)}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                            ...prev,
-                            legalAcknowledgement: {
-                              ...prev.legalAcknowledgement,
-                              ownershipConfirmed: e.target.checked,
-                            },
-                          }))}
-                          className="mt-0.5"
-                        />
-                        <span>I confirm I own or control all rights required for this listing.</span>
-                      </label>
-                      <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(rightsLicensing?.legalAcknowledgement?.platformTermsAccepted)}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                            ...prev,
-                            legalAcknowledgement: {
-                              ...prev.legalAcknowledgement,
-                              platformTermsAccepted: e.target.checked,
-                            },
-                          }))}
-                          className="mt-0.5"
-                        />
-                        <span>I acknowledge these rights terms under platform legal policy.</span>
-                      </label>
-                      <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood)}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                            ...prev,
-                            legalAcknowledgement: {
-                              ...prev.legalAcknowledgement,
-                              exclusivityUnderstood: e.target.checked,
-                            },
-                          }))}
-                          className="mt-0.5"
-                        />
-                        <span>I understand exclusivity enforcement for settled transactions.</span>
-                      </label>
-                    </div>
-                    </div>
-                  )}
 
                   {targetPublishing && (
                     <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50/60"}`}>
@@ -5222,6 +5180,39 @@ const CreateProject = () => {
 
 
       </AnimatePresence>
+
+      {/* Professional Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-5">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border ${
+            toastMessage.type === 'error' ? 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200' :
+            toastMessage.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200' :
+            'bg-blue-50 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+          }`}>
+            {toastMessage.type === 'error' ? (
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            ) : (
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            )}
+            <p className="text-sm font-medium">{toastMessage.text}</p>
+            {toastMessage.action && (
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setToastMessage(null);
+                  toastMessage.action.onClick();
+                }} 
+                className="ml-3 px-3 py-1.5 text-xs font-bold bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-md transition whitespace-nowrap"
+              >
+                {toastMessage.action.label}
+              </button>
+            )}
+            <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100 transition">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* -- Navigation Buttons -- */}
       {step > 0 && (

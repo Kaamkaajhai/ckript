@@ -520,6 +520,7 @@ const scriptSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast queries
+scriptSchema.index({ creator: 1 });
 scriptSchema.index({ status: 1, rating: -1 });
 scriptSchema.index({ status: 1, isFeatured: 1, rating: -1 });
 scriptSchema.index({ status: 1, readsCount: -1 });
