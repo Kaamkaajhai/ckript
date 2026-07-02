@@ -66,7 +66,11 @@ const createTransporter = () => {
   // For production, use a proper email service like SendGrid, AWS SES, etc.
   
   const emailUser = (process.env.EMAIL_USER || '').trim();
-  const emailPassword = (process.env.EMAIL_PASSWORD || '').trim();
+  // Gmail App Passwords are 16 characters and are DISPLAYED as four space-separated groups
+  // ("abcd efgh ijkl mnop") for readability — but the actual password has NO spaces. If those
+  // display spaces are pasted into .env, Gmail rejects auth with "535-5.7.8 BadCredentials". A plain
+  // .trim() only strips the ends, so remove ALL internal whitespace here.
+  const emailPassword = (process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
   
   console.log('Email config - User:', emailUser ? 'Found' : 'Missing', 'Pass:', emailPassword ? 'Found' : 'Missing');
   
