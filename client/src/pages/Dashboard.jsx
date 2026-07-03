@@ -203,8 +203,66 @@ const CreatorDashboard = ({ user, dark }) => {
           </div>
         </div>
 
-        {/* Stats grid */}
-        {statCards.length > 0 && (
+        {loading ? (
+          <div className="animate-pulse space-y-8 pb-12">
+            {/* Skeletons for Stat Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 sm:justify-items-center">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className={`w-full sm:max-w-[200px] md:max-w-[180px] rounded-xl border max-[640px]:border-x-0 p-3.5 md:p-3 min-h-[104px] md:min-h-[92px] max-[640px]:min-h-[98px] ${dark ? 'bg-[#0d1520] border-[#1c2a3a]' : 'bg-white border-slate-200'}`}>
+                  <div className={`h-3 w-16 rounded mb-3 mt-1 ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                  <div className={`h-7 w-24 rounded ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Skeleton for Reviews & Insights */}
+            <div>
+              <div className="flex items-center gap-3 mb-5 sm:mb-6">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                <div>
+                  <div className={`h-5 w-40 rounded mb-2 ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                  <div className={`h-3 w-56 rounded ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                </div>
+              </div>
+              <div className={`rounded-2xl border p-6 min-h-[200px] ${dark ? 'bg-[#101e30] border-[#182840]' : 'bg-white border-gray-100'}`}>
+                 <div className={`h-10 w-64 rounded-xl mb-6 ${dark ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                 <div className="space-y-4">
+                    <div className={`h-24 w-full rounded-2xl ${dark ? 'bg-white/5' : 'bg-slate-50'}`}></div>
+                    <div className={`h-24 w-full rounded-2xl ${dark ? 'bg-white/5' : 'bg-slate-50'}`}></div>
+                 </div>
+              </div>
+            </div>
+
+            {/* Skeleton for Projects */}
+            <div>
+              <div className="flex items-center gap-2 mb-5">
+                <div className={`h-6 w-32 rounded ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                <div className={`h-5 w-8 rounded-md ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className={`rounded-2xl border h-[220px] p-5 flex flex-col ${dark ? 'bg-[#0d1520] border-[#1c2a3a]' : 'bg-white border-slate-200'}`}>
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className={`h-16 w-12 rounded-lg ${dark ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                      <div className="flex-1">
+                        <div className={`h-4 w-3/4 rounded mb-2 ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                        <div className={`h-3 w-1/2 rounded ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                      </div>
+                    </div>
+                    <div className={`h-16 w-full rounded-xl mb-4 ${dark ? 'bg-white/5' : 'bg-slate-100'}`}></div>
+                    <div className="mt-auto flex justify-between">
+                      <div className={`h-4 w-16 rounded ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                      <div className={`h-4 w-16 rounded ${dark ? 'bg-white/10' : 'bg-slate-200'}`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Stats grid */}
+            {statCards.length > 0 && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 mb-8 sm:justify-items-center">
             {statCards.map((card, idx) => {
               return (
@@ -778,6 +836,8 @@ const CreatorDashboard = ({ user, dark }) => {
               </Link>
             </div>
           </div>
+        )}
+          </>
         )}
       </motion.div>
       </div>
