@@ -5,14 +5,13 @@ import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
-import ConfirmDialog from "./ConfirmDialog";
 import ReferralShareCard from "./ReferralShareCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
 const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0, collapsed = false, onToggleCollapse }) => {
-  const { user, logout } = useContext(AuthContext);
-  const { openProducerOnboarding, openAuthModal } = useAuthModal();
+  const { user } = useContext(AuthContext);
+  const { openProducerOnboarding } = useAuthModal();
   const { isDarkMode: appDarkMode } = useDarkMode();
   const location = useLocation();
   const navigate = useNavigate();
@@ -25,7 +24,6 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
   const [watchlist, setWatchlist] = useState([]); // NEW for Producers
   const [mobileOpen, setMobileOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     if (mobileToggleToken > 0) {
@@ -43,7 +41,6 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
     viewerRole: user?.role,
   });
   const isDarkMode = appDarkMode || isReader || isWriterRole || isInvestorRole;
-  const logoutAccentColor = isDarkMode ? "#fb4b4b" : "#dc2626";
   const apiBaseUrl = (import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "");
   const rawProfileImage = user?.profileImage || user?.profilePicture || "";
   const normalizedProfileImagePath = typeof rawProfileImage === "string"
@@ -97,17 +94,6 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
     } catch {
       setWatchlist([]);
     }
-  };
-
-  const handleLogout = () => {
-    setShowLogoutConfirm(true);
-  };
-
-  const confirmLogout = () => {
-    setShowLogoutConfirm(false);
-    logout();
-    navigate("/", { replace: true });
-    openAuthModal();
   };
 
   const isActive = (path) => {
@@ -164,6 +150,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
     { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
   ] : [
     { path: "/dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { path: `${profilePath}?tab=bookmarks`, label: "Saved projects", icon: "M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" },
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
   ];
 
@@ -282,7 +269,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
             onClick={onToggleCollapse}
             title="Collapse sidebar"
             aria-label="Collapse sidebar"
-            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-[#4a5a6e] hover:text-[#8896a7] hover:bg-[#0d1520]" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-white/80 hover:text-white hover:bg-[#0d1520]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -405,15 +392,6 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
           </>
         )}
       </nav>
-
-      <div className={`border-t p-3 ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}>
-        <button onClick={handleLogout}
-          style={{ color: logoutAccentColor, opacity: 1 }}
-          className={`w-full px-3 py-2.5 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center gap-2.5 justify-center ${isDarkMode ? "!text-red-400 hover:!text-red-300 hover:bg-red-500/10" : "!text-red-600 hover:!text-red-700 hover:bg-red-50/80"}`}>
-          <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          Log out
-        </button>
-      </div>
     </div>
   );
 
@@ -436,7 +414,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
             onClick={onToggleCollapse}
             title="Expand sidebar"
             aria-label="Expand sidebar"
-            className={`hidden lg:inline-flex w-10 h-10 mb-1 items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-[#4a5a6e] hover:text-[#8896a7] hover:bg-[#0d1520]" : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"}`}
+            className={`hidden lg:inline-flex w-10 h-10 mb-1 items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-white/80 hover:text-white hover:bg-[#0d1520]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -491,11 +469,6 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
               </div>
             )}
           </button>
-          <button onClick={handleLogout} title="Log out"
-            style={{ color: logoutAccentColor, opacity: 1 }}
-            className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${isDarkMode ? "!text-red-400 hover:!text-red-300 hover:bg-red-500/10" : "!text-red-600 hover:!text-red-700 hover:bg-red-50"}`}>
-            <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </button>
         </div>
       </aside>
 
@@ -548,17 +521,6 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
           );
         })}
       </nav>
-
-      <ConfirmDialog
-        open={showLogoutConfirm}
-        title="Log out"
-        message="Are you sure you want to log out of your account?"
-        confirmText="Log out"
-        cancelText="Cancel"
-        onConfirm={confirmLogout}
-        onCancel={() => setShowLogoutConfirm(false)}
-        isDarkMode={isDarkMode}
-      />
     </>
   );
 };

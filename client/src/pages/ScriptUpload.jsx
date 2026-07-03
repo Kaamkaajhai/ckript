@@ -434,6 +434,9 @@ const ScriptUpload = () => {
   const [scriptId, setScriptId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Writer "scripts per plan" limit (e.g. Free = 1) — fetched on mount so the gate shows UPFRONT
+  // and blocks progression, not just at submit. Shared rule with the server (utils/scriptLimits.js).
+  const [scriptLimit, setScriptLimit] = useState(null);
   const [pdfNotice, setPdfNotice] = useState("");
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -1513,8 +1516,23 @@ const ScriptUpload = () => {
   };
 
   // Handle next step
+  // Fetch the writer's script-limit status once, so the gate is visible before any upload work.
+  useEffect(() => {
+    let active = true;
+    api.get("/scripts/script-limit")
+      .then(({ data }) => { if (active) setScriptLimit(data); })
+      .catch(() => { if (active) setScriptLimit(null); });
+    return () => { active = false; };
+  }, []);
+
+  // Block creating a NEW upload when the plan limit is reached; editing an existing script (scriptId
+  // present) is never blocked — only the fresh "upload another" path is.
+  const creationBlocked = Boolean(scriptLimit?.limitReached) && !scriptId;
+
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
+    // The persistent amber gate already explains why; don't set a generic error (avoids a duplicate banner).
+    if (creationBlocked) return;
     if (!validateStep(step)) return;
     if (step < 5) {
       setStep(step + 1);
@@ -1647,6 +1665,8 @@ const ScriptUpload = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    // Submit is disabled at the limit; if reached defensively, just stop (amber gate is the message).
+    if (creationBlocked) return;
 
     if (editId && editApprovalLocked) {
       setError("This script edit is already in admin review. You can edit again after approval or rejection.");
@@ -2025,6 +2045,25 @@ const ScriptUpload = () => {
                 : "bg-amber-50 border-amber-200 text-amber-800"
             }`}>
               {pdfNotice}
+            </div>
+          )}
+
+          {/* Plan script-limit gate: shown UPFRONT, blocks progression on a new upload */}
+          {creationBlocked && (
+            <div className={`mb-6 rounded-2xl border p-4 sm:p-5 flex items-start gap-3.5 ${isDarkMode ? "border-amber-500/25 bg-amber-500/[0.08]" : "border-amber-200 bg-amber-50"}`}>
+              <svg className={`w-6 h-6 shrink-0 mt-0.5 ${isDarkMode ? "text-amber-400" : "text-amber-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold ${isDarkMode ? "text-amber-300" : "text-amber-800"}`}>
+                  You've reached your {scriptLimit?.plan === "free" ? "Free plan" : "plan"} limit of {scriptLimit?.limit} script{scriptLimit?.limit > 1 ? "s" : ""}.
+                </p>
+                <p className={`text-[13px] mt-0.5 ${isDarkMode ? "text-amber-200/80" : "text-amber-700"}`}>
+                  You already have {scriptLimit?.used} published {scriptLimit?.used === 1 ? "script" : "scripts"}. Upgrade your plan to upload another — you can't proceed until then.
+                </p>
+                <Link to="/pricing" className={`inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg text-[13px] font-bold transition ${isDarkMode ? "bg-amber-400 text-[#1a1206] hover:bg-amber-300" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                  View plans &amp; upgrade
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                </Link>
+              </div>
             </div>
           )}
 
@@ -3430,7 +3469,7 @@ const ScriptUpload = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={loading || !legal.agreedToTerms}
+                      disabled={loading || !legal.agreedToTerms || creationBlocked}
                       className="w-full min-[420px]:w-auto px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {loading ? "Submitting..." : "Submit for Approval"}

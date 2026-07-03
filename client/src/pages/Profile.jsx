@@ -212,6 +212,14 @@ const Profile = () => {
   const [followRequestPending, setFollowRequestPending] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState("projects");
+  // Deep-link support: open a specific tab when the URL carries ?tab=... (e.g. the sidebar
+  // "Saved projects" link → ?tab=bookmarks). Runs on mount and whenever the query changes.
+  useEffect(() => {
+    const urlTab = new URLSearchParams(location.search).get("tab");
+    if (urlTab && ["about", "projects", "bookmarks", "meetings", "financial", "settings"].includes(urlTab)) {
+      setActiveTab(urlTab);
+    }
+  }, [location.search]);
   const [showMessageRequestModal, setShowMessageRequestModal] = useState(false);
   const [messageRequestText, setMessageRequestText] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
@@ -294,7 +302,9 @@ const Profile = () => {
         const role = String(data.user.role || "").toLowerCase();
         const isInvestorProfile = role === "investor";
         const nextScripts = (data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted);
-        setActiveTab(isInvestorProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about"));
+        // A ?tab= deep-link wins over the computed default (see the effect above).
+        const urlTab = new URLSearchParams(location.search).get("tab");
+        setActiveTab(urlTab || (isInvestorProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about")));
         tabInitializedForProfileRef.current = data.user._id;
       }
     } catch (error) {

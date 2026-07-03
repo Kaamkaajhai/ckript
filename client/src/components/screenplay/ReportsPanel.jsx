@@ -95,13 +95,13 @@ const Stat = ({ label, value, dark }) => (
   </div>
 );
 
-export default function ReportsPanel({ value = "", wordsPerPage = 250, title = "Script", dark = false, onJumpScene }) {
+export default function ReportsPanel({ value = "", title = "Script", dark = false, onJumpScene }) {
   const [sub, setSub] = useState("scenes"); // "scenes" | "characters"
   const [sceneSort, setSceneSort] = useState({ col: "number", dir: "asc" });
   const [charSort, setCharSort] = useState({ col: "lines", dir: "desc" });
   const [exportOpen, setExportOpen] = useState(false);
 
-  const scenes = useMemo(() => buildSceneReport(value, wordsPerPage), [value, wordsPerPage]);
+  const scenes = useMemo(() => buildSceneReport(value), [value]);
   const characters = useMemo(() => buildCharacterReport(value), [value]);
 
   const sortRows = (rows, sort) => [...rows].sort((a, b) => {

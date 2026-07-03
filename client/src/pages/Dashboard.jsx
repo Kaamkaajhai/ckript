@@ -757,7 +757,7 @@ const CreatorDashboard = ({ user, dark }) => {
         {/* Section heading */}
         <div className="flex items-center gap-2 mb-5 flex-wrap">
           <h2 className={`text-[17px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>My Projects</h2>
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-[#8896a7] bg-white/[0.04]' : 'text-gray-400 bg-gray-100'}`}>{myScripts.length}</span>
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-[#8896a7] bg-white/[0.04]' : 'text-gray-400 bg-gray-100'}`}>{myScripts.filter((s) => s.status !== "draft").length}</span>
         </div>
 
         {/* Approval status notices */}
@@ -790,22 +790,30 @@ const CreatorDashboard = ({ user, dark }) => {
           );
         })()}
 
-        {/* Projects grid */}
-        {myScripts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {myScripts.map((script) => (
-              <ProjectCard
-                key={script._id}
-                project={script}
-                userName={
-                  script.creator?.name?.toUpperCase() ||
-                  user?.name?.toUpperCase() ||
-                  "UNKNOWN"
-                }
-              />
-            ))}
-          </div>
-        ) : (
+        {/* Projects grid — published/active projects take priority; drafts get their own section below */}
+        {(() => {
+          const activeProjects = myScripts.filter((s) => s.status !== "draft");
+          if (activeProjects.length > 0) {
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {activeProjects.map((script) => (
+                  <ProjectCard
+                    key={script._id}
+                    project={script}
+                    userName={
+                      script.creator?.name?.toUpperCase() ||
+                      user?.name?.toUpperCase() ||
+                      "UNKNOWN"
+                    }
+                  />
+                ))}
+              </div>
+            );
+          }
+          // Only show the full empty state when there are NO scripts at all — if the user has drafts
+          // (but nothing published), the Drafts section below covers it, so skip the empty state.
+          if (myScripts.length > 0) return null;
+          return (
           <div className="text-center py-20">
             <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center ${dark ? 'bg-white/[0.04]' : 'bg-gray-100'}`}>
               <svg className={`w-10 h-10 ${dark ? 'text-gray-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -836,7 +844,54 @@ const CreatorDashboard = ({ user, dark }) => {
               </Link>
             </div>
           </div>
-        )}
+          );
+        })()}
+
+        {/* Drafts — lower priority than published projects, shown in their own section below them.
+            Each card resumes editing in the CreateProject editor via /create-project/:draftId. */}
+        {(() => {
+          const draftProjects = myScripts.filter((s) => s.status === "draft");
+          if (draftProjects.length === 0) return null;
+          return (
+            <div className="mt-10">
+              <div className="flex items-center gap-2 mb-5 flex-wrap">
+                <h2 className={`text-[17px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Drafts</h2>
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-[#8896a7] bg-white/[0.04]' : 'text-gray-400 bg-gray-100'}`}>{draftProjects.length}</span>
+                <span className={`text-[11px] font-medium ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Unpublished — only visible to you</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {draftProjects.map((draft) => (
+                  <Link
+                    key={draft._id}
+                    to={`/create-project/${draft._id}`}
+                    className={`group flex flex-col justify-between rounded-2xl border p-5 min-h-[150px] transition-all duration-200 hover:-translate-y-0.5 ${dark ? 'bg-[#0d1520] border-[#1c2a3a] hover:border-[#2a3a4e]' : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'}`}
+                  >
+                    <div>
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${dark ? 'bg-amber-500/10 text-amber-300' : 'bg-amber-50 text-amber-700'}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" /> Draft
+                      </span>
+                      <h3 className={`mt-2.5 text-[15px] font-bold leading-snug line-clamp-2 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>
+                        {draft.title?.trim() || "Untitled draft"}
+                      </h3>
+                      {draft.logline && (
+                        <p className={`mt-1.5 text-[12px] line-clamp-2 ${dark ? 'text-gray-500' : 'text-gray-500'}`}>{draft.logline}</p>
+                      )}
+                    </div>
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <span className={`text-[11px] shrink-0 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
+                        {draft.updatedAt ? `Edited ${new Date(draft.updatedAt).toLocaleDateString()}` : (draft.createdAt ? `Created ${new Date(draft.createdAt).toLocaleDateString()}` : '')}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 text-[12px] font-bold ${dark ? 'text-[#8896a7] group-hover:text-white' : 'text-[#1e3a5f]'}`}>
+                        Continue editing
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
           </>
         )}
       </motion.div>

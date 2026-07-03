@@ -4,7 +4,7 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/vi
 import { history, defaultKeymap, historyKeymap } from "@codemirror/commands";
 import { closeBrackets, completionKeymap } from "@codemirror/autocomplete";
 import { textToBlocks } from "./classify";
-import { createScreenplayExtensions, applyElementType, applyEmphasis } from "./screenplayMode";
+import { createScreenplayExtensions, applyElementType, applyEmphasis, activeEmphasis, applyCase, applyCentered, isCenteredLine, insertPageBreak } from "./screenplayMode";
 import { createLockExtensions, setLockState, remoteSync } from "./lockLayer";
 import { createCommentExtensions, setCommentState } from "./commentLayer";
 import { createLineCommentExtensions, setLineCommentHandler } from "./lineCommentLayer";
@@ -35,6 +35,7 @@ export default function ScreenplayEditor({
   value = "",
   onChange,
   onElementChange,
+  onEmphasisStateChange,
   onCaretLine,
   locks = {},
   myUserId = null,
@@ -46,6 +47,7 @@ export default function ScreenplayEditor({
   dark = false,
   placeholder = "INT. LOCATION - DAY",
   readOnly = false,
+  zoom = 1,
   className = "",
 }) {
   const hostRef = useRef(null);
@@ -55,6 +57,8 @@ export default function ScreenplayEditor({
   onChangeRef.current = onChange;
   const onElementChangeRef = useRef(onElementChange);
   onElementChangeRef.current = onElementChange;
+  const onEmphasisStateChangeRef = useRef(onEmphasisStateChange);
+  onEmphasisStateChangeRef.current = onEmphasisStateChange;
   const onCaretLineRef = useRef(onCaretLine);
   onCaretLineRef.current = onCaretLine;
   const onRequestEditRef = useRef(onRequestEdit);
@@ -99,6 +103,16 @@ export default function ScreenplayEditor({
             const line = u.state.doc.lineAt(u.state.selection.main.head).number;
             onCaretLineRef.current(line);
           }
+          // Report the active formatting state (emphasis + centered + selection presence) so the
+          // Format bar can light up its B/I/U/Center buttons and disable selection-only ones.
+          if ((u.selectionSet || u.docChanged) && onEmphasisStateChangeRef.current) {
+            const { from, to } = u.state.selection.main;
+            onEmphasisStateChangeRef.current({
+              active: activeEmphasis(viewRef.current),
+              hasSelection: from !== to,
+              centered: isCenteredLine(viewRef.current),
+            });
+          }
         }),
       ],
     });
@@ -124,11 +138,35 @@ export default function ScreenplayEditor({
       onCaretLineRef.current(v.state.doc.lineAt(v.state.selection.main.head).number);
     }
 
+    // Push fresh formatting state to the toolbar right after a command (the updateListener also
+    // fires, but reporting here keeps the button highlights snappy).
+    const reportFormatState = () => {
+      if (!onEmphasisStateChangeRef.current || !viewRef.current) return;
+      const { from, to } = viewRef.current.state.selection.main;
+      onEmphasisStateChangeRef.current({
+        active: activeEmphasis(viewRef.current),
+        hasSelection: from !== to,
+        centered: isCenteredLine(viewRef.current),
+      });
+    };
+
     // Imperative handle for the toolbar element-type dropdown.
     if (apiRef) {
       apiRef.current = {
         setElementType: (type) => applyElementType(viewRef.current, type),
-        applyEmphasis: (kind) => applyEmphasis(viewRef.current, kind),
+        applyEmphasis: (kind) => {
+          const ok = applyEmphasis(viewRef.current, kind);
+          reportFormatState();
+          return ok;
+        },
+        applyCase: (kind) => applyCase(viewRef.current, kind),
+        applyCentered: () => {
+          const ok = applyCentered(viewRef.current);
+          reportFormatState();
+          return ok;
+        },
+        insertPageBreak: () => insertPageBreak(viewRef.current),
+        activeEmphasis: () => activeEmphasis(viewRef.current),
         scrollToLine: (lineNo) => {
           const v = viewRef.current;
           if (!v) return;
@@ -241,6 +279,11 @@ export default function ScreenplayEditor({
     <div
       ref={hostRef}
       className={`screenplay-editor relative ${dark ? "screenplay-editor--dark" : ""} ${className}`.trim()}
+      style={{
+        "--sp-font-size": `${(15 * (Number(zoom) || 1)).toFixed(2)}px`,
+        // Page height for real page breaks (the === spacer fills to here); scales with zoom.
+        "--sp-page-height": `${Math.round(1056 * (Number(zoom) || 1))}px`,
+      }}
     >
       {composer && (
         <>

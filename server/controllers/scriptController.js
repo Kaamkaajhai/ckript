@@ -18,6 +18,7 @@ import {
   sendPurchaseRejectedEmail,
 } from "../utils/emailService.js";
 import { generateAndSaveInvoicePdf } from "../utils/invoicePdf.js";
+import { writerLimitApplies, buildScriptLimitStatus } from "../utils/scriptLimits.js";
 import { generateAndUploadAgreementPdfs } from "../utils/agreementPdf.js";
 import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionPdf.js";
 import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
@@ -1513,6 +1514,20 @@ export const extractPdfText = async (req, res) => {
   }
 };
 
+// GET /scripts/script-limit → the caller's current writer script-limit status, so the create/
+// upload UI can show the gate UPFRONT and block progression instead of only erroring at submit.
+export const getScriptLimit = async (req, res) => {
+  try {
+    if (!writerLimitApplies(req.user.role)) {
+      return res.json({ applies: false, limitReached: false });
+    }
+    const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+    return res.json({ applies: true, ...buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" }) });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to read script limit." });
+  }
+};
+
 export const saveDraft = async (req, res) => {
   try {
     if (!requireProjectCreatorAccess(req, res)) {
@@ -1521,28 +1536,12 @@ export const saveDraft = async (req, res) => {
 
     const { scriptId, title, textContent, ...otherData } = req.body;
 
-    // Enforce Writer limits for new drafts
-    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
-      
-      let limit = 1;
-      let requiredPlan = "silver";
-      
-      if (plan === "silver") {
-        limit = 8;
-        requiredPlan = "gold";
-      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
-        limit = 20;
-        requiredPlan = "custom";
-      }
-
-      if (existingScriptCount >= limit) {
-        return res.status(402).json({
-          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to create more scripts.`,
-          limitReached: true,
-          requiredPlan,
-        });
+    // Enforce Writer limits for new drafts (shared rule — see utils/scriptLimits.js)
+    if (!scriptId && writerLimitApplies(req.user.role)) {
+      const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" });
+      if (status.limitReached) {
+        return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });
       }
     }
 
@@ -1582,6 +1581,14 @@ export const saveDraft = async (req, res) => {
       }
       if (otherData.outlineNotes !== undefined) {
         script.outlineNotes = String(otherData.outlineNotes || "").slice(0, 50000);
+      }
+      if (otherData.titlePage !== undefined) {
+        // Title page: a small map of known fields. null/empty clears it. Coerce + cap each value.
+        const tp = otherData.titlePage && typeof otherData.titlePage === "object" ? otherData.titlePage : null;
+        const cleaned = {};
+        if (tp) for (const [k, v] of Object.entries(tp)) { if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300); }
+        script.titlePage = Object.keys(cleaned).length ? cleaned : undefined;
+        script.markModified("titlePage");
       }
       if (otherData.companyName !== undefined) script.companyName = String(otherData.companyName || "").trim();
       if (otherData.logline !== undefined) script.logline = otherData.logline;
@@ -1735,6 +1742,13 @@ export const saveDraft = async (req, res) => {
       );
     }
 
+    if (safeOtherData.titlePage !== undefined) {
+      const tp = safeOtherData.titlePage && typeof safeOtherData.titlePage === "object" ? safeOtherData.titlePage : null;
+      const cleaned = {};
+      if (tp) for (const [k, v] of Object.entries(tp)) { if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300); }
+      safeOtherData.titlePage = Object.keys(cleaned).length ? cleaned : undefined;
+    }
+
     if (safeOtherData.scriptCompletion !== undefined) {
       const completionErrors = validateScriptCompletionPayload(safeOtherData.scriptCompletion || {});
       if (completionErrors.length > 0) {
@@ -1861,7 +1875,7 @@ export const getMyScripts = async (req, res) => {
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt updatedAt")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 
@@ -2470,28 +2484,12 @@ export const uploadScript = async (req, res) => {
       }
     }
 
-    // Enforce Writer limits for new uploads
-    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
-      
-      let limit = 1;
-      let requiredPlan = "silver";
-      
-      if (plan === "silver") {
-        limit = 8;
-        requiredPlan = "gold";
-      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
-        limit = 20;
-        requiredPlan = "custom";
-      }
-
-      if (existingScriptCount >= limit) {
-        return res.status(402).json({
-          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to upload more scripts.`,
-          limitReached: true,
-          requiredPlan,
-        });
+    // Enforce Writer limits for new uploads (shared rule — see utils/scriptLimits.js)
+    if (!scriptId && writerLimitApplies(req.user.role)) {
+      const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "upload" });
+      if (status.limitReached) {
+        return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });
       }
     }
 

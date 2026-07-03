@@ -4,6 +4,7 @@
 // consistent with the editor, viewer, navigator, and export. No separate parser.
 
 import { extractScenes, classifyText } from "./screenplayMode";
+import { paginate } from "./paginate";
 
 const wordCount = (line = "") => {
   const t = line.trim();
@@ -16,15 +17,19 @@ const cueName = (text = "") =>
   String(text).replace(/^@\s*/, "").replace(/\s*\([^)]*\)\s*$/, "").replace(/\s+/g, " ").trim().toUpperCase();
 
 /**
- * Scene report — one row per scene: number, heading, approximate page, and length.
- * `page` uses the same words-per-page model as the editor's page estimate (cumulative words
- * before the scene ÷ wordsPerPage). `line` is the heading's 1-based line for scroll-to.
+ * Scene report — one row per scene: number, heading, page, and length.
+ * `page` is LINE-based (industry standard, matches the exported PDF via paginate.js): the page the
+ * scene heading's line falls on. `line` is the heading's 1-based line for scroll-to.
  */
-export const buildSceneReport = (text = "", wordsPerPage = 250) => {
-  const wpp = Math.max(1, Number(wordsPerPage) || 250);
+export const buildSceneReport = (text = "") => {
   const lines = String(text).split("\n");
   const heads = extractScenes(text); // [{ line, text }] — the navigator's exact heading lines
-  let cumulativeWords = 0;
+  const { pageStarts } = paginate(text); // 0-based line index where each page begins
+  const pageOfLine = (lineIdx0) => {
+    let p = 1;
+    for (let k = 0; k < pageStarts.length; k += 1) if (lineIdx0 >= pageStarts[k]) p = k + 1;
+    return p;
+  };
 
   return heads.map((h, i) => {
     const start = h.line; // 1-based heading line
@@ -32,8 +37,7 @@ export const buildSceneReport = (text = "", wordsPerPage = 250) => {
     const slice = lines.slice(start - 1, end);
     const elements = slice.filter((l) => l.trim()).length; // non-blank lines = elements
     const words = slice.reduce((n, l) => n + wordCount(l), 0);
-    const page = Math.floor(cumulativeWords / wpp) + 1;
-    cumulativeWords += words;
+    const page = pageOfLine(start - 1);
     return {
       number: i + 1,
       heading: h.text,

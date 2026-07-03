@@ -6,7 +6,7 @@ import {
   getFeaturedScripts, getTopScripts, searchScriptsReader,
   getLatestScripts, recordRead, toggleFavorite, getCategories,
   trackScriptInteraction,
-  extractPdfText, saveDraft, deleteScript, getMyDrafts, getMyScripts, updateScript,
+  extractPdfText, saveDraft, getScriptLimit, deleteScript, getMyDrafts, getMyScripts, updateScript,
   getScriptSubmissionSummaryPdf,
   getPurchaseRequestAcceptancePdf,
   createScriptPurchaseOrder, verifyScriptPurchase,
@@ -120,6 +120,7 @@ router.get("/", protect, getScripts);
 router.get("/holds", protect, getMyHolds);
 router.get("/my-drafts", protect, getMyDrafts);
 router.get("/mine", protect, getMyScripts);
+router.get("/script-limit", protect, getScriptLimit);
 // Reader static routes (must be before /:id)
 router.get("/featured", protect, getFeaturedScripts);
 router.get("/top", protect, getTopScripts);
