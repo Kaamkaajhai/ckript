@@ -1875,7 +1875,7 @@ export const getMyScripts = async (req, res) => {
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt updatedAt")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 

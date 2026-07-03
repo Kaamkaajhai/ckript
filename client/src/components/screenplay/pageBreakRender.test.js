@@ -29,16 +29,21 @@ describe("page break renders as a real spacer (wiring)", () => {
     expect(classifyText("INT. A - DAY\n\n===\n\nINT. B - DAY")).toContain("pagebreak");
   });
 
-  it("mounting a doc with === shows a visible PAGE BREAK divider on the line", () => {
-    // happy-dom has no layout engine, so the rAF measure cycle that SIZES the spacer won't run
-    // headlessly — but the LINE itself must always show the divider (.cm-sp-pagebreak), so a break
-    // is visible even without the measured fill.
+  it("mounting a doc with === classifies the line as a page break and HIDES the === text", () => {
+    // The === line is invisible (Word/Docs style — no text label), but it still carries the
+    // .cm-sp-pagebreak class so the spacer/band can attach. The visible gap is the band (next test).
     const v = mount("INT. ROOM - DAY\n\nMary enters.\n\n===\n\nEXT. STREET - DAY\n\nShe leaves.");
     expect(v.state.doc.toString()).toContain("===");
-    expect(v.dom.querySelector(".cm-sp-pagebreak")).toBeTruthy();
+    const line = v.dom.querySelector(".cm-sp-pagebreak");
+    expect(line).toBeTruthy();
+    // The raw "===" must be wrapped in the zero-width .cm-sp-marker mark (font-size:0) — NOT left as
+    // visible text. This is the CM-native hide that replaced the height:0 CSS (which caused flicker).
+    const marker = line.querySelector(".cm-sp-marker");
+    expect(marker).toBeTruthy();
+    expect(marker.textContent).toContain("===");
   });
 
-  it("dispatching the spacer effect renders a page-gap widget (the rendering path)", async () => {
+  it("dispatching the spacer effect renders a transparent page-gap spacer (the rendering path)", async () => {
     const { setPageSpacers } = await import("./screenplayMode");
     const v = mount("INT. ROOM - DAY\n\n===\n\nEXT. STREET - DAY");
     const breakPos = v.state.doc.toString().indexOf("===") + 3; // end of the === line
@@ -46,6 +51,12 @@ describe("page break renders as a real spacer (wiring)", () => {
     const gap = v.dom.querySelector(".cm-sp-pagebreak-gap");
     expect(gap).toBeTruthy();
     expect(gap.style.height).toBe("600px");
-    expect(v.dom.querySelector(".cm-sp-pagebreak-rule")).toBeTruthy();
+  });
+
+  it("mounts an overflow-proof overlay layer for the desk gaps", () => {
+    // The desk gap is drawn in a scroller-anchored overlay layer (left:0/right:0 — never overflows,
+    // so it can't trigger the scrollbar-toggle flicker). The plugin creates the layer on mount.
+    const v = mount("INT. ROOM - DAY\n\n===\n\nEXT. STREET - DAY");
+    expect(v.dom.querySelector(".cm-sp-pagebreak-layer")).toBeTruthy();
   });
 });

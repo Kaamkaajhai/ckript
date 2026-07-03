@@ -38,6 +38,7 @@ import MeetingModal from "../components/MeetingModal";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import { countPages } from "../components/screenplay/paginate";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
@@ -2764,7 +2765,9 @@ const ScriptDetail = () => {
                           const raw = hasHtmlScriptContent ? script.textContent || "" : formattedPlainScriptText;
                           const plain = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
                           const words = plain ? plain.split(" ").filter(Boolean).length : 0;
-                          const pages = script.pageCount || Math.ceil(words / 250);
+                          // Prefer the stored (line-based) pageCount; fall back to LINE-based pagination
+                          // for screenplay text, or the old word estimate for book/HTML content.
+                          const pages = script.pageCount || (hasHtmlScriptContent ? Math.ceil(words / 250) : countPages(formattedPlainScriptText));
                           if (words > 0) {
                             return `${words.toLocaleString()} words \u00B7 ~${pages} pages`;
                           }

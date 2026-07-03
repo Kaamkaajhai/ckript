@@ -455,6 +455,13 @@ const markerHideRanges = (type, line) => {
       if (m) push(0, m[0].length);
       break;
     }
+    case "pagebreak": {
+      // Hide the entire "===" so the break is INVISIBLE (Word/Docs style). Uses the same zero-width
+      // .cm-sp-marker mark as other markers — CM-native, so it never fights the height oracle (a CSS
+      // height:0 on the line does, which makes block.bottom oscillate and the page-fill flicker).
+      push(0, text.length);
+      break;
+    }
     default:
       break;
   }
@@ -563,6 +570,12 @@ const decorationPlugin = ViewPlugin.fromClass(
 // height is provided by the editor host via the `--sp-page-height` CSS var (so zoom scales it too).
 
 const DEFAULT_PAGE_HEIGHT = 1056;
+// Visual gap between two pages (the desk showing through, like Word/Docs) and the top margin of the
+// page that follows. Added on top of the "fill to page bottom" so a break reads as: page-1 bottom
+// margin (white) → desk gap → page-2 top margin (white) → page-2 content.
+const PAGE_GAP = 40;         // desk showing between two pages (like the gap in Word/Docs)
+const PAGE_TOP_MARGIN = 56;  // top margin of the next page — matches page 1's PAGE_MARGIN_Y so the page
+                             // number sits at the same offset on every page
 
 const pageHeightOf = (view) => {
   const raw = getComputedStyle(view.dom).getPropertyValue("--sp-page-height");
@@ -574,13 +587,13 @@ class PageBreakWidget extends WidgetType {
   constructor(height) { super(); this.height = Math.max(0, Math.round(height)); }
   eq(other) { return other.height === this.height; }
   toDOM() {
+    // Pure TRANSPARENT spacer: it only reserves vertical space so the next page starts lower. The
+    // visible desk gap is drawn separately by pageBreakPlugin's overlay layer (which spans the exact
+    // scroller width via left:0/right:0 — no measured widths, so it can never overflow-flicker).
     const wrap = document.createElement("div");
     wrap.className = "cm-sp-pagebreak-gap";
     wrap.style.height = `${this.height}px`;
     wrap.setAttribute("aria-hidden", "true");
-    const inner = document.createElement("div");
-    inner.className = "cm-sp-pagebreak-rule";
-    wrap.appendChild(inner);
     return wrap;
   }
   get estimatedHeight() { return this.height; }
@@ -609,54 +622,126 @@ const pageSpacerField = StateField.define({
   provide: (f) => EditorView.decorations.from(f),
 });
 
-// Signature of the current spacer set in the field (pos:height,…) — so we only dispatch on change.
-const spacerSignature = (deco) => {
-  const out = []; const it = deco.iter();
-  while (it.value) { out.push(`${it.from}:${it.value.spec.widget?.height}`); it.next(); }
-  return out.join(",");
-};
-
 const pageBreakPlugin = ViewPlugin.fromClass(
   class {
-    constructor(view) { this.raf = 0; this.scheduleMeasure(view); }
+    constructor(view) {
+      this.raf = 0;
+      // Overlay layer for the visible desk gaps. It's a child of the scroller sized left:0/right:0
+      // (exactly the scroller's content width — it can NEVER overflow and cause a scrollbar), and it
+      // scrolls with the content like CodeMirror's own selection/cursor layers. Inserted before the
+      // content so the text always paints on top of a gap band.
+      this.layer = document.createElement("div");
+      this.layer.className = "cm-sp-pagebreak-layer";
+      this.layer.setAttribute("aria-hidden", "true");
+      view.scrollDOM.insertBefore(this.layer, view.scrollDOM.firstChild);
+      this.scheduleMeasure(view);
+    }
     update(u) {
       // Re-measure whenever the doc, viewport, or geometry changes (typing, scroll, resize, zoom).
       if (u.docChanged || u.viewportChanged || u.geometryChanged) this.scheduleMeasure(u.view);
     }
-    destroy() { if (this.raf) cancelAnimationFrame(this.raf); }
+    destroy() { if (this.raf) cancelAnimationFrame(this.raf); this.layer.remove(); }
     // Schedule on the next frame (so layout is settled) and outside the current update cycle (so we
     // can dispatch the spacer heights without "dispatch during update" issues).
     scheduleMeasure(view) {
       if (this.raf) return;
       this.raf = requestAnimationFrame(() => {
         this.raf = 0;
-        let spacers = [];
-        try { spacers = this.compute(view); } catch { spacers = []; }
-        const next = spacers.map((s) => `${s.pos}:${s.height}`).join(",");
-        if (next !== spacerSignature(view.state.field(pageSpacerField))) {
-          view.dispatch({ effects: setPageSpacers.of(spacers) });
+        let out = { spacers: [], bands: [] };
+        try { out = this.compute(view); } catch { out = { spacers: [], bands: [] }; }
+        this.renderBands(out.bands);
+        // Only re-dispatch when the spacer HEIGHTS meaningfully change. Because compute() is
+        // idempotent (it strips the spacers it already added — see below), the fixpoint is reached in
+        // ONE dispatch; the ±2px hysteresis then absorbs any sub-pixel measurement noise so the
+        // measure→relayout→measure cycle can never flip-flop (the old flicker).
+        if (this.changed(out.spacers, view.state.field(pageSpacerField))) {
+          view.dispatch({ effects: setPageSpacers.of(out.spacers) });
         }
       });
     }
-    // For each "===" line, fill height = remaining space on its current page. Pages track cumulatively
-    // (each break resets the running page top to just after the spacer it adds). lineBlockAt returns
-    // document-space coords (0 = top of content), so the first page top is 0.
+    // Reconcile the overlay DOM to `bands` without churn (only touch styles that changed), so a stable
+    // layout produces zero DOM mutations → nothing to repaint → no flicker. Each boundary is a wrapper
+    // holding the desk gap (top strip) + a page-number label sitting in the NEXT page's top margin.
+    renderBands(bands) {
+      const layer = this.layer;
+      while (layer.childElementCount > bands.length) layer.removeChild(layer.lastElementChild);
+      while (layer.childElementCount < bands.length) {
+        const wrap = document.createElement("div");
+        wrap.className = "cm-sp-pagebreak-boundary";
+        const band = document.createElement("div");
+        band.className = "cm-sp-pagebreak-band";
+        const num = document.createElement("div");
+        num.className = "cm-sp-pagebreak-pagenum";
+        wrap.appendChild(band);
+        wrap.appendChild(num);
+        layer.appendChild(wrap);
+      }
+      for (let i = 0; i < bands.length; i += 1) {
+        const wrap = layer.children[i];
+        const band = wrap.children[0];
+        const num = wrap.children[1];
+        const top = `${Math.round(bands[i].top)}px`;
+        const bh = `${Math.round(bands[i].height)}px`;
+        const numTop = `${Math.round(bands[i].height) + 24}px`; // 24px into the next page's top margin
+        const label = `${bands[i].pageNum}.`;
+        if (wrap.style.top !== top) wrap.style.top = top;
+        if (band.style.height !== bh) band.style.height = bh;
+        if (num.style.top !== numTop) num.style.top = numTop;
+        if (num.textContent !== label) num.textContent = label;
+      }
+    }
+    changed(spacers, deco) {
+      const cur = [];
+      const it = deco.iter();
+      while (it.value) { cur.push({ pos: it.from, height: it.value.spec.widget?.height ?? 0 }); it.next(); }
+      if (cur.length !== spacers.length) return true;
+      for (let i = 0; i < spacers.length; i += 1) {
+        if (cur[i].pos !== spacers[i].pos) return true;
+        if (Math.abs(cur[i].height - spacers[i].height) > 2) return true;
+      }
+      return false;
+    }
+    // For each "===" line, fill = the space left on its current page (so the next line starts a fresh
+    // page). CRITICAL for no-flicker: measured positions include the spacers we ourselves added, so we
+    // strip them back out to get NATURAL positions. That makes compute() a pure function of the
+    // document — its output no longer depends on its own previous output, so it converges in one pass.
+    //
+    // NOTE: this draws pages only at MANUAL "===" breaks. Automatic pagination (a page appearing the
+    // moment content fills up) needs the editor rendered on a uniform line grid — CodeMirror measures
+    // wrapped, variable-height lines lazily, so a break placed by content height lands mid-element. The
+    // line-based page COUNT (Pages panel, badge, export) already uses paginate.js; the on-screen
+    // auto-break is a separate, larger typography change.
     compute(view) {
       const pageH = pageHeightOf(view);
       const types = classifyDocument(view.state);
+      // Snapshot the currently-applied spacer heights so we can subtract them from measurements.
+      const applied = [];
+      const field = view.state.field(pageSpacerField, false);
+      if (field) {
+        const it = field.iter();
+        while (it.value) { applied.push({ from: it.from, h: it.value.spec.widget?.height ?? 0 }); it.next(); }
+      }
+      const priorSum = (posFrom) => applied.reduce((s, r) => (r.from < posFrom ? s + r.h : s), 0);
+
       const spacers = [];
-      let pageTop = 0;
+      const bands = [];
+      let naturalPageTop = 0;
+      let pageNo = 1; // page 1 is the first page; every break starts the next page
       for (let i = 1; i <= view.state.doc.lines; i += 1) {
         if (types[i - 1] !== "pagebreak") continue;
         const line = view.state.doc.line(i);
         const block = view.lineBlockAt(line.from); // throws only if pos invalid — caught above
-        const usedOnPage = block.bottom - pageTop;
+        const renderedTop = block.top;
+        const naturalTop = renderedTop - priorSum(line.from);
+        const usedOnPage = naturalTop - naturalPageTop;
         const remaining = pageH - (((usedOnPage % pageH) + pageH) % pageH);
-        const fill = remaining < 24 ? pageH : remaining; // near a page edge → fill a whole gap
+        const fill = remaining + PAGE_GAP + PAGE_TOP_MARGIN;
         spacers.push({ pos: line.to, height: Math.round(fill) });
-        pageTop = block.bottom + fill;
+        pageNo += 1;
+        bands.push({ top: renderedTop + remaining, height: PAGE_GAP, pageNum: pageNo });
+        naturalPageTop = naturalTop;
       }
-      return spacers;
+      return { spacers, bands };
     }
   }
 );
@@ -753,47 +838,66 @@ const screenplayTheme = EditorView.theme({
     letterSpacing: "0.08em",
   },
   ".cm-sp-sequence": { textTransform: "uppercase", fontWeight: "700", letterSpacing: "0.08em", paddingTop: "2.4em", paddingBottom: "0.6em", fontSize: "0.85em" },
-  // Page break ("==="): the raw === characters are hidden, but the LINE always shows a clear labelled
-  // divider ("⤓ PAGE BREAK ⤓"), so a break is visible even before the measured page-fill spacer is
-  // applied. The block-widget spacer (.cm-sp-pagebreak-gap, added by pageBreakPlugin) then fills the
-  // rest of the page so the next line starts a fresh page.
+  // Page break ("==="): the break itself is INVISIBLE (no text label) — exactly like a Word/Docs page
+  // break. The visible page separation is: a TRANSPARENT block-widget spacer (.cm-sp-pagebreak-gap)
+  // that reserves the vertical space, plus a desk-coloured band drawn in the overlay layer
+  // (.cm-sp-pagebreak-layer > .cm-sp-pagebreak-band) that spans the exact scroller width. To remove a
+  // break, put the caret at the start of the next page and Backspace (same as Word).
+  // The === text is hidden via the zero-width .cm-sp-marker mark (see markerHideRanges), so the line
+  // renders empty. We DON'T override height/line-height here: forcing height:0 fights CodeMirror's
+  // height measurement, which destabilises block.bottom and makes the page-fill measurement flicker.
+  // A small stable padding keeps the empty break line a thin, clickable target.
   ".cm-sp-pagebreak": {
-    position: "relative",
-    textAlign: "center",
-    color: "transparent",          // hide the raw "==="
+    color: "transparent",          // belt-and-suspenders in case a marker range is ever missed
     userSelect: "none",
-    paddingTop: "1.1em",
-    paddingBottom: "1.1em",
-    margin: "0.4em 0",
+    padding: "0.2em 0",
   },
-  ".cm-sp-pagebreak::after": {
-    content: '"⤓  PAGE BREAK  ⤓"',
+  // The page-fill spacer that pushes the next page down. TRANSPARENT — the white sheet shows through
+  // as the current page's bottom margin and the next page's top margin.
+  ".cm-sp-pagebreak-gap": {
+    width: "100%",
+    margin: "0",
+    background: "transparent",
+  },
+  // Overlay layer: a zero-height, non-interactive band host anchored to the scroller's content box.
+  // left:0/right:0 makes each band exactly the scroller width — it can never overflow (no scrollbar
+  // flicker) — and it scrolls with the content like CodeMirror's own layers.
+  ".cm-sp-pagebreak-layer": {
     position: "absolute",
     left: "0",
     right: "0",
-    top: "50%",
-    transform: "translateY(-50%)",
-    color: "#9aa3ad",
-    fontSize: "0.68em",
-    fontWeight: "700",
-    letterSpacing: "0.2em",
-    borderTop: "1px dashed #cfd6df",
-    borderBottom: "1px dashed #cfd6df",
-    padding: "0.4em 0",
+    top: "0",
+    height: "0",
+    pointerEvents: "none",
+    zIndex: "0",
   },
-  // The page-fill spacer that pushes the next page down. Desk-coloured so it reads as the gap between
-  // two pages; a dashed rule marks where the next page begins.
-  ".cm-sp-pagebreak-gap": {
-    position: "relative",
-    width: "100%",
-    margin: "0",
-  },
-  ".cm-sp-pagebreak-rule": {
+  // Each page boundary: a wrapper spanning the desk gap + the next page's top margin (positioned by
+  // `top` inline). Full scroller width, non-interactive.
+  ".cm-sp-pagebreak-boundary": {
     position: "absolute",
-    left: "-4ch",
-    right: "-4ch",
-    bottom: "0",
-    borderTop: "1px dashed #cfd6df",
+    left: "0",
+    right: "0",
+  },
+  // The desk gap between two sheets: a full-width strip painted the desk colour. The shadows make the
+  // ending sheet read as a distinct page casting a drop shadow into the gap, and give both sheets a
+  // crisp edge — so it looks like two separate pages, not a grey band across one continuous sheet.
+  ".cm-sp-pagebreak-band": {
+    position: "absolute",
+    top: "0",
+    left: "0",
+    right: "0",
+    background: "#ece9e3",
+    boxShadow: "inset 0 1px 0 rgba(0,0,0,0.10), inset 0 9px 8px -8px rgba(0,0,0,0.22), inset 0 -1px 0 rgba(0,0,0,0.06)",
+  },
+  // Page number on each fresh page (top-right), matching the first page's "1." style.
+  ".cm-sp-pagebreak-pagenum": {
+    position: "absolute",
+    right: "2rem",
+    fontFamily: SCREENPLAY_FONT,
+    fontSize: "12px",
+    color: "#9ca3af",
+    userSelect: "none",
+    pointerEvents: "none",
   },
   ".cm-sp-lyrics": { marginLeft: "10ch", maxWidth: "35ch", fontStyle: "italic", paddingTop: "0", paddingBottom: "0.35em" },
   // Dual cue hints the second (right-hand) speaker; true side-by-side columns are a later pass.
@@ -837,12 +941,12 @@ export const createScreenplayExtensions = ({ getEntities, dark, onElementChange 
     // Sequence headers are subordinate structure, not disabled — darker than a faint grey so
     // they read as a deliberate, quieter tier (sits just above the parenthetical grey).
     ".cm-sp-sequence": { color: dark ? "#aeb8c4" : "#555555" },
-    // Page-break label + gutter + edge rule — desk colour on the dark page so it reads as a real gap.
-    ".cm-sp-pagebreak::after": dark
-      ? { color: "#5b6b7e", borderTopColor: "#243650", borderBottomColor: "#243650" }
+    // Page-break desk gap — matches the canvas desk colour so the strip reads as the desk showing
+    // through between two pages (dark page uses the dark canvas colour).
+    ".cm-sp-pagebreak-band": dark
+      ? { background: "#0a0f17", boxShadow: "inset 0 1px 0 rgba(0,0,0,0.5), inset 0 9px 8px -8px rgba(0,0,0,0.55), inset 0 -1px 0 rgba(255,255,255,0.03)" }
       : {},
-    ".cm-sp-pagebreak-gap": dark ? { background: "#0a0f17" } : { background: "#ece9e3" },
-    ".cm-sp-pagebreak-rule": dark ? { borderTopColor: "#243650" } : { borderTopColor: "#cfd6df" },
+    ".cm-sp-pagebreak-pagenum": { color: dark ? "#5b6b7e" : "#9ca3af" },
     // The ONLY line background: a barely-there neutral tint on the caret's current line.
     // Kept very faint so it reads as a soft band, never a solid grey row. It is constrained to
     // the text column (not the full page sheet) because .cm-content is itself 62ch and centered,
