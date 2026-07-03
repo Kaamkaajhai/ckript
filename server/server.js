@@ -32,6 +32,7 @@ import tagRoutes from "./routes/tagRoutes.js";
 import onboardingRoutes from "./routes/onboardingRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import producerRatingRoutes from "./routes/producerRatingRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 
@@ -355,6 +356,7 @@ app.use("/api/tags", tagRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/producer-ratings", producerRatingRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/transactions", transactionRoutes);
 
