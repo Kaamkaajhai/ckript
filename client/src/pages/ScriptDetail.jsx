@@ -38,6 +38,8 @@ import MeetingModal from "../components/MeetingModal";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import { countPages } from "../components/screenplay/paginate";
+import ProducerRatingCard from "../components/ProducerRatingCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
@@ -1768,6 +1770,13 @@ const ScriptDetail = () => {
                           <p className="text-lg font-extrabold text-amber-500 tabular-nums">&#9733; {script.rating.toFixed(1)}</p>
                         </div>
                       )}
+
+                      {script.producerRating?.count > 0 && (
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${t.label}`}>Producer Rating</p>
+                          <p className="text-lg font-extrabold text-emerald-500 tabular-nums">&#9733; {Number(script.producerRating.average).toFixed(1)} <span className={`text-[11px] font-semibold ${t.muted}`}>({script.producerRating.count})</span></p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -2499,7 +2508,7 @@ const ScriptDetail = () => {
                         </div>
                       </div>
 
-                      {/* ── 3. Platform Score (Admin) ── */}
+                      {/* ── 3. Ckript Score (platform/admin evaluation) ── */}
                       {script.platformScore?.overall > 0 && (() => {
                         const ps = script.platformScore;
                         const psDims = [
@@ -2518,7 +2527,7 @@ const ScriptDetail = () => {
                             <div className={`flex items-center justify-between gap-3 px-5 py-4 border-b ${dk ? "bg-[#0d1b2e]/60 border-white/[0.06]" : "bg-gray-50/80 border-gray-100"}`}>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5">
-                                  <span className={`text-[10px] font-bold uppercase tracking-widest ${dk ? "text-white/25" : "text-gray-400"}`}>Platform Score</span>
+                                  <span className={`text-[10px] font-bold uppercase tracking-widest ${dk ? "text-white/25" : "text-gray-400"}`}>Ckript Score</span>
                                 </div>
                                 <h4 className={`text-[14px] font-bold truncate ${dk ? "text-gray-100" : "text-gray-900"}`}>{script.title}</h4>
                                 {ps.scoredAt && (
@@ -2664,7 +2673,7 @@ const ScriptDetail = () => {
                         </div>
                       )}
 
-                      {/* ── 4. Platform Editorial Sections ── */}
+                      {/* ── 4. Ckript Score editorial sections ── */}
                       {(() => {
                         const ps = script.platformScore || {};
                         const sections = [
@@ -2683,7 +2692,7 @@ const ScriptDetail = () => {
                                     </svg>
                                     {s.label}
                                   </span>
-                                  <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Platform Editorial</span>
+                                  <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Ckript Score</span>
                                 </div>
                                 <div className="px-5 py-4">
                                   {ps[s.key] ? (
@@ -2716,6 +2725,16 @@ const ScriptDetail = () => {
                       {/* Empty state evaluation button removed */}
                     </div>
                   )}
+
+                  {/* Producer ratings — industry credibility, shown alongside the AI evaluation and
+                      Ckript Score. Visible to everyone; producers can rate. Renders itself only when
+                      there are ratings or the viewer can rate. */}
+                  <ProducerRatingCard
+                    script={script}
+                    user={user}
+                    dark={isDarkMode}
+                    onAggregate={(agg) => setScript((s) => (s ? { ...s, producerRating: agg } : s))}
+                  />
                 </motion.div>
               );
             })()}
@@ -2764,7 +2783,9 @@ const ScriptDetail = () => {
                           const raw = hasHtmlScriptContent ? script.textContent || "" : formattedPlainScriptText;
                           const plain = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
                           const words = plain ? plain.split(" ").filter(Boolean).length : 0;
-                          const pages = script.pageCount || Math.ceil(words / 250);
+                          // Prefer the stored (line-based) pageCount; fall back to LINE-based pagination
+                          // for screenplay text, or the old word estimate for book/HTML content.
+                          const pages = script.pageCount || (hasHtmlScriptContent ? Math.ceil(words / 250) : countPages(formattedPlainScriptText));
                           if (words > 0) {
                             return `${words.toLocaleString()} words \u00B7 ~${pages} pages`;
                           }

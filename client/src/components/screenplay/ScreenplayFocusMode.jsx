@@ -6,6 +6,7 @@ import Corkboard from "./Corkboard";
 import ReportsPanel from "./ReportsPanel";
 import InviteModal from "../collab/InviteModal";
 import { getScenes, DOC_SCENE_ID } from "./sceneIdentity";
+import { paginate } from "./paginate";
 
 // A real, visible title-page sheet (same proportions/look as the script page) rendered at the top of
 // the canvas. Shows the centered industry block exactly as it prints; clicking anywhere opens the
@@ -100,7 +101,6 @@ export default function ScreenplayFocusMode({
   synopses = {},
   onSynopsisChange,
   onReorderScene,
-  wordsPerPage = 250,
   outlineNotes = "",
   onOutlineChange,
   importNotice = "",
@@ -133,36 +133,25 @@ export default function ScreenplayFocusMode({
   // so a card's lock state lines up exactly with the editor's.
   const cardScenes = useMemo(() => getScenes(value).filter((s) => s.sceneId !== DOC_SCENE_ID), [value]);
 
-  // Page list for the Pages panel. There are no real pages (the doc is one Fountain string), so we
-  // estimate: walk the lines accumulating words, start a new page when the running count crosses
-  // wordsPerPage, AND force a new page at any explicit "===" Fountain page break. Each page records
-  // the 1-based line it starts on (so clicking scrolls the editor there) and a label from the first
-  // meaningful line on that page.
+  // Page list for the Pages panel — LINE-based pagination (industry standard, matches the exported PDF
+  // via paginate.js) instead of the old word-count estimate. `paginate` returns the 0-based line index
+  // each page starts on (honouring "===" breaks); each entry records the 1-based start line (so
+  // clicking scrolls the editor there) and a label from the first meaningful line on that page.
   const pages = useMemo(() => {
     const lines = String(value || "").split("\n");
-    const result = [];
-    let words = 0;
-    let pageStartLine = 1;
-    let firstText = "";
-    const flush = (endLineIdx) => {
-      result.push({ page: result.length + 1, line: pageStartLine, label: firstText.trim() || "(blank)" });
-      pageStartLine = endLineIdx + 2; // next page starts after this line (1-based)
-      firstText = "";
-      words = 0;
+    const { pageStarts } = paginate(value || "");
+    const labelFrom = (startIdx, endIdx) => {
+      for (let i = startIdx; i < endIdx; i += 1) {
+        const t = lines[i].trim();
+        if (t && !/^={3,}$/.test(t)) return t.replace(/^[.@>~#]+\s*/, "").replace(/^>|<$/g, "");
+      }
+      return "";
     };
-    for (let i = 0; i < lines.length; i += 1) {
-      const t = lines[i].trim();
-      if (/^={3,}$/.test(t)) { flush(i); continue; } // explicit page break ends the page here
-      if (t && !firstText) firstText = t.replace(/^[.@>~#]+\s*/, "").replace(/^>|<$/g, "");
-      words += t ? t.split(/\s+/).filter(Boolean).length : 0;
-      if (words >= wordsPerPage) flush(i);
-    }
-    // Trailing partial page (or an empty doc → one page).
-    if (firstText || result.length === 0) {
-      result.push({ page: result.length + 1, line: pageStartLine, label: firstText.trim() || "(empty)" });
-    }
-    return result;
-  }, [value, wordsPerPage]);
+    return pageStarts.map((startIdx, p) => {
+      const endIdx = p + 1 < pageStarts.length ? pageStarts[p + 1] : lines.length;
+      return { page: p + 1, line: startIdx + 1, label: labelFrom(startIdx, endIdx).trim() || "(blank)" };
+    });
+  }, [value]);
 
   const topComments = comments.filter((c) => !c.parentId);
   const repliesOf = (id) => comments.filter((c) => String(c.parentId) === String(id));
@@ -695,7 +684,6 @@ export default function ScreenplayFocusMode({
             {rightTab === "reports" && (
               <ReportsPanel
                 value={value}
-                wordsPerPage={wordsPerPage}
                 title={title}
                 dark={dark}
                 onJumpScene={(line) => { setCenterView("page"); requestAnimationFrame(() => onSceneClick?.(line)); }}

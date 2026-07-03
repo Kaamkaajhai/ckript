@@ -384,6 +384,12 @@ const scriptSchema = new mongoose.Schema({
   // Reader system
   rating: { type: Number, default: 0, min: 0, max: 5 },
   reviewCount: { type: Number, default: 0 },
+  // Producer rating — aggregate of ratings from industry professionals (see ProducerRating model),
+  // recomputed on each rating. Shown to every viewer as a credibility signal.
+  producerRating: {
+    average: { type: Number, default: 0, min: 0, max: 5 },
+    count: { type: Number, default: 0 },
+  },
   readsCount: { type: Number, default: 0 },
   isFeatured: { type: Boolean, default: false },
   // Analytics

@@ -207,7 +207,6 @@ const Messages = () => {
       );
     });
 
-    loadConversations();
     return () => sock.close();
   }, [user?._id]);
 
@@ -320,6 +319,14 @@ const Messages = () => {
       if (!silent) setLoading(false);
     }
   }, []);
+
+  /* Initial conversation load — kept SEPARATE from the socket effect so the page always resolves
+     out of its loading state, even where sockets are unavailable (e.g. serverless deploys) or the
+     socket setup returns early. This is the only non-silent load, so it owns clearing `loading`. */
+  useEffect(() => {
+    if (!user?._id) { setLoading(false); return; }
+    loadConversations();
+  }, [user?._id, loadConversations]);
 
   /* ── Load messages ──────────────────────────────────────── */
   const loadMessages = useCallback(async (chatId, { silent = false } = {}) => {

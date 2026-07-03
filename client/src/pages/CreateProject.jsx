@@ -31,6 +31,7 @@ import ScreenplayFocusMode, { TitlePageSheet } from "../components/screenplay/Sc
 import ScreenplayElementBar from "../components/screenplay/ScreenplayElementBar";
 import { CORE_ELEMENTS, MORE_ELEMENT_GROUPS, SCREENPLAY_ELEMENT_BAR } from "../components/screenplay/screenplayElements";
 import { TITLE_PAGE_FIELDS } from "../components/screenplay/classify";
+import { countPages } from "../components/screenplay/paginate";
 import VersionHistoryModal from "../components/screenplay/VersionHistoryModal";
 import { extractOutline } from "../components/screenplay/screenplayMode";
 import { getScenes, sceneIdAtLine } from "../components/screenplay/sceneIdentity";
@@ -1396,31 +1397,7 @@ const CreateProject = () => {
     }
   }, []);
 
-  // Auto-calculated page count from word count + format
-  const formatInfo = FORMAT_PAGE_RANGES[formData.format] || FORMAT_PAGE_RANGES.feature;
-  const estimatedPages = Math.max(1, Math.round(wordCount / formatInfo.wordsPerPage));
-  const pageStatus = estimatedPages < formatInfo.min ? "short" : estimatedPages > formatInfo.max ? "long" : "good";
-  useEffect(() => {
-    const pageCount = Number(estimatedPages || 0);
-    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
-    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
-
-    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
-      setFormData((prev) => ({
-        ...prev,
-        previewWindowEnd: String(start),
-      }));
-      return;
-    }
-
-    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
-      setFormData((prev) => ({
-        ...prev,
-        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
-        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
-      }));
-    }
-  }, [estimatedPages, formData.previewWindowStart, formData.previewWindowEnd]);
+  // Page count + preview-window clamping are defined below, after the screenplay state.
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
   const [filmDetails, setFilmDetails] = useState({
@@ -1448,6 +1425,37 @@ const CreateProject = () => {
   // Transient notice after a Final Draft import (e.g. unmapped element types). Shown in focus mode.
   const [importNotice, setImportNotice] = useState("");
   const [screenplayEnabled, setScreenplayEnabled] = useState(true);
+
+  // Auto-calculated page count. SCREENPLAYS paginate by LINES (industry standard ~55 lines/page,
+  // matching the exported PDF via paginate.js) rather than word count; non-screenplay/book formats keep
+  // the word estimate. This value is what gets saved as the script's pageCount and shown in the UI.
+  const formatInfo = FORMAT_PAGE_RANGES[formData.format] || FORMAT_PAGE_RANGES.feature;
+  const estimatedPages = getContentTypeFromFormat(formData.format) !== "book"
+    ? countPages(screenplayValue)
+    : Math.max(1, Math.round(wordCount / formatInfo.wordsPerPage));
+  const pageStatus = estimatedPages < formatInfo.min ? "short" : estimatedPages > formatInfo.max ? "long" : "good";
+  useEffect(() => {
+    const pageCount = Number(estimatedPages || 0);
+    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
+    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
+
+    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowEnd: String(start),
+      }));
+      return;
+    }
+
+    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
+        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
+      }));
+    }
+  }, [estimatedPages, formData.previewWindowStart, formData.previewWindowEnd]);
+
   const [exportingScreenplay, setExportingScreenplay] = useState("");
   const [currentElement, setCurrentElement] = useState("action");
   // Lower toolbar mode — "elements" (Scene/Action/Character…) or "format" (Word-style B/I/U etc.).
@@ -3158,82 +3166,6 @@ const CreateProject = () => {
           </div>
         </div>
 
-        {/* -- Step Indicator -- */}
-        <div className={`mt-5 rounded-2xl border p-4 max-[415px]:p-2.5 max-[340px]:p-2 ${dark ? "bg-[#0d1520] border-[#182840]" : "bg-gray-50 border-gray-100"}`}>
-          {/* Desktop and tablet stepper */}
-          <div className="max-[415px]:hidden flex items-center max-[640px]:grid max-[640px]:grid-cols-5 max-[640px]:gap-1.5">
-            {STEPS.map((s, i) => (
-              <div key={s.num} className="flex items-center flex-1 min-w-0 max-[640px]:flex-col max-[640px]:items-stretch max-[640px]:gap-1">
-                <button
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`flex items-center gap-2.5 transition-all max-[640px]:flex-col max-[640px]:gap-1 max-[640px]:justify-center ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-8 h-8 max-[640px]:w-7 max-[640px]:h-7 rounded-xl flex items-center justify-center text-xs max-[640px]:text-[11px] font-black shrink-0 ${step === s.num ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num ? dark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
-                      : dark ? "bg-white/[0.06] text-gray-600" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : s.num}
-                  </span>
-                  <div className="text-left max-[640px]:text-center">
-                    <p className={`text-xs max-[640px]:text-[10px] font-bold max-[640px]:font-semibold leading-none truncate ${step === s.num ? dark ? "text-white" : "text-gray-900"
-                      : step > s.num ? dark ? "text-emerald-400" : "text-emerald-700"
-                        : dark ? "text-gray-600" : "text-gray-400"
-                      }`}>{s.label}</p>
-                    <p className={`text-[10px] mt-0.5 max-[640px]:hidden ${dark ? "text-gray-700" : "text-gray-400"}`}>{s.desc}</p>
-                  </div>
-                </button>
-                {i < STEPS.length - 1 && (
-                  <div className={`flex-1 h-[2px] mx-3 max-[640px]:hidden rounded-full ${step > s.num ? dark ? "bg-emerald-500/40" : "bg-emerald-300" : dark ? "bg-white/[0.06]" : "bg-gray-200"
-                    }`} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Small-phone stepper (415px to 300px) */}
-          <div className="hidden max-[415px]:block">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <p className={`text-[10px] max-[340px]:text-[9px] font-semibold ${dark ? "text-gray-400" : "text-gray-600"}`}>
-                Step {step} of {STEPS.length}
-              </p>
-              <p className={`text-[10px] max-[340px]:text-[9px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-white/[0.06] text-gray-300" : "bg-white text-gray-700 border border-gray-200"}`}>
-                {STEPS[step - 1]?.label}
-              </p>
-            </div>
-
-            <div className={`h-1.5 rounded-full overflow-hidden ${dark ? "bg-white/[0.08]" : "bg-gray-200"}`}>
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${dark ? "bg-emerald-500/45" : "bg-emerald-400"}`}
-                style={{ width: `${(Math.max(step, 1) / Math.max(STEPS.length, 1)) * 100}%` }}
-              />
-            </div>
-
-            <div className="mt-2.5 flex items-start justify-between gap-1">
-              {STEPS.map((s) => (
-                <button
-                  key={`mobile-step-${s.num}`}
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`min-w-0 flex-1 flex flex-col items-center gap-1 ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-6 h-6 max-[340px]:w-[22px] max-[340px]:h-[22px] rounded-lg flex items-center justify-center text-[10px] max-[340px]:text-[9px] font-black shrink-0 ${step === s.num ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num ? dark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
-                      : dark ? "bg-white/[0.06] text-gray-600" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? <svg className="w-3 h-3 max-[340px]:w-2.5 max-[340px]:h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : s.num}
-                  </span>
-                  <span className={`text-[8px] max-[340px]:text-[7px] font-semibold leading-none truncate w-full text-center ${step === s.num ? dark ? "text-white" : "text-gray-900"
-                    : step > s.num ? dark ? "text-emerald-400" : "text-emerald-700"
-                      : dark ? "text-gray-600" : "text-gray-400"
-                    }`}>
-                    {s.shortLabel}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
       </motion.div>
 
       {/* -- Drafts Drawer -- */}
@@ -3303,7 +3235,6 @@ const CreateProject = () => {
           synopses={sceneSynopses}
           onSynopsisChange={handleSynopsisChange}
           onReorderScene={handleReorderScene}
-          wordsPerPage={formatInfo.wordsPerPage}
           outlineNotes={outlineNotes}
           onOutlineChange={handleOutlineChange}
           importNotice={importNotice}
@@ -3664,13 +3595,17 @@ const CreateProject = () => {
               {/* -- Top Bar: title + save -- */}
               <div className={`flex items-center gap-3 px-5 max-[640px]:px-3 max-[380px]:px-2.5 py-3 border-b max-[860px]:flex-col max-[860px]:items-stretch ${dark ? "border-[#182840] bg-[#080f1a]" : "border-gray-100 bg-gray-50"}`}>
                 <div className="flex-1 min-w-0">
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={e => { setTitle(e.target.value); setSaved(false); }}
-                    placeholder="Untitled Script"
-                    className={`w-full text-base max-[520px]:text-[15px] font-bold bg-transparent outline-none truncate ${dark ? "text-gray-100 placeholder:text-gray-700" : "text-gray-900 placeholder:text-gray-300"}`}
-                  />
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? "text-gray-500" : "text-gray-400"}`}>Project name</label>
+                  <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 transition-colors focus-within:ring-2 ${dark ? "bg-[#0d1520] border-[#1d3350] focus-within:border-[#2a4a70] focus-within:ring-[#1e3a5f]/30" : "bg-white border-gray-300 focus-within:border-[#1e3a5f] focus-within:ring-[#1e3a5f]/15"}`}>
+                    <svg className={`w-4 h-4 shrink-0 ${dark ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={e => { setTitle(e.target.value); setSaved(false); }}
+                      placeholder="Name of project"
+                      className={`w-full text-base max-[520px]:text-[15px] font-bold bg-transparent outline-none truncate ${dark ? "text-gray-100 placeholder:text-gray-500" : "text-gray-900 placeholder:text-gray-400"}`}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center justify-end flex-wrap gap-2 shrink-0 max-[860px]:w-full">
                   {/* Autosave handles saving; status lives in the page header. No manual Save Draft button. */}
@@ -3971,7 +3906,7 @@ const CreateProject = () => {
                       <span className={`text-2xl font-bold ${pageStatus === "good" ? dark ? "text-green-400" : "text-green-600" : pageStatus === "short" ? dark ? "text-amber-400" : "text-amber-600" : dark ? "text-blue-400" : "text-[#1e3a5f]"}`}>{estimatedPages}</span>
                       <div>
                         <p className={`text-xs font-medium ${dark ? "text-gray-300" : "text-gray-600"}`}>pages</p>
-                        <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>Auto-calculated from {wordCount} words</p>
+                        <p className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>{getContentTypeFromFormat(formData.format) !== "book" ? "Line-based · standard ~55 lines/page (matches export)" : `Auto-calculated from ${wordCount} words`}</p>
                       </div>
                     </div>
                   </div>
@@ -5210,6 +5145,85 @@ const CreateProject = () => {
             <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100 transition">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* -- Step Indicator (moved to the bottom of the editor, above the nav buttons) -- */}
+      {step > 0 && (
+        <div className={`mt-6 rounded-2xl border p-4 max-[415px]:p-2.5 max-[340px]:p-2 ${dark ? "bg-[#0d1520] border-[#182840]" : "bg-gray-50 border-gray-100"}`}>
+          {/* Desktop and tablet stepper */}
+          <div className="max-[415px]:hidden flex items-center max-[640px]:grid max-[640px]:grid-cols-5 max-[640px]:gap-1.5">
+            {STEPS.map((s, i) => (
+              <div key={s.num} className="flex items-center flex-1 min-w-0 max-[640px]:flex-col max-[640px]:items-stretch max-[640px]:gap-1">
+                <button
+                  onClick={() => s.num < step && setStep(s.num)}
+                  disabled={s.num > step}
+                  className={`flex items-center gap-2.5 transition-all max-[640px]:flex-col max-[640px]:gap-1 max-[640px]:justify-center ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  <span className={`w-8 h-8 max-[640px]:w-7 max-[640px]:h-7 rounded-xl flex items-center justify-center text-xs max-[640px]:text-[11px] font-black shrink-0 ${step === s.num ? "bg-[#1e3a5f] text-white shadow-md"
+                    : step > s.num ? dark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
+                      : dark ? "bg-white/[0.06] text-gray-600" : "bg-gray-200 text-gray-400"
+                    }`}>
+                    {step > s.num ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : s.num}
+                  </span>
+                  <div className="text-left max-[640px]:text-center">
+                    <p className={`text-xs max-[640px]:text-[10px] font-bold max-[640px]:font-semibold leading-none truncate ${step === s.num ? dark ? "text-white" : "text-gray-900"
+                      : step > s.num ? dark ? "text-emerald-400" : "text-emerald-700"
+                        : dark ? "text-gray-600" : "text-gray-400"
+                      }`}>{s.label}</p>
+                    <p className={`text-[10px] mt-0.5 max-[640px]:hidden ${dark ? "text-gray-700" : "text-gray-400"}`}>{s.desc}</p>
+                  </div>
+                </button>
+                {i < STEPS.length - 1 && (
+                  <div className={`flex-1 h-[2px] mx-3 max-[640px]:hidden rounded-full ${step > s.num ? dark ? "bg-emerald-500/40" : "bg-emerald-300" : dark ? "bg-white/[0.06]" : "bg-gray-200"
+                    }`} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Small-phone stepper (415px to 300px) */}
+          <div className="hidden max-[415px]:block">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <p className={`text-[10px] max-[340px]:text-[9px] font-semibold ${dark ? "text-gray-400" : "text-gray-600"}`}>
+                Step {step} of {STEPS.length}
+              </p>
+              <p className={`text-[10px] max-[340px]:text-[9px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-white/[0.06] text-gray-300" : "bg-white text-gray-700 border border-gray-200"}`}>
+                {STEPS[step - 1]?.label}
+              </p>
+            </div>
+
+            <div className={`h-1.5 rounded-full overflow-hidden ${dark ? "bg-white/[0.08]" : "bg-gray-200"}`}>
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${dark ? "bg-emerald-500/45" : "bg-emerald-400"}`}
+                style={{ width: `${(Math.max(step, 1) / Math.max(STEPS.length, 1)) * 100}%` }}
+              />
+            </div>
+
+            <div className="mt-2.5 flex items-start justify-between gap-1">
+              {STEPS.map((s) => (
+                <button
+                  key={`mobile-step-${s.num}`}
+                  onClick={() => s.num < step && setStep(s.num)}
+                  disabled={s.num > step}
+                  className={`min-w-0 flex-1 flex flex-col items-center gap-1 ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
+                >
+                  <span className={`w-6 h-6 max-[340px]:w-[22px] max-[340px]:h-[22px] rounded-lg flex items-center justify-center text-[10px] max-[340px]:text-[9px] font-black shrink-0 ${step === s.num ? "bg-[#1e3a5f] text-white shadow-md"
+                    : step > s.num ? dark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
+                      : dark ? "bg-white/[0.06] text-gray-600" : "bg-gray-200 text-gray-400"
+                    }`}>
+                    {step > s.num ? <svg className="w-3 h-3 max-[340px]:w-2.5 max-[340px]:h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : s.num}
+                  </span>
+                  <span className={`text-[8px] max-[340px]:text-[7px] font-semibold leading-none truncate w-full text-center ${step === s.num ? dark ? "text-white" : "text-gray-900"
+                    : step > s.num ? dark ? "text-emerald-400" : "text-emerald-700"
+                      : dark ? "text-gray-600" : "text-gray-400"
+                    }`}>
+                    {s.shortLabel}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
