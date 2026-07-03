@@ -69,7 +69,6 @@ export default function SeoManager() {
     document.title = seo.title || defaultSeo.title;
 
     setMetaByName("description", seo.description || defaultSeo.description);
-    setMetaByName("keywords", (seo.keywords || defaultSeo.keywords).join(", "));
     setMetaByName("robots", robots);
     setMetaByName("author", "Ckript");
     setMetaByName("application-name", "Ckript");
