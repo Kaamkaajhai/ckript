@@ -4182,7 +4182,7 @@ const CreateProject = () => {
                       No roles added yet.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
                       {roles.map((role, idx) => (
                         <div key={`role-${idx}`} className={`rounded-xl border p-3 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-white"}`}>
                           <div className="flex items-center justify-between mb-3">
