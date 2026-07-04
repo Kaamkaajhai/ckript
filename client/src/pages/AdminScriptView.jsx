@@ -46,12 +46,7 @@ const FORMAT_LABELS = {
   poet: "Poet",
   other: "Other",
 };
-const SERVICE_LABELS = {
-  hosting: "Hosting & Discovery",
-  spotlight: "Activate Spotlight",
-  aiTrailer: "AI Concept Trailer",
-  evaluation: "Professional Evaluation",
-};
+
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
@@ -360,8 +355,7 @@ const AdminScriptView = () => {
     : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
   const uploadedPdfProxyUrl = script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf`) : uploadedPdfUrl;
-  const writerCustomTerms = String(script?.legal?.customInvestorTerms || "").trim();
-  const hasWriterCustomTerms = writerCustomTerms.length > 0;
+
   const formatLabel = script?.format === "other"
     ? (String(script?.formatOther || "").trim() || "Other")
     : (FORMAT_LABELS[script?.format] || script?.format || "-");
@@ -394,54 +388,8 @@ const AdminScriptView = () => {
   const trailerThumbnailUrl = resolveMediaUrl(script?.trailerThumbnail || "");
   const trailerVideoUrl = resolveMediaUrl(script?.uploadedTrailerUrl || script?.trailerUrl || "");
   const accessMode = "Premium Access";
-  const optionalServices = [
-    {
-      key: "hosting",
-      label: SERVICE_LABELS.hosting,
-      enabled: script?.services?.hosting ?? true,
-      detail: "Marketplace listing and public discovery",
-    },
-    {
-      key: "spotlight",
-      label: SERVICE_LABELS.spotlight,
-      enabled: Boolean(script?.services?.spotlight),
-      detail: "Priority visibility and spotlight placement",
-    },
-    {
-      key: "aiTrailer",
-      label: SERVICE_LABELS.aiTrailer,
-      enabled: Boolean(script?.services?.aiTrailer),
-      detail: script?.trailerStatus ? `Trailer status: ${script.trailerStatus}` : "AI trailer service",
-    },
-    {
-      key: "evaluation",
-      label: SERVICE_LABELS.evaluation,
-      enabled: Boolean(script?.services?.evaluation),
-      detail: script?.evaluationStatus ? `Evaluation status: ${script.evaluationStatus}` : "Reader scorecard service",
-    },
-  ];
-  const rightsSummaryItems = [
-    { label: "Rights Type", value: RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || "-" },
-    { label: "Exclusivity", value: script?.rightsLicensing?.exclusivity ? "Exclusive" : "Non-exclusive" },
-    {
-      label: "License Duration",
-      value: script?.rightsLicensing?.timeBound?.licenseDurationMonths
-        ? `${script.rightsLicensing.timeBound.licenseDurationMonths} months`
-        : "-",
-    },
-    { label: "Modification Rights", value: MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || "-" },
-    { label: "Payment Structure", value: PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || "-" },
-    { label: "Royalty %", value: `${script?.rightsLicensing?.royaltySettings?.percentage || 0}%` },
-    {
-      label: "Royalty Duration",
-      value: script?.rightsLicensing?.royaltySettings?.durationType === "years"
-        ? `${script?.rightsLicensing?.royaltySettings?.durationYears} years`
-        : script?.rightsLicensing?.royaltySettings?.durationType === "project_lifetime"
-          ? "Project lifetime"
-          : "-",
-    },
-    { label: "Negotiation Mode", value: NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || "-" },
-  ];
+
+
   const plainScriptText = useMemo(
     () => formatScreenplayLikeText(getPlainTextFromScriptContent(rawContent)),
     [rawContent]
@@ -1333,86 +1281,9 @@ const AdminScriptView = () => {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Optional Services</p>
-            <p className="text-xs text-white/60">Paid and included submission services selected during upload.</p>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {optionalServices.map((service) => (
-              <div key={service.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-white/90">{service.label}</p>
-                    <p className="text-xs text-white/55 mt-1">{service.detail}</p>
-                  </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${service.enabled ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/65"}`}>
-                    {service.enabled ? "Enabled" : "Not selected"}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Rights & Licensing Preferences</p>
-            <p className="text-xs text-white/60">Rights and licensing preferences set by the writer during script upload.</p>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {rightsSummaryItems.map((item) => (
-              <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-                <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">{item.label}</p>
-                <p className="text-xs text-white/85">{item.value}</p>
-              </div>
-            ))}
-          </div>
-
-          {script?.rightsLicensing?.customConditions && (
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45 mb-2">Custom Conditions</p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{script.rightsLicensing.customConditions}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Writer Terms & Conditions</p>
-            <p className="text-xs text-white/60">Terms accepted by the writer during script upload.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Terms Accepted</p>
-              <p className="text-xs text-white/85">{script?.legal?.agreedToTerms ? "Yes" : "No"}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Terms Version</p>
-              <p className="text-xs text-white/85 break-all">{script?.legal?.termsVersion || "-"}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Accepted At</p>
-              <p className="text-xs text-white/85">{formatDateTime(script?.legal?.timestamp)}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Custom Terms Updated</p>
-              <p className="text-xs text-white/85">{formatDateTime(script?.legal?.customInvestorTermsUpdatedAt)}</p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45 mb-2">Custom Terms For Film Industry Professionals</p>
-            {hasWriterCustomTerms ? (
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{writerCustomTerms}</p>
-            ) : (
-              <p className="text-sm text-white/60">Writer did not add custom terms.</p>
-            )}
-          </div>
-        </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
           <div>

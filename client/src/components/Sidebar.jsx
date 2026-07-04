@@ -263,13 +263,13 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="px-5 h-16 flex items-center justify-between shrink-0">
-        <BrandLogo className="h-9 w-auto" />
+        <BrandLogo className={`h-9 w-auto ${isDarkMode ? "brightness-0 invert" : ""}`} />
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
             title="Collapse sidebar"
             aria-label="Collapse sidebar"
-            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-white/80 hover:text-white hover:bg-[#0d1520]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}
+            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-white hover:text-white hover:bg-white/10" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
