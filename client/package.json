@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run seo:sitemap && vite build && node ./scripts/prerender-seo.mjs",
+    "build": "npm run seo:sitemap && vite build && node ./scripts/prerender-seo.mjs && node ./scripts/verify-prerender.mjs",
     "seo:sitemap": "node ./scripts/generate-sitemap.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
