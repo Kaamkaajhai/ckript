@@ -37,7 +37,7 @@ import {
   getContactsLimit,
   getRemainingContacts,
 } from "../utils/industryAccess.js";
-import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText } from "../utils/pdfTextExtraction.js";
+import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import multer from "multer";
@@ -1462,7 +1462,7 @@ export const extractPdfText = async (req, res) => {
       try {
         const mammoth = require('mammoth');
         const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-        text = normalizeExtractedPdfText(result?.value || "");
+        text = formatScreenplayLikeText(normalizeExtractedPdfText(result?.value || ""));
       } catch (docxError) {
         console.error("[extractPdfText] docx parse failed:", docxError?.message || docxError);
         return res.status(422).json({
