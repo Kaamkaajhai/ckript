@@ -2900,9 +2900,10 @@ const CreateProject = () => {
           setError("We couldn't extract readable text from that file. If it's a scanned/image PDF, try a text-based export.");
           return;
         }
-        const formatted = formatScreenplayLikeText(extracted);
-        handleScreenplayChange(formatted);
-        setScreenplayValue(formatted);
+        
+        // The server already runs formatScreenplayLikeText on PDF and DOCX, so we can use extracted directly.
+        handleScreenplayChange(extracted);
+        setScreenplayValue(extracted);
         setImportNotice(`${isPdf ? "PDF" : "Word document"} imported — review the formatting; some elements may need adjusting.`);
         return;
       }
