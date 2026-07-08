@@ -36,7 +36,8 @@ const BODY = "'PT Serif',Georgia,serif";
 const LOGO_SRC = "/ckript-logo-landscape-nobg.png";
 
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block');
 
 @keyframes ckl-flA{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
 @keyframes ckl-flB{0%,100%{transform:translateY(0)}50%{transform:translateY(13px)}}
