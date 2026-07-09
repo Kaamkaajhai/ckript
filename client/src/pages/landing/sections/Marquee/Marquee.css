@@ -1,0 +1,31 @@
+/* ═══════════════════════ MARQUEE STRIP ═══════════════════════ */
+.ckl .ckl-marquee {
+  position: relative;
+  width: 100%;
+  background: var(--ck-ink);
+  padding: 34px 0;
+  overflow: hidden;
+  border-top: 1px solid #211f1a;
+  border-bottom: 1px solid #211f1a;
+}
+.ckl .ckl-marquee-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  animation: ckl-marquee 30s linear infinite;
+  will-change: transform;
+}
+.ckl .ckl-marquee-group {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding-right: 40px;
+}
+.ckl .ckl-marquee-item { display: flex; align-items: center; gap: 40px; }
+.ckl .ckl-marquee-phrase {
+  font-family: var(--ck-serif);
+  font-style: italic;
+  font-size: clamp(1.7rem, 2.9vw, 2.5rem);
+  color: #f3f1ea;
+  white-space: nowrap;
+}
