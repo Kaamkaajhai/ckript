@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
 import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
@@ -15,14 +16,13 @@ const Landing = lazy(() => import("./pages/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SeoPage = lazy(() => import("./pages/SeoPage"));
-const PricingPage = lazy(() => import("./pages/PricingPage"));
+const PricingRoute = lazy(() => import("./pages/PricingRoute"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
-const Login = lazy(() => import("./pages/Login"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
 const Join = lazy(() => import("./pages/Join"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
@@ -52,14 +52,12 @@ const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
-const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
-  () => import("./pages/Login"),
   () => import("./pages/Join"),
   () => import("./pages/AcceptInvite"),
   () => import("./pages/Dashboard"),
@@ -275,6 +273,7 @@ function App() {
   const appTree = (
     <DarkModeProvider key="dm-root">
       <AuthProvider>
+        <ToastProvider>
         <Router>
           <AuthModalProvider>
           <LanguagePreferenceSync />
@@ -306,7 +305,7 @@ function App() {
               <Route path="/resources/:slug" element={<SeoPage />} />
               <Route path="/tools" element={<SeoPage />} />
               <Route path="/tools/:slug" element={<SeoPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/pricing" element={<PricingRoute />} />
               <Route path="/faq" element={<SeoPage />} />
               <Route path="/genre/:slug" element={<SeoPage />} />
               <Route path="/how-to-sell-a-script" element={<SeoPage />} />
@@ -326,8 +325,8 @@ function App() {
               <Route path="/writer-terms" element={<Navigate to="/terms-conditions?tab=writer" replace />} />
               <Route path="/investor-terms" element={<Navigate to="/terms-conditions?tab=investor" replace />} />
               <Route path="/script-upload-terms" element={<ScriptUploadTermsConditions />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
               <Route path="/join" element={<RoleSelection />} />
               <Route path="/signup" element={<Join />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
@@ -342,8 +341,7 @@ function App() {
                 <Route path="/featured" element={<FeaturedProjects />} />
                 <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/profile/:id?" element={<Profile />} />
-
-                <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
                 <Route path="/create-project" element={<CreateProject />} />
@@ -390,6 +388,7 @@ function App() {
           </AdminLoginHandler>
           </AuthModalProvider>
         </Router>
+        </ToastProvider>
       </AuthProvider>
     </DarkModeProvider>
   );

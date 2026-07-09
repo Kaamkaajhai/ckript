@@ -6,6 +6,7 @@ import Cropper from "react-easy-crop";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { formatCurrency } from "../utils/currency";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import ScreenplayViewer from "../components/ScreenplayViewer";
@@ -149,7 +150,7 @@ const ROLE_GENDER_OPTIONS = ["Any", "Female", "Male", "Non-binary", "Other"];
 
 
 
-const THUMBNAIL_ASPECT = 3 / 4;
+const THUMBNAIL_ASPECT = 16 / 10;
 const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
 const MAX_TRAILER_SIZE = 250 * 1024 * 1024;
 const MAX_PDF_SIZE = 30 * 1024 * 1024;
@@ -422,6 +423,7 @@ const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
+  const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
@@ -432,6 +434,9 @@ const ScriptUpload = () => {
   const [scriptId, setScriptId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Writer "scripts per plan" limit (e.g. Free = 1) — fetched on mount so the gate shows UPFRONT
+  // and blocks progression, not just at submit. Shared rule with the server (utils/scriptLimits.js).
+  const [scriptLimit, setScriptLimit] = useState(null);
   const [pdfNotice, setPdfNotice] = useState("");
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -454,6 +459,7 @@ const ScriptUpload = () => {
 
   // Thumbnail and Trailer states
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [isGeneratingAiCover, setIsGeneratingAiCover] = useState(false);
   const [trailerFile, setTrailerFile] = useState(null);
   const [trailerOption, setTrailerOption] = useState("none"); // "none", "ai", "upload"
   const [pitchVideoFile, setPitchVideoFile] = useState(null);
@@ -1151,6 +1157,103 @@ const ScriptUpload = () => {
     return () => URL.revokeObjectURL(previewUrl);
   }, [thumbnailFile]);
 
+  const [aiCoverAttempts, setAiCoverAttempts] = useState(0);
+  const [aiCoverHistory, setAiCoverHistory] = useState([]);
+  const [aiCoverIndex, setAiCoverIndex] = useState(-1);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const showToast = useCallback((msg, type = "error", action = null) => {
+    setToastMessage({ text: msg, type, action });
+    setTimeout(() => setToastMessage(null), 5000);
+  }, []);
+
+  const generateAiCover = async () => {
+    const plan = user?.subscription?.plan || "free";
+    if (plan === "free") {
+      showToast(
+        "Purchase a plan to use AI thumbnail generation.",
+        "warning",
+        { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+      );
+      return;
+    }
+    if (!formData.title) {
+      showToast("Please enter a title in Step 1 first to generate an AI cover.", "warning");
+      return;
+    }
+    if (aiCoverAttempts >= 3) {
+      showToast("You have reached the limit of 3 AI cover generations for this script.", "warning");
+      return;
+    }
+    try {
+      setIsGeneratingAiCover(true);
+      const res = await api.post("/scripts/generate-ai-cover", {
+        title: formData.title,
+        genre: formData.primaryGenre || "",
+        logline: formData.logline || "",
+        scriptText: textContent ? textContent.substring(0, 4000) : ""
+      });
+      if (res.data && res.data.base64Image) {
+        // Convert Base64 directly to Blob to avoid browser fetch/CORS blocks
+        const resUrl = res.data.base64Image;
+        const resFetch = await fetch(resUrl);
+        const blob = await resFetch.blob();
+        const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
+        setThumbnailFile(file);
+        setAiCoverAttempts(res.data.attempts || (aiCoverAttempts + 1));
+        const newHistory = [...aiCoverHistory.slice(0, aiCoverIndex + 1), file];
+        setAiCoverHistory(newHistory);
+        setAiCoverIndex(newHistory.length - 1);
+      } else {
+        showToast("Failed to generate AI cover. Please try again.", "error");
+      }
+    } catch (error) {
+      console.error("AI cover generation failed:", error);
+      const errMsg = error.response?.data?.message || error.message;
+      showToast(errMsg, "error");
+    } finally {
+      setIsGeneratingAiCover(false);
+    }
+  };
+
+  const downloadWatermarkedImage = (file) => {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+      
+      // Add watermark
+      ctx.font = "bold 120px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 1)"; // Fully opaque white for clarity
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      
+      // Add a crisp black outline (stroke) instead of a blurry shadow
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.strokeText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Draw the solid white text over the outline
+      ctx.fillText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Download
+      const a = document.createElement("a");
+      a.download = `watermarked-${file.name}`;
+      a.href = canvas.toDataURL("image/jpeg");
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  };
+
   useEffect(() => () => {
     if (reviewRedirectTimerRef.current) {
       clearTimeout(reviewRedirectTimerRef.current);
@@ -1302,6 +1405,10 @@ const ScriptUpload = () => {
 
     switch (stepNum) {
       case 1:
+        if (!formData.title) {
+          setError("Title is required.");
+          return false;
+        }
         // Upload step — script content/file required
         if ((fromDraft || editId) && textContent.trim()) return true;
         if (!uploadedFile && !textContent.trim()) {
@@ -1311,10 +1418,6 @@ const ScriptUpload = () => {
         return true;
 
       case 2:
-        if (!formData.title) {
-          setError("Title is required.");
-          return false;
-        }
         if (!formData.format) {
           setError("Format is required.");
           return false;
@@ -1413,8 +1516,23 @@ const ScriptUpload = () => {
   };
 
   // Handle next step
+  // Fetch the writer's script-limit status once, so the gate is visible before any upload work.
+  useEffect(() => {
+    let active = true;
+    api.get("/scripts/script-limit")
+      .then(({ data }) => { if (active) setScriptLimit(data); })
+      .catch(() => { if (active) setScriptLimit(null); });
+    return () => { active = false; };
+  }, []);
+
+  // Block creating a NEW upload when the plan limit is reached; editing an existing script (scriptId
+  // present) is never blocked — only the fresh "upload another" path is.
+  const creationBlocked = Boolean(scriptLimit?.limitReached) && !scriptId;
+
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
+    // The persistent amber gate already explains why; don't set a generic error (avoids a duplicate banner).
+    if (creationBlocked) return;
     if (!validateStep(step)) return;
     if (step < 5) {
       setStep(step + 1);
@@ -1547,6 +1665,8 @@ const ScriptUpload = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    // Submit is disabled at the limit; if reached defensively, just stop (amber gate is the message).
+    if (creationBlocked) return;
 
     if (editId && editApprovalLocked) {
       setError("This script edit is already in admin review. You can edit again after approval or rejection.");
@@ -1928,6 +2048,25 @@ const ScriptUpload = () => {
             </div>
           )}
 
+          {/* Plan script-limit gate: shown UPFRONT, blocks progression on a new upload */}
+          {creationBlocked && (
+            <div className={`mb-6 rounded-2xl border p-4 sm:p-5 flex items-start gap-3.5 ${isDarkMode ? "border-amber-500/25 bg-amber-500/[0.08]" : "border-amber-200 bg-amber-50"}`}>
+              <svg className={`w-6 h-6 shrink-0 mt-0.5 ${isDarkMode ? "text-amber-400" : "text-amber-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-bold ${isDarkMode ? "text-amber-300" : "text-amber-800"}`}>
+                  You've reached your {scriptLimit?.plan === "free" ? "Free plan" : "plan"} limit of {scriptLimit?.limit} script{scriptLimit?.limit > 1 ? "s" : ""}.
+                </p>
+                <p className={`text-[13px] mt-0.5 ${isDarkMode ? "text-amber-200/80" : "text-amber-700"}`}>
+                  You already have {scriptLimit?.used} published {scriptLimit?.used === 1 ? "script" : "scripts"}. Upgrade your plan to upload another — you can't proceed until then.
+                </p>
+                <Link to="/pricing" className={`inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg text-[13px] font-bold transition ${isDarkMode ? "bg-amber-400 text-[#1a1206] hover:bg-amber-300" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
+                  View plans &amp; upgrade
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                </Link>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <AnimatePresence mode="wait">
               {/* ── Step 2: Project Essentials ── */}
@@ -1939,20 +2078,7 @@ const ScriptUpload = () => {
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-5"
                 >
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter your script title"
-                      className={inputCls}
-                    />
-                  </div>
+
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
@@ -2456,7 +2582,7 @@ const ScriptUpload = () => {
                         No roles added yet.
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
                         {roles.map((role, idx) => (
                           <div key={`role-${idx}`} className={`rounded-xl border p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-white"}`}>
                             <div className="flex items-center justify-between mb-3">
@@ -2548,11 +2674,59 @@ const ScriptUpload = () => {
                   className="space-y-6"
                 >
                   <div className={`rounded-2xl p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "bg-[#0b1626]" : "bg-white"}`}>
+                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      name="title"
+                      value={formData.title}
+                      onChange={handleChange}
+                      required
+                      placeholder="Enter your script title"
+                      className={inputCls}
+                    />
+                  </div>
+                  
+                  <div className={`rounded-2xl p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "bg-[#0b1626]" : "bg-white"}`}>
                     <div className="flex items-center justify-between mb-2">
                       <label className={`block text-sm ${labelCls} font-medium`}>
                         Script File (PDF) *
                       </label>
                     </div>
+
+                    {/* Professional Toast Notification */}
+                    {toastMessage && (
+                      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-5">
+                        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border ${
+                          toastMessage.type === 'error' ? 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200' :
+                          toastMessage.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200' :
+                          'bg-blue-50 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+                        }`}>
+                          {toastMessage.type === 'error' ? (
+                            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                          ) : (
+                            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          )}
+                          <p className="text-sm font-medium">{toastMessage.text}</p>
+                          {toastMessage.action && (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setToastMessage(null);
+                                toastMessage.action.onClick();
+                              }} 
+                              className="ml-3 px-3 py-1.5 text-xs font-bold bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-md transition whitespace-nowrap"
+                            >
+                              {toastMessage.action.label}
+                            </button>
+                          )}
+                          <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100 transition">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {fromDraft && textContent ? (
                       <div className={`flex items-center gap-3 p-4 rounded-xl mb-4 ${isDarkMode ? "bg-green-500/10 border border-green-500/20" : "bg-green-50 border border-green-200"}`}>
@@ -2665,51 +2839,7 @@ const ScriptUpload = () => {
                       </div>
                     )}
 
-                    {(editId || fromDraft || textContent.trim()) && (
-                      <div className="mt-5 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <label className={`block text-sm ${labelCls} font-medium`}>
-                            Script Content
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setScriptContentEditOpen((v) => !v)}
-                            className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition ${isDarkMode ? "border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 bg-white/[0.03]" : "border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 bg-gray-50"}`}
-                          >
-                            {scriptContentEditOpen ? "Done editing" : "Edit"}
-                          </button>
-                        </div>
 
-                        {scriptContentEditOpen ? (
-                          <textarea
-                            value={textContent}
-                            onChange={(e) => setTextContent(e.target.value)}
-                            rows={14}
-                            placeholder="Paste or edit your script content here."
-                            className={`w-full rounded-xl border px-3 py-2 text-sm font-mono leading-6 outline-none transition ${isDarkMode ? "bg-[#0f1e30] border-white/[0.08] text-gray-200 placeholder:text-gray-500 focus:border-white/30" : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/40"}`}
-                          />
-                        ) : (
-                          <div className={`rounded-xl border overflow-hidden ${isDarkMode ? "border-white/[0.08] bg-[#0f1e30]" : "border-gray-200 bg-white"}`}>
-                            <div className="px-5 py-5 max-h-72 overflow-y-auto">
-                              {textContent.trim() ? (
-                                <ScreenplayViewer
-                                  text={formatScreenplayLikeText(textContent)}
-                                  className={isDarkMode ? "text-gray-200" : "text-gray-900"}
-                                />
-                              ) : (
-                                <p className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                                  No content yet. Upload a PDF to auto-extract.
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          This content is used when publishing updates. Uploading a new PDF will auto-fill this field.
-                        </p>
-                      </div>
-                    )}
 
                   </div>
 
@@ -2726,47 +2856,110 @@ const ScriptUpload = () => {
                             Script Thumbnail <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
                           </label>
                           {!thumbnailFile ? (
-                            <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload & Adjust Cover</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG, WEBP (Max 5MB)</p>
-                              <input
-                                ref={thumbnailInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                onChange={(e) => {
-                                  handleThumbnailSelect(e.target.files?.[0]);
-                                  e.target.value = "";
-                                }}
-                                className="hidden"
-                              />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center justify-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"} border border-dashed ${isDarkMode ? "border-gray-700" : "border-gray-300"}`}>
+                                <svg className={`w-6 h-6 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
+                                <p className={`text-[11px] font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload Cover</p>
+                                <p className={`text-[9px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Max 5MB</p>
+                                <input
+                                  ref={thumbnailInputRef}
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  onChange={(e) => {
+                                    handleThumbnailSelect(e.target.files?.[0]);
+                                    e.target.value = "";
+                                  }}
+                                  className="hidden"
+                                />
+                              </div>
+                              <div onClick={isGeneratingAiCover ? null : generateAiCover} className={`rounded-xl p-3 text-center ${isGeneratingAiCover ? "cursor-not-allowed opacity-70" : "cursor-pointer"} transition flex flex-col items-center justify-center ${isDarkMode ? "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30" : "bg-purple-50 hover:bg-purple-100 border-purple-200"} border`}>
+                                {isGeneratingAiCover ? (
+                                  <div className="w-6 h-6 mb-2 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <svg className="w-6 h-6 mb-2 text-purple-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" /></svg>
+                                )}
+                                <p className={`text-[11px] font-medium mb-1 ${isDarkMode ? "text-purple-300" : "text-purple-700"}`}>{isGeneratingAiCover ? "Generating..." : "AI Generate"}</p>
+                                <p className={`text-[9px] ${isDarkMode ? "text-purple-400/70" : "text-purple-600/70"}`}>Cinematic Cover</p>
+                              </div>
                             </div>
                           ) : (
-                            <div className={`border rounded-xl p-3 flex items-center gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
-                                <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
+                            <div className={`border rounded-xl p-3 flex flex-col gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
+                              <div className="flex items-center gap-3">
+                                <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
+                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => openThumbnailEditor(thumbnailFile)}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
+                                  >
+                                    Adjust
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadWatermarkedImage(thumbnailFile)}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-green-300 border-green-500/20 hover:bg-white/[0.12]" : "bg-white text-green-600 border-green-200 hover:bg-green-50"}`}
+                                  >
+                                    Download
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setThumbnailFile(null);
+                                      setError("");
+                                    }}
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex flex-col gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => openThumbnailEditor(thumbnailFile)}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                >
-                                  Adjust
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setThumbnailFile(null);
-                                    setError("");
-                                  }}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                >
-                                  Remove
-                                </button>
-                              </div>
+                              {thumbnailFile.name?.startsWith("ai-cover") && (
+                                <div className={`pt-3 border-t flex items-center justify-between ${isDarkMode ? "border-green-500/20" : "border-green-200"}`}>
+                                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                                    <button
+                                      type="button"
+                                      disabled={aiCoverIndex <= 0}
+                                      onClick={() => {
+                                        const newIndex = aiCoverIndex - 1;
+                                        setAiCoverIndex(newIndex);
+                                        setThumbnailFile(aiCoverHistory[newIndex]);
+                                      }}
+                                      className={`p-1 rounded-full ${aiCoverIndex <= 0 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                                    </button>
+                                    <span className="text-[10px] font-bold">History ({aiCoverIndex + 1}/{aiCoverHistory.length})</span>
+                                    <button
+                                      type="button"
+                                      disabled={aiCoverIndex >= aiCoverHistory.length - 1}
+                                      onClick={() => {
+                                        const newIndex = aiCoverIndex + 1;
+                                        setAiCoverIndex(newIndex);
+                                        setThumbnailFile(aiCoverHistory[newIndex]);
+                                      }}
+                                      className={`p-1 rounded-full ${aiCoverIndex >= aiCoverHistory.length - 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                    </button>
+                                  </div>
+                                  {aiCoverAttempts < 3 ? (
+                                    <button
+                                      type="button"
+                                      onClick={isGeneratingAiCover ? null : generateAiCover}
+                                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5 ${isGeneratingAiCover ? "opacity-70 cursor-not-allowed" : ""} ${isDarkMode ? "bg-purple-600 hover:bg-purple-500 text-white" : "bg-purple-100 hover:bg-purple-200 text-purple-700"}`}
+                                    >
+                                      {isGeneratingAiCover ? "Generating..." : "Try Another Concept"}
+                                      {!isGeneratingAiCover && <span className="font-normal opacity-70">({3 - aiCoverAttempts} left)</span>}
+                                    </button>
+                                  ) : (
+                                    <span className={`text-[10px] font-semibold ${isDarkMode ? "text-red-400" : "text-red-600"}`}>Max attempts reached</span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -3166,230 +3359,7 @@ const ScriptUpload = () => {
 
 
 
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      <div className="flex items-center gap-2.5 mb-4">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                          <svg className={`w-4 h-4 ${isDarkMode ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m5.25-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Rights & Licensing Preferences</h3>
-                          <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>These terms become the legal basis for buyer consent and generated agreements.</p>
-                        </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Rights Type</label>
-                          <select
-                            value={rightsLicensing.rightsType}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, rightsType: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {RIGHTS_TYPE_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Modification Rights</label>
-                          <select
-                            value={rightsLicensing.modificationRights}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, modificationRights: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {MODIFICATION_RIGHTS_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Payment Structure</label>
-                          <select
-                            value={rightsLicensing.paymentStructure}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, paymentStructure: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {PAYMENT_STRUCTURE_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Negotiation Mode</label>
-                          <select
-                            value={rightsLicensing.negotiationMode}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, negotiationMode: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {NEGOTIATION_MODE_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {rightsLicensing.rightsType === "exclusive_license" && (
-                          <div>
-                            <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>License Duration</label>
-                            {(() => {
-                              const currentDuration = Number(rightsLicensing?.timeBound?.licenseDurationMonths || 12);
-                              const isCustomDuration = !LICENSE_DURATION_PRESET_MONTHS.includes(currentDuration);
-                              const customDurationFallback = isCustomDuration && currentDuration > 0 ? currentDuration : 30;
-
-                              return (
-                                <>
-                                  <select
-                                    value={isCustomDuration ? "custom" : String(currentDuration)}
-                                    onChange={(e) => {
-                                      const selected = e.target.value;
-                                      setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                        ...prev,
-                                        timeBound: {
-                                          ...prev.timeBound,
-                                          licenseDurationMonths: selected === "custom" ? customDurationFallback : Number(selected),
-                                        },
-                                      }));
-                                    }}
-                                    className={inputCls}
-                                  >
-                                    <option value="12">12 months</option>
-                                    <option value="18">18 months</option>
-                                    <option value="24">24 months</option>
-                                    <option value="custom">Custom duration...</option>
-                                  </select>
-
-                                  {isCustomDuration && (
-                                    <div className="mt-2">
-                                      <label className={`block text-[11px] font-semibold mb-1 ${labelCls}`}>Custom Duration (months)</label>
-                                      <input
-                                        type="number"
-                                        min={MIN_LICENSE_DURATION_MONTHS}
-                                        max={MAX_LICENSE_DURATION_MONTHS}
-                                        step="1"
-                                        value={currentDuration}
-                                        onChange={(e) => {
-                                          const nextRaw = Number(e.target.value);
-                                          const nextDuration = Number.isFinite(nextRaw)
-                                            ? Math.max(MIN_LICENSE_DURATION_MONTHS, Math.min(MAX_LICENSE_DURATION_MONTHS, Math.round(nextRaw)))
-                                            : MIN_LICENSE_DURATION_MONTHS;
-
-                                          setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                            ...prev,
-                                            timeBound: {
-                                              ...prev.timeBound,
-                                              licenseDurationMonths: nextDuration,
-                                            },
-                                          }));
-                                        }}
-                                        className={inputCls}
-                                      />
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        )}
-
-                        {["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing.paymentStructure) && (
-                          <div>
-                            <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Royalty Percentage</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={rightsLicensing?.royaltySettings?.percentage ?? 0}
-                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                ...prev,
-                                royaltySettings: {
-                                  ...prev.royaltySettings,
-                                  percentage: Number(e.target.value || 0),
-                                },
-                              }))}
-                              className={inputCls}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-4">
-                        <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Custom Conditions (Optional)</label>
-                        <textarea
-                          rows={4}
-                          value={rightsLicensing.customConditions}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                            ...prev,
-                            customConditions: e.target.value,
-                          }))}
-                          placeholder="Add any contract-sensitive conditions that buyers must acknowledge."
-                          className={`${inputCls} resize-y`}
-                        />
-                        <p className={`text-[11px] mt-1 text-right ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          {String(rightsLicensing.customConditions || "").length}/{MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH}
-                        </p>
-                      </div>
-
-                      <div className={`mt-4 rounded-xl border px-3 py-3 ${isDarkMode ? "border-[#1b2e46] bg-[#07101c]" : "border-gray-200 bg-white"}`}>
-                        <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Rights Summary Preview</p>
-                        <p className={`text-sm font-semibold mt-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>{RIGHTS_LABEL_MAP[rightsLicensing.rightsType]}</p>
-                        <p className={`text-[12px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{MODIFICATION_LABEL_MAP[rightsLicensing.modificationRights]}</p>
-                        <p className={`text-[12px] ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{PAYMENT_LABEL_MAP[rightsLicensing.paymentStructure]}</p>
-                        <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700">
-                          EXCLUSIVE RIGHTS: this listing cannot be sold to multiple buyers once transaction is settled.
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-1 gap-2.5">
-                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed)}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                              ...prev,
-                              legalAcknowledgement: {
-                                ...prev.legalAcknowledgement,
-                                ownershipConfirmed: e.target.checked,
-                              },
-                            }))}
-                            className="mt-0.5"
-                          />
-                          <span>I confirm I own or control all rights required for this listing.</span>
-                        </label>
-                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.platformTermsAccepted)}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                              ...prev,
-                              legalAcknowledgement: {
-                                ...prev.legalAcknowledgement,
-                                platformTermsAccepted: e.target.checked,
-                              },
-                            }))}
-                            className="mt-0.5"
-                          />
-                          <span>I acknowledge these rights terms are governed under platform legal policies.</span>
-                        </label>
-                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood)}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                              ...prev,
-                              legalAcknowledgement: {
-                                ...prev.legalAcknowledgement,
-                                exclusivityUnderstood: e.target.checked,
-                              },
-                            }))}
-                            className="mt-0.5"
-                          />
-                          <span>I understand exclusivity prevents parallel multi-buyer transactions.</span>
-                        </label>
-                      </div>
-                    </div>
 
                     <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
                       <div className="flex items-center gap-2.5 mb-4">
@@ -3455,7 +3425,7 @@ const ScriptUpload = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={loading || !legal.agreedToTerms}
+                      disabled={loading || !legal.agreedToTerms || creationBlocked}
                       className="w-full min-[420px]:w-auto px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {loading ? "Submitting..." : "Submit for Approval"}
@@ -3495,7 +3465,7 @@ const ScriptUpload = () => {
               <div className={`px-4 sm:px-5 py-3 sm:py-4 border-b flex items-center justify-between shrink-0 ${isDarkMode ? "border-white/[0.08]" : "border-gray-100"}`}>
                 <div>
                   <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Set Script Cover Image</h3>
-                  <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Drag to frame the best angle. Cover ratio is 3:4.</p>
+                  <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Drag to frame the best angle. Cover ratio is 16:10.</p>
                 </div>
                 <button
                   type="button"
@@ -3515,6 +3485,7 @@ const ScriptUpload = () => {
                     image={thumbnailSourceUrl}
                     crop={thumbnailCrop}
                     zoom={thumbnailZoom}
+                    minZoom={0.1}
                     rotation={thumbnailRotation}
                     aspect={THUMBNAIL_ASPECT}
                     showGrid
@@ -3534,7 +3505,7 @@ const ScriptUpload = () => {
                     </div>
                     <input
                       type="range"
-                      min={1}
+                      min={0.1}
                       max={3}
                       step={0.01}
                       value={thumbnailZoom}

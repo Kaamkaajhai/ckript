@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { io } from "socket.io-client";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import Sidebar from "../components/Sidebar";
 import BrandLogo from "../components/BrandLogo";
@@ -22,6 +23,7 @@ const MotionDiv = motion.div;
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
+  const { openPricingModal, openAuthModal } = useAuthModal();
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useDarkMode();
@@ -31,7 +33,6 @@ const MainLayout = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const [pendingPurchaseCount, setPendingPurchaseCount] = useState(0);
   const [notificationPopups, setNotificationPopups] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
 
@@ -204,31 +205,14 @@ const MainLayout = ({ children }) => {
     }
   }, [user]);
 
-  const fetchPendingPurchaseCount = useCallback(async () => {
-    const isWriter = ["writer", "creator"].includes(user?.role);
-    if (!isWriter) {
-      setPendingPurchaseCount(0);
-      return;
-    }
-
-    try {
-      const { data } = await api.get("/scripts/purchase-requests/mine");
-      const pendingRequests = Array.isArray(data) ? data.filter((r) => r.status === "pending") : [];
-      setPendingPurchaseCount(pendingRequests.length);
-    } catch {
-      setPendingPurchaseCount(0);
-    }
-  }, [user?.role]);
-
   const refreshHeaderState = useCallback(async () => {
     const tasks = [
       fetchUnreadCount(),
       fetchUnreadMessageCount(),
-      fetchPendingPurchaseCount(),
     ];
 
     await Promise.allSettled(tasks);
-  }, [fetchPendingPurchaseCount, fetchUnreadCount, fetchUnreadMessageCount]);
+  }, [fetchUnreadCount, fetchUnreadMessageCount]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -529,7 +513,8 @@ const MainLayout = ({ children }) => {
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
+    openAuthModal();
   };
 
   const initials = user?.name
@@ -675,7 +660,6 @@ const MainLayout = ({ children }) => {
       
       <div className={`min-h-screen ${isDarkMode ? "bg-[#080e18]" : "bg-[#eef0f3]"}`}>
       <Sidebar
-        purchaseRequestCount={pendingPurchaseCount}
         unreadMessageCount={unreadMessageCount}
         showFloatingToggle={false}
         mobileToggleToken={sidebarToggleToken}
@@ -752,9 +736,8 @@ const MainLayout = ({ children }) => {
 
           {/* Pricing Link */}
           <button
-            onClick={() => navigate("/pricing")}
-            className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all border border-[#D14D37] bg-transparent hover:bg-[#D14D37]/10 mr-1 sm:mr-0"
-            style={{ color: "#ffffff" }}
+            onClick={() => openPricingModal()}
+            className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all bg-transparent !text-white hover:!text-[#cf3335] mr-1 sm:mr-0"
             title="View Pricing"
           >
             Pricing

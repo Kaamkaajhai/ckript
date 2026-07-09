@@ -186,15 +186,30 @@ export const extractTextFromPdfBuffer = async (buffer) => {
     const data = await pdfParse(buffer, {
       pagerender: async (pageData) => {
         try {
-          const textContent = await pageData.getTextContent();
-          const pageText = (textContent?.items || [])
-            .map((item) => String(item?.str || "").trim())
-            .filter(Boolean)
-            .join(" ")
-            .replace(/\s+/g, " ")
-            .trim();
+          const textContent = await pageData.getTextContent({
+            normalizeWhitespace: false,
+            disableCombineTextItems: false
+          });
+          
+          let lastY;
+          let text = '';
+          for (let item of textContent?.items || []) {
+            if (lastY == item.transform[5] || !lastY) {
+              if (lastY && text && !text.endsWith(' ')) {
+                text += ' ';
+              }
+              text += item.str;
+            } else {
+              text += '\n' + item.str;
+            }
+            lastY = item.transform[5];
+          }
+          
+          // Clean up multiple spaces but preserve newlines
+          const pageText = text.replace(/[ \t]+/g, " ").trim();
 
-          const formattedPageText = formatScreenplayLikeText(pageText).slice(0, MAX_PAGE_PREVIEW_CHARACTERS);
+          const previewSlice = pageText.slice(0, MAX_PAGE_PREVIEW_CHARACTERS + 200);
+          const formattedPageText = formatScreenplayLikeText(previewSlice).slice(0, MAX_PAGE_PREVIEW_CHARACTERS);
           pageTexts.push(formattedPageText);
           return `${pageText}\n\n`;
         } catch (pageError) {

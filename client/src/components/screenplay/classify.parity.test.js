@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { classifyText as clientClassify, textToBlocks as clientBlocks } from "./classify";
+import { classifyText as clientClassify, textToBlocks as clientBlocks, parseTitlePage as clientParseTP, serializeTitlePage as clientSerTP } from "./classify";
 // The server keeps a lockstep COPY of the classifier (separate Vercel deploys can't share one
 // file). THIS test is what makes them one behavior: if anyone edits one classify.js without the
 // other, these assertions fail. classify.js is pure ESM, so the Node test runner imports both.
-import { classifyText as serverClassify, textToBlocks as serverBlocks } from "../../../../server/utils/classify.js";
+import { classifyText as serverClassify, textToBlocks as serverBlocks, parseTitlePage as serverParseTP, serializeTitlePage as serverSerTP } from "../../../../server/utils/classify.js";
 import { formatScreenplayLikeText } from "../../../../server/utils/screenplayParser.js";
 
 const FIXTURES = {
@@ -16,6 +16,8 @@ const FIXTURES = {
   // leading "."/"@"/">" so the one classifier recognizes it (the bug fix). "..literal" is an
   // ESCAPED dot — must stay action, not a forced scene.
   forced: [".LOCATION", "", "@NARRATOR", "I begin.", "", "> WE ARE OUT", "", "..a literal dot line"].join("\n"),
+  // Page break "===" classifies as pagebreak; a single "=" stays action (it's a synopsis marker).
+  pagebreak: ["INT. ROOM - DAY", "", "Action.", "", "===", "", "EXT. STREET - DAY", "", "= a synopsis"].join("\n"),
 };
 
 describe("Classifier parity — client classify.js === server classify.js (the one classifier)", () => {
@@ -27,6 +29,15 @@ describe("Classifier parity — client classify.js === server classify.js (the o
       expect(serverBlocks(text)).toEqual(clientBlocks(text));
     });
   }
+
+  it("title-page parse/serialize agree (client === server)", () => {
+    const fields = { title: "THE HEIST", credit: "Written by", author: "Jane Doe", source: "Based on real events", draftDate: "2026-06-30" };
+    const block = clientSerTP(fields);
+    expect(serverSerTP(fields)).toBe(block);
+    const doc = block + "INT. ROOM - DAY\nAction.";
+    expect(serverParseTP(doc)).toEqual(clientParseTP(doc));
+    expect(clientParseTP(doc)).toEqual(fields);
+  });
 });
 
 describe("Server PDF block stream (formatScreenplayLikeText + classify) — the actual PDF input", () => {

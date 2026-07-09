@@ -144,37 +144,106 @@ export const generateWithGoogleAI = async ({
   throw err;
 };
 
+// Strip markdown code fences the model sometimes adds despite "no code fences" instructions
+// (```json ... ``` or ``` ... ```), plus any leading/trailing prose around the JSON body.
+const stripCodeFences = (text = "") =>
+  String(text)
+    .replace(/^﻿/, "")
+    .replace(/^\s*```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+
+// Best-effort repair of a TRUNCATED JSON object — the common failure when the model hits the token
+// cap mid-output (long synopsis + many roles). Strategy: scan once tracking string state and the
+// bracket stack; record a "safe cut point" only at STRUCTURAL boundaries that are unambiguously
+// complete — a comma at depth ≥1, or a closing bracket. (A bare string is NOT a safe point: it
+// could be an object key whose value hasn't been written yet, e.g. `..."synopsis":"...<cut>`.)
+// Then cut to the last safe point — dropping any half-written trailing pair — and append the
+// closers the bracket stack needs. Recovers every field fully emitted before truncation.
+const repairTruncatedJson = (snippet = "") => {
+  const s = String(snippet);
+  const stack = [];
+  let inStr = false;
+  let escaped = false;
+  let cutAt = -1;        // index to slice up to (exclusive) at the last safe point
+  let closersAtCut = ""; // brackets still open at that safe point, in close order
+  const closersFor = (st) => st.slice().reverse().join("");
+
+  for (let i = 0; i < s.length; i += 1) {
+    const ch = s[i];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') { inStr = true; continue; }
+    if (ch === "{" || ch === "[") { stack.push(ch === "{" ? "}" : "]"); continue; }
+    if (ch === "}" || ch === "]") {
+      stack.pop();
+      // A closed bracket is a complete value. Safe to cut right after it.
+      cutAt = i + 1;
+      closersAtCut = closersFor(stack);
+      continue;
+    }
+    if (ch === "," && stack.length) {
+      // A comma at depth means the value before it is complete. Cut AT the comma (exclude it).
+      cutAt = i;
+      closersAtCut = closersFor(stack);
+    }
+  }
+
+  if (cutAt <= 0) return null;
+  const out = s.slice(0, cutAt).replace(/,\s*$/, "") + closersAtCut;
+  try {
+    return JSON.parse(out);
+  } catch {
+    return null;
+  }
+};
+
 export const generateJsonWithGoogleAI = async ({
   prompt,
   temperature = 0.3,
-  maxOutputTokens = 3000,
+  maxOutputTokens = 4096,
 }) => {
-  const { text } = await generateWithGoogleAI({
+  const { text: rawText } = await generateWithGoogleAI({
     prompt,
     temperature,
     maxOutputTokens,
     responseMimeType: "application/json",
   });
 
+  const text = stripCodeFences(rawText);
+
+  // 1) Straight parse.
   try {
     return JSON.parse(text);
-  } catch {
-    const jsonStart = text.indexOf("{");
-    const jsonEnd = text.lastIndexOf("}");
-    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-      const err = new Error("AI returned invalid JSON");
-      err.statusCode = 502;
-      throw err;
-    }
-    const possibleJson = text.slice(jsonStart, jsonEnd + 1);
+  } catch { /* fall through */ }
+
+  // 2) Slice to the outermost { ... } and parse.
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+  if (jsonStart !== -1 && jsonEnd > jsonStart) {
+    const sliced = text.slice(jsonStart, jsonEnd + 1);
     try {
-      return JSON.parse(possibleJson);
-    } catch {
-      const err = new Error("AI returned malformed JSON");
-      err.statusCode = 502;
-      throw err;
+      return JSON.parse(sliced);
+    } catch { /* fall through to repair */ }
+  }
+
+  // 3) Repair a truncated object (model hit the token cap mid-JSON). Repair from the first "{".
+  if (jsonStart !== -1) {
+    const repaired = repairTruncatedJson(text.slice(jsonStart));
+    if (repaired && typeof repaired === "object") {
+      console.warn("[GoogleAI] Recovered truncated JSON via repair pass");
+      return repaired;
     }
   }
+
+  const err = new Error("AI returned malformed JSON");
+  err.statusCode = 502;
+  err.rawSnippet = text.slice(0, 300);
+  throw err;
 };
 
 export const isGoogleQuotaError = (error) => {

@@ -6,7 +6,7 @@ import {
   getFeaturedScripts, getTopScripts, searchScriptsReader,
   getLatestScripts, recordRead, toggleFavorite, getCategories,
   trackScriptInteraction,
-  extractPdfText, saveDraft, deleteScript, getMyDrafts, getMyScripts, updateScript,
+  extractPdfText, saveDraft, getScriptLimit, deleteScript, getMyDrafts, getMyScripts, updateScript,
   getScriptSubmissionSummaryPdf,
   getPurchaseRequestAcceptancePdf,
   createScriptPurchaseOrder, verifyScriptPurchase,
@@ -17,7 +17,7 @@ import {
   activateProjectSpotlight,
   getInvestorHomeFeed, getTopList,
   requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
-  getScriptPdf,
+  getScriptPdf, generateAiCover
 } from "../controllers/scriptController.js";
 import {
   exportFountain,
@@ -35,6 +35,7 @@ import {
   updateComment,
   deleteComment,
 } from "../controllers/commentController.js";
+import { generateCoverImage } from "../controllers/aiController.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -106,6 +107,9 @@ router.post("/:id/activate-spotlight", protect, activateProjectSpotlight);
 router.post("/activate-spotlight", protect, activateProjectSpotlight);
 router.post("/spotlight/activate", protect, activateProjectSpotlight);
 
+// AI Cover Generation Route
+router.post("/generate-ai-cover", protect, generateCoverImage);
+
 // Razorpay payment routes for scripts
 router.post("/purchase/create-order", protect, createScriptPurchaseOrder);
 router.post("/purchase/verify-payment", protect, verifyScriptPurchase);
@@ -116,6 +120,7 @@ router.get("/", protect, getScripts);
 router.get("/holds", protect, getMyHolds);
 router.get("/my-drafts", protect, getMyDrafts);
 router.get("/mine", protect, getMyScripts);
+router.get("/script-limit", protect, getScriptLimit);
 // Reader static routes (must be before /:id)
 router.get("/featured", protect, getFeaturedScripts);
 router.get("/top", protect, getTopScripts);
@@ -141,6 +146,7 @@ router.get("/:id/comments", protect, listComments);
 router.post("/:id/comments", protect, createComment);
 router.patch("/:id/comments/:commentId", protect, updateComment);
 router.delete("/:id/comments/:commentId", protect, deleteComment);
+router.post("/generate-ai-cover", protect, generateAiCover);
 router.get("/:id/pdf", protect, getScriptPdf);
 router.get("/purchase-request/:id/acceptance-pdf", protect, getPurchaseRequestAcceptancePdf);
 // Purchase request routes (must be before /:id)

@@ -1,6 +1,14 @@
 import Script from "../models/Script.js";
 import { generateScreenplayPdf } from "../utils/screenplayPdf.js";
 import { formatScreenplayLikeText } from "../utils/screenplayParser.js";
+import { serializeTitlePage, hasTitlePage } from "../utils/classify.js";
+
+// Map (mongoose) | Map | plain → plain object of title-page fields, or null when empty.
+const titlePageToObject = (tp) => {
+  if (!tp) return null;
+  const obj = typeof tp.toObject === "function" ? tp.toObject() : (tp instanceof Map ? Object.fromEntries(tp) : tp);
+  return obj && Object.keys(obj).length ? obj : null;
+};
 
 const stripHtml = (value = "") =>
   String(value || "")
@@ -43,7 +51,7 @@ const canAccessScript = (script, user) => {
 
 const loadScriptForExport = async (req, res) => {
   const script = await Script.findById(req.params.id).select(
-    "title creator collaborators unlockedBy purchasedBy fountainContent textContent companyName"
+    "title creator collaborators unlockedBy purchasedBy fountainContent textContent companyName titlePage"
   );
   if (!script) {
     res.status(404).json({ message: "Script not found" });
@@ -69,10 +77,15 @@ export const exportFountain = async (req, res) => {
       return res.status(404).json({ message: "This project has no screenplay content to export." });
     }
 
+    // Prepend the industry title-page block (standard Fountain Key: Value) when configured and the
+    // body doesn't already carry one, so the .fountain file opens with a proper title page.
+    const tpObj = titlePageToObject(script.titlePage);
+    const out = tpObj && !hasTitlePage(text) ? serializeTitlePage(tpObj) + text : text;
+
     const filename = sanitizeFileName(`${script.title || "script"}.fountain`);
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    return res.send(text);
+    return res.send(out);
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to export Fountain." });
   }
@@ -100,9 +113,13 @@ export const exportScreenplayPdf = async (req, res) => {
     }
 
     const author = script.companyName || "";
+    // Structured title page (Map → plain object) when present; the writer-configured fields win.
+    const titlePageObj = titlePageToObject(script.titlePage);
+    const wantTitlePage = req.query.titlePage === "1" || Boolean(titlePageObj);
     const pdfBuffer = await generateScreenplayPdf(text, {
-      title: req.query.titlePage === "1" ? script.title : undefined,
+      title: wantTitlePage ? script.title : undefined,
       author,
+      titlePage: wantTitlePage ? titlePageObj : null,
       watermark,
     });
 

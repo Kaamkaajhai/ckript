@@ -70,6 +70,9 @@ const scriptSchema = new mongoose.Schema({
   // Outline notes (Phase 4) — free-form beats/notes alongside the script. Editor metadata only,
   // never included in the screenplay text or PDF/Fountain export.
   outlineNotes: { type: String, default: "" },
+  // Industry title page — structured fields (title/credit/author/source/draftDate). Stored separately
+  // from the body text (so it never confuses the classifier); the PDF and Fountain export render it.
+  titlePage: { type: Map, of: String, default: undefined },
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload
@@ -381,6 +384,12 @@ const scriptSchema = new mongoose.Schema({
   // Reader system
   rating: { type: Number, default: 0, min: 0, max: 5 },
   reviewCount: { type: Number, default: 0 },
+  // Producer rating — aggregate of ratings from industry professionals (see ProducerRating model),
+  // recomputed on each rating. Shown to every viewer as a credibility signal.
+  producerRating: {
+    average: { type: Number, default: 0, min: 0, max: 5 },
+    count: { type: Number, default: 0 },
+  },
   readsCount: { type: Number, default: 0 },
   isFeatured: { type: Boolean, default: false },
   // Analytics
@@ -517,6 +526,7 @@ const scriptSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast queries
+scriptSchema.index({ creator: 1 });
 scriptSchema.index({ status: 1, rating: -1 });
 scriptSchema.index({ status: 1, isFeatured: 1, rating: -1 });
 scriptSchema.index({ status: 1, readsCount: -1 });

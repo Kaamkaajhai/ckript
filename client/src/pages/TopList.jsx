@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { isFilmIndustryProfessionalRole, hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import ProjectCard from "../components/ProjectCard";
 
@@ -43,7 +44,7 @@ const budgetLabel = { micro: "Micro", low: "Low", mid: "Mid", high: "High", bloc
 
 /* ── Sort Tabs — merged from all 3 sections ───────── */
 const SORT_TABS = [
-  { key: "platform",  label: "Top Ranked", desc: "Ranked by overall platform score",            icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+  { key: "platform",  label: "Top Ranked", desc: "Ranked by overall Ckript score",            icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   { key: "score",     label: "AI Score",   desc: "Ranked by script quality score",              icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" },
   { key: "views",     label: "Most Viewed",desc: "Ranked by total views",                       icon: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z" },
 ];
@@ -131,6 +132,7 @@ const SkeletonCard = ({ dark }) => (
 const TopList = () => {
   const { isDarkMode: dark } = useDarkMode();
   const { user } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -479,7 +481,7 @@ const TopList = () => {
               </div>
               <div className="flex flex-col gap-2.5 w-full">
                 <button
-                  onClick={() => { setShowUpgradeModal(false); navigate("/pricing"); }}
+                  onClick={() => { setShowUpgradeModal(false); openPricingModal(); }}
                   className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
                 >
                   Get Film Industry Professional plan

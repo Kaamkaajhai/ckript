@@ -1,9 +1,10 @@
 import { useCallback, useContext, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { AlertCircle } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
+import { useToast } from "../context/ToastContext";
+import useScrollLock from "../hooks/useScrollLock";
 import OTPVerification from "./OTPVerification";
 import GoogleSignInButton from "./GoogleSignInButton";
 import PasswordInput from "./PasswordInput";
@@ -107,7 +108,8 @@ const defaultPathForRole = (role) => {
 
 function AuthModalInner({ redirect, onClose }) {
   const { user, login, setUser } = useContext(AuthContext);
-  const { openProducerOnboarding, openWriterOnboarding } = useAuthModal();
+  const { openProducerOnboarding, openWriterOnboarding, openForgotPasswordModal } = useAuthModal();
+  const toast = useToast();
   const navigate = useNavigate();
   const titleId = useId();
 
@@ -117,7 +119,6 @@ function AuthModalInner({ redirect, onClose }) {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [hovered, setHovered] = useState(null); // null | "writer" | "producer"
 
@@ -133,16 +134,17 @@ function AuthModalInner({ redirect, onClose }) {
   const finishAuth = useCallback(
     (userData = {}) => {
       onClose();
+      const first = String(userData?.name || "").trim().split(/\s+/)[0];
+      toast.success(first ? `Welcome back, ${first}.` : "You're signed in.");
       const safeRedirect = getSafeRedirectPath(redirect);
       navigate(safeRedirect || defaultPathForRole(userData?.role), { replace: false });
     },
-    [navigate, onClose, redirect]
+    [navigate, onClose, redirect, toast]
   );
 
   const handleSignIn = async (e) => {
     e.preventDefault();
     if (loading) return;
-    setError("");
     setLoading(true);
     try {
       const userData = await login(email, password);
@@ -172,7 +174,7 @@ function AuthModalInner({ redirect, onClose }) {
         setLoading(false);
         return;
       }
-      setError(
+      toast.error(
         data?.message ||
           (err.code === "ERR_NETWORK"
             ? "Unable to reach the server. Please try again."
@@ -198,8 +200,9 @@ function AuthModalInner({ redirect, onClose }) {
   };
 
   const goToForgot = () => {
-    onClose();
-    navigate("/forgot-password");
+    // Hand off to the recovery modal as an overlay — no route change. It closes
+    // this surface first so the two never stack.
+    openForgotPasswordModal();
   };
 
   // Esc to close + basic focus trap, scoped to the dialog while open.
@@ -230,14 +233,13 @@ function AuthModalInner({ redirect, onClose }) {
 
   // Lock body scroll, remember/restore focus, autofocus the email field.
   // preventScroll keeps focusing from nudging the viewport even on slow paints.
+  useScrollLock();
+
   useEffect(() => {
     ensureAuthModalFonts();
     previouslyFocused.current = document.activeElement;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
     const t = setTimeout(() => emailRef.current?.focus({ preventScroll: true }), 60);
     return () => {
-      document.body.style.overflow = overflow;
       clearTimeout(t);
       const prev = previouslyFocused.current;
       if (prev && typeof prev.focus === "function") prev.focus({ preventScroll: true });
@@ -336,13 +338,6 @@ function AuthModalInner({ redirect, onClose }) {
           <p className="ckam-subtitle">Where stories become films.</p>
           <div className="ckam-square" aria-hidden="true" />
 
-          {error && (
-            <div className="ckam-error" role="alert">
-              <AlertCircle size={16} style={{ flex: "none" }} />
-              <span>{error}</span>
-            </div>
-          )}
-
           <form onSubmit={handleSignIn}>
             <label className="ckam-label" htmlFor={`${titleId}-email`} style={{ display: "block", marginTop: 12 }}>
               Email
@@ -354,10 +349,7 @@ function AuthModalInner({ redirect, onClose }) {
               type="email"
               autoComplete="email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (error) setError("");
-              }}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
 
@@ -375,10 +367,7 @@ function AuthModalInner({ redirect, onClose }) {
                 className="ckam-input"
                 autoComplete="current-password"
                 value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (error) setError("");
-                }}
+                onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
@@ -401,10 +390,10 @@ function AuthModalInner({ redirect, onClose }) {
               onSuccess={(userData) => finishAuth(userData || {})}
               onError={(msg, data) => {
                 if (data?.accountNotFound) {
-                  setError("No account found for that Google email. Create one below to get started.");
+                  toast.error("No account found for that Google email. Create one below to get started.");
                   return;
                 }
-                setError(msg);
+                toast.error(msg);
               }}
             />
           </div>

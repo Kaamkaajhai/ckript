@@ -266,6 +266,7 @@ const userSchema = new mongoose.Schema({
     plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
     expiresAt: { type: Date },
     scriptScoreCredits: { type: Number, default: 0 },
+    aiImagesGeneratedTotal: { type: Number, default: 0 },
     accessTier: {
       type: String,
       enum: ["none", "film_industry_professional", "writer_silver", "writer_gold", "standard"],
@@ -339,7 +340,17 @@ const userSchema = new mongoose.Schema({
     auditionAlerts: { type: Boolean, default: true },
     holdAlerts: { type: Boolean, default: true },
     viewAlerts: { type: Boolean, default: true },
+    emailPreferences: {
+      marketing: { type: Boolean, default: true },
+      system: { type: Boolean, default: true },
+      messages: { type: Boolean, default: true },
+    },
   },
+  // AI Thumbnail limit tracking (max 3 per script title)
+  aiThumbnailUsage: [{
+    scriptTitle: { type: String },
+    count: { type: Number, default: 0 }
+  }],
   recommendationProfile: {
     detectedGenres: [String],
     preferredFormats: [String],

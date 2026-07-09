@@ -1646,7 +1646,7 @@ const AdminDashboard = () => {
                         lines: paymentsData.map((t, idx) => `${idx + 1}. ${t.user?.name || "-"} | ${t.type || "-"} | ${formatCurrency(t.amount || 0, t.currency || "INR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | ${t.status || "-"} | ${t.description || "-"} | Txn: ${getTransactionIdLabel(t) || "-"} | Pay ID: ${getPaymentIdLabel(t) || "-"} | ${formatExportDate(t.createdAt)}`),
                     },
                     sectionFromScripts("AI Scores", aiScoresData),
-                    sectionFromScripts("Platform Scores", platformScoresData),
+                    sectionFromScripts("Ckript Scores", platformScoresData),
                     sectionFromScripts("Reader Scores", readerScoresData),
                     sectionFromScripts("Pending Approvals", approvalsData),
                     sectionFromScripts("AI Trailer Approvals", trailersData),

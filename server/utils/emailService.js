@@ -66,7 +66,11 @@ const createTransporter = () => {
   // For production, use a proper email service like SendGrid, AWS SES, etc.
   
   const emailUser = (process.env.EMAIL_USER || '').trim();
-  const emailPassword = (process.env.EMAIL_PASSWORD || '').trim();
+  // Gmail App Passwords are 16 characters and are DISPLAYED as four space-separated groups
+  // ("abcd efgh ijkl mnop") for readability — but the actual password has NO spaces. If those
+  // display spaces are pasted into .env, Gmail rejects auth with "535-5.7.8 BadCredentials". A plain
+  // .trim() only strips the ends, so remove ALL internal whitespace here.
+  const emailPassword = (process.env.EMAIL_PASSWORD || '').replace(/\s+/g, '');
   
   console.log('Email config - User:', emailUser ? 'Found' : 'Missing', 'Pass:', emailPassword ? 'Found' : 'Missing');
   
@@ -1403,6 +1407,63 @@ export const sendMeetingAcceptedEmail = async (
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("Error sending meeting acceptance email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendMeetingAcceptedWriterEmail = async (
+  email,
+  {
+    writerName,
+    producerName,
+    scriptName,
+    date,
+    time,
+    meetingLink,
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `Meeting Details: ${producerName} - ckript`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #2d5a8f 0%, #1e3a5f 100%); color:#fff; padding:20px 20px;">
+              <h2 style="margin:0; font-size:20px;">Meeting Details Confirmed</h2>
+            </div>
+            <div style="padding:20px; background:#ffffff;">
+              <p style="margin:0 0 16px; font-size: 16px;">Hi <strong>${writerName}</strong>,</p>
+              <p style="margin:0 0 16px; font-size: 16px;">You have successfully accepted the meeting request from <strong>${producerName}</strong> regarding your script <strong>"${scriptName}"</strong>.</p>
+              
+              <div style="background:#f3f4f6; padding:16px; border-radius:8px; margin-bottom:20px;">
+                <p style="margin:0 0 8px;"><strong>Date:</strong> ${date}</p>
+                <p style="margin:0 0 8px;"><strong>Time:</strong> ${time}</p>
+                <p style="margin:0; word-break: break-all;"><strong>Meeting Link:</strong> <a href="${meetingLink}" style="color:#2d5a8f;">${meetingLink}</a></p>
+              </div>
+
+              <p style="margin:0 0 16px;">Please use the link above to join the meeting at the scheduled time.</p>
+              <a href="${meetingLink}" style="display:inline-block;background:#2d5a8f;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 16px;">Join Meeting</a>
+              
+              <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. We wish you a productive meeting!</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${writerName},\n\nYou have accepted the meeting request from ${producerName} regarding your script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nMeeting Link: ${meetingLink}\n\nPlease use the link above to join the meeting at the scheduled time.\n\n- ckript`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending meeting acceptance writer email:", error.message);
     return { success: false, error: error.message };
   }
 };

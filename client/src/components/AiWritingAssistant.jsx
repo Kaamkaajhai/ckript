@@ -11,7 +11,7 @@ import api from "../services/api";
 const AI_ACTIONS = [
   { key: "improve",      label: "Improve",         icon: "", desc: "More engaging & compelling",     accent: "#a78bfa" },
   { key: "professional", label: "Professional",     icon: "", desc: "Studio-ready polish",           accent: "#60a5fa" },
-  { key: "grammar",      label: "Fix Grammar",      icon: "", desc: "Spelling, grammar & flow",      accent: "#34d399" },
+
   { key: "dialogue",     label: "Better Dialogue",  icon: "", desc: "Natural voices & subtext",      accent: "#fbbf24" },
   { key: "emotional",    label: "Add Emotion",      icon: "", desc: "Deeper feelings & arcs",        accent: "#f472b6" },
   { key: "shorten",      label: "Shorten",          icon: "", desc: "Cut filler, tighten prose",     accent: "#fb923c" },

@@ -272,7 +272,7 @@ export const AuthProvider = ({ children }) => {
     clearCacheByPrefix("dashboard:"); // clear any cached dashboard snapshot for privacy
 
     if (redirect && typeof window !== "undefined") {
-      window.location.replace("/login");
+      window.location.replace("/");
     }
   };
 

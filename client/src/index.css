@@ -992,6 +992,17 @@ html.dark-mode .script-content img {
   letter-spacing: 0 !important;
 }
 
+/* Inline Fountain emphasis rendering (the * and _ markers themselves are hidden via .cm-sp-marker).
+   IMPORTANT: `body` sets `font-synthesis: none` (inherited everywhere), so if the Courier Prime
+   bold/italic faces aren't loaded the browser would render plain text for *bold* and *italic* while
+   _underline_ (which doesn't need a font face) still worked — the exact "underline works, bold/italic
+   don't" symptom. Re-enable synthesis on the emphasis spans so bold/italic always render, whether
+   from the real face or a synthesized one. */
+.screenplay-editor .cm-sp-em-bold { font-weight: 700; font-synthesis: weight; }
+.screenplay-editor .cm-sp-em-italic { font-style: italic; font-synthesis: style; }
+.screenplay-editor .cm-sp-em-underline { text-decoration: underline; text-underline-offset: 2px; }
+.screenplay-editor .cm-sp-em-bolditalic { font-weight: 700; font-style: italic; font-synthesis: weight style; }
+
 /* Scene lock layer (Phase 3) — scenes held by another writer: faint tint + badge */
 .screenplay-editor .cm-sp-locked { background: rgba(0, 0, 0, 0.03); }
 .screenplay-editor--dark .cm-sp-locked { background: rgba(255, 255, 255, 0.04); }

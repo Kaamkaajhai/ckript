@@ -4,6 +4,7 @@ import { isFilmIndustryProfessionalRole, hasBusinessEmail, hasActiveFilmIndustry
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import ProjectCard from "../components/ProjectCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -313,6 +314,7 @@ const Skel = ({ dark }) => (
 ══════════════════════════════════════════════ */
 const InvestorHome = () => {
   const { user } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
   const navigate = useNavigate();
   const [feed, setFeed] = useState(null);
@@ -560,7 +562,7 @@ const InvestorHome = () => {
             <div className="space-y-2.5">
               <button
                 type="button"
-                onClick={() => { setShowUpgradeModal(false); navigate("/pricing"); }}
+                onClick={() => { setShowUpgradeModal(false); openPricingModal("industry"); }}
                 className="w-full px-4 py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-left flex items-center justify-between"
               >
                 <span>

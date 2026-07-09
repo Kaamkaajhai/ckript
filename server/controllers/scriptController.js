@@ -18,6 +18,7 @@ import {
   sendPurchaseRejectedEmail,
 } from "../utils/emailService.js";
 import { generateAndSaveInvoicePdf } from "../utils/invoicePdf.js";
+import { writerLimitApplies, buildScriptLimitStatus } from "../utils/scriptLimits.js";
 import { generateAndUploadAgreementPdfs } from "../utils/agreementPdf.js";
 import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionPdf.js";
 import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
@@ -36,7 +37,7 @@ import {
   getContactsLimit,
   getRemainingContacts,
 } from "../utils/industryAccess.js";
-import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText } from "../utils/pdfTextExtraction.js";
+import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import multer from "multer";
@@ -636,45 +637,8 @@ const normalizeRightsLicensingInput = (incoming = {}, fallback = {}) => {
 };
 
 const validateRightsLicensingPayload = (rightsLicensing = {}) => {
-  const errors = [];
-  if (!RIGHTS_TYPE_OPTIONS.has(rightsLicensing?.rightsType)) {
-    errors.push("Rights type is required.");
-  }
-  if (!MODIFICATION_RIGHTS_OPTIONS.has(rightsLicensing?.modificationRights)) {
-    errors.push("Modification rights selection is required.");
-  }
-  if (!PAYMENT_STRUCTURE_OPTIONS.has(rightsLicensing?.paymentStructure)) {
-    errors.push("Payment structure selection is required.");
-  }
-  if (!NEGOTIATION_MODE_OPTIONS.has(rightsLicensing?.negotiationMode)) {
-    errors.push("Negotiation mode selection is required.");
-  }
-
-  if (rightsLicensing?.rightsType === "exclusive_license") {
-    const durationMonths = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
-    if (!Number.isInteger(durationMonths)
-      || durationMonths < MIN_LICENSE_DURATION_MONTHS
-      || durationMonths > MAX_LICENSE_DURATION_MONTHS) {
-      errors.push(`Exclusive license requires duration between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`);
-    }
-  }
-
-  const isRoyaltyStructure = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(
-    rightsLicensing?.paymentStructure
-  );
-  if (isRoyaltyStructure) {
-    const pct = Number(rightsLicensing?.royaltySettings?.percentage || 0);
-    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-      errors.push("Royalty percentage must be between 0 and 100 for royalty-based structures.");
-    }
-  }
-
-  const ack = rightsLicensing?.legalAcknowledgement || {};
-  if (!ack?.ownershipConfirmed || !ack?.platformTermsAccepted || !ack?.exclusivityUnderstood) {
-    errors.push("Writer legal acknowledgement is required for rights and licensing preferences.");
-  }
-
-  return errors;
+  // Feature has been removed from the frontend, bypassing validation
+  return [];
 };
 
 const buildRightsLabels = (rights = {}) => {
@@ -1015,8 +979,8 @@ const getInvalidRoleAgeRangeMessage = (roles = []) => {
 
     const minAge = Number(min);
     const maxAge = Number(max);
-    if (!Number.isFinite(minAge) || !Number.isFinite(maxAge) || minAge >= maxAge) {
-      return `Role ${i + 1}: Min age must be less than max age.`;
+    if (!Number.isFinite(minAge) || !Number.isFinite(maxAge) || minAge > maxAge) {
+      return `Role ${i + 1}: Max age must be greater than or equal to min age.`;
     }
   }
 
@@ -1498,7 +1462,7 @@ export const extractPdfText = async (req, res) => {
       try {
         const mammoth = require('mammoth');
         const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-        text = normalizeExtractedPdfText(result?.value || "");
+        text = formatScreenplayLikeText(normalizeExtractedPdfText(result?.value || ""));
       } catch (docxError) {
         console.error("[extractPdfText] docx parse failed:", docxError?.message || docxError);
         return res.status(422).json({
@@ -1550,6 +1514,20 @@ export const extractPdfText = async (req, res) => {
   }
 };
 
+// GET /scripts/script-limit → the caller's current writer script-limit status, so the create/
+// upload UI can show the gate UPFRONT and block progression instead of only erroring at submit.
+export const getScriptLimit = async (req, res) => {
+  try {
+    if (!writerLimitApplies(req.user.role)) {
+      return res.json({ applies: false, limitReached: false });
+    }
+    const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+    return res.json({ applies: true, ...buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" }) });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to read script limit." });
+  }
+};
+
 export const saveDraft = async (req, res) => {
   try {
     if (!requireProjectCreatorAccess(req, res)) {
@@ -1558,28 +1536,12 @@ export const saveDraft = async (req, res) => {
 
     const { scriptId, title, textContent, ...otherData } = req.body;
 
-    // Enforce Writer limits for new drafts
-    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
-      
-      let limit = 1;
-      let requiredPlan = "silver";
-      
-      if (plan === "silver") {
-        limit = 8;
-        requiredPlan = "gold";
-      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
-        limit = 20;
-        requiredPlan = "custom";
-      }
-
-      if (existingScriptCount >= limit) {
-        return res.status(402).json({
-          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to create more scripts.`,
-          limitReached: true,
-          requiredPlan,
-        });
+    // Enforce Writer limits for new drafts (shared rule — see utils/scriptLimits.js)
+    if (!scriptId && writerLimitApplies(req.user.role)) {
+      const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" });
+      if (status.limitReached) {
+        return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });
       }
     }
 
@@ -1619,6 +1581,14 @@ export const saveDraft = async (req, res) => {
       }
       if (otherData.outlineNotes !== undefined) {
         script.outlineNotes = String(otherData.outlineNotes || "").slice(0, 50000);
+      }
+      if (otherData.titlePage !== undefined) {
+        // Title page: a small map of known fields. null/empty clears it. Coerce + cap each value.
+        const tp = otherData.titlePage && typeof otherData.titlePage === "object" ? otherData.titlePage : null;
+        const cleaned = {};
+        if (tp) for (const [k, v] of Object.entries(tp)) { if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300); }
+        script.titlePage = Object.keys(cleaned).length ? cleaned : undefined;
+        script.markModified("titlePage");
       }
       if (otherData.companyName !== undefined) script.companyName = String(otherData.companyName || "").trim();
       if (otherData.logline !== undefined) script.logline = otherData.logline;
@@ -1772,6 +1742,13 @@ export const saveDraft = async (req, res) => {
       );
     }
 
+    if (safeOtherData.titlePage !== undefined) {
+      const tp = safeOtherData.titlePage && typeof safeOtherData.titlePage === "object" ? safeOtherData.titlePage : null;
+      const cleaned = {};
+      if (tp) for (const [k, v] of Object.entries(tp)) { if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300); }
+      safeOtherData.titlePage = Object.keys(cleaned).length ? cleaned : undefined;
+    }
+
     if (safeOtherData.scriptCompletion !== undefined) {
       const completionErrors = validateScriptCompletionPayload(safeOtherData.scriptCompletion || {});
       if (completionErrors.length > 0) {
@@ -1882,7 +1859,7 @@ export const getMyScripts = async (req, res) => {
       ? {
         isDeleted: { $ne: true },
         $or: [
-          { creator: req.user._id, status: { $ne: "draft" } },
+          { creator: req.user._id },
           {
             collaborators: {
               $elemMatch: {
@@ -1894,11 +1871,11 @@ export const getMyScripts = async (req, res) => {
           },
         ],
       }
-      : { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      : { creator: req.user._id, isDeleted: { $ne: true } };
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt scriptCompletion viewableScript scriptPreviewAccess scriptPreviewPageTexts")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt updatedAt")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 
@@ -2049,8 +2026,8 @@ export const updateScript = async (req, res) => {
       return res.status(400).json({ message: completionValidationErrors[0] });
     }
 
-    if (logline !== undefined && String(logline).trim().length > 50) {
-      return res.status(400).json({ message: "Logline must be 50 characters or fewer" });
+    if (logline !== undefined && String(logline).trim().length > 500) {
+      return res.status(400).json({ message: "Logline must be 500 characters or fewer" });
     }
 
     if (format === "other" && !String(formatOther || script.formatOther || "").trim()) {
@@ -2507,28 +2484,12 @@ export const uploadScript = async (req, res) => {
       }
     }
 
-    // Enforce Writer limits for new uploads
-    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
-      
-      let limit = 1;
-      let requiredPlan = "silver";
-      
-      if (plan === "silver") {
-        limit = 8;
-        requiredPlan = "gold";
-      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
-        limit = 20;
-        requiredPlan = "custom";
-      }
-
-      if (existingScriptCount >= limit) {
-        return res.status(402).json({
-          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to upload more scripts.`,
-          limitReached: true,
-          requiredPlan,
-        });
+    // Enforce Writer limits for new uploads (shared rule — see utils/scriptLimits.js)
+    if (!scriptId && writerLimitApplies(req.user.role)) {
+      const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "upload" });
+      if (status.limitReached) {
+        return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });
       }
     }
 
@@ -2536,8 +2497,8 @@ export const uploadScript = async (req, res) => {
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
-    if (logline !== undefined && String(logline).trim().length > 50) {
-      return res.status(400).json({ message: "Logline must be 50 characters or fewer" });
+    if (logline !== undefined && String(logline).trim().length > 500) {
+      return res.status(400).json({ message: "Logline must be 500 characters or fewer" });
     }
     if (format === "other" && !String(formatOther || "").trim()) {
       return res.status(400).json({ message: "Please specify the format when selecting Other." });
@@ -4620,9 +4581,9 @@ export const getTopScripts = async (req, res) => {
     const now = new Date();
     const blockedUserIds = await getBlockedUserIdsForViewer(req.user._id);
     const sortBy = req.query.sort || "rating";
-    let sortObj = { rating: -1 };
-    if (sortBy === "reads") sortObj = { readsCount: -1 };
-    if (sortBy === "purchases") sortObj = { "unlockedBy": -1 };
+    let sortObj = { rating: -1, _id: -1 };
+    if (sortBy === "reads") sortObj = { readsCount: -1, _id: -1 };
+    if (sortBy === "purchases") sortObj = { "unlockedBy": -1, _id: -1 };
     const query = { ...PUBLIC_SCRIPT_FILTER };
     if (blockedUserIds.length > 0) {
       query.creator = { $nin: blockedUserIds };
@@ -4643,6 +4604,7 @@ export const getTopScripts = async (req, res) => {
           $or: [
             { "creatorDoc.role": { $ne: "writer" } },
             { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.subscription.accessTier": { $in: ["writer_silver", "writer_gold"] } },
           ],
         },
       },
@@ -5088,6 +5050,7 @@ export const getTopList = async (req, res) => {
           $or: [
             { "creatorDoc.role": { $ne: "writer" } },
             { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.subscription.accessTier": { $in: ["writer_silver", "writer_gold"] } },
           ],
         },
       },
@@ -5155,11 +5118,11 @@ export const getTopList = async (req, res) => {
     ];
 
     // Sort based on tab
-    if (sort === "trending") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, trendScore: -1 } });
-    else if (sort === "featured") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, engagementScore: -1, trendScore: -1 } });
-    else if (sort === "score") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, "scriptScore.overall": -1 } });
-    else if (sort === "views") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, views: -1 } });
-    else pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, platformScore: -1 } }); // default: platform
+    if (sort === "trending") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, trendScore: -1, _id: -1 } });
+    else if (sort === "featured") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, engagementScore: -1, trendScore: -1, _id: -1 } });
+    else if (sort === "score") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, "scriptScore.overall": -1, _id: -1 } });
+    else if (sort === "views") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, views: -1, _id: -1 } });
+    else pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, platformScore: -1, _id: -1 } }); // default: platform
 
     // Populate creator
     pipeline.push({
@@ -6694,5 +6657,29 @@ export const submitTrailerFeedback = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Generate an AI Cover Thumbnail (Fallback to pollinations.ai)
+export const generateAiCover = async (req, res) => {
+  try {
+    const { title, genre, logline } = req.body;
+    
+    const prompt = `A cinematic movie poster for a film titled "${title || 'Untitled'}", genre: ${genre || 'Drama'}. ${logline || ''}. Professional, high quality, 4k. No text other than the title.`;
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=768&height=1024&nologo=true`;
+    
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error("Failed to generate image from external service.");
+    }
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = `data:${response.headers.get('content-type') || 'image/jpeg'};base64,${buffer.toString('base64')}`;
+    
+    res.json({ base64Image });
+  } catch (error) {
+    console.error("[generateAiCover] Error:", error);
+    res.status(500).json({ message: "Failed to generate AI cover." });
   }
 };
