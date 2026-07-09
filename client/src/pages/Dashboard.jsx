@@ -1,786 +1,1412 @@
-import { useEffect, useState, useContext, useMemo } from "react";
+import { useEffect, useState, useContext, useRef } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, AreaChart, Area } from "recharts";
+import { AnimatePresence, motion } from "framer-motion";
 import { io } from "socket.io-client";
 import api from "../services/api";
 import ProjectCard from "../components/ProjectCard";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import { AuthContext } from "../context/AuthContext";
-import { useDarkMode } from "../context/DarkModeContext";
 import { getApiBaseUrl } from "../utils/apiOrigin";
-import { getScriptCanonicalPath } from "../utils/scriptPath";
 import InvestorDashboard from "./InvestorDashboard";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { getScriptCanonicalPath } from "../utils/scriptPath";
+import { readCache, writeCache } from "../utils/localCache";
+import { MatIcon } from "../layouts/dashboard/icons.jsx";
 
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 
+// ── Design tokens (2B palette) ────────────────────────────────────────────────
+// Type is NOT re-declared here — it reads the single source of truth defined in
+// dashboard.css (--ck-display / --ck-body). Change the face there, once.
+const ACCENT       = "#d14d37";
+const DISPLAY_FONT = "var(--ck-display)";
+const BASE         = "#1c1a17";
+const MUTED        = "#6f695f";
+const FAINT        = "#a39d92";
+const BORDER       = "#ece8e0";
+const CREAM        = "#f4efe6";
+
+// My Projects: how many show inline before the "View all" popup, and the
+// popup's page size.
+const INITIAL_PROJECTS  = 6;
+const PROJECTS_PER_PAGE = 9;
+
+// ── Dashboard cache (localStorage, stale-while-revalidate) ────────────────────
+// Bump the version (v1 → v2) whenever the cached payload shape changes so old
+// snapshots are ignored rather than mis-rendered. Keyed per user below.
+const DASH_CACHE_NS = "dashboard:v1:";
+const DEFAULT_STATS = {
+  totalEarnings: 0, totalUnlocks: 0, totalViews: 0,
+  profileViews: 0, trailersGenerated: 0, avgScore: null, plan: "free",
+};
+
+// ── Root ──────────────────────────────────────────────────────────────────────
 const Dashboard = () => {
   const { user, setUser } = useContext(AuthContext);
-  const { isDarkMode: dark } = useDarkMode();
 
   useEffect(() => {
     if (!user?.token) return;
-
     let disposed = false;
-
-    const syncCurrentUser = async () => {
+    const sync = async () => {
       try {
         const { data } = await api.get("/auth/me");
         if (disposed || !data) return;
-
-        const nextUser = {
-          ...user,
-          ...data,
-          token: user.token,
-          expiresAt: data.expiresAt || user.expiresAt,
-        };
-
-        setUser(nextUser);
-        localStorage.setItem("user", JSON.stringify(nextUser));
-      } catch {
-        // Keep current session on transient fetch errors.
-      }
+        const next = { ...user, ...data, token: user.token, expiresAt: data.expiresAt || user.expiresAt };
+        setUser(next);
+        localStorage.setItem("user", JSON.stringify(next));
+      } catch { /* keep existing session on transient failures */ }
     };
-
-    syncCurrentUser();
-
-    return () => {
-      disposed = true;
-    };
+    sync();
+    return () => { disposed = true; };
   }, [setUser, user?._id, user?.token]);
 
-  // If user is an investor, render the dedicated investor dashboard
-  if (user?.role === "investor") {
-    return <InvestorDashboard />;
-  }
-
-  return <CreatorDashboard user={user} dark={false} />;
+  if (user?.role === "investor") return <InvestorDashboard />;
+  return <CreatorDashboard user={user} />;
 };
 
-const CreatorDashboard = ({ user, dark }) => {
-  const [myScripts, setMyScripts] = useState([]);
-  const [sharedScripts, setSharedScripts] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [reviews, setReviews] = useState(null);
-  const [reviewTab, setReviewTab] = useState("ai");
-  const [loading, setLoading] = useState(true);
-  const [chartsReady, setChartsReady] = useState(false);
+// ── Creator Dashboard ─────────────────────────────────────────────────────────
+const CreatorDashboard = ({ user }) => {
+  // Hydrate synchronously from localStorage so a returning user sees their real
+  // dashboard on the very first paint (no skeleton), then we revalidate in the
+  // background. Read once (guard on undefined) — not on every render.
+  const cacheKey = user?._id ? `${DASH_CACHE_NS}${user._id}` : null;
+  const cachedRef = useRef();
+  if (cachedRef.current === undefined) cachedRef.current = cacheKey ? readCache(cacheKey) : null;
+  const cached = cachedRef.current;
+
+  const [myScripts,     setMyScripts]     = useState(cached?.myScripts ?? []);
+  const [sharedScripts, setSharedScripts] = useState(cached?.sharedScripts ?? []);
+  const [stats,         setStats]         = useState(cached?.stats ?? null);
+  const [reviews,       setReviews]       = useState(cached?.reviews ?? null);
+  const [reviewTab,     setReviewTab]     = useState("ai");
+  const [aiIndex,       setAiIndex]       = useState(0);
+  const [platIndex,     setPlatIndex]     = useState(0);
+  const [modal,         setModal]         = useState(null); // AI "View more" — the review being shown in the popup
+  const [showAllProjects, setShowAllProjects] = useState(false); // My Projects "View all" popup
+  const [projPage,        setProjPage]        = useState(1);     // 1-based page inside that popup
+  // Skeleton only when we have nothing cached to show.
+  const [loading,       setLoading]       = useState(!cached);
+
+  // The skeleton is an *initial-load* affordance only. Background refreshes
+  // (socket events below) must never flash it — and when we hydrated from cache
+  // the very first fetch is already a silent revalidation, not a cold load.
+  const initialLoad  = useRef(!cached);
+  // Keep the last opened review around during the modal's exit animation, so
+  // content doesn't vanish mid-transition when `modal` is cleared to null.
+  const modalLast    = useRef(null);
+  if (modal) modalLast.current = modal;
+
+  useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setChartsReady(true));
-    return () => cancelAnimationFrame(frame);
-  }, []);
-
-  useEffect(() => {
-    if (!user?.token) return undefined;
-
-    const socket = io(SOCKET_ORIGIN, {
-      auth: { token: user.token },
-    });
-
-    const refreshDashboard = () => {
-      fetchData();
-    };
-
-    socket.on("collab_membership_changed", refreshDashboard);
-    socket.on("collab_request", refreshDashboard);
-    socket.on("collab_invite", refreshDashboard);
-    socket.on("collab_request_sent", refreshDashboard);
-    socket.on("collab_request_responded", refreshDashboard);
-    socket.on("collaborator_removed", refreshDashboard);
-    socket.on("collab_role_changed", refreshDashboard);
-
-    return () => {
-      socket.disconnect();
-    };
+    if (!user?.token) return;
+    const socket = io(SOCKET_ORIGIN, { auth: { token: user.token } });
+    const refresh = () => fetchData();
+    [
+      "collab_membership_changed", "collab_request", "collab_invite",
+      "collab_request_sent", "collab_request_responded",
+      "collaborator_removed", "collab_role_changed",
+    ].forEach(ev => socket.on(ev, refresh));
+    return () => socket.disconnect();
   }, [user?.token]);
 
+  // Escape closes whichever popup is open.
+  useEffect(() => {
+    if (!modal && !showAllProjects) return;
+    const onKey = (e) => {
+      if (e.key !== "Escape") return;
+      setModal(null);
+      setShowAllProjects(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [modal, showAllProjects]);
+
+  // Persist the freshest snapshot so the next visit paints instantly. Runs on
+  // any data change once we're past the skeleton, so it always writes what the
+  // user is actually looking at (no stale closures). Writes are cheap and the
+  // util silently no-ops if storage is full/unavailable — with a trimmed retry
+  // if a power user's full project list blows the quota.
+  useEffect(() => {
+    if (!cacheKey || loading) return;
+    const payload = { myScripts, sharedScripts, stats, reviews };
+    if (!writeCache(cacheKey, payload, { prune: "dashboard:" })) {
+      writeCache(
+        cacheKey,
+        { ...payload, myScripts: myScripts.slice(0, 24), sharedScripts: sharedScripts.slice(0, 12) },
+        { prune: "dashboard:" }
+      );
+    }
+  }, [cacheKey, loading, myScripts, sharedScripts, stats, reviews]);
+
   const fetchData = async () => {
+    const showSkeleton = initialLoad.current;
     try {
-      setLoading(true);
+      if (showSkeleton) setLoading(true);
       const [scriptsRes, statsRes, reviewsRes] = await Promise.allSettled([
         api.get("/scripts/mine?includeCollaborations=1"),
         api.get("/dashboard"),
         api.get("/dashboard/reviews"),
       ]);
-
+      // On a failed leg, keep whatever we already have (cached/hydrated) rather
+      // than blanking the section — a transient error shouldn't wipe the UI or
+      // overwrite a good cache with empties.
       if (scriptsRes.status === "fulfilled") {
-        const allScripts = Array.isArray(scriptsRes.value.data) ? scriptsRes.value.data : [];
-        setMyScripts(allScripts.filter((script) => !script?.isCollaborator));
-        setSharedScripts(allScripts.filter((script) => script?.isCollaborator));
-      } else {
-        setMyScripts([]);
-        setSharedScripts([]);
+        const all = Array.isArray(scriptsRes.value.data) ? scriptsRes.value.data : [];
+        setMyScripts(all.filter(s => !s?.isCollaborator));
+        setSharedScripts(all.filter(s => s?.isCollaborator));
       }
-
       if (statsRes.status === "fulfilled") {
         setStats(statsRes.value.data.stats ?? statsRes.value.data);
       } else {
-        // Demo stats
-        setStats({
-          totalScripts: 3, totalEarnings: 450, totalUnlocks: 12, holdEarnings: 360,
-          totalViews: 1247, profileViews: 1247, trailersGenerated: 2, scoredScripts: 3, avgScore: 84,
-          auditionCount: 15, activeHolds: 1, plan: "free",
-        });
+        setStats(prev => prev ?? DEFAULT_STATS);
       }
-
-      if (reviewsRes.status === "fulfilled") {
-        setReviews(reviewsRes.value.data);
-      } else {
-        setReviews(null);
-      }
-
-    } catch { } finally { setLoading(false); }
+      if (reviewsRes.status === "fulfilled") setReviews(reviewsRes.value.data);
+    } catch { /* keep prior/cached state on total failure */ } finally {
+      initialLoad.current = false;
+      if (showSkeleton) setLoading(false);
+    }
   };
 
-  const lockedValue = (
-    <span className={`flex items-center gap-1.5 text-[15px] sm:text-[16px] font-bold ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-      <svg className="w-4 h-4 mb-[2px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-      Locked
-    </span>
-  );
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const published    = myScripts.filter(s => s.status === "published");
+  const totalViews   = published.reduce((s, sc) => s + (sc.views || 0), 0);
+  const topScript    = published.length
+    ? published.reduce((a, b) => (a.views || 0) >= (b.views || 0) ? a : b)
+    : null;
+  const avgViews     = published.length ? Math.round(totalViews / published.length) : 0;
 
-  const statCards = stats ? [
-    { label: "Profile Views", value: stats.isAnalyticsLocked ? lockedValue : (stats.profileViews ?? stats.totalViews ?? 0), isLocked: stats.isAnalyticsLocked },
-    { label: "Earnings", value: `₹${stats.totalEarnings || 0}` },
-    { label: "Unlocks", value: stats.isAnalyticsLocked ? lockedValue : (stats.totalUnlocks || 0), isLocked: stats.isAnalyticsLocked },
-    { label: "AI Trailers", value: stats.trailersGenerated || 0 },
-    { label: "Avg Score", value: stats.isAnalyticsLocked ? lockedValue : (stats.avgScore ?? "N/A"), isLocked: stats.isAnalyticsLocked },
-  ] : [];
-  const profileEditPath = getProfileCanonicalPath(user, {
-    viewerId: user?._id,
-    viewerRole: user?.role,
-  });
-  const projectActionClass = "";
+  const barData = [...myScripts]
+    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .slice(0, 6)
+    .map(s => ({
+      name:  s.title?.length > 16 ? s.title.slice(0, 16) + "…" : (s.title || "Untitled"),
+      views: s.views || 0,
+    }));
+  const maxV = Math.max(...barData.map(b => b.views), 1);
 
-  // Loading spinner removed to allow instantaneous dashboard shell rendering
+  const topRailScripts = [...published]
+    .sort((a, b) => (b.views || 0) - (a.views || 0))
+    .slice(0, 4);
+
+  const aiReviews    = reviews?.ai          || [];
+  const adminReviews = reviews?.adminScores || [];
+  const pending      = myScripts.filter(s => s.status === "pending_approval");
+  const rejected     = myScripts.filter(s => s.status === "rejected");
+  const profilePath  = getProfileCanonicalPath(user, { viewerId: user?._id, viewerRole: user?.role });
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  if (loading) return <DashboardSkeleton />;
 
   return (
-    <div className="bg-white min-h-full relative max-[640px]:-mx-4 max-[640px]:-mt-4">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(ellipse_at_top,rgba(30,58,95,0.10),transparent_70%)]"></div>
-      <div className="max-w-[1280px] mx-auto px-0 sm:px-6 lg:px-8 relative z-10">
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
+    // DashboardLayout provides the outer flex container (ck-content-area)
+    // We fill it directly — no negative margin hacks needed.
+    <div className="flex flex-1 min-h-0 min-w-0">
+
+      {/* ══════════════ MAIN SCROLL COLUMN ══════════════ */}
+      {/*
+        Block flow — NOT a flex column. A flex column here has a fixed height
+        (it's a flex-1 child of the bounded content area) with overflow-y:auto,
+        which makes the browser SHRINK children to their flex min-size when the
+        content overflows. Any section with overflow != visible (the hero, for
+        its rounded-corner image clip) gets an automatic min-height of 0 per the
+        flexbox spec, collapses to zero height, and clips its own content away —
+        while overflow:visible siblings keep their content min-height and survive.
+        Plain block flow lets every child take its natural height and scroll,
+        so no section can be silently collapsed. Spacing stays via each
+        section's mb-* margin. */}
+      <div className="flex-1 min-w-0 ck-scroll-main">
+
+        {/* Profile completion */}
         <ProfileCompletionBanner
           completion={user?.profileCompletion}
-          subtitle="Your profile is incomplete. Complete it to improve your visibility and recommendations."
+          subtitle="Complete your profile to improve visibility and recommendations."
           ctaLabel="Edit Profile"
-          ctaTo={profileEditPath}
-          className="mb-8"
+          ctaTo={profilePath}
+          className="mb-6"
         />
 
-        {/* Page heading */}
-        <div className="mb-6 sm:mb-8">
-          <div className={`rounded-2xl border max-[640px]:border-x-0 px-3.5 py-4 sm:px-5 sm:py-5 overflow-hidden ${dark ? 'bg-[#0d1520]/70 border-[#1c2a3a]' : 'bg-white border-slate-200 shadow-[0_16px_40px_-24px_rgba(15,23,42,0.28)]'}`}>
-            <div className="flex flex-col min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between gap-4">
-              <div className="max-[520px]:text-center max-[520px]:mx-auto">
-                <p className={`text-[12px] sm:text-[13px] font-semibold mb-1 ${dark ? 'text-[#4a5a6e]' : 'text-slate-500'}`}>Welcome back{user?.name ? `, ${user.name}` : ""}</p>
-                <h1 className={`text-[34px] leading-none sm:text-3xl font-extrabold tracking-tight ${dark ? 'text-white' : 'text-slate-900'}`}>
-                  Dashboard
-                </h1>
-              </div>
-              <div className="grid grid-cols-2 max-[650px]:grid-cols-1 gap-2 w-full min-[520px]:w-full sm:w-auto sm:min-w-[360px]">
-              <Link to="/create-project" state={{ startFresh: true }}
-                className={`inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold transition-all duration-200 shadow-sm hover:-translate-y-0.5 w-full max-w-full min-w-0 ${projectActionClass} ${dark ? 'bg-white/[0.04] text-[#8896a7] hover:bg-white/[0.07] ring-1 ring-white/[0.06]' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                <span className="max-[650px]:hidden">Create Project</span>
-                <span className="hidden max-[650px]:inline">Create</span>
-              </Link>
-              <Link to="/upload"
-                className={`inline-flex justify-center items-center gap-2 px-4 max-[420px]:px-3 py-2.5 max-[650px]:py-2 bg-[#1e3a5f] text-white rounded-xl max-[650px]:rounded-lg text-[13px] max-[650px]:text-[12px] font-bold hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 w-full max-w-full min-w-0 ${projectActionClass}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
-                <span className="max-[650px]:hidden">Upload Project</span>
-                <span className="hidden max-[650px]:inline">Upload</span>
-              </Link>
+        {/* ── HERO ────────────────────────────────────────────────────────── */}
+        <section
+          className="relative rounded-2xl overflow-hidden border mb-8"
+          style={{ position: "relative", borderColor: BORDER, background: "#faf7f2" }}
+        >
+          {/* Editorial image bleeds in from the right (matches 2B reference) */}
+          <img
+            src="/dashboard-hero.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="absolute top-0 right-0 h-full pointer-events-none select-none hidden sm:block"
+            style={{ width: "52%", objectFit: "cover", objectPosition: "center", zIndex: 0 }}
+          />
+          {/* White → transparent wash so the copy stays legible over the art */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ zIndex: 1, background: "linear-gradient(90deg,#ffffff 0%,#ffffff 40%,rgba(255,255,255,0.72) 58%,rgba(250,247,242,0.15) 78%,rgba(250,247,242,0) 100%)" }}
+          />
+          {/* Copy sits explicitly above the art + wash — don't rely on paint order */}
+          <div className="relative px-7 py-7 sm:px-8 sm:py-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5" style={{ position: "relative", zIndex: 2 }}>
+            <div style={{ maxWidth: "58%" }}>
+              <h1
+                style={{ fontFamily: DISPLAY_FONT, color: BASE }}
+                className="font-semibold text-[28px] sm:text-[32px] leading-tight"
+              >
+                Your Stories in Motion
+              </h1>
+              <p style={{ color: MUTED }} className="text-[13.5px] leading-relaxed mt-2.5 max-w-[46ch]">
+                Track scripts, trailer engagement, producer interest &amp; acquisition — all in one place.
+              </p>
             </div>
-          </div>
-          </div>
-        </div>
-
-        {/* Stats grid */}
-        {statCards.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 mb-8 sm:justify-items-center">
-            {statCards.map((card, idx) => {
-              return (
-                <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.04 }}
-                  className={`relative w-full sm:max-w-[200px] md:max-w-[180px] rounded-xl border max-[640px]:border-x-0 p-3.5 md:p-3 min-h-[104px] md:min-h-[92px] max-[640px]:min-h-[98px] transition-all duration-200 group/card cursor-default ${
-                    card.isLocked 
-                      ? (dark ? 'bg-[#0a111a] border-[#18283b]/60 opacity-80' : 'bg-gray-50/80 border-gray-100 opacity-90')
-                      : (dark ? 'bg-[#0d1520] border-[#1c2a3a] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 hover:border-[#2a3a4e]' : 'bg-white border-slate-200 hover:-translate-y-0.5 shadow-sm hover:shadow-md hover:border-slate-300')
-                  }`}>
-                  {card.isLocked && (
-                    <Link to="/pricing" className="absolute inset-0 z-10 flex items-center justify-center bg-transparent" title="Upgrade to unlock analytics" />
-                  )}
-                  <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1.5 transition-colors ${
-                    card.isLocked
-                      ? (dark ? 'text-[#3a4a5e]/70' : 'text-slate-400')
-                      : (dark ? 'text-[#3a4a5e] group-hover/card:text-[#8896a7]' : 'text-slate-500 group-hover/card:text-slate-600')
-                  }`}>{card.label}</p>
-                  <div className={`text-xl leading-none font-extrabold tabular-nums ${
-                    card.isLocked
-                      ? ''
-                      : (dark ? 'text-white' : 'text-slate-900')
-                  }`}>{card.value}</div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Content Views */}
-        {myScripts.length > 0 && (() => {
-          const publishedScripts = myScripts.filter(s => s.status === "published");
-          if (publishedScripts.length === 0) return null;
-          const totalViews = publishedScripts.reduce((sum, s) => sum + (s.views || 0), 0);
-          const topScript = publishedScripts.reduce((a, b) => ((a.views || 0) >= (b.views || 0) ? a : b), publishedScripts[0]);
-          const avgViews = publishedScripts.length > 0 ? Math.round(totalViews / publishedScripts.length) : 0;
-          const chartData = publishedScripts.map(s => ({
-            name: s.title?.length > 14 ? s.title.slice(0, 14) + "…" : s.title,
-            views: s.views || 0,
-            fullName: s.title,
-          })).sort((a, b) => b.views - a.views).slice(0, 8);
-
-          return (
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.4 }}
-              className={`rounded-2xl border shadow-sm mb-8 overflow-hidden ${dark ? 'bg-[#0d1520] border-[#1c2a3a]' : 'bg-white border-gray-100'}`}
-            >
-              {/* Header */}
-              <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-0">
-                <div className="flex items-start sm:items-center justify-between mb-4 sm:mb-5 gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-[#1e3a5f]/[0.06] flex items-center justify-center">
-                      <svg className="w-[18px] h-[18px] text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className={`text-[16px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Content Views</h2>
-                      <p className={`text-[12px] font-medium ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Performance across your scripts</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Summary Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-1">
-                  <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-white/[0.03] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#8896a7]"></div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Total Views</p>
-                    </div>
-                    <p className={`text-xl font-extrabold tabular-nums ${dark ? 'text-white' : 'text-gray-900'}`}>{totalViews.toLocaleString()}</p>
-                  </div>
-                  <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-white/[0.03] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#8896a7]"></div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Top Script</p>
-                    </div>
-                    <p className={`text-xl font-extrabold tabular-nums ${dark ? 'text-white' : 'text-gray-900'}`}>{(topScript.views || 0).toLocaleString()}</p>
-                    <p className={`text-[10px] font-medium truncate ${dark ? 'text-[#2a3a4e]' : 'text-gray-400/80'}`}>{topScript.title}</p>
-                  </div>
-                  <div className={`rounded-xl px-4 py-3 ${dark ? 'bg-white/[0.03] ring-1 ring-white/[0.05]' : 'bg-gray-50/60 ring-1 ring-gray-200/40'}`}>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#8896a7]"></div>
-                      <p className={`text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>Avg / Script</p>
-                    </div>
-                    <p className={`text-xl font-extrabold tabular-nums ${dark ? 'text-white' : 'text-gray-900'}`}>{avgViews.toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sparkline */}
-              <div className="h-[48px] w-full">
-                {chartsReady && (
-                  <ResponsiveContainer width="100%" height={48} minWidth={0}>
-                    <AreaChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="sparkGrad" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#1e3a5f" stopOpacity={0.12} />
-                          <stop offset="50%" stopColor="#1e3a5f" stopOpacity={0.06} />
-                          <stop offset="100%" stopColor="#1e3a5f" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <Area type="monotone" dataKey="views" stroke="#1e3a5f" strokeWidth={1.5} fill="url(#sparkGrad)" dot={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              {/* Bar Chart */}
-              <div className="px-4 sm:px-6 pb-2 pt-1">
-                <div className="h-[200px] sm:h-[220px]">
-                  {chartsReady && (
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                      <BarChart data={chartData} margin={{ top: 4, right: 4, left: -26, bottom: 0 }} barSize={20}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={dark ? '#151f2e' : '#f5f5f5'} vertical={false} />
-                        <XAxis
-                          dataKey="name"
-                          tick={{ fontSize: 11, fontWeight: 600, fill: "#9ca3af" }}
-                          axisLine={false}
-                          tickLine={false}
-                          interval={0}
-                          angle={-25}
-                          textAnchor="end"
-                          height={52}
-                        />
-                        <YAxis
-                          tick={{ fontSize: 10, fontWeight: 500, fill: "#d1d5db" }}
-                          axisLine={false}
-                          tickLine={false}
-                          allowDecimals={false}
-                          width={40}
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: dark ? '#0d1520' : '#fff',
-                            border: `1px solid ${dark ? '#1c2a3a' : '#f3f4f6'}`,
-                            borderRadius: 12,
-                            fontSize: 13,
-                            fontWeight: 600,
-                            boxShadow: dark ? '0 8px 24px rgba(0,0,0,0.5)' : '0 8px 24px rgba(0,0,0,0.06)',
-                            padding: '10px 16px',
-                            color: dark ? '#e5e7eb' : undefined,
-                          }}
-                          labelStyle={{ color: dark ? '#ffffff' : '#111827', fontWeight: 700, marginBottom: 2, fontSize: 13 }}
-                          itemStyle={{ color: dark ? '#8896a7' : '#6b7280' }}
-                          formatter={(value) => [value.toLocaleString() + " views", ""]}
-                          cursor={{ fill: "rgba(30,58,95,0.03)", radius: 6 }}
-                        />
-                        <defs>
-                          <linearGradient id="barGradTop" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#1e3a5f" />
-                            <stop offset="100%" stopColor="#162d4a" />
-                          </linearGradient>
-                          <linearGradient id="barGradMid" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#4a6d8c" />
-                            <stop offset="100%" stopColor="#3d5f7e" />
-                          </linearGradient>
-                          <linearGradient id="barGradLow" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#a8c4d8" />
-                            <stop offset="100%" stopColor="#8ab0c8" />
-                          </linearGradient>
-                        </defs>
-                        <Bar dataKey="views" radius={[6, 6, 2, 2]}>
-                          {chartData.map((_, i) => (
-                            <Cell key={i} fill={i === 0 ? "url(#barGradTop)" : i <= 2 ? "url(#barGradMid)" : "url(#barGradLow)"} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
-
-            </motion.div>
-          );
-        })()}
-
-        {/* Reviews & Insights Section */}
-        <div className="mb-8">
-          {/* Section Header */}
-          <div className="flex items-center gap-3 mb-5 sm:mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#2d5a8e] flex items-center justify-center shadow-sm">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
-              </svg>
-            </div>
-            <div>
-                <h2 className={`text-xl font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>Reviews & Insights</h2>
-              <p className={`text-sm font-medium ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Performance analytics and AI-powered feedback</p>
-            </div>
-          </div>
-
-          {/* Tab Navigation */}
-          {reviews && (
-            <div className={`rounded-2xl border shadow-sm overflow-hidden mb-8 ${dark ? 'bg-[#101e30] border-[#182840]' : 'bg-white border-gray-100'}`}>
-              <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-0">
-                <div className={`inline-flex items-center rounded-xl p-1 gap-1 ${dark ? 'bg-[#0d1520]' : 'bg-gray-50'} max-w-full overflow-x-auto whitespace-nowrap`}>
-                  {[
-                    {
-                      key: "ai", label: "AI Analysis", shortLabel: "AI",
-                      icon: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5",
-                      gradient: "from-[#1e3a5f] to-[#162d4a]"
-                    },
-                    {
-                      key: "platform", label: "Platform Insights", shortLabel: "Platform",
-                      icon: "M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6",
-                      gradient: "from-[#1e3a5f] to-[#162d4a]"
-                    },
-                  ].map((tab) => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setReviewTab(tab.key)}
-                      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 ${reviewTab === tab.key
-                        ? dark ? 'bg-[#0d1520] text-white shadow-sm ring-1 ring-white/[0.08]' : 'bg-white text-[#1e3a5f] shadow-sm'
-                        : dark ? 'text-[#4a5a6e] hover:text-[#8896a7]' : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
-                      </svg>
-                      <span className="hidden sm:inline">{tab.label}</span>
-                      <span className="sm:hidden">{tab.shortLabel}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 sm:p-6">
-                {/* AI Analysis Tab */}
-                {reviewTab === "ai" && (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
-                    {reviews.ai?.length > 0 ? (
-                      <div className="space-y-5 max-h-[520px] overflow-y-auto pr-1">
-                        {reviews.ai.map((r, idx) => {
-                          const scoreColor = r.rating >= 80 ? { ring: "#1e3a5f", bg: "bg-[#1e3a5f]/[0.06]", text: "text-[#1e3a5f]", label: "Excellent" }
-                            : r.rating >= 60 ? { ring: "#6b7280", bg: "bg-gray-50", text: "text-gray-600", label: "Good" }
-                              : { ring: "#9ca3af", bg: "bg-gray-50", text: "text-gray-500", label: "Needs Work" };
-                          return (
-                            <motion.div key={r.scriptId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: idx * 0.08 }}
-                              className={`group rounded-2xl p-6 transition-all duration-300 ${dark ? 'hover:shadow-md hover:shadow-black/30' : 'hover:shadow-md'}`}
-                            >
-                              <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
-                                {/* Circular Score */}
-                                <div className="relative shrink-0">
-                                  <svg className="w-[72px] h-[72px] -rotate-90" viewBox="0 0 72 72">
-                                    <circle cx="36" cy="36" r="30" fill="none" stroke={dark ? '#1c2a3a' : '#f3f4f6'} strokeWidth="5" />
-                                    <circle cx="36" cy="36" r="30" fill="none" stroke={scoreColor.ring} strokeWidth="5"
-                                      strokeDasharray={`${(r.rating / 100) * 188.5} 188.5`}
-                                      strokeLinecap="round" className="transition-all duration-700" />
-                                  </svg>
-                                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className={`text-lg font-extrabold ${scoreColor.text}`}>{r.rating}</span>
-                                  </div>
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-3 mb-1">
-                                    <div>
-                                      <h3 className={`text-[15px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>{r.scriptTitle}</h3>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${scoreColor.bg} ${scoreColor.text}`}>
-                                          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: scoreColor.ring }}></span>
-                                          {scoreColor.label}
-                                        </span>
-                                        <span className="text-[11px] text-gray-300 font-medium">AI-powered analysis</span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Score Breakdown */}
-                                  {Object.keys(r.scores || {}).length > 0 && (
-                                    <div className="mt-4 grid grid-cols-2 max-[400px]:grid-cols-1 md:grid-cols-5 gap-3">
-                                      {Object.entries(r.scores).map(([key, val]) => {
-                                        const barColor = val >= 80 ? "bg-[#1e3a5f]" : val >= 60 ? "bg-gray-400" : "bg-gray-300";
-                                        return (
-                                          <div key={key} className={`rounded-lg px-3 max-[400px]:px-2.5 py-2.5 ${dark ? 'bg-[#0d1520] ring-1 ring-white/[0.05]' : 'bg-gray-50/80'}`}>
-                                            <div className="flex items-center justify-between gap-2 mb-1.5">
-                                              <span className={`min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wider ${dark ? 'text-[#3a4a5e]' : 'text-gray-400'}`}>{key}</span>
-                                              <span className={`shrink-0 text-[12px] font-bold tabular-nums ${dark ? 'text-[#8896a7]' : 'text-gray-700'}`}>{val}</span>
-                                            </div>
-                                            <div className={`h-1 rounded-full overflow-hidden ${dark ? 'bg-[#1c2a3a]' : 'bg-gray-200'}`}>
-                                              <motion.div initial={{ width: 0 }} animate={{ width: `${val}%` }}
-                                                transition={{ duration: 0.6, delay: 0.2 }}
-                                                className={`h-full rounded-full ${barColor}`} />
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-
-                                  {/* AI Feedback */}
-                                  {r.feedback && (
-                                    <div className={`mt-4 rounded-xl p-3.5 ${dark ? 'bg-[#0d1520]' : 'bg-gray-50/80'}`}>
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-6 h-6 rounded-lg bg-[#1e3a5f]/[0.08] flex items-center justify-center shrink-0">
-                                          <svg className="w-3.5 h-3.5 text-[#1e3a5f]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                                          </svg>
-                                        </div>
-                                        <p className="text-[11px] font-bold text-[#1e3a5f] uppercase tracking-wider">AI Feedback</p>
-                                      </div>
-                                      <p className={`text-[13px] leading-relaxed ${dark ? 'text-[#8896a7]' : 'text-gray-600'}`}>{r.feedback}</p>
-                                    </div>
-                                  )}
-
-                                  {/* Strengths */}
-                                  {r.strengths?.length > 0 && (
-                                    <div className={`mt-3 rounded-xl border p-3.5 ${dark ? 'bg-emerald-400/[0.04] border-emerald-400/10' : 'bg-emerald-50 border-emerald-100'}`}>
-                                      <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${dark ? 'text-emerald-400' : 'text-emerald-600'}`}>Strengths</p>
-                                      <ul className="space-y-1">
-                                        {r.strengths.map((s, i) => (
-                                          <li key={i} className={`flex items-start gap-1.5 text-[12px] ${dark ? 'text-[#8896a7]' : 'text-gray-600'}`}>
-                                            <span className={`mt-0.5 shrink-0 text-xs ${dark ? 'text-emerald-400' : 'text-emerald-600'}`}>✓</span>{s}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-
-                                  {/* Weaknesses + Improvements */}
-                                  {(r.weaknesses?.length > 0 || r.improvements?.length > 0) && (
-                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                      {r.weaknesses?.length > 0 && (
-                                        <div className={`rounded-xl border p-3.5 ${dark ? 'bg-amber-400/[0.04] border-amber-400/10' : 'bg-amber-50 border-amber-100'}`}>
-                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${dark ? 'text-amber-400' : 'text-amber-600'}`}>To Improve</p>
-                                          <ul className="space-y-1">
-                                            {r.weaknesses.map((w, i) => (
-                                              <li key={i} className={`flex items-start gap-1.5 text-[12px] ${dark ? 'text-[#8896a7]' : 'text-gray-600'}`}>
-                                                <span className={`mt-0.5 shrink-0 text-xs ${dark ? 'text-amber-400' : 'text-amber-600'}`}>△</span>{w}
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                      )}
-                                      {r.improvements?.length > 0 && (
-                                        <div className={`rounded-xl border p-3.5 ${dark ? 'bg-blue-400/[0.04] border-blue-400/10' : 'bg-blue-50 border-blue-100'}`}>
-                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${dark ? 'text-blue-400' : 'text-blue-600'}`}>Recommendations</p>
-                                          <ul className="space-y-1">
-                                            {r.improvements.map((imp, i) => (
-                                              <li key={i} className={`flex items-start gap-1.5 text-[12px] ${dark ? 'text-[#8896a7]' : 'text-gray-600'}`}>
-                                                <span className={`mt-0.5 shrink-0 font-bold text-[10px] ${dark ? 'text-blue-400' : 'text-blue-600'}`}>{i + 1}.</span>{imp}
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Audience Fit + Comparables */}
-                                  {(r.audienceFit || r.comparables) && (
-                                    <div className={`mt-3 grid gap-3 ${r.audienceFit && r.comparables ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
-                                      {r.audienceFit && (
-                                        <div className={`rounded-xl border p-3 ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50'}`}>
-                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-[#2a3a4e]' : 'text-gray-400'}`}>Audience &amp; Market</p>
-                                          <p className={`text-[12px] leading-relaxed ${dark ? 'text-[#8896a7]' : 'text-gray-600'}`}>{r.audienceFit}</p>
-                                        </div>
-                                      )}
-                                      {r.comparables && (
-                                        <div className={`rounded-xl border p-3 ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50'}`}>
-                                          <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${dark ? 'text-[#2a3a4e]' : 'text-gray-400'}`}>Comparable Titles</p>
-                                          <p className={`text-[12px] leading-relaxed ${dark ? 'text-[#8896a7]' : 'text-gray-600'}`}>{r.comparables}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center py-16">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${dark ? 'bg-white/[0.04]' : 'bg-gray-50'}`}>
-                          <svg className={`w-8 h-8 ${dark ? 'text-gray-600' : 'text-gray-300'}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082" />
-                          </svg>
-                        </div>
-                        <p className={`text-[15px] font-bold mb-1 ${dark ? 'text-white' : 'text-gray-800'}`}>No AI analyses yet</p>
-                        <p className={`text-sm max-w-xs text-center ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Score a script to receive detailed AI-powered insights and recommendations</p>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-
-                {/* Platform Insights Tab */}
-                {reviewTab === "platform" && (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className="space-y-7">
-
-                    {/* ── Admin Score Reviews ── */}
-                    <div>
-                      <div className="flex items-center gap-2.5 mb-4">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark ? 'bg-indigo-500/20' : 'bg-indigo-50'}`}>
-                          <svg className={`w-3.5 h-3.5 ${dark ? 'text-indigo-400' : 'text-indigo-600'}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <span className={`text-[11px] font-bold uppercase tracking-widest ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>Admin Score Reviews</span>
-                      </div>
-
-                      {reviews.adminScores?.length > 0 ? (
-                        <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
-                          {reviews.adminScores.map((s, idx) => {
-                            const scoreDims = [
-                              { key: "content",  label: "Main Content", color: "#6366f1", track: dark ? "rgba(99,102,241,0.12)" : "#ede9fe" },
-                              { key: "trailer",  label: "Trailer",      color: "#8b5cf6", track: dark ? "rgba(139,92,246,0.12)" : "#ede9fe" },
-                              { key: "title",    label: "Title",        color: "#f59e0b", track: dark ? "rgba(245,158,11,0.12)"  : "#fef3c7" },
-                              { key: "synopsis", label: "Synopsis",     color: "#10b981", track: dark ? "rgba(16,185,129,0.12)"  : "#d1fae5" },
-                              { key: "tags",     label: "Tag & Meta",   color: "#f97316", track: dark ? "rgba(249,115,22,0.12)"  : "#ffedd5" },
-                            ];
-                            const ov = s.overall ?? 0;
-                            const gc = ov >= 85 ? "#8b5cf6" : ov >= 70 ? "#10b981" : ov >= 55 ? "#3b82f6" : ov >= 40 ? "#f59e0b" : "#ef4444";
-                            const gl = ov >= 85 ? "S" : ov >= 70 ? "A" : ov >= 55 ? "B" : ov >= 40 ? "C" : "D";
-                            return (
-                              <motion.div key={s.scriptId} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.07 }}
-                                className={`border rounded-2xl overflow-hidden ${dark ? 'border-[#1c2a3a]' : 'border-gray-100'}`}
-                              >
-                                {/* Card header */}
-                                <div className={`flex items-center justify-between gap-3 px-5 py-4 ${dark ? 'bg-[#0d1520]' : 'bg-gray-50/80'}`}>
-                                  <div className="min-w-0">
-                                    <h4 className={`text-[14px] font-bold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{s.scriptTitle}</h4>
-                                    {s.scoredAt && (
-                                      <p className={`text-[11px] mt-0.5 ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>
-                                        Reviewed {new Date(s.scoredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md" style={{ color: gc, backgroundColor: gc + "22" }}>Grade {gl}</span>
-                                    <div className="text-right">
-                                      <span className="text-[22px] font-black tabular-nums leading-none" style={{ color: gc }}>{ov}</span>
-                                      <span className={`text-[10px] block font-semibold ${dark ? 'text-gray-500' : 'text-gray-400'}`}>/ 100</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Score bars */}
-                                <div className={`px-5 py-4 space-y-3 ${dark ? 'bg-[#080e18]/40' : 'bg-white'}`}>
-                                  {scoreDims.map(d => {
-                                    const val = s[d.key] ?? 0;
-                                    const pct = Math.min(100, Math.max(0, val));
-                                    return (
-                                      <div key={d.key} className="flex items-center gap-3">
-                                        <span className={`text-[11px] font-semibold shrink-0 w-20 sm:w-[90px] ${dark ? 'text-[#8896a7]' : 'text-gray-500'}`}>{d.label}</span>
-                                        <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: d.track }}>
-                                          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: d.color }} />
-                                        </div>
-                                        <span className="text-[12px] font-black tabular-nums w-14 text-right" style={{ color: d.color }}>
-                                          {val}<span className={`text-[10px] font-normal ${dark ? 'text-[#2a3a4e]' : 'text-gray-300'}`}>/100</span>
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {/* Feedback */}
-                                {s.feedback && (
-                                  <div className={`px-5 py-3 border-t text-[12px] leading-relaxed ${dark ? 'border-[#1c2a3a] bg-[#0d1520] text-[#8896a7]' : 'border-gray-50 bg-gray-50/60 text-gray-500'}`}>
-                                    <span className={`font-semibold mr-1.5 ${dark ? 'text-[#8896a7]' : 'text-gray-700'}`}>Feedback:</span>
-                                    {s.feedback}
-                                  </div>
-                                )}
-                              </motion.div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className={`flex flex-col items-center justify-center py-10 rounded-2xl border ${dark ? 'border-[#1c2a3a] bg-[#0d1520]' : 'border-gray-100 bg-gray-50/50'}`}>
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 shadow-sm ${dark ? 'bg-[#080e18]' : 'bg-white'}`}>
-                            <svg className={`w-6 h-6 ${dark ? 'text-[#2a3a4e]' : 'text-gray-300'}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375" />
-                            </svg>
-                          </div>
-                          <p className={`text-[13px] font-bold mb-1 ${dark ? 'text-[#8896a7]' : 'text-gray-600'}`}>No admin reviews yet</p>
-                          <p className={`text-[12px] text-center max-w-[220px] ${dark ? 'text-[#4a5a6e]' : 'text-gray-400'}`}>Submit your script for platform review to receive quality scores</p>
-                        </div>
-                      )}
-                    </div>
-
-
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-
-        {/* Section heading */}
-        <div className="flex items-center gap-2 mb-5 flex-wrap">
-          <h2 className={`text-[17px] font-bold tracking-tight ${dark ? 'text-white' : 'text-gray-900'}`}>My Projects</h2>
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md tabular-nums ${dark ? 'text-[#8896a7] bg-white/[0.04]' : 'text-gray-400 bg-gray-100'}`}>{myScripts.length}</span>
-        </div>
-
-        {/* Approval status notices */}
-        {(() => {
-          const pending = myScripts.filter(s => s.status === "pending_approval");
-          const rejected = myScripts.filter(s => s.status === "rejected");
-          return (
-            <>
-              {pending.length > 0 && (
-                <div className={`mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border ${dark ? 'bg-amber-500/5 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'}`}>
-                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-[13px] font-medium">
-                    <span className="font-bold">{pending.length} project{pending.length > 1 ? 's' : ''}</span> pending admin approval — {pending.length > 1 ? 'they are' : 'it is'} hidden from the public until approved.
-                  </p>
-                </div>
-              )}
-              {rejected.length > 0 && (
-                <div className={`mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border ${dark ? 'bg-red-500/5 border-red-500/20 text-red-300' : 'bg-red-50 border-red-200 text-red-800'}`}>
-                  <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                  </svg>
-                  <p className="text-[13px] font-medium">
-                    <span className="font-bold">{rejected.length} project{rejected.length > 1 ? 's were' : ' was'}</span> not approved. Review the feedback on each card and make revisions, then re-upload.
-                  </p>
-                </div>
-              )}
-            </>
-          );
-        })()}
-
-        {/* Projects grid */}
-        {myScripts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {myScripts.map((script) => (
-              <ProjectCard
-                key={script._id}
-                project={script}
-                userName={
-                  script.creator?.name?.toUpperCase() ||
-                  user?.name?.toUpperCase() ||
-                  "UNKNOWN"
-                }
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-20">
-            <div className={`w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center ${dark ? 'bg-white/[0.04]' : 'bg-gray-100'}`}>
-              <svg className={`w-10 h-10 ${dark ? 'text-gray-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            </div>
-            <h2 className={`text-2xl font-bold mb-2 ${dark ? 'text-gray-300' : 'text-gray-700'}`}>No projects yet</h2>
-            <p className={`text-base mb-6 ${dark ? 'text-gray-500' : 'text-gray-500'}`}>Upload your first script to get started</p>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-md mx-auto">
+            <div className="flex gap-2.5 flex-none">
               <Link
                 to="/create-project"
                 state={{ startFresh: true }}
-                className={`inline-flex justify-center items-center gap-2 px-6 py-3 rounded-xl font-bold text-base transition-all duration-200 hover:-translate-y-0.5 ${dark ? 'bg-white/[0.06] text-gray-200 hover:bg-white/[0.1] ring-1 ring-white/10' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className="flex items-center gap-1.5 h-10 px-[17px] rounded-[9px] text-[13px] font-semibold transition-colors hover:opacity-90"
+                style={{ background: BASE, color: "#fff", boxShadow: "0 6px 16px rgba(28,26,23,.18)" }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                CREATE PROJECT
+                <MatIcon name="add" size={18} />
+                Create
               </Link>
               <Link
                 to="/upload"
-                className="inline-flex justify-center items-center gap-2 px-6 py-3 bg-[#1e3a5f] text-white font-bold rounded-xl hover:bg-[#162d4a] transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-[#1e3a5f]/20 hover:-translate-y-0.5 text-base"
+                className="flex items-center gap-1.5 h-10 px-[17px] rounded-[9px] text-[13px] font-semibold border transition-colors hover:border-[#1c1a17]"
+                style={{ background: "#fff", color: BASE, borderColor: "#d7d0c2" }}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                </svg>
-                UPLOAD PROJECT
+                <MatIcon name="upload" size={18} />
+                Upload
               </Link>
             </div>
           </div>
+        </section>
+
+        {/* ── SCRIPT PERFORMANCE ──────────────────────────────────────────── */}
+        <section className="mb-8 px-1">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <h2
+                style={{ fontFamily: DISPLAY_FONT, color: BASE, letterSpacing: "-0.01em" }}
+                className="text-[38px] sm:text-[44px] font-semibold leading-tight"
+              >
+                Script Performance
+                <span
+                  className="inline-block ml-3 align-middle"
+                  style={{ width: 9, height: 9, background: ACCENT, borderRadius: 2, verticalAlign: "0.1em" }}
+                />
+              </h2>
+              <p style={{ color: "#8d877e" }} className="text-[14px] mt-3">
+                Track how your scripts are performing across the platform
+              </p>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex mt-7" style={{ borderLeft: "none" }}>
+            {[
+              { label: "Total Views",  value: totalViews.toLocaleString(),             sub: null },
+              { label: "Top Script",   value: (topScript?.views || 0).toLocaleString(), sub: topScript?.title },
+              { label: "Avg / Script", value: avgViews.toLocaleString(),               sub: null },
+            ].map(({ label, value, sub }, i) => (
+              <div
+                key={i}
+                className="flex-1"
+                style={{
+                  padding: i === 0 ? "0 24px 0 4px" : "0 24px",
+                  borderLeft: i > 0 ? `1px solid #eae4d8` : undefined,
+                }}
+              >
+                <div className="text-[10px] font-semibold tracking-[1.4px] uppercase" style={{ color: FAINT }}>
+                  {label}
+                </div>
+                <div
+                  style={{ fontFamily: DISPLAY_FONT, color: BASE }}
+                  className="text-[42px] sm:text-[46px] font-medium leading-none mt-3.5"
+                >
+                  {value}
+                </div>
+                {sub && <div className="text-[13px] mt-2.5 truncate" style={{ color: "#8d877e" }}>{sub}</div>}
+              </div>
+            ))}
+          </div>
+
+          {/* Bar chart */}
+          {barData.length > 0 && (
+            <div className="mt-8 pt-9 border-t" style={{ borderColor: "#eae4d8" }}>
+              <div className="flex">
+                {/* Y labels */}
+                <div
+                  className="flex flex-col justify-between pr-[18px] text-right text-[12px]"
+                  style={{ height: 280, color: "#b1aa9e", fontVariantNumeric: "tabular-nums" }}
+                >
+                  {[maxV, Math.round(maxV * 0.75), Math.round(maxV * 0.5), Math.round(maxV * 0.25), 0].map(v => (
+                    <span key={v}>{v.toLocaleString()}</span>
+                  ))}
+                </div>
+                {/* Chart area */}
+                <div className="flex-1 min-w-0">
+                  <div className="relative" style={{ height: 280 }}>
+                    {[0, 25, 50, 75].map(pct => (
+                      <div
+                        key={pct}
+                        className="absolute left-0 right-0"
+                        style={{ top: `${pct}%`, borderTop: "1px dashed #e6e0d3" }}
+                      />
+                    ))}
+                    <div
+                      className="absolute bottom-0 left-0 right-0"
+                      style={{ height: 1, background: "#cfc7b6" }}
+                    />
+                    <div className="absolute inset-0 flex items-end">
+                      {barData.map((b, i) => (
+                        <div key={i} className="flex-1 flex justify-center items-end h-full">
+                          <div
+                            style={{
+                              width: 20,
+                              height: `${Math.max(1.5, (b.views / maxV) * 100).toFixed(1)}%`,
+                              background: i === 0 ? ACCENT : BASE,
+                              opacity: i === 0 ? 1 : Math.max(0.3, 1 - i * 0.12),
+                              transition: "height 0.6s cubic-bezier(.22,.61,.36,1)",
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* X labels */}
+                  <div className="flex mt-4">
+                    {barData.map((b, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 text-center px-1 text-[12.5px] sm:text-[13.5px]"
+                        style={{ fontFamily: DISPLAY_FONT, fontStyle: "italic", color: MUTED }}
+                      >
+                        {b.name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {barData.length === 0 && (
+            <div className="mt-8 pt-8 border-t text-center py-12" style={{ borderColor: "#eae4d8" }}>
+              <p style={{ color: FAINT }} className="text-[14px]">
+                No script data yet. Upload your first script to see performance.
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* ── REVIEWS & INSIGHTS ──────────────────────────────────────────── */}
+        <section className="mb-8 pt-6 border-t px-1" style={{ borderColor: BORDER }}>
+          <div className="flex items-center gap-3 mb-4">
+            <MatIcon name="sparkles" size={22} fill style={{ color: ACCENT }} />
+            <h2 style={{ fontFamily: DISPLAY_FONT, color: BASE }} className="text-[21px] font-medium">
+              Reviews &amp; Insights
+            </h2>
+          </div>
+
+          {/* Tab nav */}
+          <div className="flex gap-7 mb-0" style={{ borderBottom: `1px solid #ece6da` }}>
+            {[
+              { key: "ai",       label: "AI Analysis"       },
+              { key: "platform", label: "Platform Insights"  },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setReviewTab(tab.key); setAiIndex(0); setPlatIndex(0); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "0 2px 11px",
+                  fontSize: "10.5px",
+                  fontWeight: 700,
+                  letterSpacing: "1.3px",
+                  textTransform: "uppercase",
+                  color: reviewTab === tab.key ? BASE : "#b1aa9e",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: reviewTab === tab.key ? `2px solid ${ACCENT}` : "2px solid transparent",
+                  marginBottom: -1,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  transition: "color .18s",
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* AI Analysis panel — carousel of compact cards (sized like Platform
+              Insights); full detail behind "View more". */}
+          {reviewTab === "ai" && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="pt-4">
+              {aiReviews.length > 0 ? (
+                <>
+                  <CarouselNav
+                    current={aiIndex}
+                    total={aiReviews.length}
+                    label="Script"
+                    onPrev={() => setAiIndex(i => Math.max(0, i - 1))}
+                    onNext={() => setAiIndex(i => Math.min(aiReviews.length - 1, i + 1))}
+                  />
+                  <div className="overflow-hidden">
+                    <div
+                      className="flex"
+                      style={{ transform: `translateX(-${aiIndex * 100}%)`, transition: "transform .5s cubic-bezier(.22,.61,.36,1)" }}
+                    >
+                      {aiReviews.map((r, idx) => (
+                        <AiReviewCompact key={r.scriptId || idx} review={r} onOpen={() => setModal(r)} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <EmptyPanel
+                  icon="sparkles"
+                  title="No AI analyses yet"
+                  desc="Score a script to receive detailed AI-powered insights and recommendations"
+                />
+              )}
+            </motion.div>
+          )}
+
+          {/* Platform Insights panel */}
+          {reviewTab === "platform" && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="pt-4">
+              {adminReviews.length > 0 ? (
+                <>
+                  <CarouselNav
+                    current={platIndex}
+                    total={adminReviews.length}
+                    label="Admin Review"
+                    onPrev={() => setPlatIndex(i => Math.max(0, i - 1))}
+                    onNext={() => setPlatIndex(i => Math.min(adminReviews.length - 1, i + 1))}
+                  />
+                  <div className="overflow-hidden">
+                    <div
+                      className="flex"
+                      style={{ transform: `translateX(-${platIndex * 100}%)`, transition: "transform .5s cubic-bezier(.22,.61,.36,1)" }}
+                    >
+                      {adminReviews.map((s, idx) => <AdminReviewCard key={s.scriptId || idx} review={s} />)}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <EmptyPanel
+                  icon="terms"
+                  title="No admin reviews yet"
+                  desc="Submit your script for platform review to receive quality scores"
+                />
+              )}
+            </motion.div>
+          )}
+        </section>
+
+        {/* ── MY PROJECTS ─────────────────────────────────────────────────── */}
+        <section className="pt-6 border-t px-1" style={{ borderColor: BORDER }}>
+          <div className="flex items-center gap-3 mb-4 flex-wrap">
+            <MatIcon name="projects" size={22} style={{ color: ACCENT }} />
+            <h2 style={{ fontFamily: DISPLAY_FONT, color: BASE }} className="text-[21px] font-medium">
+              My Projects
+            </h2>
+            <span
+              className="text-[12px] font-bold px-2.5 py-0.5 rounded-full"
+              style={{ background: CREAM, color: "#8d877e" }}
+            >
+              {myScripts.length}
+            </span>
+            <div className="flex-1" />
+            <Link
+              to={profilePath}
+              className="text-[11px] font-bold tracking-[1.1px] uppercase transition-opacity hover:opacity-60"
+              style={{ color: ACCENT }}
+            >
+              View all ›
+            </Link>
+          </div>
+
+          {/* Status notices */}
+          {pending.length > 0 && (
+            <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border text-amber-800 bg-amber-50 border-amber-200">
+              <MatIcon name="schedule" size={16} className="mt-0.5 shrink-0" />
+              <p className="text-[13px] font-medium">
+                <span className="font-bold">{pending.length} project{pending.length > 1 ? "s" : ""}</span>{" "}
+                pending admin approval — {pending.length > 1 ? "they are" : "it is"} hidden from the public until approved.
+              </p>
+            </div>
+          )}
+          {rejected.length > 0 && (
+            <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-xl border text-red-800 bg-red-50 border-red-200">
+              <MatIcon name="error" size={16} className="mt-0.5 shrink-0" />
+              <p className="text-[13px] font-medium">
+                <span className="font-bold">{rejected.length} project{rejected.length > 1 ? "s were" : " was"}</span>{" "}
+                not approved. Review the feedback and revise, then re-upload.
+              </p>
+            </div>
+          )}
+
+          {myScripts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {myScripts.slice(0, INITIAL_PROJECTS).map(script => (
+                  <ProjectCard
+                    key={script._id}
+                    project={script}
+                    userName={script.creator?.name?.toUpperCase() || user?.name?.toUpperCase() || "UNKNOWN"}
+                  />
+                ))}
+              </div>
+              {myScripts.length > INITIAL_PROJECTS && (
+                <div className="flex justify-center mt-6">
+                  <button
+                    type="button"
+                    className="ck-rev-more"
+                    onClick={() => { setProjPage(1); setShowAllProjects(true); }}
+                  >
+                    View all {myScripts.length} projects
+                    <MatIcon name="chevronDown" size={18} />
+                  </button>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-16">
+              <div
+                className="w-16 h-16 mx-auto mb-5 rounded-2xl flex items-center justify-center"
+                style={{ background: CREAM }}
+              >
+                <MatIcon name="movie" size={32} style={{ color: "#c9bfae" }} />
+              </div>
+              <h3 style={{ fontFamily: DISPLAY_FONT, color: BASE }} className="text-[22px] font-medium mb-2">
+                No projects yet
+              </h3>
+              <p style={{ color: MUTED }} className="text-[14px] mb-6">
+                Upload your first script to get started
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <Link
+                  to="/create-project"
+                  state={{ startFresh: true }}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-[9px] text-[13px] font-semibold border transition-colors hover:border-[#1c1a17]"
+                  style={{ background: "#fff", color: BASE, borderColor: "#d7d0c2" }}
+                >
+                  Create Project
+                </Link>
+                <Link
+                  to="/upload"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-[9px] text-[13px] font-semibold transition-opacity hover:opacity-80"
+                  style={{ background: BASE, color: "#fff" }}
+                >
+                  Upload Script
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Shared / Collaboration scripts */}
+          {sharedScripts.length > 0 && (
+            <div className="mt-10 pt-8 border-t" style={{ borderColor: BORDER }}>
+              <div className="flex items-center gap-3 mb-4">
+                <h3 style={{ fontFamily: DISPLAY_FONT, color: MUTED }} className="text-[17px] font-medium">
+                  Collaborations
+                </h3>
+                <span
+                  className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: CREAM, color: "#8d877e" }}
+                >
+                  {sharedScripts.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {sharedScripts.map(script => (
+                  <ProjectCard
+                    key={script._id}
+                    project={script}
+                    userName={script.creator?.name?.toUpperCase() || "UNKNOWN"}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+      </div>
+
+      {/* ══════════════ RIGHT RAIL ══════════════ */}
+      <aside
+        className="hidden lg:flex flex-col flex-none border-l"
+        style={{
+          width: 272,
+          borderColor: BORDER,
+          padding: "20px 18px",
+          overflowY: "auto",
+          background: "#fff",
+          gap: 12,
+          height: "100%",
+        }}
+      >
+        {/* At a Glance header */}
+        <div
+          className="font-bold uppercase px-0.5"
+          style={{ fontSize: 10, letterSpacing: "1.5px", color: FAINT }}
+        >
+          At a Glance
+        </div>
+
+        {/* 2×2 stat grid */}
+        <div
+          className="border rounded-xl overflow-hidden flex-none"
+          style={{ borderColor: BORDER, display: "grid", gridTemplateColumns: "1fr 1fr" }}
+        >
+          {[
+            { label: "Profile Views", value: (stats?.profileViews ?? stats?.totalViews ?? 0).toLocaleString(), right: true,  bottom: true },
+            { label: "Earnings",      value: `₹${(stats?.totalEarnings || 0).toLocaleString()}`,               right: false, bottom: true },
+            { label: "Unlocks",       value: (stats?.totalUnlocks || 0).toLocaleString(),                       right: true,  bottom: false },
+            { label: "AI Trailers",   value: (stats?.trailersGenerated || 0).toLocaleString(),                  right: false, bottom: false },
+          ].map(({ label, value, right, bottom }, i) => (
+            <div
+              key={i}
+              style={{
+                padding: "14px 15px",
+                borderRight:  right  ? "1px solid #f0ebe0" : undefined,
+                borderBottom: bottom ? "1px solid #f0ebe0" : undefined,
+              }}
+            >
+              <div
+                className="font-semibold uppercase"
+                style={{ fontSize: 9, letterSpacing: "1px", color: FAINT }}
+              >
+                {label}
+              </div>
+              <div
+                style={{ fontFamily: DISPLAY_FONT, color: BASE, fontSize: 29, fontWeight: 500, lineHeight: 1, marginTop: 8 }}
+              >
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Avg Score dark card */}
+        <div className="rounded-xl p-4 flex-none" style={{ background: BASE }}>
+          <div className="flex items-center justify-between">
+            <div
+              className="font-semibold uppercase"
+              style={{ fontSize: 9, letterSpacing: "1px", color: "#b7b0a4" }}
+            >
+              Avg Score
+            </div>
+            <div className="rounded" style={{ width: 20, height: 2, background: ACCENT }} />
+          </div>
+          <div
+            style={{ fontFamily: DISPLAY_FONT, color: "#fff", fontSize: 42, fontWeight: 500, lineHeight: 1, marginTop: 8 }}
+          >
+            {stats?.avgScore != null ? stats.avgScore : "—"}
+          </div>
+          <div style={{ fontSize: 11, color: "#9c958a", marginTop: 6 }}>
+            Across all reviewed scripts
+          </div>
+        </div>
+
+        {/* Biggest Mover + Top Scripts — one border-topped block (matches 2B) */}
+        {topRailScripts.length > 0 && (
+          <div className="flex-none" style={{ borderTop: `1px solid ${BORDER}`, marginTop: 2, paddingTop: 14 }}>
+            {/* Biggest Mover card */}
+            <div className="border" style={{ borderColor: BORDER, borderRadius: 11, padding: "13px 15px" }}>
+              <div
+                className="font-bold uppercase"
+                style={{ fontSize: 8.5, letterSpacing: "1.1px", color: ACCENT }}
+              >
+                Biggest Mover
+              </div>
+              <div
+                style={{ fontFamily: DISPLAY_FONT, color: BASE, fontSize: 17, marginTop: 5 }}
+                className="truncate"
+              >
+                {topRailScripts[0]?.title}
+              </div>
+              <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>
+                {(topRailScripts[0]?.views || 0).toLocaleString()} views
+              </div>
+            </div>
+
+            {/* Top Scripts */}
+            <div
+              className="font-bold uppercase"
+              style={{ fontSize: 9, letterSpacing: "1px", color: "#b1aa9e", margin: "16px 0 8px" }}
+            >
+              Top Scripts
+            </div>
+            <div className="flex flex-col">
+              {topRailScripts.map((s, i) => (
+                <Link
+                  key={s._id}
+                  to={getScriptCanonicalPath(s)}
+                  className="flex items-center transition-opacity hover:opacity-60"
+                  style={{
+                    gap: 9,
+                    padding: "7px 0",
+                    borderBottom: i < topRailScripts.length - 1 ? `1px solid ${CREAM}` : undefined,
+                    textDecoration: "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: DISPLAY_FONT,
+                      color: i === 0 ? ACCENT : "#8d877e",
+                      width: 12,
+                      flexShrink: 0,
+                      fontSize: 14,
+                    }}
+                  >
+                    {i + 1}
+                  </span>
+                  <span
+                    className="flex-1 truncate"
+                    style={{ fontSize: 12.5, color: BASE }}
+                  >
+                    {s.title}
+                  </span>
+                  <span style={{ fontSize: 12, color: "#8d877e" }}>
+                    {(s.views || 0).toLocaleString()}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
         )}
+
+        {/* Full Analytics link */}
+        <Link
+          to="/dashboard"
+          className="flex items-center justify-center gap-2 rounded-[11px] border font-semibold transition-colors hover:border-[#1c1a17] flex-none"
+          style={{
+            padding: 13,
+            color: BASE,
+            borderColor: "#e7e1d4",
+            background: "#fff",
+            fontSize: 12.5,
+            textDecoration: "none",
+            marginTop: 6,
+          }}
+        >
+          <MatIcon name="analytics" size={18} />
+          Full Analytics
+        </Link>
+      </aside>
+
+      {/* ══════════════ AI "VIEW MORE" DETAIL MODAL ══════════════ */}
+      <ReviewModal
+        open={!!modal}
+        review={modal || modalLast.current}
+        onClose={() => setModal(null)}
+      />
+
+      {/* ══════════════ ALL PROJECTS MODAL (paginated) ══════════════ */}
+      <AllProjectsModal
+        open={showAllProjects}
+        projects={myScripts}
+        user={user}
+        page={projPage}
+        onPage={setProjPage}
+        onClose={() => setShowAllProjects(false)}
+      />
+
+    </div>
+  );
+};
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+const CarouselNav = ({ current, total, label, onPrev, onNext }) => (
+  <div className="flex items-center justify-between mb-3">
+    <span
+      className="font-bold uppercase"
+      style={{ fontSize: 10.5, letterSpacing: "1.3px", color: "#8d877e" }}
+    >
+      {label}{" "}
+      <span style={{ color: BASE }}>{String(current + 1).padStart(2, "0")}</span>{" "}
+      <span style={{ color: "#c9bfae" }}>/ {String(total).padStart(2, "0")}</span>
+    </span>
+    <div className="flex gap-2">
+      <NavBtn disabled={current === 0}         onClick={onPrev} dir="prev" />
+      <NavBtn disabled={current >= total - 1}  onClick={onNext} dir="next" />
+    </div>
+  </div>
+);
+
+const NavBtn = ({ disabled, onClick, dir }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className="flex items-center justify-center rounded-full border transition-colors"
+    style={{
+      width: 36, height: 36,
+      borderColor: disabled ? "#efe9df" : "#e4ddd0",
+      color:       disabled ? "#dcd5c8" : BASE,
+      background:  "#fff",
+      cursor:      disabled ? "default" : "pointer",
+    }}
+  >
+    <MatIcon name={dir === "prev" ? "chevronLeft" : "chevronRight"} size={18} />
+  </button>
+);
+
+// ── Skeleton loader ─────────────────────────────────────────────────────────
+// A single shimmering block. Dimensions via props; visual via .ck-skel (CSS).
+const Skel = ({ w, h, r = 8, className = "", style }) => (
+  <div
+    className={`ck-skel${className ? ` ${className}` : ""}`}
+    style={{ width: w, height: h, borderRadius: r, ...style }}
+  />
+);
+
+/**
+ * DashboardSkeleton — a structural placeholder that mirrors the real creator
+ * dashboard (hero → performance → reviews → projects + right rail). It occupies
+ * the exact same layout boxes as the loaded UI so the swap is shift-free and
+ * reads as "this content is arriving", not "something is broken".
+ */
+const DashboardSkeleton = () => (
+  <div className="flex flex-1 min-h-0 min-w-0" aria-busy="true" aria-live="polite">
+    <span className="sr-only">Loading your dashboard…</span>
+
+    <div className="flex-1 min-w-0 ck-scroll-main">
+      {/* Hero */}
+      <Skel h={150} r={16} className="mb-8" style={{ width: "100%" }} />
+
+      {/* Script Performance */}
+      <div className="mb-8 px-1">
+        <Skel w={300} h={40} r={8} />
+        <Skel w={340} h={13} r={6} className="mt-3" />
+        <div className="flex mt-7 gap-6">
+          {[0, 1, 2].map(i => (
+            <div key={i} className="flex-1">
+              <Skel w={90} h={10} r={5} />
+              <Skel w="72%" h={40} r={8} className="mt-4" />
+            </div>
+          ))}
+        </div>
+        <Skel h={280} r={12} className="mt-8" style={{ width: "100%" }} />
+      </div>
+
+      {/* Reviews & Insights — carousel (one card at a time) */}
+      <div className="mb-8 pt-6 border-t px-1" style={{ borderColor: BORDER }}>
+        <Skel w={190} h={22} r={7} />
+        <div className="flex gap-7 mt-5 mb-4">
+          <Skel w={90} h={12} r={6} />
+          <Skel w={120} h={12} r={6} />
+        </div>
+        <div className="flex items-center justify-between mb-3">
+          <Skel w={120} h={12} r={6} />
+          <div className="flex gap-2">
+            <Skel w={36} h={36} r={18} />
+            <Skel w={36} h={36} r={18} />
+          </div>
+        </div>
+        <Skel h={300} r={16} style={{ width: "100%" }} />
+      </div>
+
+      {/* My Projects */}
+      <div className="pt-6 border-t px-1" style={{ borderColor: BORDER }}>
+        <Skel w={160} h={22} r={7} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mt-5">
+          {[0, 1, 2, 3, 4, 5].map(i => <Skel key={i} h={280} r={16} />)}
+        </div>
+      </div>
+    </div>
+
+    {/* Right rail */}
+    <aside
+      className="hidden lg:flex flex-col flex-none border-l"
+      style={{ width: 272, borderColor: BORDER, padding: "20px 18px", background: "#fff", gap: 12 }}
+    >
+      <Skel w={90} h={10} r={5} />
+      <Skel h={148} r={12} style={{ width: "100%" }} />
+      <Skel h={116} r={12} style={{ width: "100%" }} />
+      <Skel h={72} r={11} style={{ width: "100%" }} />
+      <div className="flex flex-col gap-2.5 mt-1">
+        {[0, 1, 2, 3].map(i => <Skel key={i} h={15} r={5} />)}
+      </div>
+      <Skel h={44} r={11} className="mt-auto" style={{ width: "100%" }} />
+    </aside>
+  </div>
+);
+
+// ── AI "View more" detail modal ───────────────────────────────────────────────
+// Rendered inline (inside .ck-dash-root) so the dashboard's CSS vars / fonts
+// apply. Keeps its last content during the exit animation via the caller's ref.
+const ReviewModal = ({ open, review: r, onClose }) => (
+  <AnimatePresence>
+    {open && r && (
+      <motion.div
+        className="ck-review-backdrop"
+        onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.18 }}
+      >
+        <motion.div
+          className="ck-review-modal ck-dscroll"
+          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97, y: 8 }}
+          transition={{ type: "spring", stiffness: 280, damping: 28 }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={r.scriptTitle}
+        >
+          <div className="ck-review-modal__head">
+            <div className="min-w-0">
+              <div className="ck-review-modal__eyebrow">AI-Powered Analysis</div>
+              <h3 className="ck-review-modal__title">{r.scriptTitle}</h3>
+            </div>
+            <button className="ck-review-modal__close" onClick={onClose} aria-label="Close">
+              <MatIcon name="close" size={20} />
+            </button>
+          </div>
+          <div className="ck-review-modal__body">
+            <AiReviewDetail review={r} />
+          </div>
+        </motion.div>
       </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+// ── All Projects modal (paginated) ────────────────────────────────────────────
+// Windowed page list: 1 … (cur-1) cur (cur+1) … N, so it stays compact whether
+// there are 8 projects or 800.
+const pageList = (current, total) => {
+  const range = [];
+  for (let i = Math.max(1, current - 1); i <= Math.min(total, current + 1); i++) range.push(i);
+  if (range[0] > 1) { if (range[0] > 2) range.unshift("…"); range.unshift(1); }
+  const last = range[range.length - 1];
+  if (last < total) { if (last < total - 1) range.push("…"); range.push(total); }
+  return range;
+};
+
+const PagerBtn = ({ dir, disabled, onClick }) => (
+  <button
+    type="button"
+    className="ck-pager__arrow"
+    disabled={disabled}
+    onClick={onClick}
+    aria-label={dir === "prev" ? "Previous page" : "Next page"}
+  >
+    <MatIcon name={dir === "prev" ? "chevronLeft" : "chevronRight"} size={18} />
+  </button>
+);
+
+const AllProjectsModal = ({ open, projects, user, page, onPage, onClose }) => {
+  const bodyRef = useRef(null);
+  const total = projects.length;
+  const totalPages = Math.max(1, Math.ceil(total / PROJECTS_PER_PAGE));
+  const current = Math.min(Math.max(1, page), totalPages);
+  const start = (current - 1) * PROJECTS_PER_PAGE;
+  const pageItems = projects.slice(start, start + PROJECTS_PER_PAGE);
+
+  // Jump back to the top of the list whenever the page changes.
+  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [current]);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="ck-review-backdrop"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <motion.div
+            className="ck-projects-modal"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.97, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 8 }}
+            transition={{ type: "spring", stiffness: 280, damping: 28 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="My Projects"
+          >
+            <div className="ck-review-modal__head">
+              <div className="min-w-0">
+                <div className="ck-review-modal__eyebrow">My Projects</div>
+                <h3 className="ck-review-modal__title">
+                  {total} project{total === 1 ? "" : "s"}
+                </h3>
+              </div>
+              <button className="ck-review-modal__close" onClick={onClose} aria-label="Close">
+                <MatIcon name="close" size={20} />
+              </button>
+            </div>
+
+            <div className="ck-review-modal__body ck-dscroll" ref={bodyRef}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {pageItems.map(p => (
+                  <ProjectCard
+                    key={p._id}
+                    project={p}
+                    userName={p.creator?.name?.toUpperCase() || user?.name?.toUpperCase() || "UNKNOWN"}
+                  />
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="ck-pager">
+                  <PagerBtn dir="prev" disabled={current === 1} onClick={() => onPage(current - 1)} />
+                  {pageList(current, totalPages).map((p, i) =>
+                    p === "…" ? (
+                      <span key={`gap-${i}`} className="ck-pager__gap">…</span>
+                    ) : (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`ck-pager__num${p === current ? " active" : ""}`}
+                        aria-current={p === current ? "page" : undefined}
+                        onClick={() => onPage(p)}
+                      >
+                        {p}
+                      </button>
+                    )
+                  )}
+                  <PagerBtn dir="next" disabled={current === totalPages} onClick={() => onPage(current + 1)} />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+const aiScoreColor = (rating) =>
+  rating >= 80 ? { border: ACCENT,    text: ACCENT,    label: "Excellent"  } :
+  rating >= 60 ? { border: "#c9b59a", text: "#a9895f", label: "Good"       } :
+                 { border: "#c9bfae", text: "#8d877e", label: "Needs Work" };
+
+// ── AI Analysis compact card ──────────────────────────────────────────────────
+// Sized to match the Platform Insights card (AdminReviewCard): header band +
+// score-bar body + footer. Full detail lives behind "View more".
+const AiReviewCompact = ({ review: r, onOpen }) => {
+  const sc = aiScoreColor(r.rating);
+  const scores = Object.entries(r.scores || {}).slice(0, 5);
+  return (
+    <div className="flex-none box-border" style={{ width: "100%", paddingRight: 2 }}>
+      {/* Flat card — matches the 2B review card exactly (14px radius, no bands) */}
+      <div style={{ border: "1px solid #ebe5d9", borderRadius: 14, padding: "20px 24px" }}>
+        {/* Header */}
+        <div className="flex items-start justify-between" style={{ gap: 14 }}>
+          <div className="min-w-0">
+            <h4 className="truncate" style={{ fontFamily: DISPLAY_FONT, fontWeight: 500, fontSize: 21, color: BASE, margin: 0 }}>
+              {r.scriptTitle}
+            </h4>
+            <p className="font-bold uppercase" style={{ fontSize: 9.5, letterSpacing: "1.5px", color: "#b1aa9e", margin: "5px 0 0" }}>
+              AI-Powered Analysis
+            </p>
+          </div>
+          <div className="flex items-baseline shrink-0" style={{ gap: 11 }}>
+            <span
+              className="font-bold uppercase"
+              style={{ fontSize: 9.5, letterSpacing: "1.3px", padding: "4px 10px", border: `1px solid ${sc.border}`, borderRadius: 6, color: sc.text }}
+            >
+              {sc.label}
+            </span>
+            <div className="flex items-baseline" style={{ gap: 3 }}>
+              <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 500, fontSize: 36, color: BASE, lineHeight: 1 }}>{r.rating}</span>
+              <span style={{ fontSize: 11, color: "#b1aa9e" }}>/100</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Score bars */}
+        {scores.length > 0 ? (
+          <div style={{ marginTop: 16 }}>
+            {scores.map(([key, val], i) => (
+              <div
+                key={key}
+                className="flex items-center"
+                style={{ gap: 14, padding: "9px 0", borderBottom: i < scores.length - 1 ? "1px solid #f4efe6" : undefined }}
+              >
+                <span className="font-bold uppercase truncate" style={{ fontSize: 9.5, letterSpacing: ".8px", color: "#a39d92", flex: "none", width: 100 }}>
+                  {key}
+                </span>
+                <div style={{ flex: 1, height: 2, background: "#f1ece2", position: "relative" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${Math.min(100, Math.max(0, val))}%`, background: ACCENT }} />
+                </div>
+                <span style={{ fontFamily: DISPLAY_FONT, fontSize: 15, color: BASE, width: 30, textAlign: "right" }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          r.feedback && (
+            <p className="line-clamp-3" style={{ fontFamily: DISPLAY_FONT, fontStyle: "italic", color: BASE, fontSize: 15, lineHeight: 1.5, margin: "16px 0 0" }}>
+              “{r.feedback}”
+            </p>
+          )
+        )}
+
+        {/* Feedback preview + View more */}
+        <div className="flex items-center justify-between" style={{ gap: 12, borderTop: "1px solid #f0ebe0", marginTop: 10, paddingTop: 14 }}>
+          <span className="truncate" style={{ fontSize: 12, color: "#6f695f", minWidth: 0 }}>
+            {scores.length > 0 && r.feedback ? r.feedback : ""}
+          </span>
+          <button type="button" className="ck-rev-more" onClick={onOpen}>
+            View more
+            <MatIcon name="chevronRight" size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );
 };
+
+const AiReviewDetail = ({ review: r }) => {
+  const scoreColor = aiScoreColor(r.rating);
+
+  return (
+    <div
+      className="grid ck-rev-detail-grid"
+      style={{ gridTemplateColumns: "150px 1px 1fr", gap: "24px", alignItems: "start" }}
+    >
+          {/* Score */}
+          <div>
+            <div className="font-bold uppercase" style={{ fontSize: 9, letterSpacing: "1.6px", color: ACCENT }}>
+              Overall Score
+            </div>
+            <div style={{ fontFamily: DISPLAY_FONT, color: BASE, fontSize: 58, fontWeight: 500, lineHeight: 1, marginTop: 6 }}>
+              {r.rating}
+            </div>
+            <div
+              className="inline-flex mt-2.5 rounded-md font-semibold"
+              style={{ padding: "4px 13px", border: `1px solid ${scoreColor.border}`, fontSize: 12, color: scoreColor.text }}
+            >
+              {scoreColor.label}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ background: "#ebe5d9", width: 1, height: "100%" }} />
+
+          {/* Content */}
+          <div className="min-w-0">
+            {r.feedback && (
+              <p style={{ fontFamily: DISPLAY_FONT, color: BASE, fontSize: 19, lineHeight: 1.4, margin: 0 }}>
+                "{r.feedback}"
+              </p>
+            )}
+
+            {/* Score breakdown */}
+            {Object.keys(r.scores || {}).length > 0 && (
+              <div
+                className="mt-4 pt-4 grid border-t"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(Object.keys(r.scores).length, 6)}, 1fr)`,
+                  gap: 10,
+                  borderColor: "#f0ebe0",
+                }}
+              >
+                {Object.entries(r.scores).map(([key, val]) => (
+                  <div key={key}>
+                    <div className="font-bold uppercase" style={{ fontSize: 8.5, letterSpacing: ".8px", color: FAINT }}>
+                      {key}
+                    </div>
+                    <div style={{ fontFamily: DISPLAY_FONT, color: BASE, fontSize: 13, marginTop: 5 }}>
+                      {val >= 80 ? "Excellent" : val >= 65 ? "Strong" : val >= 50 ? "Good" : "Developing"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Strengths / Weaknesses / Improvements */}
+            {(r.strengths?.length > 0 || r.weaknesses?.length > 0 || r.improvements?.length > 0) && (
+              <div
+                className="mt-4 pt-4 grid border-t"
+                style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: "28px", borderColor: "#f0ebe0" }}
+              >
+                {r.strengths?.length > 0 && (
+                  <div>
+                    <p className="font-bold uppercase" style={{ fontSize: 9, letterSpacing: "1.3px", color: ACCENT, margin: "0 0 8px" }}>
+                      Strengths
+                    </p>
+                    <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
+                      {r.strengths.map((s, i) => (
+                        <li key={i} style={{ display: "flex", gap: 8, fontSize: 12, lineHeight: 1.45, color: MUTED }}>
+                          <span style={{ color: ACCENT, flexShrink: 0 }}>—</span>{s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {r.weaknesses?.length > 0 && (
+                  <div>
+                    <p className="font-bold uppercase" style={{ fontSize: 9, letterSpacing: "1.3px", color: FAINT, margin: "0 0 8px" }}>
+                      To Improve
+                    </p>
+                    <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
+                      {r.weaknesses.map((w, i) => (
+                        <li key={i} style={{ display: "flex", gap: 8, fontSize: 12, lineHeight: 1.45, color: MUTED }}>
+                          <span style={{ color: "#c9bfae", flexShrink: 0 }}>—</span>{w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {r.improvements?.length > 0 && (
+                  <div>
+                    <p className="font-bold uppercase" style={{ fontSize: 9, letterSpacing: "1.3px", color: FAINT, margin: "0 0 8px" }}>
+                      Recommendations
+                    </p>
+                    <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 7 }}>
+                      {r.improvements.map((imp, i) => (
+                        <li key={i} style={{ display: "flex", gap: 8, fontSize: 12, lineHeight: 1.45, color: MUTED }}>
+                          <span style={{ fontFamily: DISPLAY_FONT, color: BASE, flexShrink: 0 }}>{i + 1}</span>{imp}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Audience fit + comparables */}
+            {(r.audienceFit || r.comparables) && (
+              <div
+                className="mt-4 pt-4 grid border-t"
+                style={{
+                  gridTemplateColumns: r.audienceFit && r.comparables ? "1fr 1fr" : "1fr",
+                  gap: 16,
+                  borderColor: "#f0ebe0",
+                }}
+              >
+                {r.audienceFit && (
+                  <div>
+                    <p className="font-bold uppercase" style={{ fontSize: 9, letterSpacing: "1.3px", color: FAINT, margin: "0 0 6px" }}>
+                      Audience &amp; Market
+                    </p>
+                    <p style={{ fontSize: 12, lineHeight: 1.6, color: MUTED, margin: 0 }}>{r.audienceFit}</p>
+                  </div>
+                )}
+                {r.comparables && (
+                  <div>
+                    <p className="font-bold uppercase" style={{ fontSize: 9, letterSpacing: "1.3px", color: FAINT, margin: "0 0 6px" }}>
+                      Comparable Titles
+                    </p>
+                    <p style={{ fontSize: 12, lineHeight: 1.6, color: MUTED, margin: 0 }}>{r.comparables}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+  );
+};
+
+const AdminReviewCard = ({ review: s }) => {
+  const ov = s.overall ?? 0;
+  const gc =
+    ov >= 85 ? ACCENT   :
+    ov >= 70 ? "#1f8a5b" :
+    ov >= 55 ? "#3b82f6" :
+    ov >= 40 ? "#f59e0b" :
+               "#ef4444";
+  const gl = ov >= 85 ? "A" : ov >= 70 ? "B" : ov >= 55 ? "C" : ov >= 40 ? "D" : "F";
+
+  const dims = [
+    { key: "content",  label: "Main Content" },
+    { key: "trailer",  label: "Trailer"      },
+    { key: "title",    label: "Title"         },
+    { key: "synopsis", label: "Synopsis"      },
+    { key: "tags",     label: "Tag & Meta"   },
+  ];
+
+  return (
+    <div className="flex-none box-border" style={{ width: "100%", paddingRight: 2 }}>
+      {/* Flat card — matches the 2B review card exactly (14px radius, no bands) */}
+      <div style={{ border: "1px solid #ebe5d9", borderRadius: 14, padding: "20px 24px" }}>
+        {/* Header */}
+        <div className="flex items-start justify-between" style={{ gap: 14 }}>
+          <div className="min-w-0">
+            <h4 className="truncate" style={{ fontFamily: DISPLAY_FONT, fontWeight: 500, fontSize: 21, color: BASE, margin: 0 }}>
+              {s.scriptTitle}
+            </h4>
+            {s.scoredAt && (
+              <p style={{ fontSize: 11, color: "#a39d92", margin: "5px 0 0" }}>
+                Reviewed {new Date(s.scoredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+            )}
+          </div>
+          <div className="flex items-baseline shrink-0" style={{ gap: 11 }}>
+            <span
+              className="font-bold uppercase"
+              style={{ fontSize: 9.5, letterSpacing: "1.3px", padding: "4px 10px", border: `1px solid ${gc}`, borderRadius: 6, color: gc }}
+            >
+              Grade {gl}
+            </span>
+            <div className="flex items-baseline" style={{ gap: 3 }}>
+              <span style={{ fontFamily: DISPLAY_FONT, fontWeight: 500, fontSize: 36, color: BASE, lineHeight: 1 }}>{ov}</span>
+              <span style={{ fontSize: 11, color: "#b1aa9e" }}>/100</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Score bars */}
+        <div style={{ marginTop: 16 }}>
+          {dims.map((d, i) => {
+            const val = s[d.key] ?? 0;
+            return (
+              <div
+                key={d.key}
+                className="flex items-center"
+                style={{ gap: 14, padding: "9px 0", borderBottom: i < dims.length - 1 ? "1px solid #f4efe6" : undefined }}
+              >
+                <span className="font-bold uppercase" style={{ fontSize: 9.5, letterSpacing: ".8px", color: "#a39d92", flex: "none", width: 100 }}>
+                  {d.label}
+                </span>
+                <div style={{ flex: 1, height: 2, background: "#f1ece2", position: "relative" }}>
+                  <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: `${Math.min(100, Math.max(0, val))}%`, background: ACCENT }} />
+                </div>
+                <span style={{ fontFamily: DISPLAY_FONT, fontSize: 15, color: BASE, width: 30, textAlign: "right" }}>{val}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Feedback */}
+        {s.feedback && (
+          <div style={{ borderTop: "1px solid #f0ebe0", marginTop: 10, paddingTop: 14 }}>
+            <p className="font-bold uppercase" style={{ fontSize: 9, letterSpacing: "1.3px", color: ACCENT, margin: "0 0 6px" }}>
+              Feedback
+            </p>
+            <p style={{ fontSize: 12, lineHeight: 1.6, color: "#6f695f", margin: 0 }}>{s.feedback}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const EmptyPanel = ({ icon, title, desc }) => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <div
+      className="flex items-center justify-center rounded-xl mb-3"
+      style={{ width: 48, height: 48, background: CREAM }}
+    >
+      <MatIcon name={icon} size={24} style={{ color: "#c9bfae" }} />
+    </div>
+    <p style={{ color: BASE, fontSize: 15, fontWeight: 600, marginBottom: 6 }}>{title}</p>
+    <p style={{ color: FAINT, fontSize: 13, textAlign: "center", maxWidth: 260 }}>{desc}</p>
+  </div>
+);
 
 export default Dashboard;
