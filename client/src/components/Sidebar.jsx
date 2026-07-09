@@ -150,7 +150,6 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
     { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
   ] : [
     { path: "/dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
-    { path: `${profilePath}?tab=bookmarks`, label: "Saved projects", icon: "M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" },
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
   ];
 
@@ -263,13 +262,13 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       <div className="px-5 h-16 flex items-center justify-between shrink-0">
-        <BrandLogo className="h-9 w-auto" />
+        <BrandLogo className={`h-9 w-auto ${isDarkMode ? "brightness-0 invert" : ""}`} />
         {onToggleCollapse && (
           <button
             onClick={onToggleCollapse}
             title="Collapse sidebar"
             aria-label="Collapse sidebar"
-            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-white/80 hover:text-white hover:bg-[#0d1520]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}
+            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-white hover:text-white hover:bg-white/10" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />

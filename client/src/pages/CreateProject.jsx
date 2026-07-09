@@ -2900,9 +2900,10 @@ const CreateProject = () => {
           setError("We couldn't extract readable text from that file. If it's a scanned/image PDF, try a text-based export.");
           return;
         }
-        const formatted = formatScreenplayLikeText(extracted);
-        handleScreenplayChange(formatted);
-        setScreenplayValue(formatted);
+        
+        // The server already runs formatScreenplayLikeText on PDF and DOCX, so we can use extracted directly.
+        handleScreenplayChange(extracted);
+        setScreenplayValue(extracted);
         setImportNotice(`${isPdf ? "PDF" : "Word document"} imported — review the formatting; some elements may need adjusting.`);
         return;
       }
@@ -4182,7 +4183,7 @@ const CreateProject = () => {
                       No roles added yet.
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
                       {roles.map((role, idx) => (
                         <div key={`role-${idx}`} className={`rounded-xl border p-3 ${dark ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-white"}`}>
                           <div className="flex items-center justify-between mb-3">

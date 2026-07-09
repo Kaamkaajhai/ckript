@@ -37,7 +37,7 @@ import {
   getContactsLimit,
   getRemainingContacts,
 } from "../utils/industryAccess.js";
-import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText } from "../utils/pdfTextExtraction.js";
+import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import multer from "multer";
@@ -979,8 +979,8 @@ const getInvalidRoleAgeRangeMessage = (roles = []) => {
 
     const minAge = Number(min);
     const maxAge = Number(max);
-    if (!Number.isFinite(minAge) || !Number.isFinite(maxAge) || minAge >= maxAge) {
-      return `Role ${i + 1}: Min age must be less than max age.`;
+    if (!Number.isFinite(minAge) || !Number.isFinite(maxAge) || minAge > maxAge) {
+      return `Role ${i + 1}: Max age must be greater than or equal to min age.`;
     }
   }
 
@@ -1462,7 +1462,7 @@ export const extractPdfText = async (req, res) => {
       try {
         const mammoth = require('mammoth');
         const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-        text = normalizeExtractedPdfText(result?.value || "");
+        text = formatScreenplayLikeText(normalizeExtractedPdfText(result?.value || ""));
       } catch (docxError) {
         console.error("[extractPdfText] docx parse failed:", docxError?.message || docxError);
         return res.status(422).json({
@@ -2026,8 +2026,8 @@ export const updateScript = async (req, res) => {
       return res.status(400).json({ message: completionValidationErrors[0] });
     }
 
-    if (logline !== undefined && String(logline).trim().length > 50) {
-      return res.status(400).json({ message: "Logline must be 50 characters or fewer" });
+    if (logline !== undefined && String(logline).trim().length > 500) {
+      return res.status(400).json({ message: "Logline must be 500 characters or fewer" });
     }
 
     if (format === "other" && !String(formatOther || script.formatOther || "").trim()) {
@@ -2497,8 +2497,8 @@ export const uploadScript = async (req, res) => {
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
-    if (logline !== undefined && String(logline).trim().length > 50) {
-      return res.status(400).json({ message: "Logline must be 50 characters or fewer" });
+    if (logline !== undefined && String(logline).trim().length > 500) {
+      return res.status(400).json({ message: "Logline must be 500 characters or fewer" });
     }
     if (format === "other" && !String(formatOther || "").trim()) {
       return res.status(400).json({ message: "Please specify the format when selecting Other." });
@@ -4581,9 +4581,9 @@ export const getTopScripts = async (req, res) => {
     const now = new Date();
     const blockedUserIds = await getBlockedUserIdsForViewer(req.user._id);
     const sortBy = req.query.sort || "rating";
-    let sortObj = { rating: -1 };
-    if (sortBy === "reads") sortObj = { readsCount: -1 };
-    if (sortBy === "purchases") sortObj = { "unlockedBy": -1 };
+    let sortObj = { rating: -1, _id: -1 };
+    if (sortBy === "reads") sortObj = { readsCount: -1, _id: -1 };
+    if (sortBy === "purchases") sortObj = { "unlockedBy": -1, _id: -1 };
     const query = { ...PUBLIC_SCRIPT_FILTER };
     if (blockedUserIds.length > 0) {
       query.creator = { $nin: blockedUserIds };
@@ -4604,6 +4604,7 @@ export const getTopScripts = async (req, res) => {
           $or: [
             { "creatorDoc.role": { $ne: "writer" } },
             { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.subscription.accessTier": { $in: ["writer_silver", "writer_gold"] } },
           ],
         },
       },
@@ -5049,6 +5050,7 @@ export const getTopList = async (req, res) => {
           $or: [
             { "creatorDoc.role": { $ne: "writer" } },
             { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.subscription.accessTier": { $in: ["writer_silver", "writer_gold"] } },
           ],
         },
       },
@@ -5116,11 +5118,11 @@ export const getTopList = async (req, res) => {
     ];
 
     // Sort based on tab
-    if (sort === "trending") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, trendScore: -1 } });
-    else if (sort === "featured") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, engagementScore: -1, trendScore: -1 } });
-    else if (sort === "score") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, "scriptScore.overall": -1 } });
-    else if (sort === "views") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, views: -1 } });
-    else pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, platformScore: -1 } }); // default: platform
+    if (sort === "trending") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, trendScore: -1, _id: -1 } });
+    else if (sort === "featured") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, engagementScore: -1, trendScore: -1, _id: -1 } });
+    else if (sort === "score") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, "scriptScore.overall": -1, _id: -1 } });
+    else if (sort === "views") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, views: -1, _id: -1 } });
+    else pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, platformScore: -1, _id: -1 } }); // default: platform
 
     // Populate creator
     pipeline.push({

@@ -216,7 +216,7 @@ const Profile = () => {
   // "Saved projects" link → ?tab=bookmarks). Runs on mount and whenever the query changes.
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
-    if (urlTab && ["about", "projects", "bookmarks", "meetings", "financial", "settings"].includes(urlTab)) {
+    if (urlTab && ["about", "projects", "bookmarks", "meetings", "settings"].includes(urlTab)) {
       setActiveTab(urlTab);
     }
   }, [location.search]);
@@ -707,11 +707,7 @@ const Profile = () => {
     };
   }, [activeTab, isOwnProfile, isWriterUser]);
 
-  useEffect(() => {
-    if (activeTab === "financial" && isOwnProfile && currentUser?._id && profile?.role !== "admin") {
-      fetchReferralSummary();
-    }
-  }, [activeTab, isOwnProfile, currentUser?._id, profile?.role]);
+
   useEffect(() => {
     if (activeTab === "meetings" && isOwnProfile && currentUser?._id) {
       const fetchMeetings = async () => {
@@ -1381,7 +1377,6 @@ const Profile = () => {
           ...(isOwnProfile ? [{ key: "bookmarks", label: "Bookmarks", count: profile.favoriteScripts?.length || bookmarkedScripts.length }] : []),
 
           ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }] : []),
-          ...(isOwnProfile ? [{ key: "financial", label: "Financial" }] : []),
           ...(isOwnProfile ? [{ key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
           <button
@@ -2877,19 +2872,7 @@ const Profile = () => {
       })()}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ FINANCIAL TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {activeTab === "financial" && isOwnProfile && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-          className="space-y-6"
-        >
-          <Transactions
-            dark={dark}
-            middleContent={isWriter(profile.role) ? <BankDetails dark={dark} /> : null}
-          />
-        </motion.div>
-      )}
+
 
       {showConnectionsModal && (
         <div

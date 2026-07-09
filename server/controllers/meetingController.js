@@ -12,6 +12,7 @@ import {
 import {
   sendMeetingInvitationEmail,
   sendMeetingAcceptedEmail,
+  sendMeetingAcceptedWriterEmail,
   sendMeetingRejectedEmail,
 } from "../utils/emailService.js";
 
@@ -167,7 +168,7 @@ export const updateMeetingStatus = async (req, res) => {
     await meeting.save();
 
     const producer = await User.findById(meeting.producer).select("email name").lean();
-    const writer = await User.findById(writerId).select("name").lean();
+    const writer = await User.findById(writerId).select("name email").lean();
 
     if (status === "accepted") {
       await sendMeetingAcceptedEmail(producer.email, {
@@ -177,6 +178,15 @@ export const updateMeetingStatus = async (req, res) => {
         time: meeting.scheduledTime,
         meetingLink: meeting.meetingLink,
         clientBaseUrl: process.env.CLIENT_URL,
+      });
+      
+      await sendMeetingAcceptedWriterEmail(writer.email, {
+        writerName: writer.name,
+        producerName: producer.name,
+        scriptName: meeting.script_name,
+        date: new Date(meeting.scheduledDate).toLocaleDateString(),
+        time: meeting.scheduledTime,
+        meetingLink: meeting.meetingLink,
       });
     } else if (status === "rejected") {
       await sendMeetingRejectedEmail(producer.email, {
