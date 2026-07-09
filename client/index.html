@@ -21,7 +21,22 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap"
     />
-
+    <!-- Dashboard 2B typography = the reference's "Broadsheet" system:
+         Spectral (serif display) + IBM Plex Sans (body). These are the ONLY
+         faces the dashboard shell/page reference; the family names live once in
+         dashboard.css (--ck-display / --ck-body) and everything reads those. -->
+    <link
+      id="ckript-dashboard-fonts"
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+    />
+    <!-- Material Symbols (Outlined) power the 2B dashboard shell icons — matches
+         the reference design (dashboard, add_circle, upload, chat, movie, …). -->
+    <link
+      id="ckript-material-symbols-outlined"
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
+    />
     <!-- Material Symbols (Rounded), subset to only the glyphs the toast system
          uses, so the icon font is a few KB and ready well before any toast can
          fire (toasts are user-triggered, long after first paint). -->

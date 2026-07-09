@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiOrigin";
+import { clearCacheByPrefix } from "../utils/localCache";
 import { linkAnonymousSessionToUser } from "../tracking/linkUserSession";
 import { sendTrackEvent } from "../tracking/analyticsClient";
 
@@ -56,6 +57,7 @@ export const AuthProvider = ({ children }) => {
     logoutTimerRef.current = setTimeout(() => {
       setUser(null);
       localStorage.removeItem("user");
+      clearCacheByPrefix("dashboard:"); // don't leave a session's data cached
       window.location.href = "/login";
     }, delay);
     return true;
@@ -267,6 +269,7 @@ export const AuthProvider = ({ children }) => {
 
     setUser(null);
     localStorage.removeItem("user");
+    clearCacheByPrefix("dashboard:"); // clear any cached dashboard snapshot for privacy
 
     if (redirect && typeof window !== "undefined") {
       window.location.replace("/");

@@ -54,6 +54,7 @@ const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
+const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
@@ -167,27 +168,78 @@ function SingleSegmentProfileOrReferralRoute() {
     return <Navigate to={`/share/profile/${encodeURIComponent(normalizedSegment)}`} replace />;
   }
 
+  const isCreator = user?.role === "writer" || user?.role === "creator";
   return (
     <PrivateRoute>
-      <MainLayout>
-        <Profile />
-      </MainLayout>
+      {isCreator
+        ? <DashboardLayout variant="page"><Profile /></DashboardLayout>
+        : <MainLayout><Profile /></MainLayout>}
     </PrivateRoute>
   );
 }
 
+// Shared layout for authenticated app routes. Creators/writers get the unified
+// 2B dashboard shell (dark rail + light top bar) on every page; investors and
+// readers keep their existing MainLayout, which already carries role-appropriate
+// chrome and page designs tuned for it.
 function ProtectedMainLayout() {
+  const { user } = useContext(AuthContext);
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  const content = (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">
+          Loading...
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  );
+
+  return (
+    <PrivateRoute>
+      {isCreator
+        ? <DashboardLayout variant="page">{content}</DashboardLayout>
+        : <MainLayout>{content}</MainLayout>}
+    </PrivateRoute>
+  );
+}
+
+// Creator/writer dashboard uses the independent 2B DashboardLayout.
+// Investors fall back to MainLayout (their dashboard has a different design).
+function DashboardRoute() {
+  const { user, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 bg-white">
+        Loading...
+      </div>
+    );
+  }
+
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  if (isCreator) {
+    return (
+      <PrivateRoute>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm" style={{ color: "#a39d92", background: "#fff" }}>Loading...</div>}>
+          <DashboardLayout variant="fill">
+            <Dashboard />
+          </DashboardLayout>
+        </Suspense>
+      </PrivateRoute>
+    );
+  }
+
+  // Investor/other roles use the standard layout
   return (
     <PrivateRoute>
       <MainLayout>
-        <Suspense
-          fallback={
-            <div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">
-              Loading...
-            </div>
-          }
-        >
-          <Outlet />
+        <Suspense fallback={<div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">Loading...</div>}>
+          <Dashboard />
         </Suspense>
       </MainLayout>
     </PrivateRoute>
@@ -292,8 +344,6 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
-                <Route path="/ai-tools" element={<Dashboard />} />
-                <Route path="/offer-holds" element={<Dashboard />} />
                 <Route path="/create-project" element={<CreateProject />} />
                 <Route path="/create-project/:draftId" element={<CreateProject />} />
                 <Route path="/upload" element={<ScriptUpload />} />
@@ -328,6 +378,10 @@ function App() {
                 path="/admin/agreements"
                 element={<AdminAgreements />}
               />
+              {/* Dashboard: creator/writer → DashboardLayout (2B); investor → MainLayout */}
+              <Route path="/dashboard" element={<DashboardRoute />} />
+              <Route path="/ai-tools"  element={<DashboardRoute />} />
+              <Route path="/offer-holds" element={<DashboardRoute />} />
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </Suspense>
