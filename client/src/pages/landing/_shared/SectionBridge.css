@@ -1,0 +1,33 @@
+.ckl .ckl-bridge {
+  position: relative;
+  width: 100%;
+  background: var(--ck-paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0 4px;
+}
+
+.ckl .ckl-bridge-line {
+  width: 1px;
+  height: 78px;
+}
+
+.ckl .ckl-bridge-line--in {
+  background: linear-gradient(to bottom, rgba(11, 10, 6, 0), #c4c2bc);
+}
+
+.ckl .ckl-bridge-line--out {
+  margin-top: 26px;
+  background: linear-gradient(to bottom, #c4c2bc, rgba(11, 10, 6, 0));
+}
+
+.ckl .ckl-bridge-label {
+  margin-top: 26px;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 3px;
+  color: #9a978f;
+  text-transform: uppercase;
+}

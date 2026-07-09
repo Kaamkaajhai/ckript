@@ -12,7 +12,7 @@ import CookieConsentBanner from "./components/CookieConsentBanner";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
 
-const Landing = lazy(() => import("./pages/Landing"));
+const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SeoPage = lazy(() => import("./pages/SeoPage"));
