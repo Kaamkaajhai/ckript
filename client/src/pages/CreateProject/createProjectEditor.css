@@ -1,0 +1,65 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Create Project · Step 1 (Write) editor skin.
+   Ported from the "Create Project.dc.html" design component. Only the DC's
+   MAIN content is reproduced here (compact header + editor workspace); the
+   DC's own sidebar/drawer/topbar are intentionally omitted because the app's
+   MainLayout already provides the sidebar + navbar. Accent is Ckript red.
+   Everything is scoped under `.ckcp-shell` so it can never leak into the rest
+   of the app. Dark styling is driven by the app's global dark mode via the
+   `data-theme="dark"` attribute the component stamps on the shell.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.ckcp-shell {
+  --accent: #E5261A;
+  --ckcp-font-display: 'Spectral', Georgia, serif;
+  --ckcp-font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  font-family: var(--ckcp-font-body);
+}
+
+/* Material Symbols glyphs (font is loaded once, app-wide, in index.html). */
+.ckcp-shell .material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  line-height: 1;
+}
+
+/* Slim scrollbars for the rail + canvas. */
+.ckcp-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+.ckcp-scroll::-webkit-scrollbar-thumb { background: #dddddd; border-radius: 8px; }
+.ckcp-scroll::-webkit-scrollbar-track { background: transparent; }
+.ckcp-shell[data-theme="dark"] .ckcp-scroll::-webkit-scrollbar-thumb { background: #2a2a2e; }
+
+/* Project-title input. */
+.ckcp-page-title::placeholder { color: #c7c7c7; }
+.ckcp-page-title:focus { outline: none; }
+
+/* ── Dark-theme overrides (mirror the DC's `[data-theme="dark"]` block, but only
+   for the ported pieces — no topbar/sidebar rules). ── */
+.ckcp-shell[data-theme="dark"] .ckcp-head input { color: #f2f2f2; }
+.ckcp-shell[data-theme="dark"] .ckcp-crumb { color: #8a8a8a; }
+.ckcp-shell[data-theme="dark"] .ckcp-crumb span { color: #b0b0b0; }
+.ckcp-shell[data-theme="dark"] .ckcp-backbtn { background: #161616; border-color: #2a2a2a; color: #f2f2f2; }
+.ckcp-shell[data-theme="dark"] .ckcp-chip { background: #1e1e1e; color: #e8e8e8; }
+.ckcp-shell[data-theme="dark"] .ckcp-iconbtn { color: #b0b0b0; }
+.ckcp-shell[data-theme="dark"] .ckcp-solid { background: #f2f2f2; color: #111; }
+.ckcp-shell[data-theme="dark"] .ckcp-vr { background: #2a2a2a; }
+.ckcp-shell[data-theme="dark"] .ckcp-rail { background: #141414; border-color: #262626; }
+.ckcp-shell[data-theme="dark"] .ckcp-conn { background: #262626; }
+.ckcp-shell[data-theme="dark"] .ckcp-editor { background: #0f0f0f; }
+.ckcp-shell[data-theme="dark"] .ckcp-toolbar { border-color: #262626; }
+.ckcp-shell[data-theme="dark"] .ckcp-canvas { background: #0b0b0b; }
+.ckcp-shell[data-theme="dark"] .ckcp-page { background: #181818; border-color: #262626; color: #e6e6e6; box-shadow: 0 2px 16px rgba(0,0,0,.45); }
+.ckcp-shell[data-theme="dark"] .ckcp-workspace { border-color: #262626; }
+.ckcp-shell[data-theme="dark"] .ckcp-foot { border-color: #262626; }
+
+/* Hover affordances (the DC expressed these with a prototype-only `style-hover`
+   attribute; re-implemented here as real CSS so the visual result matches). */
+.ckcp-backbtn:hover { border-color: #111111; }
+.ckcp-shell[data-theme="dark"] .ckcp-backbtn:hover { border-color: #f2f2f2; }
+.ckcp-chip:hover { background: #ececec; }
+.ckcp-shell[data-theme="dark"] .ckcp-chip:hover { background: #2a2a2a; }
+.ckcp-iconbtn:hover { background: #f5f5f5; color: #111111; }
+.ckcp-shell[data-theme="dark"] .ckcp-iconbtn:hover { background: #1e1e1e; color: #f2f2f2; }
+.ckcp-solid:hover { background: #000; }
+.ckcp-shell[data-theme="dark"] .ckcp-solid:hover { background: #ffffff; }
+.ckcp-hoverable:hover { background: #f5f5f5; }
+.ckcp-shell[data-theme="dark"] .ckcp-hoverable:hover { background: #1a1a1a; }
