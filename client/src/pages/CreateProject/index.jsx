@@ -30,10 +30,11 @@ import useScenePresence from "../../hooks/useScenePresence";
 import useSceneComments from "../../hooks/useSceneComments";
 import { buildAnchor, resolveAnchor } from "../../components/screenplay/commentAnchor";
 import { formatScreenplayLikeText } from "../../utils/screenplayText";
-import { allFormats, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION, STEPS, MAX_TRAILER_SIZE } from "./constants";
+import { allFormats, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION, STEPS } from "./constants";
 import { getContentTypeFromFormat, FORMAT_PAGE_RANGES } from "./lib/format";
 import { THUMBNAIL_ASPECT } from "./lib/imageCrop";
 import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
+import { useVideoUploads } from "./hooks/useVideoUploads";
 import { buildPagePreviewTexts } from "./lib/preview";
 import { createDefaultRightsLicensing, normalizeRightsLicensingState, getRightsValidationMessage } from "./lib/rights";
 import TitlePageModal from "./components/TitlePageModal";
@@ -188,17 +189,29 @@ const CreateProject = () => {
     }
     return true;
   }, [user, openPricingModal, showToast]);
-  const [trailerFile, setTrailerFile] = useState(null);
-  const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
-  const [trailerMeta, setTrailerMeta] = useState(null);
-  const [trailerMetaLoading, setTrailerMetaLoading] = useState(false);
-  const [pitchVideoFile, setPitchVideoFile] = useState(null);
-  const [pitchVideoPreviewUrl, setPitchVideoPreviewUrl] = useState("");
-  const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
-  const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
+  const {
+    trailerFile,
+    setTrailerFile,
+    trailerPreviewUrl,
+    setTrailerPreviewUrl,
+    trailerMeta,
+    setTrailerMeta,
+    trailerMetaLoading,
+    setTrailerMetaLoading,
+    trailerInputRef,
+    handleTrailerSelect,
+    pitchVideoFile,
+    setPitchVideoFile,
+    pitchVideoPreviewUrl,
+    setPitchVideoPreviewUrl,
+    pitchVideoMeta,
+    setPitchVideoMeta,
+    pitchVideoMetaLoading,
+    setPitchVideoMetaLoading,
+    pitchVideoInputRef,
+    handlePitchVideoSelect,
+  } = useVideoUploads({ setError });
   const thumbnailInputRef = useRef(null);
-  const trailerInputRef = useRef(null);
-  const pitchVideoInputRef = useRef(null);
   const stepContentRef = useRef(null);
 
   const {
@@ -311,23 +324,6 @@ const CreateProject = () => {
     };
   };
 
-  const handleTrailerSelect = (file) => {
-    if (!file) return;
-
-    if (!file.type?.startsWith("video/")) {
-      setError("Please select a valid video file for trailer.");
-      return;
-    }
-
-    if (file.size > MAX_TRAILER_SIZE) {
-      setError("Trailer must be under 250MB for high-quality upload.");
-      return;
-    }
-
-    setTrailerFile(file);
-    setError("");
-  };
-
   useEffect(() => {
     if (!thumbnailFile) {
       setThumbnailPreviewUrl("");
@@ -338,105 +334,6 @@ const CreateProject = () => {
     setThumbnailPreviewUrl(previewUrl);
     return () => URL.revokeObjectURL(previewUrl);
   }, [thumbnailFile]);
-
-  useEffect(() => {
-    if (!trailerFile) {
-      setTrailerPreviewUrl("");
-      setTrailerMeta(null);
-      setTrailerMetaLoading(false);
-      return;
-    }
-
-    const previewUrl = URL.createObjectURL(trailerFile);
-    setTrailerPreviewUrl(previewUrl);
-    setTrailerMeta(null);
-    setTrailerMetaLoading(true);
-
-    let active = true;
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.src = previewUrl;
-
-    video.onloadedmetadata = () => {
-      if (!active) return;
-      setTrailerMeta({
-        duration: Number.isFinite(video.duration) ? video.duration : 0,
-        width: video.videoWidth || 0,
-        height: video.videoHeight || 0,
-      });
-      setTrailerMetaLoading(false);
-    };
-
-    video.onerror = () => {
-      if (!active) return;
-      setTrailerMetaLoading(false);
-      setTrailerMeta(null);
-    };
-
-    return () => {
-      active = false;
-      video.onloadedmetadata = null;
-      video.onerror = null;
-      URL.revokeObjectURL(previewUrl);
-    };
-  }, [trailerFile]);
-
-  const handlePitchVideoSelect = (file) => {
-    if (!file) return;
-    const allowedTypes = ["video/mp4", "video/mpeg", "video/quicktime", "video/webm", "video/x-m4v"];
-    if (!allowedTypes.includes(file.type)) {
-      setError("Please upload a valid video file (MP4, MPEG, MOV, or WebM) for the pitch video.");
-      return;
-    }
-    if (file.size > 90 * 1024 * 1024) {
-      setError("Pitch video must be under 90MB.");
-      return;
-    }
-    setPitchVideoFile(file);
-    setError("");
-  };
-
-  useEffect(() => {
-    if (!pitchVideoFile) {
-      setPitchVideoPreviewUrl("");
-      setPitchVideoMeta(null);
-      setPitchVideoMetaLoading(false);
-      return;
-    }
-    const previewUrl = URL.createObjectURL(pitchVideoFile);
-    setPitchVideoPreviewUrl(previewUrl);
-    setPitchVideoMeta(null);
-    setPitchVideoMetaLoading(true);
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    video.src = previewUrl;
-    video.onloadedmetadata = () => {
-      if (video.duration > 90) {
-        setError("Pitch video must be 1 minute 30 seconds (90 seconds) or less.");
-        setPitchVideoFile(null);
-        setPitchVideoPreviewUrl("");
-        setPitchVideoMeta(null);
-        setPitchVideoMetaLoading(false);
-        URL.revokeObjectURL(previewUrl);
-        return;
-      }
-      setPitchVideoMeta({
-        duration: Number.isFinite(video.duration) ? video.duration : 0,
-        width: video.videoWidth || 0,
-        height: video.videoHeight || 0,
-      });
-      setPitchVideoMetaLoading(false);
-    };
-    video.onerror = () => {
-      setPitchVideoMetaLoading(false);
-      setPitchVideoMeta(null);
-    };
-    return () => {
-      video.onloadedmetadata = null;
-      video.onerror = null;
-      URL.revokeObjectURL(previewUrl);
-    };
-  }, [pitchVideoFile]);
 
   const formatDuration = (seconds) => {
     if (!seconds || !Number.isFinite(seconds)) return "--:--";
