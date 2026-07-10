@@ -22,12 +22,9 @@ import ScreenplayFocusMode from "../../components/screenplay/ScreenplayFocusMode
 import { countPages } from "../../components/screenplay/paginate";
 import VersionHistoryModal from "../../components/screenplay/VersionHistoryModal";
 import { extractOutline } from "../../components/screenplay/screenplayMode";
-import { getScenes, sceneIdAtLine } from "../../components/screenplay/sceneIdentity";
+import { getScenes } from "../../components/screenplay/sceneIdentity";
 import { moveScene } from "../../components/screenplay/sceneReorder";
 import { fdxToFountain } from "../../components/screenplay/fdx";
-import useScenePresence from "../../hooks/useScenePresence";
-import useSceneComments from "../../hooks/useSceneComments";
-import { buildAnchor, resolveAnchor } from "../../components/screenplay/commentAnchor";
 import { formatScreenplayLikeText } from "../../utils/screenplayText";
 import { allFormats, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION, STEPS } from "./constants";
 import { getContentTypeFromFormat, FORMAT_PAGE_RANGES } from "./lib/format";
@@ -38,6 +35,7 @@ import { usePdfExport } from "./hooks/usePdfExport";
 import { useAiGeneration } from "./hooks/useAiGeneration";
 import { useGrammarFix } from "./hooks/useGrammarFix";
 import { useAiCover } from "./hooks/useAiCover";
+import { useScreenplayCollab } from "./hooks/useScreenplayCollab";
 import { buildPagePreviewTexts } from "./lib/preview";
 import { createDefaultRightsLicensing, normalizeRightsLicensingState, getRightsValidationMessage } from "./lib/rights";
 import TitlePageModal from "./components/TitlePageModal";
@@ -357,7 +355,6 @@ const CreateProject = () => {
   const [focusMode, setFocusMode] = useState(false);
   const [canEditContent, setCanEditContent] = useState(true); // false for commenter/viewer collaborators
   const [canComment, setCanComment] = useState(true);          // false for viewers
-  const [focusedCommentId, setFocusedCommentId] = useState(null);
   // Navigator outline (sequences + scenes) — re-derived live from the current document.
   const screenplayOutline = useMemo(() => extractOutline(screenplayValue), [screenplayValue]);
 
@@ -1495,79 +1492,44 @@ const CreateProject = () => {
   const isScreenplayFormat = getContentTypeFromFormat(formData.format) !== "book";
   const useScreenplayEditor = isScreenplayFormat && screenplayEnabled;
 
-  // ── Phase 3 presence (live "who's here + which scene") ──────────────────────
-  const screenplayValueRef = useRef(screenplayValue);
-  screenplayValueRef.current = screenplayValue;
-  const presenceEnabled = useScreenplayEditor && Boolean(scriptId);
+  // ── Phase 3 presence + scene comments (live "who's here + which scene") ─────
   const {
-    people: collabPeople,
-    setActiveScene: collabSetActiveScene,
-    locks: collabLocks,
-    myUserId: collabMyUserId,
-    requestEdit: collabRequestEdit,
-    releaseHeld: collabReleaseHeld,
-    editRequest: collabEditRequest,
-    clearEditRequest: collabClearEditRequest,
-    commentsVersion: collabCommentsVersion,
-  } = useScenePresence({ scriptId, enabled: presenceEnabled, user, canEdit: canEditContent });
-
-  // Comments (Phase 3 — Slice 2); live-refreshes on the socket comment-change signal.
-  const { comments: sceneComments, addComment: addSceneComment, setResolved: setCommentResolved, deleteComment: deleteSceneComment } =
-    useSceneComments({ scriptId, enabled: presenceEnabled, refreshKey: collabCommentsVersion });
-
-  // "Add comment" — anchor to either an explicit range (the inline line-comment composer passes the
-  // clicked line's {from,to}) or, when none is given, the current editor selection (the rail flow).
-  const handleAddComment = useCallback(async (body, range) => {
-    const target = (range && Number.isFinite(range.from) && range.to > range.from)
-      ? range
-      : screenplayApiRef.current?.getSelection?.();
-    if (!target || !(target.to > target.from)) { setError("Select some script text — or use the line comment icon — to comment on first."); return false; }
-    const anchor = buildAnchor(screenplayValueRef.current, target.from, target.to);
-    return addSceneComment({ anchor, body });
-  }, [addSceneComment]);
-
-  // Reply to a thread.
-  const handleReplyComment = useCallback((parentId, body) => addSceneComment({ anchor: {}, body, parentId }), [addSceneComment]);
-
-  // Click a comment in the rail → scroll to + flash its anchored text.
-  const handleFocusComment = useCallback((comment) => {
-    const r = comment?.anchor ? resolveAnchor(screenplayValueRef.current, comment.anchor) : null;
-    if (r) screenplayApiRef.current?.scrollToRange?.(r.from, r.to);
-    setFocusedCommentId(comment?._id || null);
-  }, []);
-
-  // Is a comment's anchored text still present? (false → orphaned)
-  const isCommentOrphaned = useCallback((comment) => {
-    if (!comment?.anchor?.quote) return false;
-    return resolveAnchor(screenplayValueRef.current, comment.anchor) == null;
-  }, []);
-  // As the caret moves, tell the sync layer which scene we're in (it debounces).
-  const handleCaretLine = useCallback((line) => {
-    collabSetActiveScene(sceneIdAtLine(screenplayValueRef.current, line));
-  }, [collabSetActiveScene]);
-
-  // Enrich presence for the UI: scene heading per person + people-by-scene for navigator dots.
-  const presenceScenes = useMemo(() => getScenes(screenplayValue), [screenplayValue]);
-  const peopleEnriched = useMemo(() => collabPeople.map((p) => {
-    const scene = presenceScenes.find((s) => s.sceneId === p.activeSceneId);
-    return { ...p, sceneHeading: scene ? scene.heading : "" };
-  }), [collabPeople, presenceScenes]);
-  const presenceBySceneId = useMemo(() => {
-    const map = {};
-    for (const p of collabPeople) {
-      if (!p.activeSceneId) continue;
-      (map[p.activeSceneId] = map[p.activeSceneId] || []).push(p);
-    }
-    return map;
-  }, [collabPeople]);
-  // Navigator outline with each scene's sceneId attached (for presence/lock dots).
-  const outlineWithSceneIds = useMemo(() => {
-    const resolve = (line) => {
-      for (const s of presenceScenes) if (line >= s.startLine && line <= s.endLine) return s.sceneId;
-      return presenceScenes[presenceScenes.length - 1]?.sceneId;
-    };
-    return screenplayOutline.map((item) => item.type === "scene" ? { ...item, sceneId: resolve(item.line) } : item);
-  }, [screenplayOutline, presenceScenes]);
+    screenplayValueRef,
+    presenceEnabled,
+    collabPeople,
+    collabSetActiveScene,
+    collabLocks,
+    collabMyUserId,
+    collabRequestEdit,
+    collabReleaseHeld,
+    collabEditRequest,
+    collabClearEditRequest,
+    collabCommentsVersion,
+    sceneComments,
+    addSceneComment,
+    setCommentResolved,
+    deleteSceneComment,
+    focusedCommentId,
+    setFocusedCommentId,
+    handleAddComment,
+    handleReplyComment,
+    handleFocusComment,
+    isCommentOrphaned,
+    handleCaretLine,
+    presenceScenes,
+    peopleEnriched,
+    presenceBySceneId,
+    outlineWithSceneIds,
+  } = useScreenplayCollab({
+    screenplayValue,
+    useScreenplayEditor,
+    scriptId,
+    user,
+    canEditContent,
+    screenplayApiRef,
+    screenplayOutline,
+    setError,
+  });
 
   // Plain text the AI tools read — Fountain text in screenplay mode, else TipTap text.
   const getEditorPlainText = () => (useScreenplayEditor ? screenplayValue : (editor ? editor.getText() : "")).trim();
@@ -1638,7 +1600,7 @@ const CreateProject = () => {
     if (lock && String(lock.holderId) !== String(collabMyUserId)) return;
     const next = moveScene(text, fromIndex, toIndex);
     if (next !== text) handleScreenplayChange(next);
-  }, [collabLocks, collabMyUserId, handleScreenplayChange]);
+  }, [collabLocks, collabMyUserId, handleScreenplayChange, screenplayValueRef]);
 
   // Edit a scene's one-line synopsis (metadata only — never touches the script text).
   const handleSynopsisChange = useCallback((key, value) => {
