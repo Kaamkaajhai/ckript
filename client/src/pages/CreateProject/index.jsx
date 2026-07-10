@@ -36,6 +36,7 @@ import { useAiGeneration } from "./hooks/useAiGeneration";
 import { useGrammarFix } from "./hooks/useGrammarFix";
 import { useAiCover } from "./hooks/useAiCover";
 import { useScreenplayCollab } from "./hooks/useScreenplayCollab";
+import { usePayloads } from "./hooks/usePayloads";
 import { buildPagePreviewTexts } from "./lib/preview";
 import { createDefaultRightsLicensing, normalizeRightsLicensingState, getRightsValidationMessage } from "./lib/rights";
 import TitlePageModal from "./components/TitlePageModal";
@@ -393,41 +394,6 @@ const CreateProject = () => {
     short: { label: "Short Film", min: 5, max: 15, suggest: 5 },
   };
 
-  const buildRightsPayload = useCallback(() => {
-    const normalized = normalizeRightsLicensingState(rightsLicensing || {});
-    const royaltyBased = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(normalized.paymentStructure);
-
-    return {
-      ...normalized,
-      legalAcknowledgement: {
-        ...normalized.legalAcknowledgement,
-        platformTermsAccepted: Boolean(legal.agreedToTerms) && Boolean(normalized.legalAcknowledgement.platformTermsAccepted),
-      },
-      royaltySettings: royaltyBased
-        ? normalized.royaltySettings
-        : { percentage: 0, durationType: "none", durationYears: 0 },
-      timeBound: {
-        ...normalized.timeBound,
-        licenseDurationMonths: normalized.rightsType === "exclusive_license"
-          ? normalized.timeBound.licenseDurationMonths
-          : 0,
-      },
-      termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
-      lastUpdatedAt: new Date().toISOString(),
-    };
-  }, [legal.agreedToTerms, rightsLicensing]);
-
-  const buildScriptPreviewPayload = useCallback((source = formData) => {
-    if (!source.viewableScript) {
-      return null;
-    }
-
-    const mode = "pages";
-    const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
-    const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
-    return { mode, start, end };
-  }, [formData]);
-
   // TipTap Editor
   const editor = useEditor({
     extensions: [
@@ -629,58 +595,28 @@ const CreateProject = () => {
   }, [editor]);
   useEffect(() => { if (draftId && editor) loadDraft(draftId); }, [draftId, editor, loadDraft]);
 
-  const buildDraftPayload = useCallback(() => {
-    if (!editor) return null;
-    const screenplayMode = getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled;
-    return {
-      title: title?.trim() ? title.trim() : "Untitled Draft",
-      textContent: screenplayMode ? screenplayValue : editor.getHTML(),
-      fountainContent: screenplayMode ? screenplayValue : undefined,
-      sceneSynopses: screenplayMode ? sceneSynopses : undefined,
-      outlineNotes: screenplayMode ? outlineNotes : undefined,
-      titlePage: screenplayMode ? (titlePageActive ? titlePage : null) : undefined,
-      companyName: String(formData.companyName || "").trim(),
-      format: formData.format,
-      styleMedium: targetFilm ? formData.styleMedium : undefined,
-      contentType: getContentTypeFromFormat(formData.format),
-      formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
-      logline: formData.logline,
-      synopsis: formData.synopsis,
-      pageCount: estimatedPages,
-      primaryGenre: formData.primaryGenre,
-      classification: {
-        primaryGenre: formData.primaryGenre || "",
-        secondaryGenre: "",
-        tones: classification.tones,
-        themes: classification.themes,
-        settings: classification.settings,
-      },
-      viewableScript: Boolean(formData.viewableScript),
-      scriptPreviewAccess: buildScriptPreviewPayload(formData),
-      scriptPreviewPageTexts: previewPageTexts,
-      scriptCompletion: buildScriptCompletionPayload(formData),
-      legal: {
-        agreedToTerms: Boolean(legal.agreedToTerms),
-        termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
-        customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
-      },
-      collabVisibility,
-      rightsLicensing: buildRightsPayload(),
-      filmDetails: {
-        filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
-        dialoguesPresent: filmDetails.dialoguesPresent,
-        wantToDirect: filmDetails.wantToDirect,
-        wantToProduce: filmDetails.wantToProduce,
-        scriptStyle: filmDetails.scriptStyle,
-      },
-      targetIndustry: [
-        ...(targetFilm ? ["film"] : []),
-        ...(targetPublishing ? ["publishing"] : [])
-      ],
-      publishingDetails,
-      ...(scriptId ? { scriptId } : {}),
-    };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes, titlePage, titlePageActive]);
+  const { buildRightsPayload, buildScriptPreviewPayload, buildDraftPayload } = usePayloads({
+    editor,
+    formData,
+    screenplayEnabled,
+    title,
+    screenplayValue,
+    sceneSynopses,
+    outlineNotes,
+    titlePageActive,
+    titlePage,
+    targetFilm,
+    targetPublishing,
+    estimatedPages,
+    classification,
+    previewPageTexts,
+    legal,
+    collabVisibility,
+    filmDetails,
+    publishingDetails,
+    scriptId,
+    rightsLicensing,
+  });
 
   const getDraftSignature = useCallback((payload) => {
     if (!payload) return "";
