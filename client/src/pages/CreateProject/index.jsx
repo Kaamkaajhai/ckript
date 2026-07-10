@@ -30,9 +30,10 @@ import useScenePresence from "../../hooks/useScenePresence";
 import useSceneComments from "../../hooks/useSceneComments";
 import { buildAnchor, resolveAnchor } from "../../components/screenplay/commentAnchor";
 import { formatScreenplayLikeText } from "../../utils/screenplayText";
-import { allFormats, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION, STEPS, MAX_THUMBNAIL_SIZE, MAX_THUMBNAIL_SOURCE_SIZE, MAX_TRAILER_SIZE } from "./constants";
+import { allFormats, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION, STEPS, MAX_TRAILER_SIZE } from "./constants";
 import { getContentTypeFromFormat, FORMAT_PAGE_RANGES } from "./lib/format";
-import { THUMBNAIL_ASPECT, getCroppedThumbnailBlob } from "./lib/imageCrop";
+import { THUMBNAIL_ASPECT } from "./lib/imageCrop";
+import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
 import { buildPagePreviewTexts } from "./lib/preview";
 import { createDefaultRightsLicensing, normalizeRightsLicensingState, getRightsValidationMessage } from "./lib/rights";
 import TitlePageModal from "./components/TitlePageModal";
@@ -200,59 +201,23 @@ const CreateProject = () => {
   const pitchVideoInputRef = useRef(null);
   const stepContentRef = useRef(null);
 
-  const [isThumbnailEditorOpen, setIsThumbnailEditorOpen] = useState(false);
-  const [thumbnailSourceUrl, setThumbnailSourceUrl] = useState("");
-  const [thumbnailCrop, setThumbnailCrop] = useState({ x: 0, y: 0 });
-  const [thumbnailZoom, setThumbnailZoom] = useState(1);
-  const [thumbnailRotation, setThumbnailRotation] = useState(0);
-  const [thumbnailCropPixels, setThumbnailCropPixels] = useState(null);
-  const [thumbnailApplying, setThumbnailApplying] = useState(false);
-  const [thumbnailSourceName, setThumbnailSourceName] = useState("thumbnail");
-  const [thumbnailSourceType, setThumbnailSourceType] = useState("image/jpeg");
-
-  const resetThumbnailEditor = useCallback(() => {
-    setIsThumbnailEditorOpen(false);
-    setThumbnailCrop({ x: 0, y: 0 });
-    setThumbnailZoom(1);
-    setThumbnailRotation(0);
-    setThumbnailCropPixels(null);
-    setThumbnailSourceUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return "";
-    });
-  }, []);
-
-  const openThumbnailEditor = useCallback((file) => {
-    if (!file) return;
-
-    if (!file.type?.startsWith("image/")) {
-      showToast("Please select an image file for thumbnail.", "error");
-      return;
-    }
-    if (file.size > MAX_THUMBNAIL_SOURCE_SIZE) {
-      showToast("Thumbnail source image is too large. Please choose an image under 25MB.", "error");
-      return;
-    }
-
-    setError("");
-    setThumbnailSourceName(file.name || "thumbnail");
-    setThumbnailSourceType(file.type || "image/jpeg");
-    const sourceUrl = URL.createObjectURL(file);
-    setThumbnailSourceUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return sourceUrl;
-    });
-    setThumbnailCrop({ x: 0, y: 0 });
-    setThumbnailZoom(1);
-    setThumbnailRotation(0);
-    setThumbnailCropPixels(null);
-    setIsThumbnailEditorOpen(true);
-  }, []);
-
-  const handleThumbnailSelect = (file) => {
-    if (!file) return;
-    openThumbnailEditor(file);
-  };
+  const {
+    isThumbnailEditorOpen,
+    thumbnailSourceUrl,
+    thumbnailCrop,
+    setThumbnailCrop,
+    thumbnailZoom,
+    setThumbnailZoom,
+    thumbnailRotation,
+    setThumbnailRotation,
+    thumbnailCropPixels,
+    setThumbnailCropPixels,
+    thumbnailApplying,
+    resetThumbnailEditor,
+    openThumbnailEditor,
+    handleThumbnailSelect,
+    handleApplyThumbnail,
+  } = useThumbnailEditor({ showToast, setError, setThumbnailFile });
 
   const handleAnalyzeFormatting = async () => {
     if (!enforceGoldPlan()) return;
@@ -344,59 +309,6 @@ const CreateProject = () => {
       a.click();
       URL.revokeObjectURL(url);
     };
-  };
-
-  const handleApplyThumbnail = async () => {
-    if (!thumbnailSourceUrl || !thumbnailCropPixels) {
-      setError("Adjust thumbnail and try again.");
-      return;
-    }
-
-    setThumbnailApplying(true);
-    try {
-      const preferredType = ["image/png", "image/webp", "image/gif", "image/jpeg", "image/jpg"].includes(thumbnailSourceType)
-        ? thumbnailSourceType.replace("image/jpg", "image/jpeg")
-        : "image/jpeg";
-
-      let outputType = preferredType;
-      let croppedBlob = await getCroppedThumbnailBlob(thumbnailSourceUrl, thumbnailCropPixels, thumbnailRotation, outputType);
-
-      if (!croppedBlob && outputType !== "image/jpeg") {
-        outputType = "image/jpeg";
-        croppedBlob = await getCroppedThumbnailBlob(thumbnailSourceUrl, thumbnailCropPixels, thumbnailRotation, outputType);
-      }
-
-      if (!croppedBlob) throw new Error("thumbnail-processing-failed");
-
-      if (croppedBlob.size > MAX_THUMBNAIL_SIZE && outputType !== "image/jpeg") {
-        outputType = "image/jpeg";
-        croppedBlob = await getCroppedThumbnailBlob(thumbnailSourceUrl, thumbnailCropPixels, thumbnailRotation, outputType, 0.9);
-      }
-
-      if (croppedBlob?.size > MAX_THUMBNAIL_SIZE && outputType === "image/jpeg") {
-        for (let quality = 0.82; quality >= 0.6; quality -= 0.08) {
-          const retryBlob = await getCroppedThumbnailBlob(thumbnailSourceUrl, thumbnailCropPixels, thumbnailRotation, "image/jpeg", quality);
-          if (retryBlob) croppedBlob = retryBlob;
-          if (croppedBlob?.size <= MAX_THUMBNAIL_SIZE) break;
-        }
-      }
-
-      if (croppedBlob.size > MAX_THUMBNAIL_SIZE) {
-        setError("Processed thumbnail is still above 5MB. Crop a smaller area and retry.");
-        return;
-      }
-
-      const baseName = (thumbnailSourceName || "thumbnail").replace(/\.[^/.]+$/, "");
-      const ext = outputType === "image/png" ? "png" : outputType === "image/webp" ? "webp" : outputType === "image/gif" ? "gif" : "jpg";
-      const processedFile = new File([croppedBlob], `${baseName}-cover.${ext}`, { type: outputType });
-      setThumbnailFile(processedFile);
-      setError("");
-      resetThumbnailEditor();
-    } catch (err) {
-      setError(err?.message || "Could not process thumbnail. Please try another image.");
-    } finally {
-      setThumbnailApplying(false);
-    }
   };
 
   const handleTrailerSelect = (file) => {
@@ -2252,7 +2164,7 @@ const CreateProject = () => {
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
 
   const ctx = {
-    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setIsThumbnailEditorOpen, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailApplying, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailSourceName, setThumbnailSourceType, setThumbnailSourceUrl, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceName, thumbnailSourceType, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
+    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
 
   return (
