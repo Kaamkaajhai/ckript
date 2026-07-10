@@ -35,6 +35,7 @@ import { THUMBNAIL_ASPECT } from "./lib/imageCrop";
 import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
 import { useVideoUploads } from "./hooks/useVideoUploads";
 import { usePdfExport } from "./hooks/usePdfExport";
+import { useAiGeneration } from "./hooks/useAiGeneration";
 import { buildPagePreviewTexts } from "./lib/preview";
 import { createDefaultRightsLicensing, normalizeRightsLicensingState, getRightsValidationMessage } from "./lib/rights";
 import TitlePageModal from "./components/TitlePageModal";
@@ -112,8 +113,6 @@ const CreateProject = () => {
   const [showUndoBar, setShowUndoBar] = useState(false);
   const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
-  // AI Prose Sample Generation
-  const [proseLoading, setProseLoading] = useState(false);
 
   // Step 2: Details
   const [formData, setFormData] = useState({
@@ -369,10 +368,6 @@ const CreateProject = () => {
     wantToProduce: false,
     scriptStyle: [],
   });
-
-  // AI metadata generation (per-section: "logline" | "synopsis" | "roles")
-  const [metaLoadingField, setMetaLoadingField] = useState("");
-  const [metaNotice, setMetaNotice] = useState({ field: "", text: "" });
 
   // Fountain screenplay editor (Module 1). Canonical Fountain text + enable toggle.
   const [screenplayValue, setScreenplayValue] = useState("");
@@ -1657,6 +1652,30 @@ const CreateProject = () => {
   // Plain text the AI tools read — Fountain text in screenplay mode, else TipTap text.
   const getEditorPlainText = () => (useScreenplayEditor ? screenplayValue : (editor ? editor.getText() : "")).trim();
 
+  const {
+    proseLoading,
+    setProseLoading,
+    metaLoadingField,
+    setMetaLoadingField,
+    metaNotice,
+    setMetaNotice,
+    handleProseClick,
+    handleGenerateProse,
+    handleGenerateMetadata,
+  } = useAiGeneration({
+    editor,
+    getEditorPlainText,
+    scriptId,
+    title,
+    formData,
+    setFormData,
+    setRoles,
+    setPublishingDetails,
+    setSaved,
+    setError,
+    enforceGoldPlan,
+  });
+
   // Update Fountain text; mirror (debounced) into the hidden TipTap model so existing
   // word-count / AI-read flows keep working off editor.getText().
   const handleScreenplayChange = useCallback((text) => {
@@ -1818,103 +1837,6 @@ const CreateProject = () => {
   };
 
 
-
-  const handleProseClick = () => {
-    if (!editor) return;
-    const plainText = getEditorPlainText();
-    if (!plainText || plainText.length < 50) {
-      setError("Write at least 50 characters of script text before generating a prose sample.");
-      return;
-    }
-    handleGenerateProse();
-  };
-
-  const handleGenerateProse = async () => {
-    if (!editor) return;
-    const plainText = getEditorPlainText();
-    if (!plainText) return;
-
-    setProseLoading(true);
-    setError("");
-
-    try {
-      const { data } = await api.post("/ai/prose-sample", { text: plainText });
-      const generatedProse = data?.proseSample?.trim();
-
-      if (generatedProse) {
-        setPublishingDetails(prev => ({ ...prev, proseSample: generatedProse }));
-        setSaved(false);
-      }
-
-    } catch (err) {
-      const msg = err.response?.data?.message || "Failed to generate prose sample.";
-      setError(msg);
-    } finally {
-      setProseLoading(false);
-    }
-  };
-
-  // Generate a single section (logline / synopsis / roles) by parsing the project content with AI
-  const handleGenerateMetadata = async (field) => {
-    if (!enforceGoldPlan()) return;
-    if (!scriptId) return;
-    if (!editor || metaLoadingField) return;
-    const plainText = getEditorPlainText();
-    if (!plainText || plainText.length < 50) {
-      setError("Write at least 50 characters of script content before generating with AI.");
-      return;
-    }
-
-    setMetaLoadingField(field);
-    setMetaNotice({ field: "", text: "" });
-    setError("");
-
-    try {
-      const { data } = await api.post("/ai/generate-metadata", {
-        text: plainText,
-        fields: [field],
-        title,
-        primaryGenre: formData.primaryGenre,
-        contentType: getContentTypeFromFormat(formData.format),
-      });
-
-      let filled = false;
-      if (field === "logline" && typeof data.logline === "string" && data.logline.trim()) {
-        setFormData((f) => ({ ...f, logline: data.logline.trim().slice(0, 500) }));
-        filled = true;
-      }
-      if (field === "synopsis" && typeof data.synopsis === "string" && data.synopsis.trim()) {
-        setFormData((f) => ({ ...f, synopsis: data.synopsis.trim() }));
-        filled = true;
-      }
-      if (field === "roles" && Array.isArray(data.roles) && data.roles.length) {
-        setRoles(data.roles.map((role) => ({
-          characterName: role.characterName || "",
-          type: role.type || "",
-          description: role.description || "",
-          gender: role.gender || "Any",
-          ageRange: {
-            min: role.ageRange?.min ?? "",
-            max: role.ageRange?.max ?? "",
-          },
-        })));
-        filled = true;
-      }
-
-      setSaved(false);
-      if (data.usedFallback) {
-        setMetaNotice({ field, text: "AI is busy right now — please try again in a moment." });
-      } else if (filled) {
-        setMetaNotice({ field, text: "Generated by AI — review and edit before submitting." });
-      } else {
-        setMetaNotice({ field, text: "Not enough story detail — add more script content and try again." });
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to generate. Please try again.");
-    } finally {
-      setMetaLoadingField("");
-    }
-  };
 
   // Styling helpers
   const cardCls = `rounded-2xl border backdrop-blur-sm ${dark ? "bg-[#0d1520]/80 border-[#182840]" : "bg-white/90 border-gray-200 shadow-sm"}`;
