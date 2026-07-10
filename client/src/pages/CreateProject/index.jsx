@@ -36,6 +36,7 @@ import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
 import { useVideoUploads } from "./hooks/useVideoUploads";
 import { usePdfExport } from "./hooks/usePdfExport";
 import { useAiGeneration } from "./hooks/useAiGeneration";
+import { useGrammarFix } from "./hooks/useGrammarFix";
 import { buildPagePreviewTexts } from "./lib/preview";
 import { createDefaultRightsLicensing, normalizeRightsLicensingState, getRightsValidationMessage } from "./lib/rights";
 import TitlePageModal from "./components/TitlePageModal";
@@ -97,8 +98,6 @@ const CreateProject = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
-  const [grammarLoading, setGrammarLoading] = useState(false);
-  const [grammarNotes, setGrammarNotes] = useState([]);
   const lastDraftSignatureRef = useRef("");
   const autoSaveInFlightRef = useRef(false);
   // Once the server rejects a NEW draft with a hard, non-transient error (e.g. 402 plan limit,
@@ -108,9 +107,6 @@ const CreateProject = () => {
   const localDraftHydratedRef = useRef(false);
   const previewPageTextsSignatureRef = useRef("");
 
-  // Grammar credit confirmation + undo/keep
-  const [preGrammarContent, setPreGrammarContent] = useState(null); // for undo
-  const [showUndoBar, setShowUndoBar] = useState(false);
   const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
 
@@ -1676,6 +1672,21 @@ const CreateProject = () => {
     enforceGoldPlan,
   });
 
+  const {
+    grammarLoading,
+    setGrammarLoading,
+    grammarNotes,
+    setGrammarNotes,
+    preGrammarContent,
+    setPreGrammarContent,
+    showUndoBar,
+    setShowUndoBar,
+    handleGrammarClick,
+    handleFixGrammar,
+    handleGrammarUndo,
+    handleGrammarKeep,
+  } = useGrammarFix({ editor, getEditorPlainText, textToParagraphHtml, setError, setSaved });
+
   // Update Fountain text; mirror (debounced) into the hidden TipTap model so existing
   // word-count / AI-read flows keep working off editor.getText().
   const handleScreenplayChange = useCallback((text) => {
@@ -1776,68 +1787,6 @@ const CreateProject = () => {
   };
 
   // Click "Fix Grammar"
-  const handleGrammarClick = () => {
-    if (!editor) return;
-    const plainText = getEditorPlainText();
-    if (!plainText || plainText.length < 10) {
-      setError("Write some script text before running grammar correction.");
-      return;
-    }
-    handleFixGrammar();
-  };
-
-  // Confirmed - actually run grammar fix
-  const handleFixGrammar = async () => {
-    if (!editor) return;
-    const plainText = getEditorPlainText();
-    if (!plainText) return;
-
-    // Save current content for undo
-    setPreGrammarContent(editor.getHTML());
-    setGrammarLoading(true);
-    setError("");
-    setGrammarNotes([]);
-    setShowUndoBar(false);
-
-    try {
-      const { data } = await api.post("/ai/correct-script-text", { text: plainText });
-      const correctedText = data?.correctedText?.trim();
-
-      if (correctedText) {
-        editor.commands.setContent(textToParagraphHtml(correctedText));
-        setSaved(false);
-        // Show undo/keep bar after a small delay
-        setTimeout(() => setShowUndoBar(true), 150);
-      }
-
-      setGrammarNotes(Array.isArray(data?.notes) ? data.notes : []);
-    } catch (err) {
-      const msg = err.response?.data?.message || "Failed to correct script text.";
-      setError(msg);
-    } finally {
-      setGrammarLoading(false);
-    }
-  };
-
-  // Undo grammar changes
-  const handleGrammarUndo = () => {
-    if (preGrammarContent && editor) {
-      editor.commands.setContent(preGrammarContent);
-      setSaved(false);
-    }
-    setShowUndoBar(false);
-    setPreGrammarContent(null);
-    setGrammarNotes([]);
-  };
-
-  // Keep grammar changes
-  const handleGrammarKeep = () => {
-    setShowUndoBar(false);
-    setPreGrammarContent(null);
-  };
-
-
-
   // Styling helpers
   const cardCls = `rounded-2xl border backdrop-blur-sm ${dark ? "bg-[#0d1520]/80 border-[#182840]" : "bg-white/90 border-gray-200 shadow-sm"}`;
   const aiBtnCls = `shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition disabled:opacity-50 disabled:cursor-not-allowed ${dark ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`;
