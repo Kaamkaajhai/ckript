@@ -37,8 +37,7 @@ export default function Partners() {
             The company <span className="ckl-h2-em">we keep.</span>
           </h2>
           <p className="ckl-partners-sub">
-            Great scripts deserve great partners. We build alongside the studios
-            and networks turning stories into the work that reaches the screen.
+            Partnering with industry leaders to bring exceptional stories to the screen.
           </p>
         </div>
 
@@ -71,25 +70,19 @@ export default function Partners() {
                 </div>
                 <div className="ckl-partners-meta">
                   <div className="ckl-partners-kicker">{p.kicker}</div>
-                  <h3 className="ckl-partners-name">{p.name}</h3>
+                  <div className="ckl-partners-name-row">
+                    <h3 className="ckl-partners-name">{p.name}</h3>
+                    <span className="ckl-partners-view-more">
+                      View more <span className="ckl-partners-btn-arrow">→</span>
+                    </span>
+                  </div>
                 </div>
               </button>
             );
           })}
         </div>
 
-        <div className="ckl-partners-cta" data-ra="ckl-fadeUp" data-rd="0.3">
-          <button
-            type="button"
-            className="ckl-partners-btn hov-btn-lift"
-            onClick={() => openModal("sceneway")}
-          >
-            Get to know more <span className="ckl-partners-btn-arrow">→</span>
-          </button>
-          <p className="ckl-partners-foot">
-            Two partners. One shared belief, taste over volume, craft over hype.
-          </p>
-        </div>
+
       </div>
 
       <PartnerModal
