@@ -8,7 +8,6 @@ import Features from "./sections/Features/Features";
 import Formats from "./sections/Formats/Formats";
 import Trailer from "./sections/Trailer/Trailer";
 import Problem from "./sections/Problem/Problem";
-import Testimonials from "./sections/Testimonials/Testimonials";
 import Partners from "./sections/Partners/Partners";
 import FinalCta from "./sections/FinalCta/FinalCta";
 import Footer from "./sections/Footer/Footer";
@@ -53,7 +52,6 @@ export default function Landing() {
       <Formats />
       <Trailer />
       <Problem />
-      <Testimonials />
       <Partners />
       <FinalCta />
       <Footer />
