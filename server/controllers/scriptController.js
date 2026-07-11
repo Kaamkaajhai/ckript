@@ -40,6 +40,8 @@ import {
 import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
+import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
@@ -74,6 +76,25 @@ const getRazorpay = () => {
     });
   }
   return razorpayInstance;
+};
+
+// Read what a Razorpay order actually charged (buyer currency + amount + fx rate) so the buyer's
+// transaction records reality. Falls back to the INR base if the order can't be fetched. `inrTotal` is
+// the INR base used as the fallback charged amount.
+const readOrderCharge = async (orderId, inrTotal) => {
+  const fallback = { currency: "INR", chargedTotal: Number(inrTotal) || 0, fxRate: 1 };
+  try {
+    if (!orderId) return fallback;
+    const order = await getRazorpay().orders.fetch(orderId);
+    if (!order) return fallback;
+    return {
+      currency: String(order.currency || "INR").toUpperCase(),
+      chargedTotal: (Number(order.amount) || 0) / 100,
+      fxRate: Number(order.notes?.fxRate) || 1,
+    };
+  } catch {
+    return fallback;
+  }
 };
 
 const PUBLISHED_SCRIPT_STATUSES = ["published", "approved"];
@@ -5320,10 +5341,16 @@ export const createScriptPurchaseOrder = async (req, res) => {
       });
     }
 
-    // Create Razorpay order after writer approval
-    const options = {
-      amount: Math.round(pricing.totalAmount * 100),
-      currency: "INR",
+    // Create Razorpay order after writer approval. The INR total is server-authoritative; only the
+    // buyer's currency is taken from the client, then converted live (with an INR fallback if a USD
+    // order is rejected by the gateway).
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    const { amount: chargeMajor, fxRate } = await convertInrToCurrency(pricing.totalAmount, currency);
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, currency),
+      currency,
+      inrAmount: Math.round(pricing.totalAmount * 100),
       receipt: `script_purchase_${Date.now()}`,
       notes: {
         userId: req.user._id.toString(),
@@ -5331,21 +5358,19 @@ export const createScriptPurchaseOrder = async (req, res) => {
         scriptTitle: script.title,
         creatorId: script.creator._id.toString(),
         purchaseRequestId: purchaseRequest._id.toString(),
-        baseAmount: pricing.baseAmount.toFixed(2),
-        platformTaxPercent: String(pricing.platformTaxPercent),
-        platformTaxAmount: pricing.platformTaxAmount.toFixed(2),
-        totalAmount: pricing.totalAmount.toFixed(2),
+        baseAmountInr: pricing.baseAmount.toFixed(2),
+        totalAmountInr: pricing.totalAmount.toFixed(2),
+        fxRate: String(fxRate),
         type: "script_purchase_after_approval",
       }
-    };
-
-    const razorpay = getRazorpay();
-    const order = await razorpay.orders.create(options);
+    });
 
     res.json({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      fxRate,
+      fellBackToINR,
       keyId: process.env.RAZORPAY_KEY_ID,
       scriptDetails: {
         id: script._id,
@@ -5365,6 +5390,58 @@ export const createScriptPurchaseOrder = async (req, res) => {
   } catch (error) {
     console.error("Razorpay order creation error:", error);
     res.status(500).json({ message: "Failed to create payment order", error: error.message });
+  }
+};
+
+// Convert an INR pricing breakdown into the buyer's currency for DISPLAY (no order created). base+tax
+// are each converted then tax is derived as total−base so the parts always sum to the total.
+const buildCurrencyQuote = async (pricing, currency) => {
+  const { amount: totalAmount, fxRate } = await convertInrToCurrency(pricing.totalAmount, currency);
+  const { amount: baseAmount } = await convertInrToCurrency(pricing.baseAmount, currency);
+  const platformTaxAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
+  return {
+    currency,
+    fxRate,
+    baseAmount,
+    platformTaxAmount,
+    totalAmount,
+    platformTaxPercent: pricing.platformTaxPercent,
+    baseAmountInr: pricing.baseAmount,
+    totalAmountInr: pricing.totalAmount,
+  };
+};
+
+// @desc    Price quote for a script PURCHASE in the buyer's currency (display only; no order created)
+// @route   POST /api/scripts/purchase/quote
+// @access  Private
+export const getScriptPurchaseQuote = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const script = await Script.findById(scriptId).select("price title");
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    const pricing = getScriptPurchasePricing(Math.max(0, Number(script.price || 0)));
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    return res.json(await buildCurrencyQuote(pricing, currency));
+  } catch (error) {
+    console.error("Purchase quote error:", error);
+    return res.status(500).json({ message: "Failed to get price quote" });
+  }
+};
+
+// @desc    Price quote for a script HOLD in the buyer's currency (display only; no order created)
+// @route   POST /api/scripts/hold/quote
+// @access  Private
+export const getScriptHoldQuote = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const script = await Script.findById(scriptId).select("holdFee title");
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    const pricing = getScriptPurchasePricing(Number(script.holdFee || 200));
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    return res.json(await buildCurrencyQuote(pricing, currency));
+  } catch (error) {
+    console.error("Hold quote error:", error);
+    return res.status(500).json({ message: "Failed to get price quote" });
   }
 };
 
@@ -5768,12 +5845,18 @@ export const verifyScriptPurchase = async (req, res) => {
       writerDoc.wallet.totalEarnings = (writerDoc.wallet.totalEarnings || 0) + pricing.baseAmount;
       await writerDoc.save();
 
+      // What the buyer was actually charged (their currency); the writer payout below stays INR.
+      const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+
       await Transaction.create([
         {
           user: req.user._id,
           type: "payment",
-          amount: -pricing.totalAmount,
-          currency: "INR",
+          amount: -charge.chargedTotal,
+          currency: charge.currency,
+          baseCurrency: "INR",
+          baseAmount: -pricing.totalAmount,
+          fxRate: charge.fxRate,
           status: "completed",
           description: `Purchased script after approval: "${script.title}"`,
           reference: `PRP-RZP-${razorpay_payment_id}`,
@@ -6063,31 +6146,34 @@ export const createScriptHoldOrder = async (req, res) => {
     const holdFee = script.holdFee || 200;
     const holdPricing = getScriptPurchasePricing(holdFee);
 
-    // Create Razorpay order
-    const options = {
-      amount: Math.round(holdPricing.totalAmount * 100), // Amount in paise (INR)
-      currency: "INR",
+    // Create Razorpay order. INR total is server-authoritative; buyer currency converted live (with
+    // an INR fallback if a USD order is rejected).
+    const currency = resolveCurrency(req.body?.currency, user?.preferredCurrency);
+    const { amount: chargeMajor, fxRate } = await convertInrToCurrency(holdPricing.totalAmount, currency);
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, currency),
+      currency,
+      inrAmount: Math.round(holdPricing.totalAmount * 100),
       receipt: `script_hold_${Date.now()}`,
       notes: {
         userId: req.user._id.toString(),
         scriptId: scriptId,
         scriptTitle: script.title,
         creatorId: script.creator._id.toString(),
-        holdFee: holdPricing.baseAmount,
-        buyerCommissionPercent: String(holdPricing.platformTaxPercent),
-        buyerCommissionAmount: holdPricing.platformTaxAmount.toFixed(2),
-        totalAmount: holdPricing.totalAmount.toFixed(2),
+        holdFeeInr: holdPricing.baseAmount,
+        totalAmountInr: holdPricing.totalAmount.toFixed(2),
+        fxRate: String(fxRate),
         type: "script_hold"
       }
-    };
-
-    const razorpay = getRazorpay();
-    const order = await razorpay.orders.create(options);
+    });
 
     res.json({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      fxRate,
+      fellBackToINR,
       keyId: process.env.RAZORPAY_KEY_ID,
       scriptDetails: {
         id: script._id,
@@ -6190,12 +6276,19 @@ export const verifyScriptHold = async (req, res) => {
 
     const reference = `SCRIPT-HOLD-${razorpay_payment_id}`;
 
+    // The buyer may have paid in a non-INR currency; read what was actually charged from the order so
+    // the buyer transaction records the real currency/amount. Creator payout stays INR (see below).
+    const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+
     // Create transaction record for holder (payment)
     await Transaction.create({
       user: req.user._id,
       type: "payment",
-      amount: -pricing.totalAmount,
-      currency: "INR",
+      amount: -charge.chargedTotal,
+      currency: charge.currency,
+      baseCurrency: "INR",
+      baseAmount: -pricing.totalAmount,
+      fxRate: charge.fxRate,
       status: "completed",
       description: `Placed hold on script: "${script.title}" (30 days)`,
       reference,
@@ -6207,7 +6300,7 @@ export const verifyScriptHold = async (req, res) => {
         holdEndDate: endDate,
         buyerCommissionAmount: platformCut,
         creatorPayout,
-        totalPaid: pricing.totalAmount,
+        totalPaidInr: pricing.totalAmount,
       }
     });
 

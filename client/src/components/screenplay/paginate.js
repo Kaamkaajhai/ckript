@@ -43,7 +43,8 @@ const COST = {
 const wrapped = (text, w) => Math.max(1, Math.ceil(String(text).trim().length / w));
 
 /**
- * Paginate a screenplay by lines.
+ * Paginate a screenplay by lines — a WriterDuet-style content estimate (no forced "===" breaks; page
+ * breaks are purely where content fills a US-Letter page).
  * @param {string} text canonical Fountain / screenplay text
  * @returns {{ pageCount: number, pageStarts: number[] }} pageStarts = 0-based document line index where
  *   each page begins (pageStarts[0] === 0). Length === pageCount.
@@ -65,7 +66,6 @@ export const paginate = (text = "") => {
       i += 1;
       continue;
     }
-    if (type === "pagebreak") { breakBefore(i + 1); i += 1; continue; }
     // A BLOCK is a run of consecutive non-blank lines — e.g. a whole speech (CHARACTER + parenthetical
     // + dialogue). It's kept together as one unit so a page break never splits it mid-element (splitting
     // a parenthetical from its dialogue, or a cue from its speech, is what made breaks land badly). If
@@ -73,7 +73,7 @@ export const paginate = (text = "") => {
     const blockStart = i;
     let blockCost = 0;
     let j = i;
-    while (j < lines.length && types[j] !== "blank" && types[j] !== "pagebreak") {
+    while (j < lines.length && types[j] !== "blank") {
       const cfg = COST[types[j]] || COST.action;
       blockCost += cfg.before + wrapped(lines[j].trim(), cfg.w) + cfg.after;
       j += 1;

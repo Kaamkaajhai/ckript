@@ -6,6 +6,10 @@ import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfess
 import { useAuthModal } from "../context/AuthModalContext";
 import { AuthContext } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useCurrency } from "../context/CurrencyContext";
+import CurrencyToggle from "./CurrencyToggle";
+import { getPlanPrice, WRITER_PLAN_KEY } from "../config/pricing";
+import { formatSubunits, formatCurrency } from "../utils/currency";
 import useScrollLock from "../hooks/useScrollLock";
 import { useContext } from "react";
 import api from "../services/api";
@@ -218,6 +222,15 @@ function TierCard({ plan, state }) {
 
 function PricingModalInner({ onClose, tab = "all" }) {
   const { user } = useContext(AuthContext);
+  const { currency = "INR" } = useCurrency() || {};
+
+  // Prices come from the shared matrix, formatted in the active currency (free plan is 0 anywhere).
+  const priceLabelFor = (key) =>
+    key === "free"
+      ? formatCurrency(0, currency)
+      : formatSubunits(getPlanPrice(WRITER_PLAN_KEY[key], currency), currency);
+  const pricedWriterPlans = WRITER_PLANS.map((p) => ({ ...p, price: priceLabelFor(p.key) }));
+  const fipPriceLabel = formatSubunits(getPlanPrice("film_industry_professional", currency), currency);
 
   let effectiveTab = tab;
   if (tab === "all" && user?.role) {
@@ -545,10 +558,13 @@ function PricingModalInner({ onClose, tab = "all" }) {
                   <div className="pmx-head-aside">
                     {effectiveTab === "writer" ? "Choose a writer plan below." : "Choose a writer plan — or get industry access below."}
                   </div>
+                  <div style={{ marginTop: 10 }}>
+                    <CurrencyToggle />
+                  </div>
                 </div>
 
                 <div className="pmx-trio">
-                  {WRITER_PLANS.map((plan) => (
+                  {pricedWriterPlans.map((plan) => (
                     <TierCard key={plan.key} plan={plan} state={stateByKey[plan.key]} />
                   ))}
                 </div>
@@ -566,7 +582,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
                 </div>
                 
                 <div className="pmx-tier-price">
-                  <b>{FIP.price}</b>
+                  <b>{fipPriceLabel}</b>
                   <span>/ month</span>
                 </div>
                 

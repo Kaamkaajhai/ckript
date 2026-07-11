@@ -950,6 +950,8 @@ export const login = async (req, res) => {
         approvalNote: user.approvalNote,
         profileImage: user.profileImage || user.profilePicture || "",
         profileCompletion: getProfileCompletion(user),
+        googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+        preferredCurrency: user.preferredCurrency || "INR",
         token,
         expiresAt,
       });
@@ -1082,6 +1084,8 @@ export const googleAuth = async (req, res) => {
       approvalNote: user.approvalNote,
       profileImage: user.profileImage || user.profilePicture || "",
       profileCompletion: getProfileCompletion(user),
+      googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+      preferredCurrency: user.preferredCurrency || "INR",
       authProvider: "google",
       isNewUser: false,
       token: jwtToken,
@@ -1557,6 +1561,8 @@ export const getMe = async (req, res) => {
       profilePicture: user.profilePicture,
       bio: user.bio,
       profileCompletion: getProfileCompletion(user),
+      googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+      preferredCurrency: user.preferredCurrency || "INR",
       expiresAt: decoded.exp * 1000,
     });
   } catch (error) {

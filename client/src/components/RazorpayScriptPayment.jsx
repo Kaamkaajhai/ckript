@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
-
-const BUYER_COMMISSION_RATE = 0.05;
+import { useCurrency } from "../context/CurrencyContext";
+import { formatCurrency } from "../utils/currency";
+import CurrencyToggle from "./CurrencyToggle";
 
 const loadRazorpaySdk = () =>
   new Promise((resolve, reject) => {
@@ -43,9 +44,15 @@ const RazorpayScriptPayment = ({
   onSuccess,
 }) => {
   const { isDarkMode } = useDarkMode();
+  const { currency = "INR" } = useCurrency() || {};
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [razorpayReady, setRazorpayReady] = useState(false);
+  // Server-computed price in the buyer's currency (script USD is FX-derived, so it can't be computed
+  // client-side). Fetched when the modal opens.
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [fellBackToINR, setFellBackToINR] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -78,6 +85,20 @@ const RazorpayScriptPayment = ({
     };
   }, [isOpen]);
 
+  // Fetch the server price quote in the active currency whenever the modal opens or currency changes.
+  useEffect(() => {
+    if (!isOpen || !script?._id) return undefined;
+    let cancelled = false;
+    const quoteEndpoint = type === "purchase" ? "/scripts/purchase/quote" : "/scripts/hold/quote";
+    setQuoteLoading(true);
+    api
+      .post(quoteEndpoint, { scriptId: script._id, currency })
+      .then(({ data }) => { if (!cancelled) setQuote(data); })
+      .catch(() => { if (!cancelled) setQuote(null); })
+      .finally(() => { if (!cancelled) setQuoteLoading(false); });
+    return () => { cancelled = true; };
+  }, [isOpen, script?._id, type, currency]);
+
   const handlePayment = async () => {
     try {
       setLoading(true);
@@ -104,10 +125,12 @@ const RazorpayScriptPayment = ({
           ? "/scripts/purchase/verify-payment"
           : "/scripts/hold/verify-payment";
 
-      // Create order
+      // Create order (buyer currency; amount stays server-authoritative)
       const { data: orderData } = await api.post(orderEndpoint, {
         scriptId: script._id,
+        currency,
       });
+      setFellBackToINR(Boolean(orderData.fellBackToINR));
 
       const options = {
         key: orderData.keyId,
@@ -168,9 +191,13 @@ const RazorpayScriptPayment = ({
 
   if (!isOpen) return null;
 
-  const baseAmount = Number(type === "purchase" ? script.price : script.holdFee || 200);
-  const buyerCommissionAmount = Math.round(baseAmount * BUYER_COMMISSION_RATE * 100) / 100;
-  const totalPayable = Math.round((baseAmount + buyerCommissionAmount) * 100) / 100;
+  // Prices come from the server quote (currency-aware, FX-derived for USD). Fall back to the raw INR
+  // script value only while the quote is loading.
+  const quoteCurrency = quote?.currency || currency;
+  const baseAmount = Number(quote?.baseAmount ?? (type === "purchase" ? script.price : script.holdFee || 200));
+  const buyerCommissionAmount = Number(quote?.platformTaxAmount ?? 0);
+  const totalPayable = Number(quote?.totalAmount ?? baseAmount);
+  const totalPayableLabel = formatCurrency(totalPayable, quoteCurrency);
   const title = type === "purchase" ? "Pay & Unlock Script" : "Place Hold";
   const description = type === "purchase"
     ? "Writer has approved your request. Complete payment to unlock full script access"
@@ -241,14 +268,22 @@ const RazorpayScriptPayment = ({
 
             {/* Amount */}
             <div className={`rounded-xl p-4 ${t.infoRow}`}>
-              <p className={`text-xs font-bold uppercase tracking-wider mb-2 ${t.muted}`}>Amount</p>
-              <div className="flex items-baseline gap-2">
-                <span className={`text-3xl font-extrabold ${t.title}`}>₹{totalPayable}</span>
-                <span className={`text-sm ${t.muted}`}>INR</span>
+              <div className="flex items-center justify-between mb-2">
+                <p className={`text-xs font-bold uppercase tracking-wider ${t.muted}`}>Amount</p>
+                <CurrencyToggle dark={isDarkMode} />
               </div>
-              {baseAmount > 0 && (
+              <div className="flex items-baseline gap-2">
+                <span className={`text-3xl font-extrabold ${t.title}`}>{quoteLoading ? "…" : totalPayableLabel}</span>
+                <span className={`text-sm ${t.muted}`}>{quoteCurrency}</span>
+              </div>
+              {baseAmount > 0 && !quoteLoading && (
                 <p className={`text-xs mt-2 ${t.muted}`}>
-                  Base amount: ₹{baseAmount.toFixed(2)} • Platform commission ({Math.round(BUYER_COMMISSION_RATE * 100)}%): ₹{buyerCommissionAmount.toFixed(2)}
+                  Base: {formatCurrency(baseAmount, quoteCurrency)} • Platform commission ({quote?.platformTaxPercent ?? 5}%): {formatCurrency(buyerCommissionAmount, quoteCurrency)}
+                </p>
+              )}
+              {fellBackToINR && (
+                <p className="text-xs mt-2 text-amber-500">
+                  USD checkout isn't available right now — you'll be charged the equivalent in INR.
                 </p>
               )}
               {type === "hold" && (
@@ -313,7 +348,7 @@ const RazorpayScriptPayment = ({
                     <span>Processing...</span>
                   </div>
                 ) : (
-                  `Pay ₹${totalPayable}`
+                  `Pay ${totalPayableLabel}`
                 )}
               </button>
             </div>

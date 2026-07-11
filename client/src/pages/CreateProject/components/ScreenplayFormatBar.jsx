@@ -9,7 +9,7 @@ import { D } from "./EditorToolbar";
    export all see — no separate document model, nothing that can drift. Only controls
    with a real Fountain representation live here (inline emphasis + element styles);
    colour/highlight/headings deliberately do NOT, because Fountain can't store them. */
-const ScreenplayFormatBar = ({ onSetElement, onEmphasis, onCase, onCentered, onInsertPageBreak, onZoom, zoom = 1, onSwitchToProse, currentElement, emphasisState, dark }) => {
+const ScreenplayFormatBar = ({ onSetElement, onEmphasis, onCase, onCentered, onZoom, zoom = 1, onSwitchToProse, currentElement, emphasisState, dark }) => {
   const [styleOpen, setStyleOpen] = useState(false);
   const styleRef = useRef(null);
   useEffect(() => {
@@ -94,19 +94,6 @@ const ScreenplayFormatBar = ({ onSetElement, onEmphasis, onCase, onCentered, onI
           emphasisState?.centered ? "bg-[#1e3a5f] text-white shadow-sm" : dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>
         <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M7 15v2h10v-2H7zm-4 6h18v-2H3v2zm0-8h18v-2H3v2zm4-6v2h10V7H7zM3 3v2h18V3H3z" /></svg>
       </button>
-
-      {onInsertPageBreak && (
-        <>
-          <D dark={dark} />
-          {/* Insert a real page break (=== ): content after it starts on a fresh page. */}
-          <button type="button" title="Insert page break"
-            onMouseDown={(e) => { e.preventDefault(); onInsertPageBreak(); }}
-            className={`flex items-center gap-1 px-2 h-8 rounded-md text-[11px] font-semibold transition ${dark ? "text-gray-300 hover:bg-white/[0.08] hover:text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-800"}`}>
-            <svg className="w-[14px] h-[14px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 17h18M8 12h8" /></svg>
-            Page break
-          </button>
-        </>
-      )}
 
       {onZoom && (
         <>

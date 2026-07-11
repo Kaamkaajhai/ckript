@@ -15,14 +15,10 @@ describe("line-based pagination", () => {
     expect(LINES_PER_PAGE).toBe(54);
   });
 
-  it("a manual === break always starts a new page", () => {
+  it("legacy '===' markers no longer force a break (page breaks removed)", () => {
     const two = "INT. A - DAY\n\nAction.\n\n===\n\nINT. B - DAY\n\nMore action.";
-    const { pageCount, pageStarts } = paginate(two);
-    expect(pageCount).toBe(2);
-    expect(pageStarts.length).toBe(2);
-    // page 2 begins after the === line (index 4); the "INT. B - DAY" scene (index 6) is on page 2.
-    expect(pageStarts[1]).toBeGreaterThan(4);
-    expect(pageOfLine(two, 6)).toBe(2);
+    const { pageCount } = paginate(two);
+    expect(pageCount).toBe(1); // short content → one page; the === is just plain text now
   });
 
   it("long scripts auto-paginate by content (more scenes → more pages)", () => {
@@ -39,9 +35,9 @@ describe("line-based pagination", () => {
   });
 
   it("pageOfLine maps a document line to its page", () => {
-    const doc = "INT. A - DAY\n\nAction.\n\n===\n\nINT. B - DAY";
-    expect(pageOfLine(doc, 0)).toBe(1);           // first scene → page 1
-    const lines = doc.split("\n");
-    expect(pageOfLine(doc, lines.length - 1)).toBe(2); // after the break → page 2
+    const long = Array.from({ length: 30 }, (_, i) => scene(i + 1)).join("");
+    expect(pageOfLine(long, 0)).toBe(1); // first scene → page 1
+    const lines = long.split("\n");
+    expect(pageOfLine(long, lines.length - 1)).toBeGreaterThan(1); // deep in a long script → later page
   });
 });

@@ -2099,7 +2099,7 @@ export const removeFromWatchlist = async (req, res) => {
 
 export const updateSettings = async (req, res) => {
   try {
-    const { notificationPrefs, isPrivate, language, timezone } = req.body;
+    const { notificationPrefs, isPrivate, language, timezone, preferredCurrency } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -2115,10 +2115,13 @@ export const updateSettings = async (req, res) => {
     if (isPrivate !== undefined) user.isPrivate = isPrivate;
     if (language !== undefined) user.language = normalizeLanguagePreference(language);
     if (timezone !== undefined) user.timezone = timezone;
+    if (preferredCurrency !== undefined && ["INR", "USD"].includes(String(preferredCurrency).toUpperCase())) {
+      user.preferredCurrency = String(preferredCurrency).toUpperCase();
+    }
     if (!user.language) user.language = DEFAULT_LANGUAGE;
 
     await user.save();
-    res.json({ message: "Settings updated", user: { isPrivate: user.isPrivate, language: user.language, timezone: user.timezone, notificationPrefs: user.notificationPrefs } });
+    res.json({ message: "Settings updated", user: { isPrivate: user.isPrivate, language: user.language, timezone: user.timezone, preferredCurrency: user.preferredCurrency, notificationPrefs: user.notificationPrefs } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

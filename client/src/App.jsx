@@ -5,6 +5,7 @@ import { ToastProvider } from "./context/ToastContext";
 import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
 import PrivateRoute from "./utils/PrivateRoute";
 import { AuthContext } from "./context/AuthContext";
 import SeoManager from "./components/SeoManager";
@@ -271,6 +272,7 @@ function App() {
   const appTree = (
     <DarkModeProvider key="dm-root">
       <AuthProvider>
+        <CurrencyProvider>
         <ToastProvider>
         <Router>
           <AuthModalProvider>
@@ -387,6 +389,7 @@ function App() {
           </AuthModalProvider>
         </Router>
         </ToastProvider>
+        </CurrencyProvider>
       </AuthProvider>
     </DarkModeProvider>
   );

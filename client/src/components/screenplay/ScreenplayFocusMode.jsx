@@ -70,7 +70,6 @@ export default function ScreenplayFocusMode({
   onEmphasis,
   onCase,
   onCentered,
-  onInsertPageBreak,
   onConfigureTitlePage,
   hasTitlePage = false,
   titlePageFields = null,
@@ -118,7 +117,6 @@ export default function ScreenplayFocusMode({
   const [centerView, setCenterView] = useState("page"); // "page" | "cards"
   const [lowerBarMode, setLowerBarMode] = useState("elements"); // "elements" | "format"
   const [leftTab, setLeftTab] = useState("scenes"); // "scenes" | "pages"
-  const [insertMenuOpen, setInsertMenuOpen] = useState(false);
   const titlePageRef = useRef(null);
   const scrollToTitlePage = () => titlePageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   const [rightTab, setRightTab] = useState("people"); // "people" | "comments"
@@ -409,31 +407,13 @@ export default function ScreenplayFocusMode({
             {/* ── PAGES TAB ── */}
             {leftTab === "pages" ? (
               <div className="pb-5">
-                {/* Insert menu — blank page (===) or title page */}
+                {/* Insert menu — title page */}
                 <div className="px-4 pb-2 relative">
-                  <button type="button" onClick={() => setInsertMenuOpen((o) => !o)}
+                  <button type="button" onClick={() => onConfigureTitlePage?.()}
                     className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border transition ${dark ? "border-[#2a4a6a] text-gray-200 hover:bg-white/[0.06]" : "border-gray-200 text-gray-700 hover:bg-white"}`}>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    Insert
-                    <svg className="w-3 h-3 opacity-60" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16v14H4zM8 9h8M8 13h8M10 17h4" /></svg>
+                    {hasTitlePage ? "Edit title page" : "Title page"}
                   </button>
-                  {insertMenuOpen && (
-                    <>
-                      <div className="fixed inset-0 z-40" onClick={() => setInsertMenuOpen(false)} />
-                      <div className={`absolute left-4 right-4 mt-1 rounded-lg border shadow-xl z-50 py-1 text-[12px] ${dark ? "bg-[#0d1829] border-[#2a4a6a] text-gray-200" : "bg-white border-gray-200 text-gray-700"}`}>
-                        <button type="button" onClick={() => { setInsertMenuOpen(false); onInsertPageBreak?.(); }}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>
-                          <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M6 8h12M6 16h12" /></svg>
-                          <span className="text-left"><span className="font-semibold block">Blank page</span><span className={`text-[10px] ${muted}`}>Forced page break (===)</span></span>
-                        </button>
-                        <button type="button" onClick={() => { setInsertMenuOpen(false); onConfigureTitlePage?.(); }}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 ${dark ? "hover:bg-white/[0.06]" : "hover:bg-gray-50"}`}>
-                          <svg className="w-4 h-4 opacity-70" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16v14H4zM8 9h8M8 13h8M10 17h4" /></svg>
-                          <span className="text-left"><span className="font-semibold block">{hasTitlePage ? "Edit title page" : "Title page"}</span><span className={`text-[10px] ${muted}`}>Title, author, credit…</span></span>
-                        </button>
-                      </div>
-                    </>
-                  )}
                 </div>
 
                 <div className="px-2 space-y-0.5">
