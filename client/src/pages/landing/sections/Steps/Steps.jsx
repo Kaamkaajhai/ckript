@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Link } from "react-router-dom";
+import { useAuthModal } from "../../../../context/AuthModalContext";
 import Icon from "../../_shared/Icon";
 import useStageFit, { initialStageScale } from "../../_shared/useStageFit";
 import { ROUTES } from "../../_shared/theme";
@@ -19,6 +19,7 @@ const CAPTIONS = [
 ];
 
 export default function Steps() {
+  const { openWriterOnboarding } = useAuthModal();
   const wrapRef = useRef(null);
   const stageRef = useRef(null);
 
@@ -79,10 +80,10 @@ export default function Steps() {
           <div className="ckl-steps-rights-meta">Drama / Sci-Fi / Thriller<br />Feature Length</div>
           <div className="ckl-steps-rights-div" />
           <div className="ckl-steps-rights-rights">Rights<br />Worldwide<br />All Media</div>
-          <Link to={ROUTES.join} className="ckl-steps-rights-btn hov-btn">
+          <button type="button" onClick={() => openWriterOnboarding()} className="ckl-steps-rights-btn hov-btn">
             <Icon name="lock" size={16} color="#fff" />
             <span>Acquire Script</span>
-          </Link>
+          </button>
         </div>
 
         {/* Captions */}
@@ -102,9 +103,9 @@ export default function Steps() {
 
         {/* Browse Scripts CTA */}
         <span className="ckl-steps-cta-line" data-ra="ckl-fadeUpC" data-rd="0.74" />
-        <Link to={ROUTES.join} className="ckl-steps-cta-btn hov-btn" data-ra="ckl-fadeUpC" data-rd="0.8">
+        <button type="button" onClick={() => openWriterOnboarding()} className="ckl-steps-cta-btn hov-btn" data-ra="ckl-fadeUpC" data-rd="0.8">
           Browse Scripts
-        </Link>
+        </button>
       </div>
     </section>
   );

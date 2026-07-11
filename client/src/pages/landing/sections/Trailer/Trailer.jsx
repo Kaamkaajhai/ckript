@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
+import { useAuthModal } from "../../../../context/AuthModalContext";
 import Diamond from "../../_shared/Diamond";
 import Icon from "../../_shared/Icon";
 import { ROUTES } from "../../_shared/theme";
 import "./Trailer.css";
 
 export default function Trailer() {
+  const { openWriterOnboarding } = useAuthModal();
+
   return (
     <section className="ckl-trailer">
       <img
@@ -26,12 +29,12 @@ export default function Trailer() {
           teaser — the fastest way to make a producer feel your story.
         </p>
         <div className="ckl-trailer-actions" data-ra="ckl-fadeUp" data-rd="0.24">
-          <Link to={ROUTES.join} className="ckl-trailer-play-btn hov-lift3">
+          <button type="button" onClick={() => openWriterOnboarding()} className="ckl-trailer-play-btn hov-lift3">
             <span className="ckl-trailer-play-icon">
               <Icon name="play_arrow" fill size={22} color="#fff" />
             </span>
             <span className="ckl-trailer-play-label">Watch a sample trailer</span>
-          </Link>
+          </button>
           <Link to={ROUTES.writer} className="ckl-trailer-link hov-bc-red">
             Start with your script
           </Link>

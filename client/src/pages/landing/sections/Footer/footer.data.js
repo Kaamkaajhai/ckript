@@ -9,15 +9,13 @@ export const FOOTER_COLS = [
   {
     head: "Platform",
     links: [
-      { label: "Scripts", to: ROUTES.join },
+      { label: "Scripts", action: "writer" },
       { label: "For Producers", action: "producer" },
-      { label: "For Writers", action: "writer" },
     ],
   },
   {
     head: "Company",
     links: [
-      { label: "About", action: "about" },
       { label: "Pricing", action: "pricing" },
       { label: "Contact", to: ROUTES.contact },
       { label: "LinkedIn", to: ROUTES.linkedin, external: true },
