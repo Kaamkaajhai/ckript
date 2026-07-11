@@ -4,16 +4,26 @@
 export const MAX_PREVIEW_SNIPPET_LENGTH = 900;
 export const PREVIEW_LINES_PER_PAGE = 42;
 
-export const normalizePreviewContent = (value = "") =>
-  String(value || "")
+export const normalizePreviewContent = (value = "") => {
+  // Turn block boundaries into newlines BEFORE stripping tags, then extract text
+  // via the DOM. Regex tag-stripping is fragile (nesting bypasses, undecoded
+  // entities); `textContent` off a parsed document cannot contain live markup and
+  // decodes entities correctly. Falls back to a regex strip if DOMParser is absent.
+  const withBreaks = String(value || "")
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/ /g, " ")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n");
+
+  const text =
+    typeof DOMParser !== "undefined"
+      ? new DOMParser().parseFromString(withBreaks, "text/html").body.textContent || ""
+      : withBreaks.replace(/<[^>]*>/g, "");
+
+  return text
+    .replace(/\u00A0/g, " ") // collapse non-breaking spaces (what &nbsp; decodes to)
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+};
 
 export const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
   const index = Math.max(0, Number(pageNumber || 0) - 1);

@@ -37,6 +37,7 @@ import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import MeetingModal from "../components/MeetingModal";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
+import { sanitizeScriptHtml, escapeHtml } from "../utils/sanitizeHtml";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { countPages } from "../components/screenplay/paginate";
 import ProducerRatingCard from "../components/ProducerRatingCard";
@@ -351,7 +352,7 @@ const ScriptDetail = () => {
     const isHtml = normalizedRaw.startsWith("<");
     const formattedPlain = formatScreenplayLikeText(raw);
     const bodyContent = isHtml
-      ? normalizedRaw
+      ? sanitizeScriptHtml(normalizedRaw)
       : formattedPlain
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -362,7 +363,7 @@ const ScriptDetail = () => {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${script?.title || "Script"}</title>
+  <title>${escapeHtml(script?.title || "Script")}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -374,8 +375,8 @@ const ScriptDetail = () => {
   </style>
 </head>
 <body>
-  <h1>${script?.title || ""}</h1>
-  <div class="meta">${script?.format || ""}</div>
+  <h1>${escapeHtml(script?.title || "")}</h1>
+  <div class="meta">${escapeHtml(script?.format || "")}</div>
   <div class="content">${isHtml ? bodyContent : `<p class="content">${bodyContent}</p>`}</div>
   <script>window.onload = function(){ window.print(); }<\/script>
 </body>
@@ -2874,7 +2875,7 @@ const ScriptDetail = () => {
                           fallbackText={formattedPlainScriptText || scriptRawContent}
                         />
                       ) : hasHtmlScriptContent ? (
-                        <div className="script-content" dangerouslySetInnerHTML={{ __html: normalizedScriptHtml }} />
+                        <div className="script-content" dangerouslySetInnerHTML={{ __html: sanitizeScriptHtml(normalizedScriptHtml) }} />
                       ) : (
                         <ScreenplayViewer text={formattedPlainScriptText || scriptRawContent} className={t.sub} />
                       )}
