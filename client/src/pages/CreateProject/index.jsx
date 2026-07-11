@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useContext, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Cropper from "react-easy-crop";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -26,7 +26,7 @@ import { getScenes } from "../../components/screenplay/sceneIdentity";
 import { moveScene } from "../../components/screenplay/sceneReorder";
 import { fdxToFountain } from "../../components/screenplay/fdx";
 import { formatScreenplayLikeText } from "../../utils/screenplayText";
-import { allFormats, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION, STEPS } from "./constants";
+import { allFormats, DETAILS_STEPS, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION } from "./constants";
 import { getContentTypeFromFormat, FORMAT_PAGE_RANGES } from "./lib/format";
 import { THUMBNAIL_ASPECT } from "./lib/imageCrop";
 import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
@@ -47,6 +47,7 @@ import Step2Details from "./steps/Step2Details";
 import Step3Classify from "./steps/Step3Classify";
 import Step4FilmInfo from "./steps/Step4FilmInfo";
 import Step5Publish from "./steps/Step5Publish";
+import CreateProjectShell from "./CreateProjectShell";
 import "./createProjectEditor.css";
 
 const CreateProject = () => {
@@ -65,6 +66,9 @@ const CreateProject = () => {
 
   // Wizard state
   const [step, setStep] = useState(1);
+  // Sub-step index within Step 2 (Details), which is itself a mini-wizard paged by
+  // the shell footer. Reset to 0 whenever we leave Details (effect below).
+  const [detailsStep, setDetailsStep] = useState(0);
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -130,6 +134,20 @@ const CreateProject = () => {
   // Publishing Layer State
   const [targetFilm, setTargetFilm] = useState(true);
   const [targetPublishing, setTargetPublishing] = useState(false);
+
+  // The active Details sub-steps for the current track (film vs. publishing). Drives
+  // both the in-panel sub-stepper and the footer pager; validation is split per panel.
+  const detailsIndustry = targetPublishing && !targetFilm ? "publishing" : "film";
+  const detailsSubSteps = useMemo(
+    () => DETAILS_STEPS.filter((s) => s.industries.includes(detailsIndustry)),
+    [detailsIndustry]
+  );
+  // Keep the sub-step index in range and reset it whenever we leave Details, so
+  // re-entering (rail jump, Back from Classify, draft load) always starts clean.
+  useEffect(() => {
+    if (step !== 2) { setDetailsStep(0); return; }
+    setDetailsStep((i) => Math.min(i, detailsSubSteps.length - 1));
+  }, [step, detailsSubSteps.length]);
   const [publishingDetails, setPublishingDetails] = useState({
     storyFormat: [],
     writingStyle: [],
@@ -1121,6 +1139,51 @@ const CreateProject = () => {
     { label: "Agreement accepted", done: Boolean(legal.agreedToTerms) },
   ];
 
+  // Per-panel validation for the Step 2 (Details) mini-wizard. Each panel only
+  // gates its own fields, so an error surfaces on the panel that owns it instead
+  // of at the end of a long form. `validateStep(2)` runs the whole set in order.
+  const validateDetailsStep = (key) => {
+    setError("");
+    if (key === "basics") {
+      if (!formData.format) { setError("Format is required."); return false; }
+      if (formData.format === "other" && !String(formData.formatOther || "").trim()) {
+        setError("Please specify the format when selecting Other."); return false;
+      }
+      return true;
+    }
+    if (key === "story") {
+      if (targetFilm) {
+        if (!formData.logline.trim()) { setError("Logline is required."); return false; }
+        if (formData.logline.length > 500) { setError("Logline must be 500 characters or less."); return false; }
+      }
+      if (!formData.synopsis || !formData.synopsis.trim()) { setError("Synopsis is required."); return false; }
+      return true;
+    }
+    if (key === "cast") {
+      const ageRangeError = getInvalidRoleAgeRangeMessage();
+      if (ageRangeError) { setError(ageRangeError); return false; }
+      return true;
+    }
+    if (key === "progress") {
+      const completionError = getScriptCompletionValidationMessage(formData);
+      if (completionError) { setError(completionError); return false; }
+      return true;
+    }
+    if (key === "access") {
+      const previewPayload = buildScriptPreviewPayload(formData);
+      if (previewPayload) {
+        if (previewPayload.end < previewPayload.start) {
+          setError("The ending page must be greater than or equal to the starting page."); return false;
+        }
+        if (Number(estimatedPages || 0) > 0 && (previewPayload.start > Number(estimatedPages || 0) || previewPayload.end > Number(estimatedPages || 0))) {
+          setError("The viewable script range cannot exceed the estimated page count."); return false;
+        }
+      }
+      return true;
+    }
+    return true; // "market", "media" — no hard gates
+  };
+
   // Validation
   const validateStep = (s) => {
     setError("");
@@ -1135,37 +1198,11 @@ const CreateProject = () => {
       return true;
     }
     if (s === 2) {
-      if (!formData.format) { setError("Format is required."); return false; }
-      if (formData.format === "other" && !String(formData.formatOther || "").trim()) {
-        setError("Please specify the format when selecting Other.");
-        return false;
+      // Run every Details panel's gate in order; the first failure sets the error
+      // and (via handleNext) will route the user to the owning panel.
+      for (const sub of detailsSubSteps) {
+        if (!validateDetailsStep(sub.key)) return false;
       }
-
-      if (!formData.logline.trim()) { setError("Logline is required."); return false; }
-      if (formData.logline.length > 500) { setError("Logline must be 500 characters or less."); return false; }
-      {
-        const completionError = getScriptCompletionValidationMessage(formData);
-        if (completionError) {
-          setError(completionError);
-          return false;
-        }
-      }
-      {
-        const previewPayload = buildScriptPreviewPayload(formData);
-        if (previewPayload) {
-          if (previewPayload.end < previewPayload.start) {
-            setError("The ending page must be greater than or equal to the starting page.");
-            return false;
-          }
-          if (Number(estimatedPages || 0) > 0 && (previewPayload.start > Number(estimatedPages || 0) || previewPayload.end > Number(estimatedPages || 0))) {
-            setError("The viewable script range cannot exceed the estimated page count.");
-            return false;
-          }
-        }
-      }
-      if (!formData.synopsis || !formData.synopsis.trim()) { setError("Synopsis is required."); return false; }
-      const ageRangeError = getInvalidRoleAgeRangeMessage();
-      if (ageRangeError) { setError(ageRangeError); return false; }
       return true;
     }
     if (s === 3) {
@@ -1246,9 +1283,29 @@ const CreateProject = () => {
     // gold-plan enforcement. The amber gate already explains itself, so it just bails silently.
     if (creationBlocked) return;
     if (!enforceGoldPlan()) return;
-    if (validateStep(step) && step < 5) { setStep(step + 1); setError(""); }
+    // Step 2 is a mini-wizard: Next walks its sub-steps (validating only the current
+    // panel) and advances to Step 3 only after the last panel clears.
+    if (step === 2) {
+      const key = detailsSubSteps[detailsStep]?.key;
+      if (!validateDetailsStep(key)) return;
+      if (detailsStep < detailsSubSteps.length - 1) { setDetailsStep(detailsStep + 1); setError(""); return; }
+      setStep(3); setError(""); return;
+    }
+    if (validateStep(step) && step < 5) {
+      const next = step + 1;
+      setStep(next); setError("");
+      if (next === 2) setDetailsStep(0); // entering Details forward → first panel
+    }
   };
-  const handleBack = () => { if (step > 1) { setStep(step - 1); setError(""); } };
+  const handleBack = () => {
+    // Inside Details, Back steps through the panels before leaving to the Write step.
+    if (step === 2 && detailsStep > 0) { setDetailsStep(detailsStep - 1); setError(""); return; }
+    if (step > 1) {
+      const prev = step - 1;
+      setStep(prev); setError("");
+      if (prev === 2) setDetailsStep(detailsSubSteps.length - 1); // re-entering Details → last panel
+    }
+  };
 
   const uploadSelectedProjectMedia = async (targetScriptId) => {
     if (!targetScriptId) return;
@@ -1620,7 +1677,7 @@ const CreateProject = () => {
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
 
   const ctx = {
-    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
+    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
 
   return (
@@ -1654,43 +1711,8 @@ const CreateProject = () => {
         </div>
       )}
 
-      {/* -- Header -------------------------------- */}
-      <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-        <div className="flex items-center justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
-          <div className="flex items-center gap-3">
-            <button onClick={handleExitEditor} className={`p-2 rounded-xl transition ${dark ? "hover:bg-white/[0.06] text-gray-400" : "hover:bg-gray-100 text-gray-400"}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <div>
-              <h1 className={`text-2xl font-bold tracking-tight ${dark ? "text-gray-100" : "text-gray-900"}`}>Create Project</h1>
-              <p className={`text-xs mt-0.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>Write, classify, and publish your script - all in one place</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 max-[640px]:w-full max-[640px]:flex-wrap max-[640px]:justify-between max-[380px]:gap-1.5">
-            <button onClick={() => setShowDrafts(!showDrafts)}
-              title="Switch between your projects"
-              className={`flex items-center gap-2 px-3.5 max-[380px]:px-3 py-2 max-[380px]:py-1.5 rounded-xl text-xs font-semibold border transition-all ${dark
-                ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776" /></svg>
-              My projects {drafts.length > 0 && <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${dark ? "bg-white/[0.08]" : "bg-gray-100"}`}>{drafts.length}</span>}
-            </button>
-            <button onClick={() => setShowVersionHistory(true)}
-              title="View and restore earlier versions of this project"
-              className={`flex items-center gap-2 px-3.5 max-[380px]:px-3 py-2 max-[380px]:py-1.5 rounded-xl text-xs font-semibold border transition-all ${dark
-                ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              History
-            </button>
-            {/* Save indicator */}
-            {saving && <span className={`flex items-center gap-1.5 text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}><div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />Saving...</span>}
-            {saved && !saving && <span className={`flex items-center gap-1 text-xs ${dark ? "text-green-400" : "text-green-700"}`}>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-              Saved{lastSaved && ` ${lastSaved.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}
-            </span>}
-          </div>
-        </div>
-
-      </motion.div>
+      {/* Header, the "Project setup" step navigator, and Back/Next/Submit all live in
+          CreateProjectShell now (rendered below) — one shell wraps every step. */}
 
       {/* -- Drafts Drawer -- */}
       <AnimatePresence>
@@ -2068,84 +2090,14 @@ const CreateProject = () => {
 
       <div ref={stepContentRef} />
 
-      {/* -- Error -- */}
-      <AnimatePresence>
-        {error && (
-          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-            className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-              <span>{error}</span>
-            </div>
-            {error.toLowerCase().includes("limit") && (
-              <button 
-                type="button"
-                onClick={() => window.open('/pricing', '_blank')} 
-                className="shrink-0 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
-                Get Plan
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* -- Plan script-limit gate: shown UPFRONT, blocks progression on a new script -- */}
-      {creationBlocked && (
-        <div className={`mb-5 rounded-2xl border p-4 sm:p-5 flex items-start gap-3.5 ${dark ? "border-amber-500/25 bg-amber-500/[0.08]" : "border-amber-200 bg-amber-50"}`}>
-          <svg className={`w-6 h-6 shrink-0 mt-0.5 ${dark ? "text-amber-400" : "text-amber-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-bold ${dark ? "text-amber-300" : "text-amber-800"}`}>
-              You've reached your {scriptLimit?.plan === "free" ? "Free plan" : "plan"} limit of {scriptLimit?.limit} script{scriptLimit?.limit > 1 ? "s" : ""}.
-            </p>
-            <p className={`text-[13px] mt-0.5 ${dark ? "text-amber-200/80" : "text-amber-700"}`}>
-              You already have {scriptLimit?.used} published {scriptLimit?.used === 1 ? "script" : "scripts"}. Upgrade your plan to create another — you can't proceed until then.
-            </p>
-            <Link to="/pricing" className={`inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg text-[13px] font-bold transition ${dark ? "bg-amber-400 text-[#1a1206] hover:bg-amber-300" : "bg-amber-500 text-white hover:bg-amber-600"}`}>
-              View plans &amp; upgrade
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* -- Step Content --------------------------- */}
-      <AnimatePresence mode="wait">
-        {/* -- STEP 1: Write -- */}
-        {step === 1 && (
-          <motion.div key="s1" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-            <Step1Write />
-          </motion.div>
-        )}
-
-        {/* -- STEP 2: Details -- */}
-        {step === 2 && (
-          <motion.div key="s2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-            <Step2Details />
-          </motion.div>
-        )}
-
-        {/* -- STEP 3: Classification -- */}
-        {step === 3 && (
-          <motion.div key="s3" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-            <Step3Classify />
-          </motion.div>
-        )}
-
-        {/* -- STEP 4: Film Info -- */}
-        {step === 4 && (
-          <motion.div key="s4-film" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-            <Step4FilmInfo />
-          </motion.div>
-        )}
-
-        {/* -- STEP 5: Publish Setup -- */}
-        {step === 5 && (
-          <motion.div key="s4" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.25 }}>
-            <Step5Publish />
-          </motion.div>
-        )}
-
-      </AnimatePresence>
+      {/* -- Step Content (wrapped by the unified shell) ------ */}
+      <CreateProjectShell>
+        {step === 1 ? <Step1Write />
+          : step === 2 ? <Step2Details />
+            : step === 3 ? <Step3Classify />
+              : step === 4 ? <Step4FilmInfo />
+                : <Step5Publish />}
+      </CreateProjectShell>
 
       {/* Professional Toast Notification */}
       {toastMessage && (
@@ -2180,109 +2132,6 @@ const CreateProject = () => {
         </div>
       )}
 
-      {/* -- Step Indicator (moved to the bottom of the editor, above the nav buttons) -- */}
-      {step > 0 && (
-        <div className={`mt-6 rounded-2xl border p-4 max-[415px]:p-2.5 max-[340px]:p-2 ${dark ? "bg-[#0d1520] border-[#182840]" : "bg-gray-50 border-gray-100"}`}>
-          {/* Desktop and tablet stepper */}
-          <div className="max-[415px]:hidden flex items-center max-[640px]:grid max-[640px]:grid-cols-5 max-[640px]:gap-1.5">
-            {STEPS.map((s, i) => (
-              <div key={s.num} className="flex items-center flex-1 min-w-0 max-[640px]:flex-col max-[640px]:items-stretch max-[640px]:gap-1">
-                <button
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`flex items-center gap-2.5 transition-all max-[640px]:flex-col max-[640px]:gap-1 max-[640px]:justify-center ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-8 h-8 max-[640px]:w-7 max-[640px]:h-7 rounded-xl flex items-center justify-center text-xs max-[640px]:text-[11px] font-black shrink-0 ${step === s.num ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num ? dark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
-                      : dark ? "bg-white/[0.06] text-gray-600" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : s.num}
-                  </span>
-                  <div className="text-left max-[640px]:text-center">
-                    <p className={`text-xs max-[640px]:text-[10px] font-bold max-[640px]:font-semibold leading-none truncate ${step === s.num ? dark ? "text-white" : "text-gray-900"
-                      : step > s.num ? dark ? "text-emerald-400" : "text-emerald-700"
-                        : dark ? "text-gray-600" : "text-gray-400"
-                      }`}>{s.label}</p>
-                    <p className={`text-[10px] mt-0.5 max-[640px]:hidden ${dark ? "text-gray-700" : "text-gray-400"}`}>{s.desc}</p>
-                  </div>
-                </button>
-                {i < STEPS.length - 1 && (
-                  <div className={`flex-1 h-[2px] mx-3 max-[640px]:hidden rounded-full ${step > s.num ? dark ? "bg-emerald-500/40" : "bg-emerald-300" : dark ? "bg-white/[0.06]" : "bg-gray-200"
-                    }`} />
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Small-phone stepper (415px to 300px) */}
-          <div className="hidden max-[415px]:block">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <p className={`text-[10px] max-[340px]:text-[9px] font-semibold ${dark ? "text-gray-400" : "text-gray-600"}`}>
-                Step {step} of {STEPS.length}
-              </p>
-              <p className={`text-[10px] max-[340px]:text-[9px] font-bold px-2 py-0.5 rounded-full ${dark ? "bg-white/[0.06] text-gray-300" : "bg-white text-gray-700 border border-gray-200"}`}>
-                {STEPS[step - 1]?.label}
-              </p>
-            </div>
-
-            <div className={`h-1.5 rounded-full overflow-hidden ${dark ? "bg-white/[0.08]" : "bg-gray-200"}`}>
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${dark ? "bg-emerald-500/45" : "bg-emerald-400"}`}
-                style={{ width: `${(Math.max(step, 1) / Math.max(STEPS.length, 1)) * 100}%` }}
-              />
-            </div>
-
-            <div className="mt-2.5 flex items-start justify-between gap-1">
-              {STEPS.map((s) => (
-                <button
-                  key={`mobile-step-${s.num}`}
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`min-w-0 flex-1 flex flex-col items-center gap-1 ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-6 h-6 max-[340px]:w-[22px] max-[340px]:h-[22px] rounded-lg flex items-center justify-center text-[10px] max-[340px]:text-[9px] font-black shrink-0 ${step === s.num ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num ? dark ? "bg-emerald-500/20 text-emerald-400" : "bg-emerald-100 text-emerald-700"
-                      : dark ? "bg-white/[0.06] text-gray-600" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? <svg className="w-3 h-3 max-[340px]:w-2.5 max-[340px]:h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : s.num}
-                  </span>
-                  <span className={`text-[8px] max-[340px]:text-[7px] font-semibold leading-none truncate w-full text-center ${step === s.num ? dark ? "text-white" : "text-gray-900"
-                    : step > s.num ? dark ? "text-emerald-400" : "text-emerald-700"
-                      : dark ? "text-gray-600" : "text-gray-400"
-                    }`}>
-                    {s.shortLabel}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* -- Navigation Buttons -- */}
-      {step > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-between mt-5">
-          <button onClick={handleBack} disabled={step === 1}
-            className={`px-5 py-2.5 rounded-xl text-sm font-semibold border transition-all disabled:opacity-30 ${dark
-              ? "border-[#1d3350] text-gray-400 hover:bg-white/[0.06]" : "border-gray-200 text-gray-500 hover:bg-gray-50"}`}>
-            Back
-          </button>
-          {step < 5 ? (
-            <button onClick={handleNext} disabled={creationBlocked}
-              title={creationBlocked ? "Upgrade your plan to create another script" : undefined}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${dark
-                ? "bg-[#1e3a5f] text-white hover:bg-[#2a4a70] shadow-lg shadow-[#1e3a5f]/20"
-                : "bg-[#1e3a5f] text-white hover:bg-[#162d4a] shadow-lg shadow-[#1e3a5f]/20"}`}>
-              Next -
-            </button>
-          ) : (
-            <button onClick={handlePublish} disabled={loading || !legal.agreedToTerms || creationBlocked}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#1e3a5f] hover:bg-[#162d4a] text-white shadow-md`}>
-              {loading ? "Submitting..." : "Submit for Approval"}
-            </button>
-          )}
-        </motion.div>
-      )}
     </div>
 
       </CreateProjectContext.Provider>
