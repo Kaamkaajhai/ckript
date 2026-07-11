@@ -1,0 +1,375 @@
+/* ═══════════════════════ STEPS — Find it. Watch it. Own it. ═════
+   A second fixed composition. Note the fit width (1850) is wider than
+   the stage's own box (1586): the three-column scene is authored at
+   1586 but scaled against 1850 so it sits centred with breathing room.
+   Below the mobile breakpoint it reflows into an ordered single
+   column (title → desc → script → caption → trailer → caption → …). */
+
+.ckl .ckl-steps-wrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--ck-paper);
+}
+.ckl .ckl-steps-stage {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1586px;
+  height: 1080px;
+  transform-origin: top center;
+  background: var(--ck-paper);
+}
+
+.ckl .ckl-steps-title {
+  margin: 0;
+  position: absolute;
+  top: 88px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: 94px;
+  line-height: 94px;
+  color: var(--ck-ink);
+}
+.ckl .ckl-steps-title-dot {
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  background: var(--ck-red);
+  margin-left: 10px;
+  vertical-align: 2px;
+}
+.ckl .ckl-steps-desc {
+  position: absolute;
+  top: 218px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  margin: 0;
+  text-align: center;
+  font-family: var(--ck-body);
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 31px;
+  color: var(--ck-body-ink);
+}
+
+.ckl .ckl-steps-arrows {
+  position: absolute;
+  top: 503px;
+  color: #8d8a84;
+}
+.ckl .ckl-steps-arrow-1 { left: 482px; }
+.ckl .ckl-steps-arrow-2 { left: 1066px; }
+
+/* Col 1 — script image */
+.ckl .ckl-steps-col-1 {
+  position: absolute;
+  left: -125px;
+  top: 268px;
+  width: 766px;
+  height: 511px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Col 2 — trailer player */
+.ckl .ckl-steps-col-2 {
+  position: absolute;
+  left: 563px;
+  top: 360px;
+  width: 460px;
+  height: 326px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0c0d0f;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.16);
+  transition: transform .3s cubic-bezier(.2, .7, .2, 1), box-shadow .3s ease;
+}
+.ckl .ckl-steps-col-2 > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ckl .ckl-steps-trailer-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+.ckl .ckl-steps-trailer-track {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.32);
+}
+.ckl .ckl-steps-trailer-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 46%;
+  background: var(--ck-red);
+  border-radius: 2px;
+}
+.ckl .ckl-steps-trailer-dot {
+  position: absolute;
+  left: 46%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--ck-red);
+  transform: translate(-50%, -50%);
+  animation: ckl-dotPulse 2.4s ease-in-out infinite;
+}
+.ckl .ckl-steps-trailer-ctrls {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ckl .ckl-steps-trailer-ctrls-l { display: flex; align-items: center; gap: 13px; }
+.ckl .ckl-steps-trailer-time {
+  font-family: var(--ck-sans);
+  font-size: 13px;
+  color: #fff;
+  letter-spacing: 0.3px;
+}
+.ckl .ckl-steps-trailer-ctrls-r { display: flex; align-items: center; gap: 16px; color: #fff; }
+
+/* Col 3 — rights card */
+.ckl .ckl-steps-col-3 {
+  position: absolute;
+  left: 1140px;
+  top: 345px;
+  width: 296px;
+  height: 372px;
+  background: var(--ck-card);
+  border: 1px solid #e4e2dc;
+  border-radius: 10px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.08);
+  padding: 30px 30px 28px;
+  transition: transform .3s cubic-bezier(.2, .7, .2, 1), box-shadow .3s ease;
+}
+.ckl .ckl-steps-rights-title {
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  color: #161513;
+}
+.ckl .ckl-steps-rights-meta {
+  margin-top: 22px;
+  font-family: var(--ck-body);
+  font-size: 18px;
+  line-height: 27px;
+  color: #3a3833;
+}
+.ckl .ckl-steps-rights-div {
+  margin: 24px 0;
+  height: 1px;
+  background: #e3e1da;
+}
+.ckl .ckl-steps-rights-rights {
+  font-family: var(--ck-body);
+  font-size: 18px;
+  line-height: 27px;
+  color: #3a3833;
+}
+.ckl .ckl-steps-rights-btn {
+  position: absolute;
+  left: 30px;
+  right: 30px;
+  bottom: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  height: 54px;
+  background: #161513;
+  border-radius: 6px;
+  text-decoration: none;
+}
+.ckl .ckl-steps-rights-btn span {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.2px;
+  color: #fff;
+}
+
+/* Captions */
+.ckl .ckl-steps-cap {
+  position: absolute;
+  top: 742px;
+  width: 380px;
+  transform: translateX(-50%);
+  text-align: center;
+}
+.ckl .ckl-steps-cap-num {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 1px;
+  color: var(--ck-red);
+}
+.ckl .ckl-steps-cap-title {
+  margin-top: 18px;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: 31px;
+  line-height: 1;
+  color: var(--ck-ink);
+}
+.ckl .ckl-steps-cap-desc {
+  margin-top: 18px;
+  font-family: var(--ck-body);
+  font-size: 19px;
+  line-height: 27px;
+  color: var(--ck-body-ink);
+}
+
+/* Browse CTA */
+.ckl .ckl-steps-cta-line {
+  position: absolute;
+  left: 50%;
+  top: 898px;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, rgba(11, 10, 6, 0), #c4c2bc);
+}
+.ckl .ckl-steps-cta-btn {
+  position: absolute;
+  left: 50%;
+  top: 954px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 250px;
+  height: 70px;
+  background: #161513;
+  color: #fff;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.2px;
+  text-decoration: none;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .ckl .ckl-steps-wrap {
+    height: auto !important;
+    padding: 60px 20px !important;
+  }
+  .ckl .ckl-steps-stage {
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    transform: none !important;
+    left: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .ckl .ckl-steps-title {
+    position: relative !important;
+    top: auto !important;
+    font-size: 48px !important;
+    line-height: 1.1 !important;
+    order: 1;
+  }
+  .ckl .ckl-steps-desc {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    font-size: 18px !important;
+    line-height: 1.5 !important;
+    margin-top: 20px !important;
+    order: 2;
+    transform: none !important;
+    padding: 0 20px !important;
+  }
+  .ckl .ckl-steps-arrows { display: none !important; }
+  .ckl .ckl-steps-col-1 {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 400px !important;
+    height: auto !important;
+    margin-top: 60px !important;
+    order: 3;
+    transform: none !important;
+  }
+  .ckl .ckl-steps-col-2 {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 400px !important;
+    height: auto !important;
+    aspect-ratio: 460 / 326 !important;
+    margin-top: 60px !important;
+    order: 5;
+    transform: none !important;
+  }
+  .ckl .ckl-steps-col-3 {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    width: 100% !important;
+    max-width: 296px !important;
+    height: auto !important;
+    margin-top: 60px !important;
+    order: 7;
+    transform: none !important;
+  }
+  .ckl .ckl-steps-cap {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    margin-top: 20px !important;
+  }
+  .ckl .ckl-steps-cap-1 { order: 4; }
+  .ckl .ckl-steps-cap-2 { order: 6; }
+  .ckl .ckl-steps-cap-3 { order: 8; }
+  .ckl .ckl-steps-cta-line {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin-top: 60px !important;
+    order: 9;
+  }
+  .ckl .ckl-steps-cta-btn {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    transform: none !important;
+    margin-top: 20px !important;
+    order: 10;
+  }
+}

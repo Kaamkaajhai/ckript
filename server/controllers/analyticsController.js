@@ -931,6 +931,36 @@ const pickLatestTimestamp = (...values) => {
   ), validValues[0]);
 };
 
+const TREND_DAYS = 14;
+
+const bucketLast14Days = (timestamps = []) => {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+
+  const buckets = new Map();
+  for (let i = TREND_DAYS - 1; i >= 0; i -= 1) {
+    const dayStart = new Date(todayStart.getTime() - i * dayMs);
+    const key = dayStart.toISOString().slice(0, 10);
+    buckets.set(key, {
+      date: key,
+      label: dayStart.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      count: 0,
+    });
+  }
+
+  const rangeStart = todayStart.getTime() - (TREND_DAYS - 1) * dayMs;
+  (timestamps || []).forEach((value) => {
+    const ts = getTimeValue(value);
+    if (!ts || ts < rangeStart) return;
+    const key = new Date(ts).toISOString().slice(0, 10);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.count += 1;
+  });
+
+  return Array.from(buckets.values());
+};
+
 const getRegisteredUserStatus = (lastActiveAt) => {
   const ageMs = Date.now() - getTimeValue(lastActiveAt);
 
@@ -1143,6 +1173,8 @@ export const getAdminAnalytics = async (req, res) => {
     const locationMap = new Map();
     const pageMap = new Map();
     const clickHeatmap = [];
+    const clickedElementMap = new Map();
+    const newVisitorTimestamps = [];
     const returnAlerts = [];
     const anonymousUsers = [];
 
@@ -1152,6 +1184,7 @@ export const getAdminAnalytics = async (req, res) => {
       const region = visitor.location?.region || "Unknown";
       const key = `${region}|${city}|${country}`;
       locationMap.set(key, (locationMap.get(key) || 0) + 1);
+      newVisitorTimestamps.push(visitor.firstVisit);
 
       let totalPageVisits = 0;
       let totalClicks = 0;
@@ -1181,6 +1214,16 @@ export const getAdminAnalytics = async (req, res) => {
             y: Number(click.y || 0),
             timestamp: click.timestamp,
           });
+
+          const elementLabel = click.label || click.text || click.element || "Unknown element";
+          const elementKey = `${elementLabel}|${click.section || ""}`;
+          const elementEntry = clickedElementMap.get(elementKey) || {
+            label: elementLabel,
+            section: click.section || "",
+            count: 0,
+          };
+          elementEntry.count += 1;
+          clickedElementMap.set(elementKey, elementEntry);
 
           totalClicks += 1;
           latestPath = click.path || latestPath;
@@ -1232,9 +1275,21 @@ export const getAdminAnalytics = async (req, res) => {
       .sort((a, b) => b.visits - a.visits)
       .slice(0, 100);
 
+    const topClickedElements = [...clickedElementMap.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    const recentClickSamples = [...clickHeatmap]
+      .sort((a, b) => getTimeValue(b.timestamp) - getTimeValue(a.timestamp))
+      .slice(0, 300);
+
+    const newVisitorsByDay = bucketLast14Days(newVisitorTimestamps);
+
     let totalLoginEvents = 0;
     let totalSignupEvents = 0;
     const roleBreakdown = {};
+    const loginTimestamps = [];
+    const signupTimestamps = [];
 
     const registeredUsers = registeredActivities
       .map((activity) => {
@@ -1261,6 +1316,12 @@ export const getAdminAnalytics = async (req, res) => {
         totalLoginEvents += loginEvents;
         totalSignupEvents += signupEvents;
         roleBreakdown[userRole] = (roleBreakdown[userRole] || 0) + 1;
+
+        authEvents.forEach((event) => {
+          const type = String(event.type || "").toLowerCase();
+          if (type.includes("login")) loginTimestamps.push(event.timestamp);
+          else if (type.includes("signup")) signupTimestamps.push(event.timestamp);
+        });
 
         return {
           userId: activity.userId?._id,
@@ -1351,7 +1412,8 @@ export const getAdminAnalytics = async (req, res) => {
         deviceBreakdown,
         locationBreakdown,
         pageVisits,
-        clickHeatmap,
+        clickHeatmap: recentClickSamples,
+        topClickedElements,
         anonymousUsers: anonymousUsers
           .sort((a, b) => new Date(b.lastEventAt || 0).getTime() - new Date(a.lastEventAt || 0).getTime())
           .slice(0, 200),
@@ -1375,6 +1437,11 @@ export const getAdminAnalytics = async (req, res) => {
         returnedUsers: returnAlerts
           .sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime())
           .slice(0, 50),
+      },
+      trends: {
+        newVisitorsByDay,
+        signupsByDay: bucketLast14Days(signupTimestamps),
+        loginsByDay: bucketLast14Days(loginTimestamps),
       },
       generatedAt: new Date().toISOString(),
     });
