@@ -77,7 +77,15 @@
    Height is defined here (not inline) so these media queries can tune it. The
    offset accounts for the app navbar (~64px), the page padding, and the compact
    header above the workspace. */
-.ckcp-shell .ckcp-workspace { height: calc(100vh - 156px); min-height: 540px; }
+.ckcp-shell .ckcp-workspace { height: calc(100vh - 136px); min-height: 540px; }
+
+/* The Create Project shell is a full-bleed application surface — it carries its
+   own compact header, left rail, and pinned footer inside a bordered workspace —
+   so it shouldn't sit inside the generic page's large, centered padding. Scope
+   a tighter, full-width wrapper to THIS page only (other `variant="page"` pages
+   keep the roomy default). The workspace height offset above is retuned to match:
+   topbar (58) + this padding (14+18) + the compact header (~46). */
+.ck-page-scroll:has(.ckcp-shell) { padding: 14px 22px 18px; }
 
 /* Phones: the 158px rail can't fit, so hide it and reveal the compact horizontal
    stepper that lives at the top of the main column (its inline display:none is
@@ -85,7 +93,9 @@
 @media (max-width: 720px) {
   .ckcp-shell .ckcp-rail { display: none; }
   .ckcp-shell .ckcp-mobstepper { display: flex !important; }
-  .ckcp-shell .ckcp-workspace { height: calc(100dvh - 176px); min-height: 440px; }
+  /* Keep bottom clearance for the fixed mobile bottom-nav. */
+  .ck-page-scroll:has(.ckcp-shell) { padding: 12px 14px 84px; }
+  .ckcp-shell .ckcp-workspace { height: calc(100dvh - 200px); min-height: 440px; }
 }
 
 /* Tighter gutters for the editor canvas and form scroll area on small screens. */
