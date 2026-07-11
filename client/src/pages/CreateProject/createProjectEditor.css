@@ -63,3 +63,182 @@
 .ckcp-shell[data-theme="dark"] .ckcp-solid:hover { background: #ffffff; }
 .ckcp-hoverable:hover { background: #f5f5f5; }
 .ckcp-shell[data-theme="dark"] .ckcp-hoverable:hover { background: #1a1a1a; }
+
+/* Per-step enter animation (replaces framer-motion; replays on step remount). */
+@keyframes ckcp-fade-in { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+.ckcp-shell .ckcp-body { animation: ckcp-fade-in .22s ease both; }
+@keyframes ckcp-fade { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.ckcp-shell .ckcp-fade { animation: ckcp-fade .2s ease both; }
+@media (prefers-reduced-motion: reduce) { .ckcp-shell .ckcp-body, .ckcp-shell .ckcp-fade { animation: none; } }
+
+/* ── Unified shell workspace sizing ──
+   The shell now wraps every step, so the workspace is a bounded, self-scrolling
+   region: the header + left rail + footer stay pinned while the middle scrolls.
+   Height is defined here (not inline) so these media queries can tune it. The
+   offset accounts for the app navbar (~64px), the page padding, and the compact
+   header above the workspace. */
+.ckcp-shell .ckcp-workspace { height: calc(100vh - 156px); min-height: 540px; }
+
+/* Phones: the 158px rail can't fit, so hide it and reveal the compact horizontal
+   stepper that lives at the top of the main column (its inline display:none is
+   overridden here). */
+@media (max-width: 720px) {
+  .ckcp-shell .ckcp-rail { display: none; }
+  .ckcp-shell .ckcp-mobstepper { display: flex !important; }
+  .ckcp-shell .ckcp-workspace { height: calc(100dvh - 176px); min-height: 440px; }
+}
+
+/* Tighter gutters for the editor canvas and form scroll area on small screens. */
+@media (max-width: 520px) {
+  .ckcp-shell .ckcp-canvas { padding: 18px 12px; }
+  .ckcp-shell .ckcp-formscroll { padding: 16px 14px; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Step 2 (Details) · sub-step form skin.
+   Details is a self-contained mini-wizard inside the shell: a docked sub-stepper
+   (mirrors the Write step's "Insert" bar), one fitted panel at a time, and the
+   shell's own Back / Next footer as the pager — so there is exactly one set of
+   nav controls and, panel by panel, no long inner scroll. These primitives give
+   every panel one design language (same surfaces, borders, fonts and the Ckript-
+   red accent as the ported editor) and are theme-aware through the shell's
+   `data-theme` flag, which keeps the JSX free of per-element dark-mode branching.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Docked sub-stepper header (sibling of .ckcp-toolbar) ── */
+.ckcp-shell .ckcp-dstepper {
+  flex: none; display: flex; align-items: center; gap: 2px; height: 56px;
+  padding: 0 16px; border-bottom: 1px solid #f0f0f0; overflow-x: auto;
+}
+.ckcp-shell[data-theme="dark"] .ckcp-dstepper { border-color: #262626; }
+.ckcp-shell .ckcp-dstepper::-webkit-scrollbar { height: 0; }
+.ckcp-shell .ckcp-dstep {
+  display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 11px;
+  border: none; border-radius: 9px; background: transparent; font-family: inherit;
+  cursor: pointer; flex: none;
+}
+.ckcp-shell .ckcp-dstep:disabled { cursor: default; }
+.ckcp-shell .ckcp-dstep.is-clickable:hover { background: #f5f5f5; }
+.ckcp-shell[data-theme="dark"] .ckcp-dstep.is-clickable:hover { background: #1a1a1a; }
+.ckcp-shell .ckcp-dstep-num {
+  width: 23px; height: 23px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-family: var(--ckcp-font-display); font-size: 12px;
+  font-weight: 600; flex: none; border: 1px solid #e4e4e4; color: #bcbcbc;
+  background: transparent; transition: background .15s, color .15s, border-color .15s;
+}
+.ckcp-shell[data-theme="dark"] .ckcp-dstep-num { border-color: #2a2a2a; color: #5c5c5c; }
+.ckcp-shell .ckcp-dstep-num .material-symbols-outlined { font-size: 15px; }
+.ckcp-shell .ckcp-dstep-lbl { font-size: 13px; font-weight: 600; white-space: nowrap; color: #9a9a9a; }
+.ckcp-shell .ckcp-dstep.is-active .ckcp-dstep-num { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ckcp-shell .ckcp-dstep.is-active .ckcp-dstep-lbl { color: #111; }
+.ckcp-shell[data-theme="dark"] .ckcp-dstep.is-active .ckcp-dstep-lbl { color: #f2f2f2; }
+.ckcp-shell .ckcp-dstep.is-done .ckcp-dstep-num { background: #efefef; border-color: #e4e4e4; color: #767676; }
+.ckcp-shell[data-theme="dark"] .ckcp-dstep.is-done .ckcp-dstep-num { background: #1f1f1f; border-color: #2a2a2a; color: #b0b0b0; }
+.ckcp-shell .ckcp-dstep-conn { width: 14px; height: 1px; background: #e4e4e4; flex: none; }
+.ckcp-shell[data-theme="dark"] .ckcp-dstep-conn { background: #2a2a2a; }
+
+/* ── Panel body + panel ──
+   The body fills the remaining height; each panel is engineered to fit so a
+   scrollbar is the exception, not the rule. `auto` (not hidden) is a deliberate
+   safety net so content is never unreachable on short viewports. */
+.ckcp-shell .ckcp-dbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.ckcp-shell .ckcp-dpanel {
+  max-width: 780px; margin: 0 auto; padding: 26px 30px 30px;
+  display: flex; flex-direction: column; gap: 18px;
+  animation: ckcp-fade-in .22s ease both;
+}
+@media (prefers-reduced-motion: reduce) { .ckcp-shell .ckcp-dpanel { animation: none; } }
+@media (max-width: 520px) { .ckcp-shell .ckcp-dpanel { padding: 18px 14px 24px; } .ckcp-shell .ckcp-dstepper { padding: 0 8px; } }
+
+/* Panel intro (title + subtitle) — the Write step's editorial voice. */
+.ckcp-shell .ckcp-dhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.ckcp-shell .ckcp-dtitle { font-family: var(--ckcp-font-display); font-size: 21px; font-weight: 600; letter-spacing: .2px; color: #111; margin: 0; }
+.ckcp-shell[data-theme="dark"] .ckcp-dtitle { color: #f2f2f2; }
+.ckcp-shell .ckcp-dsub { font-size: 12.5px; color: #9a9a9a; margin: 4px 0 0; line-height: 1.5; max-width: 62ch; }
+
+/* ── Cards / field groups ── */
+.ckcp-shell .ckcp-card { border: 1px solid #f0f0f0; background: #fafafa; border-radius: 14px; padding: 18px; }
+.ckcp-shell[data-theme="dark"] .ckcp-card { border-color: #262626; background: #141414; }
+.ckcp-shell .ckcp-card-h { font-size: 13px; font-weight: 700; color: #111; margin: 0; }
+.ckcp-shell[data-theme="dark"] .ckcp-card-h { color: #f2f2f2; }
+.ckcp-shell .ckcp-card-p { font-size: 11.5px; color: #9a9a9a; margin: 3px 0 0; line-height: 1.5; }
+
+/* ── Field label + optional hint ── */
+.ckcp-shell .ckcp-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 600; color: #3a352e; margin-bottom: 7px; }
+.ckcp-shell[data-theme="dark"] .ckcp-label { color: #d0d0d0; }
+.ckcp-shell .ckcp-opt { font-weight: 400; color: #b3b3b3; font-size: 11px; }
+
+/* ── Text inputs / selects / textareas ── */
+.ckcp-shell .ckcp-input {
+  width: 100%; padding: 11px 13px; border-radius: 10px; border: 1px solid #ececec;
+  background: #fff; color: #111; font-family: var(--ckcp-font-body); font-size: 13.5px;
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.ckcp-shell .ckcp-input::placeholder { color: #c7c7c7; }
+.ckcp-shell .ckcp-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(229,38,26,.10); }
+.ckcp-shell[data-theme="dark"] .ckcp-input { border-color: #2a2a2a; background: #181818; color: #f2f2f2; }
+.ckcp-shell[data-theme="dark"] .ckcp-input::placeholder { color: #5c5c5c; }
+.ckcp-shell textarea.ckcp-input { resize: none; line-height: 1.55; }
+.ckcp-shell select.ckcp-input { cursor: pointer; -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a9a9a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 11px center; padding-right: 34px; }
+.ckcp-shell .ckcp-counter { font-size: 10.5px; color: #b3b3b3; text-align: right; margin: 5px 0 0; }
+
+/* ── Segmented selectable tile (completion status, etc.) ── */
+.ckcp-shell .ckcp-seg {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  border: 1px solid #ececec; background: #fff; border-radius: 12px; padding: 12px 13px;
+  text-align: left; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.ckcp-shell[data-theme="dark"] .ckcp-seg { border-color: #2a2a2a; background: #181818; }
+.ckcp-shell .ckcp-seg:hover { border-color: #d4d4d4; }
+.ckcp-shell[data-theme="dark"] .ckcp-seg:hover { border-color: #3a3a3a; }
+.ckcp-shell .ckcp-seg.is-on { border-color: var(--accent); background: rgba(229,38,26,.05); box-shadow: 0 0 0 1px var(--accent) inset; }
+.ckcp-shell .ckcp-seg-t { font-size: 13px; font-weight: 600; color: #3a352e; }
+.ckcp-shell[data-theme="dark"] .ckcp-seg-t { color: #e6e6e6; }
+.ckcp-shell .ckcp-seg.is-on .ckcp-seg-t { color: var(--accent); }
+.ckcp-shell .ckcp-seg-d { font-size: 11px; line-height: 1.4; color: #9a9a9a; }
+
+/* ── Selectable chip (multi-select tags) ── */
+.ckcp-shell .ckcp-chip2 {
+  padding: 7px 13px; border-radius: 9px; border: 1px solid #ececec; background: #fff;
+  font-size: 12px; font-weight: 600; color: #767676; cursor: pointer; transition: all .15s;
+}
+.ckcp-shell[data-theme="dark"] .ckcp-chip2 { border-color: #2a2a2a; background: #181818; color: #b0b0b0; }
+.ckcp-shell .ckcp-chip2.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* ── Buttons: AI generate, ghost, add ── */
+.ckcp-shell .ckcp-aibtn {
+  display: inline-flex; align-items: center; gap: 5px; flex: none; height: 30px;
+  padding: 0 12px; border-radius: 9px; border: 1px solid rgba(229,38,26,.22);
+  background: rgba(229,38,26,.06); color: var(--accent); font-family: inherit;
+  font-weight: 700; font-size: 11.5px; cursor: pointer; transition: background .15s;
+}
+.ckcp-shell .ckcp-aibtn:hover:not(:disabled) { background: rgba(229,38,26,.12); }
+.ckcp-shell .ckcp-aibtn:disabled { opacity: .5; cursor: not-allowed; }
+.ckcp-shell .ckcp-ghostbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: 28px; padding: 0 11px; border-radius: 8px; border: 1px solid #ececec;
+  background: #fff; color: #767676; font-family: inherit; font-weight: 600;
+  font-size: 11px; cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+}
+.ckcp-shell[data-theme="dark"] .ckcp-ghostbtn { border-color: #2a2a2a; background: #1a1a1a; color: #b0b0b0; }
+.ckcp-shell .ckcp-ghostbtn:hover { background: #f5f5f5; color: #111; }
+.ckcp-shell[data-theme="dark"] .ckcp-ghostbtn:hover { background: #232323; color: #f2f2f2; }
+.ckcp-shell .ckcp-ghostbtn.is-danger { color: #dc2626; border-color: rgba(220,38,38,.25); }
+.ckcp-shell .ckcp-ghostbtn.is-danger:hover { background: rgba(220,38,38,.08); color: #dc2626; }
+.ckcp-shell[data-theme="dark"] .ckcp-ghostbtn.is-danger { color: #f87171; }
+
+/* ── Dropzone tile + uploaded-file card ── */
+.ckcp-shell .ckcp-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; text-align: center; border: 1px dashed #dcdcdc; background: #fff;
+  border-radius: 12px; padding: 18px 12px; cursor: pointer; transition: background .15s, border-color .15s;
+}
+.ckcp-shell[data-theme="dark"] .ckcp-drop { border-color: #2f2f2f; background: #181818; }
+.ckcp-shell .ckcp-drop:hover { border-color: var(--accent); background: rgba(229,38,26,.03); }
+.ckcp-shell .ckcp-drop-t { font-size: 12px; font-weight: 700; color: #3a352e; }
+.ckcp-shell[data-theme="dark"] .ckcp-drop-t { color: #e6e6e6; }
+.ckcp-shell .ckcp-drop-s { font-size: 10.5px; color: #9a9a9a; }
+.ckcp-shell .ckcp-filecard { border: 1px solid #d7ecdd; background: #f2faf4; border-radius: 12px; padding: 12px; }
+.ckcp-shell[data-theme="dark"] .ckcp-filecard { border-color: rgba(34,197,94,.22); background: rgba(34,197,94,.07); }
