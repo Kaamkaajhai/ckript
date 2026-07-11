@@ -119,14 +119,14 @@ const PanelStory = () => {
         </div>
       )}
 
-      <div>
+      <div className="ckcp-grow">
         <div className="ckcp-label">
           <span>Synopsis <span className="ckcp-opt">Required</span></span>
           <button type="button" onClick={() => handleGenerateMetadata("synopsis")} disabled={Boolean(metaLoadingField)} className="ckcp-aibtn">
             <AiIcon />{metaLoadingField === "synopsis" ? "Generating…" : "Generate"}
           </button>
         </div>
-        <textarea name="synopsis" value={formData.synopsis} onChange={handleChange} rows={5} placeholder="A longer synopsis of your script…" className="ckcp-input" />
+        <textarea name="synopsis" value={formData.synopsis} onChange={handleChange} placeholder="A longer synopsis of your script…" className="ckcp-input" />
         {metaNotice.field === "synopsis" && <p className="ckcp-card-p" style={{ marginTop: "6px" }}>{metaNotice.text}</p>}
       </div>
 
@@ -164,7 +164,7 @@ const PanelCast = () => {
           No roles added yet. Add one, or let AI suggest a starting cast from your script.
         </div>
       ) : (
-        <div className="ckcp-scroll" style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "380px", overflowY: "auto", paddingRight: "4px" }}>
+        <div className="ckcp-growscroll ckcp-scroll" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           {roles.map((role, idx) => (
             <div key={`role-${idx}`} className="ckcp-card">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "11px" }}>
@@ -230,7 +230,7 @@ const PanelMarket = () => {
         <input type="text" value={publishingDetails.estimatedWordCount} onChange={(e) => setPublishingDetails((p) => ({ ...p, estimatedWordCount: e.target.value }))} placeholder="e.g. 60,000 – 90,000 words" className="ckcp-input" />
       </div>
 
-      <div className="ckcp-card">
+      <div className="ckcp-card ckcp-grow">
         <label className="ckcp-label">Series potential</label>
         <select value={publishingDetails.seriesPotential} onChange={(e) => setPublishingDetails((p) => ({ ...p, seriesPotential: e.target.value }))} className="ckcp-input">
           <option value="">Select potential…</option>
@@ -243,7 +243,7 @@ const PanelMarket = () => {
           <span>Prose sample <span className="ckcp-opt">Novel-formatted excerpt</span></span>
           <button type="button" onClick={handleProseClick} disabled={proseLoading} className="ckcp-aibtn"><AiIcon />{proseLoading ? "Generating…" : "AI prose"}</button>
         </div>
-        <textarea rows={6} value={publishingDetails.proseSample || ""} onChange={(e) => setPublishingDetails((p) => ({ ...p, proseSample: e.target.value }))} placeholder="A sample chapter or converted prose excerpt to demonstrate the writing quality…" className="ckcp-input" style={{ fontFamily: "var(--ckcp-font-display)" }} />
+        <textarea value={publishingDetails.proseSample || ""} onChange={(e) => setPublishingDetails((p) => ({ ...p, proseSample: e.target.value }))} placeholder="A sample chapter or converted prose excerpt to demonstrate the writing quality…" className="ckcp-input" style={{ fontFamily: "var(--ckcp-font-display)" }} />
       </div>
     </>
   );
@@ -291,9 +291,9 @@ const PanelProgress = () => {
         </div>
       )}
 
-      <div>
+      <div className="ckcp-grow">
         <label className="ckcp-label">Anything else buyers should know? <span className="ckcp-opt">Optional</span></label>
-        <textarea name="futurePlans" value={formData.futurePlans} onChange={handleChange} rows={3} maxLength={300}
+        <textarea name="futurePlans" value={formData.futurePlans} onChange={handleChange} maxLength={300}
           placeholder={formData.completionStatus === "complete"
             ? "e.g. This is the final locked version, ready for production."
             : "e.g. Remaining episodes are still being written and will be uploaded soon."}
@@ -355,10 +355,10 @@ const PanelAccess = () => {
             </p>
           </div>
 
-          <div className="ckcp-card">
+          <div className="ckcp-card ckcp-grow">
             <p className="ckcp-card-h">Preview</p>
             <p className="ckcp-card-p" style={{ marginBottom: "12px" }}>The exact page block buyers and admins will see.</p>
-            <div className="ckcp-scroll" style={{ maxHeight: "320px", overflow: "auto", borderRadius: "10px" }}>
+            <div className="ckcp-growscroll ckcp-scroll" style={{ borderRadius: "10px" }}>
               <ScreenplayPdfViewer
                 pdfUrl=""
                 title={title || "Script"}
@@ -409,7 +409,7 @@ const PanelMedia = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="ckcp-growscroll grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ alignContent: "start" }}>
         {/* Cover image */}
         <div className="ckcp-card">
           <label className="ckcp-label">Cover image <span className="ckcp-opt">Optional</span></label>
@@ -486,7 +486,7 @@ const PanelMedia = () => {
               </div>
             ) : (
               <div className="ckcp-filecard">
-                <video src={trailerPreviewUrl} controls preload="metadata" style={{ width: "100%", height: "150px", objectFit: "contain", background: "#000", borderRadius: "8px", marginBottom: "10px" }} />
+                <video src={trailerPreviewUrl} controls preload="metadata" style={{ width: "100%", height: "118px", objectFit: "contain", background: "#000", borderRadius: "8px", marginBottom: "10px" }} />
                 <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                   <CheckCircle2 className="w-5 h-5" style={{ color: "#22c55e", flex: "none", marginTop: "1px" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -529,7 +529,7 @@ const PanelMedia = () => {
               </div>
             ) : (
               <div className="ckcp-filecard">
-                <video src={pitchVideoPreviewUrl} controls preload="metadata" style={{ width: "100%", height: "150px", objectFit: "contain", background: "#000", borderRadius: "8px", marginBottom: "10px" }} />
+                <video src={pitchVideoPreviewUrl} controls preload="metadata" style={{ width: "100%", height: "118px", objectFit: "contain", background: "#000", borderRadius: "8px", marginBottom: "10px" }} />
                 <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
                   <CheckCircle2 className="w-5 h-5" style={{ color: "#22c55e", flex: "none", marginTop: "1px" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
