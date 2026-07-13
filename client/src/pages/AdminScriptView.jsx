@@ -357,7 +357,10 @@ const AdminScriptView = () => {
       ? script.fullContent
       : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
-  const uploadedPdfProxyUrl = script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf`) : uploadedPdfUrl;
+  const hasUploadedPdf = Boolean(uploadedPdfUrl);
+  const derivedPdfUrl = hasUploadedPdf 
+    ? uploadedPdfUrl 
+    : script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0`) : "";
 
   const formatLabel = script?.format === "other"
     ? (String(script?.formatOther || "").trim() || "Other")
@@ -422,26 +425,17 @@ const AdminScriptView = () => {
     return source.map((pageText, index) => ({ pageNumber: index + 1, text: pageText }));
   }, [serverPreviewPageTexts, scriptPages]);
 
-  const hasUploadedPdf = Boolean(uploadedPdfUrl);
   const hasFullScriptText = Boolean(
     plainScriptText.trim() || serverPreviewPageTexts.some(Boolean)
   );
 
   // Download the SAME PDF the script renders as everywhere else — never an ad-hoc flat rebuild. A
-  // stored file (uploaded original, or the canonical merge PDF) is downloaded as-is; a pure editor
-  // script is exported through the server's canonical screenplay PDF (full element/emphasis layout).
-  const handleDownloadScript = async () => {
-    const safeTitle = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "script";
-    if (uploadedPdfUrl) {
-      window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
+  // script missing both fileUrl AND fountainContent won't have a valid PDF at /export/pdf either,
+  // but button is disabled in that case.
+  const handleDownloadScript = () => {
+    if (derivedPdfUrl) {
+      window.open(derivedPdfUrl.replace("download=0", "download=1"), "_blank", "noopener,noreferrer");
       return;
-    }
-    if (!script?._id) return;
-    try {
-      const response = await adminApi.get(`/scripts/${script._id}/export/pdf?download=1`, { responseType: "blob" });
-      downloadPdfBlob(new Blob([response.data], { type: "application/pdf" }), `${safeTitle}_full_script.pdf`);
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to download the script PDF.");
     }
   };
 
@@ -1360,7 +1354,7 @@ const AdminScriptView = () => {
           </div>
         </div>
 
-        {uploadedPdfUrl && script?.viewableScript && (
+        {(uploadedPdfUrl || hasFullScriptText) && script?.viewableScript && (
           <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
@@ -1388,7 +1382,7 @@ const AdminScriptView = () => {
             </div>
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 startPage={Number(script?.scriptPreviewAccess?.start || 1)}
                 endPage={Number(script?.scriptPreviewAccess?.end || 8)}
@@ -1425,7 +1419,7 @@ const AdminScriptView = () => {
           {hasFullScriptText ? (
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 fallbackPages={mainContentFallbackPages}
                 fallbackText={plainScriptText}
@@ -1435,7 +1429,7 @@ const AdminScriptView = () => {
           ) : hasUploadedPdf ? (
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 fallbackPages={[]}
                 fallbackText=""

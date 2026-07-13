@@ -58,7 +58,7 @@ const Topbar = ({
 }) => (
   <header className="ck-header">
     <Link to="/dashboard" className="ck-header__logo" aria-label="Ckript home">
-      <BrandLogo className="h-[30px] w-auto" />
+      <BrandLogo className="h-[60px] w-auto" />
     </Link>
 
     <form className="ck-header__search" onSubmit={onSearch}>
