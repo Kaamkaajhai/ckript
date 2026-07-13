@@ -2149,18 +2149,25 @@ const CreateProject = () => {
 
       {/* Professional Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-5">
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border ${
-            toastMessage.type === 'error' ? 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200' :
-            toastMessage.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200' :
-            'bg-blue-50 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-300">
+          <div className={`flex items-center gap-3.5 px-5 py-3.5 rounded-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_40px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl border ${
+            toastMessage.type === 'error' ? 'bg-white/90 dark:bg-[#1f1313]/90 border-red-200/60 dark:border-red-900/60 text-red-900 dark:text-red-200' :
+            toastMessage.type === 'warning' ? 'bg-gradient-to-r from-amber-50/95 to-yellow-50/95 dark:from-[#211a10]/95 dark:to-[#1e170d]/95 border-amber-200/60 dark:border-amber-800/60 text-amber-900 dark:text-amber-200' :
+            'bg-white/90 dark:bg-[#10151f]/90 border-blue-200/60 dark:border-blue-900/60 text-blue-900 dark:text-blue-200'
           }`}>
-            {toastMessage.type === 'error' ? (
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            ) : (
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            )}
-            <p className="text-sm font-medium">{toastMessage.text}</p>
+            <div className={`flex items-center justify-center w-9 h-9 rounded-full shrink-0 ${
+               toastMessage.type === 'error' ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' :
+               toastMessage.type === 'warning' ? 'bg-gradient-to-br from-amber-200 to-yellow-400 dark:from-amber-600/30 dark:to-yellow-500/30 text-amber-700 dark:text-amber-400 shadow-inner' :
+               'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+            }`}>
+              {toastMessage.type === 'error' ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              )}
+            </div>
+            <p className="text-[14.5px] font-medium tracking-tight whitespace-nowrap pl-1 pr-2">{toastMessage.text}</p>
+            
             {toastMessage.action && (
               <button 
                 onClick={(e) => {
@@ -2168,13 +2175,18 @@ const CreateProject = () => {
                   setToastMessage(null);
                   toastMessage.action.onClick();
                 }} 
-                className="ml-3 px-3 py-1.5 text-xs font-bold bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-md transition whitespace-nowrap"
+                className={`ml-1 px-4 py-1.5 text-[13.5px] font-bold rounded-xl transition-all duration-200 active:scale-95 whitespace-nowrap ${
+                  toastMessage.type === 'error' ? 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20' :
+                  toastMessage.type === 'warning' ? 'bg-gradient-to-b from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-amber-950 shadow-md shadow-amber-500/25 border border-amber-300/50' :
+                  'bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20'
+                }`}
               >
                 {toastMessage.action.label}
               </button>
             )}
-            <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100 transition">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            
+            <button onClick={() => setToastMessage(null)} className="ml-1 p-1.5 rounded-full opacity-50 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 transition-all active:scale-90 text-current">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
         </div>
