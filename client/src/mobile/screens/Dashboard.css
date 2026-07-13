@@ -1,0 +1,18 @@
+.ckm-dash {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ckm-bg);
+  overflow: hidden;
+}
+
+.ckm-dash__scroll {
+  flex: 1;
+  min-height: 0;
+  background: var(--ckm-bg);
+}
+
+.ckm-dash__page {
+  padding: 16px 18px 22px;
+}

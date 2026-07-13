@@ -1,0 +1,77 @@
+/*
+ * Ckript Mobile — design tokens
+ * ------------------------------------------------------------------
+ * The single source of truth for the mobile app's "Broadsheet" system,
+ * lifted verbatim from the hi-fi wireframe (Mobile Dashboard HiFi 1B).
+ * Every mobile component reads these variables — never hard-codes a hex —
+ * so the palette can be retuned in one place. Scoped to `.ckm` so nothing
+ * here can leak into the desktop app (which owns the global stylesheet).
+ *
+ * Fonts (Spectral + IBM Plex Sans + Material Symbols Outlined) are already
+ * loaded globally in index.html, so we only reference the family names.
+ */
+
+.ckm {
+  /* Brand */
+  --ckm-accent: #d14d37; /* signature terracotta */
+  --ckm-accent-soft: #fdf1ee;
+  --ckm-accent-tint: #fbeee9;
+  --ckm-ink: #1c1a17; /* near-black text + dark surfaces */
+
+  /* Surfaces */
+  --ckm-bg: #ffffff;
+  --ckm-bg-soft: #faf7f2;
+  --ckm-bg-fill: #fbfaf7;
+  --ckm-bg-warm: #fbf8f1;
+
+  /* Lines */
+  --ckm-line: #ece8e0;
+  --ckm-line-2: #f0ece3;
+  --ckm-line-3: #f2eee6;
+  --ckm-line-strong: #e4ddce;
+  --ckm-track: #f4efe6;
+
+  /* Text ramp */
+  --ckm-text: #1c1a17;
+  --ckm-text-2: #3a352e;
+  --ckm-text-3: #6f695f;
+  --ckm-muted: #8d877e;
+  --ckm-muted-2: #a39d92;
+  --ckm-muted-3: #b1aa9e;
+  --ckm-faint: #c9bfae;
+
+  /* Semantic */
+  --ckm-green: #2f8a52;
+  --ckm-green-bg: #eaf6ee;
+  --ckm-gold: #b7871f;
+  --ckm-gold-bg: #fdf3e8;
+  --ckm-gold-bg-2: #fdf9ef;
+  --ckm-red: #c0453a;
+  --ckm-red-bg: #fdeeec;
+  --ckm-danger: #dc2626;
+  --ckm-live: #34c759;
+
+  /* Type families */
+  --ckm-display: "Spectral", Georgia, "Times New Roman", serif;
+  --ckm-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Radii */
+  --ckm-r-sm: 9px;
+  --ckm-r-md: 12px;
+  --ckm-r-lg: 16px;
+  --ckm-r-xl: 18px;
+  --ckm-r-sheet: 26px;
+
+  /* Elevation */
+  --ckm-shadow-card: 0 1px 3px rgba(28, 26, 23, 0.05);
+  --ckm-shadow-pop: 0 16px 40px -10px rgba(0, 0, 0, 0.25);
+  --ckm-shadow-sheet: 0 -20px 50px -12px rgba(0, 0, 0, 0.35);
+
+  /* Motion */
+  --ckm-ease: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Layout — safe areas keep the app clear of the notch / home indicator */
+  --ckm-safe-top: env(safe-area-inset-top, 0px);
+  --ckm-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ckm-nav-h: 76px;
+}
