@@ -1690,7 +1690,7 @@ const CreateProject = () => {
 
   return (
     <CreateProjectContext.Provider value={ctx}>
-    <div className="max-w-5xl mx-auto px-4 max-[768px]:px-2.5 max-[420px]:px-1.5 py-4 overflow-x-hidden">
+    <div className="w-full overflow-x-hidden">
       {/* -- Exit-as-draft confirmation -- */}
       {showExitConfirm && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
