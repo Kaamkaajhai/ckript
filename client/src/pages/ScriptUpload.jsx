@@ -18,6 +18,7 @@ import {
   createScriptCompletionFormState,
   getScriptCompletionValidationMessage,
 } from "../utils/scriptCompletion";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 // Format options
 const formats = [
@@ -478,6 +479,7 @@ const ScriptUpload = () => {
   const [thumbnailCropPixels, setThumbnailCropPixels] = useState(null);
   const [thumbnailApplying, setThumbnailApplying] = useState(false);
   const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
+  const [showSummaryPdfDialog, setShowSummaryPdfDialog] = useState(null);
   const [postSubmitRedirectPath, setPostSubmitRedirectPath] = useState("/dashboard");
   const [isContentOnlyEditMode, setIsContentOnlyEditMode] = useState(false);
   const [isEditModeResolving, setIsEditModeResolving] = useState(Boolean(editId));
@@ -987,10 +989,7 @@ const ScriptUpload = () => {
       formData.append("pdf", file);
 
       // Call our new backend extraction endpoint
-      const { data } = await api.post("/scripts/extract-pdf", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-
+      const { data } = await api.post("/scripts/extract-pdf", formData);
       clearInterval(interval);
       setUploadProgress(100);
 
@@ -1635,9 +1634,6 @@ const ScriptUpload = () => {
   const downloadSubmissionSummaryPdf = async (targetScriptId, title) => {
     if (!targetScriptId) return;
 
-    const confirmed = window.confirm("Your project was submitted successfully! Would you like to download your submission summary PDF?");
-    if (!confirmed) return;
-
     try {
       const response = await api.get(`/scripts/${targetScriptId}/submission-summary-pdf?download=1`, {
         responseType: "blob",
@@ -1817,9 +1813,10 @@ const ScriptUpload = () => {
           return;
         }
         await uploadMediaForScript(editId, "updated");
-        await downloadSubmissionSummaryPdf(editId, payload.title);
-        openUnderReviewModal(
-          getScriptCanonicalPath({
+        setShowSummaryPdfDialog({
+          scriptId: editId,
+          title: payload.title,
+          redirectPath: getScriptCanonicalPath({
             _id: editId,
             title: payload.title,
             creator: {
@@ -1827,15 +1824,16 @@ const ScriptUpload = () => {
               username: user?.username,
             },
           })
-        );
+        });
       } else {
         const response = await api.post("/scripts/upload", payload);
         const newScriptId = response.data._id;
         await uploadMediaForScript(newScriptId, "created");
-        await downloadSubmissionSummaryPdf(newScriptId, payload.title);
-
-
-        openUnderReviewModal("/dashboard");
+        setShowSummaryPdfDialog({
+          scriptId: newScriptId,
+          title: payload.title,
+          redirectPath: "/dashboard"
+        });
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
@@ -3574,6 +3572,28 @@ const ScriptUpload = () => {
         </AnimatePresence>,
         document.body
       )}
+
+      <ConfirmDialog
+        open={!!showSummaryPdfDialog}
+        title="Download Summary"
+        message="Your project was submitted successfully! Would you like to download your submission summary PDF?"
+        confirmText="Download"
+        cancelText="Skip"
+        isDarkMode={isDarkMode}
+        onConfirm={async () => {
+          if (showSummaryPdfDialog) {
+            await downloadSubmissionSummaryPdf(showSummaryPdfDialog.scriptId, showSummaryPdfDialog.title);
+          }
+          const path = showSummaryPdfDialog?.redirectPath || "/dashboard";
+          setShowSummaryPdfDialog(null);
+          openUnderReviewModal(path);
+        }}
+        onCancel={() => {
+          const path = showSummaryPdfDialog?.redirectPath || "/dashboard";
+          setShowSummaryPdfDialog(null);
+          openUnderReviewModal(path);
+        }}
+      />
 
       {showUnderReviewModal && createPortal(
         <AnimatePresence>

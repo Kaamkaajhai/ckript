@@ -282,10 +282,10 @@ export default function ScreenplayPdfViewer({
   // Only use native <object> renderer for API proxy URLs we control — external URLs (Cloudinary, etc.)
   // served with Content-Disposition:attachment trigger an unwanted browser download dialog.
   const usingNativePdfRenderer = !usingPdfRenderer && Boolean(nativePdfUrl) && String(nativePdfUrl).includes("/api/");
-  // Structured (non-PDF) fallback → render REAL stacked page sheets (Word/Docs look), no pager. The
-  // Prev/Next pager stays only for the heavy PDF/native canvas paths.
+  // Structured (non-PDF) fallback → render REAL stacked page sheets (Word/Docs look).
+  // The Prev/Next pager stays active for ALL rendering paths.
   const usingFallback = !usingPdfRenderer && !usingNativePdfRenderer;
-  const hasPager = showPager && !usingFallback && previewPages.length > 1;
+  const hasPager = showPager && previewPages.length > 1;
   const activePreviewEntry = previewPages[Math.min(activePageIndex, Math.max(previewPages.length - 1, 0))];
   const activePreviewPageNumber = usingPdfRenderer
     ? Number(activePreviewEntry || requestedPages.safeStart)
@@ -349,13 +349,8 @@ export default function ScreenplayPdfViewer({
       )}
 
       {visiblePages.length ? (
-        usingFallback ? (
-          // Structured screenplay text → the SAME read-only editor renderer used in create-project.
-          <ScreenplayReadOnly
-            text={previewPages.map((page) => String(page?.text || "")).join("\n\n")}
-          />
-        ) : (
-          <div className="space-y-6">
+        <div className="space-y-6">
+          {hasPager && (
             <div ref={pagerRef} style={{ scrollMarginTop: "1px" }} className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
               <button
                 type="button"
@@ -386,20 +381,27 @@ export default function ScreenplayPdfViewer({
                 <span className="!text-white">Next</span>
               </button>
             </div>
+          )}
 
-            {usingPdfRenderer ? (
-              <PdfPage
-                pdfDocument={pdfDocument}
-                pageNumber={activePreviewPageNumber}
-              />
-            ) : (
-              <NativePdfPage
-                sourceUrl={nativePdfUrl}
-                pageNumber={activePreviewPageNumber}
-              />
-            )}
-          </div>
-        )
+          {usingFallback ? (
+            <div className="bg-[#f8fafc] p-6 rounded-[22px] border border-slate-200 relative">
+              <ScreenplayReadOnly text={String(activePreviewEntry?.text || "")} />
+              <div className="absolute bottom-4 right-6 text-xs text-slate-400 font-mono pointer-events-none z-10">
+                {activePreviewEntry?.pageNumber || activePageIndex + 1}.
+              </div>
+            </div>
+          ) : usingPdfRenderer ? (
+            <PdfPage
+              pdfDocument={pdfDocument}
+              pageNumber={activePreviewPageNumber}
+            />
+          ) : (
+            <NativePdfPage
+              sourceUrl={nativePdfUrl}
+              pageNumber={activePreviewPageNumber}
+            />
+          )}
+        </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-[0_18px_48px_rgba(0,0,0,0.10)]">
           <p className="text-sm text-slate-500">The writer has not added a viewable excerpt yet.</p>

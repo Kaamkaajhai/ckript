@@ -343,8 +343,10 @@ const ScriptDetail = () => {
   // empty). Editor-authored projects store textContent, not a file — so only point the viewer at the
   // PDF when there really is one; otherwise it renders the structured screenplay pages directly
   // (no failed fetch, no "PDF rendering failed" banner).
-  const uploadedScriptPdfUrl = activeScriptId && Boolean(String(script?.fileUrl || "").trim())
-    ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`)
+  const uploadedScriptPdfUrl = activeScriptId 
+    ? Boolean(String(script?.fileUrl || "").trim())
+      ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`)
+      : ""
     : "";
   const handlePrint = async () => {
     const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");

@@ -92,8 +92,8 @@ export default function ScreenplayEditor({
           onElementChange: (type) => onElementChangeRef.current?.(type),
         }),
         ...createLockExtensions(),
-        ...createCommentExtensions(),
-        ...createLineCommentExtensions(),
+        ...(onAddComment ? createCommentExtensions() : []),
+        ...(onAddComment ? createLineCommentExtensions() : []),
         EditorView.updateListener.of((u) => {
           if (u.docChanged && onChangeRef.current) {
             onChangeRef.current(u.state.doc.toString());
@@ -277,7 +277,7 @@ export default function ScreenplayEditor({
   return (
     <div
       ref={hostRef}
-      className={`screenplay-editor relative ${dark ? "screenplay-editor--dark" : ""} ${className}`.trim()}
+      className={`screenplay-editor relative ${dark ? "screenplay-editor--dark" : ""} ${readOnly ? "screenplay-editor--readonly" : ""} ${className}`.trim()}
       style={{
         "--sp-font-size": `${(15 * (Number(zoom) || 1)).toFixed(2)}px`,
       }}

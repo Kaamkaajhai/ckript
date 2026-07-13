@@ -1768,6 +1768,13 @@ const AdminDashboard = () => {
             } else if (err?.response?.data?.code === "ADMIN_SCRIPT_SECTION_PASSWORD_REQUIRED") {
                 clearAdminScriptAccess();
                 showToast("Script section unlock expired. Please enter the password again.", "error");
+                ensureScriptSectionAccess().then((success) => {
+                    if (success) {
+                        fetchData(searchValue);
+                    } else if (isAdminScriptProtectedTab(activeTab)) {
+                        setActiveTab("overview");
+                    }
+                });
             } else {
                 showToast(err?.response?.data?.message || "Failed to load admin data", "error");
             }
