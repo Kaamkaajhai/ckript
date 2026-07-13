@@ -1,5 +1,4 @@
 import { useState } from "react";
-import StatusBar from "../components/StatusBar";
 import TopBar from "../components/TopBar";
 import SectionTabs from "../components/SectionTabs";
 import BottomNav from "../components/BottomNav";
@@ -37,8 +36,6 @@ export default function Dashboard({ time, initials, userName, onLogout }) {
 
   return (
     <div className="ckm-dash">
-      <StatusBar time={time} />
-
       <TopBar
         initials={initials}
         unread={unread}
