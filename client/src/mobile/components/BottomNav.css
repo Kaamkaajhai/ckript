@@ -1,12 +1,11 @@
 .ckm-bottomnav {
   flex: none;
-  min-height: var(--ckm-nav-h);
   background: #0f0f0f;
   border-top: 1px solid #1f1f1f;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-around;
-  padding: 11px 6px calc(11px + var(--ckm-safe-bottom));
+  padding: 9px 6px calc(9px + var(--ckm-safe-bottom));
 }
 
 .ckm-bottomnav__item {

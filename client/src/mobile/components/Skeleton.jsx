@@ -1,4 +1,3 @@
-import StatusBar from "./StatusBar";
 import "./Skeleton.css";
 
 /*
@@ -7,10 +6,9 @@ import "./Skeleton.css";
  * rather than blank. Mirrors the real layout: header, tab strip, hero and a
  * pair of stat tiles, all softly pulsing.
  */
-export default function Skeleton({ time = "9:41" }) {
+export default function Skeleton() {
   return (
     <div className="ckm-skel">
-      <StatusBar time={time} />
       <div className="ckm-skel__topbar">
         <div className="ckm-skel__logo" />
         <div className="ckm-skel__search" />
