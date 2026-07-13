@@ -9,8 +9,8 @@ import {
   extractPdfText, saveDraft, getScriptLimit, deleteScript, getMyDrafts, getMyScripts, updateScript,
   getScriptSubmissionSummaryPdf,
   getPurchaseRequestAcceptancePdf,
-  createScriptPurchaseOrder, verifyScriptPurchase,
-  createScriptHoldOrder, verifyScriptHold,
+  createScriptPurchaseOrder, verifyScriptPurchase, getScriptPurchaseQuote,
+  createScriptHoldOrder, verifyScriptHold, getScriptHoldQuote,
   uploadThumbnail, uploadTrailer, uploadPitchVideo,
   uploadScriptThumbnail, uploadScriptTrailer, uploadScriptPitchVideo,
   requestScriptAITrailer, submitTrailerFeedback,
@@ -111,8 +111,10 @@ router.post("/spotlight/activate", protect, activateProjectSpotlight);
 router.post("/generate-ai-cover", protect, generateCoverImage);
 
 // Razorpay payment routes for scripts
+router.post("/purchase/quote", protect, getScriptPurchaseQuote);
 router.post("/purchase/create-order", protect, createScriptPurchaseOrder);
 router.post("/purchase/verify-payment", protect, verifyScriptPurchase);
+router.post("/hold/quote", protect, getScriptHoldQuote);
 router.post("/hold/create-order", protect, createScriptHoldOrder);
 router.post("/hold/verify-payment", protect, verifyScriptHold);
 

@@ -50,7 +50,6 @@ const FORMAT_LABELS = {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import PasswordInput from "../components/PasswordInput";
@@ -350,9 +349,13 @@ const AdminScriptView = () => {
     }
   };
 
-  const rawContent = typeof script?.fullContent === "string" && script.fullContent.trim()
-    ? script.fullContent
-    : (typeof script?.textContent === "string" ? script.textContent : "");
+  // Canonical source order matches the server (fountainContent is the screenplay source of truth for
+  // editor projects), so the admin view never comes up empty when only fountainContent is populated.
+  const rawContent = (typeof script?.fountainContent === "string" && script.fountainContent.trim())
+    ? script.fountainContent
+    : (typeof script?.fullContent === "string" && script.fullContent.trim())
+      ? script.fullContent
+      : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
   const uploadedPdfProxyUrl = script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf`) : uploadedPdfUrl;
 
@@ -424,53 +427,22 @@ const AdminScriptView = () => {
     plainScriptText.trim() || serverPreviewPageTexts.some(Boolean)
   );
 
-  const handleDownloadScript = () => {
-    if (!plainScriptText.trim()) {
-      if (uploadedPdfUrl) {
-        window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
-      }
+  // Download the SAME PDF the script renders as everywhere else — never an ad-hoc flat rebuild. A
+  // stored file (uploaded original, or the canonical merge PDF) is downloaded as-is; a pure editor
+  // script is exported through the server's canonical screenplay PDF (full element/emphasis layout).
+  const handleDownloadScript = async () => {
+    const safeTitle = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "script";
+    if (uploadedPdfUrl) {
+      window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
       return;
     }
-
-    const normalized = plainScriptText.replace(/\r\n/g, "\n").trim();
-
-    const title = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
-    const filename = `${title || "script"}_full_script.pdf`;
-
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "pt",
-      format: "a4",
-    });
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX = 44;
-    const topY = 54;
-    const usableWidth = pageWidth - marginX * 2;
-
-    const pdfPages = scriptPages.length > 0 ? scriptPages : [normalized];
-
-    pdfPages.forEach((pageText, index) => {
-      if (index > 0) doc.addPage("a4", "portrait");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(String(script?.title || "Script"), marginX, 32, { maxWidth: usableWidth });
-
-      doc.setFont("courier", "normal");
-      doc.setFontSize(11);
-      const wrappedLines = doc.splitTextToSize(pageText || "", usableWidth);
-      doc.text(wrappedLines, marginX, topY, { baseline: "top" });
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Page ${index + 1} / ${pdfPages.length}`, pageWidth - marginX, pageHeight - 24, {
-        align: "right",
-      });
-    });
-
-    doc.save(filename);
+    if (!script?._id) return;
+    try {
+      const response = await adminApi.get(`/scripts/${script._id}/export/pdf?download=1`, { responseType: "blob" });
+      downloadPdfBlob(new Blob([response.data], { type: "application/pdf" }), `${safeTitle}_full_script.pdf`);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to download the script PDF.");
+    }
   };
 
   const handleOpenSubmissionSummaryPdf = () => {

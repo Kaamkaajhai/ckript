@@ -79,6 +79,22 @@ export const STEPS = [
   { num: 5, label: "Publish", shortLabel: "Pub", desc: "Pricing & services" },
 ];
 
+/* -- Step 2 (Details) sub-steps ----------------------
+   Details is a mini-wizard: one fitted panel at a time, paged by the shell's
+   Back / Next footer, so the old single long scroll becomes a short guided flow.
+   `industries` filters which panels apply to the film vs. publishing track; the
+   list is derived per render from the active track (see index.jsx). `glyph` is a
+   Material Symbols name, matching the icon vocabulary used across the editor. */
+export const DETAILS_STEPS = [
+  { key: "basics",   label: "Basics",   desc: "Format & billing",   glyph: "badge",         industries: ["film", "publishing"] },
+  { key: "story",    label: "Story",    desc: "Logline & synopsis", glyph: "auto_stories",  industries: ["film", "publishing"] },
+  { key: "cast",     label: "Cast",     desc: "Roles to fill",      glyph: "groups",        industries: ["film"] },
+  { key: "market",   label: "Market",   desc: "Positioning",        glyph: "trending_up",   industries: ["publishing"] },
+  { key: "progress", label: "Progress", desc: "How complete",       glyph: "checklist",     industries: ["film", "publishing"] },
+  { key: "access",   label: "Access",   desc: "Viewable preview",   glyph: "visibility",    industries: ["film", "publishing"] },
+  { key: "media",    label: "Media",    desc: "Cover & video",      glyph: "photo_library", industries: ["film", "publishing"] },
+];
+
 /* -- Prose editor palettes --------------------------- */
 export const TEXT_COLORS = [
   { label: "Default", value: null },

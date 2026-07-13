@@ -520,6 +520,26 @@ const applyEventToSession = (session, payload) => {
   }
 };
 
+// GET /api/geo/currency — resolve a suggested checkout currency from the caller's IP (reusing the same
+// IP → country lookup as analytics). India → INR, any other resolvable country → USD. Unknown/private
+// IP falls back to INR (home market); the client always offers a manual toggle to override.
+export const getCurrencyForRequest = async (req, res) => {
+  try {
+    const ip = getRequestIp(req);
+    let country = "";
+    try {
+      const loc = await fetchRoughLocation(ip);
+      country = String(loc?.country || "").trim();
+    } catch {
+      /* lookup failed → fall back below */
+    }
+    const currency = !country ? "INR" : country.toLowerCase() === "india" ? "INR" : "USD";
+    return res.json({ currency, country });
+  } catch {
+    return res.json({ currency: "INR", country: "" });
+  }
+};
+
 export const trackEvent = async (req, res) => {
   try {
     const {

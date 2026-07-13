@@ -1,0 +1,42 @@
+.ckm-sheet__layer {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.ckm-sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 18, 15, 0.42);
+}
+
+.ckm-sheet {
+  position: relative;
+  background: var(--ckm-bg);
+  border-radius: var(--ckm-r-sheet) var(--ckm-r-sheet) 0 0;
+  box-shadow: var(--ckm-shadow-sheet);
+  display: flex;
+  flex-direction: column;
+  max-height: 94%;
+  padding: 12px 0 0;
+  will-change: transform;
+}
+
+.ckm-sheet__grip {
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--ckm-line-strong);
+  margin: 0 auto 12px;
+  flex: none;
+  cursor: grab;
+}
+
+.ckm-sheet__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 18px calc(26px + var(--ckm-safe-bottom));
+}

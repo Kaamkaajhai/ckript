@@ -5,12 +5,14 @@ import { ToastProvider } from "./context/ToastContext";
 import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
 import PrivateRoute from "./utils/PrivateRoute";
 import { AuthContext } from "./context/AuthContext";
 import SeoManager from "./components/SeoManager";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
+import useIsMobile from "./mobile/hooks/useIsMobile";
 
 const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
@@ -54,6 +56,7 @@ const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
+const MobileApp = lazy(() => import("./mobile/MobileApp"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
@@ -244,6 +247,25 @@ function DashboardRoute() {
   );
 }
 
+// Ckript ships a *separate* mobile app (src/mobile) for signed-in creators on
+// phone-sized viewports — a native-feeling experience, not a responsive reflow
+// of the desktop UI. This gate is the single mount point: while a creator is
+// on a phone it fully replaces the desktop routes; everyone else (logged-out
+// visitors, non-creators, tablets/desktops) gets the normal `children`. There
+// is deliberately no mobile landing page — the gate only trips once `user`
+// exists. SSR/prerender is unaffected (no window → not mobile, and no user).
+function RootExperience({ children }) {
+  const isMobile = useIsMobile();
+  const { user, loading } = useContext(AuthContext);
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  if (!loading && isMobile && user && isCreator) {
+    return <MobileApp />;
+  }
+
+  return children;
+}
+
 function App() {
   useEffect(() => {
     const preload = () => {
@@ -271,6 +293,7 @@ function App() {
   const appTree = (
     <DarkModeProvider key="dm-root">
       <AuthProvider>
+        <CurrencyProvider>
         <ToastProvider>
         <Router>
           <AuthModalProvider>
@@ -287,6 +310,7 @@ function App() {
                 </div>
               }
             >
+            <RootExperience>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/about" element={<About />} />
@@ -380,13 +404,27 @@ function App() {
               <Route path="/dashboard" element={<DashboardRoute />} />
               <Route path="/ai-tools"  element={<DashboardRoute />} />
               <Route path="/offer-holds" element={<DashboardRoute />} />
+              {import.meta.env.DEV && (
+                <Route
+                  path="/__mobile-preview"
+                  element={
+                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, logout: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
+            </RootExperience>
             </Suspense>
           </AdminLoginHandler>
           </AuthModalProvider>
         </Router>
         </ToastProvider>
+        </CurrencyProvider>
       </AuthProvider>
     </DarkModeProvider>
   );

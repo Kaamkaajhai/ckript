@@ -4,7 +4,7 @@ import PDFDocument from "pdfkit";
 // lockstep by the parity test) so the PDF renders a line exactly as the editor/viewer do. The
 // formatter (normalization) stays in screenplayParser.js.
 import { formatScreenplayLikeText } from "./screenplayParser.js";
-import { textToBlocks } from "./classify.js";
+import { textToBlocks, parseInlineEmphasis } from "./classify.js";
 
 // US screenplay standard: US Letter, 12pt Courier, 1" top/bottom/right, 1.5" left.
 const PT = 72; // points per inch
@@ -13,6 +13,7 @@ const MARGIN = { top: 1 * PT, bottom: 1 * PT, left: 1.5 * PT, right: 1 * PT };
 const FONT = "Courier";
 const FONT_BOLD = "Courier-Bold";
 const FONT_ITALIC = "Courier-Oblique";
+const FONT_BOLD_ITALIC = "Courier-BoldOblique";
 const FONT_SIZE = 12;
 const LINE = FONT_SIZE; // single-spaced
 const CONTENT_RIGHT = PAGE.width - MARGIN.right;
@@ -146,12 +147,6 @@ export const generateScreenplayPdf = (scriptText, opts = {}) =>
     }
 
     for (const block of blocks) {
-      // Forced page break ("==="): jump to a fresh page, don't render any glyph.
-      if (block.type === "pagebreak") {
-        doc.addPage();
-        y = MARGIN.top;
-        continue;
-      }
       const cfg = LAYOUT[block.type];
       if (!cfg) {
         // spacer or unknown — advance a line
@@ -166,12 +161,35 @@ export const generateScreenplayPdf = (scriptText, opts = {}) =>
         continue;
       }
 
-      doc.font(cfg.bold ? FONT_BOLD : cfg.italic ? FONT_ITALIC : FONT).fontSize(FONT_SIZE).fillColor("#111111").fillOpacity(1);
-      const height = doc.heightOfString(text, { width: cfg.width, align: cfg.align || "left", lineGap: 0 });
+      // ">words<" centers the line (block.centered from the classifier); otherwise use the element's
+      // own alignment. Inline emphasis (*italic* **bold** ***both*** _underline_) renders as styled
+      // runs so the downloaded PDF matches the editor and the on-screen viewer exactly.
+      const align = block.centered ? "center" : (cfg.align || "left");
+      const runs = parseInlineEmphasis(text);
+      const plain = runs.map((r) => r.text).join(""); // marker-free; Courier is monospace so metrics match
+
+      doc.fillColor("#111111").fillOpacity(1);
+      doc.font(cfg.bold ? FONT_BOLD : cfg.italic ? FONT_ITALIC : FONT).fontSize(FONT_SIZE);
+      const height = doc.heightOfString(plain, { width: cfg.width, align, lineGap: 0 });
 
       ensureSpace((cfg.before || 0) + height);
       y += cfg.before || 0;
-      doc.text(text, cfg.x, y, { width: cfg.width, align: cfg.align || "left", lineGap: 0, underline: Boolean(cfg.underline) });
+      // Render inline emphasis as continued styled runs. pdfkit wraps a continued sequence correctly
+      // ONLY when the layout options (x/y/width/align) are given on the FIRST piece and omitted on the
+      // continuations — otherwise each run re-anchors and breaks onto its own line.
+      for (let ri = 0; ri < runs.length; ri += 1) {
+        const r = runs[ri];
+        const bold = Boolean(cfg.bold) || r.bold;
+        const italic = Boolean(cfg.italic) || r.italic;
+        doc.font(bold && italic ? FONT_BOLD_ITALIC : bold ? FONT_BOLD : italic ? FONT_ITALIC : FONT).fontSize(FONT_SIZE);
+        const continued = ri < runs.length - 1;
+        const underline = Boolean(cfg.underline) || r.underline;
+        if (ri === 0) {
+          doc.text(r.text, cfg.x, y, { width: cfg.width, align, lineGap: 0, continued, underline });
+        } else {
+          doc.text(r.text, { continued, underline });
+        }
+      }
       y += height + (cfg.after || 0);
     }
 

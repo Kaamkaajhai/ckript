@@ -9,7 +9,6 @@ import { useDarkMode } from "../context/DarkModeContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { formatCurrency } from "../utils/currency";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
-import ScreenplayViewer from "../components/ScreenplayViewer";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";

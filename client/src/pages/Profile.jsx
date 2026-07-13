@@ -10,6 +10,8 @@ import ProjectCard from "../components/ProjectCard";
 import EditProfileModal from "../components/EditProfileModal";
 import BankDetails from "../components/BankDetails";
 import Transactions from "../components/Transactions";
+import GoogleCalendarCard from "../components/GoogleCalendarCard";
+import CurrencyToggle from "../components/CurrencyToggle";
 import SocialShareButton from "../components/SocialShareButton";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import { formatCurrency } from "../utils/currency";
@@ -1452,13 +1454,17 @@ const Profile = () => {
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
-                              {new Date(meeting.scheduledDate).toLocaleDateString()}
+                              {meeting.startAt ? new Date(meeting.startAt).toLocaleDateString() : new Date(meeting.scheduledDate).toLocaleDateString()}
                             </span>
                             <span className="flex items-center gap-1">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
-                              {meeting.scheduledTime}
+                              {/* startAt is the canonical instant → render in the VIEWER's local zone with the
+                                  zone label so there is never any "whose 3 PM?" ambiguity. */}
+                              {meeting.startAt
+                                ? new Date(meeting.startAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" })
+                                : meeting.scheduledTime}
                             </span>
                             <span className="flex items-center gap-1">
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2321,10 +2327,26 @@ const Profile = () => {
             </div>
           )}
 
+          {/* Integrations — Google Calendar for producers/industry pros who schedule meetings */}
+          {["producer", "investor", "director", "professional", "industry"].includes(String(profile?.role || "").toLowerCase()) && (
+            <div className="py-6 first:pt-0 last:pb-0">
+              <SectionCard dark={dark} noBox title="Integrations" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>}>
+                <GoogleCalendarCard dark={dark} />
+              </SectionCard>
+            </div>
+          )}
+
           {/* Account */}
           <div className="py-6 first:pt-0 last:pb-0">
             <SectionCard dark={dark} noBox title="Account" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}>
             <div className="space-y-4">
+              <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
+                <div>
+                  <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Display currency</p>
+                  <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>Prices and checkout shown in this currency</p>
+                </div>
+                <CurrencyToggle dark={dark} />
+              </div>
               <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
                 <div>
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Private Account</p>
