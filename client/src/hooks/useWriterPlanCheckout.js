@@ -1,6 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
+import { useCurrency } from "../context/CurrencyContext";
 import api from "../services/api";
 
 /* ─────────────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ const daysLeftFrom = (expiresAt) => {
 
 export function useWriterPlanCheckout() {
   const { user, setUser, loading: authLoading } = useContext(AuthContext);
+  const { currency } = useCurrency() || {};
   const { openAuthModal } = useAuthModal();
 
   // `loading` carries which tier is mid-flight ("silver" | "gold" | "") so a
@@ -138,7 +140,7 @@ export function useWriterPlanCheckout() {
           return;
         }
 
-        const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier });
+        const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier, currency: currency || "INR" });
 
         const options = {
           key: orderData.key,

@@ -32,9 +32,18 @@ import {
   applyMergeDecisions,
   computeDiff,
 } from "../utils/merge.js";
-import { generateScriptPdf } from "../utils/generateScriptPdf.js";
+// Canonical screenplay PDF (same formatter the editor/viewer/export use) so a merged/reverted script
+// renders identically everywhere — NOT the old flat generateScriptPdf (plain A4 text, no elements).
+import { generateScreenplayPdf } from "../utils/screenplayPdf.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import { runScriptScoreGeneration } from "./aiController.js";
+
+// Script.titlePage is a Mongoose Map — convert to a plain object (or null) for generateScreenplayPdf.
+const titlePageToObject = (tp) => {
+  if (!tp) return null;
+  const obj = typeof tp.toObject === "function" ? tp.toObject() : (tp instanceof Map ? Object.fromEntries(tp) : tp);
+  return obj && Object.keys(obj).length ? obj : null;
+};
 
 const VALID_COLLAB_ROLES = ["editor", "merger", "viewer", "full_admin"];
 const REQUESTABLE_ROLES = ["editor", "merger", "viewer", "full_admin"];
@@ -1766,7 +1775,11 @@ export const reviewPR = async (req, res) => {
       })
     );
 
-    const pdfBuffer = await generateScriptPdf(mergedContent);
+    const pdfBuffer = await generateScreenplayPdf(mergedContent, {
+      title: script.title,
+      author: script.companyName || "",
+      titlePage: titlePageToObject(script.titlePage),
+    });
     const pdfUpload = await uploadToCloudinary(pdfBuffer, {
       folder: "scripts",
       resource_type: "raw",
@@ -1870,7 +1883,11 @@ export const revertPR = async (req, res) => {
     // Regenerate PDF
     let fileUrl = script.fileUrl;
     try {
-      const pdfBuffer = await generateScriptPdf(backupContent);
+      const pdfBuffer = await generateScreenplayPdf(backupContent, {
+        title: script.title,
+        author: script.companyName || "",
+        titlePage: titlePageToObject(script.titlePage),
+      });
       const pdfUpload = await uploadToCloudinary(pdfBuffer, {
         folder: "scripts",
         resource_type: "raw",

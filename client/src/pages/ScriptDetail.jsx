@@ -32,13 +32,14 @@ import { useDarkMode } from "../context/DarkModeContext";
 import { Film, BadgeCheck, MessageCircle } from "lucide-react";
 import RazorpayScriptPayment from "../components/RazorpayScriptPayment";
 import SocialShareButton from "../components/SocialShareButton";
-import ScreenplayViewer from "../components/ScreenplayViewer";
+import ScreenplayReadOnly from "../components/ScreenplayReadOnly";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import MeetingModal from "../components/MeetingModal";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { countPages } from "../components/screenplay/paginate";
+import { splitScreenplayIntoPages } from "../components/screenplay/pages";
 import ProducerRatingCard from "../components/ProducerRatingCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
@@ -338,10 +339,17 @@ const ScriptDetail = () => {
 
   const resolveImage = resolveMediaUrl;
 
-  const uploadedScriptPdfUrl = activeScriptId ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`) : "";
-  const handlePrint = () => {
+  // The /pdf proxy only serves scripts that have an uploaded file (it 404s when script.fileUrl is
+  // empty). Editor-authored projects store textContent, not a file — so only point the viewer at the
+  // PDF when there really is one; otherwise it renders the structured screenplay pages directly
+  // (no failed fetch, no "PDF rendering failed" banner).
+  const uploadedScriptPdfUrl = activeScriptId && Boolean(String(script?.fileUrl || "").trim())
+    ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`)
+    : "";
+  const handlePrint = async () => {
     const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
-    if (!(typeof script?.textContent === "string" && script.textContent.trim()) && uploadedPdfUrl) {
+    // Stored PDF (uploaded original OR canonical merge) → open it for printing.
+    if (uploadedPdfUrl) {
       window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
       return;
     }
@@ -349,6 +357,23 @@ const ScriptDetail = () => {
     const raw = typeof script?.textContent === "string" ? script.textContent : "";
     const normalizedRaw = raw.trimStart();
     const isHtml = normalizedRaw.startsWith("<");
+
+    // Screenplay editor script → print the SAME canonical formatted PDF the editor/viewer produce.
+    // Open the tab synchronously (popup rules) then point it at the fetched PDF; fall back to the HTML
+    // print below on any failure. Prose/book content (isHtml) always uses the HTML path.
+    if (!isHtml && activeScriptId) {
+      const win = window.open("", "_blank");
+      try {
+        const response = await api.get(`/scripts/${activeScriptId}/export/pdf`, { responseType: "blob" });
+        const url = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+        if (win) win.location.href = url; else window.open(url, "_blank");
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+        return;
+      } catch (error) {
+        console.error("Print via canonical PDF failed, using HTML fallback:", error);
+        if (win) win.close();
+      }
+    }
     const formattedPlain = formatScreenplayLikeText(raw);
     const bodyContent = isHtml
       ? normalizedRaw
@@ -383,14 +408,16 @@ const ScriptDetail = () => {
     win.document.close();
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    const safeTitle = (script?.title || "script").replace(/[^a-z0-9]/gi, "_");
     const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
-    if (!(typeof script?.textContent === "string" && script.textContent.trim()) && uploadedPdfUrl) {
+    // Stored PDF (uploaded original OR the canonical merge PDF) → download it as-is.
+    if (uploadedPdfUrl) {
       const link = document.createElement("a");
       link.href = uploadedPdfUrl;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.download = `${(script?.title || "script").replace(/[^a-z0-9]/gi, "_")}.pdf`;
+      link.download = `${safeTitle}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -398,12 +425,33 @@ const ScriptDetail = () => {
     }
 
     const raw = script?.textContent || "";
-    const plain = formatScreenplayLikeText(raw.replace(/<[^>]*>/g, "\n"));
+    const isProse = String(raw).trimStart().startsWith("<");
+    // Screenplay editor script → the SAME canonical PDF the editor/viewer produce (full element +
+    // emphasis layout), not a flat text dump. Prose/book content has no screenplay layout, so it keeps
+    // the plain-text export below.
+    if (!isProse && activeScriptId) {
+      try {
+        const response = await api.get(`/scripts/${activeScriptId}/export/pdf?download=1`, { responseType: "blob" });
+        const url = URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${safeTitle}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        return;
+      } catch (error) {
+        console.error("Canonical PDF download failed, falling back to text:", error);
+      }
+    }
+
+    const plain = formatScreenplayLikeText(String(raw).replace(/<[^>]*>/g, "\n"));
     const blob = new Blob([`${script?.title || "Script"}\n${'='.repeat((script?.title || '').length)}\n\n${plain}`], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(script?.title || "script").replace(/[^a-z0-9]/gi, "_")}.txt`;
+    a.download = `${safeTitle}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1387,7 +1435,12 @@ const ScriptDetail = () => {
   const trailerPlaybackUrl = trailerSourceUrl;
   const hasTrailer = trailerSources.length > 0;
   const canPlayTrailer = hasTrailer && !trailerError;
-  const scriptRawContent = typeof script?.textContent === "string" ? script.textContent : "";
+  // Prefer fountainContent (the canonical screenplay source of truth for editor projects); fall back
+  // to textContent (which also carries prose/book HTML). Keeps the view from ever coming up empty when
+  // only fountainContent is populated, and never mislabels a screenplay as prose.
+  const scriptRawContent = (typeof script?.fountainContent === "string" && script.fountainContent.trim())
+    ? script.fountainContent
+    : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedScriptUrl = resolveImage(script?.fileUrl || "");
   const hasScriptTextContent = Boolean(scriptRawContent.trim());
   const hasUploadedScriptPdf = Boolean(uploadedScriptUrl);
@@ -1397,12 +1450,17 @@ const ScriptDetail = () => {
   const fullScriptSourceText = typeof script?.fullContent === "string" && script.fullContent.trim()
     ? script.fullContent
     : scriptRawContent;
-  const scriptPages = String(fullScriptSourceText || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split(/\n{2,}/)
-    .map((pageText) => String(pageText || "").trim())
-    .filter(Boolean);
+  // Screenplay text is split on REAL page boundaries (=== breaks + line-based pagination, via the
+  // shared paginator) so the fallback viewer's page numbers match the editor and the PDF. HTML/book
+  // content has no screenplay pagination, so it keeps the paragraph-run split.
+  const scriptPages = hasHtmlScriptContent
+    ? String(fullScriptSourceText || "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split(/\n{2,}/)
+        .map((pageText) => String(pageText || "").trim())
+        .filter(Boolean)
+    : splitScreenplayIntoPages(formattedPlainScriptText || fullScriptSourceText);
   const heroImage = script.trailerThumbnail || script.coverImage || "";
   const resolvedHeroImage = resolveImage(heroImage);
   const showCoverPlaceholder = !resolvedHeroImage || coverError;
@@ -2856,27 +2914,29 @@ const ScriptDetail = () => {
 
                 <div className={`rounded-xl border overflow-hidden ${t.card}`}>
                   {hasScriptTextContent ? (
-                    <div className="max-w-2xl mx-auto px-8 py-10 sm:px-16">
-                      <div className={`text-center mb-10 pb-8 border-b ${t.divider}`}>
+                    <div className="py-10 max-[640px]:py-6">
+                      <div className={`max-w-2xl mx-auto px-8 sm:px-16 text-center mb-10 pb-8 border-b ${t.divider}`}>
                         <h2 className={`text-2xl font-bold tracking-tight mb-1 ${t.title}`}>{script.title}</h2>
                         {script.format && <p className={`text-[11px] font-bold uppercase tracking-widest ${t.muted}`}>{fmtFormat(script.format)}</p>}
                       </div>
                       {hasUploadedScriptPdf ? (
-                        <ScreenplayPdfViewer
-                          pdfUrl={uploadedScriptPdfUrl}
-                          title={script?.title || "Script"}
-                          showHeader={false}
-                          showAllPages
-                          fallbackPages={scriptPages.map((pageText, index) => ({
-                            pageNumber: index + 1,
-                            text: pageText,
-                          }))}
-                          fallbackText={formattedPlainScriptText || scriptRawContent}
-                        />
+                        <div className="max-w-2xl mx-auto px-8 sm:px-16">
+                          <ScreenplayPdfViewer
+                            pdfUrl={uploadedScriptPdfUrl}
+                            title={script?.title || "Script"}
+                            showHeader={false}
+                            showAllPages
+                            fallbackPages={scriptPages.map((pageText, index) => ({
+                              pageNumber: index + 1,
+                              text: pageText,
+                            }))}
+                            fallbackText={formattedPlainScriptText || scriptRawContent}
+                          />
+                        </div>
                       ) : hasHtmlScriptContent ? (
-                        <div className="script-content" dangerouslySetInnerHTML={{ __html: normalizedScriptHtml }} />
+                        <div className="max-w-2xl mx-auto px-8 sm:px-16 script-content" dangerouslySetInnerHTML={{ __html: normalizedScriptHtml }} />
                       ) : (
-                        <ScreenplayViewer text={formattedPlainScriptText || scriptRawContent} className={t.sub} />
+                        <ScreenplayReadOnly text={formattedPlainScriptText || scriptRawContent} dark={isDarkMode} />
                       )}
                     </div>
                   ) : hasUploadedScriptPdf ? (

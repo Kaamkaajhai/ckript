@@ -27,11 +27,6 @@ import {
     sendAdminBroadcastEmail,
     sendWriterPlanGrantedEmail,
 } from "../utils/emailService.js";
-import {
-    hasAdminScriptSectionPasswordConfigured,
-    issueAdminScriptSectionAccessToken,
-    validateAdminScriptSectionPassword,
-} from "../utils/adminScriptSectionAccess.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 
 const buildChatId = (idA, idB) => {
@@ -1295,27 +1290,6 @@ export const deleteUserAccountAsAdmin = async (req, res) => {
 };
 
 // ─── All Scripts ───
-export const verifyAdminScriptSectionAccess = async (req, res) => {
-    try {
-        if (!hasAdminScriptSectionPasswordConfigured()) {
-            return res.status(500).json({ message: "Admin script section password is not configured." });
-        }
-
-        const password = String(req.body?.password || "");
-        if (!validateAdminScriptSectionPassword(password)) {
-            return res.status(403).json({
-                code: "ADMIN_SCRIPT_SECTION_PASSWORD_INVALID",
-                message: "Invalid script section password.",
-            });
-        }
-
-        const tokenPayload = issueAdminScriptSectionAccessToken(req.user?._id);
-        return res.json(tokenPayload);
-    } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-};
-
 export const getScripts = async (req, res) => {
     try {
         const { search, status, page = 1, limit = 20 } = req.query;

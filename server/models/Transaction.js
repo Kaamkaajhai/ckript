@@ -20,6 +20,20 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     default: "INR"
   },
+  // Reconciliation: when a buyer pays in a non-INR currency, `amount`/`currency` are the charged
+  // (buyer-facing) values, while `baseAmount`/`baseCurrency` are the INR base used for creator payouts,
+  // and `fxRate` is the INR-per-unit rate applied (1 for INR payments).
+  baseCurrency: {
+    type: String,
+    default: "INR"
+  },
+  baseAmount: {
+    type: Number
+  },
+  fxRate: {
+    type: Number,
+    default: 1
+  },
   status: {
     type: String,
     enum: ["pending", "completed", "failed", "cancelled", "processing"],

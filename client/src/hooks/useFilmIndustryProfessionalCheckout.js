@@ -1,6 +1,7 @@
 import { useCallback, useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
+import { useCurrency } from "../context/CurrencyContext";
 import api from "../services/api";
 import {
   hasActiveFilmIndustryProfessionalAccess,
@@ -51,6 +52,7 @@ const loadRazorpayScript = () =>
 
 export function useFilmIndustryProfessionalCheckout() {
   const { user, setUser, loading: authLoading } = useContext(AuthContext);
+  const { currency } = useCurrency() || {};
   const { openAuthModal } = useAuthModal();
 
   const [loading, setLoading] = useState(false);
@@ -122,7 +124,8 @@ export function useFilmIndustryProfessionalCheckout() {
         }
 
         const { data: orderData } = await api.post(
-          "/payment/film-industry-professional/create-razorpay-order"
+          "/payment/film-industry-professional/create-razorpay-order",
+          { currency: currency || "INR" }
         );
 
         const options = {

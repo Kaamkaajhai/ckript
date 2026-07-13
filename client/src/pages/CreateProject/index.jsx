@@ -20,6 +20,7 @@ import { formatCurrency } from "../../utils/currency";
 import { buildScriptCompletionPayload, createScriptCompletionFormState, getScriptCompletionValidationMessage } from "../../utils/scriptCompletion";
 import ScreenplayFocusMode from "../../components/screenplay/ScreenplayFocusMode";
 import { countPages } from "../../components/screenplay/paginate";
+import { splitScreenplayIntoPages } from "../../components/screenplay/pages";
 import VersionHistoryModal from "../../components/screenplay/VersionHistoryModal";
 import { extractOutline } from "../../components/screenplay/screenplayMode";
 import { getScenes } from "../../components/screenplay/sceneIdentity";
@@ -459,13 +460,20 @@ const CreateProject = () => {
 
   useEffect(() => {
     if (!editor) return;
-    const editorHtmlForPreview = editor.getHTML?.() || "";
-    const nextPreviewTexts = buildPagePreviewTexts(editorHtmlForPreview, estimatedPages);
+    // Screenplay projects keep their text in the screenplay editor (screenplayValue), NOT the prose
+    // TipTap editor — so the viewable preview MUST paginate that, on the same line-based page
+    // boundaries the editor and exported PDF use, so the producer/admin preview pages line up.
+    // Book/prose projects keep the HTML line-chunk behaviour. (Reading the empty prose editor for
+    // screenplays previously saved their viewable preview blank.)
+    const screenplayMode = getContentTypeFromFormat(formData.format) !== "book" && screenplayEnabled;
+    const nextPreviewTexts = screenplayMode
+      ? splitScreenplayIntoPages(screenplayValue)
+      : buildPagePreviewTexts(editor.getHTML?.() || "", estimatedPages);
     const nextSignature = JSON.stringify(nextPreviewTexts);
     if (nextSignature === previewPageTextsSignatureRef.current) return;
     previewPageTextsSignatureRef.current = nextSignature;
     setPreviewPageTexts(nextPreviewTexts);
-  }, [editor, estimatedPages, formatInfo.wordsPerPage]);
+  }, [editor, estimatedPages, formatInfo.wordsPerPage, screenplayValue, screenplayEnabled, formData.format]);
 
   // Load drafts
   const fetchDrafts = useCallback(async () => {
@@ -1750,7 +1758,6 @@ const CreateProject = () => {
           onEmphasis={(kind) => screenplayApiRef.current?.applyEmphasis(kind)}
           onCase={(kind) => screenplayApiRef.current?.applyCase(kind)}
           onCentered={() => screenplayApiRef.current?.applyCentered()}
-          onInsertPageBreak={() => screenplayApiRef.current?.insertPageBreak()}
           onConfigureTitlePage={() => setShowTitlePageModal(true)}
           hasTitlePage={titlePageActive}
           titlePageFields={titlePage}

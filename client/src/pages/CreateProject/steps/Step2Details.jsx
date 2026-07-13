@@ -1,7 +1,7 @@
 import { useCreateProject } from "../CreateProjectContext";
 import { Link } from "react-router-dom";
 import { Image as ImageIcon, Film, CheckCircle2 } from "lucide-react";
-import ScreenplayPdfViewer from "../../../components/ScreenplayPdfViewer";
+import ScreenplayReadOnly from "../../../components/ScreenplayReadOnly";
 import { filmFormats, publishingFormats, styleOptions, ROLE_GENDER_OPTIONS, CP_ACCENT } from "../constants";
 import { getContentTypeFromFormat } from "../lib/format";
 
@@ -306,7 +306,7 @@ const PanelProgress = () => {
 
 /* ───────────────────────── Panel · Access (viewable preview) ───────────────────────── */
 const PanelAccess = () => {
-  const { formData, handleChange, previewPageTexts, title, dark } = useCreateProject();
+  const { formData, handleChange, previewPageTexts, dark, editorZoom } = useCreateProject();
   const on = Boolean(formData.viewableScript);
   return (
     <>
@@ -359,19 +359,17 @@ const PanelAccess = () => {
             <p className="ckcp-card-h">Preview</p>
             <p className="ckcp-card-p" style={{ marginBottom: "12px" }}>The exact page block buyers and admins will see.</p>
             <div className="ckcp-growscroll ckcp-scroll" style={{ borderRadius: "10px" }}>
-              <ScreenplayPdfViewer
-                pdfUrl=""
-                title={title || "Script"}
-                startPage={Number(formData.previewWindowStart || 1)}
-                endPage={Number(formData.previewWindowEnd || 1)}
-                fallbackPages={previewPageTexts.slice(
-                  Math.max(0, Number(formData.previewWindowStart || 1) - 1),
-                  Math.max(0, Number(formData.previewWindowEnd || 1))
-                ).map((pageText, index) => ({
-                  pageNumber: Number(formData.previewWindowStart || 1) + index,
-                  text: String(pageText || ""),
-                }))}
-                fallbackText={previewPageTexts.join("\n\n")}
+              {/* Render the preview with the SAME read-only editor every other surface uses, so the
+                  buyer/admin preview is byte-for-byte identical to what the writer authored. */}
+              <ScreenplayReadOnly
+                text={previewPageTexts
+                  .slice(
+                    Math.max(0, Number(formData.previewWindowStart || 1) - 1),
+                    Math.max(0, Number(formData.previewWindowEnd || 1))
+                  )
+                  .join("\n\n")}
+                dark={dark}
+                zoom={editorZoom || 1}
               />
             </div>
           </div>
