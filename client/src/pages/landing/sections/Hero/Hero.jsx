@@ -204,7 +204,9 @@ export default function Hero() {
 
         {/* Hero content */}
         <h1 className="ckl-hero-title">
-          The Home of Tomorrow's Blockbuster Stories.
+          The Journey from
+          <br />
+          Page to Screen
           <span className="ckl-hero-title-dot" />
         </h1>
         <span className="ckl-hero-line" />
