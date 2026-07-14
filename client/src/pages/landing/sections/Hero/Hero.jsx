@@ -204,13 +204,12 @@ export default function Hero() {
 
         {/* Hero content */}
         <h1 className="ckl-hero-title">
-          THE SCRIPT<br />IS THE STORY
+          The Home of Tomorrow's Blockbuster Stories.
           <span className="ckl-hero-title-dot" />
         </h1>
         <span className="ckl-hero-line" />
         <p className="ckl-hero-desc">
-          Ckript is a curated marketplace where writers connect with producers and directors to showcase,
-          discover, and acquire high-potential stories.
+          Ckript brings powerful writing tools and a modern marketplace together, helping writers create exceptional scripts and producers discover the next great story worth producing.
         </p>
         <div className="ckl-hero-buttons">
           <button type="button" onClick={openProducerOnboarding} className="ckl-hero-btn-primary hov-btn-lift">

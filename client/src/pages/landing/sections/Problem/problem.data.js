@@ -9,7 +9,7 @@ export const PROBLEM_CARDS = [
     rows: [
       "Your script sits in a drawer or an inbox nobody opens.",
       'Gatekeepers say "pass" without reading past page three.',
-      "No real way to reach professionals who'd actually fund you.",
+      "No direct access to the decision-makers who greenlight projects.",
     ],
     cta: "Start as a writer",
   },
