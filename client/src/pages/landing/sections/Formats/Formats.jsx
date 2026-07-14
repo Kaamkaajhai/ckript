@@ -15,7 +15,7 @@ export default function Formats() {
             One platform.<br /><span className="ckl-h2-em">Every format.</span>
           </h2>
           <p className="ckl-lead ckl-formats-lead">
-            From features to anime, writers showcase their work across every screen and every genre.
+            From features to anime, writers showcase their work<br />across every screen and every genre.
           </p>
         </div>
 
