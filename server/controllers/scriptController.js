@@ -6603,7 +6603,7 @@ export const uploadScriptPitchVideo = async (req, res) => {
 };
 
 // ── Writer Requests AI Trailer from Platform ──
-export const createScriptTrailerOrder = async (req, res) => {
+export const legacyRequestScriptAITrailer = async (req, res) => {
   try {
     const scriptId = req.params.id;
     const { duration, quality, format, currency } = req.body || {};
@@ -6780,6 +6780,17 @@ export const verifyScriptTrailerPayment = async (req, res) => {
 };
 
 export const requestScriptAITrailer = async (req, res) => {
+  const hasPaymentPayload =
+    Boolean(req.body?.razorpay_order_id && req.body?.razorpay_payment_id && req.body?.razorpay_signature);
+
+  if (hasPaymentPayload) {
+    return verifyScriptTrailerPayment(req, res);
+  }
+
+  return createScriptTrailerOrder(req, res);
+};
+
+export const createScriptTrailerOrder = async (req, res) => {
   try {
     const scriptId = req.params.id;
     const { note } = req.body || {};
