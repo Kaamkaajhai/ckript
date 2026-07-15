@@ -110,6 +110,14 @@ const PROJECT_SPOTLIGHT_ACTIVATION_CREDITS = 310;
 const PROJECT_SPOTLIGHT_EXTENSION_CREDITS = 150;
 const PROJECT_SPOTLIGHT_DURATION_DAYS = 30;
 const SCRIPT_UPLOAD_TERMS_VERSION = process.env.SCRIPT_UPLOAD_TERMS_VERSION || "2026-03-24";
+const TRAILER_PRICE_MATRIX = {
+  "30-480": { inr: 399, usd: 5 },
+  "30-720": { inr: 499, usd: 6 },
+  "60-480": { inr: 539, usd: 6 },
+  "60-720": { inr: 649, usd: 7 },
+  "90-480": { inr: 549, usd: 6.3 },
+  "90-720": { inr: 799, usd: 9 },
+};
 
 const WRITER_CONTACT_VIEWER_ROLES = ["investor", "producer", "director", "industry", "professional"];
 
@@ -122,6 +130,28 @@ const canViewerAccessWriterContact = (viewer, creatorId) => {
 
   const role = String(viewer?.role || "").toLowerCase();
   return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasActiveFilmIndustryProfessionalAccess(viewer);
+};
+
+const normalizeTrailerLayout = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "portrait" ? "portrait" : "landscape";
+};
+
+const getTrailerPackagePricing = (duration, quality) => {
+  const key = `${String(duration || "").trim()}-${String(quality || "").trim()}`;
+  return TRAILER_PRICE_MATRIX[key] || { inr: 0, usd: 0 };
+};
+
+const buildTrailerRequestNote = ({ duration, quality, format, currency, amount }) => {
+  const layoutLabel = normalizeTrailerLayout(format) === "portrait" ? "Portrait" : "Landscape";
+  const currencyLabel = String(currency || "INR").toUpperCase();
+  return [
+    `Duration: ${String(duration || "").trim()} sec`,
+    `Quality: ${String(quality || "").trim()}px`,
+    `Layout: ${layoutLabel}`,
+    `Display currency: ${currencyLabel}`,
+    `Price: ${currencyLabel === "USD" ? "$" : "INR"} ${String(amount ?? 0).trim()}`,
+  ].join(" | ");
 };
 
 const buildWriterContactPayload = (writerDoc) => {
@@ -6573,6 +6603,182 @@ export const uploadScriptPitchVideo = async (req, res) => {
 };
 
 // ── Writer Requests AI Trailer from Platform ──
+export const createScriptTrailerOrder = async (req, res) => {
+  try {
+    const scriptId = req.params.id;
+    const { duration, quality, format, currency } = req.body || {};
+
+    const script = await Script.findById(scriptId).populate("creator", "_id name");
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    const creatorId = String(script.creator?._id || script.creator || "");
+    if (creatorId !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
+    }
+
+    if (script.trailerStatus === "ready" && (script.trailerUrl || script.uploadedTrailerUrl)) {
+      return res.status(400).json({ message: "AI trailer is already ready for this script" });
+    }
+
+    const selectedDuration = String(duration || "").trim();
+    const selectedQuality = String(quality || "").trim();
+    const selectedFormat = normalizeTrailerLayout(format);
+    const pricing = getTrailerPackagePricing(selectedDuration, selectedQuality);
+    if (!pricing.inr || !pricing.usd) {
+      return res.status(400).json({ message: "Invalid trailer package selected" });
+    }
+
+    const buyerCurrency = resolveCurrency(currency, req.user?.preferredCurrency);
+    const chargeMajor = buyerCurrency === "USD" ? pricing.usd : pricing.inr;
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, buyerCurrency),
+      currency: buyerCurrency,
+      inrAmount: toSubunits(pricing.inr, "INR"),
+      receipt: `trailer_${script._id.toString().slice(-8)}_${Date.now()}`,
+      notes: {
+        userId: req.user._id.toString(),
+        scriptId: script._id.toString(),
+        scriptTitle: script.title,
+        creatorId: script.creator._id.toString(),
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        type: "script_ai_trailer",
+      },
+    });
+
+    return res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      fellBackToINR,
+      pricing,
+      selection: {
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+      },
+    });
+  } catch (error) {
+    console.error("Trailer order creation error:", error);
+    return res.status(500).json({ message: error.message || "Failed to create trailer payment order" });
+  }
+};
+
+export const verifyScriptTrailerPayment = async (req, res) => {
+  try {
+    const scriptId = req.params.id;
+    const {
+      note,
+      duration,
+      quality,
+      format,
+      currency,
+      amount,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body || {};
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ message: "Missing payment details" });
+    }
+
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ message: "Payment system not configured" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: "Payment verification failed - Invalid signature" });
+    }
+
+    const script = await Script.findById(scriptId);
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    const creatorId = String(script.creator?._id || script.creator || "");
+    if (creatorId !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
+    }
+
+    if (script.trailerStatus === "ready" && (script.trailerUrl || script.uploadedTrailerUrl)) {
+      return res.status(400).json({ message: "AI trailer is already ready for this script" });
+    }
+
+    const selectedDuration = String(duration || "").trim();
+    const selectedQuality = String(quality || "").trim();
+    const selectedFormat = normalizeTrailerLayout(format);
+    const pricing = getTrailerPackagePricing(selectedDuration, selectedQuality);
+    const paymentCurrency = String(currency || "INR").toUpperCase();
+    const paymentAmount = Number(amount || (paymentCurrency === "USD" ? pricing.usd : pricing.inr) || 0);
+
+    script.services = {
+      hosting: script.services?.hosting ?? true,
+      evaluation: script.services?.evaluation ?? false,
+      aiTrailer: true,
+      spotlight: script.services?.spotlight ?? false,
+    };
+    script.trailerStatus = "requested";
+    script.trailerRequestPayment = {
+      status: "paid",
+      provider: "razorpay",
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+      currency: paymentCurrency,
+      amount: paymentAmount,
+      duration: selectedDuration,
+      quality: selectedQuality,
+      format: selectedFormat,
+      paidAt: new Date(),
+    };
+    script.trailerWriterFeedback = {
+      status: "pending",
+      note: note?.trim() || buildTrailerRequestNote({
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        currency: paymentCurrency,
+        amount: paymentAmount,
+      }),
+      updatedAt: new Date(),
+    };
+    await script.save();
+
+    await notifyAdminWorkflowEvent({
+      title: "AI Trailer Approval Request",
+      section: "trailers",
+      actorId: req.user._id,
+      scriptId: script._id,
+      message: `AI trailer requested by writer for "${script.title}"`,
+      metadata: {
+        scriptId: script._id,
+        writerId: req.user._id,
+        writerNote: script.trailerWriterFeedback.note || "",
+        paymentProvider: "razorpay",
+        paymentId: razorpay_payment_id,
+      },
+    });
+
+    res.json({
+      message: "AI trailer request submitted to platform",
+      script,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const requestScriptAITrailer = async (req, res) => {
   try {
     const scriptId = req.params.id;
@@ -6583,7 +6789,8 @@ export const requestScriptAITrailer = async (req, res) => {
       return res.status(404).json({ message: "Script not found" });
     }
 
-    if (script.creator.toString() !== req.user._id.toString()) {
+    const creatorId = String(script.creator?._id || script.creator || "");
+    if (creatorId !== req.user._id.toString()) {
       return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
     }
 

@@ -68,10 +68,41 @@ import { getApiBaseUrl, isSocketSupported } from "../utils/apiOrigin";
 
 const BUYER_COMMISSION_RATE = 0.05;
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
+const RAZORPAY_SDK_SRC = "https://checkout.razorpay.com/v1/checkout.js";
 const getBuyerCheckoutTotal = (baseAmount) => {
   const base = Number(baseAmount || 0);
   return Math.round((base + base * BUYER_COMMISSION_RATE) * 100) / 100;
 };
+
+const loadRazorpaySdk = () =>
+  new Promise((resolve, reject) => {
+    if (typeof window === "undefined") {
+      reject(new Error("Browser environment unavailable"));
+      return;
+    }
+
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[data-razorpay-sdk="true"]');
+    if (existingScript) {
+      const handleLoad = () => resolve(true);
+      const handleError = () => reject(new Error("Failed to load Razorpay SDK"));
+      existingScript.addEventListener("load", handleLoad, { once: true });
+      existingScript.addEventListener("error", handleError, { once: true });
+      return;
+    }
+
+    const sdkScript = document.createElement("script");
+    sdkScript.src = RAZORPAY_SDK_SRC;
+    sdkScript.async = true;
+    sdkScript.setAttribute("data-razorpay-sdk", "true");
+    sdkScript.onload = () => resolve(true);
+    sdkScript.onerror = () => reject(new Error("Failed to load Razorpay SDK"));
+    document.body.appendChild(sdkScript);
+  });
 
 const normalizePreviewPdfPageText = (value = "") =>
   formatScreenplayLikeText(
@@ -159,6 +190,13 @@ const ScriptDetail = () => {
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [holdLoading, setHoldLoading] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
+  const [wantsTrailer, setWantsTrailer] = useState(false);
+  const [trailerCurrencyChoice, setTrailerCurrencyChoice] = useState("");
+  const [trailerDurationChoice, setTrailerDurationChoice] = useState("60");
+  const [trailerQualityChoice, setTrailerQualityChoice] = useState("720");
+  const [trailerFormatChoice, setTrailerFormatChoice] = useState("landscape");
+  const [showTrailerPaymentModal, setShowTrailerPaymentModal] = useState(false);
+  const [trailerPaymentSubmitting, setTrailerPaymentSubmitting] = useState(false);
   const [scoreLoading, setScoreLoading] = useState(false);
   const [spotlightLoading, setSpotlightLoading] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
@@ -245,6 +283,28 @@ const ScriptDetail = () => {
   const meetingsLimit = meetingStats?.meetingsLimit ?? getMeetingsLimit(user);
   const meetingsUsed = meetingStats?.meetingsUsed ?? getScheduledMeetingsCount(user);
   const meetingsBlocked = viewerHasProAccess && !meetingAlreadyScheduled && remainingMeetings <= 0;
+
+  const trailerPriceMap = {
+    "30-480": { inr: 399, usd: 5 },
+    "30-720": { inr: 499, usd: 6 },
+    "60-480": { inr: 539, usd: 6 },
+    "60-720": { inr: 649, usd: 7 },
+    "90-480": { inr: 549, usd: 6.3 },
+    "90-720": { inr: 799, usd: 9 },
+  };
+  const trailerPriceKey = `${trailerDurationChoice}-${trailerQualityChoice}`;
+  const trailerPrice = trailerPriceMap[trailerPriceKey] || { inr: 0, usd: 0 };
+  const selectedTrailerAmount = trailerCurrencyChoice === "usd" ? trailerPrice.usd : trailerPrice.inr;
+  const selectedTrailerPrefix = trailerCurrencyChoice === "usd" ? "$" : "INR";
+  const formatTrailerAmount = (amount) => Number.isInteger(amount) ? String(amount) : String(amount).replace(/\.0+$/, "");
+  const trailerCurrencyLabel = trailerCurrencyChoice === "usd" ? "USD" : trailerCurrencyChoice === "inr" ? "INR" : "";
+  const trailerSelectionSummary = [
+    `Duration: ${trailerDurationChoice} sec`,
+    `Quality: ${trailerQualityChoice}px`,
+    `Layout: ${trailerFormatChoice.charAt(0).toUpperCase() + trailerFormatChoice.slice(1)}`,
+    `Display currency: ${trailerCurrencyLabel}`,
+    `Price: ${selectedTrailerPrefix} ${formatTrailerAmount(selectedTrailerAmount)}`,
+  ].join(" | ");
 
   const writerLinks = writerContact?.links || script?.creator?.writerProfile?.links || {};
   const availableWriterLinks = [
@@ -780,30 +840,82 @@ const ScriptDetail = () => {
     if (!script?._id || trailerLoading) return;
     setTrailerLoading(true);
     try {
-      const { data } = await api.post(`/scripts/${script._id}/request-ai-trailer`, { note: "" });
+      await loadRazorpaySdk();
 
-      // Immediately reflect queue state in UI while preserving uploaded trailer visibility.
-      setScript((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          services: {
-            ...(prev.services || {}),
-            aiTrailer: true,
-          },
-          trailerStatus: "requested",
-          trailerWriterFeedback: {
-            status: "pending",
-            note: prev.trailerWriterFeedback?.note || "",
-            updatedAt: new Date().toISOString(),
-          },
-        };
+      const { data: orderData } = await api.post(`/scripts/${script._id}/request-ai-trailer/create-order`, {
+        duration: trailerDurationChoice,
+        quality: trailerQualityChoice,
+        format: trailerFormatChoice,
+        currency: trailerCurrencyLabel || "INR",
       });
 
-      await fetchScript({ silent: true });
-      alert(data?.message || "✅ AI trailer request received! Your uploaded trailer will remain visible while AI trailer is in queue.");
+      const paymentObject = new window.Razorpay({
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "ckript",
+        description: `AI Trailer: ${script.title}`,
+        order_id: orderData.orderId,
+        handler: async (response) => {
+          try {
+            const { data } = await api.post(`/scripts/${script._id}/request-ai-trailer`, {
+              note: `Payment completed via Razorpay. ${trailerSelectionSummary}`,
+              duration: trailerDurationChoice,
+              quality: trailerQualityChoice,
+              format: trailerFormatChoice,
+              currency: trailerCurrencyLabel || "INR",
+              amount: selectedTrailerAmount,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+
+            setScript((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                services: {
+                  ...(prev.services || {}),
+                  aiTrailer: true,
+                },
+                trailerStatus: "requested",
+                trailerWriterFeedback: data?.script?.trailerWriterFeedback || {
+                  status: "pending",
+                  note: `Payment completed via Razorpay. ${trailerSelectionSummary}`,
+                  updatedAt: new Date().toISOString(),
+                },
+              };
+            });
+
+            await fetchScript({ silent: true });
+            setShowTrailerPaymentModal(false);
+            alert(data?.message || "AI trailer request received! Your trailer is now queued for admin approval.");
+          } catch (err) {
+            alert(err.response?.data?.message || "Payment verification failed");
+          } finally {
+            setTrailerPaymentSubmitting(false);
+          }
+        },
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+          contact: user?.phone || "",
+        },
+        theme: {
+          color: "#1e3a5f",
+        },
+        modal: {
+          ondismiss: () => {
+            setTrailerPaymentSubmitting(false);
+          },
+        },
+      });
+
+      setShowTrailerPaymentModal(false);
+      paymentObject.open();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to generate trailer");
+      console.error("Trailer payment error:", err);
+      alert(err.response?.data?.message || err.message || "Failed to generate trailer");
     } finally {
       setTrailerLoading(false);
     }
@@ -2073,6 +2185,161 @@ const ScriptDetail = () => {
                     </div>
                   )}
 
+                  {/* Trailer generation */}
+                  <div className={`rounded-2xl p-4 border mb-3 ${t.priceSub}`}>
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Trailer Generation</p>
+                        <h3 className={`text-sm font-bold ${t.title}`}>Want to generate a trailer?</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setWantsTrailer(true)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                            wantsTrailer ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                          }`}
+                        >
+                          Yes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWantsTrailer(false)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                            !wantsTrailer ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                          }`}
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+
+                    {wantsTrailer && (
+                      <div className="mt-4 space-y-3">
+                        <div>
+                          <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Length</p>
+                          <div className="flex flex-wrap gap-2">
+                            {["30", "60", "90"].map((value) => (
+                              <button
+                                key={value}
+                                type="button"
+                                onClick={() => setTrailerDurationChoice(value)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                                  trailerDurationChoice === value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                }`}
+                              >
+                                {value} sec
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {trailerDurationChoice && (
+                          <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Quality</p>
+                            <div className="flex flex-wrap gap-2">
+                              {["480", "720"].map((value) => (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  onClick={() => setTrailerQualityChoice(value)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                                    trailerQualityChoice === value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                  }`}
+                                >
+                                  {value}px
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {trailerDurationChoice && trailerQualityChoice && (
+                          <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Layout</p>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { value: "landscape", label: "Landscape" },
+                                { value: "portrait", label: "Portrait" },
+                              ].map((item) => (
+                                <button
+                                  key={item.value}
+                                  type="button"
+                                  onClick={() => setTrailerFormatChoice(item.value)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                                    trailerFormatChoice === item.value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {trailerDurationChoice && trailerQualityChoice && trailerFormatChoice && (
+                          <div>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Display amount in</p>
+                            <div className="flex flex-wrap gap-2">
+                              {[
+                                { value: "inr", label: "INR" },
+                                { value: "usd", label: "USD" },
+                              ].map((item) => (
+                                <button
+                                  key={item.value}
+                                  type="button"
+                                  onClick={() => setTrailerCurrencyChoice(item.value)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                                    trailerCurrencyChoice === item.value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {trailerCurrencyChoice && trailerDurationChoice && trailerQualityChoice && trailerFormatChoice && (
+                          <>
+                            <div className={`rounded-2xl border px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap ${t.inset}`}>
+                              <div>
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${t.label}`}>Price Preview</p>
+                                <p className={`text-sm font-semibold ${t.title}`}>Trailer cost updates with your selection</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white border border-emerald-400">
+                                  {trailerCurrencyChoice === "usd" ? "$" : "INR"} {formatTrailerAmount(selectedTrailerAmount)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>{trailerDurationChoice} sec</span>
+                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>{trailerQualityChoice}px</span>
+                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>
+                                {trailerFormatChoice.charAt(0).toUpperCase() + trailerFormatChoice.slice(1)}
+                              </span>
+                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>
+                                {trailerCurrencyChoice === "usd" ? "USD" : "INR"}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setShowTrailerPaymentModal(true)}
+                              disabled={trailerLoading || trailerPaymentSubmitting}
+                              className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 border ${t.btnGhost}`}
+                            >
+                              <Film size={14} />
+                              {trailerPaymentSubmitting ? "Opening payment..." : "Proceed to Payment"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Action buttons */}
                   <div className={`rounded-2xl p-4 border space-y-2 ${t.priceSub}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Actions</p>
@@ -2168,21 +2435,6 @@ const ScriptDetail = () => {
                         Currently Held
                       </div>
                     )}
-
-                    {isOwner && hasAiTrailerService && !["requested", "generating"].includes(script.trailerStatus) && (
-                      <button
-                        onClick={handleGenerateTrailer}
-                        disabled={trailerLoading}
-                        className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 border ${t.btnGhost}`}
-                      >
-                        <Film size={14} />
-                        {trailerLoading
-                          ? "Submitting request..."
-                          : "Generate Included AI Trailer"}
-                      </button>
-                    )}
-
-
 
                     {/* Evaluation manual button removed */}
 
@@ -3253,7 +3505,89 @@ const ScriptDetail = () => {
             </div>
           </div>
         </div>
-      )}
+      )} 
+
+      {/* Trailer payment modal */}
+      <AnimatePresence>
+        {showTrailerPaymentModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => !(trailerPaymentSubmitting || trailerLoading) && setShowTrailerPaymentModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`rounded-2xl shadow-2xl max-w-md w-full p-6 border ${t.card}`}
+            >
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Razorpay Payment</p>
+                  <h2 className={`text-lg font-extrabold ${t.title}`}>Pay to generate trailer</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTrailerPaymentModal(false)}
+                  disabled={trailerPaymentSubmitting || trailerLoading}
+                  className={`p-1.5 rounded-lg transition ${t.btnSec}`}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className={`rounded-xl border px-4 py-3 mb-4 ${t.inset}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide mb-2 ${t.label}`}>Selected package</p>
+                <p className={`text-sm font-semibold ${t.title}`}>{trailerSelectionSummary}</p>
+              </div>
+
+              <div className={`rounded-xl border px-4 py-3 mb-4 ${t.inset}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide ${t.label}`}>Amount to pay</p>
+                <p className={`text-2xl font-extrabold mt-1 ${t.title}`}>
+                  {trailerCurrencyChoice === "usd" ? "$" : "INR"} {formatTrailerAmount(selectedTrailerAmount)}
+                </p>
+                <p className={`text-[11px] mt-1 ${t.muted}`}>
+                  Secure payment through Razorpay.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowTrailerPaymentModal(false)}
+                  disabled={trailerPaymentSubmitting || trailerLoading}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition disabled:opacity-50 border ${t.btnSec}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateTrailer}
+                  disabled={trailerPaymentSubmitting || trailerLoading}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 border ${t.btnPrim}`}
+                >
+                  {trailerPaymentSubmitting || trailerLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Film size={14} />
+                      Pay & Generate
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Trailer modal */}
       {showTrailer && hasTrailer && (
@@ -3376,3 +3710,4 @@ const ScriptDetail = () => {
 };
 
 export default ScriptDetail;
+
