@@ -850,7 +850,7 @@ const ScriptDetail = () => {
       });
 
       const paymentObject = new window.Razorpay({
-        key: orderData.key || orderData.keyId,
+        key: orderData.key || orderData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount: orderData.amount,
         currency: orderData.currency,
         name: "ckript",
