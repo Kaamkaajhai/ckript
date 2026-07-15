@@ -842,7 +842,7 @@ const ScriptDetail = () => {
     try {
       await loadRazorpaySdk();
 
-      const { data: orderData } = await api.post(`/scripts/${script._id}/request-ai-trailer`, {
+      const { data: orderData } = await api.post(`/scripts/${script._id}/request-ai-trailer/create-order`, {
         duration: trailerDurationChoice,
         quality: trailerQualityChoice,
         format: trailerFormatChoice,
@@ -850,7 +850,7 @@ const ScriptDetail = () => {
       });
 
       const paymentObject = new window.Razorpay({
-        key: orderData.keyId,
+        key: orderData.key || orderData.keyId,
         amount: orderData.amount,
         currency: orderData.currency,
         name: "ckript",
