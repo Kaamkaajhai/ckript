@@ -129,7 +129,7 @@ export function useFilmIndustryProfessionalCheckout() {
         );
 
         const options = {
-          key: orderData.key,
+          key: orderData.key || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SWgJpCDuk8M4ap",
           amount: orderData.amount,
           currency: orderData.currency,
           name: "Ckript",
