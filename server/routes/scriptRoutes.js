@@ -102,7 +102,7 @@ router.post("/:id/upload-thumbnail", protect, uploadThumbnailWithLimit, uploadSc
 router.post("/:id/upload-trailer", protect, uploadTrailerWithLimit, uploadScriptTrailer);
 router.post("/:id/upload-pitch-video", protect, uploadPitchVideoWithLimit, uploadScriptPitchVideo);
 router.post("/:id/request-ai-trailer/create-order", protect, createScriptTrailerOrder);
-router.post("/:id/request-ai-trailer", protect, verifyScriptTrailerPayment);
+router.post("/:id/request-ai-trailer", protect, requestScriptAITrailer);
 router.post("/:id/trailer-feedback", protect, submitTrailerFeedback);
 router.post("/:id/activate-spotlight", protect, activateProjectSpotlight);
 router.post("/activate-spotlight", protect, activateProjectSpotlight);

@@ -842,7 +842,7 @@ const ScriptDetail = () => {
     try {
       await loadRazorpaySdk();
 
-      const { data: orderData } = await api.post(`/scripts/${script._id}/request-ai-trailer/create-order`, {
+      const { data: orderData } = await api.post(`/scripts/${script._id}/request-ai-trailer`, {
         duration: trailerDurationChoice,
         quality: trailerQualityChoice,
         format: trailerFormatChoice,
