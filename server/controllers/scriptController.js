@@ -6603,7 +6603,8 @@ export const uploadScriptPitchVideo = async (req, res) => {
 };
 
 // ── Writer Requests AI Trailer from Platform ──
-export const legacyRequestScriptAITrailer = async (req, res) => {
+// Writer Feedback for Platform AI Trailer
+export const createScriptTrailerOrder = async (req, res) => {
   try {
     const scriptId = req.params.id;
     const { duration, quality, format, currency } = req.body || {};
@@ -6626,6 +6627,7 @@ export const legacyRequestScriptAITrailer = async (req, res) => {
     const selectedQuality = String(quality || "").trim();
     const selectedFormat = normalizeTrailerLayout(format);
     const pricing = getTrailerPackagePricing(selectedDuration, selectedQuality);
+
     if (!pricing.inr || !pricing.usd) {
       return res.status(400).json({ message: "Invalid trailer package selected" });
     }
@@ -6654,6 +6656,7 @@ export const legacyRequestScriptAITrailer = async (req, res) => {
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID,
       keyId: process.env.RAZORPAY_KEY_ID,
       fellBackToINR,
       pricing,
@@ -6779,117 +6782,6 @@ export const verifyScriptTrailerPayment = async (req, res) => {
   }
 };
 
-export const requestScriptAITrailer = async (req, res) => {
-  const hasPaymentPayload =
-    Boolean(req.body?.razorpay_order_id && req.body?.razorpay_payment_id && req.body?.razorpay_signature);
-
-  if (hasPaymentPayload) {
-    return verifyScriptTrailerPayment(req, res);
-  }
-
-  return createScriptTrailerOrder(req, res);
-};
-
-export const createScriptTrailerOrder = async (req, res) => {
-  try {
-    const scriptId = req.params.id;
-    const { note } = req.body || {};
-
-    const script = await Script.findById(scriptId);
-    if (!script) {
-      return res.status(404).json({ message: "Script not found" });
-    }
-
-    const creatorId = String(script.creator?._id || script.creator || "");
-    if (creatorId !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
-    }
-
-    if (script.trailerStatus === "ready" && script.trailerUrl) {
-      return res.status(400).json({ message: "AI trailer is already ready for this script" });
-    }
-
-    const alreadyPaid = Boolean(
-      script.services?.aiTrailer || Number(script.billing?.spotlightCreditsChargedAtUpload || 0) > 0
-    );
-
-    if (!alreadyPaid) {
-      const user = await User.findById(req.user._id);
-      const requiredCredits = CREDIT_PRICES.AI_TRAILER;
-      const userBalance = user?.credits?.balance || 0;
-
-      if (userBalance < requiredCredits) {
-        return res.status(402).json({
-          message: `Insufficient credits. AI Trailer generation requires ${requiredCredits} credits.`,
-          requiresCredits: true,
-          required: requiredCredits,
-          balance: userBalance,
-          shortfall: requiredCredits - userBalance,
-        });
-      }
-
-      user.credits.balance -= requiredCredits;
-      user.credits.totalSpent += requiredCredits;
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -requiredCredits,
-        description: `AI Trailer generation for "${script.title}"`,
-        reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date(),
-      });
-      await user.save();
-
-      const currentBilling = script.billing || {};
-      script.billing = {
-        ...currentBilling,
-        evaluationCreditsCharged: Number(currentBilling.evaluationCreditsCharged || 0),
-        aiTrailerCreditsCharged: Number(currentBilling.aiTrailerCreditsCharged || 0) + requiredCredits,
-        evaluationCreditsRefunded: Number(currentBilling.evaluationCreditsRefunded || 0),
-        aiTrailerCreditsRefunded: Number(currentBilling.aiTrailerCreditsRefunded || 0),
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0),
-        lastSpotlightRefundCredits: Number(currentBilling.lastSpotlightRefundCredits || 0),
-        lastSpotlightActivatedAt: currentBilling.lastSpotlightActivatedAt,
-      };
-      script.markModified("billing");
-    }
-
-    script.services = {
-      hosting: script.services?.hosting ?? true,
-      evaluation: script.services?.evaluation ?? false,
-      aiTrailer: true,
-      spotlight: script.services?.spotlight ?? false,
-    };
-    script.trailerStatus = "requested";
-    script.trailerWriterFeedback = {
-      status: "pending",
-      note: note?.trim() || "",
-      updatedAt: new Date(),
-    };
-    await script.save();
-
-    await notifyAdminWorkflowEvent({
-      title: "AI Trailer Approval Request",
-      section: "trailers",
-      actorId: req.user._id,
-      scriptId: script._id,
-      message: `AI trailer requested by writer for "${script.title}"${note ? `. Note: ${note}` : ""}`,
-      metadata: {
-        scriptId: script._id,
-        writerId: req.user._id,
-        writerNote: note?.trim() || "",
-      },
-    });
-
-    res.json({
-      message: "AI trailer request submitted to platform",
-      script,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// ── Writer Feedback for Platform AI Trailer ──
 export const submitTrailerFeedback = async (req, res) => {
   try {
     const scriptId = req.params.id;
@@ -6994,3 +6886,6 @@ export const generateAiCover = async (req, res) => {
     res.status(500).json({ message: "Failed to generate AI cover." });
   }
 };
+
+
+
