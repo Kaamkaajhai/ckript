@@ -29,9 +29,11 @@ import {
     editScriptAsAdmin,
     scoreScript,
     getTrailerRequests,
+    getAvailableTrailers,
     approveTrailer,
     uploadAdminTrailerFile,
     uploadTrailerAsAdmin,
+    removeTrailerAsAdmin,
     loginAsUser,
     getScriptDetail,
     deleteScriptAsAdmin,
@@ -92,6 +94,7 @@ router.get("/scripts/evaluation-purchases", getEvaluationPurchases);
 router.get("/scripts/investor-purchases", getInvestorPurchases);
 router.get("/scripts/pending", getPendingScripts);
 router.get("/scripts/trailer-requests", getTrailerRequests);
+router.get("/scripts/ai-trailers", getAvailableTrailers);
 router.get("/scripts/:id", getScriptDetail);
 router.delete("/scripts/:id", deleteScriptAsAdmin);
 router.put("/scripts/:id/approve", approveScript);
@@ -100,6 +103,7 @@ router.put("/scripts/:id/edit", editScriptAsAdmin);
 router.put("/scripts/:id/score", scoreScript);
 router.put("/scripts/:id/trailer-approve", approveTrailer);
 router.post("/scripts/:id/upload-trailer", uploadAdminTrailerFile, uploadTrailerAsAdmin);
+router.delete("/scripts/:id/remove-trailer", removeTrailerAsAdmin);
 
 // Payments
 router.get("/payments", getPayments);
