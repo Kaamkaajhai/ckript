@@ -25,7 +25,7 @@ const SCREEN_COPY = {
   media: ["Step 2 of 5 · Details", "Visual assets", "Add a cover, trailer, or pitch video to make the listing more discoverable."],
   classify: ["Step 3 of 5 · Classify", "Classification", "Help the right readers discover your script by setting its genre, tone, themes, and setting."],
   film: ["Step 4 of 5 · Film Info", "Film production details", "Share your language, creative intent, dialogue coverage, and screenplay style."],
-  publish: ["Step 5 of 5 · Publish", "Rights, pricing & publish", "Choose how buyers can use your script, set access pricing, and review the legal terms."],
+  publish: ["Step 5 of 5 · Publish", "Pricing & publish", ""],
 };
 
 const TIPS = {
@@ -568,31 +568,7 @@ function FilmPanel({ vm }) {
         </div>
       </div>
 
-      <div>
-        <FieldLabel meta={state.filmDetails.scriptStyle.length + "/8 · Optional"}>Script style</FieldLabel>
-        <div className="su-style-grid">
-          {options.styles.map((style) => {
-            const selected = state.filmDetails.scriptStyle.includes(style.id);
-            return (
-              <button
-                type="button"
-                key={style.id}
-                className={selected ? "is-selected" : ""}
-                aria-pressed={selected}
-                onClick={() => actions.setFilmDetails((current) => ({
-                  ...current,
-                  scriptStyle: current.scriptStyle.includes(style.id)
-                    ? current.scriptStyle.filter((item) => item !== style.id)
-                    : [...current.scriptStyle, style.id].slice(0, 8),
-                }))}
-              >
-                <strong>{style.id}</strong>
-                <span>{style.desc}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+
     </div>
   );
 }
@@ -629,303 +605,56 @@ function PublishPanel({ vm }) {
 
   return (
     <div className="su-panel-stack su-publish-panel">
-      <div>
-        <h3 className="su-section-title">How buyers get your script</h3>
-        <div id="su-rights-type" className="su-rights-list" tabIndex={-1} {...validationFieldProps(state, "su-rights-type")}>
-          {options.rights.map((item) => (
-            <SelectableCard
-              key={item.value}
-              selected={state.rightsLicensing.rightsType === item.value}
-              onClick={() => setRights({ rightsType: item.value })}
-              title={item.title}
-              tag={item.tag}
-            >
-              {item.desc}
-            </SelectableCard>
-          ))}
-        </div>
-      </div>
-
-      {state.rightsLicensing.rightsType === "exclusive_license" && (
-        <div className="su-card">
-          <h3 className="su-card-title">License duration</h3>
-          <div className="su-duration-row">
-            {options.licenseDurations.map((months) => {
-              const selected = Number(state.rightsLicensing.timeBound.licenseDurationMonths) === months;
-              return (
-                <button
-                  type="button"
-                  key={months}
-                  className={selected ? "is-selected" : ""}
-                  aria-pressed={selected}
-                  onClick={() => setRights({
-                    timeBound: {
-                      ...state.rightsLicensing.timeBound,
-                      licenseDurationMonths: months,
-                      autoRevertToWriter: true,
-                    },
-                  })}
-                >
-                  {months} months
-                </button>
-              );
-            })}
-          </div>
-          <FieldLabel htmlFor="su-license-duration" meta="1–120 months">Custom duration</FieldLabel>
-          <input
-            id="su-license-duration"
-            type="number"
-            min="1"
-            max="120"
-            value={state.rightsLicensing.timeBound.licenseDurationMonths}
-            onChange={(event) => setRights({
-              timeBound: {
-                ...state.rightsLicensing.timeBound,
-                licenseDurationMonths: Number(event.target.value),
-                autoRevertToWriter: true,
-              },
-            })}
-            {...validationFieldProps(state, "su-license-duration")}
-          />
-        </div>
-      )}
-
-      <div className="su-accordions">
-        {accordionSections.map(([key, label, summary]) => {
-          const isOpen = visibleSection === key;
-          const bodyId = "su-publish-" + key;
-          return (
-            <section key={key} className={isOpen ? "is-open" : ""}>
-              <button
-                type="button"
-                onClick={() => setOpenSection((current) => current === key ? "" : key)}
-                aria-expanded={isOpen}
-                aria-controls={bodyId}
-              >
-                <span><strong>{label}</strong><small>· {summary}</small></span>
-                <MatIcon name={isOpen ? "expand_less" : "expand_more"} size={20} />
-              </button>
-
-              {isOpen && (
-                <div id={bodyId} className="su-accordion-body" tabIndex={-1} {...validationFieldProps(state, bodyId)}>
-                  {key === "modification" && options.modification.map((item) => (
-                    <label key={item.value}>
-                      <input
-                        type="radio"
-                        name="modificationRights"
-                        checked={state.rightsLicensing.modificationRights === item.value}
-                        onChange={() => setRights({ modificationRights: item.value })}
-                      />
-                      {item.label}
-                    </label>
-                  ))}
-
-                  {key === "payment" && (
-                    <>
-                      <div className="su-payment-grid">
-                        {options.payments.map((item) => (
-                          <button
-                            type="button"
-                            key={item.value}
-                            className={state.rightsLicensing.paymentStructure === item.value ? "is-selected" : ""}
-                            aria-pressed={state.rightsLicensing.paymentStructure === item.value}
-                            onClick={() => setRights({ paymentStructure: item.value })}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                      {royaltyBased && (
-                        <div className="su-grid-2">
-                          <div>
-                            <FieldLabel htmlFor="su-royalty-percentage" meta="1–100%" required>Royalty percentage</FieldLabel>
-                            <input
-                              id="su-royalty-percentage"
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={state.rightsLicensing.royaltySettings.percentage}
-                              onChange={(event) => setRights({
-                                royaltySettings: {
-                                  ...state.rightsLicensing.royaltySettings,
-                                  percentage: Number(event.target.value),
-                                },
-                              })}
-                              {...validationFieldProps(state, "su-royalty-percentage")}
-                            />
-                          </div>
-                          <div>
-                            <FieldLabel htmlFor="su-royalty-duration">Royalty duration</FieldLabel>
-                            <select
-                              id="su-royalty-duration"
-                              value={state.rightsLicensing.royaltySettings.durationType}
-                              onChange={(event) => setRights({
-                                royaltySettings: {
-                                  ...state.rightsLicensing.royaltySettings,
-                                  durationType: event.target.value,
-                                },
-                              })}
-                            >
-                              <option value="none">Not specified</option>
-                              <option value="years">Fixed years</option>
-                              <option value="project_lifetime">Project lifetime</option>
-                            </select>
-                          </div>
-                          {state.rightsLicensing.royaltySettings.durationType === "years" && (
-                            <div>
-                              <FieldLabel htmlFor="su-royalty-years">Royalty years</FieldLabel>
-                              <input
-                                id="su-royalty-years"
-                                type="number"
-                                min="1"
-                                max="99"
-                                value={state.rightsLicensing.royaltySettings.durationYears}
-                                onChange={(event) => setRights({
-                                  royaltySettings: {
-                                    ...state.rightsLicensing.royaltySettings,
-                                    durationYears: Number(event.target.value),
-                                  },
-                                })}
-                                {...validationFieldProps(state, "su-royalty-years")}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {key === "negotiation" && options.negotiations.map((item) => (
-                    <label key={item.value}>
-                      <input
-                        type="radio"
-                        name="negotiationMode"
-                        checked={state.rightsLicensing.negotiationMode === item.value}
-                        onChange={() => setRights({ negotiationMode: item.value })}
-                      />
-                      {item.label}
-                    </label>
-                  ))}
-
-                  {key === "custom" && (
-                    <div className="su-panel-stack">
-                      <div>
-                        <FieldLabel htmlFor="su-rights-conditions" meta={state.rightsLicensing.customConditions.length + "/5000"}>Rights conditions</FieldLabel>
-                        <textarea
-                          id="su-rights-conditions"
-                          rows={4}
-                          maxLength={5000}
-                          value={state.rightsLicensing.customConditions}
-                          onChange={(event) => setRights({ customConditions: event.target.value })}
-                          placeholder="Add rights-specific conditions…"
-                          {...validationFieldProps(state, "su-rights-conditions")}
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel htmlFor="su-investor-terms" meta={state.legal.customInvestorTerms.length + "/3000"}>Investor terms</FieldLabel>
-                        <textarea
-                          id="su-investor-terms"
-                          rows={3}
-                          maxLength={3000}
-                          value={state.legal.customInvestorTerms}
-                          onChange={(event) => actions.setLegal((current) => ({ ...current, customInvestorTerms: event.target.value }))}
-                          placeholder="Add separate investor conditions…"
-                          {...validationFieldProps(state, "su-investor-terms")}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
-          );
-        })}
-      </div>
 
       <div className="su-card su-pricing-card">
         <header>
-          <div><h3>Set your price</h3><p>{computed.priceGuide}</p></div>
-          <div className="su-paid-toggle">
-            <span>Paid access</span>
-            <Toggle checked={state.isPremium} onChange={actions.setIsPremium} label="Paid script access" />
-          </div>
+          <div><h3>Set your script price</h3></div>
         </header>
-        {state.isPremium ? (
-          <>
-            <div className="su-price-row">
-              {options.pricePresets.map((price) => {
-                const selected = !state.useCustomPrice && state.scriptPrice === price;
-                return (
-                  <button
-                    type="button"
-                    key={price}
-                    className={selected ? "is-selected" : ""}
-                    aria-pressed={selected}
-                    onClick={() => {
-                      actions.setUseCustomPrice(false);
-                      actions.setScriptPrice(price);
-                    }}
-                  >
-                    ₹{price}
-                  </button>
-                );
-              })}
-              <button type="button" className={state.useCustomPrice ? "is-selected" : ""} aria-pressed={state.useCustomPrice} onClick={() => actions.setUseCustomPrice(true)}>
-                Custom
-              </button>
-            </div>
-            {state.useCustomPrice && (
-              <input
-                id="su-custom-price"
-                aria-label="Custom script access price"
-                type="number"
-                min="1"
-                value={state.customPriceInput}
-                onChange={(event) => actions.setCustomPriceInput(event.target.value.replace(/^0+(?=\d)/, ""))}
-                placeholder="Enter access price"
-                {...validationFieldProps(state, "su-custom-price")}
-              />
-            )}
-            <div className="su-payout-grid">
-              <div><span>Buyer pays (incl. 5%)</span><strong>₹{computed.buyerTotalPayable.toLocaleString("en-IN")}</strong></div>
-              <div><span>Your payout</span><strong>₹{computed.writerPayout.toLocaleString("en-IN")}</strong></div>
-            </div>
-          </>
-        ) : (
-          <p className="su-free-note">Your script will be listed for free public access. Anyone can read it, and there is no writer payout.</p>
-        )}
-      </div>
-
-      <div>
-        <h3 className="su-section-title">Boost your listing <small>· optional services</small></h3>
-        <div id="su-services" className="su-service-list" tabIndex={-1} {...validationFieldProps(state, "su-services")}>
-          {computed.publishServices.map((service) => {
-            const locked = freePlan && service.key !== "hosting";
+        <div className="su-price-row">
+          {options.pricePresets.map((price) => {
+            const selected = !state.useCustomPrice && state.scriptPrice === price;
             return (
               <button
                 type="button"
-                key={service.key}
-                className={service.enabled ? "is-selected" : ""}
-                aria-pressed={service.enabled}
-                disabled={service.key === "hosting"}
-                onClick={() => locked ? actions.openPricing() : service.onToggle()}
+                key={price}
+                className={selected ? "is-selected" : ""}
+                aria-pressed={selected}
+                onClick={() => {
+                  actions.setUseCustomPrice(false);
+                  actions.setScriptPrice(price);
+                }}
               >
-                <span className="su-check-box">{service.enabled && <MatIcon name="check" size={13} />}</span>
-                <span><strong>{service.label}</strong><small>{service.detail}</small></span>
-                <em>{locked ? "Upgrade" : service.meta}</em>
+                ₹{price}
               </button>
             );
           })}
+          <button type="button" className={state.useCustomPrice ? "is-selected" : ""} aria-pressed={state.useCustomPrice} onClick={() => actions.setUseCustomPrice(true)}>
+            Custom
+          </button>
+        </div>
+        {state.useCustomPrice && (
+          <input
+            id="su-custom-price"
+            aria-label="Custom script access price"
+            type="number"
+            min="1"
+            value={state.customPriceInput}
+            onChange={(event) => actions.setCustomPriceInput(event.target.value.replace(/^0+(?=\d)/, ""))}
+            placeholder="Enter access price"
+            {...validationFieldProps(state, "su-custom-price")}
+          />
+        )}
+        <div className="su-payout-grid">
+          <div><span>Buyer pays (incl. 5%)</span><strong>₹{computed.buyerTotalPayable.toLocaleString("en-IN")}</strong></div>
+          <div><span>Your payout</span><strong>₹{computed.writerPayout.toLocaleString("en-IN")}</strong></div>
         </div>
       </div>
+
+
 
       <div className="su-card su-legal-card">
         <h3 className="su-card-title">Legal acknowledgements</h3>
         <div className="su-legal-checks">
-          <label>
-            <input id="su-legal-ownership" type="checkbox" checked={legalAck.ownershipConfirmed} onChange={(event) => setAck("ownershipConfirmed", event.target.checked)} {...validationFieldProps(state, "su-legal-ownership")} />
-            <span>I own or control all rights required for this listing.</span>
-          </label>
           <label>
             <input
               id="su-legal-terms"
@@ -940,10 +669,6 @@ function PublishPanel({ vm }) {
             />
             <span>I accept the <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer">Script Upload Terms & Conditions</Link>.</span>
           </label>
-          <label>
-            <input id="su-legal-exclusivity" type="checkbox" checked={legalAck.exclusivityUnderstood} onChange={(event) => setAck("exclusivityUnderstood", event.target.checked)} {...validationFieldProps(state, "su-legal-exclusivity")} />
-            <span>I understand exclusivity is enforced for settled transactions.</span>
-          </label>
         </div>
         <div ref={agreementRef} className="su-agreement" tabIndex="0">
           <pre>{computed.legalAgreement}</pre>
@@ -951,17 +676,7 @@ function PublishPanel({ vm }) {
         <p className="su-agreement-status">{state.agreementScrolled ? "Agreement reviewed" : "Scroll to review the complete agreement"}</p>
       </div>
 
-      <details className="su-invoice">
-        <summary>Checkout and payout breakdown</summary>
-        <div>
-          {computed.publishInvoiceRows.map((row) => (
-            <div key={row.item}>
-              <span><strong>{row.item}</strong><small>{row.detail}</small></span>
-              <b>{row.amount}</b>
-            </div>
-          ))}
-        </div>
-      </details>
+
     </div>
   );
 }

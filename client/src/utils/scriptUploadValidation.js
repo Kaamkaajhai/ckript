@@ -191,53 +191,11 @@ export const validateUploadScreen = (screen, context = {}) => {
   }
 
   if (screen === "publish") {
-    if (!RIGHTS_TYPES.has(rightsLicensing.rightsType)) {
-      issues.push(issue("publish", "su-rights-type", "Choose how buyers can license or acquire the script.", "rights-type-required"));
-    }
-    if (rightsLicensing.rightsType === "exclusive_license") {
-      const months = Number(rightsLicensing.timeBound?.licenseDurationMonths);
-      if (!Number.isInteger(months) || months < 1 || months > 120) {
-        issues.push(issue("publish", "su-license-duration", "Exclusive license duration must be between 1 and 120 months.", "license-duration-invalid"));
-      }
-    }
-    if (!MODIFICATION_RIGHTS.has(rightsLicensing.modificationRights)) {
-      issues.push(issue("publish", "su-publish-modification", "Choose the buyer's modification rights.", "modification-rights-required"));
-    }
-    if (!PAYMENT_STRUCTURES.has(rightsLicensing.paymentStructure)) {
-      issues.push(issue("publish", "su-publish-payment", "Choose a payment structure.", "payment-structure-required"));
-    }
-    if (ROYALTY_PAYMENTS.has(rightsLicensing.paymentStructure)) {
-      const percentage = Number(rightsLicensing.royaltySettings?.percentage);
-      if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
-        issues.push(issue("publish", "su-royalty-percentage", "Royalty percentage must be greater than 0 and no more than 100.", "royalty-percentage-invalid"));
-      }
-      if (rightsLicensing.royaltySettings?.durationType === "years") {
-        const years = Number(rightsLicensing.royaltySettings?.durationYears);
-        if (!Number.isInteger(years) || years < 1 || years > 99) {
-          issues.push(issue("publish", "su-royalty-years", "Royalty duration must be between 1 and 99 years.", "royalty-years-invalid"));
-        }
-      }
-    }
-    if (!NEGOTIATION_MODES.has(rightsLicensing.negotiationMode)) {
-      issues.push(issue("publish", "su-publish-negotiation", "Choose whether the commercial terms are negotiable.", "negotiation-mode-required"));
-    }
-    if (String(rightsLicensing.customConditions || "").trim().length > maxRightsConditionsLength) {
-      issues.push(issue("publish", "su-rights-conditions", `Rights conditions cannot exceed ${maxRightsConditionsLength} characters.`, "rights-conditions-too-long"));
-    }
-    if (isPremium && Number(effectivePrice) <= 0) {
-      issues.push(issue("publish", "su-custom-price", "Enter a valid paid-access price or turn off paid access.", "price-required"));
-    }
-    if (String(legal.customInvestorTerms || "").trim().length > maxInvestorTermsLength) {
-      issues.push(issue("publish", "su-investor-terms", `Investor terms cannot exceed ${maxInvestorTermsLength} characters.`, "investor-terms-too-long"));
-    }
-    if (!rightsLicensing.legalAcknowledgement?.ownershipConfirmed) {
-      issues.push(issue("publish", "su-legal-ownership", "Confirm that you own or control the required script rights.", "ownership-confirmation-required"));
+    if (Number(effectivePrice) <= 0) {
+      issues.push(issue("publish", "su-custom-price", "Enter a valid paid-access price.", "price-required"));
     }
     if (!legal.agreedToTerms || !rightsLicensing.legalAcknowledgement?.platformTermsAccepted) {
       issues.push(issue("publish", "su-legal-terms", "Accept the Script Upload Terms & Conditions.", "platform-terms-required"));
-    }
-    if (!rightsLicensing.legalAcknowledgement?.exclusivityUnderstood) {
-      issues.push(issue("publish", "su-legal-exclusivity", "Acknowledge how exclusivity is enforced.", "exclusivity-acknowledgement-required"));
     }
   }
 

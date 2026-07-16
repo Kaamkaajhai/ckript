@@ -2631,16 +2631,7 @@ const ScriptDetail = () => {
                           </div>
                         </div>
                       )}
-                      {fd.scriptStyle?.length > 0 && (
-                        <div className={`rounded-xl border p-3.5 sm:col-span-2 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50"}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Script Style</p>
-                          <div className="flex flex-wrap gap-2">
-                            {fd.scriptStyle.map((s) => (
-                              <span key={s} className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${isDarkMode ? "bg-white/[0.06] text-white/80 border-white/[0.08]" : "bg-gray-100 text-gray-700 border-gray-200"}`}>{s}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+
                     </div>
                   </div>
                 )}

@@ -580,7 +580,7 @@ const ScriptUpload = () => {
   const [scriptPrice, setScriptPrice] = useState(10);
   const [customPriceInput, setCustomPriceInput] = useState("");
   const [useCustomPrice, setUseCustomPrice] = useState(false);
-  const effectivePrice = isPremium ? (useCustomPrice ? Number(customPriceInput) || 0 : scriptPrice) : 0;
+  const effectivePrice = useCustomPrice ? Number(customPriceInput) || 0 : scriptPrice;
   const buyerCommissionAmount = Math.round(effectivePrice * BUYER_COMMISSION_RATE * 100) / 100;
   const buyerTotalPayable = Math.round((effectivePrice + buyerCommissionAmount) * 100) / 100;
   const writerPayout = Math.round(effectivePrice * 100) / 100;
@@ -1610,8 +1610,8 @@ const ScriptUpload = () => {
           aiTrailer: trailerOption === "ai",
           spotlight: services.spotlight,
         },
-        premium: isPremium && effectivePrice > 0,
-        price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
+        premium: effectivePrice > 0,
+        price: effectivePrice > 0 ? effectivePrice : 0,
         legal: {
           agreedToTerms: legal.agreedToTerms,
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
@@ -1871,8 +1871,8 @@ const ScriptUpload = () => {
           wantToProduce: filmDetails.wantToProduce,
           scriptStyle: filmDetails.scriptStyle,
         },
-        premium: isPremium && effectivePrice > 0,
-        price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
+        premium: effectivePrice > 0,
+        price: effectivePrice > 0 ? effectivePrice : 0,
         // If this was created via the editor, attach the draftId so the backend updates/converts it
         ...(scriptId ? { scriptId } : {}),
       };
