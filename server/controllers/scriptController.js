@@ -796,14 +796,8 @@ const validateRightsLicensingPayload = (rightsLicensing = {}) => {
   if (String(rightsLicensing?.customConditions || "").trim().length > MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH) {
     errors.push(`Rights conditions must be ${MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH} characters or fewer.`);
   }
-  if (!toBoolean(legalAcknowledgement.ownershipConfirmed, false)) {
-    errors.push("Script ownership confirmation is required.");
-  }
   if (!toBoolean(legalAcknowledgement.platformTermsAccepted, false)) {
     errors.push("Platform terms acknowledgement is required.");
-  }
-  if (!toBoolean(legalAcknowledgement.exclusivityUnderstood, false)) {
-    errors.push("Exclusivity acknowledgement is required.");
   }
 
   return errors;
