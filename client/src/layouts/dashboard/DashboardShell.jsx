@@ -259,6 +259,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
   };
 
   const visiblePopups = notifPopups.slice(0, POPUP_LIMIT);
+  const isUploadWorkspace = location.pathname === "/upload";
 
   return (
     <div className="ck-dash-root">
@@ -304,7 +305,9 @@ const DashboardShell = ({ children, variant = "page" }) => {
         />
 
         <div className="ck-content-area">
-          {variant === "fill" ? children : <div className="ck-page-scroll">{children}</div>}
+          {variant === "fill"
+            ? children
+            : <div className={`ck-page-scroll${isUploadWorkspace ? " ck-page-scroll--workspace" : ""}`}>{children}</div>}
         </div>
       </div>
 

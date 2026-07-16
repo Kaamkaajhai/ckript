@@ -637,8 +637,62 @@ const normalizeRightsLicensingInput = (incoming = {}, fallback = {}) => {
 };
 
 const validateRightsLicensingPayload = (rightsLicensing = {}) => {
-  // Feature has been removed from the frontend, bypassing validation
-  return [];
+  const errors = [];
+  const legalAcknowledgement = rightsLicensing?.legalAcknowledgement || {};
+
+  if (!RIGHTS_TYPE_OPTIONS.has(rightsLicensing?.rightsType)) {
+    errors.push("Rights type is required.");
+  }
+  if (!MODIFICATION_RIGHTS_OPTIONS.has(rightsLicensing?.modificationRights)) {
+    errors.push("Modification rights selection is required.");
+  }
+  if (!PAYMENT_STRUCTURE_OPTIONS.has(rightsLicensing?.paymentStructure)) {
+    errors.push("Payment structure selection is required.");
+  }
+  if (!NEGOTIATION_MODE_OPTIONS.has(rightsLicensing?.negotiationMode)) {
+    errors.push("Negotiation mode selection is required.");
+  }
+
+  if (rightsLicensing?.rightsType === "exclusive_license") {
+    const months = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
+    if (!Number.isInteger(months) || months < MIN_LICENSE_DURATION_MONTHS || months > MAX_LICENSE_DURATION_MONTHS) {
+      errors.push(`Exclusive license duration must be between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`);
+    }
+  }
+
+  const royaltyBased = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"]
+    .includes(rightsLicensing?.paymentStructure);
+  if (royaltyBased) {
+    const percentage = Number(rightsLicensing?.royaltySettings?.percentage);
+    if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+      errors.push("Royalty percentage must be greater than 0 and no more than 100.");
+    }
+    const durationType = rightsLicensing?.royaltySettings?.durationType;
+    if (!["none", "years", "project_lifetime"].includes(durationType)) {
+      errors.push("Royalty duration type is invalid.");
+    }
+    if (durationType === "years") {
+      const durationYears = Number(rightsLicensing?.royaltySettings?.durationYears);
+      if (!Number.isInteger(durationYears) || durationYears < 1 || durationYears > 99) {
+        errors.push("Royalty duration must be between 1 and 99 years.");
+      }
+    }
+  }
+
+  if (String(rightsLicensing?.customConditions || "").trim().length > MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH) {
+    errors.push(`Rights conditions must be ${MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH} characters or fewer.`);
+  }
+  if (!toBoolean(legalAcknowledgement.ownershipConfirmed, false)) {
+    errors.push("Script ownership confirmation is required.");
+  }
+  if (!toBoolean(legalAcknowledgement.platformTermsAccepted, false)) {
+    errors.push("Platform terms acknowledgement is required.");
+  }
+  if (!toBoolean(legalAcknowledgement.exclusivityUnderstood, false)) {
+    errors.push("Exclusivity acknowledgement is required.");
+  }
+
+  return errors;
 };
 
 const buildRightsLabels = (rights = {}) => {
@@ -1608,6 +1662,16 @@ export const saveDraft = async (req, res) => {
         script.formatOther = String(otherData.formatOther || "").trim();
       }
       if (otherData.pageCount !== undefined) script.pageCount = Number(otherData.pageCount) || 0;
+      if (otherData.fileUrl !== undefined) {
+        const nextFileUrl = String(otherData.fileUrl || "").trim();
+        if (nextFileUrl && !nextFileUrl.includes("placeholder-url.com")) {
+          script.fileUrl = nextFileUrl;
+          script.projectSource = "uploaded";
+        }
+      }
+      if (otherData.projectSource !== undefined && ["uploaded", "editor"].includes(otherData.projectSource)) {
+        script.projectSource = otherData.projectSource;
+      }
       if (otherData.collabVisibility !== undefined) {
         const normalizedCollabVisibility = String(otherData.collabVisibility || "").trim().toLowerCase();
         if (["open", "private"].includes(normalizedCollabVisibility)) {
@@ -1644,6 +1708,53 @@ export const saveDraft = async (req, res) => {
           script.scriptCompletion || {}
         );
         script.markModified("scriptCompletion");
+      }
+      if (otherData.viewableScript !== undefined) {
+        script.viewableScript = Boolean(otherData.viewableScript);
+      }
+      if (otherData.scriptPreviewAccess !== undefined) {
+        script.scriptPreviewAccess = normalizeScriptPreviewAccess(otherData.scriptPreviewAccess || {}, {
+          mode: otherData.scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages",
+          start: otherData.scriptPreviewAccess?.start || script.scriptPreviewAccess?.start || 1,
+          end: otherData.scriptPreviewAccess?.end || script.scriptPreviewAccess?.end || 8,
+          maxUnits: Number(script.pageCount || 0),
+        });
+        script.markModified("scriptPreviewAccess");
+      }
+      if (otherData.scriptPreviewPageTexts !== undefined) {
+        script.scriptPreviewPageTexts = Array.isArray(otherData.scriptPreviewPageTexts)
+          ? otherData.scriptPreviewPageTexts.map((page) => String(page || ""))
+          : [];
+      }
+      if (otherData.services !== undefined) {
+        const incomingServices = otherData.services || {};
+        script.services = {
+          hosting: incomingServices.hosting !== undefined ? Boolean(incomingServices.hosting) : true,
+          evaluation: Boolean(incomingServices.evaluation),
+          aiTrailer: Boolean(incomingServices.aiTrailer),
+          spotlight: Boolean(incomingServices.spotlight),
+        };
+        script.markModified("services");
+      }
+      if (otherData.filmDetails !== undefined) {
+        const incomingFilmDetails = otherData.filmDetails || {};
+        script.filmDetails = {
+          filmLanguage: String(incomingFilmDetails.filmLanguage || "").trim().slice(0, 100),
+          dialoguesPresent: ["yes", "no", "partial"].includes(incomingFilmDetails.dialoguesPresent)
+            ? incomingFilmDetails.dialoguesPresent
+            : (script.filmDetails?.dialoguesPresent || "yes"),
+          wantToDirect: Boolean(incomingFilmDetails.wantToDirect),
+          wantToProduce: Boolean(incomingFilmDetails.wantToProduce),
+          scriptStyle: Array.isArray(incomingFilmDetails.scriptStyle)
+            ? incomingFilmDetails.scriptStyle.map((style) => String(style || "")).filter(Boolean).slice(0, 8)
+            : [],
+        };
+        script.markModified("filmDetails");
+      }
+      if (otherData.premium !== undefined || otherData.price !== undefined) {
+        const nextPrice = Math.max(0, Number(otherData.price ?? script.price ?? 0) || 0);
+        script.premium = Boolean(otherData.premium) && nextPrice > 0;
+        script.price = script.premium ? nextPrice : 0;
       }
 
       if (otherData.legal !== undefined) {
@@ -1758,6 +1869,50 @@ export const saveDraft = async (req, res) => {
         safeOtherData.scriptCompletion || {},
         {}
       );
+    }
+    if (safeOtherData.viewableScript !== undefined) {
+      safeOtherData.viewableScript = Boolean(safeOtherData.viewableScript);
+    }
+    if (safeOtherData.scriptPreviewAccess !== undefined) {
+      safeOtherData.scriptPreviewAccess = normalizeScriptPreviewAccess(safeOtherData.scriptPreviewAccess || {}, {
+        mode: safeOtherData.scriptPreviewAccess?.mode || "pages",
+        start: safeOtherData.scriptPreviewAccess?.start || 1,
+        end: safeOtherData.scriptPreviewAccess?.end || 8,
+        maxUnits: Number(safeOtherData.pageCount || 0),
+      });
+    }
+    if (safeOtherData.scriptPreviewPageTexts !== undefined) {
+      safeOtherData.scriptPreviewPageTexts = Array.isArray(safeOtherData.scriptPreviewPageTexts)
+        ? safeOtherData.scriptPreviewPageTexts.map((page) => String(page || ""))
+        : [];
+    }
+    if (safeOtherData.services !== undefined) {
+      const incomingServices = safeOtherData.services || {};
+      safeOtherData.services = {
+        hosting: incomingServices.hosting !== undefined ? Boolean(incomingServices.hosting) : true,
+        evaluation: Boolean(incomingServices.evaluation),
+        aiTrailer: Boolean(incomingServices.aiTrailer),
+        spotlight: Boolean(incomingServices.spotlight),
+      };
+    }
+    if (safeOtherData.filmDetails !== undefined) {
+      const incomingFilmDetails = safeOtherData.filmDetails || {};
+      safeOtherData.filmDetails = {
+        filmLanguage: String(incomingFilmDetails.filmLanguage || "").trim().slice(0, 100),
+        dialoguesPresent: ["yes", "no", "partial"].includes(incomingFilmDetails.dialoguesPresent)
+          ? incomingFilmDetails.dialoguesPresent
+          : "yes",
+        wantToDirect: Boolean(incomingFilmDetails.wantToDirect),
+        wantToProduce: Boolean(incomingFilmDetails.wantToProduce),
+        scriptStyle: Array.isArray(incomingFilmDetails.scriptStyle)
+          ? incomingFilmDetails.scriptStyle.map((style) => String(style || "")).filter(Boolean).slice(0, 8)
+          : [],
+      };
+    }
+    if (safeOtherData.premium !== undefined || safeOtherData.price !== undefined) {
+      const nextPrice = Math.max(0, Number(safeOtherData.price || 0) || 0);
+      safeOtherData.premium = Boolean(safeOtherData.premium) && nextPrice > 0;
+      safeOtherData.price = safeOtherData.premium ? nextPrice : 0;
     }
 
     const newDraft = await Script.create({
@@ -2003,8 +2158,13 @@ export const updateScript = async (req, res) => {
           resolvedPreviewPageTexts = [];
         }
       }
+      const rawRightsLicensing = rightsLicensing || script.rightsLicensing || {};
+      const rightsValidationErrors = validateRightsLicensingPayload(rawRightsLicensing);
+      if (rightsValidationErrors.length > 0) {
+        return res.status(400).json({ message: rightsValidationErrors[0] });
+      }
       normalizedRights = normalizeRightsLicensingInput(
-        rightsLicensing || script.rightsLicensing || {},
+        rawRightsLicensing,
         script.rightsLicensing || {}
       );
       normalizedRights.legalAcknowledgement = {
@@ -2012,11 +2172,6 @@ export const updateScript = async (req, res) => {
         acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
         ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
       };
-
-      const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
-      if (rightsValidationErrors.length > 0) {
-        return res.status(400).json({ message: rightsValidationErrors[0] });
-      }
     }
 
     const completionValidationErrors = validateScriptCompletionPayload(
@@ -2519,17 +2674,17 @@ export const uploadScript = async (req, res) => {
       return res.status(400).json({ message: `Custom investor terms must be ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters or fewer.` });
     }
 
+    const rightsValidationErrors = validateRightsLicensingPayload(rightsLicensing || {});
+    if (rightsValidationErrors.length > 0) {
+      return res.status(400).json({ message: rightsValidationErrors[0] });
+    }
+
     const normalizedRights = normalizeRightsLicensingInput(rightsLicensing || {}, {});
     normalizedRights.legalAcknowledgement = {
       ...(normalizedRights.legalAcknowledgement || {}),
       acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
       ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
     };
-
-    const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
-    if (rightsValidationErrors.length > 0) {
-      return res.status(400).json({ message: rightsValidationErrors[0] });
-    }
 
     const completionValidationErrors = validateScriptCompletionPayload(scriptCompletion || {});
     if (completionValidationErrors.length > 0) {
