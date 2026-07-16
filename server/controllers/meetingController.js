@@ -1,7 +1,14 @@
 import mongoose from "mongoose";
+import { DateTime } from "luxon";
 import Meeting from "../models/Meeting.js";
 import User from "../models/User.js";
 import Script from "../models/Script.js";
+import { decryptToken } from "../utils/tokenCrypto.js";
+import {
+  getAccessTokenFromRefresh,
+  createMeetingEvent,
+  ReconnectRequired,
+} from "../utils/googleCalendar.js";
 import {
   hasActiveFilmIndustryProfessionalAccess,
   hasReachedMeetingsLimit,
@@ -16,19 +23,12 @@ import {
   sendMeetingRejectedEmail,
 } from "../utils/emailService.js";
 
-// Generates a secure, random meeting ID
-const generateMeetingId = () => {
-  const timestamp = Date.now();
-  const randomStr = Math.random().toString(36).substring(2, 10);
-  return `ckript-${timestamp}-${randomStr}`;
-};
-
 export const requestMeeting = async (req, res) => {
   try {
     const producerId = req.user._id;
-    const { writerId, scriptId, title, scheduledDate, scheduledTime, duration, message } = req.body;
+    const { writerId, scriptId, title, scheduledDate, scheduledTime, duration, message, timeZone } = req.body;
 
-    if (!writerId || !scriptId || !title || !scheduledDate || !scheduledTime || !duration) {
+    if (!writerId || !scriptId || !title || !scheduledDate || !scheduledTime || !duration || !timeZone) {
       return res.status(400).json({ message: "All fields except message are required." });
     }
 
@@ -36,12 +36,37 @@ export const requestMeeting = async (req, res) => {
       return res.status(400).json({ message: "Invalid writer or script ID format." });
     }
 
-    const producer = await User.findById(producerId).select("name subscription email role").lean();
+    // "+…refreshTokenEnc" un-hides just that select:false field on top of the default projection —
+    // do NOT also list `googleCalendar` here or Mongo throws a parent/child path collision.
+    const producer = await User.findById(producerId)
+      .select("+googleCalendar.refreshTokenEnc")
+      .lean();
     if (!producer) return res.status(404).json({ message: "Producer not found." });
 
     if (!hasActiveFilmIndustryProfessionalAccess(producer)) {
       return res.status(403).json({ message: "Active film industry professional access is required." });
     }
+
+    // Meetings are Google Calendar events on the producer's calendar — require a connected calendar.
+    if (!producer.googleCalendar?.connected || !producer.googleCalendar?.refreshTokenEnc) {
+      return res.status(428).json({
+        message: "Connect your Google Calendar to schedule meetings.",
+        needsCalendar: true,
+      });
+    }
+
+    // Resolve the meeting instant from the producer's wall-clock date/time + their IANA timezone.
+    // startAt is the canonical UTC instant; startISO/endISO are naive local strings that Google pairs
+    // with `timeZone` to localize + apply DST for every attendee.
+    const datePart = String(scheduledDate).slice(0, 10);
+    const start = DateTime.fromISO(`${datePart}T${scheduledTime}`, { zone: timeZone });
+    if (!start.isValid) {
+      return res.status(400).json({ message: "Invalid date, time, or timezone." });
+    }
+    const end = start.plus({ minutes: Number(duration) });
+    const startAt = start.toUTC().toJSDate();
+    const startISO = start.toISO({ includeOffset: false });
+    const endISO = end.toISO({ includeOffset: false });
 
     if (hasReachedMeetingsLimit(producer)) {
       return res.status(403).json({
@@ -59,9 +84,41 @@ export const requestMeeting = async (req, res) => {
     const script = await Script.findById(scriptId).select("title").lean();
     if (!script) return res.status(404).json({ message: "Script not found." });
 
-    // Generate Jitsi link
-    const roomId = generateMeetingId();
-    const meetingLink = `https://meet.jit.si/${roomId}`;
+    // Create the Google Calendar event (with a Meet link) on the producer's calendar. Google emails
+    // both attendees the invite and localizes the time per-attendee via `timeZone`.
+    let meetingLink = "";
+    let googleEventId = "";
+    try {
+      const refreshToken = decryptToken(producer.googleCalendar.refreshTokenEnc);
+      const { accessToken } = await getAccessTokenFromRefresh(refreshToken);
+      const event = await createMeetingEvent({
+        accessToken,
+        summary: title,
+        description: [
+          `Ckript meeting about "${script.title}".`,
+          `Producer: ${producer.name}`,
+          `Writer: ${writer.name}`,
+          message ? `\nNote: ${message}` : "",
+        ].filter(Boolean).join("\n"),
+        startISO,
+        endISO,
+        timeZone,
+        attendees: [producer.email, writer.email],
+      });
+      meetingLink = event.meetLink;
+      googleEventId = event.eventId;
+    } catch (err) {
+      if (err instanceof ReconnectRequired) {
+        // Stored token is dead — flip the flag so the UI re-prompts to connect.
+        await User.updateOne({ _id: producerId }, { $set: { "googleCalendar.connected": false } });
+        return res.status(428).json({
+          message: "Your Google Calendar connection expired. Please reconnect and try again.",
+          needsCalendar: true,
+        });
+      }
+      console.error("Error creating Google Calendar event:", err?.message || err);
+      return res.status(502).json({ message: "Failed to create the calendar event. Please try again." });
+    }
 
     // Create the meeting
     const newMeeting = new Meeting({
@@ -74,8 +131,11 @@ export const requestMeeting = async (req, res) => {
       title,
       message,
       meetingLink,
+      googleEventId,
       scheduledDate,
       scheduledTime,
+      timeZone,
+      startAt,
       duration,
       status: "pending",
     });

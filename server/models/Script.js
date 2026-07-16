@@ -336,6 +336,19 @@ const scriptSchema = new mongoose.Schema({
   trailerSource: { type: String, enum: ["ai", "uploaded", "none"], default: "none" }, // Track trailer source
   // Pitch Video (short pitch, max 90s, max 90MB)
   pitchVideoUrl: { type: String },
+  trailerRequestPayment: {
+    status: { type: String, enum: ["paid", "failed", "pending"], default: "pending" },
+    provider: { type: String, enum: ["razorpay", "test", "manual", "none"], default: "none" },
+    orderId: { type: String, default: "" },
+    paymentId: { type: String, default: "" },
+    signature: { type: String, default: "" },
+    currency: { type: String, default: "INR" },
+    amount: { type: Number, default: 0 },
+    duration: { type: String, default: "" },
+    quality: { type: String, default: "" },
+    format: { type: String, default: "" },
+    paidAt: { type: Date },
+  },
   trailerWriterFeedback: {
     status: { type: String, enum: ["pending", "approved", "revision_requested"], default: "pending" },
     note: { type: String, default: "" },

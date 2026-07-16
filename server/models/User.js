@@ -52,6 +52,8 @@ const userSchema = new mongoose.Schema({
   isPrivate: { type: Boolean, default: false },
   language: { type: String, default: "en" },
   timezone: { type: String, default: "Asia/Kolkata" },
+  // Preferred display/checkout currency (auto-detected from IP, overridable via a toggle).
+  preferredCurrency: { type: String, enum: ["INR", "USD"], default: "INR" },
 
   // Email verification
   emailVerified: { type: Boolean, default: false },
@@ -433,6 +435,17 @@ const userSchema = new mongoose.Schema({
   // Stripe Connected Account (for payouts)
   stripeAccountId: { type: String },
   stripeCustomerId: { type: String },
+  // Google Calendar connection (producers schedule meetings that create a Meet event on their calendar).
+  // Account-level integration; the refresh token is encrypted at rest and never selected by default.
+  googleCalendar: {
+    connected: { type: Boolean, default: false },
+    connectedAt: { type: Date },
+    calendarEmail: { type: String },
+    refreshTokenEnc: { type: String, select: false },
+    accessToken: { type: String, select: false },
+    accessTokenExpiry: { type: Date, select: false },
+    scopes: { type: [String], default: [] },
+  },
   // Admin approval for investors
   approvalStatus: {
     type: String,

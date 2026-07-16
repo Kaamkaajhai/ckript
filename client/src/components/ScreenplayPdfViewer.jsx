@@ -2,8 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Download, LoaderCircle, FileText } from "lucide-react";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import ScreenplayViewer from "./ScreenplayViewer";
-import { formatScreenplayLikeText } from "../utils/screenplayText";
+import ScreenplayReadOnly from "./ScreenplayReadOnly";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -110,29 +109,6 @@ const PdfPage = ({ pdfDocument, pageNumber }) => {
         style={pageHeight ? { minHeight: `${pageHeight}px` } : undefined}
       >
         <canvas ref={canvasRef} className="block w-full h-auto bg-white" />
-      </div>
-    </div>
-  );
-};
-
-const FallbackPage = ({ pageNumber, totalPages, text }) => {
-  const normalizedText = useMemo(() => formatScreenplayLikeText(text), [text]);
-
-  return (
-    <div className="mx-auto w-full max-w-[794px] rounded-[18px] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(0,0,0,0.14)] overflow-hidden">
-      <div className="border-b border-slate-200 px-6 py-4 sm:px-10 sm:py-5 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500 font-bold">Page</p>
-          <p className="text-sm font-semibold text-slate-900 mt-1">
-            {pageNumber} / {totalPages}
-          </p>
-        </div>
-        <span className="text-[11px] font-semibold text-slate-500">Structured fallback</span>
-      </div>
-      <div className="px-6 py-8 sm:px-12 sm:py-10">
-        <div className="mx-auto max-w-[6.5in]">
-          <ScreenplayViewer text={normalizedText} className="text-slate-900" />
-        </div>
       </div>
     </div>
   );
@@ -306,14 +282,14 @@ export default function ScreenplayPdfViewer({
   // Only use native <object> renderer for API proxy URLs we control — external URLs (Cloudinary, etc.)
   // served with Content-Disposition:attachment trigger an unwanted browser download dialog.
   const usingNativePdfRenderer = !usingPdfRenderer && Boolean(nativePdfUrl) && String(nativePdfUrl).includes("/api/");
+  // Structured (non-PDF) fallback → render REAL stacked page sheets (Word/Docs look).
+  // The Prev/Next pager stays active for ALL rendering paths.
+  const usingFallback = !usingPdfRenderer && !usingNativePdfRenderer;
   const hasPager = showPager && previewPages.length > 1;
   const activePreviewEntry = previewPages[Math.min(activePageIndex, Math.max(previewPages.length - 1, 0))];
   const activePreviewPageNumber = usingPdfRenderer
     ? Number(activePreviewEntry || requestedPages.safeStart)
     : Number(activePreviewEntry?.pageNumber || requestedPages.safeStart);
-  const activePreviewText = usingPdfRenderer
-    ? ""
-    : String(activePreviewEntry?.text || "").trim();
   const visiblePages = hasPager ? [activePreviewEntry].filter(Boolean) : previewPages;
 
   useEffect(() => {
@@ -374,52 +350,55 @@ export default function ScreenplayPdfViewer({
 
       {visiblePages.length ? (
         <div className="space-y-6">
-          <div ref={pagerRef} style={{ scrollMarginTop: "1px" }} className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
-            <button
-              type="button"
-              onClick={() => {
-                setActivePageIndex((index) => Math.max(0, index - 1));
-                scrollToPager();
-              }}
-              disabled={!hasPager || activePageIndex === 0}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
-            >
-              <span className="!text-white">Prev</span>
-            </button>
-            <div className="text-center">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500 font-bold">Preview Page</p>
-              <p className="text-sm font-semibold text-slate-900 mt-1">
-                {activePreviewPageNumber} / {totalPages}
-              </p>
+          {hasPager && (
+            <div ref={pagerRef} style={{ scrollMarginTop: "1px" }} className="flex items-center justify-between gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_30px_rgba(0,0,0,0.08)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setActivePageIndex((index) => Math.max(0, index - 1));
+                  scrollToPager();
+                }}
+                disabled={!hasPager || activePageIndex === 0}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
+              >
+                <span className="!text-white">Prev</span>
+              </button>
+              <div className="text-center">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500 font-bold">Preview Page</p>
+                <p className="text-sm font-semibold text-slate-900 mt-1">
+                  {activePreviewPageNumber} / {totalPages}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActivePageIndex((index) => Math.min(Math.max(previewPages.length - 1, 0), index + 1));
+                  scrollToPager();
+                }}
+                disabled={!hasPager || activePageIndex >= previewPages.length - 1}
+                className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
+              >
+                <span className="!text-white">Next</span>
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setActivePageIndex((index) => Math.min(Math.max(previewPages.length - 1, 0), index + 1));
-                scrollToPager();
-              }}
-              disabled={!hasPager || activePageIndex >= previewPages.length - 1}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-700/20 bg-slate-900 px-4 py-2 text-xs font-semibold text-white opacity-100 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:opacity-100"
-            >
-              <span className="!text-white">Next</span>
-            </button>
-          </div>
+          )}
 
-          {usingPdfRenderer ? (
+          {usingFallback ? (
+            <div className="bg-[#f8fafc] p-6 rounded-[22px] border border-slate-200 relative">
+              <ScreenplayReadOnly text={String(activePreviewEntry?.text || "")} />
+              <div className="absolute bottom-4 right-6 text-xs text-slate-400 font-mono pointer-events-none z-10">
+                {activePreviewEntry?.pageNumber || activePageIndex + 1}.
+              </div>
+            </div>
+          ) : usingPdfRenderer ? (
             <PdfPage
               pdfDocument={pdfDocument}
               pageNumber={activePreviewPageNumber}
             />
-          ) : usingNativePdfRenderer ? (
+          ) : (
             <NativePdfPage
               sourceUrl={nativePdfUrl}
               pageNumber={activePreviewPageNumber}
-            />
-          ) : (
-            <FallbackPage
-              pageNumber={activePreviewPageNumber}
-              totalPages={totalPages}
-              text={activePreviewText}
             />
           )}
         </div>

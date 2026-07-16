@@ -9,11 +9,11 @@ import {
   extractPdfText, saveDraft, getScriptLimit, deleteScript, getMyDrafts, getMyScripts, updateScript,
   getScriptSubmissionSummaryPdf,
   getPurchaseRequestAcceptancePdf,
-  createScriptPurchaseOrder, verifyScriptPurchase,
-  createScriptHoldOrder, verifyScriptHold,
+  createScriptPurchaseOrder, verifyScriptPurchase, getScriptPurchaseQuote,
+  createScriptHoldOrder, verifyScriptHold, getScriptHoldQuote,
   uploadThumbnail, uploadTrailer, uploadPitchVideo,
   uploadScriptThumbnail, uploadScriptTrailer, uploadScriptPitchVideo,
-  requestScriptAITrailer, submitTrailerFeedback,
+  createScriptTrailerOrder, verifyScriptTrailerPayment, submitTrailerFeedback,
   activateProjectSpotlight,
   getInvestorHomeFeed, getTopList,
   requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
@@ -101,7 +101,8 @@ const uploadPitchVideoWithLimit = (req, res, next) => {
 router.post("/:id/upload-thumbnail", protect, uploadThumbnailWithLimit, uploadScriptThumbnail);
 router.post("/:id/upload-trailer", protect, uploadTrailerWithLimit, uploadScriptTrailer);
 router.post("/:id/upload-pitch-video", protect, uploadPitchVideoWithLimit, uploadScriptPitchVideo);
-router.post("/:id/request-ai-trailer", protect, requestScriptAITrailer);
+router.post("/:id/request-ai-trailer/create-order", protect, createScriptTrailerOrder);
+router.post("/:id/request-ai-trailer", protect, verifyScriptTrailerPayment);
 router.post("/:id/trailer-feedback", protect, submitTrailerFeedback);
 router.post("/:id/activate-spotlight", protect, activateProjectSpotlight);
 router.post("/activate-spotlight", protect, activateProjectSpotlight);
@@ -111,8 +112,10 @@ router.post("/spotlight/activate", protect, activateProjectSpotlight);
 router.post("/generate-ai-cover", protect, generateCoverImage);
 
 // Razorpay payment routes for scripts
+router.post("/purchase/quote", protect, getScriptPurchaseQuote);
 router.post("/purchase/create-order", protect, createScriptPurchaseOrder);
 router.post("/purchase/verify-payment", protect, verifyScriptPurchase);
+router.post("/hold/quote", protect, getScriptHoldQuote);
 router.post("/hold/create-order", protect, createScriptHoldOrder);
 router.post("/hold/verify-payment", protect, verifyScriptHold);
 

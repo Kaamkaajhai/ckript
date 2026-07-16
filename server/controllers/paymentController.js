@@ -1,4 +1,3 @@
-import Stripe from "stripe";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import {
@@ -17,11 +16,9 @@ import {
 } from "../utils/industryAccess.js";
 
 import crypto from "crypto";
-
-// Initialize Stripe only if the secret key is provided
-const stripe = process.env.STRIPE_SECRET
-  ? new Stripe(process.env.STRIPE_SECRET)
-  : null;
+import { resolveCurrency } from "../utils/currencyFx.js";
+import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
+import { PLAN_PRICES, WRITER_PLAN_KEY } from "../config/pricing.js";
 
 const FILM_INDUSTRY_PRO_MODEL = {
   plan: "pro",
@@ -67,41 +64,13 @@ const getRazorpayInstance = async () => {
   }
 };
 
+
 const normalizeReturnPath = (value = "") => {
   const path = String(value || "").trim();
   if (!path || !path.startsWith("/")) return "";
   if (path.startsWith("//")) return "";
   if (path.startsWith("/login") || path.startsWith("/signup")) return "";
   return path;
-};
-
-export const createCheckout = async (req, res) => {
-  try {
-    if (!stripe) {
-      return res.status(503).json({ message: "Payment service not configured. Please add STRIPE_SECRET to .env file." });
-    }
-    
-    const { amount, scriptId } = req.body;
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "inr",
-            product_data: { name: "Script Unlock" },
-            unit_amount: amount * 100,
-          },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: `${process.env.CLIENT_URL}/success?scriptId=${scriptId}`,
-      cancel_url: `${process.env.CLIENT_URL}/cancel`,
-    });
-    res.json({ id: session.id });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
 };
 
 export const getFilmIndustryProfessionalTestCheckoutStatus = async (req, res) => {
@@ -185,34 +154,27 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
 
 export const createRazorpayOrder = async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user._id).select("role");
+    const currentUser = await User.findById(req.user._id).select("role preferredCurrency");
     if (!currentUser) return res.status(404).json({ message: "User not found" });
 
     if (!isFilmIndustryProfessionalRole(currentUser)) {
       return res.status(403).json({ message: "Only film industry professionals can purchase this plan." });
     }
 
-    console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID);
-    console.log("RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET);
-
     const razorpay = await getRazorpayInstance();
     if (!razorpay) {
-      return res.status(503).json({ 
-        message: "Razorpay is not configured. Keys are missing.",
-        debug: {
-          keyId: process.env.RAZORPAY_KEY_ID || "undefined",
-          keySecret: process.env.RAZORPAY_KEY_SECRET ? "exists" : "undefined",
-        }
-      });
+      return res.status(503).json({ message: "Razorpay is not configured. Keys are missing." });
     }
 
-    const options = {
-      amount: FILM_INDUSTRY_PRO_MODEL.amount,
-      currency: FILM_INDUSTRY_PRO_MODEL.currency,
+    // Amount is server-authoritative from the price matrix; only the currency comes from the client.
+    const currency = resolveCurrency(req.body?.currency, currentUser.preferredCurrency);
+    const prices = PLAN_PRICES.film_industry_professional;
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: prices[currency],
+      currency,
+      inrAmount: prices.INR,
       receipt: `rcpt_${currentUser._id.toString().substring(18)}_${Date.now()}`,
-    };
-
-    const order = await razorpay.orders.create(options);
+    });
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
 
     return res.status(200).json({
@@ -220,6 +182,7 @@ export const createRazorpayOrder = async (req, res) => {
       amount: order.amount,
       currency: order.currency,
       key: process.env.RAZORPAY_KEY_ID,
+      fellBackToINR,
     });
   } catch (error) {
     console.error("Razorpay Create Order Error:", error);
@@ -464,29 +427,27 @@ export const createWriterRazorpayOrder = async (req, res) => {
       return res.status(400).json({ message: "Invalid tier for subscription." });
     }
 
-    const currentUser = await User.findById(req.user._id).select("role");
+    const currentUser = await User.findById(req.user._id).select("role preferredCurrency");
     if (!currentUser) return res.status(404).json({ message: "User not found" });
 
     if (!["writer", "creator"].includes(String(currentUser.role).toLowerCase())) {
       return res.status(403).json({ message: "Only writers and creators can purchase this plan." });
     }
 
-    const model = tier === "gold" ? WRITER_GOLD_MODEL : WRITER_SILVER_MODEL;
-
     const razorpay = await getRazorpayInstance();
     if (!razorpay) {
-      return res.status(503).json({ 
-        message: "Razorpay is not configured. Keys are missing."
-      });
+      return res.status(503).json({ message: "Razorpay is not configured. Keys are missing." });
     }
 
-    const options = {
-      amount: model.amount,
-      currency: model.currency,
+    // Amount is server-authoritative from the price matrix; only the currency comes from the client.
+    const currency = resolveCurrency(req.body?.currency, currentUser.preferredCurrency);
+    const prices = PLAN_PRICES[WRITER_PLAN_KEY[tier]];
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: prices[currency],
+      currency,
+      inrAmount: prices.INR,
       receipt: `rcpt_${currentUser._id.toString().substring(18)}_${tier}_${Date.now()}`,
-    };
-
-    const order = await razorpay.orders.create(options);
+    });
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
 
     return res.status(200).json({
@@ -494,6 +455,7 @@ export const createWriterRazorpayOrder = async (req, res) => {
       amount: order.amount,
       currency: order.currency,
       key: process.env.RAZORPAY_KEY_ID,
+      fellBackToINR,
     });
   } catch (error) {
     console.error("Writer Razorpay Create Order Error:", error);

@@ -4,7 +4,7 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/vi
 import { history, defaultKeymap, historyKeymap } from "@codemirror/commands";
 import { closeBrackets, completionKeymap } from "@codemirror/autocomplete";
 import { textToBlocks } from "./classify";
-import { createScreenplayExtensions, applyElementType, applyEmphasis, activeEmphasis, applyCase, applyCentered, isCenteredLine, insertPageBreak } from "./screenplayMode";
+import { createScreenplayExtensions, applyElementType, applyEmphasis, activeEmphasis, applyCase, applyCentered, isCenteredLine } from "./screenplayMode";
 import { createLockExtensions, setLockState, remoteSync } from "./lockLayer";
 import { createCommentExtensions, setCommentState } from "./commentLayer";
 import { createLineCommentExtensions, setLineCommentHandler } from "./lineCommentLayer";
@@ -92,8 +92,8 @@ export default function ScreenplayEditor({
           onElementChange: (type) => onElementChangeRef.current?.(type),
         }),
         ...createLockExtensions(),
-        ...createCommentExtensions(),
-        ...createLineCommentExtensions(),
+        ...(onAddComment ? createCommentExtensions() : []),
+        ...(onAddComment ? createLineCommentExtensions() : []),
         EditorView.updateListener.of((u) => {
           if (u.docChanged && onChangeRef.current) {
             onChangeRef.current(u.state.doc.toString());
@@ -165,7 +165,6 @@ export default function ScreenplayEditor({
           reportFormatState();
           return ok;
         },
-        insertPageBreak: () => insertPageBreak(viewRef.current),
         activeEmphasis: () => activeEmphasis(viewRef.current),
         scrollToLine: (lineNo) => {
           const v = viewRef.current;
@@ -278,11 +277,9 @@ export default function ScreenplayEditor({
   return (
     <div
       ref={hostRef}
-      className={`screenplay-editor relative ${dark ? "screenplay-editor--dark" : ""} ${className}`.trim()}
+      className={`screenplay-editor relative ${dark ? "screenplay-editor--dark" : ""} ${readOnly ? "screenplay-editor--readonly" : ""} ${className}`.trim()}
       style={{
         "--sp-font-size": `${(15 * (Number(zoom) || 1)).toFixed(2)}px`,
-        // Page height for real page breaks (the === spacer fills to here); scales with zoom.
-        "--sp-page-height": `${Math.round(1056 * (Number(zoom) || 1))}px`,
       }}
     >
       {composer && (

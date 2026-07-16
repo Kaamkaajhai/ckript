@@ -27,11 +27,6 @@ import {
     sendAdminBroadcastEmail,
     sendWriterPlanGrantedEmail,
 } from "../utils/emailService.js";
-import {
-    hasAdminScriptSectionPasswordConfigured,
-    issueAdminScriptSectionAccessToken,
-    validateAdminScriptSectionPassword,
-} from "../utils/adminScriptSectionAccess.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 
 const buildChatId = (idA, idB) => {
@@ -298,6 +293,15 @@ const getAdminTrailerRequestFilter = () => ({
     isDeleted: NON_DELETED_SCRIPT_FILTER,
     "services.aiTrailer": true,
     trailerStatus: { $in: ["requested", "generating"] },
+    "trailerRequestPayment.status": "paid",
+});
+
+const getAdminTrailerLibraryFilter = () => ({
+    isDeleted: NON_DELETED_SCRIPT_FILTER,
+    $or: [
+        { trailerUrl: { $exists: true, $nin: ["", null] } },
+        { uploadedTrailerUrl: { $exists: true, $nin: ["", null] } },
+    ],
 });
 
 const getSettledPurchaseQuery = (extra = {}) => ({
@@ -1295,27 +1299,6 @@ export const deleteUserAccountAsAdmin = async (req, res) => {
 };
 
 // ─── All Scripts ───
-export const verifyAdminScriptSectionAccess = async (req, res) => {
-    try {
-        if (!hasAdminScriptSectionPasswordConfigured()) {
-            return res.status(500).json({ message: "Admin script section password is not configured." });
-        }
-
-        const password = String(req.body?.password || "");
-        if (!validateAdminScriptSectionPassword(password)) {
-            return res.status(403).json({
-                code: "ADMIN_SCRIPT_SECTION_PASSWORD_INVALID",
-                message: "Invalid script section password.",
-            });
-        }
-
-        const tokenPayload = issueAdminScriptSectionAccessToken(req.user?._id);
-        return res.json(tokenPayload);
-    } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-};
-
 export const getScripts = async (req, res) => {
     try {
         const { search, status, page = 1, limit = 20 } = req.query;
@@ -1852,6 +1835,26 @@ export const getTrailerRequests = async (req, res) => {
     }
 };
 
+export const getAvailableTrailers = async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const pageNumber = Math.max(Number(page) || 1, 1);
+        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const filter = getAdminTrailerLibraryFilter();
+
+        const total = await Script.countDocuments(filter);
+        const scripts = await Script.find(filter)
+            .populate("creator", "name email role profileImage")
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .skip((pageNumber - 1) * pageLimit)
+            .limit(pageLimit);
+
+        res.json({ scripts, total, page: pageNumber, totalPages: Math.ceil(total / pageLimit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const approveTrailer = async (req, res) => {
     try {
         const { trailerUrl, trailerThumbnail, caption } = req.body || {};
@@ -1987,6 +1990,39 @@ export const loginAsUser = async (req, res) => {
             role: user.role,
             token,
             expiresAt: decoded.exp * 1000,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const removeTrailerAsAdmin = async (req, res) => {
+    try {
+        const script = await Script.findById(req.params.id).populate("creator", "_id name");
+        if (!script) return res.status(404).json({ message: "Script not found" });
+
+        const hadTrailer = Boolean(String(script.trailerUrl || "").trim() || String(script.uploadedTrailerUrl || "").trim());
+
+        script.trailerUrl = undefined;
+        script.uploadedTrailerUrl = undefined;
+        script.trailerThumbnail = undefined;
+        script.trailerSource = "none";
+        script.trailerStatus = "none";
+        await script.save();
+
+        if (script.creator?._id) {
+            await Notification.create({
+                user: script.creator._id,
+                type: "trailer_ready",
+                from: req.user._id,
+                script: script._id,
+                message: `The trailer for "${script.title}" was removed by admin.`,
+            });
+        }
+
+        res.json({
+            message: hadTrailer ? "Trailer removed successfully" : "Trailer was already empty",
+            script,
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

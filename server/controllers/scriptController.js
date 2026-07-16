@@ -40,6 +40,8 @@ import {
 import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
+import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
@@ -76,6 +78,25 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
+// Read what a Razorpay order actually charged (buyer currency + amount + fx rate) so the buyer's
+// transaction records reality. Falls back to the INR base if the order can't be fetched. `inrTotal` is
+// the INR base used as the fallback charged amount.
+const readOrderCharge = async (orderId, inrTotal) => {
+  const fallback = { currency: "INR", chargedTotal: Number(inrTotal) || 0, fxRate: 1 };
+  try {
+    if (!orderId) return fallback;
+    const order = await getRazorpay().orders.fetch(orderId);
+    if (!order) return fallback;
+    return {
+      currency: String(order.currency || "INR").toUpperCase(),
+      chargedTotal: (Number(order.amount) || 0) / 100,
+      fxRate: Number(order.notes?.fxRate) || 1,
+    };
+  } catch {
+    return fallback;
+  }
+};
+
 const PUBLISHED_SCRIPT_STATUSES = ["published", "approved"];
 
 const PUBLIC_SCRIPT_FILTER = {
@@ -89,6 +110,14 @@ const PROJECT_SPOTLIGHT_ACTIVATION_CREDITS = 310;
 const PROJECT_SPOTLIGHT_EXTENSION_CREDITS = 150;
 const PROJECT_SPOTLIGHT_DURATION_DAYS = 30;
 const SCRIPT_UPLOAD_TERMS_VERSION = process.env.SCRIPT_UPLOAD_TERMS_VERSION || "2026-03-24";
+const TRAILER_PRICE_MATRIX = {
+  "30-480": { inr: 399, usd: 5 },
+  "30-720": { inr: 499, usd: 6 },
+  "60-480": { inr: 539, usd: 6 },
+  "60-720": { inr: 649, usd: 7 },
+  "90-480": { inr: 549, usd: 6.3 },
+  "90-720": { inr: 799, usd: 9 },
+};
 
 const WRITER_CONTACT_VIEWER_ROLES = ["investor", "producer", "director", "industry", "professional"];
 
@@ -101,6 +130,28 @@ const canViewerAccessWriterContact = (viewer, creatorId) => {
 
   const role = String(viewer?.role || "").toLowerCase();
   return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasActiveFilmIndustryProfessionalAccess(viewer);
+};
+
+const normalizeTrailerLayout = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "portrait" ? "portrait" : "landscape";
+};
+
+const getTrailerPackagePricing = (duration, quality) => {
+  const key = `${String(duration || "").trim()}-${String(quality || "").trim()}`;
+  return TRAILER_PRICE_MATRIX[key] || { inr: 0, usd: 0 };
+};
+
+const buildTrailerRequestNote = ({ duration, quality, format, currency, amount }) => {
+  const layoutLabel = normalizeTrailerLayout(format) === "portrait" ? "Portrait" : "Landscape";
+  const currencyLabel = String(currency || "INR").toUpperCase();
+  return [
+    `Duration: ${String(duration || "").trim()} sec`,
+    `Quality: ${String(quality || "").trim()}px`,
+    `Layout: ${layoutLabel}`,
+    `Display currency: ${currencyLabel}`,
+    `Price: ${currencyLabel === "USD" ? "$" : "INR"} ${String(amount ?? 0).trim()}`,
+  ].join(" | ");
 };
 
 const buildWriterContactPayload = (writerDoc) => {
@@ -5475,10 +5526,16 @@ export const createScriptPurchaseOrder = async (req, res) => {
       });
     }
 
-    // Create Razorpay order after writer approval
-    const options = {
-      amount: Math.round(pricing.totalAmount * 100),
-      currency: "INR",
+    // Create Razorpay order after writer approval. The INR total is server-authoritative; only the
+    // buyer's currency is taken from the client, then converted live (with an INR fallback if a USD
+    // order is rejected by the gateway).
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    const { amount: chargeMajor, fxRate } = await convertInrToCurrency(pricing.totalAmount, currency);
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, currency),
+      currency,
+      inrAmount: Math.round(pricing.totalAmount * 100),
       receipt: `script_purchase_${Date.now()}`,
       notes: {
         userId: req.user._id.toString(),
@@ -5486,21 +5543,19 @@ export const createScriptPurchaseOrder = async (req, res) => {
         scriptTitle: script.title,
         creatorId: script.creator._id.toString(),
         purchaseRequestId: purchaseRequest._id.toString(),
-        baseAmount: pricing.baseAmount.toFixed(2),
-        platformTaxPercent: String(pricing.platformTaxPercent),
-        platformTaxAmount: pricing.platformTaxAmount.toFixed(2),
-        totalAmount: pricing.totalAmount.toFixed(2),
+        baseAmountInr: pricing.baseAmount.toFixed(2),
+        totalAmountInr: pricing.totalAmount.toFixed(2),
+        fxRate: String(fxRate),
         type: "script_purchase_after_approval",
       }
-    };
-
-    const razorpay = getRazorpay();
-    const order = await razorpay.orders.create(options);
+    });
 
     res.json({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      fxRate,
+      fellBackToINR,
       keyId: process.env.RAZORPAY_KEY_ID,
       scriptDetails: {
         id: script._id,
@@ -5520,6 +5575,58 @@ export const createScriptPurchaseOrder = async (req, res) => {
   } catch (error) {
     console.error("Razorpay order creation error:", error);
     res.status(500).json({ message: "Failed to create payment order", error: error.message });
+  }
+};
+
+// Convert an INR pricing breakdown into the buyer's currency for DISPLAY (no order created). base+tax
+// are each converted then tax is derived as total−base so the parts always sum to the total.
+const buildCurrencyQuote = async (pricing, currency) => {
+  const { amount: totalAmount, fxRate } = await convertInrToCurrency(pricing.totalAmount, currency);
+  const { amount: baseAmount } = await convertInrToCurrency(pricing.baseAmount, currency);
+  const platformTaxAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
+  return {
+    currency,
+    fxRate,
+    baseAmount,
+    platformTaxAmount,
+    totalAmount,
+    platformTaxPercent: pricing.platformTaxPercent,
+    baseAmountInr: pricing.baseAmount,
+    totalAmountInr: pricing.totalAmount,
+  };
+};
+
+// @desc    Price quote for a script PURCHASE in the buyer's currency (display only; no order created)
+// @route   POST /api/scripts/purchase/quote
+// @access  Private
+export const getScriptPurchaseQuote = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const script = await Script.findById(scriptId).select("price title");
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    const pricing = getScriptPurchasePricing(Math.max(0, Number(script.price || 0)));
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    return res.json(await buildCurrencyQuote(pricing, currency));
+  } catch (error) {
+    console.error("Purchase quote error:", error);
+    return res.status(500).json({ message: "Failed to get price quote" });
+  }
+};
+
+// @desc    Price quote for a script HOLD in the buyer's currency (display only; no order created)
+// @route   POST /api/scripts/hold/quote
+// @access  Private
+export const getScriptHoldQuote = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const script = await Script.findById(scriptId).select("holdFee title");
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    const pricing = getScriptPurchasePricing(Number(script.holdFee || 200));
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    return res.json(await buildCurrencyQuote(pricing, currency));
+  } catch (error) {
+    console.error("Hold quote error:", error);
+    return res.status(500).json({ message: "Failed to get price quote" });
   }
 };
 
@@ -5923,12 +6030,18 @@ export const verifyScriptPurchase = async (req, res) => {
       writerDoc.wallet.totalEarnings = (writerDoc.wallet.totalEarnings || 0) + pricing.baseAmount;
       await writerDoc.save();
 
+      // What the buyer was actually charged (their currency); the writer payout below stays INR.
+      const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+
       await Transaction.create([
         {
           user: req.user._id,
           type: "payment",
-          amount: -pricing.totalAmount,
-          currency: "INR",
+          amount: -charge.chargedTotal,
+          currency: charge.currency,
+          baseCurrency: "INR",
+          baseAmount: -pricing.totalAmount,
+          fxRate: charge.fxRate,
           status: "completed",
           description: `Purchased script after approval: "${script.title}"`,
           reference: `PRP-RZP-${razorpay_payment_id}`,
@@ -6218,31 +6331,34 @@ export const createScriptHoldOrder = async (req, res) => {
     const holdFee = script.holdFee || 200;
     const holdPricing = getScriptPurchasePricing(holdFee);
 
-    // Create Razorpay order
-    const options = {
-      amount: Math.round(holdPricing.totalAmount * 100), // Amount in paise (INR)
-      currency: "INR",
+    // Create Razorpay order. INR total is server-authoritative; buyer currency converted live (with
+    // an INR fallback if a USD order is rejected).
+    const currency = resolveCurrency(req.body?.currency, user?.preferredCurrency);
+    const { amount: chargeMajor, fxRate } = await convertInrToCurrency(holdPricing.totalAmount, currency);
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, currency),
+      currency,
+      inrAmount: Math.round(holdPricing.totalAmount * 100),
       receipt: `script_hold_${Date.now()}`,
       notes: {
         userId: req.user._id.toString(),
         scriptId: scriptId,
         scriptTitle: script.title,
         creatorId: script.creator._id.toString(),
-        holdFee: holdPricing.baseAmount,
-        buyerCommissionPercent: String(holdPricing.platformTaxPercent),
-        buyerCommissionAmount: holdPricing.platformTaxAmount.toFixed(2),
-        totalAmount: holdPricing.totalAmount.toFixed(2),
+        holdFeeInr: holdPricing.baseAmount,
+        totalAmountInr: holdPricing.totalAmount.toFixed(2),
+        fxRate: String(fxRate),
         type: "script_hold"
       }
-    };
-
-    const razorpay = getRazorpay();
-    const order = await razorpay.orders.create(options);
+    });
 
     res.json({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      fxRate,
+      fellBackToINR,
       keyId: process.env.RAZORPAY_KEY_ID,
       scriptDetails: {
         id: script._id,
@@ -6345,12 +6461,19 @@ export const verifyScriptHold = async (req, res) => {
 
     const reference = `SCRIPT-HOLD-${razorpay_payment_id}`;
 
+    // The buyer may have paid in a non-INR currency; read what was actually charged from the order so
+    // the buyer transaction records the real currency/amount. Creator payout stays INR (see below).
+    const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+
     // Create transaction record for holder (payment)
     await Transaction.create({
       user: req.user._id,
       type: "payment",
-      amount: -pricing.totalAmount,
-      currency: "INR",
+      amount: -charge.chargedTotal,
+      currency: charge.currency,
+      baseCurrency: "INR",
+      baseAmount: -pricing.totalAmount,
+      fxRate: charge.fxRate,
       status: "completed",
       description: `Placed hold on script: "${script.title}" (30 days)`,
       reference,
@@ -6362,7 +6485,7 @@ export const verifyScriptHold = async (req, res) => {
         holdEndDate: endDate,
         buyerCommissionAmount: platformCut,
         creatorPayout,
-        totalPaid: pricing.totalAmount,
+        totalPaidInr: pricing.totalAmount,
       }
     });
 
@@ -6635,67 +6758,127 @@ export const uploadScriptPitchVideo = async (req, res) => {
 };
 
 // ── Writer Requests AI Trailer from Platform ──
-export const requestScriptAITrailer = async (req, res) => {
+// Writer Feedback for Platform AI Trailer
+export const createScriptTrailerOrder = async (req, res) => {
   try {
     const scriptId = req.params.id;
-    const { note } = req.body || {};
+    const { duration, quality, format, currency } = req.body || {};
+
+    const script = await Script.findById(scriptId).populate("creator", "_id name");
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    const creatorId = String(script.creator?._id || script.creator || "");
+    if (creatorId !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
+    }
+
+    if (script.trailerStatus === "ready" && (script.trailerUrl || script.uploadedTrailerUrl)) {
+      return res.status(400).json({ message: "AI trailer is already ready for this script" });
+    }
+
+    const selectedDuration = String(duration || "").trim();
+    const selectedQuality = String(quality || "").trim();
+    const selectedFormat = normalizeTrailerLayout(format);
+    const pricing = getTrailerPackagePricing(selectedDuration, selectedQuality);
+
+    if (!pricing.inr || !pricing.usd) {
+      return res.status(400).json({ message: "Invalid trailer package selected" });
+    }
+
+    const buyerCurrency = resolveCurrency(currency, req.user?.preferredCurrency);
+    const chargeMajor = buyerCurrency === "USD" ? pricing.usd : pricing.inr;
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, buyerCurrency),
+      currency: buyerCurrency,
+      inrAmount: toSubunits(pricing.inr, "INR"),
+      receipt: `trailer_${script._id.toString().slice(-8)}_${Date.now()}`,
+      notes: {
+        userId: req.user._id.toString(),
+        scriptId: script._id.toString(),
+        scriptTitle: script.title,
+        creatorId: script.creator._id.toString(),
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        type: "script_ai_trailer",
+      },
+    });
+
+    return res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      fellBackToINR,
+      pricing,
+      selection: {
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+      },
+    });
+  } catch (error) {
+    console.error("Trailer order creation error:", error);
+    return res.status(500).json({ message: error.message || "Failed to create trailer payment order" });
+  }
+};
+
+export const verifyScriptTrailerPayment = async (req, res) => {
+  try {
+    const scriptId = req.params.id;
+    const {
+      note,
+      duration,
+      quality,
+      format,
+      currency,
+      amount,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body || {};
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ message: "Missing payment details" });
+    }
+
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ message: "Payment system not configured" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: "Payment verification failed - Invalid signature" });
+    }
 
     const script = await Script.findById(scriptId);
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
 
-    if (script.creator.toString() !== req.user._id.toString()) {
+    const creatorId = String(script.creator?._id || script.creator || "");
+    if (creatorId !== req.user._id.toString()) {
       return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
     }
 
-    if (script.trailerStatus === "ready" && script.trailerUrl) {
+    if (script.trailerStatus === "ready" && (script.trailerUrl || script.uploadedTrailerUrl)) {
       return res.status(400).json({ message: "AI trailer is already ready for this script" });
     }
 
-    const alreadyPaid = Boolean(
-      script.services?.aiTrailer || Number(script.billing?.spotlightCreditsChargedAtUpload || 0) > 0
-    );
-
-    if (!alreadyPaid) {
-      const user = await User.findById(req.user._id);
-      const requiredCredits = CREDIT_PRICES.AI_TRAILER;
-      const userBalance = user?.credits?.balance || 0;
-
-      if (userBalance < requiredCredits) {
-        return res.status(402).json({
-          message: `Insufficient credits. AI Trailer generation requires ${requiredCredits} credits.`,
-          requiresCredits: true,
-          required: requiredCredits,
-          balance: userBalance,
-          shortfall: requiredCredits - userBalance,
-        });
-      }
-
-      user.credits.balance -= requiredCredits;
-      user.credits.totalSpent += requiredCredits;
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -requiredCredits,
-        description: `AI Trailer generation for "${script.title}"`,
-        reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date(),
-      });
-      await user.save();
-
-      const currentBilling = script.billing || {};
-      script.billing = {
-        ...currentBilling,
-        evaluationCreditsCharged: Number(currentBilling.evaluationCreditsCharged || 0),
-        aiTrailerCreditsCharged: Number(currentBilling.aiTrailerCreditsCharged || 0) + requiredCredits,
-        evaluationCreditsRefunded: Number(currentBilling.evaluationCreditsRefunded || 0),
-        aiTrailerCreditsRefunded: Number(currentBilling.aiTrailerCreditsRefunded || 0),
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0),
-        lastSpotlightRefundCredits: Number(currentBilling.lastSpotlightRefundCredits || 0),
-        lastSpotlightActivatedAt: currentBilling.lastSpotlightActivatedAt,
-      };
-      script.markModified("billing");
-    }
+    const selectedDuration = String(duration || "").trim();
+    const selectedQuality = String(quality || "").trim();
+    const selectedFormat = normalizeTrailerLayout(format);
+    const pricing = getTrailerPackagePricing(selectedDuration, selectedQuality);
+    const paymentCurrency = String(currency || "INR").toUpperCase();
+    const paymentAmount = Number(amount || (paymentCurrency === "USD" ? pricing.usd : pricing.inr) || 0);
 
     script.services = {
       hosting: script.services?.hosting ?? true,
@@ -6704,9 +6887,28 @@ export const requestScriptAITrailer = async (req, res) => {
       spotlight: script.services?.spotlight ?? false,
     };
     script.trailerStatus = "requested";
+    script.trailerRequestPayment = {
+      status: "paid",
+      provider: "razorpay",
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+      currency: paymentCurrency,
+      amount: paymentAmount,
+      duration: selectedDuration,
+      quality: selectedQuality,
+      format: selectedFormat,
+      paidAt: new Date(),
+    };
     script.trailerWriterFeedback = {
       status: "pending",
-      note: note?.trim() || "",
+      note: note?.trim() || buildTrailerRequestNote({
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        currency: paymentCurrency,
+        amount: paymentAmount,
+      }),
       updatedAt: new Date(),
     };
     await script.save();
@@ -6716,11 +6918,13 @@ export const requestScriptAITrailer = async (req, res) => {
       section: "trailers",
       actorId: req.user._id,
       scriptId: script._id,
-      message: `AI trailer requested by writer for "${script.title}"${note ? `. Note: ${note}` : ""}`,
+      message: `AI trailer requested by writer for "${script.title}"`,
       metadata: {
         scriptId: script._id,
         writerId: req.user._id,
-        writerNote: note?.trim() || "",
+        writerNote: script.trailerWriterFeedback.note || "",
+        paymentProvider: "razorpay",
+        paymentId: razorpay_payment_id,
       },
     });
 
@@ -6733,7 +6937,6 @@ export const requestScriptAITrailer = async (req, res) => {
   }
 };
 
-// ── Writer Feedback for Platform AI Trailer ──
 export const submitTrailerFeedback = async (req, res) => {
   try {
     const scriptId = req.params.id;
@@ -6838,3 +7041,6 @@ export const generateAiCover = async (req, res) => {
     res.status(500).json({ message: "Failed to generate AI cover." });
   }
 };
+
+
+

@@ -25,8 +25,7 @@ export function usePdfExport({ editor, title, scriptId, screenplayValue, user, s
   const downloadSubmissionSummaryPdf = async (targetScriptId, currentTitle) => {
     if (!targetScriptId) return;
 
-    const confirmed = window.confirm("Your project was submitted successfully! Would you like to download your submission summary PDF?");
-    if (!confirmed) return;
+
 
     try {
       const response = await api.get(`/scripts/${targetScriptId}/submission-summary-pdf?download=1`, {

@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Link } from "react-router-dom";
+import { useAuthModal } from "../../../../context/AuthModalContext";
 import Icon from "../../_shared/Icon";
 import useStageFit, { initialStageScale } from "../../_shared/useStageFit";
 import { ROUTES } from "../../_shared/theme";
@@ -19,6 +19,7 @@ const CAPTIONS = [
 ];
 
 export default function Steps() {
+  const { openProducerOnboarding } = useAuthModal();
   const wrapRef = useRef(null);
   const stageRef = useRef(null);
 
@@ -36,9 +37,7 @@ export default function Steps() {
           FIND IT. WATCH IT. OWN IT
           <span className="ckl-steps-title-dot" />
         </h1>
-        <p className="ckl-steps-desc" data-ra="ckl-fadeUpC" data-rd="0.08">
-          Producers can explore scripts, watch AI-generated trailers,<br />and acquire the ones that stand out.
-        </p>
+
 
         {/* Arrows */}
         <div className="ckl-steps-arrows ckl-steps-arrow-1" data-ra="ckl-fadeIn" data-rd="0.5">
@@ -79,10 +78,10 @@ export default function Steps() {
           <div className="ckl-steps-rights-meta">Drama / Sci-Fi / Thriller<br />Feature Length</div>
           <div className="ckl-steps-rights-div" />
           <div className="ckl-steps-rights-rights">Rights<br />Worldwide<br />All Media</div>
-          <Link to={ROUTES.join} className="ckl-steps-rights-btn hov-btn">
+          <button type="button" onClick={() => openProducerOnboarding()} className="ckl-steps-rights-btn hov-btn">
             <Icon name="lock" size={16} color="#fff" />
             <span>Acquire Script</span>
-          </Link>
+          </button>
         </div>
 
         {/* Captions */}
@@ -100,11 +99,7 @@ export default function Steps() {
           </div>
         ))}
 
-        {/* Browse Scripts CTA */}
-        <span className="ckl-steps-cta-line" data-ra="ckl-fadeUpC" data-rd="0.74" />
-        <Link to={ROUTES.join} className="ckl-steps-cta-btn hov-btn" data-ra="ckl-fadeUpC" data-rd="0.8">
-          Browse Scripts
-        </Link>
+
       </div>
     </section>
   );

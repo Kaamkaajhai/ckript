@@ -50,7 +50,6 @@ const FORMAT_LABELS = {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import PasswordInput from "../components/PasswordInput";
@@ -350,11 +349,18 @@ const AdminScriptView = () => {
     }
   };
 
-  const rawContent = typeof script?.fullContent === "string" && script.fullContent.trim()
-    ? script.fullContent
-    : (typeof script?.textContent === "string" ? script.textContent : "");
+  // Canonical source order matches the server (fountainContent is the screenplay source of truth for
+  // editor projects), so the admin view never comes up empty when only fountainContent is populated.
+  const rawContent = (typeof script?.fountainContent === "string" && script.fountainContent.trim())
+    ? script.fountainContent
+    : (typeof script?.fullContent === "string" && script.fullContent.trim())
+      ? script.fullContent
+      : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
-  const uploadedPdfProxyUrl = script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf`) : uploadedPdfUrl;
+  const hasUploadedPdf = Boolean(uploadedPdfUrl);
+  const derivedPdfUrl = hasUploadedPdf 
+    ? uploadedPdfUrl 
+    : script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0`) : "";
 
   const formatLabel = script?.format === "other"
     ? (String(script?.formatOther || "").trim() || "Other")
@@ -419,58 +425,18 @@ const AdminScriptView = () => {
     return source.map((pageText, index) => ({ pageNumber: index + 1, text: pageText }));
   }, [serverPreviewPageTexts, scriptPages]);
 
-  const hasUploadedPdf = Boolean(uploadedPdfUrl);
   const hasFullScriptText = Boolean(
     plainScriptText.trim() || serverPreviewPageTexts.some(Boolean)
   );
 
+  // Download the SAME PDF the script renders as everywhere else — never an ad-hoc flat rebuild. A
+  // script missing both fileUrl AND fountainContent won't have a valid PDF at /export/pdf either,
+  // but button is disabled in that case.
   const handleDownloadScript = () => {
-    if (!plainScriptText.trim()) {
-      if (uploadedPdfUrl) {
-        window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
-      }
+    if (derivedPdfUrl) {
+      window.open(derivedPdfUrl.replace("download=0", "download=1"), "_blank", "noopener,noreferrer");
       return;
     }
-
-    const normalized = plainScriptText.replace(/\r\n/g, "\n").trim();
-
-    const title = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
-    const filename = `${title || "script"}_full_script.pdf`;
-
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "pt",
-      format: "a4",
-    });
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX = 44;
-    const topY = 54;
-    const usableWidth = pageWidth - marginX * 2;
-
-    const pdfPages = scriptPages.length > 0 ? scriptPages : [normalized];
-
-    pdfPages.forEach((pageText, index) => {
-      if (index > 0) doc.addPage("a4", "portrait");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(String(script?.title || "Script"), marginX, 32, { maxWidth: usableWidth });
-
-      doc.setFont("courier", "normal");
-      doc.setFontSize(11);
-      const wrappedLines = doc.splitTextToSize(pageText || "", usableWidth);
-      doc.text(wrappedLines, marginX, topY, { baseline: "top" });
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Page ${index + 1} / ${pdfPages.length}`, pageWidth - marginX, pageHeight - 24, {
-        align: "right",
-      });
-    });
-
-    doc.save(filename);
   };
 
   const handleOpenSubmissionSummaryPdf = () => {
@@ -1388,7 +1354,7 @@ const AdminScriptView = () => {
           </div>
         </div>
 
-        {uploadedPdfUrl && script?.viewableScript && (
+        {(uploadedPdfUrl || hasFullScriptText) && script?.viewableScript && (
           <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
@@ -1416,7 +1382,7 @@ const AdminScriptView = () => {
             </div>
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 startPage={Number(script?.scriptPreviewAccess?.start || 1)}
                 endPage={Number(script?.scriptPreviewAccess?.end || 8)}
@@ -1453,7 +1419,7 @@ const AdminScriptView = () => {
           {hasFullScriptText ? (
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 fallbackPages={mainContentFallbackPages}
                 fallbackText={plainScriptText}
@@ -1463,7 +1429,7 @@ const AdminScriptView = () => {
           ) : hasUploadedPdf ? (
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 fallbackPages={[]}
                 fallbackText=""

@@ -819,11 +819,29 @@ html.dark-mode .script-content img {
   margin: 1.2em 0;
 }
 
+/* Read-only screenplay rendering. These rules deliberately MIRROR the CodeMirror editor's element
+   styling (screenplayMode.js theme) — same Courier size/line-height, the same 62ch column, and the
+   same ch-based indents — so a script looks identical in the editor, the CreateProject preview, the
+   producer/admin viewers, and (structurally) the exported PDF. Change here and there together. */
 .screenplay-viewer {
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 15px;      /* matches editor --sp-font-size base */
+  line-height: 1.7;     /* matches editor .cm-content */
   color: inherit;
+  width: 62ch;          /* matches editor .cm-content width — the screenplay text column */
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Force the Courier screenplay font on the viewer AND every descendant (line divs + inline emphasis
+   spans). Needed because the global `* { font-family: Inter }` reset applies directly to each child and
+   would otherwise override the Courier inherited from .screenplay-viewer — rendering the screenplay in
+   a proportional font (and throwing off the ch-based indents, which are relative to the glyph width).
+   Must match the editor's SCREENPLAY_FONT so the view looks identical to Create Project. */
+.screenplay-viewer,
+.screenplay-viewer * {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
 }
 
 .screenplay-line {
@@ -833,70 +851,80 @@ html.dark-mode .script-content img {
 }
 
 .screenplay-line--frontmatter {
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.4em;
   text-align: center;
 }
 
+/* Scene / shot — slugline: bold uppercase with generous air above (editor paddingTop 3.2em). */
 .screenplay-line--scene,
 .screenplay-line--shot {
-  margin: 1.25rem 0 0.45rem;
+  margin: 3.2em 0 0.4em;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .screenplay-line--action {
-  margin: 0 0 0.7rem;
+  max-width: 62ch;
+  margin: 0.5em 0 0;
 }
 
+/* Character cue — indented 22ch, uppercase bold, hugs the dialogue below (editor values). */
 .screenplay-line--character {
-  margin: 1rem 0 0.15rem 32%;
-  max-width: 15rem;
+  margin: 1.2em 0 0 22ch;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .screenplay-line--parenthetical {
-  margin: 0 0 0.12rem 27%;
-  max-width: 20rem;
+  margin: 0 0 0 16ch;
+  font-style: italic;
+  opacity: 0.85;
 }
 
 .screenplay-line--dialogue {
-  margin: 0 0 0.7rem 22%;
-  max-width: 28rem;
+  margin: 0 0 0.35em 10ch;
+  max-width: 35ch;
 }
 
 .screenplay-line--transition {
-  margin: 1rem 0 0.55rem auto;
-  max-width: 16rem;
+  margin: 1.2em 0 0.4em auto;
+  max-width: 62ch;
   text-align: right;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .screenplay-spacer {
-  height: 0.85rem;
+  height: 1.7em;
+}
+
+/* Centered action (">words<" in the editor) — center within the text column. */
+.screenplay-line--centered {
+  text-align: center;
+  margin-left: 0;
+  margin-right: 0;
+  max-width: 62ch;
 }
 
 @media (max-width: 640px) {
   .screenplay-viewer {
     font-size: 13px;
+    width: 100%;
   }
 
   .screenplay-line--character {
-    margin-left: 18%;
-    max-width: none;
+    margin-left: 18ch;
   }
 
   .screenplay-line--parenthetical {
-    margin-left: 14%;
-    max-width: none;
+    margin-left: 14ch;
   }
 
   .screenplay-line--dialogue {
-    margin-left: 10%;
+    margin-left: 10ch;
     max-width: none;
   }
 
@@ -1724,4 +1752,9 @@ iframe.VIpgJd-ZVi9od-xl07Ob-OEVmcd,
 html,
 body {
   top: 0 !important;
+}
+
+/* Hide comment icon in read-only mode (preview fallback) */
+.screenplay-editor--readonly .cm-sp-linecomment-btn {
+  display: none !important;
 }

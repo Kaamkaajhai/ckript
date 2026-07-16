@@ -76,7 +76,7 @@ export function buildNav({ user, profilePath, msgCount = 0 }) {
     { key: "create",    path: "/create-project", label: "Create",    icon: "create",    fresh: true  },
     { key: "upload",    path: "/upload",         label: "Upload",    icon: "upload"     },
     { key: "messages",  path: "/messages",       label: "Messages",  icon: "messages",  badge: msgCount },
-    { key: "projects",  path: profilePath,       label: "Projects",  icon: "projects"   },
+    { key: "profile",   path: profilePath,       label: "Writer Profile",  icon: "profile"   },
   ];
   // Drawer mirrors the reference grouping: Dashboard · Search | Create · Upload | Messages.
   const drawer = [

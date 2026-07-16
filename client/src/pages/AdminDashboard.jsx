@@ -14,6 +14,8 @@ import {
     isAdminScriptProtectedTab,
     storeAdminScriptAccess,
 } from "../utils/adminScriptAccess";
+import { Icon, StatCard } from "../components/AdminUI";
+import AdminAnalyticsPanel from "../components/AdminAnalyticsPanel";
 
 const API_ORIGIN = getApiOrigin();
 const API_BASE_URL = getApiBaseUrl();
@@ -42,6 +44,7 @@ const TABS = [
     { key: "projects", label: "Scripts", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
     { key: "approvals", label: "Script Approvals", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "trailers", label: "AI Trailer Approvals", icon: "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375V5.625A1.125 1.125 0 016 4.5h12a1.125 1.125 0 011.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125h1.5" },
+    { key: "ai-trailers", label: "AI Trailer", icon: "M4.5 8.25A2.25 2.25 0 016.75 6h10.5A2.25 2.25 0 0119.5 8.25v7.5A2.25 2.25 0 0117.25 18H6.75A2.25 2.25 0 014.5 15.75v-7.5zm6 1.5v4.5l4.5-2.25-4.5-2.25z" },
     { key: "evaluations", label: "AI Evaluations", icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
     { key: "meetings", label: "Meetings", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
     { key: "messages", label: "Messages", icon: "M7.5 8.25h9m-9 3h6m-9 9h12A2.25 2.25 0 0018.75 18V6A2.25 2.25 0 0016.5 3.75h-9A2.25 2.25 0 005.25 6v12A2.25 2.25 0 007.5 20.25z" },
@@ -60,12 +63,6 @@ const TABS = [
     { key: "deleted-scripts", label: "Deleted Scripts", icon: "M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79" },
     { key: "discount-codes", label: "Discount Codes", icon: "M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" },
 ];
-
-const Icon = ({ d, className = "w-5 h-5" }) => (
-    <svg className={className} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d={d} />
-    </svg>
-);
 
 const DownloadIconButton = ({ onClick, title, disabled, className = "" }) => (
     <button
@@ -208,18 +205,25 @@ const getScriptPreviewWindowLabel = (script) => {
   return `${mode} ${start} to ${end}`;
 };
 
-// ─── Stat Card ───
-const StatCard = ({ label, value, icon, color, isDark }) => (
-    <div className={`rounded-2xl p-5 border transition-all hover:scale-[1.02] ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-        <div className="flex items-center justify-between mb-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-                <Icon d={icon} className="w-5 h-5" />
-            </div>
-        </div>
-        <p className={`text-2xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{value}</p>
-        <p className={`text-sm font-medium mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>{label}</p>
-    </div>
-);
+const parseTrailerRequestNote = (note) => {
+    const text = String(note || "").trim();
+    if (!text) return null;
+
+    const fields = {};
+    text.split(" | ").forEach((part) => {
+        const [rawLabel, ...rest] = String(part || "").split(":");
+        const label = String(rawLabel || "").trim().toLowerCase();
+        const value = rest.join(":").trim();
+        if (!label || !value) return;
+        if (label === "duration") fields.duration = value;
+        if (label === "quality") fields.quality = value;
+        if (label === "layout") fields.layout = value;
+        if (label === "display currency") fields.currency = value;
+        if (label === "price") fields.price = value;
+    });
+
+    return { text, fields };
+};
 
 const BroadcastComposer = ({
     isDark,
@@ -691,6 +695,7 @@ const SEARCH_PLACEHOLDER_BY_TAB = {
     "discount-codes": "Search discount codes...",
     approvals: "Search script approvals...",
     trailers: "Search AI trailer approvals...",
+    "ai-trailers": "Search AI trailers...",
     messages: "Search writer messages...",
     "pending-investors": "Search film professional requests...",
     "membership-reviews": "Search SWA/WGA reviews...",
@@ -734,75 +739,6 @@ const formatFileSize = (bytes = 0) => {
     if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
     if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
     return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-};
-
-const formatDuration = (seconds = 0) => {
-    const safeSeconds = Number(seconds || 0);
-    if (!safeSeconds) return "0s";
-    if (safeSeconds < 60) return `${safeSeconds}s`;
-    const minutes = Math.floor(safeSeconds / 60);
-    const remaining = safeSeconds % 60;
-    if (minutes < 60) return `${minutes}m ${remaining}s`;
-    const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m`;
-};
-
-const formatDateTime = (value) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
-};
-
-const formatRelativeTime = (value) => {
-    if (!value) return "Never";
-    const ts = new Date(value).getTime();
-    if (Number.isNaN(ts)) return "Never";
-
-    const diffMs = Date.now() - ts;
-    if (diffMs < 60 * 1000) return "Just now";
-
-    const diffMinutes = Math.floor(diffMs / (60 * 1000));
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-
-    return formatDateTime(value);
-};
-
-const formatPathLabel = (path = "") => {
-    const normalized = String(path || "").trim();
-    if (!normalized) return "No page captured";
-    if (normalized === "/") return "Home";
-
-    const cleaned = normalized
-        .replace(/^\/+/, "")
-        .split("?")[0]
-        .split("#")[0];
-
-    if (!cleaned) return "Home";
-
-    return cleaned
-        .split("/")
-        .filter(Boolean)
-        .map((segment) => segment.replace(/[-_]+/g, " ").trim())
-        .filter(Boolean)
-        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-        .join(" / ");
-};
-
-const getAnalyticsStatusTone = (statusKey, isDark) => {
-    const toneMap = {
-        live: isDark ? "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20" : "bg-emerald-100 text-emerald-700 border border-emerald-200",
-        recent: isDark ? "bg-blue-500/15 text-blue-300 border border-blue-400/20" : "bg-blue-100 text-blue-700 border border-blue-200",
-        today: isDark ? "bg-amber-500/15 text-amber-300 border border-amber-400/20" : "bg-amber-100 text-amber-700 border border-amber-200",
-        offline: isDark ? "bg-slate-500/15 text-slate-300 border border-slate-400/20" : "bg-slate-100 text-slate-700 border border-slate-200",
-    };
-
-    return toneMap[statusKey] || toneMap.offline;
 };
 
 const getTransactionMetadataValue = (transaction, key) => {
@@ -1027,7 +963,7 @@ const AdminDashboard = () => {
     const [contacts, setContacts] = useState([]);
     const [deletedAccounts, setDeletedAccounts] = useState([]);
     const [analyticsData, setAnalyticsData] = useState(null);
-    const [analyticsSection, setAnalyticsSection] = useState("anonymous");
+    const [analyticsSection, setAnalyticsSection] = useState("overview");
     const [analyticsAnonymousDetail, setAnalyticsAnonymousDetail] = useState(null);
     const [analyticsAnonymousDetailLoading, setAnalyticsAnonymousDetailLoading] = useState(false);
     const [analyticsUserDetail, setAnalyticsUserDetail] = useState(null);
@@ -1076,6 +1012,7 @@ const AdminDashboard = () => {
     const [filmBroadcastContent, setFilmBroadcastContent] = useState("");
     const [scriptBroadcastTitle, setScriptBroadcastTitle] = useState("");
     const [scriptBroadcastContent, setScriptBroadcastContent] = useState("");
+    const [trailerRequirementsModal, setTrailerRequirementsModal] = useState(null);
 
     // ─── Toast notification system ───
     const [toast, setToast] = useState(null);
@@ -1797,6 +1734,14 @@ const AdminDashboard = () => {
                     setScripts(trailerScripts); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
+                case "ai-trailers": {
+                    const { data } = await adminApi.get(`/admin/scripts/ai-trailers?page=${page}`);
+                    const trailerLibraryScripts = Array.isArray(data?.scripts)
+                        ? data.scripts.filter((script) => ![true, "true", 1].includes(script?.isDeleted))
+                        : [];
+                    setScripts(trailerLibraryScripts); setTotalPages(data.totalPages); setTotal(data.total);
+                    break;
+                }
                 case "messages": {
                     await fetchMessagesDirectory();
                     break;
@@ -1854,6 +1799,13 @@ const AdminDashboard = () => {
             } else if (err?.response?.data?.code === "ADMIN_SCRIPT_SECTION_PASSWORD_REQUIRED") {
                 clearAdminScriptAccess();
                 showToast("Script section unlock expired. Please enter the password again.", "error");
+                ensureScriptSectionAccess().then((success) => {
+                    if (success) {
+                        fetchData(searchValue);
+                    } else if (isAdminScriptProtectedTab(activeTab)) {
+                        setActiveTab("overview");
+                    }
+                });
             } else {
                 showToast(err?.response?.data?.message || "Failed to load admin data", "error");
             }
@@ -2321,12 +2273,45 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleSendTrailerToWriter = async (script) => {
+        await handleTrailerApprove(script);
+    };
+
+    const openTrailerRequirements = (script) => {
+        if (!script) return;
+        setTrailerRequirementsModal(script);
+    };
+
     const handleOpenTrailerUpload = (script) => {
         if (!script?._id || uploadingTrailerScriptId) return;
         setTrailerUploadTargetScript(script);
         if (trailerFileInputRef.current) {
             trailerFileInputRef.current.value = "";
             trailerFileInputRef.current.click();
+        }
+    };
+
+    const handleRemoveTrailer = async (script) => {
+        const scriptId = script?._id;
+        if (!scriptId) return;
+
+        const title = String(script?.title || "this project");
+        const confirmed = await openAdminDialog({
+            type: "confirm",
+            title: "Remove trailer",
+            message: `Remove the trailer from "${title}"? It will no longer appear in the AI Trailer section.`,
+            confirmText: "Remove",
+            cancelText: "Cancel",
+        });
+        if (!confirmed) return;
+
+        try {
+            const { data } = await adminApi.delete(`/admin/scripts/${scriptId}/remove-trailer`);
+            showToast(data?.message || "Trailer removed successfully");
+            fetchData(search);
+        } catch (err) {
+            console.error(err);
+            showToast(err?.response?.data?.message || "Failed to remove trailer", "error");
         }
     };
 
@@ -3604,7 +3589,8 @@ const AdminDashboard = () => {
                 );
 
             case "trailers": {
-                const regenerationRequests = filteredScripts.filter((s) => s.trailerWriterFeedback?.status === "revision_requested");
+                const newTrailerRequests = filteredScripts;
+                const trailerRequestCount = newTrailerRequests.length;
                 return (
                     <div>
                         <input
@@ -3615,48 +3601,11 @@ const AdminDashboard = () => {
                             onChange={handleAdminTrailerFileChange}
                         />
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>AI Trailer Approvals<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
+                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>AI Trailer Approvals<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({trailerRequestCount})</span></h2>
                         </div>
-                        {regenerationRequests.length > 0 && (
-                            <div className={`rounded-2xl border p-5 mb-5 ${isDark ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-200/60"}`}>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <Icon d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865A8.25 8.25 0 0117.834 6.165l3.181 3.183" className={`w-5 h-5 ${isDark ? "text-amber-300" : "text-amber-700"}`} />
-                                    <h3 className={`text-sm font-bold ${isDark ? "text-amber-200" : "text-amber-900"}`}>Writer Requested Better Trailer</h3>
-                                </div>
-                                <div className="space-y-3">
-                                    {regenerationRequests.map((script) => (
-                                        <div key={script._id} className={`rounded-xl border px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 ${isDark ? "bg-white/[0.03] border-white/[0.08]" : "bg-white border-amber-100"}`}>
-                                            <div>
-                                                <p className={`text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{script.title}</p>
-                                                <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                    Writer: {script.creator?.name || "Unknown"}
-                                                    {script.trailerWriterFeedback?.updatedAt ? ` • ${new Date(script.trailerWriterFeedback.updatedAt).toLocaleString()}` : ""}
-                                                </p>
-                                                <p className={`text-xs mt-1.5 ${isDark ? "text-amber-200" : "text-amber-800"}`}>
-                                                    {script.trailerWriterFeedback?.note || "Writer requested a better AI trailer version."}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => openWriterConversation(script.creator)} className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${isDark ? "text-blue-300 hover:text-blue-200 hover:bg-blue-500/10" : "text-blue-600 hover:bg-blue-50"}`}>Write Message</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false}
+                        <ScriptTable scripts={newTrailerRequests} isDark={isDark} showScore={false}
                             actions={(s) => (
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.trailerStatus === "ready" ? "bg-emerald-100 text-emerald-700" :
-                                        s.trailerStatus === "generating" ? "bg-amber-100 text-amber-700" :
-                                            "bg-gray-100 text-gray-600"
-                                        }`}>{s.trailerStatus || "none"}</span>
-                                    {s.trailerWriterFeedback?.status === "revision_requested" && (
-                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isDark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>writer requested changes</span>
-                                    )}
-                                    {s.trailerStatus !== "ready" && (
-                                        <button onClick={() => handleTrailerApprove(s)} className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${isDark ? "text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10" : "text-emerald-700 hover:bg-emerald-100"}`}>Send Trailer</button>
-                                    )}
                                     <button
                                         onClick={() => handleOpenTrailerUpload(s)}
                                         disabled={uploadingTrailerScriptId === String(s._id)}
@@ -3667,6 +3616,18 @@ const AdminDashboard = () => {
                                     >
                                         {uploadingTrailerScriptId === String(s._id) ? "Uploading..." : "Add Trailer"}
                                     </button>
+                                    <button
+                                        onClick={() => handleSendTrailerToWriter(s)}
+                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                                    >
+                                        Send Trailer
+                                    </button>
+                                    <button
+                                        onClick={() => openTrailerRequirements(s)}
+                                        className="text-xs font-bold text-violet-300 hover:text-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-500/10 transition-colors"
+                                    >
+                                        Requirements
+                                    </button>
                                     <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
                                 </div>
                             )}
@@ -3675,6 +3636,41 @@ const AdminDashboard = () => {
                     </div>
                 );
             }
+
+            case "ai-trailers":
+                return (
+                    <div>
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
+                                AI Trailer
+                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span>
+                            </h2>
+                        </div>
+                        <ScriptTable
+                            scripts={filteredScripts}
+                            isDark={isDark}
+                            showScore={false}
+                            actions={(s) => (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                        onClick={() => handleSendTrailerToWriter(s)}
+                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                                    >
+                                        Send Trailer
+                                    </button>
+                                    <button
+                                        onClick={() => handleRemoveTrailer(s)}
+                                        className="text-xs font-bold text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                                    >
+                                        Remove Trailer
+                                    </button>
+                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
+                                </div>
+                            )}
+                        />
+                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
+                    </div>
+                );
 
             case "meetings":
                 return (
@@ -4297,592 +4293,30 @@ const AdminDashboard = () => {
                     </div>
                 );
 
-            case "analytics": {
-                const anonymousSummary = analyticsData?.anonymousVisitors || {};
-                const registeredSummary = analyticsData?.registeredUsers || {};
-                const alerts = analyticsData?.alerts?.returnedUsers || [];
-                const live = analyticsData?.liveActivity || {};
-                const pageVisits = anonymousSummary.pageVisits || [];
-                const locations = anonymousSummary.locationBreakdown || [];
-                const anonymousUsers = anonymousSummary.anonymousUsers || [];
-                const usersTimeline = registeredSummary.users || [];
-                const authSummary = registeredSummary.authSummary || {};
-                const recentAuthEvents = registeredSummary.recentAuthEvents || [];
-                const selectedAnonymous = analyticsAnonymousDetail?.anonymous || {};
-                const selectedAnonymousSummary = analyticsAnonymousDetail?.summary || {};
-                const selectedAnonymousDevices = analyticsAnonymousDetail?.devices || [];
-                const selectedAnonymousLocations = analyticsAnonymousDetail?.locations || [];
-                const selectedAnonymousPages = analyticsAnonymousDetail?.pages || [];
-                const selectedAnonymousSessions = analyticsAnonymousDetail?.sessions || [];
-                const selectedAnonymousEvents = analyticsAnonymousDetail?.latestEvents || [];
-                const selectedAnonymousClicks = analyticsAnonymousDetail?.latestClicks || [];
-                const selectedUser = analyticsUserDetail?.user || {};
-                const selectedSummary = analyticsUserDetail?.summary || {};
-                const selectedDevices = analyticsUserDetail?.devices || [];
-                const selectedLocations = analyticsUserDetail?.locations || [];
-                const selectedPages = analyticsUserDetail?.pages || [];
-                const selectedSessions = analyticsUserDetail?.sessions || [];
-                const selectedAuthEvents = analyticsUserDetail?.authEvents || [];
-                const selectedActions = analyticsUserDetail?.latestActions || [];
-                const selectedProjectSummary = analyticsUserDetail?.projectSummary || {};
-                const selectedLatestSession = analyticsUserDetail?.latestSession || null;
-                const registeredActivitySummary = registeredSummary.activitySummary || {};
-                const normalizedRegisteredSearch = analyticsRegisteredSearch.trim().toLowerCase();
-                const filteredRegisteredUsers = usersTimeline.filter((entry) => {
-                    const matchesSearchValue = !normalizedRegisteredSearch || [
-                        entry?.name,
-                        entry?.email,
-                        entry?.role,
-                        entry?.sid,
-                        entry?.latestPath,
-                        entry?.latestAction,
-                        entry?.projectSummary?.recentProjects?.map((project) => project?.title).join(" "),
-                    ].some((value) => String(value || "").toLowerCase().includes(normalizedRegisteredSearch));
-
-                    const statusKey = String(entry?.currentStatus?.key || "offline").toLowerCase();
-                    const matchesStatus = analyticsRegisteredStatusFilter === "all" || statusKey === analyticsRegisteredStatusFilter;
-
-                    return matchesSearchValue && matchesStatus;
-                });
-                const selectedStatusTone = getAnalyticsStatusTone(selectedUser?.currentStatus?.key, isDark);
-
-                const sectionButtonClass = (key) => (
-                    `px-3 py-2 rounded-lg border text-xs font-bold transition-all ${analyticsSection === key
-                        ? (isDark ? "border-blue-400/40 bg-blue-500/25 text-blue-100 shadow-sm shadow-blue-500/20" : "border-blue-200 bg-blue-100 text-blue-700")
-                        : (isDark ? "border-[#294468] bg-[#132744]/60 text-gray-200 hover:bg-[#1b3558] hover:text-white" : "border-gray-200 text-gray-600 hover:bg-gray-100")
-                    }`
-                );
-
+            case "analytics":
                 return (
-                    <div className="space-y-6">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>User Tracking Analytics</h2>
-                            <div className="flex items-center gap-2">
-                                <button className={sectionButtonClass("anonymous")} onClick={() => setAnalyticsSection("anonymous")}>Anonymous Visitors</button>
-                                <button className={sectionButtonClass("registered")} onClick={() => setAnalyticsSection("registered")}>Registered Users</button>
-                                <a
-                                    href={`${API_BASE_URL}/admin/analytics?format=csv`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex w-fit items-center rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-700"
-                                >
-                                    Export CSV
-                                </a>
-                            </div>
-                        </div>
-
-                        {analyticsSection === "anonymous" ? (
-                            <>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                    <StatCard isDark={isDark} label="Total Visitors" value={anonymousSummary.totalVisitors || 0} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493" color="bg-blue-500/15 text-blue-500" />
-                                    <StatCard isDark={isDark} label="New Visitors" value={anonymousSummary.newVisitors || 0} icon="M12 4.5v15m7.5-7.5h-15" color="bg-emerald-500/15 text-emerald-500" />
-                                    <StatCard isDark={isDark} label="Returning Visitors" value={anonymousSummary.returningVisitors || 0} icon="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992" color="bg-amber-500/15 text-amber-500" />
-                                    <StatCard isDark={isDark} label="Live Anonymous" value={live.activeAnonymousUsers || 0} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-purple-500/15 text-purple-500" />
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <h3 className={`mb-3 text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Device Breakdown</h3>
-                                        <div className="space-y-2">
-                                            {Object.entries(anonymousSummary.deviceBreakdown || {}).map(([key, value]) => (
-                                                <div key={key} className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-2">
-                                                    <span className={`text-xs font-semibold uppercase ${isDark ? "text-gray-300" : "text-gray-700"}`}>{key}</span>
-                                                    <span className={`text-sm font-bold ${isDark ? "text-blue-300" : "text-blue-700"}`}>{value}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <h3 className={`mb-3 text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Returning Visitor Alerts</h3>
-                                        <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
-                                            {alerts.length === 0 ? (
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No return alerts yet.</p>
-                                            ) : (
-                                                alerts.map((alert, index) => (
-                                                    <div key={`${alert.anonymousId}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
-                                                        <p className={`text-xs font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{alert.anonymousId}</p>
-                                                        <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                                                            {alert.city || "Unknown"}, {alert.country || "Unknown"} • {alert.path || "-"}
-                                                        </p>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <h3 className={`mb-3 text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Top Locations</h3>
-                                        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                                            {locations.length === 0 ? (
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No location data yet.</p>
-                                            ) : (
-                                                locations.slice(0, 25).map((entry) => (
-                                                    <div key={`${entry.region}-${entry.city}-${entry.country}`} className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-2">
-                                                        <span className={`text-xs font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>{entry.region || "Unknown"}, {entry.city || "Unknown"}, {entry.country || "Unknown"}</span>
-                                                        <span className={`text-sm font-bold ${isDark ? "text-emerald-300" : "text-emerald-700"}`}>{entry.count}</span>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <h3 className={`mb-3 text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Click Heatmap Samples</h3>
-                                        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                                            {(anonymousSummary.clickHeatmap || []).slice(-50).reverse().map((click, index) => (
-                                                <div key={`${click.path}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
-                                                    <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Button: {click.label || click.text || click.element || "Unknown"}</p>
-                                                    <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Page: {click.path || "-"} • Section: {click.section || "General"}</p>
-                                                    <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Position: ({click.x}, {click.y})</p>
-                                                </div>
-                                            ))}
-                                            {(anonymousSummary.clickHeatmap || []).length === 0 && (
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No click samples yet.</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                    <div className="max-h-80 overflow-auto">
-                                        <table className="w-full">
-                                            <thead>
-                                                <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                                    {["Page", "Visits", "Avg Time", "Total Time"].map((h) => (
-                                                        <th key={h} className={`px-5 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                                    ))}
-                                                </tr>
-                                            </thead>
-                                            <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                                {pageVisits.slice(0, 25).map((item) => (
-                                                    <tr key={item.page}>
-                                                        <td className={`px-5 py-3.5 text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{item.page}</td>
-                                                        <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{item.visits}</td>
-                                                        <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{formatDuration(item.avgTimeSeconds)}</td>
-                                                        <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{formatDuration(item.totalTimeSeconds)}</td>
-                                                    </tr>
-                                                ))}
-                                                {pageVisits.length === 0 && (
-                                                    <tr><td colSpan={4} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No page analytics yet</td></tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-                                    <div className={`xl:col-span-2 rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full">
-                                                <thead>
-                                                    <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                                        {["Temporary ID", "Last Active", "Location", "Browser / OS", "Action"].map((h) => (
-                                                            <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                                    {anonymousUsers.slice(0, 120).map((entry) => (
-                                                        <tr key={entry.anonymousId}>
-                                                            <td className={`px-4 py-3 text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{entry.anonymousId}</td>
-                                                            <td className={`px-4 py-3 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{entry.lastEventAt ? new Date(entry.lastEventAt).toLocaleString() : "-"}</td>
-                                                            <td className={`px-4 py-3 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{entry.location || "Unknown"}</td>
-                                                            <td className={`px-4 py-3 text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                                <p>{entry.browser || "Unknown"} / {entry.os || "Unknown"}</p>
-                                                                <p className={`${isDark ? "text-gray-500" : "text-gray-500"}`}>{entry.deviceType || "unknown"}</p>
-                                                            </td>
-                                                            <td className="px-4 py-3">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => fetchAnalyticsAnonymousDetail(entry.anonymousId)}
-                                                                    disabled={!entry.anonymousId || analyticsAnonymousDetailLoading}
-                                                                    className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
-                                                                >
-                                                                    View Details
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                    {anonymousUsers.length === 0 && (
-                                                        <tr><td colSpan={5} className={`px-4 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No anonymous visitors yet</td></tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-
-                                    <div className={`xl:col-span-3 rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        {analyticsAnonymousDetailLoading ? (
-                                            <div className="flex items-center justify-center py-20">
-                                                <div className="w-7 h-7 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                                            </div>
-                                        ) : !analyticsAnonymousDetail ? (
-                                            <div className="py-20 text-center">
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Select a temporary anonymous ID to inspect full behavior.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h3 className={`text-base font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Temp ID: {selectedAnonymous.temporaryId || "-"}</h3>
-                                                        <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Returning: {selectedAnonymous.isReturning ? "Yes" : "No"} • Last Active: {selectedAnonymous.lastEventAt ? new Date(selectedAnonymous.lastEventAt).toLocaleString() : "-"}</p>
-                                                        <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Device: {selectedAnonymous.device?.deviceType || "unknown"} / {selectedAnonymous.device?.browser || "Unknown"} / {selectedAnonymous.device?.os || "Unknown"}</p>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        className={`text-xs font-bold ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}
-                                                        onClick={() => setAnalyticsAnonymousDetail(null)}
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Sessions</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedAnonymousSummary.totalSessions || 0}</p></div>
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Events</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedAnonymousSummary.totalEvents || 0}</p></div>
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Page Visits</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedAnonymousSummary.totalPageVisits || 0}</p></div>
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Time Spent</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{formatDuration(selectedAnonymousSummary.totalTimeSeconds || 0)}</p></div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Devices</h4>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {selectedAnonymousDevices.length === 0 ? <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No data</span> : selectedAnonymousDevices.map((item) => (
-                                                                <span key={item.label || `${item.deviceType}-${item.browser}-${item.os}`} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{item.label || `${item.deviceType || "unknown"} / ${item.browser || "Unknown"} / ${item.os || "Unknown"}`} ({item.count})</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Locations</h4>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {selectedAnonymousLocations.length === 0 ? <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No data</span> : selectedAnonymousLocations.map((item) => (
-                                                                <span key={item.location} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"}`}>{item.location} ({item.count})</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Top Pages</h4>
-                                                        <div className="max-h-40 overflow-y-auto space-y-1">
-                                                            {selectedAnonymousPages.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No page events</p> : selectedAnonymousPages.slice(0, 30).map((page) => (
-                                                                <p key={page.path} className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{page.path} • {page.visits} visits • {formatDuration(page.totalTimeSeconds)}</p>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Latest Clicks</h4>
-                                                        <div className="max-h-40 overflow-y-auto space-y-1">
-                                                            {selectedAnonymousClicks.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No click data</p> : selectedAnonymousClicks.slice(0, 30).map((click, index) => (
-                                                                <p key={`${click.sessionId}-${index}`} className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{click.timestamp ? new Date(click.timestamp).toLocaleString() : "-"} • Page: {click.path || "-"} • Button: {click.label || click.text || click.element || "Unknown"} • Section: {click.section || "General"} • ({click.x}, {click.y})</p>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="rounded-lg border p-3">
-                                                    <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Session Journey</h4>
-                                                    <div className="max-h-48 overflow-y-auto space-y-2">
-                                                        {selectedAnonymousSessions.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No sessions found</p> : selectedAnonymousSessions.slice(0, 20).map((session) => (
-                                                            <div key={session.sessionId} className={`rounded-md border px-2.5 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
-                                                                <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{session.sessionId}</p>
-                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{`${session.entryPath || "-"} to ${session.exitPath || "-"} - ${formatDuration(session.durationSeconds || 0)}`}</p>
-                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{`${session.location?.city || "Unknown"}, ${session.location?.country || "Unknown"} - ${session.device?.deviceType || "unknown"} / ${session.device?.browser || "Unknown"} / ${session.device?.os || "Unknown"}`}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className="rounded-lg border p-3">
-                                                    <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Latest Events</h4>
-                                                    <div className="max-h-52 overflow-y-auto space-y-1">
-                                                        {selectedAnonymousEvents.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No events</p> : selectedAnonymousEvents.slice(0, 80).map((event, index) => (
-                                                            <p key={`${event.eventType}-${index}`} className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{event.timestamp ? new Date(event.timestamp).toLocaleString() : "-"} • {event.eventType} • {event.action || "-"} • {event.path || "-"}</p>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                                    <StatCard isDark={isDark} label="Tracked Users" value={registeredSummary.totalUsers || 0} icon="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5z" color="bg-emerald-500/15 text-emerald-500" />
-                                    <StatCard isDark={isDark} label="Live Right Now" value={live.activeRegisteredUsers || 0} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-emerald-500/15 text-emerald-500" />
-                                    <StatCard isDark={isDark} label="Active In 30 Min" value={registeredActivitySummary.activeInLast30Minutes || 0} icon="M11.25 6.75v5.25l3.75 2.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-blue-500/15 text-blue-500" />
-                                    <StatCard isDark={isDark} label="Users With Projects" value={registeredActivitySummary.usersWithProjects || 0} icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12" color="bg-purple-500/15 text-purple-500" />
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <h3 className={`mb-3 text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Auth Event Summary</h3>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-2">
-                                                <span className={`text-xs font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>Total Signup Events</span>
-                                                <span className={`text-sm font-bold ${isDark ? "text-blue-300" : "text-blue-700"}`}>{authSummary.totalSignupEvents || 0}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between rounded-lg bg-black/5 px-3 py-2">
-                                                <span className={`text-xs font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>Total Login Events</span>
-                                                <span className={`text-sm font-bold ${isDark ? "text-amber-300" : "text-amber-700"}`}>{authSummary.totalLoginEvents || 0}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <h3 className={`mb-3 text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Recent Login / Signup Events</h3>
-                                        <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-                                            {recentAuthEvents.length === 0 ? (
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No auth events yet.</p>
-                                            ) : (
-                                                recentAuthEvents.slice(0, 25).map((event, index) => (
-                                                    <div key={`${event.userId}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
-                                                        <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{event.userName} • {event.type}</p>
-                                                        <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{event.userEmail || "-"} • {event.timestamp ? new Date(event.timestamp).toLocaleString() : "-"}</p>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-                                    <div className={`xl:col-span-2 rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        <div className={`border-b px-4 py-4 ${isDark ? "border-[#1a3050]" : "border-gray-100"}`}>
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <div>
-                                                        <h3 className={`text-base font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Registered users radar</h3>
-                                                        <p className={`mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{filteredRegisteredUsers.length} visible user records</p>
-                                                    </div>
-                                                    <select
-                                                        value={analyticsRegisteredStatusFilter}
-                                                        onChange={(event) => setAnalyticsRegisteredStatusFilter(event.target.value)}
-                                                        className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#132744] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
-                                                    >
-                                                        <option value="all">All statuses</option>
-                                                        <option value="live">Live now</option>
-                                                        <option value="recent">Recently online</option>
-                                                        <option value="today">Active today</option>
-                                                        <option value="offline">Offline</option>
-                                                    </select>
-                                                </div>
-                                                <input
-                                                    value={analyticsRegisteredSearch}
-                                                    onChange={(event) => setAnalyticsRegisteredSearch(event.target.value)}
-                                                    placeholder="Search name, email, role, page, project..."
-                                                    className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${isDark ? "border-[#294468] bg-[#081221] text-gray-100 placeholder:text-gray-500" : "border-gray-200 bg-slate-50 text-gray-800 placeholder:text-gray-400"}`}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="max-h-[980px] space-y-3 overflow-y-auto p-4">
-                                            {filteredRegisteredUsers.length === 0 ? (
-                                                <div className={`rounded-2xl border border-dashed px-4 py-8 text-center text-sm ${isDark ? "border-[#294468] text-gray-500" : "border-gray-300 text-gray-500"}`}>No registered users match this filter.</div>
-                                            ) : (
-                                                filteredRegisteredUsers.slice(0, 120).map((entry) => (
-                                                    <button
-                                                        key={String(entry.userId || entry.email)}
-                                                        type="button"
-                                                        onClick={() => fetchAnalyticsUserDetail(String(entry.userId || ""))}
-                                                        disabled={!entry.userId || analyticsUserDetailLoading}
-                                                        className={`w-full rounded-2xl border p-4 text-left transition-all disabled:opacity-60 ${String(selectedUser?.id || "") === String(entry?.userId || "") ? (isDark ? "border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]" : "border-cyan-300 bg-cyan-50") : (isDark ? "border-[#1a3050] bg-[#0c172b] hover:border-[#335782] hover:bg-[#10203a]" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}`}
-                                                    >
-                                                        <div className="flex items-start justify-between gap-3">
-                                                            <div className="min-w-0">
-                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                    <p className={`truncate text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{entry.name || "Unknown user"}</p>
-                                                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${isDark ? "bg-white/10 text-gray-300" : "bg-slate-100 text-slate-700"}`}>{entry.role || "user"}</span>
-                                                                </div>
-                                                                <p className={`mt-1 truncate text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{entry.email || "-"} {entry.sid ? `| ${entry.sid}` : ""}</p>
-                                                            </div>
-                                                            <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${getAnalyticsStatusTone(entry?.currentStatus?.key, isDark)}`}>{entry?.currentStatus?.label || "Offline"}</span>
-                                                        </div>
-                                                        <div className="mt-3 grid grid-cols-2 gap-2">
-                                                            <div className={`rounded-xl px-3 py-2 ${isDark ? "bg-black/20" : "bg-slate-50"}`}>
-                                                                <p className={`text-[10px] uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-500"}`}>Last activity</p>
-                                                                <p className={`mt-1 text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{formatRelativeTime(entry?.lastActiveAt)}</p>
-                                                                <p className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>{formatDateTime(entry?.lastActiveAt)}</p>
-                                                            </div>
-                                                            <div className={`rounded-xl px-3 py-2 ${isDark ? "bg-black/20" : "bg-slate-50"}`}>
-                                                                <p className={`text-[10px] uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-500"}`}>Current focus</p>
-                                                                <p className={`mt-1 text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{formatPathLabel(entry?.latestPath)}</p>
-                                                                <p className={`mt-1 text-[11px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>{entry?.latestAction || "No action label"}</p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-3 flex flex-wrap gap-2">
-                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-blue-500/10 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{entry?.sessionCount || 0} sessions</span>
-                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-purple-500/10 text-purple-300" : "bg-purple-100 text-purple-700"}`}>{entry?.projectSummary?.totalProjects || 0} projects</span>
-                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-100 text-amber-700"}`}>{entry?.projectSummary?.pendingProjects || 0} pending</span>
-                                                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-emerald-500/10 text-emerald-300" : "bg-emerald-100 text-emerald-700"}`}>{entry?.projectSummary?.publishedProjects || 0} published</span>
-                                                        </div>
-                                                        {entry?.projectSummary?.recentProjects?.[0] && (
-                                                            <p className={`mt-3 text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Latest project: <span className={`${isDark ? "text-gray-200" : "text-gray-700"} font-semibold`}>{entry.projectSummary.recentProjects[0].title}</span></p>
-                                                        )}
-                                                    </button>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className={`xl:col-span-3 rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                        {analyticsUserDetailLoading ? (
-                                            <div className="flex items-center justify-center py-20">
-                                                <div className="w-7 h-7 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                                            </div>
-                                        ) : !analyticsUserDetail ? (
-                                            <div className="py-20 text-center">
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Select a user from the radar to inspect their work, recent online footprint, and detailed activity trail.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                <div className={`rounded-3xl border p-5 ${isDark ? "border-[#1f3454] bg-[radial-gradient(circle_at_top_left,_rgba(6,182,212,0.18),_transparent_32%),linear-gradient(180deg,_#101e37_0%,_#0b172a_100%)]" : "border-gray-200 bg-slate-50"}`}>
-                                                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                                        <div className="min-w-0">
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${selectedStatusTone}`}>{selectedUser?.currentStatus?.label || "Offline"}</span>
-                                                                <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${isDark ? "bg-white/10 text-gray-300" : "bg-white text-slate-700 border border-slate-200"}`}>{selectedUser.role || "user"}</span>
-                                                            </div>
-                                                            <p className={`mt-3 text-sm ${isDark ? "text-cyan-100/90" : "text-slate-700"}`}>Last seen {formatRelativeTime(selectedSummary.lastActiveAt)} on <span className="font-semibold">{formatPathLabel(selectedUser.latestPath)}</span>{selectedUser.latestAction ? ` via ${selectedUser.latestAction}` : ""}.</p>
-                                                            <p className={`mt-2 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Joined {formatDateTime(selectedSummary.firstSeenAt)} | Last login {formatDateTime(selectedSummary.lastLoginAt)}</p>
-                                                        </div>
-                                                        <div className={`rounded-2xl border px-4 py-3 ${isDark ? "border-white/10 bg-white/5" : "border-gray-200 bg-white"}`}>
-                                                            <p className={`text-[11px] uppercase tracking-wider ${isDark ? "text-gray-500" : "text-gray-500"}`}>Projects tracked</p>
-                                                            <p className={`mt-1 text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{selectedSummary.projectsTracked || 0}</p>
-                                                            <p className={`mt-1 text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{selectedProjectSummary.pendingProjects || 0} pending | {selectedProjectSummary.publishedProjects || 0} published</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h3 className={`text-base font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{selectedUser.name || "Unknown User"}</h3>
-                                                        <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{selectedUser.email || "-"} • {selectedUser.phoneMasked || "-"} • SID: {selectedUser.sid || "-"}</p>
-                                                    </div>
-                                                    <button
-                                                        type="button"
-                                                        className={`text-xs font-bold ${isDark ? "text-gray-400 hover:text-gray-200" : "text-gray-500 hover:text-gray-700"}`}
-                                                        onClick={() => setAnalyticsUserDetail(null)}
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Sessions</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedSummary.totalSessions || 0}</p></div>
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedSummary.totalActions || 0}</p></div>
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Page Visits</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedSummary.totalPageVisits || 0}</p></div>
-                                                    <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Time Spent</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{formatDuration(selectedSummary.totalTimeSeconds || 0)}</p></div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Project Summary</h4>
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Draft</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.draftProjects || 0}</p></div>
-                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Pending</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.pendingProjects || 0}</p></div>
-                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Published</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.publishedProjects || 0}</p></div>
-                                                            <div className="rounded-lg bg-black/5 px-3 py-2"><p className={`text-[10px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Rejected</p><p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{selectedProjectSummary.rejectedProjects || 0}</p></div>
-                                                        </div>
-                                                        <div className="mt-3 flex flex-wrap gap-2">
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-purple-500/15 text-purple-300" : "bg-purple-100 text-purple-700"}`}>Trailer {selectedProjectSummary.aiTrailerProjects || 0}</span>
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>Evaluation {selectedProjectSummary.evaluationProjects || 0}</span>
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>Spotlight {selectedProjectSummary.spotlightProjects || 0}</span>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Latest Session</h4>
-                                                        {!selectedLatestSession ? (
-                                                            <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No session snapshot found.</p>
-                                                        ) : (
-                                                            <div className="space-y-2">
-                                                                <p className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{formatPathLabel(selectedLatestSession.entryPath)} to {formatPathLabel(selectedLatestSession.exitPath || selectedLatestSession.entryPath)}</p>
-                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{formatDuration(selectedLatestSession.durationSeconds || 0)} | {formatDateTime(selectedLatestSession.startedAt)}</p>
-                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{selectedLatestSession.location?.city || "Unknown"}, {selectedLatestSession.location?.country || "Unknown"}</p>
-                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{selectedLatestSession.device?.deviceType || "unknown"} / {selectedLatestSession.device?.browser || "Unknown"} / {selectedLatestSession.device?.os || "Unknown"}</p>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Devices Used</h4>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {selectedDevices.length === 0 ? <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No data</span> : selectedDevices.map((item) => (
-                                                                <span key={item.label || `${item.deviceType}-${item.browser}-${item.os}`} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{item.label || `${item.deviceType || "unknown"} / ${item.browser || "Unknown"} / ${item.os || "Unknown"}`} ({item.count})</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Locations</h4>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {selectedLocations.length === 0 ? <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No data</span> : selectedLocations.map((item) => (
-                                                                <span key={item.location} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700"}`}>{item.location} ({item.count})</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Auth Timeline</h4>
-                                                        <div className="max-h-40 overflow-y-auto space-y-1">
-                                                            {selectedAuthEvents.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No login/signup events</p> : selectedAuthEvents.slice(0, 30).map((event, index) => (
-                                                                <p key={`${event.type}-${index}`} className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{event.type} • {event.timestamp ? new Date(event.timestamp).toLocaleString() : "-"}</p>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="rounded-lg border p-3">
-                                                        <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Top Pages</h4>
-                                                        <div className="max-h-40 overflow-y-auto space-y-1">
-                                                            {selectedPages.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No page events</p> : selectedPages.slice(0, 30).map((page) => (
-                                                                <p key={page.path} className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{page.path} • {page.visits} visits • {formatDuration(page.totalTimeSeconds)}</p>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="rounded-lg border p-3">
-                                                    <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Session Journey</h4>
-                                                    <div className="max-h-48 overflow-y-auto space-y-2">
-                                                        {selectedSessions.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No sessions found</p> : selectedSessions.slice(0, 20).map((session) => (
-                                                            <div key={session.sessionId} className={`rounded-md border px-2.5 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
-                                                                <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{session.sessionId}</p>
-                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{`${session.entryPath || "-"} to ${session.exitPath || "-"} - ${formatDuration(session.durationSeconds || 0)}`}</p>
-                                                                <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{`${session.location?.city || "Unknown"}, ${session.location?.country || "Unknown"} - ${session.device?.deviceType || "unknown"} / ${session.device?.browser || "Unknown"} / ${session.device?.os || "Unknown"}`}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className="rounded-lg border p-3">
-                                                    <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Latest Actions</h4>
-                                                    <div className="max-h-56 overflow-y-auto space-y-1">
-                                                        {selectedActions.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No action logs</p> : selectedActions.slice(0, 80).map((item, index) => (
-                                                            <p key={`${item.eventType}-${index}`} className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>{item.timestamp ? new Date(item.timestamp).toLocaleString() : "-"} • {item.eventType} • {item.action || "-"} • {item.page || item.path || "-"}</p>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    <AdminAnalyticsPanel
+                        isDark={isDark}
+                        analyticsData={analyticsData}
+                        analyticsSection={analyticsSection}
+                        setAnalyticsSection={setAnalyticsSection}
+                        analyticsAnonymousDetail={analyticsAnonymousDetail}
+                        analyticsAnonymousDetailLoading={analyticsAnonymousDetailLoading}
+                        fetchAnalyticsAnonymousDetail={fetchAnalyticsAnonymousDetail}
+                        setAnalyticsAnonymousDetail={setAnalyticsAnonymousDetail}
+                        analyticsUserDetail={analyticsUserDetail}
+                        analyticsUserDetailLoading={analyticsUserDetailLoading}
+                        fetchAnalyticsUserDetail={fetchAnalyticsUserDetail}
+                        setAnalyticsUserDetail={setAnalyticsUserDetail}
+                        analyticsRegisteredSearch={analyticsRegisteredSearch}
+                        setAnalyticsRegisteredSearch={setAnalyticsRegisteredSearch}
+                        analyticsRegisteredStatusFilter={analyticsRegisteredStatusFilter}
+                        setAnalyticsRegisteredStatusFilter={setAnalyticsRegisteredStatusFilter}
+                        apiBaseUrl={API_BASE_URL}
+                        onRefresh={() => fetchData()}
+                        refreshing={loading}
+                    />
                 );
-            }
 
             case "discount-codes":
                 return (
@@ -5577,8 +5011,75 @@ const AdminDashboard = () => {
                 </div>
             </div>
         )}
+
+        {trailerRequirementsModal && (
+            <div
+                className="fixed inset-0 z-[10055] flex items-center justify-center px-4"
+                onClick={() => setTrailerRequirementsModal(null)}
+            >
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                <div
+                    className="relative w-[min(94vw,560px)] rounded-2xl border border-[#1a3050] bg-[#0f1d35] p-5 text-white shadow-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-base font-bold">Trailer Requirements</p>
+                            <p className="mt-1.5 text-sm text-gray-300 leading-relaxed">
+                                {trailerRequirementsModal?.title || "Selected script"} by {trailerRequirementsModal?.creator?.name || "the creator"}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setTrailerRequirementsModal(null)}
+                            className="text-gray-400 hover:text-white transition-colors"
+                            aria-label="Close requirements modal"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {(() => {
+                        const parsed = parseTrailerRequestNote(trailerRequirementsModal?.trailerWriterFeedback?.note);
+                        const summary = parsed?.fields || {};
+                        return (
+                            <div className="mt-4 space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Duration</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.duration || "Not set"}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Quality</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.quality || "Not set"}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Layout</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.layout || "Not set"}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Payment</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.price || "Not set"}</p>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Request Note</p>
+                                    <p className="mt-2 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
+                                        {parsed?.text || "No request note available."}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            </div>
+        )}
         </>
     );
 };
 
 export default AdminDashboard;
+

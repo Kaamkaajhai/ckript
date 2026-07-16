@@ -1,8 +1,10 @@
-import { Link } from "react-router-dom";
+import { useAuthModal } from "../../../../context/AuthModalContext";
 import { ROUTES } from "../../_shared/theme";
 import "./FinalCta.css";
 
 export default function FinalCta() {
+  const { openWriterOnboarding, openProducerOnboarding } = useAuthModal();
+
   return (
     <section className="ckl-cta">
       <span className="ckl-cta-line" data-ra="ckl-fadeUp" />
@@ -17,12 +19,12 @@ export default function FinalCta() {
         investors who can make it real.
       </p>
       <div className="ckl-cta-actions" data-ra="ckl-fadeUp" data-rd="0.26">
-        <Link to={ROUTES.writer} className="ckl-cta-btn hov-btn-lift">
+        <button type="button" onClick={() => openWriterOnboarding()} className="ckl-cta-btn hov-btn-lift">
           Start with your script
-        </Link>
-        <Link to={ROUTES.join} className="ckl-cta-link hov-underline">
+        </button>
+        <button type="button" onClick={() => openProducerOnboarding()} className="ckl-cta-link hov-underline">
           Browse scripts
-        </Link>
+        </button>
       </div>
     </section>
   );

@@ -8,28 +8,11 @@ import Features from "./sections/Features/Features";
 import Formats from "./sections/Formats/Formats";
 import Trailer from "./sections/Trailer/Trailer";
 import Problem from "./sections/Problem/Problem";
-import Testimonials from "./sections/Testimonials/Testimonials";
 import Partners from "./sections/Partners/Partners";
 import FinalCta from "./sections/FinalCta/FinalCta";
 import Footer from "./sections/Footer/Footer";
 import "./landing.css";
 
-/* ═══════════════════════════════════════════════════════════════
-   Ckript Landing — orchestrator.
-
-   Each section owns its own markup and stylesheet under ./sections.
-   This file only sequences them and wires the two page-level
-   concerns that span sections:
-
-   • a single reveal-on-scroll observer for every [data-ra] element
-     (see _shared/useReveal), and
-   • the `.ckl-scroll` class on <html> that restyles the page
-     scrollbar for the duration the landing is mounted.
-
-   Ported from the "Ckript Landing.dc.html" Claude Design handoff;
-   every inline SVG icon in the original was replaced with Google
-   Material Symbols (see _shared/Icon).
-   ═══════════════════════════════════════════════════════════════ */
 export default function Landing() {
   const rootRef = useRef(null);
   useReveal(rootRef);
@@ -53,7 +36,6 @@ export default function Landing() {
       <Formats />
       <Trailer />
       <Problem />
-      <Testimonials />
       <Partners />
       <FinalCta />
       <Footer />

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EditorState } from "@codemirror/state";
-import { applyEmphasis, activeEmphasis, applyCase, applyCentered, isCenteredLine, insertPageBreak } from "./screenplayMode";
+import { applyEmphasis, activeEmphasis, applyCase, applyCentered, isCenteredLine } from "./screenplayMode";
 import { classifyText, textToBlocks } from "./classify";
 
 // applyEmphasis/activeEmphasis only touch view.state, view.dispatch, view.focus — never the DOM —
@@ -128,27 +128,10 @@ describe("applyCentered — Fountain >centered< (line-level, export-safe)", () =
 describe("centered text stays in sync with the classifier", () => {
   it(">text< classifies as action (not transition) and strips markers for display", () => {
     expect(classifyText(">THE END<")).toEqual(["action"]);
-    expect(textToBlocks(">THE END<")).toEqual([{ type: "action", text: "THE END" }]);
+    expect(textToBlocks(">THE END<")).toEqual([{ type: "action", text: "THE END", centered: true }]);
   });
 
   it("a leading > WITHOUT a trailing < is still a transition (no collision)", () => {
     expect(classifyText("> FADE OUT")).toEqual(["transition"]);
-  });
-});
-
-describe("insertPageBreak — Fountain forced page break (===)", () => {
-  it("inserts === on an empty line and the result classifies as pagebreak", () => {
-    const v = mkView("", 0);
-    insertPageBreak(v);
-    const doc = v.state.doc.toString();
-    expect(doc.includes("===")).toBe(true);
-    // The === line classifies as a page break.
-    expect(classifyText(doc).includes("pagebreak")).toBe(true);
-  });
-
-  it("separates the break from surrounding text with blank lines", () => {
-    const v = mkView("Action line.", 12); // caret at end
-    insertPageBreak(v);
-    expect(v.state.doc.toString()).toBe("Action line.\n\n===\n\n");
   });
 });

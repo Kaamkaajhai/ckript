@@ -15,7 +15,7 @@ const CreateProjectShell = ({ children }) => {
     adjustZoom, charCount, creationBlocked, dark, detailsStep, detailsSubSteps, drafts, editorZoom, enforceGoldPlan,
     error, estimatedPages, exportMenuOpen, exportingScreenplay, handleBack, handleExitEditor,
     handleExportScreenplay, handleNext, handlePublish, isScreenplayFormat, lastSaved, legal,
-    loading, saved, saving, screenplayApiRef, screenplayEnabled, screenplayFileInputRef,
+    loading, saved, saving, screenplayEnabled, screenplayFileInputRef,
     scriptLimit, setError, setDetailsStep, setExportMenuOpen, setFocusMode, setScreenplayEnabled, setShowDrafts,
     setShowVersionHistory, setSaved, setStep, setTitle, step, title, toggleDarkMode,
     useScreenplayEditor, currentElement, wordCount,
@@ -235,11 +235,6 @@ const CreateProjectShell = ({ children }) => {
               <div style={{ display: "flex", alignItems: "center", gap: "5px", flex: "none" }}>
                 {useScreenplayEditor && (
                   <>
-                    <button type="button" onClick={() => screenplayApiRef.current?.insertPageBreak()} title="Insert page break" className="ckcp-hoverable"
-                      style={{ display: "flex", alignItems: "center", gap: "5px", height: "32px", padding: "0 11px", border: "none", borderRadius: "8px", background: "transparent", color: dark ? "#b0b0b0" : "#767676", fontFamily: "inherit", fontWeight: 600, fontSize: "11.5px", cursor: "pointer" }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>horizontal_rule</span>Page break
-                    </button>
-                    <div className="ckcp-vr" style={{ width: "1px", height: "18px", background: dark ? "#2a2a2a" : "#eeeeee", margin: "0 3px" }} />
                     <div style={{ display: "flex", alignItems: "center", gap: "1px", flex: "none" }}>
                       <button type="button" onClick={() => adjustZoom(-1)} title="Zoom out" className="ckcp-hoverable" style={cpZoomBtnStyle(dark)}>
                         <span className="material-symbols-outlined" style={{ fontSize: "17px" }}>remove</span>

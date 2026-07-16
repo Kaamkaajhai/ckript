@@ -1046,10 +1046,7 @@ const ScriptUpload = () => {
       formData.append("pdf", file);
 
       // Call our new backend extraction endpoint
-      const { data } = await api.post("/scripts/extract-pdf", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-
+      const { data } = await api.post("/scripts/extract-pdf", formData);
       clearInterval(interval);
       setUploadProgress(100);
 

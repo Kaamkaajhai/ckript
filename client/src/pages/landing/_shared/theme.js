@@ -29,7 +29,6 @@ export const ROUTES = {
   writer: "/writer-onboarding",
   pro: "/producer-director-onboarding",
   pricing: "/pricing",
-  join: "/join",
   login: "/login",
   about: "/about",
   contact: "/contact",

@@ -5,6 +5,7 @@ import { ToastProvider } from "./context/ToastContext";
 import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
 import PrivateRoute from "./utils/PrivateRoute";
 import { AuthContext } from "./context/AuthContext";
 import SeoManager from "./components/SeoManager";
@@ -24,7 +25,6 @@ const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacy
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
 const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
-const Join = lazy(() => import("./pages/Join"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
 const WriterOnboardingRoute = lazy(() => import("./pages/WriterOnboardingRoute"));
@@ -60,7 +60,6 @@ const MobileApp = lazy(() => import("./mobile/MobileApp"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
-  () => import("./pages/Join"),
   () => import("./pages/AcceptInvite"),
   () => import("./pages/Dashboard"),
   () => import("./pages/Profile"),
@@ -294,6 +293,7 @@ function App() {
   const appTree = (
     <DarkModeProvider key="dm-root">
       <AuthProvider>
+        <CurrencyProvider>
         <ToastProvider>
         <Router>
           <AuthModalProvider>
@@ -349,8 +349,8 @@ function App() {
               <Route path="/script-upload-terms" element={<ScriptUploadTermsConditions />} />
               <Route path="/login" element={<Navigate to="/" replace />} />
               <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
-              <Route path="/join" element={<RoleSelection />} />
-              <Route path="/signup" element={<Join />} />
+              <Route path="/join" element={<Navigate to="/" replace />} />
+              <Route path="/signup" element={<Navigate to="/" replace />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/share/profile/:id" element={<PublicProfile />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
@@ -424,6 +424,7 @@ function App() {
           </AuthModalProvider>
         </Router>
         </ToastProvider>
+        </CurrencyProvider>
       </AuthProvider>
     </DarkModeProvider>
   );
