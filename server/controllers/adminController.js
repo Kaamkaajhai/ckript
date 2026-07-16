@@ -28,6 +28,7 @@ import {
     sendWriterPlanGrantedEmail,
 } from "../utils/emailService.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
+import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 
 const buildChatId = (idA, idB) => {
     const sorted = [idA.toString(), idB.toString()].sort();
@@ -204,14 +205,6 @@ const sanitizeInlineFileName = (fileName = "attachment.pdf") => {
     return normalized.toLowerCase().endsWith(".pdf") ? normalized : `${normalized}.pdf`;
 };
 
-const getCloudinaryResourceTypeFromUrl = (url = "") => {
-    const normalized = String(url || "");
-    if (normalized.includes("/image/upload/")) return "image";
-    if (normalized.includes("/video/upload/")) return "video";
-    if (normalized.includes("/raw/upload/")) return "raw";
-    return "";
-};
-
 const resolveAttachmentCloudinaryResourceType = (attachment) =>
     normalizeString(attachment?.cloudinaryResourceType) ||
     getCloudinaryResourceTypeFromUrl(attachment?.url) ||
@@ -234,13 +227,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
                 attachment: false,
             });
 
-            const response = await fetch(signedUrl);
-            if (!response.ok) continue;
-
-            const arrayBuffer = await response.arrayBuffer();
-            if (arrayBuffer.byteLength > 0) {
-                return Buffer.from(arrayBuffer);
-            }
+            const { buffer } = await fetchTrustedPdfAsset(signedUrl);
+            if (buffer.length > 0) return buffer;
         } catch {
             // Try fallback resource types.
         }
@@ -248,13 +236,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
 
     if (attachmentUrl) {
         try {
-            const fallbackResponse = await fetch(attachmentUrl);
-            if (fallbackResponse.ok) {
-                const fallbackBuffer = await fallbackResponse.arrayBuffer();
-                if (fallbackBuffer.byteLength > 0) {
-                    return Buffer.from(fallbackBuffer);
-                }
-            }
+            const { buffer } = await fetchTrustedPdfAsset(attachmentUrl);
+            if (buffer.length > 0) return buffer;
         } catch {
             // Final fallback failed; return null below.
         }
@@ -293,6 +276,15 @@ const getAdminTrailerRequestFilter = () => ({
     isDeleted: NON_DELETED_SCRIPT_FILTER,
     "services.aiTrailer": true,
     trailerStatus: { $in: ["requested", "generating"] },
+    "trailerRequestPayment.status": "paid",
+});
+
+const getAdminTrailerLibraryFilter = () => ({
+    isDeleted: NON_DELETED_SCRIPT_FILTER,
+    $or: [
+        { trailerUrl: { $exists: true, $nin: ["", null] } },
+        { uploadedTrailerUrl: { $exists: true, $nin: ["", null] } },
+    ],
 });
 
 const getSettledPurchaseQuery = (extra = {}) => ({
@@ -1826,6 +1818,26 @@ export const getTrailerRequests = async (req, res) => {
     }
 };
 
+export const getAvailableTrailers = async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const pageNumber = Math.max(Number(page) || 1, 1);
+        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const filter = getAdminTrailerLibraryFilter();
+
+        const total = await Script.countDocuments(filter);
+        const scripts = await Script.find(filter)
+            .populate("creator", "name email role profileImage")
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .skip((pageNumber - 1) * pageLimit)
+            .limit(pageLimit);
+
+        res.json({ scripts, total, page: pageNumber, totalPages: Math.ceil(total / pageLimit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const approveTrailer = async (req, res) => {
     try {
         const { trailerUrl, trailerThumbnail, caption } = req.body || {};
@@ -1961,6 +1973,39 @@ export const loginAsUser = async (req, res) => {
             role: user.role,
             token,
             expiresAt: decoded.exp * 1000,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const removeTrailerAsAdmin = async (req, res) => {
+    try {
+        const script = await Script.findById(req.params.id).populate("creator", "_id name");
+        if (!script) return res.status(404).json({ message: "Script not found" });
+
+        const hadTrailer = Boolean(String(script.trailerUrl || "").trim() || String(script.uploadedTrailerUrl || "").trim());
+
+        script.trailerUrl = undefined;
+        script.uploadedTrailerUrl = undefined;
+        script.trailerThumbnail = undefined;
+        script.trailerSource = "none";
+        script.trailerStatus = "none";
+        await script.save();
+
+        if (script.creator?._id) {
+            await Notification.create({
+                user: script.creator._id,
+                type: "trailer_ready",
+                from: req.user._id,
+                script: script._id,
+                message: `The trailer for "${script.title}" was removed by admin.`,
+            });
+        }
+
+        res.json({
+            message: hadTrailer ? "Trailer removed successfully" : "Trailer was already empty",
+            script,
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -2732,12 +2777,7 @@ export const getAdminAgreementPdf = async (req, res) => {
             return res.status(404).json({ message: "Agreement PDF not available." });
         }
 
-        const pdfResponse = await fetch(targetUrl);
-        if (!pdfResponse.ok) {
-            return res.status(502).json({ message: "Failed to fetch agreement PDF from storage." });
-        }
-
-        const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+        const { buffer: fileBuffer } = await fetchTrustedPdfAsset(targetUrl);
         const shouldDownload = String(req.query.download || "") === "1";
         const disposition = shouldDownload ? "attachment" : "inline";
 

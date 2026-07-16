@@ -242,11 +242,6 @@ const ProjectCard = ({ project, userName, onBlock }) => {
               </span>
               {status.label}
             </span>
-            {project?.collabVisibility === "open" && (
-              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.13em] text-white">
-                Open • Request Collab
-              </span>
-            )}
           </div>
         </div>
 

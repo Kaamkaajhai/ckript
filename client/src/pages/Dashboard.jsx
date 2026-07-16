@@ -153,8 +153,8 @@ const CreatorDashboard = ({ user }) => {
       // overwrite a good cache with empties.
       if (scriptsRes.status === "fulfilled") {
         const all = Array.isArray(scriptsRes.value.data) ? scriptsRes.value.data : [];
-        setMyScripts(all.filter(s => !s?.isCollaborator));
-        setSharedScripts(all.filter(s => s?.isCollaborator));
+        setMyScripts(all.filter(s => !s?.isCollaborator && s.status === "published"));
+        setSharedScripts(all.filter(s => s?.isCollaborator && s.status === "published"));
       }
       if (statsRes.status === "fulfilled") {
         setStats(statsRes.value.data.stats ?? statsRes.value.data);

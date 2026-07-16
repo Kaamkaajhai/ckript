@@ -42,7 +42,7 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark = false
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center px-4" style={{ background: "rgba(3,10,19,0.6)", backdropFilter: "blur(6px)" }} onMouseDown={onClose}>
       <form onSubmit={handleSubmit} onMouseDown={(e) => e.stopPropagation()}
-        className={`w-full max-w-md rounded-2xl shadow-2xl overflow-hidden ${card}`}>
+        className={`w-full max-w-md max-h-[95vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden ${card}`}>
         {/* Header */}
         <div className={`px-6 pt-5 pb-4 border-b ${dark ? "border-[#182840]" : "border-gray-100"}`}>
           <div className="flex items-start gap-3">
@@ -60,7 +60,7 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark = false
         </div>
 
         {/* Body */}
-        <div className="px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <div>
             <label className={`block text-[11px] font-bold uppercase tracking-wide mb-1.5 ${label}`}>Email address</label>
             <input

@@ -44,6 +44,7 @@ const TABS = [
     { key: "projects", label: "Scripts", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
     { key: "approvals", label: "Script Approvals", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
     { key: "trailers", label: "AI Trailer Approvals", icon: "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375V5.625A1.125 1.125 0 016 4.5h12a1.125 1.125 0 011.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125h1.5" },
+    { key: "ai-trailers", label: "AI Trailer", icon: "M4.5 8.25A2.25 2.25 0 016.75 6h10.5A2.25 2.25 0 0119.5 8.25v7.5A2.25 2.25 0 0117.25 18H6.75A2.25 2.25 0 014.5 15.75v-7.5zm6 1.5v4.5l4.5-2.25-4.5-2.25z" },
     { key: "evaluations", label: "AI Evaluations", icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
     { key: "meetings", label: "Meetings", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
     { key: "messages", label: "Messages", icon: "M7.5 8.25h9m-9 3h6m-9 9h12A2.25 2.25 0 0018.75 18V6A2.25 2.25 0 0016.5 3.75h-9A2.25 2.25 0 005.25 6v12A2.25 2.25 0 007.5 20.25z" },
@@ -202,6 +203,26 @@ const getScriptPreviewWindowLabel = (script) => {
   const end = Number(script?.scriptPreviewAccess?.end || 0);
   if (!start || !end) return "";
   return `${mode} ${start} to ${end}`;
+};
+
+const parseTrailerRequestNote = (note) => {
+    const text = String(note || "").trim();
+    if (!text) return null;
+
+    const fields = {};
+    text.split(" | ").forEach((part) => {
+        const [rawLabel, ...rest] = String(part || "").split(":");
+        const label = String(rawLabel || "").trim().toLowerCase();
+        const value = rest.join(":").trim();
+        if (!label || !value) return;
+        if (label === "duration") fields.duration = value;
+        if (label === "quality") fields.quality = value;
+        if (label === "layout") fields.layout = value;
+        if (label === "display currency") fields.currency = value;
+        if (label === "price") fields.price = value;
+    });
+
+    return { text, fields };
 };
 
 const BroadcastComposer = ({
@@ -674,6 +695,7 @@ const SEARCH_PLACEHOLDER_BY_TAB = {
     "discount-codes": "Search discount codes...",
     approvals: "Search script approvals...",
     trailers: "Search AI trailer approvals...",
+    "ai-trailers": "Search AI trailers...",
     messages: "Search writer messages...",
     "pending-investors": "Search film professional requests...",
     "membership-reviews": "Search SWA/WGA reviews...",
@@ -990,6 +1012,7 @@ const AdminDashboard = () => {
     const [filmBroadcastContent, setFilmBroadcastContent] = useState("");
     const [scriptBroadcastTitle, setScriptBroadcastTitle] = useState("");
     const [scriptBroadcastContent, setScriptBroadcastContent] = useState("");
+    const [trailerRequirementsModal, setTrailerRequirementsModal] = useState(null);
 
     // ─── Toast notification system ───
     const [toast, setToast] = useState(null);
@@ -1711,6 +1734,14 @@ const AdminDashboard = () => {
                     setScripts(trailerScripts); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
+                case "ai-trailers": {
+                    const { data } = await adminApi.get(`/admin/scripts/ai-trailers?page=${page}`);
+                    const trailerLibraryScripts = Array.isArray(data?.scripts)
+                        ? data.scripts.filter((script) => ![true, "true", 1].includes(script?.isDeleted))
+                        : [];
+                    setScripts(trailerLibraryScripts); setTotalPages(data.totalPages); setTotal(data.total);
+                    break;
+                }
                 case "messages": {
                     await fetchMessagesDirectory();
                     break;
@@ -1768,6 +1799,13 @@ const AdminDashboard = () => {
             } else if (err?.response?.data?.code === "ADMIN_SCRIPT_SECTION_PASSWORD_REQUIRED") {
                 clearAdminScriptAccess();
                 showToast("Script section unlock expired. Please enter the password again.", "error");
+                ensureScriptSectionAccess().then((success) => {
+                    if (success) {
+                        fetchData(searchValue);
+                    } else if (isAdminScriptProtectedTab(activeTab)) {
+                        setActiveTab("overview");
+                    }
+                });
             } else {
                 showToast(err?.response?.data?.message || "Failed to load admin data", "error");
             }
@@ -2235,12 +2273,45 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleSendTrailerToWriter = async (script) => {
+        await handleTrailerApprove(script);
+    };
+
+    const openTrailerRequirements = (script) => {
+        if (!script) return;
+        setTrailerRequirementsModal(script);
+    };
+
     const handleOpenTrailerUpload = (script) => {
         if (!script?._id || uploadingTrailerScriptId) return;
         setTrailerUploadTargetScript(script);
         if (trailerFileInputRef.current) {
             trailerFileInputRef.current.value = "";
             trailerFileInputRef.current.click();
+        }
+    };
+
+    const handleRemoveTrailer = async (script) => {
+        const scriptId = script?._id;
+        if (!scriptId) return;
+
+        const title = String(script?.title || "this project");
+        const confirmed = await openAdminDialog({
+            type: "confirm",
+            title: "Remove trailer",
+            message: `Remove the trailer from "${title}"? It will no longer appear in the AI Trailer section.`,
+            confirmText: "Remove",
+            cancelText: "Cancel",
+        });
+        if (!confirmed) return;
+
+        try {
+            const { data } = await adminApi.delete(`/admin/scripts/${scriptId}/remove-trailer`);
+            showToast(data?.message || "Trailer removed successfully");
+            fetchData(search);
+        } catch (err) {
+            console.error(err);
+            showToast(err?.response?.data?.message || "Failed to remove trailer", "error");
         }
     };
 
@@ -3518,7 +3589,8 @@ const AdminDashboard = () => {
                 );
 
             case "trailers": {
-                const regenerationRequests = filteredScripts.filter((s) => s.trailerWriterFeedback?.status === "revision_requested");
+                const newTrailerRequests = filteredScripts;
+                const trailerRequestCount = newTrailerRequests.length;
                 return (
                     <div>
                         <input
@@ -3529,48 +3601,11 @@ const AdminDashboard = () => {
                             onChange={handleAdminTrailerFileChange}
                         />
                         <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>AI Trailer Approvals<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
+                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>AI Trailer Approvals<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({trailerRequestCount})</span></h2>
                         </div>
-                        {regenerationRequests.length > 0 && (
-                            <div className={`rounded-2xl border p-5 mb-5 ${isDark ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-200/60"}`}>
-                                <div className="flex items-center gap-3 mb-3">
-                                    <Icon d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865A8.25 8.25 0 0117.834 6.165l3.181 3.183" className={`w-5 h-5 ${isDark ? "text-amber-300" : "text-amber-700"}`} />
-                                    <h3 className={`text-sm font-bold ${isDark ? "text-amber-200" : "text-amber-900"}`}>Writer Requested Better Trailer</h3>
-                                </div>
-                                <div className="space-y-3">
-                                    {regenerationRequests.map((script) => (
-                                        <div key={script._id} className={`rounded-xl border px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 ${isDark ? "bg-white/[0.03] border-white/[0.08]" : "bg-white border-amber-100"}`}>
-                                            <div>
-                                                <p className={`text-sm font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{script.title}</p>
-                                                <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                    Writer: {script.creator?.name || "Unknown"}
-                                                    {script.trailerWriterFeedback?.updatedAt ? ` • ${new Date(script.trailerWriterFeedback.updatedAt).toLocaleString()}` : ""}
-                                                </p>
-                                                <p className={`text-xs mt-1.5 ${isDark ? "text-amber-200" : "text-amber-800"}`}>
-                                                    {script.trailerWriterFeedback?.note || "Writer requested a better AI trailer version."}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => openWriterConversation(script.creator)} className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${isDark ? "text-blue-300 hover:text-blue-200 hover:bg-blue-500/10" : "text-blue-600 hover:bg-blue-50"}`}>Write Message</button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false}
+                        <ScriptTable scripts={newTrailerRequests} isDark={isDark} showScore={false}
                             actions={(s) => (
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.trailerStatus === "ready" ? "bg-emerald-100 text-emerald-700" :
-                                        s.trailerStatus === "generating" ? "bg-amber-100 text-amber-700" :
-                                            "bg-gray-100 text-gray-600"
-                                        }`}>{s.trailerStatus || "none"}</span>
-                                    {s.trailerWriterFeedback?.status === "revision_requested" && (
-                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${isDark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>writer requested changes</span>
-                                    )}
-                                    {s.trailerStatus !== "ready" && (
-                                        <button onClick={() => handleTrailerApprove(s)} className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${isDark ? "text-emerald-300 hover:text-emerald-200 hover:bg-emerald-500/10" : "text-emerald-700 hover:bg-emerald-100"}`}>Send Trailer</button>
-                                    )}
                                     <button
                                         onClick={() => handleOpenTrailerUpload(s)}
                                         disabled={uploadingTrailerScriptId === String(s._id)}
@@ -3581,6 +3616,18 @@ const AdminDashboard = () => {
                                     >
                                         {uploadingTrailerScriptId === String(s._id) ? "Uploading..." : "Add Trailer"}
                                     </button>
+                                    <button
+                                        onClick={() => handleSendTrailerToWriter(s)}
+                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                                    >
+                                        Send Trailer
+                                    </button>
+                                    <button
+                                        onClick={() => openTrailerRequirements(s)}
+                                        className="text-xs font-bold text-violet-300 hover:text-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-500/10 transition-colors"
+                                    >
+                                        Requirements
+                                    </button>
                                     <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
                                 </div>
                             )}
@@ -3589,6 +3636,41 @@ const AdminDashboard = () => {
                     </div>
                 );
             }
+
+            case "ai-trailers":
+                return (
+                    <div>
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
+                                AI Trailer
+                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span>
+                            </h2>
+                        </div>
+                        <ScriptTable
+                            scripts={filteredScripts}
+                            isDark={isDark}
+                            showScore={false}
+                            actions={(s) => (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                        onClick={() => handleSendTrailerToWriter(s)}
+                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
+                                    >
+                                        Send Trailer
+                                    </button>
+                                    <button
+                                        onClick={() => handleRemoveTrailer(s)}
+                                        className="text-xs font-bold text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                                    >
+                                        Remove Trailer
+                                    </button>
+                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
+                                </div>
+                            )}
+                        />
+                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
+                    </div>
+                );
 
             case "meetings":
                 return (
@@ -4929,8 +5011,75 @@ const AdminDashboard = () => {
                 </div>
             </div>
         )}
+
+        {trailerRequirementsModal && (
+            <div
+                className="fixed inset-0 z-[10055] flex items-center justify-center px-4"
+                onClick={() => setTrailerRequirementsModal(null)}
+            >
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                <div
+                    className="relative w-[min(94vw,560px)] rounded-2xl border border-[#1a3050] bg-[#0f1d35] p-5 text-white shadow-2xl"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-base font-bold">Trailer Requirements</p>
+                            <p className="mt-1.5 text-sm text-gray-300 leading-relaxed">
+                                {trailerRequirementsModal?.title || "Selected script"} by {trailerRequirementsModal?.creator?.name || "the creator"}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setTrailerRequirementsModal(null)}
+                            className="text-gray-400 hover:text-white transition-colors"
+                            aria-label="Close requirements modal"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    {(() => {
+                        const parsed = parseTrailerRequestNote(trailerRequirementsModal?.trailerWriterFeedback?.note);
+                        const summary = parsed?.fields || {};
+                        return (
+                            <div className="mt-4 space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Duration</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.duration || "Not set"}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Quality</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.quality || "Not set"}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Layout</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.layout || "Not set"}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Payment</p>
+                                        <p className="mt-1 text-sm font-semibold text-white">{summary.price || "Not set"}</p>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Request Note</p>
+                                    <p className="mt-2 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
+                                        {parsed?.text || "No request note available."}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+            </div>
+        )}
         </>
     );
 };
 
 export default AdminDashboard;
+

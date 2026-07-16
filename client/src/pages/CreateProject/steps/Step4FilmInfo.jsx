@@ -11,7 +11,7 @@ const Step4FilmInfo = () => {
             <div className={`${cardCls} p-6 sm:p-8 space-y-6`}>
               <div>
                 <h2 className={`text-lg font-bold mb-1 ${dark ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
-                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. Film language is required.</p>
+                <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision and involvement. Film language is required.</p>
               </div>
 
               {/* Creative Role */}

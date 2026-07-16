@@ -17,7 +17,7 @@
 
   --ck-sidebar-bg:    #0f0f0f;
   --ck-sidebar-w:     94px;
-  --ck-header-h:      58px;
+  --ck-header-h:      74px;
 
   /* Typography = the reference "Broadsheet" system. Single source of truth:
      the JS in Dashboard.jsx reads these via var(--ck-display) rather than
@@ -227,7 +227,7 @@
 }
 .ck-drawer__logo { display: inline-flex; align-items: center; }
 /* Landscape logo is dark-on-light — invert it onto the dark drawer. */
-.ck-drawer__logo img { filter: invert(1); }
+.ck-drawer__logo img { filter: invert(1) hue-rotate(180deg); }
 .ck-drawer__collapse {
   width: 34px;
   height: 34px;
@@ -426,14 +426,14 @@
 }
 
 .ck-header__logo {
-  height: 30px;
+  height: 60px;
   width: auto;
   flex-shrink: 0;
   display: flex;
   align-items: center;
 }
 .ck-header__logo img {
-  height: 30px;
+  height: 60px;
   width: auto;
   object-fit: contain;
 }
@@ -735,6 +735,10 @@
   overflow-y: auto;
   padding: 24px 28px 80px;
 }
+.ck-page-scroll--workspace {
+  overflow: hidden;
+  padding: 0;
+}
 .ck-page-scroll::-webkit-scrollbar { width: 5px; }
 .ck-page-scroll::-webkit-scrollbar-track { background: transparent; }
 .ck-page-scroll::-webkit-scrollbar-thumb { background: #e4ddd2; border-radius: 9px; }
@@ -808,6 +812,10 @@
   .ck-scroll-main,
   .ck-page-scroll {
     padding: 16px 16px 90px;
+  }
+  .ck-page-scroll--workspace {
+    overflow: hidden;
+    padding: 0 0 60px;
   }
 
   /* Mobile bottom nav */

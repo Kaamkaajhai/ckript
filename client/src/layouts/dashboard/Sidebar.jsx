@@ -91,7 +91,7 @@ const Sidebar = ({
       {/* Header — logo + collapse */}
       <div className="ck-drawer__head">
         <span className="ck-drawer__logo">
-          <BrandLogo className="h-[30px] w-auto" />
+          <BrandLogo className="h-[60px] w-auto" />
         </span>
         <button
           type="button"

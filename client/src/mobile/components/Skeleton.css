@@ -1,0 +1,69 @@
+.ckm-skel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ckm-bg);
+}
+
+.ckm-skel__topbar {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 6px 18px 12px;
+  border-bottom: 1px solid var(--ckm-line-2);
+}
+
+.ckm-skel__logo {
+  width: 26px;
+  height: 22px;
+  border-radius: 5px;
+  background: #efeae1;
+}
+.ckm-skel__search {
+  flex: 1;
+  height: 38px;
+  border-radius: 11px;
+  background: #efeae1;
+}
+.ckm-skel__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #efeae1;
+}
+
+.ckm-skel__tabs {
+  display: flex;
+  margin: 14px 18px 0;
+  border: 1px solid #efeae1;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ckm-skel__tab {
+  flex: 1;
+  height: 36px;
+  background: #f5f1ea;
+  border-left: 2px solid #fff;
+}
+.ckm-skel__tab:first-child {
+  border-left: none;
+}
+.ckm-skel__tab.is-live {
+  background: #efeae1;
+  animation: ckm-pulse 1.6s ease-in-out infinite;
+}
+
+.ckm-skel__body {
+  padding: 18px;
+}
+
+.ckm-skel__row {
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.ckm-skel__block {
+  background: #efeae1;
+  animation: ckm-pulse 1.6s ease-in-out infinite;
+}

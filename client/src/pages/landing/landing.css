@@ -108,7 +108,7 @@
 }
 .ckl .ckl-h2-em { font-style: italic; color: var(--ck-heading-italic); }
 .ckl .ckl-lead {
-  margin: 26px 0 0;
+  margin-top: 26px;
   font-family: var(--ck-body);
   font-size: 20px;
   line-height: 30px;

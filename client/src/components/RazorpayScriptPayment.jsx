@@ -133,7 +133,7 @@ const RazorpayScriptPayment = ({
       setFellBackToINR(Boolean(orderData.fellBackToINR));
 
       const options = {
-        key: orderData.keyId,
+        key: orderData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SWgJpCDuk8M4ap",
         amount: orderData.amount,
         currency: orderData.currency,
         name: "ckript",

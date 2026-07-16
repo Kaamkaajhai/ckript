@@ -99,12 +99,7 @@ const PanelStory = () => {
   const { formData, handleChange, targetFilm, handleGenerateMetadata, metaLoadingField, metaNotice, tagsInput, setTagsInput } = useCreateProject();
   return (
     <>
-      <div className="ckcp-dhead">
-        <div>
-          <h2 className="ckcp-dtitle">Story</h2>
-          <p className="ckcp-dsub">The pitch buyers read first. Write it yourself, or generate a starting draft with AI and refine.</p>
-        </div>
-      </div>
+
 
       {targetFilm && (
         <div>
@@ -358,19 +353,37 @@ const PanelAccess = () => {
           <div className="ckcp-card ckcp-grow">
             <p className="ckcp-card-h">Preview</p>
             <p className="ckcp-card-p" style={{ marginBottom: "12px" }}>The exact page block buyers and admins will see.</p>
-            <div className="ckcp-growscroll ckcp-scroll" style={{ borderRadius: "10px" }}>
+            <div className="ckcp-growscroll ckcp-scroll" style={{ borderRadius: "10px", minHeight: "200px", display: "flex", flexDirection: "column" }}>
               {/* Render the preview with the SAME read-only editor every other surface uses, so the
                   buyer/admin preview is byte-for-byte identical to what the writer authored. */}
-              <ScreenplayReadOnly
-                text={previewPageTexts
-                  .slice(
-                    Math.max(0, Number(formData.previewWindowStart || 1) - 1),
-                    Math.max(0, Number(formData.previewWindowEnd || 1))
-                  )
-                  .join("\n\n")}
-                dark={dark}
-                zoom={editorZoom || 1}
-              />
+              {previewPageTexts.length > 0 && previewPageTexts.slice(Math.max(0, Number(formData.previewWindowStart || 1) - 1), Math.max(0, Number(formData.previewWindowEnd || 1))).join("\n\n").trim() ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "24px", padding: "24px", background: dark ? "#161616" : "#ebebeb", borderRadius: "8px", flex: 1 }}>
+                  {previewPageTexts
+                    .slice(
+                      Math.max(0, Number(formData.previewWindowStart || 1) - 1),
+                      Math.max(0, Number(formData.previewWindowEnd || 1))
+                    )
+                    .map((pageText, idx) => (
+                      <div key={idx} style={{ position: "relative" }}>
+                        <ScreenplayReadOnly
+                          text={pageText}
+                          dark={dark}
+                          zoom={editorZoom || 1}
+                        />
+                        {/* Optional subtle page number overlay if desired, positioned inside the sheet's bottom padding */}
+                        <div style={{ position: "absolute", bottom: "16px", right: "24px", fontSize: "12px", color: dark ? "#555" : "#ccc", fontFamily: "'Courier Prime', monospace", zIndex: 10, pointerEvents: "none" }}>
+                          {Math.max(0, Number(formData.previewWindowStart || 1) - 1) + idx + 1}.
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: dark ? "#1f1f1f" : "#fbfbfb", border: `1px dashed ${dark ? "#333" : "#e0e0e0"}`, borderRadius: "8px", margin: "0 1px 1px" }}>
+                  <p style={{ color: dark ? "#888" : "#999", fontSize: "13.5px" }}>
+                    Your script preview will appear here once you write or import content.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </>

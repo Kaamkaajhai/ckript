@@ -17,11 +17,6 @@ export const SCRIPT_COMPLETION_OPTIONS = [
     label: "Partially completed",
     helper: "Only part of the script is ready right now.",
   },
-  {
-    value: "ongoing",
-    label: "Ongoing / more coming",
-    helper: "You plan to add more chapters, episodes, or parts later.",
-  },
 ];
 
 const coerceNonNegativeInteger = (value) => {

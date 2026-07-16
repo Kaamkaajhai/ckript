@@ -1753,3 +1753,8 @@ html,
 body {
   top: 0 !important;
 }
+
+/* Hide comment icon in read-only mode (preview fallback) */
+.screenplay-editor--readonly .cm-sp-linecomment-btn {
+  display: none !important;
+}
