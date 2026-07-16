@@ -644,10 +644,7 @@ function PublishPanel({ vm }) {
             {...validationFieldProps(state, "su-custom-price")}
           />
         )}
-        <div className="su-payout-grid">
-          <div><span>Buyer pays (incl. 5%)</span><strong>₹{computed.buyerTotalPayable.toLocaleString("en-IN")}</strong></div>
-          <div><span>Your payout</span><strong>₹{computed.writerPayout.toLocaleString("en-IN")}</strong></div>
-        </div>
+
       </div>
 
 
