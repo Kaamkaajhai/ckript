@@ -1665,6 +1665,8 @@ export const extractPdfText = async (req, res) => {
         });
       } catch (uploadError) {
         console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
+        uploadedPdfUrl = "";
+        fileGrant = "";
       }
     }
 
