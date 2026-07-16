@@ -2186,46 +2186,60 @@ const ScriptDetail = () => {
                   )}
 
                   {/* Trailer generation */}
-                  <div className={`rounded-2xl p-4 border mb-3 ${t.priceSub}`}>
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1 ${t.label}`}>Trailer Generation</p>
-                        <h3 className={`text-sm font-bold ${t.title}`}>Want to generate a trailer?</h3>
+                  <div className={`rounded-2xl p-5 border mb-3 transition-all duration-300 ${wantsTrailer ? 'border-emerald-500/30 shadow-lg shadow-emerald-500/5' : t.priceSub}`}>
+                    {["requested", "generating"].includes(script?.trailerStatus) ? (
+                      <div className="flex flex-col items-center justify-center gap-3 py-2 text-center animate-in fade-in duration-500">
+                        <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-1">
+                          <Film className="w-6 h-6 text-emerald-500" />
+                        </div>
+                        <h3 className={`text-base font-semibold ${t.title}`}>Trailer is Generating</h3>
+                        <p className={`text-xs ${t.muted} max-w-[250px]`}>
+                          Your trailer payment is confirmed. It takes 3 working days to generate.
+                        </p>
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                          <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
+                          Processing (~3 Days)
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setWantsTrailer(true)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
-                            wantsTrailer ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
-                          }`}
-                        >
-                          Yes
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setWantsTrailer(false)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
-                            !wantsTrailer ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
-                          }`}
-                        >
-                          No
-                        </button>
-                      </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex flex-col gap-1.5">
+                            <h3 className={`text-base font-semibold ${t.title}`}>Generate trailer</h3>
+                            <p className={`text-xs ${t.muted}`}>It takes 3 working days to generate.</p>
+                          </div>
+                          <div className="flex bg-black/5 dark:bg-white/5 rounded-lg p-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setWantsTrailer(true)}
+                              className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${wantsTrailer ? 'bg-emerald-500 text-white shadow-md' : `text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300`}`}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setWantsTrailer(false)}
+                              className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${!wantsTrailer ? 'bg-emerald-500 text-white shadow-md' : `text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300`}`}
+                            >
+                              No
+                            </button>
+                          </div>
+                        </div>
 
                     {wantsTrailer && (
-                      <div className="mt-4 space-y-3">
-                        <div>
-                          <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Length</p>
-                          <div className="flex flex-wrap gap-2">
+                      <div className="mt-6 space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="space-y-2.5">
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider ${t.label}`}>Length</p>
+                          <div className="grid grid-cols-3 gap-2">
                             {["30", "60", "90"].map((value) => (
                               <button
                                 key={value}
                                 type="button"
                                 onClick={() => setTrailerDurationChoice(value)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
-                                  trailerDurationChoice === value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                  trailerDurationChoice === value 
+                                    ? "bg-emerald-500 text-white border-emerald-500 shadow-md" 
+                                    : `hover:bg-black/5 dark:hover:bg-white/5 ${t.btnSec}`
                                 }`}
                               >
                                 {value} sec
@@ -2235,19 +2249,21 @@ const ScriptDetail = () => {
                         </div>
 
                         {trailerDurationChoice && (
-                          <div>
-                            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Quality</p>
-                            <div className="flex flex-wrap gap-2">
+                          <div className="space-y-2.5 animate-in fade-in duration-300">
+                            <p className={`text-[11px] font-semibold uppercase tracking-wider ${t.label}`}>Quality</p>
+                            <div className="grid grid-cols-2 gap-2">
                               {["480", "720"].map((value) => (
                                 <button
                                   key={value}
                                   type="button"
                                   onClick={() => setTrailerQualityChoice(value)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
-                                    trailerQualityChoice === value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                  className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                    trailerQualityChoice === value 
+                                      ? "bg-emerald-500 text-white border-emerald-500 shadow-md" 
+                                      : `hover:bg-black/5 dark:hover:bg-white/5 ${t.btnSec}`
                                   }`}
                                 >
-                                  {value}px
+                                  {value}p
                                 </button>
                               ))}
                             </div>
@@ -2255,19 +2271,21 @@ const ScriptDetail = () => {
                         )}
 
                         {trailerDurationChoice && trailerQualityChoice && (
-                          <div>
-                            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Layout</p>
-                            <div className="flex flex-wrap gap-2">
+                          <div className="space-y-2.5 animate-in fade-in duration-300">
+                            <p className={`text-[11px] font-semibold uppercase tracking-wider ${t.label}`}>Format</p>
+                            <div className="grid grid-cols-2 gap-2">
                               {[
-                                { value: "landscape", label: "Landscape" },
-                                { value: "portrait", label: "Portrait" },
+                                { value: "landscape", label: "Landscape (16:9)" },
+                                { value: "portrait", label: "Portrait (9:16)" },
                               ].map((item) => (
                                 <button
                                   key={item.value}
                                   type="button"
                                   onClick={() => setTrailerFormatChoice(item.value)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
-                                    trailerFormatChoice === item.value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                  className={`py-2 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-2 ${
+                                    trailerFormatChoice === item.value 
+                                      ? "bg-emerald-500 text-white border-emerald-500 shadow-md" 
+                                      : `hover:bg-black/5 dark:hover:bg-white/5 ${t.btnSec}`
                                   }`}
                                 >
                                   {item.label}
@@ -2278,19 +2296,21 @@ const ScriptDetail = () => {
                         )}
 
                         {trailerDurationChoice && trailerQualityChoice && trailerFormatChoice && (
-                          <div>
-                            <p className={`text-[10px] font-bold uppercase tracking-wide mb-2 ${t.label}`}>Display amount in</p>
-                            <div className="flex flex-wrap gap-2">
+                          <div className="space-y-2.5 animate-in fade-in duration-300">
+                            <p className={`text-[11px] font-semibold uppercase tracking-wider ${t.label}`}>Currency</p>
+                            <div className="grid grid-cols-2 gap-2">
                               {[
-                                { value: "inr", label: "INR" },
-                                { value: "usd", label: "USD" },
+                                { value: "inr", label: "INR (₹)" },
+                                { value: "usd", label: "USD ($)" },
                               ].map((item) => (
                                 <button
                                   key={item.value}
                                   type="button"
                                   onClick={() => setTrailerCurrencyChoice(item.value)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
-                                    trailerCurrencyChoice === item.value ? "bg-emerald-500 text-white border-emerald-400 shadow-sm" : t.btnSec
+                                  className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                    trailerCurrencyChoice === item.value 
+                                      ? "bg-emerald-500 text-white border-emerald-500 shadow-md" 
+                                      : `hover:bg-black/5 dark:hover:bg-white/5 ${t.btnSec}`
                                   }`}
                                 >
                                   {item.label}
@@ -2301,44 +2321,50 @@ const ScriptDetail = () => {
                         )}
 
                         {trailerCurrencyChoice && trailerDurationChoice && trailerQualityChoice && trailerFormatChoice && (
-                          <>
-                            <div className={`rounded-2xl border px-3 py-2.5 flex items-center justify-between gap-3 flex-wrap ${t.inset}`}>
-                              <div>
-                                <p className={`text-[10px] font-bold uppercase tracking-wide ${t.label}`}>Price Preview</p>
-                                <p className={`text-sm font-semibold ${t.title}`}>Trailer cost updates with your selection</p>
+                          <div className="pt-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <div className="rounded-2xl p-5 border bg-gradient-to-br from-emerald-50/80 to-transparent dark:from-emerald-500/10 dark:to-transparent border-emerald-100 dark:border-emerald-500/20 flex flex-col gap-5 shadow-sm">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-1.5">Order Summary</p>
+                                  <div className="flex flex-wrap gap-2 text-xs font-medium text-emerald-900/70 dark:text-emerald-100/70">
+                                    <span className="bg-emerald-100/50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md">{trailerDurationChoice}s</span>
+                                    <span className="bg-emerald-100/50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md">{trailerQualityChoice}p</span>
+                                    <span className="bg-emerald-100/50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-md capitalize">{trailerFormatChoice}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/70 dark:text-emerald-400/70 mb-0.5">Total</p>
+                                  <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight">
+                                    {trailerCurrencyChoice === "usd" ? "$" : "₹"}{formatTrailerAmount(selectedTrailerAmount)}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500 text-white border border-emerald-400">
-                                  {trailerCurrencyChoice === "usd" ? "$" : "INR"} {formatTrailerAmount(selectedTrailerAmount)}
-                                </span>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setShowTrailerPaymentModal(true)}
+                                disabled={trailerLoading || trailerPaymentSubmitting}
+                                className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-[0.98]"
+                              >
+                                {trailerPaymentSubmitting ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    <span>Processing...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Film size={16} />
+                                    <span>Generate Trailer Now</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
-
-                            <div className="flex flex-wrap gap-2">
-                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>{trailerDurationChoice} sec</span>
-                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>{trailerQualityChoice}px</span>
-                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>
-                                {trailerFormatChoice.charAt(0).toUpperCase() + trailerFormatChoice.slice(1)}
-                              </span>
-                              <span className={`px-3 py-1.5 rounded-xl text-xs font-semibold ${t.inset}`}>
-                                {trailerCurrencyChoice === "usd" ? "USD" : "INR"}
-                              </span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => setShowTrailerPaymentModal(true)}
-                              disabled={trailerLoading || trailerPaymentSubmitting}
-                              className={`w-full px-4 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-50 flex items-center justify-center gap-2 border ${t.btnGhost}`}
-                            >
-                              <Film size={14} />
-                              {trailerPaymentSubmitting ? "Opening payment..." : "Proceed to Payment"}
-                            </button>
-                          </>
+                          </div>
                         )}
                       </div>
                     )}
-                  </div>
+                  </>
+                )}
+              </div>
 
                   {/* Action buttons */}
                   <div className={`rounded-2xl p-4 border space-y-2 ${t.priceSub}`}>
