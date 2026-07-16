@@ -1,4 +1,5 @@
 import Agreement from "../models/Agreement.js";
+import { fetchTrustedPdfAsset } from "../utils/remoteAssetPolicy.js";
 
 const normalizeString = (value = "") => String(value || "").trim();
 
@@ -89,12 +90,7 @@ export const getAgreementPdf = async (req, res) => {
       return res.status(404).json({ message: "Agreement PDF not available." });
     }
 
-    const pdfResponse = await fetch(targetUrl);
-    if (!pdfResponse.ok) {
-      return res.status(502).json({ message: "Failed to fetch agreement PDF from storage." });
-    }
-
-    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const { buffer: fileBuffer } = await fetchTrustedPdfAsset(targetUrl);
     const shouldDownload = String(req.query.download || "") === "1";
     const disposition = shouldDownload ? "attachment" : "inline";
 

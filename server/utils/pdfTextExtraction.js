@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { readFile, unlink, writeFile } from "fs/promises";
 import { fileURLToPath } from "url";
+import { fetchTrustedRemoteAsset, isPdfBuffer } from "./remoteAssetPolicy.js";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -261,11 +262,9 @@ export const extractTextFromPdfUrl = async (url = "") => {
     return { text: "", numItems: 0, strategy: "missing-url" };
   }
 
-  const response = await fetch(remoteUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download PDF for extraction (${response.status})`);
+  const { buffer } = await fetchTrustedRemoteAsset(remoteUrl);
+  if (!isPdfBuffer(buffer)) {
+    throw new Error("The stored script file is not a valid PDF.");
   }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
   return extractTextFromPdfBuffer(buffer);
 };
