@@ -1,7 +1,6 @@
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
 import adminOnly from "../middleware/adminMiddleware.js";
-import requireAdminScriptSectionAccess from "../middleware/adminScriptSectionMiddleware.js";
 import {
     getStats,
     getUsers,
@@ -11,6 +10,10 @@ import {
     unfreezeUserAccount,
     deleteUserAccountAsAdmin,
     grantCreditsToUser,
+    grantPremiumModelToUser,
+    removePremiumModelFromUser,
+    removeWriterPlanFromUser,
+    grantWriterPlanToUser,
     getScripts,
     getAIUsageScripts,
     getEvaluationPurchases,
@@ -26,13 +29,14 @@ import {
     editScriptAsAdmin,
     scoreScript,
     getTrailerRequests,
+    getAvailableTrailers,
     approveTrailer,
     uploadAdminTrailerFile,
     uploadTrailerAsAdmin,
+    removeTrailerAsAdmin,
     loginAsUser,
     getScriptDetail,
     deleteScriptAsAdmin,
-    verifyAdminScriptSectionAccess,
     getPendingInvestors,
     getPendingWriterMembershipReviews,
     getWriterMembershipProofAccessUrl,
@@ -50,10 +54,6 @@ import {
     getAdminPurchaseTermsCurrent,
     getAdminPurchaseTermsVersions,
     createAdminPurchaseTermsVersion,
-    getDiscountCodes,
-    createDiscountCode,
-    updateDiscountCode,
-    deleteDiscountCode,
     sendAudienceBroadcast,
 } from "../controllers/adminController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
@@ -79,24 +79,31 @@ router.put("/users/:id/freeze", freezeUserAccount);
 router.put("/users/:id/unfreeze", unfreezeUserAccount);
 router.delete("/users/:id", deleteUserAccountAsAdmin);
 router.post("/users/:id/credits", grantCreditsToUser);
+router.post("/users/:id/grant-premium", grantPremiumModelToUser);
+router.post("/users/:id/remove-premium", removePremiumModelFromUser);
+// Writer Plan Management
+router.post("/users/:id/grant-writer-plan", grantWriterPlanToUser);
+router.post("/users/:id/remove-writer-plan", removeWriterPlanFromUser);
 router.post("/broadcast/:audience", sendAudienceBroadcast);
 
-// Scripts
-router.post("/script-access/verify", verifyAdminScriptSectionAccess);
-router.get("/scripts", requireAdminScriptSectionAccess, getScripts);
+// Scripts (admin auth from router.use(protect, adminOnly) above is the only gate — the extra
+// script-section password has been removed)
+router.get("/scripts", getScripts);
 router.get("/scripts/ai-usage", getAIUsageScripts);
 router.get("/scripts/evaluation-purchases", getEvaluationPurchases);
 router.get("/scripts/investor-purchases", getInvestorPurchases);
-router.get("/scripts/pending", requireAdminScriptSectionAccess, getPendingScripts);
+router.get("/scripts/pending", getPendingScripts);
 router.get("/scripts/trailer-requests", getTrailerRequests);
-router.get("/scripts/:id", requireAdminScriptSectionAccess, getScriptDetail);
-router.delete("/scripts/:id", requireAdminScriptSectionAccess, deleteScriptAsAdmin);
-router.put("/scripts/:id/approve", requireAdminScriptSectionAccess, approveScript);
-router.put("/scripts/:id/reject", requireAdminScriptSectionAccess, rejectScript);
-router.put("/scripts/:id/edit", requireAdminScriptSectionAccess, editScriptAsAdmin);
-router.put("/scripts/:id/score", requireAdminScriptSectionAccess, scoreScript);
+router.get("/scripts/ai-trailers", getAvailableTrailers);
+router.get("/scripts/:id", getScriptDetail);
+router.delete("/scripts/:id", deleteScriptAsAdmin);
+router.put("/scripts/:id/approve", approveScript);
+router.put("/scripts/:id/reject", rejectScript);
+router.put("/scripts/:id/edit", editScriptAsAdmin);
+router.put("/scripts/:id/score", scoreScript);
 router.put("/scripts/:id/trailer-approve", approveTrailer);
 router.post("/scripts/:id/upload-trailer", uploadAdminTrailerFile, uploadTrailerAsAdmin);
+router.delete("/scripts/:id/remove-trailer", removeTrailerAsAdmin);
 
 // Payments
 router.get("/payments", getPayments);
@@ -136,11 +143,5 @@ router.post("/legal/terms/versions", createAdminPurchaseTermsVersion);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);
-
-// Discount Codes
-router.get("/discount-codes", getDiscountCodes);
-router.post("/discount-codes", createDiscountCode);
-router.put("/discount-codes/:id", updateDiscountCode);
-router.delete("/discount-codes/:id", deleteDiscountCode);
 
 export default router;

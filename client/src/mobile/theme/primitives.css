@@ -1,0 +1,80 @@
+/*
+ * Ckript Mobile — shared UI primitives
+ * ------------------------------------------------------------------
+ * A small set of controls that recur across sections/overlays (buttons,
+ * the full-width "view more" pill, status chips). Centralised so a tap
+ * target looks and behaves identically everywhere. Section-specific styling
+ * still lives in each section's own stylesheet.
+ */
+
+/* Solid / ghost action buttons (hero, empty states, dialogs). */
+.ckm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font: 600 13px/1 var(--ckm-body);
+  cursor: pointer;
+  border: none;
+  transition: transform 0.12s ease, filter 0.15s ease;
+}
+.ckm-btn:active {
+  transform: scale(0.97);
+}
+
+.ckm-btn--dark {
+  background: var(--ckm-ink);
+  color: #fff;
+  box-shadow: 0 8px 18px -6px rgba(28, 26, 23, 0.4);
+}
+.ckm-btn--ghost {
+  background: #fff;
+  color: var(--ckm-ink);
+  border: 1px solid #d7d0c2;
+}
+
+/* Full-width "View more / View all" pill used by every list. */
+.ckm-viewmore {
+  width: 100%;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 46px;
+  border: 1px solid #e4ddd0;
+  background: #fff;
+  border-radius: 12px;
+  font: 600 12.5px/1 var(--ckm-body);
+  color: var(--ckm-ink);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.ckm-viewmore:active {
+  background: var(--ckm-bg-soft);
+}
+.ckm-viewmore--muted {
+  color: var(--ckm-text-3);
+}
+
+/* Pill chips for genre / status tags. */
+.ckm-chip {
+  font: 600 10px/1 var(--ckm-body);
+  padding: 6px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.ckm-chip--neutral {
+  background: var(--ckm-track);
+  color: #7a746a;
+}
+.ckm-chip--green {
+  background: var(--ckm-green-bg);
+  color: var(--ckm-green);
+}
+.ckm-chip--gold {
+  background: var(--ckm-gold-bg);
+  color: var(--ckm-gold);
+}

@@ -39,14 +39,6 @@ const INVESTOR_GENRE_OPTIONS = [
   "Family", "Musical", "War", "Western", "Adventure"
 ];
 
-const BUDGET_TIERS = [
-  { key: "micro", label: "Micro", range: "< ₹50L" },
-  { key: "low", label: "Low", range: "₹50L – ₹2Cr" },
-  { key: "medium", label: "Medium", range: "₹2Cr – ₹10Cr" },
-  { key: "high", label: "High", range: "₹10Cr – ₹50Cr" },
-  { key: "blockbuster", label: "Blockbuster", range: "₹50Cr+" },
-];
-
 const FORMAT_OPTIONS = [
   { value: "feature", label: "Feature Film" },
   { value: "movie", label: "Movie" },
@@ -60,6 +52,7 @@ const FORMAT_OPTIONS = [
   { value: "anime", label: "Anime" },
   { value: "cartoon", label: "Cartoon" },
   { value: "drama_school", label: "Drama School" },
+  { value: "micro_drama", label: "Micro Drama" },
   { value: "songs", label: "Songs" },
   { value: "standup_comedy", label: "Standup Comedy" },
   { value: "dialogues", label: "Dialogues" },
@@ -80,6 +73,7 @@ const normalizePreferredFormat = (value = "") => {
     "web series": "web_series",
     "limited series": "limited_series",
     "drama school": "drama_school",
+    "micro drama": "micro_drama",
     "standup comedy": "standup_comedy",
   };
 
@@ -169,7 +163,6 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
     investmentRange: ip.investmentRange || "",
   });
   const [investorGenres, setInvestorGenres] = useState(mandates.genres || profile.preferences?.genres || []);
-  const [investorBudgets, setInvestorBudgets] = useState(mandates.budgetTiers || []);
   const [investorFormats, setInvestorFormats] = useState(() => {
     const raw = Array.isArray(mandates.formats) ? mandates.formats : [];
     return [...new Set(raw.map(normalizePreferredFormat).filter(Boolean))];
@@ -516,7 +509,6 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         payload.previousCredits = investorData.previousCredits;
         payload.investmentRange = investorData.investmentRange;
         payload.preferredGenres = investorGenres;
-        payload.preferredBudgets = investorBudgets;
         payload.preferredFormats = investorFormats;
       }
 
@@ -1368,33 +1360,6 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                 </div>
               </div>
 
-              <div>
-                <label className={labelClass}>
-                  <span className="flex items-center gap-1.5"><IndianRupee size={12} /> Investment Range</span>
-                </label>
-                <select
-                  value={investorData.investmentRange}
-                  onChange={(e) => setInvestorData({ ...investorData, investmentRange: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="">Select typical investment range</option>
-                  <option value="under_50l">Under ₹50 Lakhs</option>
-                  <option value="50l_2cr">₹50 Lakhs – ₹2 Crore</option>
-                  <option value="2cr_10cr">₹2 Crore – ₹10 Crore</option>
-                  <option value="10cr_50cr">₹10 Crore – ₹50 Crore</option>
-                  <option value="50cr_plus">₹50 Crore+</option>
-                </select>
-              </div>
-
-              <div className={`rounded-xl border p-3.5 ${dark ? 'bg-[#0f2544]/18 border-[#1e3a5f]/35' : 'bg-[#f3f8ff] border-[#d7e6f8]'}`}>
-                <p className={`text-[11px] font-semibold mb-1.5 ${dark ? 'text-blue-300' : 'text-[#1e3a5f]'}`}>
-                  Profile tip for better inbound pitches
-                </p>
-                <p className={`text-[11px] leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Add your role, recent credits, and links. Writers and readers can quickly evaluate fit and send higher-quality, relevant pitches.
-                </p>
-              </div>
-
             </motion.div>
           )}
 
@@ -1434,28 +1399,6 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                     <span className="font-semibold text-[#0f2544]">{investorGenres.length}</span> genre{investorGenres.length !== 1 ? 's' : ''} selected
                   </p>
                 )}
-              </div>
-
-              {/* Budget Tiers */}
-              <div>
-                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Budget Tiers</h3>
-                <p className={`text-xs mb-3 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>What budget ranges interest you?</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {BUDGET_TIERS.map((tier) => (
-                    <button
-                      key={tier.key}
-                      type="button"
-                      onClick={() => setInvestorBudgets((prev) => prev.includes(tier.key) ? prev.filter(b => b !== tier.key) : [...prev, tier.key])}
-                      className={`px-3 py-2.5 rounded-lg text-xs transition-all border text-left ${investorBudgets.includes(tier.key)
-                        ? dark ? "bg-[#0f2544] text-white !text-white border-[#1e3a5f] shadow-md shadow-[#0f2544]/20" : "bg-[#0f2544] text-white !text-white border-[#0f2544]"
-                        : dark ? "bg-white/[0.03] text-gray-400 border-[#333] hover:border-[#1e3a5f]/50" : "bg-white text-gray-600 border-gray-200 hover:border-[#1e3a5f]/40"
-                      }`}
-                    >
-                      <span className="font-bold block">{tier.label}</span>
-                      <span className={`text-[10px] ${investorBudgets.includes(tier.key) ? 'text-white/60' : dark ? 'text-gray-600' : 'text-gray-400'}`}>{tier.range}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Content Formats */}

@@ -17,6 +17,7 @@ import {
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import { getAdminBranchAccessStatus } from "../utils/adminBranchAccess.js";
+import { hasBusinessEmail, isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
@@ -117,7 +118,11 @@ const DEFAULT_CLIENT_ORIGIN = "https://ckript.com";
 const normalizeInputValue = (value = "") => String(value).trim();
 const normalizeCountryName = (value = "") => normalizeInputValue(value);
 const isIndiaCountry = (value = "") => normalizeCountryName(value).toLowerCase() === "india";
-const normalizeReferralInput = (value = "") => normalizeInputValue(value).slice(0, REFERRAL_INPUT_MAX_LENGTH);
+const normalizeReferralInput = (value = "") => {
+  const str = normalizeInputValue(value);
+  if (str === "null" || str === "undefined") return "";
+  return str.slice(0, REFERRAL_INPUT_MAX_LENGTH);
+};
 const normalizeReferralCode = (value = "") => normalizeReferralInput(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
 const normalizeReferralUsername = (value = "") =>
   normalizeReferralInput(value)
@@ -606,6 +611,13 @@ export const join = async (req, res) => {
       }
     }
 
+    // Check if email verification should be skipped (dev mode or missing config)
+    let skipEmailVerification = process.env.SKIP_EMAIL_VERIFICATION === 'true';
+    if (!skipEmailVerification && (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD)) {
+      console.warn("Skipping email verification because EMAIL_USER or EMAIL_PASSWORD is not set.");
+      skipEmailVerification = true;
+    }
+
     const requiresContactDetails = CONTACT_REQUIRED_ROLES.has(role);
     const normalizedPhone = normalizeInputValue(phone);
     const normalizedAddress = normalizeAddressPayload(address);
@@ -746,6 +758,35 @@ export const join = async (req, res) => {
         if (referrerUser && !userExists.referredBy) {
           userExists.referredBy = referrerUser._id;
         }
+        
+        if (skipEmailVerification) {
+          userExists.emailVerified = true;
+          userExists.emailVerificationToken = undefined;
+          userExists.emailVerificationExpires = undefined;
+          userExists.emailVerificationResendAvailableAt = undefined;
+          await userExists.save();
+          
+          const referralBonusResult = await awardReferralBonusForUser(userExists._id);
+          const token = jwt.sign({ id: userExists._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
+          const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+          return res.status(200).json({
+            _id: userExists._id,
+            sid: userExists.sid,
+            name: userExists.name,
+            email: userExists.email,
+            role: userExists.role,
+            referralCode: userExists.referralCode,
+            subscription: userExists.subscription,
+            language: normalizeLanguagePreference(userExists.language),
+            timezone: userExists.timezone || DEFAULT_TIMEZONE,
+            referralBonusAwarded: referralBonusResult.awarded,
+            referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
+            token,
+            expiresAt,
+            message: "Account verified successfully (email verification skipped in dev mode)"
+          });
+        }
+
         userExists.emailVerificationToken = hashOTP(otp);
         userExists.emailVerificationExpires = generateOTPExpiry();
         userExists.emailVerificationResendAvailableAt = generateOTPResendAvailableAt();
@@ -771,9 +812,6 @@ export const join = async (req, res) => {
 
     // Generate OTP
     const otp = generateOTP();
-    
-    // Check if email verification should be skipped (dev mode)
-    const skipEmailVerification = process.env.SKIP_EMAIL_VERIFICATION === 'true';
     
     // Create user with OTP
     const user = await User.create({ 
@@ -805,6 +843,7 @@ export const join = async (req, res) => {
         email: user.email,
         role: user.role,
         referralCode: user.referralCode,
+        subscription: user.subscription,
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         referralBonusAwarded: referralBonusResult.awarded,
@@ -904,12 +943,15 @@ export const login = async (req, res) => {
         phone: user.phone,
         role: user.role,
         referralCode: user.referralCode,
+        subscription: user.subscription,
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         approvalStatus: user.approvalStatus,
         approvalNote: user.approvalNote,
         profileImage: user.profileImage || user.profilePicture || "",
         profileCompletion: getProfileCompletion(user),
+        googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+        preferredCurrency: user.preferredCurrency || "INR",
         token,
         expiresAt,
       });
@@ -1042,6 +1084,8 @@ export const googleAuth = async (req, res) => {
       approvalNote: user.approvalNote,
       profileImage: user.profileImage || user.profilePicture || "",
       profileCompletion: getProfileCompletion(user),
+      googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+      preferredCurrency: user.preferredCurrency || "INR",
       authProvider: "google",
       isNewUser: false,
       token: jwtToken,
@@ -1131,6 +1175,21 @@ export const verifyOTP = async (req, res) => {
       user.approvalStatus = "pending";
     }
 
+    if (isFilmIndustryProfessionalRole(user) && hasBusinessEmail(user.email)) {
+      if (!user.subscription) {
+        user.subscription = {
+          plan: "free",
+          accessTier: "film_industry_professional",
+          accessStatus: "active",
+          accessActivatedAt: new Date(),
+        };
+      } else if (user.subscription.accessTier !== "film_industry_professional" || user.subscription.accessStatus !== "active") {
+        user.subscription.accessTier = "film_industry_professional";
+        user.subscription.accessStatus = "active";
+        user.subscription.accessActivatedAt = new Date();
+      }
+    }
+
     await user.save();
 
     // Send welcome email
@@ -1156,6 +1215,7 @@ export const verifyOTP = async (req, res) => {
         name: user.name,
         phone: user.phone,
         referralCode: user.referralCode,
+        subscription: user.subscription,
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         approvalStatus: user.approvalStatus,
@@ -1180,6 +1240,7 @@ export const verifyOTP = async (req, res) => {
       phone: user.phone,
       role: user.role,
       referralCode: user.referralCode,
+      subscription: user.subscription,
       language: normalizeLanguagePreference(user.language),
       timezone: user.timezone || DEFAULT_TIMEZONE,
       profileCompletion: getProfileCompletion(user),
@@ -1491,6 +1552,7 @@ export const getMe = async (req, res) => {
       phone: user.phone,
       role: user.role,
       referralCode: user.referralCode,
+      subscription: user.subscription,
       language: normalizeLanguagePreference(user.language),
       timezone: user.timezone || DEFAULT_TIMEZONE,
       approvalStatus: user.approvalStatus,
@@ -1499,6 +1561,8 @@ export const getMe = async (req, res) => {
       profilePicture: user.profilePicture,
       bio: user.bio,
       profileCompletion: getProfileCompletion(user),
+      googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+      preferredCurrency: user.preferredCurrency || "INR",
       expiresAt: decoded.exp * 1000,
     });
   } catch (error) {

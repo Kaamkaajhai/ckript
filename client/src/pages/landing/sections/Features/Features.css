@@ -1,0 +1,195 @@
+/* ═══════════════════════ FEATURES SHOWCASE ═══════════════════════
+   A tab rail (desktop) that swaps a detail panel, which folds into an
+   inline accordion below 600px. */
+
+.ckl .ckl-features {
+  position: relative;
+  width: 100%;
+  background: var(--ck-paper);
+  padding: clamp(80px, 9vw, 140px) clamp(20px, 5vw, 80px);
+}
+.ckl .ckl-features-inner { max-width: 1320px; margin: 0 auto; }
+.ckl .ckl-features-head { max-width: 760px; }
+.ckl .ckl-features-head .ckl-h2 { margin-top: 22px; }
+.ckl .ckl-features-lead { max-width: 540px; }
+
+.ckl .ckl-feat-grid {
+  margin-top: clamp(44px, 5vw, 72px);
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* ── Tab rail ─────────────────────────────────────────────────── */
+.ckl .ckl-feat-tabs { display: flex; flex-direction: column; gap: 8px; }
+.ckl .ckl-feat-tab-wrap { display: flex; flex-direction: column; gap: 8px; }
+.ckl .ckl-feat-tab {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 17px 18px;
+  border: 1px solid var(--ck-border);
+  background: var(--ck-paper);
+  border-radius: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .25s ease, background .25s ease;
+}
+.ckl .ckl-feat-tab.is-active { border-color: var(--ck-ink); background: var(--ck-ink); }
+.ckl .ckl-feat-tab-num {
+  font-family: var(--ck-sans);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #a8a59d;
+  flex: none;
+}
+.ckl .ckl-feat-tab.is-active .ckl-feat-tab-num { color: var(--ck-red); }
+.ckl .ckl-feat-tab-label {
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 17px;
+  color: #161513;
+}
+.ckl .ckl-feat-tab.is-active .ckl-feat-tab-label { color: #fff; }
+
+/* ── Detail panel ─────────────────────────────────────────────── */
+.ckl .ckl-feat-detail-desktop,
+.ckl .ckl-feat-detail-mobile {
+  position: relative;
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  background: var(--ck-card);
+  overflow: hidden;
+}
+.ckl .ckl-feat-panel {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  min-height: 480px;
+}
+.ckl .ckl-feat-text { padding: clamp(34px, 3.4vw, 52px); display: flex; flex-direction: column; }
+.ckl .ckl-feat-tag {
+  align-self: flex-start;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ck-red);
+  border: 1px solid var(--ck-red-soft);
+  padding: 6px 13px;
+  border-radius: 100px;
+}
+.ckl .ckl-feat-title {
+  margin: 24px 0 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(2rem, 3.4vw, 2.9rem);
+  line-height: 1.04;
+  color: var(--ck-ink);
+}
+.ckl .ckl-feat-italic {
+  margin: 10px 0 0;
+  font-family: var(--ck-body);
+  font-style: italic;
+  font-size: 19px;
+  color: #8d8a84;
+}
+.ckl .ckl-feat-desc {
+  margin: 24px 0 0;
+  font-family: var(--ck-body);
+  font-size: 18px;
+  line-height: 29px;
+  color: var(--ck-body-ink);
+}
+.ckl .ckl-feat-bullets { margin-top: auto; padding-top: 30px; display: flex; flex-direction: column; gap: 13px; }
+.ckl .ckl-feat-bullet { display: flex; align-items: center; gap: 13px; }
+.ckl .ckl-feat-bullet-txt { font-family: var(--ck-sans); font-size: 16px; color: #33312e; }
+
+/* ── Feature media (right side of a panel) ────────────────────── */
+.ckl .ckl-feat-media { position: relative; background: #0c0d0f; overflow: hidden; }
+.ckl .ckl-feat-media-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ckl .ckl-feat-media-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, rgba(12, 13, 15, 0.55), rgba(12, 13, 15, 0.1));
+}
+.ckl .ckl-feat-media-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ckl .ckl-feat-media-tr { position: absolute; left: 24px; right: 24px; bottom: 24px; }
+.ckl .ckl-feat-media-tr-track { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.3); }
+.ckl .ckl-feat-media-tr-fill { width: 42%; height: 100%; background: var(--ck-red); border-radius: 2px; }
+.ckl .ckl-feat-media-tr-cap {
+  margin-top: 11px;
+  font-family: var(--ck-sans);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.3px;
+}
+.ckl .ckl-feat-media-badge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 70px;
+  height: 70px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ckl .ckl-feat-media-stat {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.ckl .ckl-feat-media-stat-num { font-family: var(--ck-serif); font-size: 78px; line-height: 1; color: #fff; }
+.ckl .ckl-feat-media-stat-label {
+  margin-top: 6px;
+  font-family: var(--ck-sans);
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+.ckl .ckl-feat-media-stars {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 7px;
+}
+
+/* ── Accordion visibility (base = desktop) ────────────────────── */
+.ckl .mobile-accordion-icon { display: none !important; }
+.ckl .ckl-feat-detail-mobile { display: none !important; }
+.ckl .ckl-feat-detail-desktop { display: block !important; }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .ckl .ckl-feat-grid { grid-template-columns: 1fr !important; }
+  .ckl .ckl-feat-panel { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 600px) {
+  .ckl .ckl-feat-tabs { position: relative !important; }
+  .ckl .mobile-accordion-icon { display: block !important; }
+  .ckl .ckl-feat-detail-mobile { display: block !important; }
+  .ckl .ckl-feat-detail-desktop { display: none !important; }
+}

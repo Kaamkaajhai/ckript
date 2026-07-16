@@ -70,7 +70,7 @@ export const getCurrentRuntimeBranch = () => {
     return cachedRuntimeBranch;
   }
 
-  cachedRuntimeBranch = resolveBranchFromEnv() || resolveBranchFromGit();
+  cachedRuntimeBranch = resolveBranchFromEnv() || resolveBranchFromGit() || "master";
   return cachedRuntimeBranch;
 };
 

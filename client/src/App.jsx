@@ -1,31 +1,34 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useSearchParams, useNavigate, useLocation, useParams } from "react-router-dom";
 import { lazy, Suspense, useEffect, useContext } from "react";
 import { AuthProvider } from "./context/AuthContext";
+import { ToastProvider } from "./context/ToastContext";
+import { AuthModalProvider } from "./context/AuthModalContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { DarkModeProvider } from "./context/DarkModeContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
 import PrivateRoute from "./utils/PrivateRoute";
 import { AuthContext } from "./context/AuthContext";
 import SeoManager from "./components/SeoManager";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
+import useIsMobile from "./mobile/hooks/useIsMobile";
 
-const Landing = lazy(() => import("./pages/Landing"));
+const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SeoPage = lazy(() => import("./pages/SeoPage"));
+const PricingRoute = lazy(() => import("./pages/PricingRoute"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
-const Login = lazy(() => import("./pages/Login"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const Join = lazy(() => import("./pages/Join"));
+const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 const RoleSelection = lazy(() => import("./pages/RoleSelection"));
-const WriterOnboarding = lazy(() => import("./pages/WriterOnboarding"));
-const InvestorOnboarding = lazy(() => import("./pages/InvestorOnboarding"));
+const WriterOnboardingRoute = lazy(() => import("./pages/WriterOnboardingRoute"));
+const ProducerOnboardingRoute = lazy(() => import("./pages/ProducerOnboardingRoute"));
 const IndustryOnboarding = lazy(() => import("./pages/IndustryOnboarding"));
 const Profile = lazy(() => import("./pages/Profile"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
@@ -50,14 +53,13 @@ const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
-const WriterPurchaseRequests = lazy(() => import("./pages/WriterPurchaseRequests"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
+const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
+const MobileApp = lazy(() => import("./mobile/MobileApp"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
-  () => import("./pages/Login"),
-  () => import("./pages/Join"),
   () => import("./pages/AcceptInvite"),
   () => import("./pages/Dashboard"),
   () => import("./pages/Profile"),
@@ -167,31 +169,101 @@ function SingleSegmentProfileOrReferralRoute() {
     return <Navigate to={`/share/profile/${encodeURIComponent(normalizedSegment)}`} replace />;
   }
 
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+  return (
+    <PrivateRoute>
+      {isCreator
+        ? <DashboardLayout variant="page"><Profile /></DashboardLayout>
+        : <MainLayout><Profile /></MainLayout>}
+    </PrivateRoute>
+  );
+}
+
+// Shared layout for authenticated app routes. Creators/writers get the unified
+// 2B dashboard shell (dark rail + light top bar) on every page; investors and
+// readers keep their existing MainLayout, which already carries role-appropriate
+// chrome and page designs tuned for it.
+function ProtectedMainLayout() {
+  const { user } = useContext(AuthContext);
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  const content = (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">
+          Loading...
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  );
+
+  return (
+    <PrivateRoute>
+      {isCreator
+        ? <DashboardLayout variant="page">{content}</DashboardLayout>
+        : <MainLayout>{content}</MainLayout>}
+    </PrivateRoute>
+  );
+}
+
+// Creator/writer dashboard uses the independent 2B DashboardLayout.
+// Investors fall back to MainLayout (their dashboard has a different design).
+function DashboardRoute() {
+  const { user, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 bg-white">
+        Loading...
+      </div>
+    );
+  }
+
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  if (isCreator) {
+    return (
+      <PrivateRoute>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm" style={{ color: "#a39d92", background: "#fff" }}>Loading...</div>}>
+          <DashboardLayout variant="fill">
+            <Dashboard />
+          </DashboardLayout>
+        </Suspense>
+      </PrivateRoute>
+    );
+  }
+
+  // Investor/other roles use the standard layout
   return (
     <PrivateRoute>
       <MainLayout>
-        <Profile />
+        <Suspense fallback={<div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">Loading...</div>}>
+          <Dashboard />
+        </Suspense>
       </MainLayout>
     </PrivateRoute>
   );
 }
 
-function ProtectedMainLayout() {
-  return (
-    <PrivateRoute>
-      <MainLayout>
-        <Suspense
-          fallback={
-            <div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">
-              Loading...
-            </div>
-          }
-        >
-          <Outlet />
-        </Suspense>
-      </MainLayout>
-    </PrivateRoute>
-  );
+// Ckript ships a *separate* mobile app (src/mobile) for signed-in creators on
+// phone-sized viewports — a native-feeling experience, not a responsive reflow
+// of the desktop UI. This gate is the single mount point: while a creator is
+// on a phone it fully replaces the desktop routes; everyone else (logged-out
+// visitors, non-creators, tablets/desktops) gets the normal `children`. There
+// is deliberately no mobile landing page — the gate only trips once `user`
+// exists. SSR/prerender is unaffected (no window → not mobile, and no user).
+function RootExperience({ children }) {
+  const isMobile = useIsMobile();
+  const { user, loading } = useContext(AuthContext);
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  if (!loading && isMobile && user && isCreator) {
+    return <MobileApp />;
+  }
+
+  return children;
 }
 
 function App() {
@@ -221,7 +293,10 @@ function App() {
   const appTree = (
     <DarkModeProvider key="dm-root">
       <AuthProvider>
+        <CurrencyProvider>
+        <ToastProvider>
         <Router>
+          <AuthModalProvider>
           <LanguagePreferenceSync />
           <ScrollToTopOnRouteChange />
           <SeoManager />
@@ -235,6 +310,7 @@ function App() {
                 </div>
               }
             >
+            <RootExperience>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/about" element={<About />} />
@@ -251,7 +327,7 @@ function App() {
               <Route path="/resources/:slug" element={<SeoPage />} />
               <Route path="/tools" element={<SeoPage />} />
               <Route path="/tools/:slug" element={<SeoPage />} />
-              <Route path="/pricing" element={<SeoPage />} />
+              <Route path="/pricing" element={<PricingRoute />} />
               <Route path="/faq" element={<SeoPage />} />
               <Route path="/genre/:slug" element={<SeoPage />} />
               <Route path="/how-to-sell-a-script" element={<SeoPage />} />
@@ -271,29 +347,25 @@ function App() {
               <Route path="/writer-terms" element={<Navigate to="/terms-conditions?tab=writer" replace />} />
               <Route path="/investor-terms" element={<Navigate to="/terms-conditions?tab=investor" replace />} />
               <Route path="/script-upload-terms" element={<ScriptUploadTermsConditions />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/join" element={<RoleSelection />} />
-              <Route path="/signup" element={<Join />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
+              <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
+              <Route path="/join" element={<Navigate to="/" replace />} />
+              <Route path="/signup" element={<Navigate to="/" replace />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/share/profile/:id" element={<PublicProfile />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
-              <Route path="/writer-onboarding" element={<WriterOnboarding />} />
-              <Route path="/producer-director-onboarding" element={<InvestorOnboarding />} />
+              <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
+              <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
               <Route element={<ProtectedMainLayout />}>
                 <Route path="/industry-onboarding" element={<IndustryOnboarding />} />
-                <Route path="/top-list" element={<TopList />} />
+                <Route path="/top-script" element={<TopList />} />
                 <Route path="/featured" element={<FeaturedProjects />} />
-                <Route path="/trending" element={<Navigate to="/top-list" replace />} />
+                <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/profile/:id?" element={<Profile />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/credits" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/purchase-requests" element={<WriterPurchaseRequests />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
-                <Route path="/ai-tools" element={<Dashboard />} />
-                <Route path="/offer-holds" element={<Dashboard />} />
                 <Route path="/create-project" element={<CreateProject />} />
                 <Route path="/create-project/:draftId" element={<CreateProject />} />
                 <Route path="/upload" element={<ScriptUpload />} />
@@ -328,11 +400,31 @@ function App() {
                 path="/admin/agreements"
                 element={<AdminAgreements />}
               />
+              {/* Dashboard: creator/writer → DashboardLayout (2B); investor → MainLayout */}
+              <Route path="/dashboard" element={<DashboardRoute />} />
+              <Route path="/ai-tools"  element={<DashboardRoute />} />
+              <Route path="/offer-holds" element={<DashboardRoute />} />
+              {import.meta.env.DEV && (
+                <Route
+                  path="/__mobile-preview"
+                  element={
+                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, logout: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
+            </RootExperience>
             </Suspense>
           </AdminLoginHandler>
+          </AuthModalProvider>
         </Router>
+        </ToastProvider>
+        </CurrencyProvider>
       </AuthProvider>
     </DarkModeProvider>
   );

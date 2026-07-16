@@ -5,6 +5,7 @@ import { io } from "socket.io-client";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { getApiOrigin, isSocketSupported } from "../utils/apiOrigin";
 import {
   MessageCircle, ChevronLeft, Send, Lock, Info, Search, X,
   Check, CheckCheck, Smile, Trash2, Video, FileText, Paperclip, Loader2, Download,
@@ -141,7 +142,7 @@ const Messages = () => {
 
   /* ── Socket setup ────────────────────────────────────────── */
   useEffect(() => {
-    if (!user?._id) return;
+    if (!user?._id || !isSocketSupported()) return;
 
     const storedSession = localStorage.getItem("user");
     let socketToken = "";
@@ -206,7 +207,6 @@ const Messages = () => {
       );
     });
 
-    loadConversations();
     return () => sock.close();
   }, [user?._id]);
 
@@ -319,6 +319,14 @@ const Messages = () => {
       if (!silent) setLoading(false);
     }
   }, []);
+
+  /* Initial conversation load — kept SEPARATE from the socket effect so the page always resolves
+     out of its loading state, even where sockets are unavailable (e.g. serverless deploys) or the
+     socket setup returns early. This is the only non-silent load, so it owns clearing `loading`. */
+  useEffect(() => {
+    if (!user?._id) { setLoading(false); return; }
+    loadConversations();
+  }, [user?._id, loadConversations]);
 
   /* ── Load messages ──────────────────────────────────────── */
   const loadMessages = useCallback(async (chatId, { silent = false } = {}) => {

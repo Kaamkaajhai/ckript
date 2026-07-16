@@ -5,7 +5,7 @@ import Notification from "../models/Notification.js";
 import multer from "multer";
 import path from "path";
 import { uploadToCloudinary } from "../config/cloudinary.js";
-import { sendAdminMessageEmail } from "../utils/emailService.js";
+import { sendAdminMessageEmail, sendNewMessageEmail } from "../utils/emailService.js";
 
 const detectFileType = (mimetype = "") => {
   if (mimetype.startsWith("image/")) return "image";
@@ -92,7 +92,7 @@ export const sendMessage = async (req, res) => {
     if (!receiverId) return res.status(400).json({ message: "receiverId is required." });
     if (!text?.trim() && !fileUrl) return res.status(400).json({ message: "Message cannot be empty." });
 
-    const sender = await User.findById(req.user._id).select("_id role name blockedUsers");
+    const sender = await User.findById(req.user._id).select("_id role name blockedUsers subscription");
     if (!sender) return res.status(404).json({ message: "Sender not found." });
 
     const receiver = await User.findById(receiverId).select("_id role name email blockedUsers");
@@ -134,10 +134,43 @@ export const sendMessage = async (req, res) => {
 
         const hasPurchased = await Script.exists({ creator: writerId, unlockedBy: investorId });
         if (!hasPurchased) {
-          return res.status(403).json({
-            message: "Messaging is locked until an investor purchases a script from this writer.",
-            code: "PURCHASE_REQUIRED",
-          });
+          if (isInvestor) {
+            const subscription = sender.subscription || {};
+            const accessTier = String(subscription.accessTier || "").trim().toLowerCase();
+            const accessStatus = String(subscription.accessStatus || "").trim().toLowerCase();
+            
+            if (accessTier === "film_industry_professional" && accessStatus === "active") {
+              const messageWritersLimit = subscription.messageWritersLimit || 10;
+              const messagedWriters = subscription.messagedWriters || [];
+              const writerAlreadyMessaged = messagedWriters.some(c => c.writerId && c.writerId.toString() === writerId.toString());
+              
+              if (!writerAlreadyMessaged) {
+                if (messagedWriters.length >= messageWritersLimit) {
+                  return res.status(403).json({
+                    message: `You have reached your limit of ${messageWritersLimit} direct messages.`,
+                    code: "QUOTA_EXCEEDED",
+                  });
+                } else {
+                  // Consume a quota slot
+                  sender.subscription.messagedWriters.push({
+                    writerId: writerId,
+                    messagedAt: new Date()
+                  });
+                  await sender.save();
+                }
+              }
+            } else {
+              return res.status(403).json({
+                message: "Messaging is locked until you purchase a script or upgrade to a Film Industry Professional plan.",
+                code: "PURCHASE_REQUIRED",
+              });
+            }
+          } else {
+            return res.status(403).json({
+              message: "You cannot initiate a conversation until an investor purchases your script or messages you first.",
+              code: "PURCHASE_REQUIRED",
+            });
+          }
         }
       }
     }
@@ -176,6 +209,14 @@ export const sendMessage = async (req, res) => {
         clientBaseUrl: resolveClientOriginFromRequest(req),
       }).catch((err) => {
         console.error("Failed to send admin message email:", err.message);
+      });
+    }
+
+    if (existingMessageCount === 0 && sender.role === "investor" && ["writer", "creator"].includes(receiver.role)) {
+      sendNewMessageEmail(receiver.email, receiver.name, sender.name, {
+        clientBaseUrl: resolveClientOriginFromRequest(req),
+      }).catch((err) => {
+        console.error("Failed to send new message email:", err.message);
       });
     }
 
@@ -263,15 +304,27 @@ export const getConversations = async (req, res) => {
     const userId = req.user._id;
 
     // Fast indexed BSON dump
-    const msgs = await Message.find({
-      $or: [{ sender: userId }, { receiver: userId }],
-      deleted: { $ne: true },
-    })
-      .sort({ createdAt: -1 })
-      .limit(50) // Hard cap to prevent memory dumps
-      .populate("sender", "name profileImage role")
-      .populate("receiver", "name profileImage role")
-      .lean(); // Faster serialization!
+    // Fix massive performance bottleneck: Mongoose $or query with a sort causes slow in-memory sorts.
+    // Instead, query sender and receiver separately utilizing their explicit indexes, then merge.
+    const [sentMsgs, receivedMsgs] = await Promise.all([
+      Message.find({ sender: userId, deleted: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate("sender", "name profileImage role")
+        .populate("receiver", "name profileImage role")
+        .lean(),
+      Message.find({ receiver: userId, deleted: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .populate("sender", "name profileImage role")
+        .populate("receiver", "name profileImage role")
+        .lean()
+    ]);
+
+    // Merge, sort descending, and cap at 50
+    const msgs = [...sentMsgs, ...receivedMsgs]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 50);
 
     const seen = new Set();
     const conversations = [];

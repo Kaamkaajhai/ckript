@@ -24,7 +24,7 @@ const PrivateRoute = ({ children }) => {
     // If this is an explicit logout, redirect to login without saving the current page.
     // Do NOT remove the key here — let Login.jsx consume it so it can skip the redirect.
     if (typeof window !== "undefined" && sessionStorage.getItem(FORCE_DEFAULT_REDIRECT_KEY) === "1") {
-      return <Navigate to="/login" replace />;
+      return <Navigate to="/" replace />;
     }
 
     const pathname = String(location.pathname || "");
@@ -41,7 +41,7 @@ const PrivateRoute = ({ children }) => {
     }
   }
 
-  return user ? children : <Navigate to="/login" replace state={{ from: destination }} />;
+  return user ? children : <Navigate to="/" replace state={{ from: destination }} />;
 };
 
 export default PrivateRoute;

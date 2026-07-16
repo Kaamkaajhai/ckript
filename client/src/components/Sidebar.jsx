@@ -1,16 +1,17 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Fragment, useContext, useState, useEffect } from "react";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
-import ConfirmDialog from "./ConfirmDialog";
 import ReferralShareCard from "./ReferralShareCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
-const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0 }) => {
-  const { user, logout } = useContext(AuthContext);
+const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileToggleToken = 0, collapsed = false, onToggleCollapse }) => {
+  const { user } = useContext(AuthContext);
+  const { openProducerOnboarding } = useAuthModal();
   const { isDarkMode: appDarkMode } = useDarkMode();
   const location = useLocation();
   const navigate = useNavigate();
@@ -23,7 +24,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
   const [watchlist, setWatchlist] = useState([]); // NEW for Producers
   const [mobileOpen, setMobileOpen] = useState(false);
   const [avatarLoadError, setAvatarLoadError] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     if (mobileToggleToken > 0) {
@@ -41,7 +41,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
     viewerRole: user?.role,
   });
   const isDarkMode = appDarkMode || isReader || isWriterRole || isInvestorRole;
-  const logoutAccentColor = isDarkMode ? "#fb4b4b" : "#dc2626";
   const apiBaseUrl = (import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "");
   const rawProfileImage = user?.profileImage || user?.profilePicture || "";
   const normalizedProfileImagePath = typeof rawProfileImage === "string"
@@ -97,16 +96,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
     }
   };
 
-  const handleLogout = () => {
-    setShowLogoutConfirm(true);
-  };
-
-  const confirmLogout = () => {
-    setShowLogoutConfirm(false);
-    logout();
-    navigate("/login", { replace: true });
-  };
-
   const isActive = (path) => {
     if (location.pathname === path) return true;
     // Only use prefix matching for paths that won't accidentally match sibling routes
@@ -124,7 +113,7 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         { path: "/home", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
         { path: "/dashboard", label: "Dashboard", icon: "M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" },
         { path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" },
-        { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+        { path: "/top-script", label: "Top Script", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
       ],
     },
     {
@@ -139,36 +128,37 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
       items: [
         { path: profilePath, label: "My Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
         { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
-        { path: "/purchase-requests", label: "My Requests", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
       ],
     },
   ] : null;
 
   const mainNavItems = isAdmin ? [
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-    { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+    { path: "/top-script", label: "Top Script", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   ] : isReader ? [
     { path: "/reader", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" },
     { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-    { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+    { path: "/top-script", label: "Top Script", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   ] : isIndustry ? [
     { path: "/dashboard", label: "Dashboard", icon: "M3 9.75L12 3l9 6.75V21a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75v-4.5a.75.75 0 00-.75-.75h-3a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H3.75A.75.75 0 013 21V9.75z" },
     ...(isInvestorRole ? [{ path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" }] : []),
+    // Saved projects → their own Profile bookmarks tab, so industry pros (producers/
+    // directors) can reach every script they've bookmarked from the sidebar.
+    { path: `${profilePath}?tab=bookmarks`, label: "Saved projects", icon: "M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" },
     { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
     { path: "/search", label: "Search Scripts", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-    { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+    { path: "/top-script", label: "Top Script", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
     { path: "/messages", label: "Messages", icon: "M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
   ] : [
     { path: "/dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-    { path: "/purchase-requests", label: "Purchase Requests", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   ];
 
   const actionItems = isAdmin ? [] : isReader ? [
     { path: "/writer-onboarding", label: "Become a Writer", icon: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
-    { path: "/producer-director-onboarding", label: "Become a Producer/Director", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+    { action: "producer-onboarding", label: "Become a Producer/Director", icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
   ] : isIndustry ? [
     { path: "/writers", label: "Browse Writers", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" },
   ] : [
@@ -183,12 +173,12 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
   const mobileItems = isAdmin ? [
     { path: "/admin", label: "Admin", icon: "M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" },
     { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-    { path: "/top-list", label: "Top", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+    { path: "/top-script", label: "Top", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
   ] : isReader ? [
     { path: "/reader", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/featured", label: "Featured", icon: "M9.049 2.927C9.349 2.005 10.651 2.005 10.951 2.927l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.922-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.196-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.719c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.95-.69l1.07-3.292z" },
     { path: "/search", label: "Search", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
-    { path: "/top-list", label: "Top List", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
+    { path: "/top-script", label: "Top Script", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
     { path: profilePath, label: "Profile", icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" },
   ] : isInvestorRole ? [
     { path: "/home", label: "Home", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -213,13 +203,31 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
     </svg>
   );
 
-  const isPurchaseRequestsItem = (itemPath) => itemPath === "/purchase-requests";
   const isMessagesItem = (itemPath) => itemPath === "/messages";
 
   const NavItem = ({ item }) => {
     const active = isActive(item.path);
-    const showPurchaseBadge = isPurchaseRequestsItem(item.path) && purchaseRequestCount > 0;
     const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
+    const baseClass = `group flex items-center gap-3 px-4 py-2.5 min-h-[44px] mx-2 rounded-xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
+      ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
+      : isDarkMode ? "text-[#8896a7] hover:bg-[#0d1520] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
+      }`;
+
+    // Onboarding entries open the modal in-context instead of routing to the
+    // standalone onboarding page.
+    if (item.action === "producer-onboarding") {
+      return (
+        <button
+          type="button"
+          onClick={() => { setMobileOpen(false); openProducerOnboarding(); }}
+          className={`${baseClass} w-[calc(100%-1rem)] text-left`}
+        >
+          <Icon d={item.icon} size="w-5 h-5 shrink-0" />
+          <span className="flex-1 min-w-0 truncate leading-none">{item.label}</span>
+        </button>
+      );
+    }
+
     return (
       <Link
         to={item.path}
@@ -235,11 +243,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
         {showMessageBadge && (
           <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#0f766e] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
             +{unreadMessageCount > 99 ? "99" : unreadMessageCount}
-          </span>
-        )}
-        {showPurchaseBadge && (
-          <span className="ml-auto inline-flex items-center justify-center min-w-[34px] h-6 px-2 rounded-full bg-[#1e3a5f] text-white text-[11px] font-extrabold tracking-tight shadow-sm">
-            +{purchaseRequestCount > 99 ? "99" : purchaseRequestCount}
           </span>
         )}
 
@@ -261,8 +264,20 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className="px-5 h-16 flex items-center shrink-0">
-        <BrandLogo className="h-9 w-auto" />
+      <div className="px-5 h-16 flex items-center justify-between shrink-0">
+        <BrandLogo className={`h-9 w-auto ${isDarkMode ? "brightness-0 invert" : ""}`} />
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            title="Collapse sidebar"
+            aria-label="Collapse sidebar"
+            className={`hidden lg:inline-flex w-8 h-8 items-center justify-center rounded-lg transition-colors ${isDarkMode ? "text-white hover:text-white hover:bg-white/10" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100"}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className={`mx-3 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
@@ -379,25 +394,16 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
           </>
         )}
       </nav>
-
-      <div className={`border-t p-3 ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}>
-        <button onClick={handleLogout}
-          style={{ color: logoutAccentColor, opacity: 1 }}
-          className={`w-full px-3 py-2.5 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center gap-2.5 justify-center ${isDarkMode ? "!text-red-400 hover:!text-red-300 hover:bg-red-500/10" : "!text-red-600 hover:!text-red-700 hover:bg-red-50/80"}`}>
-          <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          Log out
-        </button>
-      </div>
     </div>
   );
 
   return (
     <>
-      <aside className={`hidden lg:flex fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`${collapsed ? "hidden" : "hidden lg:flex"} fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <SidebarContent />
       </aside>
 
-      <aside className={`hidden md:flex lg:hidden fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`${collapsed ? "hidden md:flex" : "hidden md:flex lg:hidden"} fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <div className="h-16 flex items-center justify-center">
           <Link to="/dashboard">
             <svg className={`w-7 h-7 ${isDarkMode ? "text-[#8896a7]" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -405,10 +411,21 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
             </svg>
           </Link>
         </div>
+        {onToggleCollapse && (
+          <button
+            onClick={onToggleCollapse}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            className={`hidden lg:inline-flex w-10 h-10 mb-1 items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-white/80 hover:text-white hover:bg-[#0d1520]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
         <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto">
           {mainNavItems.map((item) => {
             const active = isActive(item.path);
-            const showPurchaseBadge = isPurchaseRequestsItem(item.path) && purchaseRequestCount > 0;
             const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
             return (
               <Link key={item.label} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined} title={item.label}
@@ -420,11 +437,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
                 {showMessageBadge && (
                   <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[19px] h-[19px] px-1 rounded-full bg-[#0f766e] text-white text-[10px] font-extrabold leading-none ring-2 ring-white/80">
                     {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
-                  </span>
-                )}
-                {showPurchaseBadge && (
-                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center min-w-[19px] h-[19px] px-1 rounded-full bg-[#1e3a5f] text-white text-[10px] font-extrabold leading-none ring-2 ring-white/80">
-                    {purchaseRequestCount > 9 ? "9+" : purchaseRequestCount}
                   </span>
                 )}
               </Link>
@@ -458,11 +470,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
                 {user?.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
             )}
-          </button>
-          <button onClick={handleLogout} title="Log out"
-            style={{ color: logoutAccentColor, opacity: 1 }}
-            className={`w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${isDarkMode ? "!text-red-400 hover:!text-red-300 hover:bg-red-500/10" : "!text-red-600 hover:!text-red-700 hover:bg-red-50"}`}>
-            <Icon d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </button>
         </div>
       </aside>
@@ -516,17 +523,6 @@ const Sidebar = ({ purchaseRequestCount = 0, unreadMessageCount = 0, showFloatin
           );
         })}
       </nav>
-
-      <ConfirmDialog
-        open={showLogoutConfirm}
-        title="Log out"
-        message="Are you sure you want to log out of your account?"
-        confirmText="Log out"
-        cancelText="Cancel"
-        onConfirm={confirmLogout}
-        onCancel={() => setShowLogoutConfirm(false)}
-        isDarkMode={isDarkMode}
-      />
     </>
   );
 };

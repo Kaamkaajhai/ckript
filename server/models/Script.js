@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer", "full_admin"];
+const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer", "full_admin", "commenter"];
 const normalizeCollaboratorRole = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
   return VALID_COLLABORATOR_ROLES.includes(normalized) ? normalized : "editor";
@@ -25,7 +25,7 @@ const roleSchema = new mongoose.Schema({
 
 const collaboratorSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  role: { type: String, enum: ["editor", "merger", "viewer", "full_admin"], required: true, default: "editor", set: normalizeCollaboratorRole },
+  role: { type: String, enum: ["editor", "merger", "viewer", "full_admin", "commenter"], required: true, default: "editor", set: normalizeCollaboratorRole },
   accessLevel: {
     type: String,
     enum: ["full_access", "content_only"],
@@ -63,9 +63,30 @@ const scriptSchema = new mongoose.Schema({
   synopsis: { type: String }, // Short visible teaser
   fullContent: { type: String }, // Locked full content
   textContent: { type: String }, // Extracted text from PDF or raw input from editor
+  fountainContent: { type: String }, // Canonical Fountain markup for screenplay-format projects (source of truth when present)
+  // Corkboard scene synopses (Phase 4) — one-line summaries keyed by normalized scene heading.
+  // Pure editor metadata: NOT part of the screenplay text, never included in PDF/Fountain export.
+  sceneSynopses: { type: Map, of: String, default: undefined },
+  // Outline notes (Phase 4) — free-form beats/notes alongside the script. Editor metadata only,
+  // never included in the screenplay text or PDF/Fountain export.
+  outlineNotes: { type: String, default: "" },
+  // Industry title page — structured fields (title/credit/author/source/draftDate). Stored separately
+  // from the body text (so it never confuses the classifier); the PDF and Fountain export render it.
+  titlePage: { type: Map, of: String, default: undefined },
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload
+  viewableScript: { type: Boolean, default: false },
+  scriptPreviewAccess: {
+    mode: {
+      type: String,
+      enum: ["pages", "episodes"],
+      default: "pages",
+    },
+    start: { type: Number, min: 1, default: 1 },
+    end: { type: Number, min: 1, default: 8 },
+  },
+  scriptPreviewPageTexts: [{ type: String, default: "" }],
   scriptCompletion: {
     status: {
       type: String,
@@ -78,7 +99,7 @@ const scriptSchema = new mongoose.Schema({
   },
   coverImage: { type: String },
   genre: { type: String },
-  contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup", "songs", "standup_comedy", "dialogues", "poet"], default: "movie" },
+  contentType: { type: String, enum: ["movie", "tv_series", "anime", "documentary", "short_film", "web_series", "book", "startup", "songs", "standup_comedy", "dialogues", "poet", "micro_drama"], default: "movie" },
   status: { type: String, enum: ["draft", "published", "pending_approval", "rejected"], default: "draft" },
   approvalRequestType: { type: String, enum: ["new_submission", "edit_submission"], default: "new_submission" },
   adminApproved: { type: Boolean, default: false },
@@ -102,6 +123,7 @@ const scriptSchema = new mongoose.Schema({
       "fiction_novel",
       "documentary",
       "drama_school",
+      "micro_drama",
       "anime",
       "movie",
       "tv_serial",
@@ -137,12 +159,21 @@ const scriptSchema = new mongoose.Schema({
     settings: [{ type: String }] // Max 3
   },
 
+  // Film production details set by writer during upload
+  filmDetails: {
+    filmLanguage: { type: String, trim: true, maxlength: 100 },
+    dialoguesPresent: { type: String, enum: ["yes", "no", "partial"], default: "yes" },
+    wantToDirect: { type: Boolean, default: false },
+    wantToProduce: { type: Boolean, default: false },
+    scriptStyle: [{ type: String }],
+  },
+
   // Content indicators
   contentIndicators: {
     bechdelTest: { type: Boolean },
     basedOnTrueStory: { type: Boolean, default: false },
     adaptation: { type: Boolean, default: false },
-    adaptationSource: { type: String }, // What it's adapted from
+    adaptationSource: { type: String },
   },
 
   // Tag references (Many-to-Many)
@@ -156,15 +187,7 @@ const scriptSchema = new mongoose.Schema({
     spotlight: { type: Boolean, default: false }
   },
   billing: {
-    evaluationCreditsCharged: { type: Number, default: 0 },
-    aiTrailerCreditsCharged: { type: Number, default: 0 },
-    spotlightCreditsChargedAtUpload: { type: Number, default: 0 },
-    evaluationCreditsChargedAtUpload: { type: Number, default: 0 },
-    aiTrailerCreditsChargedAtUpload: { type: Number, default: 0 },
-    evaluationCreditsRefunded: { type: Number, default: 0 },
-    aiTrailerCreditsRefunded: { type: Number, default: 0 },
-    spotlightCreditsSpent: { type: Number, default: 0 },
-    lastSpotlightRefundCredits: { type: Number, default: 0 },
+
     lastSpotlightActivatedAt: { type: Date },
   },
   evaluationStatus: {
@@ -272,7 +295,7 @@ const scriptSchema = new mongoose.Schema({
     spotlightStartAt: { type: Date },
     spotlightEndAt: { type: Date },
     lastSpotlightPurchaseAt: { type: Date },
-    totalSpotlightCreditsSpent: { type: Number, default: 0 },
+
   },
   price: { type: Number, default: 0 },
   isSold: { type: Boolean, default: false }, // true once any buyer purchases — hides script from all public listings
@@ -293,6 +316,15 @@ const scriptSchema = new mongoose.Schema({
     savedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     prId: { type: mongoose.Schema.Types.ObjectId, ref: "PullRequest", default: null },
   }],
+  // Screenplay editor version snapshots (Module 4 — version history & drafts)
+  versions: [{
+    label: { type: String, default: "", trim: true, maxlength: 80 },
+    fountainSnapshot: { type: String, default: "" },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    authorName: { type: String, default: "" },
+    auto: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+  }],
   isDeleted: { type: Boolean, default: false, index: true },
   deletedAt: { type: Date },
   // AI Trailer (Text-to-Trailer)
@@ -304,6 +336,19 @@ const scriptSchema = new mongoose.Schema({
   trailerSource: { type: String, enum: ["ai", "uploaded", "none"], default: "none" }, // Track trailer source
   // Pitch Video (short pitch, max 90s, max 90MB)
   pitchVideoUrl: { type: String },
+  trailerRequestPayment: {
+    status: { type: String, enum: ["paid", "failed", "pending"], default: "pending" },
+    provider: { type: String, enum: ["razorpay", "test", "manual", "none"], default: "none" },
+    orderId: { type: String, default: "" },
+    paymentId: { type: String, default: "" },
+    signature: { type: String, default: "" },
+    currency: { type: String, default: "INR" },
+    amount: { type: Number, default: 0 },
+    duration: { type: String, default: "" },
+    quality: { type: String, default: "" },
+    format: { type: String, default: "" },
+    paidAt: { type: Date },
+  },
   trailerWriterFeedback: {
     status: { type: String, enum: ["pending", "approved", "revision_requested"], default: "pending" },
     note: { type: String, default: "" },
@@ -352,6 +397,12 @@ const scriptSchema = new mongoose.Schema({
   // Reader system
   rating: { type: Number, default: 0, min: 0, max: 5 },
   reviewCount: { type: Number, default: 0 },
+  // Producer rating — aggregate of ratings from industry professionals (see ProducerRating model),
+  // recomputed on each rating. Shown to every viewer as a credibility signal.
+  producerRating: {
+    average: { type: Number, default: 0, min: 0, max: 5 },
+    count: { type: Number, default: 0 },
+  },
   readsCount: { type: Number, default: 0 },
   isFeatured: { type: Boolean, default: false },
   // Analytics
@@ -397,10 +448,13 @@ const scriptSchema = new mongoose.Schema({
     // Free-text estimated word count range e.g. "60,000 – 90,000 words"
     estimatedWordCount: { type: String, trim: true, maxlength: 60 },
 
-    // Series potential (single-select)
+    // Series potential (single-select). An unselected value arrives as "" from the editor; coerce
+    // empty/blank to undefined so the enum validation treats it as "not set" instead of rejecting
+    // the whole save (a "" was failing every draft save with a ValidationError → 500).
     seriesPotential: {
       type: String,
       enum: ["standalone", "trilogy", "multi_part_universe"],
+      set: (v) => (v === "" || v == null ? undefined : v),
     },
 
     // Book pitch (200–400 words narrative pitch for publishers)
@@ -485,6 +539,7 @@ const scriptSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast queries
+scriptSchema.index({ creator: 1 });
 scriptSchema.index({ status: 1, rating: -1 });
 scriptSchema.index({ status: 1, isFeatured: 1, rating: -1 });
 scriptSchema.index({ status: 1, readsCount: -1 });

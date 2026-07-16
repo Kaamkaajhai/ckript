@@ -1,3 +1,4 @@
+// force vercel build
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -31,9 +32,10 @@ import tagRoutes from "./routes/tagRoutes.js";
 import onboardingRoutes from "./routes/onboardingRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import producerRatingRoutes from "./routes/producerRatingRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
-import creditsRoutes from "./routes/creditsRoutes.js";
+
 import adminRoutes from "./routes/adminRoutes.js";
 import scriptPitchRoutes from "./routes/scriptPitchRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
@@ -41,7 +43,10 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
 import agreementRoutes from "./routes/agreementRoutes.js";
 import collabRoutes from "./routes/collab.routes.js";
+import meetingRoutes from "./routes/meetingRoutes.js";
+import googleCalendarRoutes from "./routes/googleCalendarRoutes.js";
 import { registerCollabSocket } from "./socket/collab.socket.js";
+import { registerScenePresence } from "./socket/scenePresence.socket.js";
 import {
   applyGlobalSecurity,
   apiLimiter,
@@ -298,6 +303,7 @@ const createRealtimeServer = () => {
 
   app.set("io", io);
   registerCollabSocket(io);
+  registerScenePresence(io);
 
   return server;
 };
@@ -307,7 +313,7 @@ app.use(cors({
   origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-script-access-token'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-draft-save-reason'],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));
@@ -351,9 +357,10 @@ app.use("/api/tags", tagRoutes);
 app.use("/api/onboarding", onboardingRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/producer-ratings", producerRatingRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/transactions", transactionRoutes);
-app.use("/api/credits", paymentLimiter, creditsRoutes);
+
 app.use("/api/admin", adminRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api/script-pitches", scriptPitchRoutes);
@@ -361,6 +368,8 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
 app.use("/api/collab", collabRoutes);
+app.use("/api/meetings", meetingRoutes);
+app.use("/api/google-calendar", googleCalendarRoutes);
 
 export default app;
 

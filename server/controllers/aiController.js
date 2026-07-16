@@ -1,9 +1,15 @@
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { CREDIT_PRICES } from "./creditsController.js";
+
 import { generateJsonWithGoogleAI } from "../services/googleAiService.js";
 import { generateTrailerVideo } from "../services/videoGenerationService.js";
+import Groq from "groq-sdk";
+
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || "f94659ac266fc9dbeec2eff4f18e18de", // Fallback to the requested key if env is missing
+});
+
 
 const clampScore = (value) => {
   const n = Number(value);
@@ -106,7 +112,7 @@ CRITICAL OUTPUT RULES:
 
 const scoreRequestLockMs = 10 * 60 * 1000;
 
-const runScriptScoreGeneration = async ({ scriptId, userId }) => {
+export const runScriptScoreGeneration = async ({ scriptId, userId }) => {
   const script = await Script.findById(scriptId);
   if (!script) return;
 
@@ -262,49 +268,15 @@ export const generateTrailer = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can generate a trailer" });
     }
 
-    // Check if credits were already paid during upload
-    const alreadyPaid = script.services?.aiTrailer === true;
+    // Ensure the user is on a premium plan before generating trailer
+    const user = await User.findById(req.user._id);
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
     
-    if (!alreadyPaid) {
-      // Check credits
-      const user = await User.findById(req.user._id);
-      const requiredCredits = CREDIT_PRICES.AI_TRAILER;
-      const userBalance = user.credits?.balance || 0;
-
-      if (userBalance < requiredCredits) {
-        return res.status(402).json({ 
-          message: `Insufficient credits. AI Trailer generation requires ${requiredCredits} credits.`,
-          requiresCredits: true,
-          required: requiredCredits,
-          balance: userBalance,
-          shortfall: requiredCredits - userBalance
-        });
-      }
-
-      // Deduct credits
-      user.credits.balance -= requiredCredits;
-      user.credits.totalSpent += requiredCredits;
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -requiredCredits,
-        description: `AI Trailer generation for "${script.title}"`,
-        reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date()
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({ 
+        message: "AI Trailer generation is a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
       });
-      await user.save();
-
-      const currentBilling = script.billing || {};
-      script.billing = {
-        ...currentBilling,
-        evaluationCreditsCharged: Number(currentBilling.evaluationCreditsCharged || 0),
-        aiTrailerCreditsCharged: Number(currentBilling.aiTrailerCreditsCharged || 0) + requiredCredits,
-        evaluationCreditsRefunded: Number(currentBilling.evaluationCreditsRefunded || 0),
-        aiTrailerCreditsRefunded: Number(currentBilling.aiTrailerCreditsRefunded || 0),
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0),
-        lastSpotlightRefundCredits: Number(currentBilling.lastSpotlightRefundCredits || 0),
-        lastSpotlightActivatedAt: currentBilling.lastSpotlightActivatedAt,
-      };
-      script.markModified("billing");
     }
 
     // Mark as generating
@@ -456,50 +428,15 @@ export const generateScriptScore = async (req, res) => {
       });
     }
 
-    // Treat an existing billing charge as paid too, not only services.evaluation.
-    const alreadyPaid =
-      script.services?.evaluation === true ||
-      Number(script.billing?.evaluationCreditsCharged || 0) > 0;
+    // Ensure the user is on a premium plan before generating evaluation
+    const user = await User.findById(req.user._id);
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
     
-    if (!alreadyPaid) {
-      const user = await User.findById(req.user._id);
-      const requiredCredits = CREDIT_PRICES.AI_EVALUATION;
-      const userBalance = user.credits?.balance || 0;
-      
-      if (userBalance < requiredCredits) {
-        return res.status(402).json({ 
-          message: `Insufficient credits. AI Script Evaluation requires ${requiredCredits} credits.`,
-          requiresCredits: true,
-          required: requiredCredits,
-          balance: userBalance,
-          shortfall: requiredCredits - userBalance
-        });
-      }
-
-      // Deduct credits
-      user.credits.balance -= requiredCredits;
-      user.credits.totalSpent += requiredCredits;
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -requiredCredits,
-        description: `AI Script Evaluation for "${script.title}"`,
-        reference: `EVAL-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date()
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({ 
+        message: "AI Script Evaluation is a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
       });
-      await user.save();
-
-      const currentBilling = script.billing || {};
-      script.billing = {
-        ...currentBilling,
-        evaluationCreditsCharged: Number(currentBilling.evaluationCreditsCharged || 0) + requiredCredits,
-        aiTrailerCreditsCharged: Number(currentBilling.aiTrailerCreditsCharged || 0),
-        evaluationCreditsRefunded: Number(currentBilling.evaluationCreditsRefunded || 0),
-        aiTrailerCreditsRefunded: Number(currentBilling.aiTrailerCreditsRefunded || 0),
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0),
-        lastSpotlightRefundCredits: Number(currentBilling.lastSpotlightRefundCredits || 0),
-        lastSpotlightActivatedAt: currentBilling.lastSpotlightActivatedAt,
-      };
-      script.markModified("billing");
     }
 
     script.services = {
@@ -542,36 +479,18 @@ export const correctScriptText = async (req, res) => {
       return res.status(400).json({ message: "Script text is required" });
     }
 
-    // ── Credit check (5 credits for grammar fix) ─────────────────────────
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    const required = CREDIT_PRICES.AI_GRAMMAR; // 5 credits
-    const balance = user.credits?.balance || 0;
-    const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
-
-    if (balance < required) {
-      return res.status(402).json({
-        message: `Insufficient credits. Grammar Fix requires ${required} credits. You have ${balance}.`,
-        requiresCredits: true,
-        required,
-        balance,
-        shortfall: required - balance,
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({ 
+        message: "AI Grammar Fix is a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
       });
     }
 
-    // Deduct credits before AI call
-    user.credits.balance -= required;
-    user.credits.totalSpent = (user.credits.totalSpent || 0) + required;
-    user.credits.transactions = user.credits.transactions || [];
-    user.credits.transactions.push({
-      type: "spent",
-      amount: -required,
-      description: "AI Grammar Fix (Script Editor)",
-      reference: `GRAMMAR-${Date.now().toString(36).toUpperCase()}`,
-      createdAt: new Date(),
-    });
-    await user.save();
+    const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
 
     const normalizedSource = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
     const truncatedSource = normalizedSource.slice(0, 25000);
@@ -732,10 +651,13 @@ ${sourceText}`;
       payload = await generateJsonWithGoogleAI({
         prompt,
         temperature: 0.4,
-        maxOutputTokens: 2600,
+        // Logline + a 2–4 paragraph synopsis + up to 12 roles can easily exceed a small cap and
+        // truncate the JSON mid-output (the synopsis is the long part — that's why logline-only
+        // worked but synopsis failed). Give it room; gemini-2.5-flash supports up to 8192.
+        maxOutputTokens: 8192,
       });
     } catch (aiError) {
-      console.error("[AI Metadata] AI call failed:", aiError.message);
+      console.error("[AI Metadata] AI call failed:", aiError.message, aiError.rawSnippet ? `| snippet: ${aiError.rawSnippet}` : "");
       usedFallback = true;
       payload = {};
     }
@@ -799,32 +721,16 @@ export const generateProseSample = async (req, res) => {
       return res.status(400).json({ message: "Script has no content to convert." });
     }
 
-    // Check credits
+    // Check premium plan
     const user = await User.findById(req.user._id);
-    const requiredCredits = CREDIT_PRICES.AI_PROSE || 20;
-    const userBalance = user.credits?.balance || 0;
+    const plan = String(user.subscription?.plan || "free").toLowerCase();
 
-    if (userBalance < requiredCredits) {
-      return res.status(402).json({
-        message: `Insufficient credits. AI Prose Sample generation requires ${requiredCredits} credits.`,
-        requiresCredits: true,
-        required: requiredCredits,
-        balance: userBalance,
-        shortfall: requiredCredits - userBalance
+    if (plan === "free" || plan === "none") {
+      return res.status(403).json({
+        message: "AI Prose Sample generation is a premium feature. Please upgrade your plan.",
+        requiresUpgrade: true
       });
     }
-
-    // Deduct credits
-    user.credits.balance -= requiredCredits;
-    user.credits.totalSpent += requiredCredits;
-    user.credits.transactions.push({
-      type: "spent",
-      amount: -requiredCredits,
-      description: `AI Prose Sample for "${script.title}"`,
-      reference: `PROSE-${Date.now().toString(36).toUpperCase()}`,
-      createdAt: new Date()
-    });
-    await user.save();
 
     // Take the first ~500 words
     const words = sourceText.split(/\s+/);
@@ -886,33 +792,16 @@ export const aiWritingAssist = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found." });
     const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
 
-    // ── Credit check for grammar action ──────────────────────────────────
+    // ── Check Premium Plan for Writing Assist ──────────────────────────────────
     if (action === "grammar") {
-      const required = CREDIT_PRICES.AI_GRAMMAR; // 5 credits
-      const balance = user.credits?.balance || 0;
+      const plan = String(user.subscription?.plan || "free").toLowerCase();
 
-      if (balance < required) {
-        return res.status(402).json({
-          message: `Insufficient credits. AI Grammar Fix requires ${required} credits. You have ${balance}.`,
-          requiresCredits: true,
-          required,
-          balance,
-          shortfall: required - balance,
+      if (plan === "free" || plan === "none") {
+        return res.status(403).json({
+          message: "AI Grammar Fix is a premium feature. Please upgrade your plan.",
+          requiresUpgrade: true
         });
       }
-
-      // Deduct credits
-      user.credits.balance -= required;
-      user.credits.totalSpent = (user.credits.totalSpent || 0) + required;
-      user.credits.transactions = user.credits.transactions || [];
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -required,
-        description: `AI Grammar Fix`,
-        reference: `GRAMMAR-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date(),
-      });
-      await user.save();
     }
 
     const normalizedSource = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
@@ -988,10 +877,10 @@ ${truncatedSource}`;
 export const getServiceCosts = async (req, res) => {
   try {
     res.json({
-      aiEvaluation: CREDIT_PRICES.AI_EVALUATION,
-      aiTrailer: CREDIT_PRICES.AI_TRAILER,
-      scriptAnalysis: CREDIT_PRICES.SCRIPT_ANALYSIS,
-      premiumReport: CREDIT_PRICES.PREMIUM_REPORT
+      aiEvaluation: "Premium Only",
+      aiTrailer: "Premium Only",
+      scriptAnalysis: "Premium Only",
+      premiumReport: "Premium Only"
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1182,3 +1071,122 @@ function generateAIScriptScore(script) {
     comparables: `Similar ${genreLabel.toLowerCase()} titles in the current market across streaming and independent film circuits`,
   };
 }
+
+export const generateCoverImage = async (req, res) => {
+  try {
+    const { title, logline, genre, scriptText } = req.body;
+    let generatedPrompt = "";
+
+    try {
+      const systemPrompt = `You are an award-winning Hollywood Key Art Designer, Creative Director, and Cinematic Concept Artist who has designed official movie posters and streaming platform cover arts for Netflix, HBO, A24, Marvel, DC, Warner Bros, and Amazon Prime.
+
+Your task is to create a PREMIUM CINEMATIC SCRIPT THUMBNAIL prompt that represents the uploaded script.
+
+The thumbnail must NOT look AI-generated.
+It must feel like an official movie or OTT platform cover.
+
+----------------------------------------------------
+OBJECTIVE
+----------------------------------------------------
+Create one high-end cinematic cover image prompt that instantly communicates the story's mood and genre while making users want to click it.
+The image should look like an official Netflix/A24/Warner Bros movie artwork.
+The design must be premium, elegant, modern, realistic and visually striking.
+
+----------------------------------------------------
+STYLE
+----------------------------------------------------
+• Hyper realistic, Cinematic lighting, Premium color grading, Movie key art quality
+• Ultra detailed, Clean composition, Professional poster design, Editorial photography quality
+• Real camera look, Natural skin textures, Realistic depth of field, Film grain
+• High dynamic range, 8K quality, Global illumination, Volumetric lighting
+• Premium aesthetic, Luxury visual language
+Never produce cartoon, illustration, anime, vector art, clipart or low-quality AI artwork unless the uploaded script itself belongs to those categories.
+
+----------------------------------------------------
+TITLE
+----------------------------------------------------
+The most important requirement is the typography. You MUST explicitly instruct the image generator to write the exact title: "${title || "Untitled"}".
+Example phrase to include in your prompt: 'The text "${title || "Untitled"}" is written in large, premium, elegant, cinematic typography. The spelling must be 100% exact and correct, exactly as "${title || "Untitled"}".'
+Place it naturally inside the composition. The title should integrate with the artwork rather than looking pasted.
+Never add subtitles. Never add taglines. Never add fake production studios. Never add actor names. Never add logos. Never add watermarks.
+
+----------------------------------------------------
+COMPOSITION & REALISM
+----------------------------------------------------
+Use professional movie poster composition. Strong focal point. Rule of thirds. Natural visual hierarchy. Balanced spacing. Minimal clutter. Powerful storytelling through visuals.
+Everything must look photographed using high-end cinema cameras. Use realistic Faces, Skin, Eyes, Clothing, Hair, Environments, Lighting, Reflections, Materials.
+Avoid common AI mistakes. Do NOT generate: AI-looking faces, Plastic skin, Extra fingers/limbs, Deformed anatomy, Poor typography, Blurry text, Generic stock images.
+
+----------------------------------------------------
+OUTPUT
+----------------------------------------------------
+Generate exactly ONE highly detailed image generation prompt string (for the Flux AI image generator) based on all the rules above.
+Make sure the prompt is HIGHLY UNIQUE based on the script synopsis provided. Do not use generic elements.
+Return ONLY the raw prompt string, nothing else.`;
+
+      const userPrompt = `Script Title:
+${title || "Untitled"}
+
+Genre:
+${genre || "Drama"}
+
+Synopsis/Context:
+${logline || ""}
+
+Script Excerpt (Study this to capture the exact mood, characters, and setting of the actual script):
+${scriptText || "A deeply compelling and visually striking story."}`;
+
+      const completion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        model: "deepseek-r1-distill-llama-70b",
+        temperature: 0.8,
+        max_completion_tokens: 400,
+      });
+
+      let rawOutput = completion.choices[0]?.message?.content?.trim() || "";
+      // DeepSeek generates reasoning tokens inside <think> tags. Strip them out.
+      generatedPrompt = rawOutput.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      
+      // Also strip markdown code blocks if the model wrapped the output in them
+      generatedPrompt = generatedPrompt.replace(/^```[\s\S]*?\n/g, '').replace(/```$/g, '').trim();
+
+    } catch (groqError) {
+      console.warn("Groq failed (key might be invalid), using fallback prompt:", groqError.message);
+      generatedPrompt = `A premium 8K cinematic movie poster, highly realistic, Hollywood key art quality. The text "${title || "Untitled"}" is written in large, elegant, cinematic typography. Genre: ${genre || "Drama"}. ${logline ? "Story concept: " + logline : ""}. Ultra detailed, cinematic lighting, masterpiece.`;
+    }
+
+    if (!generatedPrompt) {
+      generatedPrompt = `A premium 8K cinematic movie poster, highly realistic, Hollywood key art quality. The text "${title || "Untitled"}" is written in large, elegant, cinematic typography. Genre: ${genre || "Drama"}. Ultra detailed, cinematic lighting, masterpiece.`;
+    }
+
+    // Now call pollinations AI which returns an image blob
+    const encodedPrompt = encodeURIComponent(generatedPrompt);
+    // Seed for some randomness, plus dimensions for a typical poster/thumbnail
+    const seed = Math.floor(Math.random() * 1000000);
+    // Fetch the image in the backend to avoid frontend CORS/0-byte issues
+    // Using width 1280 and height 800 (16:10 ratio) to perfectly match frontend ScriptCard aspect ratio!
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=800&nologo=true&seed=${seed}&model=flux`;
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch image from Pollinations: ${imageResponse.statusText}`);
+    }
+    
+    const arrayBuffer = await imageResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = `data:image/jpeg;base64,${buffer.toString("base64")}`;
+
+    res.status(200).json({
+      success: true,
+      prompt: generatedPrompt,
+      imageUrl: imageUrl,
+      base64Image: base64Image
+    });
+
+  } catch (error) {
+    console.error("AI Cover Generation Error:", error);
+    res.status(500).json({ success: false, message: "Failed to generate AI cover image.", error: error.message });
+  }
+};

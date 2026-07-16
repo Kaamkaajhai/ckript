@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { readFile, unlink, writeFile } from "fs/promises";
 import { fileURLToPath } from "url";
+import { fetchTrustedRemoteAsset, isPdfBuffer } from "./remoteAssetPolicy.js";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -51,6 +52,7 @@ const CHARACTER_CUE_EXCLUSIONS = new Set([
 ]);
 const dialogueLooksNatural = (value = "") => /^[\"'\u2018\u2019\u201c\u201d]?(?:[A-Z][a-z]|[a-z])/.test(String(value || "").trim());
 const cueStartsLikeAction = (value = "") => /^(?:A|AN|THE|HER|HIS|THEIR|ITS)\b/.test(String(value || "").trim());
+const MAX_PAGE_PREVIEW_CHARACTERS = 1400;
 
 export const formatScreenplayLikeText = (value = "") => {
   let text = normalizeExtractedPdfText(value);
@@ -179,12 +181,51 @@ export const extractTextFromPdfBuffer = async (buffer) => {
   let text = "";
   let numItems = 0;
   let strategy = "none";
+  let pageTexts = [];
 
   try {
-    const data = await pdfParse(buffer);
+    const data = await pdfParse(buffer, {
+      pagerender: async (pageData) => {
+        try {
+          const textContent = await pageData.getTextContent({
+            normalizeWhitespace: false,
+            disableCombineTextItems: false
+          });
+          
+          let lastY;
+          let text = '';
+          for (let item of textContent?.items || []) {
+            if (lastY == item.transform[5] || !lastY) {
+              if (lastY && text && !text.endsWith(' ')) {
+                text += ' ';
+              }
+              text += item.str;
+            } else {
+              text += '\n' + item.str;
+            }
+            lastY = item.transform[5];
+          }
+          
+          // Clean up multiple spaces but preserve newlines
+          const pageText = text.replace(/[ \t]+/g, " ").trim();
+
+          const previewSlice = pageText.slice(0, MAX_PAGE_PREVIEW_CHARACTERS + 200);
+          const formattedPageText = formatScreenplayLikeText(previewSlice).slice(0, MAX_PAGE_PREVIEW_CHARACTERS);
+          pageTexts.push(formattedPageText);
+          return `${pageText}\n\n`;
+        } catch (pageError) {
+          console.warn("[extractTextFromPdfBuffer] page render failed:", pageError?.message || pageError);
+          pageTexts.push("");
+          return "\n\n";
+        }
+      },
+    });
     text = normalizeExtractedPdfText(data?.text || "");
     numItems = Number(data?.numpages) || 0;
     strategy = text.trim() ? "pdf-parse" : "pdf-parse-empty";
+    if (!pageTexts.length && numItems > 0) {
+      pageTexts = Array.from({ length: numItems }, () => "");
+    }
   } catch (parseError) {
     console.warn("[extractTextFromPdfBuffer] pdf-parse failed:", parseError?.message || parseError);
   }
@@ -211,6 +252,7 @@ export const extractTextFromPdfBuffer = async (buffer) => {
     text: formatScreenplayLikeText(text),
     numItems,
     strategy,
+    pageTexts,
   };
 };
 
@@ -220,11 +262,9 @@ export const extractTextFromPdfUrl = async (url = "") => {
     return { text: "", numItems: 0, strategy: "missing-url" };
   }
 
-  const response = await fetch(remoteUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download PDF for extraction (${response.status})`);
+  const { buffer } = await fetchTrustedRemoteAsset(remoteUrl);
+  if (!isPdfBuffer(buffer)) {
+    throw new Error("The stored script file is not a valid PDF.");
   }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
   return extractTextFromPdfBuffer(buffer);
 };

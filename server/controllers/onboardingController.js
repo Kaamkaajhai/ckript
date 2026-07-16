@@ -1,10 +1,9 @@
 import User from "../models/User.js";
 import Script from "../models/Script.js";
 import Subscription from "../models/Subscription.js";
-import Notification from "../models/Notification.js";
 import multer from "multer";
 import { uploadToCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
-import { sendOTPEmail, sendWriterSignupCreditsEmail } from "../utils/emailService.js";
+import { sendOTPEmail } from "../utils/emailService.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import {
   generateOTP,
@@ -37,8 +36,6 @@ const MEMBERSHIP_FILE_MIME_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
-const WRITER_SIGNUP_BONUS_CREDITS = 180;
-
 const getCloudinaryResourceTypeFromUrl = (url = "") => {
   const normalized = String(url || "");
   if (normalized.includes("/image/upload/")) return "image";
@@ -46,14 +43,6 @@ const getCloudinaryResourceTypeFromUrl = (url = "") => {
   if (normalized.includes("/raw/upload/")) return "raw";
   return "";
 };
-
-const buildWriterSignupCreditTransaction = (amount = WRITER_SIGNUP_BONUS_CREDITS) => ({
-  type: "bonus",
-  amount,
-  description: "Writer signup bonus credits",
-  reference: `WRITER-SIGNUP-${Date.now().toString(36).toUpperCase()}`,
-  createdAt: new Date(),
-});
 
 const normalizeOtpInput = (otp) => String(otp || "").trim();
 const isValidOtpInput = (otp) => /^\d{6}$/.test(otp);
@@ -71,6 +60,7 @@ const normalizeMandateFormat = (value = "") => {
     "web series": "web_series",
     "limited series": "limited_series",
     "drama school": "drama_school",
+    "micro drama": "micro_drama",
     "standup comedy": "standup_comedy",
   };
 
@@ -703,42 +693,7 @@ export const completeOnboarding = async (req, res) => {
     user.privacyPolicyAcceptedAt = new Date();
     user.privacyPolicyVersion = privacyPolicyVersion || "registration-privacy-v1";
 
-    let awardedWriterSignupBonus = false;
-    if (!wasOnboardingComplete) {
-      if (!user.credits) {
-        user.credits = {
-          balance: 0,
-          totalPurchased: 0,
-          totalSpent: 0,
-          transactions: [],
-        };
-      }
-
-      user.credits.balance = Number(user.credits.balance || 0) + WRITER_SIGNUP_BONUS_CREDITS;
-      user.credits.totalPurchased = Number(user.credits.totalPurchased || 0) + WRITER_SIGNUP_BONUS_CREDITS;
-      user.credits.transactions.push(buildWriterSignupCreditTransaction());
-      awardedWriterSignupBonus = true;
-    }
-
     await user.save();
-
-    if (awardedWriterSignupBonus) {
-      await Notification.create({
-        user: user._id,
-        type: "admin_alert",
-        message: `Your ${WRITER_SIGNUP_BONUS_CREDITS} signup credits are ready. Use them for AI trailer generation and AI script evaluation.`,
-      }).catch(() => null);
-
-      const emailResult = await sendWriterSignupCreditsEmail(user.email, user.name, {
-        amount: WRITER_SIGNUP_BONUS_CREDITS,
-        balanceAfter: Number(user?.credits?.balance || 0),
-        clientBaseUrl: String(req.get("origin") || "").trim(),
-      });
-
-      if (!emailResult?.success) {
-        console.error("Failed to send writer signup credits email after onboarding completion:", emailResult?.error || "Unknown email error");
-      }
-    }
     
     // Create subscription record if paid plan
     let subscription = null;
@@ -769,7 +724,6 @@ export const completeOnboarding = async (req, res) => {
       success: true, 
       subscription,
       message: "Onboarding completed successfully",
-      writerSignupBonusCredits: awardedWriterSignupBonus ? WRITER_SIGNUP_BONUS_CREDITS : 0,
       user: {
         _id: user._id,
         name: user.name,
@@ -1036,7 +990,6 @@ export const updateMandates = async (req, res) => {
 
     user.industryProfile.mandates = {
       formats: normalizeFormatArray(mandates.formats),
-      budgetTiers: mandates.budgetTiers || [],
       genres: mandates.genres || [],
       excludeGenres: mandates.excludeGenres || [],
       specificHooks: mandates.specificHooks || [],
@@ -1092,7 +1045,6 @@ export const completeIndustryOnboarding = async (req, res) => {
     if (mandates) {
       user.industryProfile.mandates = {
         formats: normalizeFormatArray(mandates.formats),
-        budgetTiers: mandates.budgetTiers || [],
         genres: mandates.genres || [],
         excludeGenres: mandates.excludeGenres || [],
         specificHooks: mandates.specificHooks || []

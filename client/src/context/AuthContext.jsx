@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiOrigin";
+import { clearCacheByPrefix } from "../utils/localCache";
 import { linkAnonymousSessionToUser } from "../tracking/linkUserSession";
 import { sendTrackEvent } from "../tracking/analyticsClient";
 
@@ -11,10 +12,11 @@ const FORCE_DEFAULT_REDIRECT_KEY = "auth:force-default-redirect";
 const REFERRAL_STORAGE_KEY = "sb:referral-code";
 const REFERRAL_MAX_LENGTH = 40;
 
-const normalizeReferralInput = (value) =>
-  String(value || "")
-    .trim()
-    .slice(0, REFERRAL_MAX_LENGTH);
+const normalizeReferralInput = (value) => {
+  const str = String(value || "").trim();
+  if (str === "null" || str === "undefined") return "";
+  return str.slice(0, REFERRAL_MAX_LENGTH);
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -55,6 +57,7 @@ export const AuthProvider = ({ children }) => {
     logoutTimerRef.current = setTimeout(() => {
       setUser(null);
       localStorage.removeItem("user");
+      clearCacheByPrefix("dashboard:"); // don't leave a session's data cached
       window.location.href = "/login";
     }, delay);
     return true;
@@ -137,10 +140,15 @@ export const AuthProvider = ({ children }) => {
             return;
           }
 
-          // Validate token with backend
+          // Optimistically set user and stop loading immediately for fast UI
+          setUser(parsed);
+          setLoading(false);
+
+          // Validate token with backend in the background
           const { data } = await axios.get(`${API_URL}/auth/me`, {
             headers: { Authorization: `Bearer ${parsed.token}` },
           });
+          
           // Merge fresh user data with stored token & expiry
           const refreshedUser = {
             ...data,
@@ -191,8 +199,9 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    await linkAnonymousSessionToUser(data);
-    await trackAuthEvent("login_success", data);
+    // Fire-and-forget tracking events for fast UI navigation
+    linkAnonymousSessionToUser(data).catch(console.error);
+    trackAuthEvent("login_success", data).catch(console.error);
     return data;
   };
 
@@ -231,8 +240,8 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    await linkAnonymousSessionToUser(data);
-    await trackAuthEvent("signup_success", data);
+    linkAnonymousSessionToUser(data).catch(console.error);
+    trackAuthEvent("signup_success", data).catch(console.error);
     return data;
   };
 
@@ -245,8 +254,8 @@ export const AuthProvider = ({ children }) => {
     setUser(data);
     localStorage.setItem("user", JSON.stringify(data));
     if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    await linkAnonymousSessionToUser(data);
-    await trackAuthEvent(data?.isNewUser ? "signup_success" : "login_success", data);
+    linkAnonymousSessionToUser(data).catch(console.error);
+    trackAuthEvent(data?.isNewUser ? "signup_success" : "login_success", data).catch(console.error);
     return data;
   };
 
@@ -260,9 +269,10 @@ export const AuthProvider = ({ children }) => {
 
     setUser(null);
     localStorage.removeItem("user");
+    clearCacheByPrefix("dashboard:"); // clear any cached dashboard snapshot for privacy
 
     if (redirect && typeof window !== "undefined") {
-      window.location.replace("/login");
+      window.location.replace("/");
     }
   };
 

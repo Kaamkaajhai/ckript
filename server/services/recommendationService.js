@@ -43,6 +43,7 @@ const normalizeFormat = (value = "") => {
   if (raw.includes("documentary")) return "documentary";
   if (raw.includes("anime") || raw.includes("animation") || raw.includes("cartoon")) return "anime";
   if (raw.includes("drama school")) return "drama-school";
+  if (raw.includes("micro drama")) return "micro_drama";
   if (raw.includes("tv") || raw.includes("series")) return "tv-series";
   return raw.replace(/[\s_]+/g, "-");
 };
@@ -141,7 +142,6 @@ const getExplicitSignals = (investor) => {
   const mandateFormats = (investor?.industryProfile?.mandates?.formats || []).map(normalizeFormat);
   const inferredFormats = inferFormatsFromText(profileText).map(normalizeFormat);
 
-  const mandateBudgets = (investor?.industryProfile?.mandates?.budgetTiers || []).map(normalizeBudget);
   const inferredBudgets = inferBudgetsFromInvestmentRange(investor?.industryProfile?.investmentRange).map(normalizeBudget);
   const hookGenres = (investor?.industryProfile?.mandates?.specificHooks || []).flatMap((hook) =>
     inferGenresFromText(hook)
@@ -157,7 +157,7 @@ const getExplicitSignals = (investor) => {
   return {
     genres: [...new Set([...mandateGenres, ...prefGenres, ...inferredGenres, ...hookGenres])].filter((g) => g && !excluded.includes(g)),
     formats: [...new Set([...mandateFormats, ...inferredFormats])].filter(Boolean),
-    budgets: [...new Set([...mandateBudgets, ...inferredBudgets])].filter(Boolean),
+    budgets: [...new Set(inferredBudgets)].filter(Boolean),
     tags: [...new Set(profileTags)],
   };
 };
@@ -411,10 +411,6 @@ export const buildInvestorFeed = async (userId) => {
     .map(normalizeFormat)
     .filter(Boolean);
 
-  const activeBudgetFilters = (investor?.industryProfile?.mandates?.budgetTiers || [])
-    .map(normalizeBudget)
-    .filter(Boolean);
-
   const candidates = await Script.find({
     status: "published",
     isSold: { $ne: true },
@@ -445,13 +441,6 @@ export const buildInvestorFeed = async (userId) => {
       ].filter(Boolean);
 
       if (!projectFormats.some((fmt) => activeFormatFilters.includes(fmt))) {
-        return false;
-      }
-    }
-
-    if (activeBudgetFilters.length > 0) {
-      const projectBudget = normalizeBudget(project.budget || "");
-      if (!activeBudgetFilters.includes(projectBudget)) {
         return false;
       }
     }

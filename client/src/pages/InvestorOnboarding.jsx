@@ -1,4 +1,4 @@
-﻿import { useState, useContext, useRef, useEffect, useCallback } from "react";
+import { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
@@ -63,6 +63,7 @@ const DEFAULT_ACCOUNT_DATA = {
   email: "",
   phone: "",
   password: "",
+  referralCode: "",
 };
 
 const DEFAULT_INVESTOR_PROFILE = {
@@ -204,6 +205,7 @@ const FORMAT_OPTIONS = [
   { value: "anime", label: "Anime" },
   { value: "cartoon", label: "Cartoon" },
   { value: "drama_school", label: "Drama School" },
+  { value: "micro_drama", label: "Micro Drama" },
   { value: "songs", label: "Songs" },
   { value: "standup_comedy", label: "Standup Comedy" },
   { value: "dialogues", label: "Dialogues" },
@@ -224,6 +226,7 @@ const normalizePreferredFormat = (value = "") => {
     "web series": "web_series",
     "limited series": "limited_series",
     "drama school": "drama_school",
+    "micro drama": "micro_drama",
     "standup comedy": "standup_comedy",
   };
 
@@ -526,6 +529,7 @@ const InvestorOnboarding = () => {
         phone,
         password: accountData.password,
         role: "investor",
+        referralCode: accountData.referralCode,
       });
 
       // Check if OTP verification is required
@@ -1040,6 +1044,10 @@ const InvestorOnboarding = () => {
                       <PwReq ok={v.special} text="One special character (!@#$%^&*)" />
                     </div>
                   ); })()}
+                </div>
+                <div className="ob-field">
+                  <label className="ob-label">Referral Code / Username <span style={{ opacity: 0.5, textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
+                  <input type="text" className="ob-input" placeholder="Enter referral code or referrer's username" value={accountData.referralCode} onChange={(e) => { setAccountData({ ...accountData, referralCode: e.target.value.slice(0, 40) }); setError(""); }} />
                 </div>
                 <div className="ob-actions">
                   <button type="submit" disabled={loading} className="ob-btn ob-btn-primary">{loading ? "Creating account..." : <><span>Create Account</span> <ArrowRight size={16} /></>}</button>

@@ -1,5 +1,4 @@
 import User from "../models/User.js";
-import DiscountCode from "../models/DiscountCode.js";
 import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
 import ScriptPurchaseRequest from "../models/ScriptPurchaseRequest.js";
@@ -23,14 +22,13 @@ import {
     sendInvestorRejectionEmail,
     sendWriterMembershipDecisionEmail,
     sendAdminCreditsGrantedEmail,
+    sendAdminPremiumGrantedEmail,
+    sendAdminPremiumRemovedEmail,
     sendAdminBroadcastEmail,
+    sendWriterPlanGrantedEmail,
 } from "../utils/emailService.js";
-import {
-    hasAdminScriptSectionPasswordConfigured,
-    issueAdminScriptSectionAccessToken,
-    validateAdminScriptSectionPassword,
-} from "../utils/adminScriptSectionAccess.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
+import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 
 const buildChatId = (idA, idB) => {
     const sorted = [idA.toString(), idB.toString()].sort();
@@ -65,6 +63,70 @@ const ACTIVE_USER_FILTER = {
     isDeactivated: { $ne: true },
     isFrozen: { $ne: true },
 };
+const SCRIPT_PREVIEW_WORDS_PER_UNIT = 250;
+const normalizeScriptPreviewAccess = (previewAccess = {}, fallback = {}) => {
+    const rawMode = String(previewAccess?.mode || fallback?.mode || "pages").trim().toLowerCase();
+    const mode = rawMode === "episodes" ? "episodes" : "pages";
+    const fallbackStart = Number(fallback?.start || 1);
+    const fallbackEnd = Number(fallback?.end || 8);
+    const rawStart = Number(previewAccess?.start ?? previewAccess?.from ?? fallbackStart);
+    const rawEnd = Number(previewAccess?.end ?? previewAccess?.to ?? fallbackEnd);
+    const maxUnits = Number(fallback?.maxUnits || 0);
+
+    let start = Number.isFinite(rawStart) && rawStart > 0 ? Math.floor(rawStart) : 1;
+    let end = Number.isFinite(rawEnd) && rawEnd > 0 ? Math.floor(rawEnd) : Math.max(start, fallbackEnd);
+
+    if (maxUnits > 0) {
+        start = Math.min(start, maxUnits);
+        end = Math.min(end, maxUnits);
+    }
+
+    if (end < start) {
+        end = start;
+    }
+
+    return { mode, start, end };
+};
+const getScriptPreviewLabel = (previewAccess) => {
+    const safePreview = normalizeScriptPreviewAccess(previewAccess);
+    const unitLabel = safePreview.mode === "episodes" ? "Episode" : "Page";
+    return `${unitLabel}s ${safePreview.start} to ${safePreview.end}`;
+};
+const getScriptPreviewExcerpt = (script, previewAccess) => {
+    const rawText = String(script?.textContent || script?.fullContent || "").trim();
+    if (!rawText) return "";
+
+    const plainText = rawText
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    if (!plainText) return "";
+
+    const safePreview = normalizeScriptPreviewAccess(previewAccess);
+    const words = plainText.split(/\s+/).filter(Boolean);
+    if (words.length === 0) return "";
+
+    const startIndex = Math.max(0, (safePreview.start - 1) * SCRIPT_PREVIEW_WORDS_PER_UNIT);
+    const endIndex = Math.max(startIndex, Math.min(words.length, safePreview.end * SCRIPT_PREVIEW_WORDS_PER_UNIT));
+    if (startIndex >= words.length) return "";
+
+    const excerpt = words.slice(startIndex, endIndex).join(" ");
+    return excerpt ? `${excerpt}${endIndex < words.length ? "..." : ""}` : "";
+};
+const getScriptPreviewPageTexts = (script) => {
+    if (!script) return [];
+
+    return Array.isArray(script.scriptPreviewPageTexts)
+        ? script.scriptPreviewPageTexts.map((pageText) => String(pageText || "").trim())
+        : [];
+};
+const getScriptPreviewPageTextByNumber = (script, pageNumber) => {
+    const pageTexts = getScriptPreviewPageTexts(script);
+    const index = Math.max(0, Number(pageNumber || 0) - 1);
+    return String(pageTexts[index] || "").trim();
+};
+const hasViewableScriptPreview = (script) => Boolean(script?.viewableScript);
 
 const buildBroadcastAudienceConfig = (audience = "") => {
     const normalizedAudience = String(audience || "").trim().toLowerCase();
@@ -143,14 +205,6 @@ const sanitizeInlineFileName = (fileName = "attachment.pdf") => {
     return normalized.toLowerCase().endsWith(".pdf") ? normalized : `${normalized}.pdf`;
 };
 
-const getCloudinaryResourceTypeFromUrl = (url = "") => {
-    const normalized = String(url || "");
-    if (normalized.includes("/image/upload/")) return "image";
-    if (normalized.includes("/video/upload/")) return "video";
-    if (normalized.includes("/raw/upload/")) return "raw";
-    return "";
-};
-
 const resolveAttachmentCloudinaryResourceType = (attachment) =>
     normalizeString(attachment?.cloudinaryResourceType) ||
     getCloudinaryResourceTypeFromUrl(attachment?.url) ||
@@ -173,13 +227,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
                 attachment: false,
             });
 
-            const response = await fetch(signedUrl);
-            if (!response.ok) continue;
-
-            const arrayBuffer = await response.arrayBuffer();
-            if (arrayBuffer.byteLength > 0) {
-                return Buffer.from(arrayBuffer);
-            }
+            const { buffer } = await fetchTrustedPdfAsset(signedUrl);
+            if (buffer.length > 0) return buffer;
         } catch {
             // Try fallback resource types.
         }
@@ -187,13 +236,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
 
     if (attachmentUrl) {
         try {
-            const fallbackResponse = await fetch(attachmentUrl);
-            if (fallbackResponse.ok) {
-                const fallbackBuffer = await fallbackResponse.arrayBuffer();
-                if (fallbackBuffer.byteLength > 0) {
-                    return Buffer.from(fallbackBuffer);
-                }
-            }
+            const { buffer } = await fetchTrustedPdfAsset(attachmentUrl);
+            if (buffer.length > 0) return buffer;
         } catch {
             // Final fallback failed; return null below.
         }
@@ -232,6 +276,15 @@ const getAdminTrailerRequestFilter = () => ({
     isDeleted: NON_DELETED_SCRIPT_FILTER,
     "services.aiTrailer": true,
     trailerStatus: { $in: ["requested", "generating"] },
+    "trailerRequestPayment.status": "paid",
+});
+
+const getAdminTrailerLibraryFilter = () => ({
+    isDeleted: NON_DELETED_SCRIPT_FILTER,
+    $or: [
+        { trailerUrl: { $exists: true, $nin: ["", null] } },
+        { uploadedTrailerUrl: { $exists: true, $nin: ["", null] } },
+    ],
 });
 
 const getSettledPurchaseQuery = (extra = {}) => ({
@@ -466,11 +519,20 @@ export const getStats = async (req, res) => {
 // ─── User Lists by Role ───
 export const getUsers = async (req, res) => {
     try {
-        const { role, search, page = 1, limit = 20 } = req.query;
+        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
         const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
-        if (role) filter.role = role;
+        if (role && typeof role === 'string') filter.role = role;
+        if (isPremium === 'true') {
+            filter["subscription.accessTier"] = "film_industry_professional";
+            filter["subscription.accessStatus"] = "active";
+        }
+        if (hasActiveWriterPlan === 'true') {
+            filter.role = { $in: ["writer", "creator"] };
+            filter["subscription.accessStatus"] = "active";
+            filter["subscription.accessTier"] = { $in: ["writer_silver", "writer_gold", "standard"] };
+        }
 
         const searchFilter = buildAdminUserSearchQuery(search);
         if (searchFilter) Object.assign(filter, searchFilter);
@@ -864,6 +926,186 @@ export const grantCreditsToUser = async (req, res) => {
     }
 };
 
+export const grantPremiumModelToUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (!FILM_PROFESSIONAL_ROLE_LIST.includes(targetUser.role)) {
+            return res.status(403).json({ message: "Only film industry professionals can be granted the premium model." });
+        }
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot grant premium to a deleted account" });
+        }
+
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days as per FILM_INDUSTRY_PRO_MODEL
+
+        targetUser.subscription = {
+            plan: "pro",
+            aiImagesGeneratedTotal: 0,
+            accessTier: "film_industry_professional",
+            checkoutMode: "live",
+            checkoutProvider: "razorpay",
+            accessStatus: "active",
+            accessExpiresAt: expiresAt,
+            lastAccessUpdate: now,
+            isActive: true,
+            revealedContacts: [],
+            messagedWriters: [],
+            contactsLimit: 10,
+            messageWritersLimit: 10,
+            meetingsLimit: 10,
+        };
+
+        targetUser.isPremium = true;
+
+        await targetUser.save();
+
+        let emailResult = await sendAdminPremiumGrantedEmail(targetUser.email, targetUser.name, {
+            adminName: req.user?.name || "Admin",
+            clientBaseUrl: resolveClientOriginFromRequest(req),
+        });
+
+        if (!emailResult?.success) {
+            emailResult = await sendAdminPremiumGrantedEmail(targetUser.email, targetUser.name, {
+                adminName: req.user?.name || "Admin",
+                clientBaseUrl: resolveClientOriginFromRequest(req),
+            });
+        }
+
+        res.json({
+            message: "Premium model granted successfully",
+            user: buildAdminManagedUserSummary(targetUser),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const removePremiumModelFromUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+
+        // Revert subscription back to standard defaults for a professional (or basic if needed)
+        // Adjust these to standard defaults for film_industry_professional if they lose premium
+        // Typically, we might just set plan to "free" or clear it.
+        targetUser.subscription = {
+            ...targetUser.subscription,
+            plan: "free",
+            isActive: false,
+            accessTier: "none",
+            accessStatus: "inactive",
+            accessExpiresAt: undefined,
+            lastAccessUpdate: new Date()
+        };
+
+        targetUser.isPremium = false;
+
+        await targetUser.save();
+
+        let emailResult = await sendAdminPremiumRemovedEmail(targetUser.email, targetUser.name, {
+            adminName: req.user?.name || "Admin",
+            clientBaseUrl: resolveClientOriginFromRequest(req),
+        });
+
+        if (!emailResult?.success) {
+            emailResult = await sendAdminPremiumRemovedEmail(targetUser.email, targetUser.name, {
+                adminName: req.user?.name || "Admin",
+                clientBaseUrl: resolveClientOriginFromRequest(req),
+            });
+        }
+
+        res.json({
+            message: "Premium model removed successfully",
+            user: buildAdminManagedUserSummary(targetUser),
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const removeWriterPlanFromUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+
+        // Revert writer subscription back to standard default "free"
+        targetUser.subscription = {
+            ...targetUser.subscription,
+            plan: "free",
+            isActive: false,
+            accessTier: "none",
+            accessStatus: "inactive",
+            accessExpiresAt: undefined,
+            lastAccessUpdate: new Date()
+        };
+
+        if (targetUser.writerProfile) {
+            targetUser.writerProfile.plan = "free";
+        }
+
+        await targetUser.save();
+
+        res.json({ message: "Writer plan successfully removed", user: buildAdminManagedUserSummary(targetUser) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const grantWriterPlanToUser = async (req, res) => {
+    try {
+        const { plan } = req.body;
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+        
+        if (!["silver", "gold"].includes(plan)) {
+            return res.status(400).json({ message: "Invalid plan specified" });
+        }
+
+        targetUser.subscription = {
+            ...targetUser.subscription,
+            plan: plan,
+            aiImagesGeneratedTotal: 0,
+            isActive: true,
+            accessTier: plan === "gold" ? "writer_gold" : "writer_silver",
+            accessStatus: "active",
+            accessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            lastAccessUpdate: new Date()
+        };
+
+        if (targetUser.writerProfile) {
+            targetUser.writerProfile.plan = plan;
+        }
+
+        await targetUser.save();
+
+        // Send email
+        await sendWriterPlanGrantedEmail(targetUser.email, {
+            writerName: targetUser.name || "Writer",
+            planName: plan,
+        });
+
+        res.json({ message: `Writer plan ${plan} successfully granted`, user: buildAdminManagedUserSummary(targetUser) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const sendAudienceBroadcast = async (req, res) => {
     try {
         const audienceConfig = buildBroadcastAudienceConfig(req.params.audience);
@@ -1040,27 +1282,6 @@ export const deleteUserAccountAsAdmin = async (req, res) => {
 };
 
 // ─── All Scripts ───
-export const verifyAdminScriptSectionAccess = async (req, res) => {
-    try {
-        if (!hasAdminScriptSectionPasswordConfigured()) {
-            return res.status(500).json({ message: "Admin script section password is not configured." });
-        }
-
-        const password = String(req.body?.password || "");
-        if (!validateAdminScriptSectionPassword(password)) {
-            return res.status(403).json({
-                code: "ADMIN_SCRIPT_SECTION_PASSWORD_INVALID",
-                message: "Invalid script section password.",
-            });
-        }
-
-        const tokenPayload = issueAdminScriptSectionAccessToken(req.user?._id);
-        return res.json(tokenPayload);
-    } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-};
-
 export const getScripts = async (req, res) => {
     try {
         const { search, status, page = 1, limit = 20 } = req.query;
@@ -1381,6 +1602,14 @@ export const approveScript = async (req, res) => {
         }
         script.rejectionReason = undefined;
 
+        // Auto-feature scripts for Gold Model users
+        if (!script.isFeatured) {
+            const creatorUser = await User.findById(script.creator).select("subscription");
+            if (creatorUser?.subscription?.plan === "gold") {
+                script.isFeatured = true;
+            }
+        }
+
         if (shouldAutoActivateSpotlight) {
             const now = new Date();
             script.premium = true;
@@ -1478,6 +1707,7 @@ const ADMIN_EDITABLE_TOP_LEVEL_FIELDS = [
     "contentIndicators",
     "tagIds",
     "scriptCompletion",
+    "scriptPreviewAccess",
     "price",
 ];
 
@@ -1583,6 +1813,26 @@ export const getTrailerRequests = async (req, res) => {
             .skip((page - 1) * limit)
             .limit(Number(limit));
         res.json({ scripts, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const getAvailableTrailers = async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const pageNumber = Math.max(Number(page) || 1, 1);
+        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const filter = getAdminTrailerLibraryFilter();
+
+        const total = await Script.countDocuments(filter);
+        const scripts = await Script.find(filter)
+            .populate("creator", "name email role profileImage")
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .skip((pageNumber - 1) * pageLimit)
+            .limit(pageLimit);
+
+        res.json({ scripts, total, page: pageNumber, totalPages: Math.ceil(total / pageLimit) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1729,6 +1979,39 @@ export const loginAsUser = async (req, res) => {
     }
 };
 
+export const removeTrailerAsAdmin = async (req, res) => {
+    try {
+        const script = await Script.findById(req.params.id).populate("creator", "_id name");
+        if (!script) return res.status(404).json({ message: "Script not found" });
+
+        const hadTrailer = Boolean(String(script.trailerUrl || "").trim() || String(script.uploadedTrailerUrl || "").trim());
+
+        script.trailerUrl = undefined;
+        script.uploadedTrailerUrl = undefined;
+        script.trailerThumbnail = undefined;
+        script.trailerSource = "none";
+        script.trailerStatus = "none";
+        await script.save();
+
+        if (script.creator?._id) {
+            await Notification.create({
+                user: script.creator._id,
+                type: "trailer_ready",
+                from: req.user._id,
+                script: script._id,
+                message: `The trailer for "${script.title}" was removed by admin.`,
+            });
+        }
+
+        res.json({
+            message: hadTrailer ? "Trailer removed successfully" : "Trailer was already empty",
+            script,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // ─── Get Single Script Detail (for admin review) ───
 export const getScriptDetail = async (req, res) => {
     try {
@@ -1738,14 +2021,25 @@ export const getScriptDetail = async (req, res) => {
             .populate("platformScore.scoredBy", "name");
         if (!script) return res.status(404).json({ message: "Script not found" });
 
-        if (!String(script.textContent || "").trim() && String(script.fileUrl || "").trim()) {
+        const hasPreviewPageTexts = Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.some(Boolean);
+        const needsPdfExtraction = String(script.fileUrl || "").trim() &&
+            (!String(script.textContent || "").trim() || !hasPreviewPageTexts);
+        if (needsPdfExtraction) {
             try {
                 const extraction = await extractTextFromPdfUrl(script.fileUrl);
-                if (String(extraction?.text || "").trim()) {
+                let changed = false;
+                if (!String(script.textContent || "").trim() && String(extraction?.text || "").trim()) {
                     script.textContent = extraction.text;
                     if (!Number(script.pageCount) && Number(extraction?.numItems) > 0) {
                         script.pageCount = Number(extraction.numItems);
                     }
+                    changed = true;
+                }
+                if (!hasPreviewPageTexts && Array.isArray(extraction?.pageTexts) && extraction.pageTexts.length > 0) {
+                    script.scriptPreviewPageTexts = extraction.pageTexts;
+                    changed = true;
+                }
+                if (changed) {
                     await script.save();
                 }
             } catch (error) {
@@ -1778,6 +2072,17 @@ export const getScriptDetail = async (req, res) => {
         });
 
         const response = script.toObject();
+        const hasViewablePreview = hasViewableScriptPreview(script);
+        // Always normalize preview access so admin always has start/end even when viewableScript:false
+        const normalizedPreviewAccess = normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
+            mode: script.scriptPreviewAccess?.mode || "pages",
+            start: script.scriptPreviewAccess?.start || 1,
+            end: script.scriptPreviewAccess?.end || 8,
+            maxUnits: Array.isArray(script.scriptPreviewPageTexts) ? script.scriptPreviewPageTexts.length : 0,
+        });
+        const previewSummary = getScriptPreviewLabel(normalizedPreviewAccess);
+        const previewExcerpt = getScriptPreviewExcerpt(script, normalizedPreviewAccess);
+        const allPreviewPageTexts = getScriptPreviewPageTexts(script);
         response.settledPurchaseRequests = settledPurchaseRequests.map((request) => {
             const buyerId = request?.investor?._id?.toString?.() || request?.investor?.toString?.() || "";
             const agreement = agreementByBuyerId.get(buyerId) || null;
@@ -1789,10 +2094,18 @@ export const getScriptDetail = async (req, res) => {
                         status: agreement.status,
                         writerPdfUrl: agreement.writer_pdf_url || "",
                         buyerPdfUrl: agreement.buyer_pdf_url || "",
-                    }
+                }
                     : null,
             };
         });
+        response.viewableScript = hasViewablePreview;
+        response.scriptPreviewAccess = normalizedPreviewAccess;
+        response.scriptPreviewSummary = previewSummary;
+        response.previewExcerpt = previewExcerpt;
+        // Always return page texts so admin preview works regardless of viewableScript flag
+        response.scriptPreviewPageTexts = allPreviewPageTexts;
+        response.scriptPreviewStartText = getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.start);
+        response.scriptPreviewEndText = getScriptPreviewPageTextByNumber(script, normalizedPreviewAccess.end);
 
         res.json(response);
     } catch (error) {
@@ -2464,12 +2777,7 @@ export const getAdminAgreementPdf = async (req, res) => {
             return res.status(404).json({ message: "Agreement PDF not available." });
         }
 
-        const pdfResponse = await fetch(targetUrl);
-        if (!pdfResponse.ok) {
-            return res.status(502).json({ message: "Failed to fetch agreement PDF from storage." });
-        }
-
-        const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+        const { buffer: fileBuffer } = await fetchTrustedPdfAsset(targetUrl);
         const shouldDownload = String(req.query.download || "") === "1";
         const disposition = shouldDownload ? "attachment" : "inline";
 
@@ -2531,98 +2839,4 @@ export const createAdminPurchaseTermsVersion = async (req, res) => {
     }
 };
 
-// ─── Discount Code Management ───
-export const getDiscountCodes = async (req, res) => {
-    try {
-        const { page = 1, limit = 20, search = "" } = req.query;
-        const filter = {};
-        if (search) {
-            filter.$or = [
-                { code: { $regex: search, $options: "i" } },
-                { description: { $regex: search, $options: "i" } },
-            ];
-        }
-        const total = await DiscountCode.countDocuments(filter);
-        const codes = await DiscountCode.find(filter)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(Number(limit));
-        res.json({ codes, total, page: Number(page), totalPages: Math.ceil(total / limit) });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
 
-export const createDiscountCode = async (req, res) => {
-    try {
-        const {
-            code, discountType, discountValue, maxUses, maxUsesPerUser,
-            minPurchaseAmount, maxDiscountAmount, validFrom, validUntil,
-            description,
-        } = req.body;
-
-        if (!code || !discountType || discountValue == null || !validUntil) {
-            return res.status(400).json({ message: "code, discountType, discountValue, and validUntil are required" });
-        }
-        if (discountType === "percentage" && (discountValue < 1 || discountValue > 100)) {
-            return res.status(400).json({ message: "Percentage discount must be between 1 and 100" });
-        }
-
-        const existing = await DiscountCode.findOne({ code: code.toUpperCase().trim() });
-        if (existing) {
-            return res.status(409).json({ message: "A discount code with this name already exists" });
-        }
-
-        const discountCode = await DiscountCode.create({
-            code: code.toUpperCase().trim(),
-            discountType,
-            discountValue,
-            maxUses: maxUses || 0,
-            maxUsesPerUser: maxUsesPerUser || 1,
-            minPurchaseAmount: minPurchaseAmount || 0,
-            maxDiscountAmount: maxDiscountAmount || 0,
-            validFrom: validFrom || new Date(),
-            validUntil,
-            description: description || "",
-        });
-
-        res.status(201).json({ message: "Discount code created", discountCode });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-export const updateDiscountCode = async (req, res) => {
-    try {
-        const discountCode = await DiscountCode.findById(req.params.id);
-        if (!discountCode) return res.status(404).json({ message: "Discount code not found" });
-
-        const allowedFields = [
-            "discountType", "discountValue", "maxUses", "maxUsesPerUser",
-            "minPurchaseAmount", "maxDiscountAmount", "validFrom", "validUntil",
-            "isActive", "description",
-        ];
-        for (const field of allowedFields) {
-            if (req.body[field] !== undefined) discountCode[field] = req.body[field];
-        }
-        if (req.body.code) discountCode.code = req.body.code.toUpperCase().trim();
-
-        await discountCode.save();
-        res.json({ message: "Discount code updated", discountCode });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-export const deleteDiscountCode = async (req, res) => {
-    try {
-        const discountCode = await DiscountCode.findById(req.params.id);
-        if (!discountCode) return res.status(404).json({ message: "Discount code not found" });
-
-        discountCode.isActive = false;
-        await discountCode.save();
-        res.json({ message: "Discount code deactivated", discountCode });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};

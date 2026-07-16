@@ -37,14 +37,12 @@ function cleanExistingSeo(html) {
 }
 
 function buildSeoHead(seo) {
-  const keywords = (seo.keywords || defaultSeo.keywords).join(", ");
   const schemas = (seo.schemas || [])
     .map((schema) => `    <script type="application/ld+json">${JSON.stringify(schema)}</script>`)
     .join("\n");
 
   return `    <title>${escapeText(seo.title)}</title>
     <meta name="description" content="${escapeAttr(seo.description)}" />
-    <meta name="keywords" content="${escapeAttr(keywords)}" />
     <meta name="robots" content="index, follow" />
     <meta name="author" content="Ckript" />
     <meta name="application-name" content="Ckript" />

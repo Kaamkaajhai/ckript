@@ -80,7 +80,7 @@ const sections = [
   {
     id: "cookies",
     title: "6. Cookies and Similar Technologies",
-    text: "We use cookies, local storage, pixels, session tokens, and similar technologies to authenticate users, remember preferences, measure engagement, prevent fraud, and improve the platform. You may control certain cookies through your browser or device settings, but disabling essential technologies may affect functionality, security, or access to parts of the service.",
+    text: "We use cookies, local storage, pixels, session tokens, and similar technologies to authenticate users, remember preferences, measure engagement, prevent fraud, and improve the platform. You may control certain cookies through your browser or device settings, but disabling essential technologies may affect functionality, security, or access to parts of the service. Additionally, if you accept the use of cookies, Ckript may track and process your device's location data to enhance your user experience, provide localized content, and improve our services.",
   },
   {
     id: "third-party-services",
@@ -114,7 +114,7 @@ const sections = [
       "Withdraw consent where processing is based on consent",
       "Manage some account details, communication preferences, and visibility settings directly through your profile or account controls",
     ],
-    footer: "To exercise available privacy rights, contact us at info.ckript@gmail.com. We may need to verify your identity before responding, and we may decline requests where permitted by law.",
+    footer: "To exercise available privacy rights, contact us at contact@ckript.com. We may need to verify your identity before responding, and we may decline requests where permitted by law.",
   },
   {
     id: "marketing",
@@ -287,8 +287,8 @@ export default function PrivacyPolicy() {
                   </p>
                   <p>
                     <span className="text-gray-600">Email: </span>
-                    <a href="mailto:info.ckript@gmail.com" className="text-cyan-400 hover:underline">
-                      info.ckript@gmail.com
+                    <a href="mailto:contact@ckript.com" className="text-cyan-400 hover:underline">
+                      contact@ckript.com
                     </a>
                   </p>
                   <p>

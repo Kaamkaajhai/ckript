@@ -1,0 +1,219 @@
+/* ─────────────────────────────────────────────────────────────
+   Ckript — Toast notifications · compact ("version C").
+
+   A single, app-wide feedback surface that lives at the document root
+   (above every modal/overlay) so it can report the outcome of an action
+   even as the modal that triggered it closes. Brand-aligned: clean white
+   card, hairline border, one type-coloured Material Symbols glyph that
+   swaps with the toast kind, a thin progress rail that doubles as the
+   dismissal timer (pause-on-hover), and motion that respects
+   prefers-reduced-motion.
+
+   Type colours map to the brand palette:
+     error   → #b5121b (brand red)
+     success → #1f7a4d
+     info    → #1e3a5f (brand navy)
+     warning → #b9772b
+   ───────────────────────────────────────────────────────────── */
+
+/* Material Symbols base (font loaded once, globally, via index.html). */
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "FILL" 1, "wght" 500, "GRAD" 0, "opsz" 20;
+}
+
+/* ── Viewport ─────────────────────────────────────────────────── */
+.ckt-viewport {
+  position: fixed;
+  z-index: 2147483600; /* above every modal overlay */
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(384px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  pointer-events: none; /* let clicks fall through the empty gaps */
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Toast card ───────────────────────────────────────────────── */
+.ckt {
+  pointer-events: auto;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  width: 100%;
+  padding: 13px 14px 14px;
+  background: #ffffff;
+  border: 1px solid #ebe8e2;
+  border-radius: 13px;
+  box-shadow:
+    0 1px 2px rgba(16, 15, 13, 0.04),
+    0 14px 34px -12px rgba(16, 15, 13, 0.28);
+  overflow: hidden;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Type accent rail at the very top of the card. */
+.ckt::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--ckt-accent, #1e3a5f);
+}
+
+/* ── Icon ─────────────────────────────────────────────────────── */
+.ckt-icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  margin-top: 1px;
+  color: var(--ckt-accent, #1e3a5f);
+  background: var(--ckt-accent-soft, rgba(30, 58, 95, 0.1));
+}
+.ckt-icon .material-symbols-rounded {
+  font-size: 19px;
+}
+
+/* ── Text ─────────────────────────────────────────────────────── */
+.ckt-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 1px;
+}
+.ckt-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  color: #1a1815;
+  line-height: 1.35;
+}
+.ckt-msg {
+  margin: 1px 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.42;
+  color: #57544f;
+  /* Compact: cap runaway server messages at two lines. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ckt-title + .ckt-msg {
+  color: #6b6862;
+}
+
+/* ── Close ────────────────────────────────────────────────────── */
+.ckt-close {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: -2px -3px 0 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #a6a29a;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.16s ease, background 0.16s ease, color 0.16s ease;
+}
+.ckt:hover .ckt-close,
+.ckt:focus-within .ckt-close {
+  opacity: 1;
+}
+.ckt-close:hover {
+  background: #f1efea;
+  color: #57544f;
+}
+.ckt-close:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--ckt-accent, #1e3a5f);
+  outline-offset: 1px;
+}
+.ckt-close .material-symbols-rounded {
+  font-size: 17px;
+  font-variation-settings: "FILL" 0, "wght" 500, "GRAD" 0, "opsz" 20;
+}
+
+/* ── Progress rail (also the dismissal timer) ─────────────────── */
+.ckt-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--ckt-accent, #1e3a5f);
+  opacity: 0.5;
+  animation-name: ckt-drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes ckt-drain {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+/* Pause the countdown (and its rail) while the user is reading. */
+.ckt:hover .ckt-progress,
+.ckt:focus-within .ckt-progress {
+  animation-play-state: paused;
+}
+
+/* ── Type variants ────────────────────────────────────────────── */
+.ckt--error {
+  --ckt-accent: #b5121b;
+  --ckt-accent-soft: rgba(181, 18, 27, 0.1);
+}
+.ckt--success {
+  --ckt-accent: #1f7a4d;
+  --ckt-accent-soft: rgba(31, 122, 77, 0.12);
+}
+.ckt--info {
+  --ckt-accent: #1e3a5f;
+  --ckt-accent-soft: rgba(30, 58, 95, 0.1);
+}
+.ckt--warning {
+  --ckt-accent: #b9772b;
+  --ckt-accent-soft: rgba(185, 119, 43, 0.13);
+}
+
+/* ── Responsive: bottom-centred, edge-to-edge on small screens ── */
+@media (max-width: 520px) {
+  .ckt-viewport {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+}
+
+/* ── Reduced motion: no rail animation; instant in/out ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ckt-progress {
+    animation: none;
+    transform: scaleX(0);
+  }
+}

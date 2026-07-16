@@ -1,21 +1,31 @@
 import { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { motion as Motion, AnimatePresence } from "framer-motion";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Cropper from "react-easy-crop";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { formatCurrency } from "../utils/currency";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
+import ScriptUploadWorkspace from "../components/script-upload/ScriptUploadWorkspace";
+import ScriptUploadSuccess from "../components/script-upload/ScriptUploadSuccess";
 import {
   SCRIPT_COMPLETION_OPTIONS,
   buildScriptCompletionPayload,
   createScriptCompletionFormState,
-  getScriptCompletionValidationMessage,
 } from "../utils/scriptCompletion";
+import {
+  DETAIL_SCREEN_ORDER,
+  UPLOAD_SCREEN_LOCATIONS,
+  getUploadScreenKey,
+  resolveUploadServerIssue,
+  validateUploadScreen,
+  validateUploadWorkflow,
+} from "../utils/scriptUploadValidation";
 
 // Format options
 const formats = [
@@ -25,6 +35,7 @@ const formats = [
   { value: "short", label: "Short" },
   { value: "web_series", label: "Web Series" },
   { value: "drama_school", label: "Drama School" },
+  { value: "micro_drama", label: "Micro Drama" },
   { value: "anime", label: "Anime" },
   { value: "movie", label: "Movie" },
   { value: "tv_serial", label: "TV Serial" },
@@ -48,6 +59,8 @@ const CONTENT_TYPE_BY_FORMAT = {
   short: "short_film",
   web_series: "web_series",
   documentary: "documentary",
+  drama_school: "drama_school",
+  micro_drama: "micro_drama",
   anime: "anime",
   cartoon: "anime",
   songs: "songs",
@@ -65,13 +78,14 @@ const FORMAT_PAGE_RANGES = {
   short: { min: 1, max: 40, typical: "5-25", label: "Short" },
   web_series: { min: 20, max: 80, typical: "25-45", label: "Web Series" },
   drama_school: { min: 10, max: 60, typical: "15-35", label: "Drama School" },
+  micro_drama: { min: 1, max: 15, typical: "3-10", label: "Micro Drama" },
   anime: { min: 18, max: 65, typical: "22-45", label: "Anime" },
   movie: { min: 70, max: 180, typical: "90-120", label: "Movie" },
   tv_serial: { min: 18, max: 50, typical: "20-35", label: "TV Serial" },
   cartoon: { min: 7, max: 45, typical: "10-25", label: "Cartoon" },
   limited_series: { min: 45, max: 75, typical: "50-65", label: "Limited Series" },
   documentary: { min: 60, max: 120, typical: "70-100", label: "Documentary" },
-  songs: { min: 1, max: 30, typical: "2-10", label: "Songs" },
+  songs: { min: 1, max: 10, typical: "3-5", label: "Songs" },
   standup_comedy: { min: 3, max: 50, typical: "8-20", label: "Standup Comedy" },
   dialogues: { min: 1, max: 80, typical: "5-25", label: "Dialogues" },
   poet: { min: 1, max: 60, typical: "3-20", label: "Poet" },
@@ -141,15 +155,9 @@ const settingOptions = [
 ];
 const ROLE_GENDER_OPTIONS = ["Any", "Female", "Male", "Non-binary", "Other"];
 
-// Service pricing (in credits)
-const SERVICE_PRICES = {
-  hosting: 0, // Free
-  evaluation: 50, // 50 credits for AI evaluation
-  aiTrailer: 120, // 120 credits for AI trailer
-  spotlight: 310, // 310 credits for spotlight activation
-};
 
-const THUMBNAIL_ASPECT = 3 / 4;
+
+const THUMBNAIL_ASPECT = 16 / 10;
 const MAX_THUMBNAIL_SIZE = 5 * 1024 * 1024;
 const MAX_TRAILER_SIZE = 250 * 1024 * 1024;
 const MAX_PDF_SIZE = 30 * 1024 * 1024;
@@ -218,8 +226,26 @@ const STEPS = [
   { num: 1, label: "Upload", shortLabel: "Upload", desc: "Files" },
   { num: 2, label: "Basics", shortLabel: "Basic", desc: "Essentials" },
   { num: 3, label: "Classify", shortLabel: "Class", desc: "Tags & tone" },
-  { num: 4, label: "Publish", shortLabel: "Publish", desc: "Plan & pricing" },
-  { num: 5, label: "Review", shortLabel: "Review", desc: "Legal & checkout" },
+  { num: 4, label: "Film Info", shortLabel: "Film", desc: "Direction & language" },
+  { num: 5, label: "Publish", shortLabel: "Publish", desc: "Plan & pricing" },
+];
+
+const FILM_LANGUAGE_OPTIONS = [
+  "Hindi", "English", "Hinglish", "Sindhi", "Urdu", "Tamil", "Telugu", "Marathi",
+  "Bengali", "Kannada", "Malayalam", "Punjabi", "Gujarati", "Odia", "Other",
+];
+
+const SCRIPT_STYLE_OPTIONS = [
+  { id: "Professional", desc: "Industry-standard structure", path: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" },
+  { id: "Modern", desc: "Contemporary voice & fresh approach", path: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" },
+  { id: "Clean", desc: "Minimal prose, tight & uncluttered", path: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" },
+  { id: "Concise", desc: "Every scene earns its place", path: "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" },
+  { id: "Commercial", desc: "Broad appeal, market-friendly", path: "M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" },
+  { id: "Realistic", desc: "Grounded characters & authentic dialogue", path: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" },
+  { id: "Poetic", desc: "Lyrical prose & metaphorical language", path: "M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" },
+  { id: "Experimental", desc: "Non-linear, unconventional structure", path: "M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5" },
+  { id: "Dialogue-Heavy", desc: "Character-driven through conversation", path: "M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" },
+  { id: "Visual-Heavy", desc: "Scene-led, strong visual prose", path: "M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
 ];
 
 const LEGAL_AGREEMENT = SCRIPT_UPLOAD_TERMS_TEXT;
@@ -253,7 +279,6 @@ const MODIFICATION_LABEL_MAP = Object.fromEntries(MODIFICATION_RIGHTS_OPTIONS.ma
 const PAYMENT_LABEL_MAP = Object.fromEntries(PAYMENT_STRUCTURE_OPTIONS.map((option) => [option.value, option.label]));
 const NEGOTIATION_LABEL_MAP = Object.fromEntries(NEGOTIATION_MODE_OPTIONS.map((option) => [option.value, option.label]));
 const LICENSE_DURATION_PRESET_MONTHS = [12, 18, 24];
-const MIN_LICENSE_DURATION_MONTHS = 1;
 const MAX_LICENSE_DURATION_MONTHS = 120;
 
 const createDefaultRightsLicensing = () => ({
@@ -326,53 +351,6 @@ const normalizeRightsLicensingState = (incoming = {}) => {
   };
 };
 
-const getRightsValidationMessage = (rightsLicensing) => {
-  if (!RIGHTS_LABEL_MAP[rightsLicensing?.rightsType]) {
-    return "Rights type is required.";
-  }
-
-  if (!MODIFICATION_LABEL_MAP[rightsLicensing?.modificationRights]) {
-    return "Modification rights selection is required.";
-  }
-
-  if (!PAYMENT_LABEL_MAP[rightsLicensing?.paymentStructure]) {
-    return "Payment structure selection is required.";
-  }
-
-  if (!NEGOTIATION_LABEL_MAP[rightsLicensing?.negotiationMode]) {
-    return "Negotiation mode selection is required.";
-  }
-
-  if (rightsLicensing?.rightsType === "exclusive_license") {
-    const durationMonths = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
-    if (!Number.isInteger(durationMonths) || durationMonths < MIN_LICENSE_DURATION_MONTHS || durationMonths > MAX_LICENSE_DURATION_MONTHS) {
-      return `Exclusive license requires duration between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`;
-    }
-  }
-
-  const royaltyBased = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing?.paymentStructure);
-  if (royaltyBased) {
-    const pct = Number(rightsLicensing?.royaltySettings?.percentage || 0);
-    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-      return "Royalty percentage must be between 0 and 100 for royalty-based structures.";
-    }
-  }
-
-  if (!rightsLicensing?.legalAcknowledgement?.ownershipConfirmed) {
-    return "You must confirm script ownership rights.";
-  }
-
-  if (!rightsLicensing?.legalAcknowledgement?.platformTermsAccepted) {
-    return "You must confirm platform legal acknowledgement.";
-  }
-
-  if (!rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood) {
-    return "You must acknowledge exclusivity enforcement.";
-  }
-
-  return "";
-};
-
 const formatDuration = (seconds) => {
   const total = Math.max(0, Math.floor(seconds || 0));
   const mins = Math.floor(total / 60);
@@ -394,41 +372,126 @@ const getFileNameFromUrl = (url = "") => {
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
+  const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
   const editId = searchParams.get("edit");
   const branchMode = searchParams.get("branch") === "1";
   const [step, setStep] = useState(1);
+  const [detailStep, setDetailStep] = useState(0);
   const [fromDraft, setFromDraft] = useState(false);
   const [scriptId, setScriptId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [validationAttempt, setValidationAttempt] = useState(0);
+  const [toastMessage, setToastMessage] = useState(null);
+  // Writer "scripts per plan" limit (e.g. Free = 1) — fetched on mount so the gate shows UPFRONT
+  // and blocks progression, not just at submit. Shared rule with the server (utils/scriptLimits.js).
+  const [scriptLimit, setScriptLimit] = useState(null);
   const [pdfNotice, setPdfNotice] = useState("");
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadedPdfFile, setUploadedPdfFile] = useState(null);
   const [existingUploadedFile, setExistingUploadedFile] = useState(null);
   const [textContent, setTextContent] = useState("");
+  const [pdfPageTexts, setPdfPageTexts] = useState([]);
   const [pdfTextExtracted, setPdfTextExtracted] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
-  const [creditsBalance, setCreditsBalance] = useState(0);
+
   const agreementRef = useRef(null);
   const fileInputRef = useRef(null);
   const thumbnailInputRef = useRef(null);
   const trailerInputRef = useRef(null);
   const pitchVideoInputRef = useRef(null);
-  const reviewRedirectTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const currentScreenRef = useRef("upload");
+  const thumbnailDialogRef = useRef(null);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setToastMessage(null);
+  }, []);
+
+  const showToast = useCallback((message, type = "error", action = null, options = {}) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    const duration = options.duration ?? (type === "error" ? 7000 : 5000);
+    const defaultTitle = type === "success"
+      ? "All set"
+      : type === "warning"
+        ? "Before you continue"
+        : "Something needs attention";
+
+    setToastMessage({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      text: String(message || "Something went wrong. Please try again."),
+      type,
+      action,
+      title: options.title || defaultTitle,
+      scope: options.scope || "general",
+      duration,
+    });
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, duration);
+  }, []);
+
+  const setError = useCallback((message, targetScreen = null) => {
+    const nextMessage = String(message || "");
+    if (!nextMessage) {
+      setValidationErrors([]);
+      setToastMessage((current) => {
+        if (current?.scope !== "page-error") return current;
+        if (toastTimerRef.current) {
+          clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = null;
+        }
+        return null;
+      });
+      return;
+    }
+
+    const screen = typeof targetScreen === "string"
+      ? targetScreen
+      : targetScreen?.screen || currentScreenRef.current;
+    showToast(nextMessage, "error", null, {
+      scope: "page-error",
+      title: `${UPLOAD_SCREEN_LOCATIONS[screen]?.label || "This page"} needs attention`,
+    });
+  }, [showToast]);
+
+  const clearValidationFeedback = useCallback(() => {
+    setValidationErrors([]);
+    setToastMessage((current) => {
+      if (!["validation", "page-error"].includes(current?.scope)) return current;
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      return null;
+    });
+  }, []);
+
+  useEffect(() => {
+    currentScreenRef.current = getUploadScreenKey(step, detailStep);
+  }, [detailStep, step]);
 
   // Thumbnail and Trailer states
   const [thumbnailFile, setThumbnailFile] = useState(null);
+  const [isGeneratingAiCover, setIsGeneratingAiCover] = useState(false);
   const [trailerFile, setTrailerFile] = useState(null);
   const [trailerOption, setTrailerOption] = useState("none"); // "none", "ai", "upload"
   const [pitchVideoFile, setPitchVideoFile] = useState(null);
   const [pitchVideoPreviewUrl, setPitchVideoPreviewUrl] = useState("");
   const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
   const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
+  const [pendingMediaRecovery, setPendingMediaRecovery] = useState(null);
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
@@ -441,8 +504,7 @@ const ScriptUpload = () => {
   const [thumbnailRotation, setThumbnailRotation] = useState(0);
   const [thumbnailCropPixels, setThumbnailCropPixels] = useState(null);
   const [thumbnailApplying, setThumbnailApplying] = useState(false);
-  const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
-  const [postSubmitRedirectPath, setPostSubmitRedirectPath] = useState("/dashboard");
+  const [submissionSuccess, setSubmissionSuccess] = useState(null);
   const [isContentOnlyEditMode, setIsContentOnlyEditMode] = useState(false);
   const [isEditModeResolving, setIsEditModeResolving] = useState(Boolean(editId));
   const [originalEditContent, setOriginalEditContent] = useState("");
@@ -459,6 +521,10 @@ const ScriptUpload = () => {
     format: "feature",
     formatOther: "",
     pageCount: "",
+    viewableScript: true,
+    previewWindowMode: "pages",
+    previewWindowStart: "1",
+    previewWindowEnd: "8",
     primaryGenre: "",
     logline: "",
     synopsis: "",
@@ -479,11 +545,8 @@ const ScriptUpload = () => {
     aiTrailer: false,
     spotlight: false,
   });
-  const [purchasedServiceCredits, setPurchasedServiceCredits] = useState({
-    evaluation: false,
-    aiTrailer: false,
-    spotlight: false,
-  });
+
+
 
   // Legal data
   const [legal, setLegal] = useState({
@@ -495,6 +558,16 @@ const ScriptUpload = () => {
   // Tags as comma-separated input
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
+
+  // Film production details (step 4)
+  const [filmDetails, setFilmDetails] = useState({
+    filmLanguage: "",
+    filmLanguageCustom: "",
+    dialoguesPresent: "yes",
+    wantToDirect: false,
+    wantToProduce: false,
+    scriptStyle: [],
+  });
 
   // AI metadata generation (per-section: "logline" | "synopsis" | "roles")
   const [metaLoadingField, setMetaLoadingField] = useState("");
@@ -508,7 +581,6 @@ const ScriptUpload = () => {
   const [customPriceInput, setCustomPriceInput] = useState("");
   const [useCustomPrice, setUseCustomPrice] = useState(false);
   const effectivePrice = isPremium ? (useCustomPrice ? Number(customPriceInput) || 0 : scriptPrice) : 0;
-  const isEditingExistingScriptFlow = Boolean(editId);
   const buyerCommissionAmount = Math.round(effectivePrice * BUYER_COMMISSION_RATE * 100) / 100;
   const buyerTotalPayable = Math.round((effectivePrice + buyerCommissionAmount) * 100) / 100;
   const writerPayout = Math.round(effectivePrice * 100) / 100;
@@ -519,6 +591,7 @@ const ScriptUpload = () => {
     short:        { label: "Short Film",    min: 5,  max: 15, suggest: 5  },
     web_series:   { label: "Web Series",    min: 8,  max: 35, suggest: 15 },
     drama_school: { label: "Drama School",  min: 5,  max: 20, suggest: 10 },
+    micro_drama:  { label: "Micro Drama",   min: 1,  max: 10, suggest: 5  },
     anime:        { label: "Anime",         min: 8,  max: 35, suggest: 15 },
     movie:        { label: "Movie",         min: 15, max: 50, suggest: 25 },
     tv_serial:    { label: "TV Serial",     min: 5,  max: 25, suggest: 10 },
@@ -556,20 +629,18 @@ const ScriptUpload = () => {
     };
   };
 
-  // Fetch credits balance on mount
-  useEffect(() => {
-    const fetchCreditsBalance = async () => {
-      try {
-        const { data } = await api.get("/credits/balance");
-        setCreditsBalance(data.balance || 0);
-      } catch {
-        setCreditsBalance(0);
-      }
+  const buildScriptPreviewPayload = (source = formData) => {
+    const mode = "pages";
+    const start = Math.max(1, Number(source.previewWindowStart || 1) || 1);
+    const end = Math.max(start, Number(source.previewWindowEnd || 8) || 8);
+    return {
+      mode,
+      start,
+      end,
     };
-    if (user) {
-      fetchCreditsBalance();
-    }
-  }, [user]);
+  };
+
+
 
   // Load existing published script when entering edit mode
   useEffect(() => {
@@ -601,7 +672,7 @@ const ScriptUpload = () => {
           ),
         };
         setEditApprovalLocked(Boolean(isEditApprovalPending));
-        setPurchasedServiceCredits(purchasedFromHistory);
+
         if (isEditApprovalPending) {
           setError("This script edit is already in admin review. You can edit again after approval or rejection.");
         }
@@ -628,10 +699,15 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          viewableScript: Boolean(data.viewableScript),
+          previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
+          previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
+          previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || data.genre || "",
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
         });
+        setPdfPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
         setTagsInput((data.tags || []).join(", "));
         setClassification({
           tones: data.classification?.tones || [],
@@ -664,6 +740,23 @@ const ScriptUpload = () => {
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         });
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        const storedPrice = Number(data?.price || 0);
+        setIsPremium(Boolean(data?.premium && storedPrice > 0));
+        setScriptPrice(storedPrice || 10);
+        setUseCustomPrice(storedPrice > 0 && ![5, 10, 15, 25, 50].includes(storedPrice));
+        setCustomPriceInput(storedPrice > 0 ? String(storedPrice) : "");
+        if (data?.filmDetails) {
+          const storedLanguage = data.filmDetails.filmLanguage || "";
+          const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
+          setFilmDetails({
+            filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
+            filmLanguageCustom: knownLanguage ? "" : storedLanguage,
+            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+            wantToDirect: Boolean(data.filmDetails.wantToDirect),
+            wantToProduce: Boolean(data.filmDetails.wantToProduce),
+            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+          });
+        }
       } catch {
         // proceed normally
       } finally {
@@ -671,7 +764,7 @@ const ScriptUpload = () => {
       }
     };
     load();
-  }, [branchMode, editId]);
+  }, [branchMode, editId, setError]);
 
   // Load draft when coming from Create Project editor
   useEffect(() => {
@@ -681,6 +774,14 @@ const ScriptUpload = () => {
         const { data } = await api.get(`/scripts/${draftId}`);
         setScriptId(data._id);
         setTextContent(data.textContent || "");
+        const storedPreviewPages = Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : [];
+        setPdfPageTexts(storedPreviewPages);
+        setPdfTextExtracted(storedPreviewPages.length > 0);
+        setExistingUploadedFile(data.fileUrl ? {
+          name: getFileNameFromUrl(data.fileUrl),
+          size: null,
+          url: data.fileUrl,
+        } : null);
         setFormData((prev) => ({
           ...prev,
           title: data.title || "",
@@ -688,6 +789,10 @@ const ScriptUpload = () => {
           format: data.format || "feature",
           formatOther: data.formatOther || "",
           pageCount: data.pageCount ? String(data.pageCount) : "",
+          viewableScript: Boolean(data.viewableScript),
+          previewWindowMode: data.scriptPreviewAccess?.mode || "pages",
+          previewWindowStart: data.scriptPreviewAccess?.start ? String(data.scriptPreviewAccess.start) : "1",
+          previewWindowEnd: data.scriptPreviewAccess?.end ? String(data.scriptPreviewAccess.end) : "8",
           primaryGenre: data.classification?.primaryGenre || data.primaryGenre || "",
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
@@ -704,14 +809,44 @@ const ScriptUpload = () => {
             },
           })));
         }
+        setTagsInput((data.tags || []).join(", "));
+        setClassification({
+          tones: data.classification?.tones || [],
+          themes: data.classification?.themes || [],
+          settings: data.classification?.settings || [],
+        });
+        setServices({
+          hosting: data.services?.hosting ?? true,
+          evaluation: Boolean(data.services?.evaluation),
+          aiTrailer: Boolean(data.services?.aiTrailer),
+          spotlight: Boolean(data.services?.spotlight),
+        });
+        setTrailerOption(data.services?.aiTrailer ? "ai" : "none");
         setLegal((prev) => ({
           ...prev,
           agreedToTerms: Boolean(data?.legal?.agreedToTerms),
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         }));
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        const storedPrice = Number(data?.price || 0);
+        setIsPremium(Boolean(data?.premium && storedPrice > 0));
+        setScriptPrice(storedPrice || 10);
+        setUseCustomPrice(storedPrice > 0 && ![5, 10, 15, 25, 50].includes(storedPrice));
+        setCustomPriceInput(storedPrice > 0 ? String(storedPrice) : "");
+        if (data?.filmDetails) {
+          const storedLanguage = data.filmDetails.filmLanguage || "";
+          const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
+          setFilmDetails({
+            filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
+            filmLanguageCustom: knownLanguage ? "" : storedLanguage,
+            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
+            wantToDirect: Boolean(data.filmDetails.wantToDirect),
+            wantToProduce: Boolean(data.filmDetails.wantToProduce),
+            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
+          });
+        }
         setFromDraft(true);
-        setPurchasedServiceCredits({ evaluation: false, aiTrailer: false, spotlight: false });
+
       } catch {
         // Draft not found, proceed normally
       }
@@ -721,7 +856,9 @@ const ScriptUpload = () => {
 
   // Handle form field changes
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    clearValidationFeedback();
+    const { name, value, type, checked } = e.target;
+    const nextValue = type === "checkbox" ? checked : value;
     setFormData((prev) => {
       if (name === "format") {
         return {
@@ -731,11 +868,12 @@ const ScriptUpload = () => {
         };
       }
 
-      return { ...prev, [name]: value };
+      return { ...prev, [name]: nextValue };
     });
   };
 
   const addRole = () => {
+    clearValidationFeedback();
     setRoles((prev) => ([
       ...prev,
       {
@@ -749,10 +887,12 @@ const ScriptUpload = () => {
   };
 
   const updateRoleField = (index, field, value) => {
+    clearValidationFeedback();
     setRoles((prev) => prev.map((role, i) => (i === index ? { ...role, [field]: value } : role)));
   };
 
   const updateRoleAge = (index, field, value) => {
+    clearValidationFeedback();
     setRoles((prev) => prev.map((role, i) => (
       i === index
         ? { ...role, ageRange: { ...role.ageRange, [field]: value === "" ? "" : Number(value) } }
@@ -761,6 +901,7 @@ const ScriptUpload = () => {
   };
 
   const removeRole = (index) => {
+    clearValidationFeedback();
     setRoles((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -823,35 +964,32 @@ const ScriptUpload = () => {
     }
   };
 
-  const getInvalidRoleAgeRangeMessage = () => {
-    const invalidIndex = roles.findIndex((role) => {
-      const min = role?.ageRange?.min;
-      const max = role?.ageRange?.max;
+  const pageCountWarning = getPageCountWarning(formData.format, formData.pageCount);
+  useEffect(() => {
+    const pageCount = Number(formData.pageCount || 0);
+    const start = Math.max(1, Number(formData.previewWindowStart || 1) || 1);
+    const currentEnd = Math.max(start, Number(formData.previewWindowEnd || 0) || start);
 
-      if (min === "" || max === "" || min === undefined || max === undefined || min === null || max === null) {
-        return false;
-      }
-
-      const minAge = Number(min);
-      const maxAge = Number(max);
-      if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) {
-        return true;
-      }
-
-      return maxAge < minAge;
-    });
-
-    if (invalidIndex >= 0) {
-      return `Role ${invalidIndex + 1}: Max age must be greater than or equal to min age.`;
+    if (Number(formData.previewWindowEnd || 0) > 0 && Number(formData.previewWindowEnd || 0) < start) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowEnd: String(start),
+      }));
+      return;
     }
 
-    return "";
-  };
-
-  const pageCountWarning = getPageCountWarning(formData.format, formData.pageCount);
+    if (pageCount > 0 && (start > pageCount || currentEnd > pageCount)) {
+      setFormData((prev) => ({
+        ...prev,
+        previewWindowStart: String(Math.min(Math.max(1, Number(prev.previewWindowStart || 1) || 1), pageCount)),
+        previewWindowEnd: String(Math.min(Math.max(1, Number(prev.previewWindowEnd || 1) || 1), pageCount)),
+      }));
+    }
+  }, [formData.pageCount, formData.previewWindowStart, formData.previewWindowEnd]);
 
   // Toggle classification chips (max 3 per category)
   const toggleClassification = (category, value) => {
+    clearValidationFeedback();
     setClassification((prev) => {
       const current = prev[category] || [];
       if (current.includes(value)) {
@@ -885,11 +1023,15 @@ const ScriptUpload = () => {
 
     setUploadProgress(0);
     setUploadedFile(null);
+    setUploadedPdfFile(file);
     setTextContent("");
+    setPdfPageTexts([]);
+    setFormData((prev) => ({ ...prev, pageCount: "" }));
     setPdfNotice("");
     setPdfTextExtracted(false);
     setIsExtracting(true);
     setError("");
+    const localPreviewUrl = URL.createObjectURL(file);
 
     // Simulate upload progress while we process
     const interval = setInterval(() => {
@@ -904,10 +1046,7 @@ const ScriptUpload = () => {
       formData.append("pdf", file);
 
       // Call our new backend extraction endpoint
-      const { data } = await api.post("/scripts/extract-pdf", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-
+      const { data } = await api.post("/scripts/extract-pdf", formData);
       clearInterval(interval);
       setUploadProgress(100);
 
@@ -915,8 +1054,12 @@ const ScriptUpload = () => {
         name: file.name,
         size: file.size,
         url: data.fileUrl || "",
+        fileGrant: data.fileGrant || "",
+        sourceMode: data.sourceMode || (data.fileUrl ? "uploaded-pdf" : "imported-text"),
+        previewUrl: localPreviewUrl,
       });
       setPdfTextExtracted(Boolean(data.extractedTextAvailable));
+      setPdfPageTexts(Array.isArray(data.pageTexts) ? data.pageTexts : []);
 
       if (data.numItems > 0) {
         setFormData((prev) => ({ ...prev, pageCount: String(data.numItems) }));
@@ -934,6 +1077,8 @@ const ScriptUpload = () => {
       }
     } catch (err) {
       clearInterval(interval);
+      URL.revokeObjectURL(localPreviewUrl);
+      setUploadedPdfFile(null);
       setPdfNotice("");
       setPdfTextExtracted(false);
       setError(err.response?.data?.message || "Failed to extract text from PDF.");
@@ -941,6 +1086,14 @@ const ScriptUpload = () => {
       setIsExtracting(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (uploadedFile?.previewUrl) {
+        URL.revokeObjectURL(uploadedFile.previewUrl);
+      }
+    };
+  }, [uploadedFile?.previewUrl]);
 
   // Handle drag and drop
   const handleDrop = (e) => {
@@ -990,7 +1143,7 @@ const ScriptUpload = () => {
     setThumbnailRotation(0);
     setThumbnailCropPixels(null);
     setIsThumbnailEditorOpen(true);
-  }, []);
+  }, [setError]);
 
   // Handle thumbnail selection
   const handleThumbnailSelect = (file) => {
@@ -1061,9 +1214,100 @@ const ScriptUpload = () => {
     return () => URL.revokeObjectURL(previewUrl);
   }, [thumbnailFile]);
 
+  const [aiCoverAttempts, setAiCoverAttempts] = useState(0);
+  const [aiCoverHistory, setAiCoverHistory] = useState([]);
+  const [aiCoverIndex, setAiCoverIndex] = useState(-1);
+
+  const generateAiCover = async () => {
+    const plan = user?.subscription?.plan || "free";
+    if (plan === "free") {
+      showToast(
+        "Purchase a plan to use AI thumbnail generation.",
+        "warning",
+        { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+      );
+      return;
+    }
+    if (!formData.title) {
+      showToast("Please enter a title in Step 1 first to generate an AI cover.", "warning");
+      return;
+    }
+    if (aiCoverAttempts >= 3) {
+      showToast("You have reached the limit of 3 AI cover generations for this script.", "warning");
+      return;
+    }
+    try {
+      setIsGeneratingAiCover(true);
+      const res = await api.post("/scripts/generate-ai-cover", {
+        title: formData.title,
+        genre: formData.primaryGenre || "",
+        logline: formData.logline || "",
+        scriptText: textContent ? textContent.substring(0, 4000) : ""
+      });
+      if (res.data && res.data.base64Image) {
+        // Convert Base64 directly to Blob to avoid browser fetch/CORS blocks
+        const resUrl = res.data.base64Image;
+        const resFetch = await fetch(resUrl);
+        const blob = await resFetch.blob();
+        const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
+        setThumbnailFile(file);
+        setAiCoverAttempts(res.data.attempts || (aiCoverAttempts + 1));
+        const newHistory = [...aiCoverHistory.slice(0, aiCoverIndex + 1), file];
+        setAiCoverHistory(newHistory);
+        setAiCoverIndex(newHistory.length - 1);
+      } else {
+        showToast("Failed to generate AI cover. Please try again.", "error");
+      }
+    } catch (error) {
+      console.error("AI cover generation failed:", error);
+      const errMsg = error.response?.data?.message || error.message;
+      showToast(errMsg, "error");
+    } finally {
+      setIsGeneratingAiCover(false);
+    }
+  };
+
+  const downloadWatermarkedImage = (file) => {
+    if (!file) return;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.crossOrigin = "anonymous";
+    img.src = url;
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+      
+      // Add watermark
+      ctx.font = "bold 120px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 1)"; // Fully opaque white for clarity
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      
+      // Add a crisp black outline (stroke) instead of a blurry shadow
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.strokeText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Draw the solid white text over the outline
+      ctx.fillText("ckript", canvas.width - 40, canvas.height - 40);
+      
+      // Download
+      const a = document.createElement("a");
+      a.download = `watermarked-${file.name}`;
+      a.href = canvas.toDataURL("image/jpeg");
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+  };
+
   useEffect(() => () => {
-    if (reviewRedirectTimerRef.current) {
-      clearTimeout(reviewRedirectTimerRef.current);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
     }
   }, []);
 
@@ -1160,7 +1404,7 @@ const ScriptUpload = () => {
       video.onerror = null;
       URL.revokeObjectURL(previewUrl);
     };
-  }, [pitchVideoFile]);
+  }, [pitchVideoFile, setError]);
 
   // Handle agreement scroll
   useEffect(() => {
@@ -1204,147 +1448,126 @@ const ScriptUpload = () => {
     return () => window.cancelAnimationFrame(frameId);
   }, [step]);
 
-  // Calculate total price
-  const calculateTotal = () => {
-    const getServiceCharge = (serviceKey, enabled) => {
-      if (!enabled) return 0;
-      if (isEditingExistingScriptFlow && purchasedServiceCredits?.[serviceKey]) return 0;
-      return SERVICE_PRICES[serviceKey] || 0;
-    };
 
-    let total = 0;
-    if (services.hosting) total += SERVICE_PRICES.hosting;
-    total += getServiceCharge("evaluation", services.evaluation);
-    total += getServiceCharge("aiTrailer", trailerOption === "ai");
-    total += getServiceCharge("spotlight", services.spotlight);
-    return total;
+
+  const getValidationContext = () => ({
+    formData,
+    textContent,
+    uploadedFile,
+    existingUploadedFile,
+    roles,
+    filmDetails,
+    rightsLicensing: buildRightsPayload(),
+    legal,
+    isPremium,
+    effectivePrice,
+    maxInvestorTermsLength: MAX_CUSTOM_INVESTOR_TERMS_LENGTH,
+    maxRightsConditionsLength: MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH,
+    contentOnly: isContentOnlyEditMode,
+  });
+
+  const focusValidationIssue = (validationIssue) => {
+    if (!validationIssue) return;
+    setStep(validationIssue.step);
+    if (validationIssue.step === 2) setDetailStep(validationIssue.detailStep);
+    setValidationErrors((current) => {
+      const selectedIssue = current.find((item) => item.code === validationIssue.code);
+      if (!selectedIssue || current[0]?.code === validationIssue.code) return current;
+      return [selectedIssue, ...current.filter((item) => item.code !== validationIssue.code)];
+    });
+    setValidationAttempt((current) => current + 1);
   };
 
-  // Validate step
-  const validateStep = (stepNum) => {
-    setError("");
-
-    switch (stepNum) {
-      case 1:
-        // Upload step — script content/file required
-        if ((fromDraft || editId) && textContent.trim()) return true;
-        if (!uploadedFile && !textContent.trim()) {
-          setError("Please upload a PDF file to continue.");
-          return false;
-        }
-        return true;
-
-      case 2:
-        if (!formData.title) {
-          setError("Title is required.");
-          return false;
-        }
-        if (!formData.format) {
-          setError("Format is required.");
-          return false;
-        }
-        if (formData.format === "other" && !String(formData.formatOther || "").trim()) {
-          setError("Please specify the format when selecting Other.");
-          return false;
-        }
-        if (!formData.pageCount || Number(formData.pageCount) <= 0) {
-          setError("Page count could not be detected. Please go back and re-upload your PDF.");
-          return false;
-        }
-        if (!formData.primaryGenre) {
-          setError("Primary genre is required.");
-          return false;
-        }
-        if (!formData.logline.trim()) {
-          setError("Logline is required.");
-          return false;
-        }
-        if (formData.logline.length > 500) {
-          setError("Logline must be 500 characters or less.");
-          return false;
-        }
-        {
-          const completionError = getScriptCompletionValidationMessage(formData);
-          if (completionError) {
-            setError(completionError);
-            return false;
-          }
-        }
-        if (!formData.synopsis || !formData.synopsis.trim()) {
-          setError("Synopsis is required.");
-          return false;
-        }
-        {
-          const ageRangeError = getInvalidRoleAgeRangeMessage();
-          if (ageRangeError) {
-            setError(ageRangeError);
-            return false;
-          }
-        }
-        return true;
-
-      case 3:
-        // Classify step is optional, but we can validate if needed
-        return true;
-
-      case 4:
-        {
-          const rightsError = getRightsValidationMessage(buildRightsPayload());
-          if (rightsError) {
-            setError(rightsError);
-            return false;
-          }
-        }
-        return true;
-
-      case 5:
-        {
-          const rightsError = getRightsValidationMessage(buildRightsPayload());
-          if (rightsError) {
-            setError(rightsError);
-            return false;
-          }
-        }
-        if (!legal.agreedToTerms) {
-          setError("You must agree to the terms to continue.");
-          return false;
-        }
-        if (String(legal.customInvestorTerms || "").trim().length > MAX_CUSTOM_INVESTOR_TERMS_LENGTH) {
-          setError(`Custom investor terms cannot exceed ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters.`);
-          return false;
-        }
-        return true;
-
-      default:
-        return true;
+  const presentValidationIssues = (issues) => {
+    const firstIssue = issues?.[0];
+    if (!firstIssue) {
+      clearValidationFeedback();
+      return true;
     }
+
+    setValidationErrors(issues);
+    focusValidationIssue(firstIssue);
+    showToast(firstIssue.message, "error", {
+      label: "Review field",
+      onClick: () => focusValidationIssue(firstIssue),
+    }, {
+      duration: 8000,
+      scope: "validation",
+      title: `${firstIssue.label} needs attention`,
+    });
+    return false;
   };
+
+  const validateScreenAndPresent = (screen) => presentValidationIssues(
+    validateUploadScreen(screen, getValidationContext())
+  );
+
+  const validateStep = (stepNum) => {
+    if (stepNum === 2) {
+      return presentValidationIssues(
+        DETAIL_SCREEN_ORDER.flatMap((screen) => validateUploadScreen(screen, getValidationContext()))
+      );
+    }
+    return validateScreenAndPresent(getUploadScreenKey(stepNum, 0));
+  };
+
+  const validateDetailStep = (detailIndex) => validateScreenAndPresent(
+    DETAIL_SCREEN_ORDER[detailIndex] || "basics"
+  );
 
   // Handle next step
+  // Fetch the writer's script-limit status once, so the gate is visible before any upload work.
+  useEffect(() => {
+    let active = true;
+    api.get("/scripts/script-limit")
+      .then(({ data }) => { if (active) setScriptLimit(data); })
+      .catch(() => { if (active) setScriptLimit(null); });
+    return () => { active = false; };
+  }, []);
+
+  // Block creating a NEW upload when the plan limit is reached; editing an existing script (scriptId
+  // present) is never blocked — only the fresh "upload another" path is.
+  const creationBlocked = Boolean(scriptLimit?.limitReached) && !scriptId && !editId;
+
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
+    // The persistent amber gate already explains why; don't set a generic error (avoids a duplicate banner).
+    if (creationBlocked) return;
+    if (step === 2 && detailStep < 5) {
+      if (!validateDetailStep(detailStep)) return;
+      setDetailStep((current) => Math.min(5, current + 1));
+      return;
+    }
     if (!validateStep(step)) return;
     if (step < 5) {
       setStep(step + 1);
-      setError("");
+      if (step + 1 === 2) setDetailStep(0);
+      clearValidationFeedback();
     }
   };
 
   // Handle back step
   const handleBack = () => {
     if (isContentOnlyEditMode) return;
+    if (step === 2 && detailStep > 0) {
+      setDetailStep((current) => Math.max(0, current - 1));
+      clearValidationFeedback();
+      return;
+    }
     if (step > 1) {
       setStep(step - 1);
-      setError("");
+      if (step - 1 === 2) setDetailStep(5);
+      clearValidationFeedback();
     }
   };
 
   // Handle saving a draft
   const handleSaveDraft = async () => {
-    setError("");
+    clearValidationFeedback();
     setLoading(true);
     try {
       const payload = {
+        ...(scriptId ? { scriptId } : {}),
         title: formData.title || "Untitled Draft",
         logline: formData.logline,
         synopsis: formData.synopsis,
@@ -1353,6 +1576,11 @@ const ScriptUpload = () => {
         formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
         pageCount: Number(formData.pageCount) || 0,
         textContent: textContent,
+        ...(isHttpUrl(uploadedFile?.url)
+          ? { fileUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
+          : (isHttpUrl(existingUploadedFile?.url)
+            ? { fileUrl: existingUploadedFile.url }
+            : {})),
         roles: roles
           .filter((role) => role.characterName?.trim())
           .map((role) => ({
@@ -1371,18 +1599,38 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        viewableScript: Boolean(formData.viewableScript),
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
+        scriptCompletion: buildScriptCompletionPayload(formData),
+        scriptPreviewPageTexts: pdfPageTexts,
+        tags: tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
+        services: {
+          hosting: true,
+          evaluation: services.evaluation,
+          aiTrailer: trailerOption === "ai",
+          spotlight: services.spotlight,
+        },
+        premium: isPremium && effectivePrice > 0,
+        price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         legal: {
           agreedToTerms: legal.agreedToTerms,
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
       };
 
-      await api.post("/scripts/draft", payload);
-      // We don't navigate away, just show success
-      // In a real app we'd use a toast notification
-      alert("Draft saved successfully! You can resume it from your dashboard.");
+      const { data } = await api.post("/scripts/draft", payload);
+      if (data?._id) setScriptId(data._id);
+      setFromDraft(true);
+      showToast("Draft saved. You can resume it from your dashboard.", "success");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save draft.");
     } finally {
@@ -1390,78 +1638,148 @@ const ScriptUpload = () => {
     }
   };
 
-  // Handle final submission
-  const openUnderReviewModal = (redirectPath) => {
-    if (reviewRedirectTimerRef.current) {
-      clearTimeout(reviewRedirectTimerRef.current);
-    }
+  useEffect(() => {
+    if (!isThumbnailEditorOpen) return undefined;
 
-    setPostSubmitRedirectPath(redirectPath);
-    setShowUnderReviewModal(true);
+    const dialog = thumbnailDialogRef.current;
+    if (!dialog) return undefined;
 
-    reviewRedirectTimerRef.current = setTimeout(() => {
-      navigate(redirectPath);
-    }, 2400);
-  };
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-  const handleUnderReviewContinue = () => {
-    if (reviewRedirectTimerRef.current) {
-      clearTimeout(reviewRedirectTimerRef.current);
-      reviewRedirectTimerRef.current = null;
-    }
-    setShowUnderReviewModal(false);
-    navigate(postSubmitRedirectPath);
-  };
+    const getFocusableElements = () => Array.from(dialog.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    ));
+    const frame = window.requestAnimationFrame(() => {
+      (getFocusableElements()[0] || dialog).focus();
+    });
 
-  const downloadSubmissionSummaryPdf = async (targetScriptId, title) => {
-    if (!targetScriptId) return;
+    const handleDialogKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        resetThumbnailEditor();
+        return;
+      }
 
-    const confirmed = window.confirm("Your project was submitted successfully! Would you like to download your submission summary PDF?");
-    if (!confirmed) return;
+      if (event.key !== "Tab") return;
+      const focusable = getFocusableElements();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
 
-    try {
-      const response = await api.get(`/scripts/${targetScriptId}/submission-summary-pdf?download=1`, {
-        responseType: "blob",
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
+  }, [isThumbnailEditorOpen, resetThumbnailEditor]);
+
+  const uploadMediaForScript = async (targetScriptId, requestedTypes = null) => {
+    const shouldUpload = (type) => !Array.isArray(requestedTypes) || requestedTypes.includes(type);
+    const mediaTasks = [];
+
+    if (thumbnailFile && shouldUpload("thumbnail")) {
+      const thumbnailFormData = new FormData();
+      thumbnailFormData.append("thumbnail", thumbnailFile);
+      mediaTasks.push({
+        type: "thumbnail",
+        request: api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData),
       });
-
-      const blob = new Blob([response.data], { type: "application/pdf" });
-      const objectUrl = window.URL.createObjectURL(blob);
-      const safeTitle = String(title || "script")
-        .replace(/[^a-z0-9]+/gi, "_")
-        .replace(/^_+|_+$/g, "") || "script";
-
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = `${safeTitle}_submission_summary.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
-    } catch (downloadError) {
-      console.error("Failed to auto-download submission summary PDF:", downloadError);
     }
+
+    if (trailerFile && trailerOption === "upload" && shouldUpload("trailer")) {
+      const trailerFormData = new FormData();
+      trailerFormData.append("trailer", trailerFile);
+      mediaTasks.push({
+        type: "trailer",
+        request: api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData),
+      });
+    }
+
+    if (pitchVideoFile && shouldUpload("pitchVideo")) {
+      const pitchFormData = new FormData();
+      pitchFormData.append("pitchVideo", pitchVideoFile);
+      mediaTasks.push({
+        type: "pitchVideo",
+        request: api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData),
+      });
+    }
+
+    if (mediaTasks.length === 0) return [];
+    const results = await Promise.allSettled(mediaTasks.map((task) => task.request));
+    return results.flatMap((result, index) => result.status === "rejected" ? [mediaTasks[index].type] : []);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    clearValidationFeedback();
+    // Submit is disabled at the limit; if reached defensively, just stop (amber gate is the message).
+    if (creationBlocked) return;
 
     if (editId && editApprovalLocked) {
-      setError("This script edit is already in admin review. You can edit again after approval or rejection.");
+      presentValidationIssues([
+        resolveUploadServerIssue(
+          "This script edit is already in admin review. You can edit again after approval or rejection.",
+          "publish"
+        ),
+      ]);
       return;
     }
 
-    if (!isContentOnlyEditMode) {
-      if (!validateStep(5)) return;
+    const submissionIssues = isContentOnlyEditMode
+      ? validateUploadScreen("upload", { ...getValidationContext(), contentOnly: true })
+      : validateUploadWorkflow(getValidationContext());
+    if (!presentValidationIssues(submissionIssues)) return;
 
-      const isEditingExistingScript = Boolean(editId);
-      if (!isEditingExistingScript) {
-        const creditsNeeded = calculateTotal();
-        if (creditsNeeded > creditsBalance) {
-          setError(`Insufficient credits. You need ${creditsNeeded} credits but have ${creditsBalance}. Please purchase more credits.`);
+    if (pendingMediaRecovery) {
+      setLoading(true);
+      try {
+        const failedTypes = await uploadMediaForScript(
+          pendingMediaRecovery.targetScriptId,
+          pendingMediaRecovery.failedTypes
+        );
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery((current) => ({ ...current, failedTypes }));
+          presentValidationIssues([
+            resolveUploadServerIssue(
+              `The project is saved, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} still could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+              "media"
+            ),
+          ]);
           return;
         }
+
+        setPendingMediaRecovery(null);
+        setSubmissionSuccess({
+          projectTitle: pendingMediaRecovery.title,
+          reviewPath: pendingMediaRecovery.redirectPath,
+        });
+      } catch (recoveryError) {
+        presentValidationIssues([
+          resolveUploadServerIssue(
+            recoveryError?.response?.data?.message || "Media recovery failed. Replace or remove the media and try again.",
+            "media"
+          ),
+        ]);
+      } finally {
+        setLoading(false);
       }
+      return;
     }
 
     console.log("Starting script submission...");
@@ -1478,7 +1796,6 @@ const ScriptUpload = () => {
         });
         setOriginalEditContent(data?.branch?.content || textContent);
         setBranchUpdatedAt(data?.branch?.updatedAt || "");
-        window.alert("Branch saved successfully.");
         navigate(`/script/${editId}/collaborate/pull-requests`);
         return;
       }
@@ -1489,7 +1806,6 @@ const ScriptUpload = () => {
           content: textContent,
           sectionRef: "textContent",
         });
-        window.alert("Revision submitted for review. The owner can now approve or reject it.");
         navigate(`/script/${editId}`);
         return;
       }
@@ -1527,10 +1843,13 @@ const ScriptUpload = () => {
           themes: classification.themes,
           settings: classification.settings,
         },
+        viewableScript: Boolean(formData.viewableScript),
+        scriptPreviewAccess: buildScriptPreviewPayload(formData),
         scriptCompletion: buildScriptCompletionPayload(formData),
+        scriptPreviewPageTexts: pdfPageTexts,
         // Send script URL only when we have a remote file URL.
         ...(isHttpUrl(uploadedFile?.url)
-          ? { scriptUrl: uploadedFile.url }
+          ? { scriptUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
           : (isHttpUrl(existingUploadedFile?.url) ? { scriptUrl: existingUploadedFile.url } : {})),
         services: {
           hosting: services.hosting,
@@ -1545,102 +1864,91 @@ const ScriptUpload = () => {
           customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
         },
         rightsLicensing: buildRightsPayload(),
+        filmDetails: {
+          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+          dialoguesPresent: filmDetails.dialoguesPresent,
+          wantToDirect: filmDetails.wantToDirect,
+          wantToProduce: filmDetails.wantToProduce,
+          scriptStyle: filmDetails.scriptStyle,
+        },
         premium: isPremium && effectivePrice > 0,
         price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
         // If this was created via the editor, attach the draftId so the backend updates/converts it
         ...(scriptId ? { scriptId } : {}),
       };
 
-      const uploadMediaForScript = async (targetScriptId, mode = "created") => {
-        const mediaTasks = [];
-
-        if (thumbnailFile) {
-          mediaTasks.push((async () => {
-            const thumbnailFormData = new FormData();
-            thumbnailFormData.append("thumbnail", thumbnailFile);
-            await api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData);
-          })());
-        }
-
-        if (trailerFile && trailerOption === "upload") {
-          mediaTasks.push((async () => {
-            const trailerFormData = new FormData();
-            trailerFormData.append("trailer", trailerFile);
-            await api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData);
-          })());
-        }
-
-        if (pitchVideoFile) {
-          mediaTasks.push((async () => {
-            const pitchFormData = new FormData();
-            pitchFormData.append("pitchVideo", pitchVideoFile);
-            await api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData);
-          })());
-        }
-
-        if (mediaTasks.length === 0) return;
-
-        const results = await Promise.allSettled(mediaTasks);
-        const failedCount = results.filter((r) => r.status === "rejected").length;
-        if (failedCount > 0) {
-          setError(`Project ${mode} but ${failedCount} media upload${failedCount > 1 ? "s" : ""} failed. You can retry from edit mode.`);
-        }
-      };
-
       if (editId) {
         const { data } = await api.put(`/scripts/${editId}`, payload);
         if (data?.revisionSubmitted) {
-          window.alert(data.message || "Revision submitted for review. The owner can now approve and merge it.");
           navigate(`/script/${editId}`);
           return;
         }
-        await uploadMediaForScript(editId, "updated");
-        await downloadSubmissionSummaryPdf(editId, payload.title);
-        openUnderReviewModal(
-          getScriptCanonicalPath({
-            _id: editId,
-            title: payload.title,
-            creator: {
-              writerProfile: { username: user?.writerProfile?.username },
-              username: user?.username,
-            },
-          })
-        );
+        const redirectPath = getScriptCanonicalPath({
+          ...data,
+          _id: data?._id || editId,
+          title: data?.title || payload.title,
+          creator: data?.creator && typeof data.creator === "object" ? data.creator : {
+            writerProfile: { username: user?.writerProfile?.username },
+            username: user?.username,
+          },
+        });
+        const failedTypes = await uploadMediaForScript(editId);
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery({ targetScriptId: editId, failedTypes, title: payload.title, redirectPath });
+          presentValidationIssues([
+            resolveUploadServerIssue(
+              `The project was updated, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+              "media"
+            ),
+          ]);
+          return;
+        }
+        setSubmissionSuccess({ projectTitle: payload.title, reviewPath: redirectPath });
       } else {
         const response = await api.post("/scripts/upload", payload);
         const newScriptId = response.data._id;
-        await uploadMediaForScript(newScriptId, "created");
-        await downloadSubmissionSummaryPdf(newScriptId, payload.title);
-
-        // Refresh credits balance after successful upload
-        const { data: creditsData } = await api.get("/credits/balance");
-        setCreditsBalance(creditsData.balance || 0);
-        openUnderReviewModal("/dashboard");
+        const failedTypes = await uploadMediaForScript(newScriptId);
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery({ targetScriptId: newScriptId, failedTypes, title: payload.title, redirectPath: "/dashboard" });
+          presentValidationIssues([
+            resolveUploadServerIssue(
+              `The project was created, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+              "media"
+            ),
+          ]);
+          return;
+        }
+        const reviewPath = getScriptCanonicalPath({
+          ...response.data,
+          _id: newScriptId,
+          title: response.data?.title || payload.title,
+          creator: response.data?.creator && typeof response.data.creator === "object" ? response.data.creator : {
+            writerProfile: { username: user?.writerProfile?.username },
+            username: user?.username,
+          },
+        });
+        setSubmissionSuccess({ projectTitle: payload.title, reviewPath });
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
-      setError(errorMsg);
+      presentValidationIssues([
+        resolveUploadServerIssue(errorMsg, currentScreenRef.current),
+      ]);
 
-      // If insufficient credits error, refresh balance
-      if (err.response?.data?.requiresCredits) {
-        try {
-          const { data: creditsData } = await api.get("/credits/balance");
-          setCreditsBalance(creditsData.balance || 0);
-        } catch { /* ignore */ }
-      }
+
     } finally {
       setLoading(false);
     }
   };
 
   // Access control
-  if (user?.role !== "creator") {
+  if (!["creator", "writer"].includes(user?.role)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 sm:p-10 max-w-sm text-center">
           <div className="text-5xl mb-4">🚫</div>
           <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-sm text-neutral-400">Only creators can upload scripts. Switch to a creator account.</p>
+          <p className="text-sm text-neutral-400">Only creator accounts can upload scripts. Switch to your creator profile to continue.</p>
         </div>
       </div>
     );
@@ -1657,1733 +1965,308 @@ const ScriptUpload = () => {
     );
   }
 
-  const inputCls = isDarkMode
-    ? "w-full p-2.5 border border-white/[0.08] rounded-xl text-sm text-white bg-white/[0.04] placeholder-neutral-600 focus:ring-2 focus:ring-white/30 focus:border-transparent transition"
-    : "w-full p-2.5 border border-gray-200 rounded-xl text-sm text-[#1e3a5f] bg-white placeholder-gray-400 focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f]/50 transition";
-  const chipCls = (selected) =>
-    `px-4 py-2 rounded-full text-sm font-medium transition cursor-pointer ${selected
-      ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
-      : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-    }`;
-  const labelCls = isDarkMode ? "text-white" : "text-[#1e3a5f]";
-  const aiBtnCls = `shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`;
-  const totalServiceCost = calculateTotal();
-  const creditsAfterPublish = creditsBalance - totalServiceCost;
-  const selectedPublishServices = [
-    { key: "hosting", label: "Hosting & Discovery", enabled: true, price: 0 },
-    { key: "spotlight", label: "Activate Spotlight", enabled: services.spotlight, price: SERVICE_PRICES.spotlight },
-    { key: "evaluation", label: "Professional Evaluation", enabled: services.evaluation, price: SERVICE_PRICES.evaluation },
-    { key: "aiTrailer", label: "AI Concept Trailer", enabled: trailerOption === "ai", price: SERVICE_PRICES.aiTrailer },
+  if (submissionSuccess) {
+    return (
+      <ScriptUploadSuccess
+        projectTitle={submissionSuccess.projectTitle}
+        reviewPath={submissionSuccess.reviewPath}
+      />
+    );
+  }
+
+  const priceGuide = FORMAT_PRICE_GUIDE[formData.format];
+  const publishServices = [
+    {
+      key: "hosting",
+      label: "Hosting & Discovery",
+      enabled: true,
+      detail: "Listed in Ckript search and discovery.",
+      meta: "Included",
+      onToggle: () => {},
+    },
+    {
+      key: "spotlight",
+      label: "Activate Spotlight",
+      enabled: services.spotlight,
+      detail: "Boost visibility in featured discovery placements.",
+      meta: "1 credit",
+      onToggle: () => setServices((current) => ({ ...current, spotlight: !current.spotlight })),
+    },
+    {
+      key: "evaluation",
+      label: "Professional Evaluation",
+      enabled: services.evaluation,
+      detail: "Request structured industry feedback after submission.",
+      meta: "1 credit",
+      onToggle: () => setServices((current) => ({ ...current, evaluation: !current.evaluation })),
+    },
+    {
+      key: "aiTrailer",
+      label: "AI Concept Trailer",
+      enabled: trailerOption === "ai",
+      detail: "Generate a concept trailer after approval.",
+      meta: "1 credit",
+      onToggle: () => {
+        const nextOption = trailerOption === "ai" ? "none" : "ai";
+        setTrailerOption(nextOption);
+        setServices((current) => ({ ...current, aiTrailer: nextOption === "ai" }));
+      },
+    },
   ];
-  const paidPublishServices = selectedPublishServices.filter((item) => item.enabled && item.price > 0);
   const publishInvoiceRows = [
     {
       item: "Script Access Fee",
-      type: "Revenue Setting",
-      detail: "Premium reader purchase model",
+      detail: isPremium ? "Premium reader purchase model" : "Free public access",
       amount: formatCurrency(effectivePrice),
     },
     {
-      item: `Platform Commission (${Math.round(BUYER_COMMISSION_RATE * 100)}%)`,
-      type: "Platform Commission",
-      detail: "Added on top of the script access fee at checkout",
+      item: "Platform Commission (" + Math.round(BUYER_COMMISSION_RATE * 100) + "%)",
+      detail: "Added to the script fee at buyer checkout",
       amount: formatCurrency(buyerCommissionAmount),
     },
     {
-      item: "Optional Services",
-      type: "Credit Charge",
-      detail: paidPublishServices.length > 0 ? `${paidPublishServices.length} paid add-on${paidPublishServices.length === 1 ? "" : "s"} selected` : "No paid add-ons selected",
-      amount: `${totalServiceCost} cr`,
-    },
-    {
-      item: "Film Industry Professional Pays at Checkout",
-      type: "Checkout Total",
-      detail: "Script fee + platform commission",
+      item: "Buyer Checkout Total",
+      detail: "Script fee plus platform commission",
       amount: formatCurrency(buyerTotalPayable),
     },
     {
       item: "Projected Writer Payout",
-      type: "Future Earnings",
-      detail: "Writer receives full script access fee",
+      detail: "Writer receives the full script access fee",
       amount: formatCurrency(writerPayout),
     },
   ];
-  const visibleSteps = isContentOnlyEditMode
-    ? [{ num: 1, label: "Script Content", shortLabel: "Content", desc: "Update script body only" }]
-    : STEPS;
+
+  const workspaceVm = {
+    user,
+    mode: {
+      isContentOnlyEditMode,
+      editId,
+      branchMode,
+    },
+    state: {
+      step,
+      detailStep,
+      formData,
+      classification,
+      services,
+      legal,
+      rightsLicensing,
+      roles,
+      filmDetails,
+      tagsInput,
+      uploadedFile,
+      uploadedPdfFile,
+      existingUploadedFile,
+      textContent,
+      pdfPageTexts,
+      pdfTextExtracted,
+      fromDraft,
+      isExtracting,
+      uploadProgress,
+      thumbnailFile,
+      thumbnailPreviewUrl,
+      isGeneratingAiCover,
+      aiCoverAttempts,
+      aiCoverHistory,
+      aiCoverIndex,
+      trailerFile,
+      trailerPreviewUrl,
+      trailerMetaLabel: trailerMetaLoading
+        ? "Reading video details…"
+        : trailerMeta
+          ? formatDuration(trailerMeta.duration) + " · " + trailerMeta.width + "×" + trailerMeta.height
+          : "",
+      pitchVideoFile,
+      pitchVideoPreviewUrl,
+      pitchVideoMetaLabel: pitchVideoMetaLoading
+        ? "Reading video details…"
+        : pitchVideoMeta
+          ? formatDuration(pitchVideoMeta.duration)
+          : "",
+      metaLoadingField,
+      metaNotice,
+      validationErrors,
+      validationAttempt,
+      mediaRecoveryPending: Boolean(pendingMediaRecovery),
+      pdfNotice,
+      creationBlocked,
+      scriptLimit,
+      loading,
+      agreementScrolled,
+      isPremium,
+      scriptPrice,
+      customPriceInput,
+      useCustomPrice,
+      branchUpdatedAt,
+      toastMessage,
+    },
+    actions: {
+      handleDrop,
+      handleDragOver,
+      handleFileSelect,
+      handleChange,
+      setFormData: (update) => {
+        clearValidationFeedback();
+        setFormData(update);
+      },
+      setTextContent: (value) => {
+        clearValidationFeedback();
+        setTextContent(value);
+      },
+      openEditor: () => navigate("/create-project"),
+      openDrafts: () => navigate("/dashboard"),
+      openPricing: () => openPricingModal("writer"),
+      handleGenerateMetadata,
+      setTagsInput: (value) => {
+        clearValidationFeedback();
+        setTagsInput(value);
+      },
+      addRole,
+      removeRole,
+      updateRoleField,
+      updateRoleAge,
+      setFilmDetails: (update) => {
+        clearValidationFeedback();
+        setFilmDetails(update);
+      },
+      toggleClassification,
+      generateAiCover,
+      downloadWatermarkedImage,
+      setThumbnailFile: (file) => {
+        clearValidationFeedback();
+        setThumbnailFile(file);
+      },
+      handleThumbnailSelect,
+      setAiCoverHistoryIndex: (nextIndex) => {
+        if (nextIndex < 0 || nextIndex >= aiCoverHistory.length) return;
+        setAiCoverIndex(nextIndex);
+        setThumbnailFile(aiCoverHistory[nextIndex]);
+      },
+      handleTrailerSelect,
+      setTrailerFile: (file) => {
+        clearValidationFeedback();
+        setTrailerFile(file);
+        if (!file) setTrailerOption("none");
+      },
+      handlePitchVideoSelect,
+      setPitchVideoFile: (file) => {
+        clearValidationFeedback();
+        setPitchVideoFile(file);
+      },
+      setIsPremium: (value) => {
+        clearValidationFeedback();
+        setIsPremium(value);
+      },
+      setScriptPrice: (value) => {
+        clearValidationFeedback();
+        setScriptPrice(value);
+      },
+      setUseCustomPrice: (value) => {
+        clearValidationFeedback();
+        setUseCustomPrice(value);
+      },
+      setCustomPriceInput: (value) => {
+        clearValidationFeedback();
+        setCustomPriceInput(value);
+      },
+      setServices: (update) => {
+        clearValidationFeedback();
+        setServices(update);
+      },
+      setLegal: (update) => {
+        clearValidationFeedback();
+        setLegal(update);
+      },
+      setRightsLicensing: (update) => {
+        clearValidationFeedback();
+        setRightsLicensing(update);
+      },
+      onStepSelect: (targetStep) => {
+        if (targetStep > step) return;
+        setStep(targetStep);
+        if (targetStep === 2 && step !== 2) setDetailStep(0);
+        clearValidationFeedback();
+      },
+      onDetailSelect: (targetDetailStep) => {
+        if (targetDetailStep > detailStep) return;
+        setDetailStep(targetDetailStep);
+        clearValidationFeedback();
+      },
+      dismissToast,
+      focusValidationIssue,
+      handleBack,
+      handleNext,
+      handleSaveDraft,
+      handleSubmit,
+      cancelContentEdit: () => navigate(-1),
+    },
+    elements: {
+      fileInputRef,
+      thumbnailInputRef,
+      trailerInputRef,
+      pitchVideoInputRef,
+      agreementRef,
+    },
+    options: {
+      formats,
+      formatRanges: FORMAT_PAGE_RANGES,
+      genres,
+      tones: toneOptions,
+      themes: themeOptions,
+      settings: settingOptions,
+      roleGenders: ROLE_GENDER_OPTIONS,
+      languages: FILM_LANGUAGE_OPTIONS,
+      styles: SCRIPT_STYLE_OPTIONS,
+      completion: SCRIPT_COMPLETION_OPTIONS,
+      rights: [
+        {
+          value: "full_rights_sale",
+          title: "Full Rights Sale",
+          tag: "ownership transfer",
+          short: "Full sale",
+          desc: "The buyer receives ownership under the final transaction agreement.",
+        },
+        {
+          value: "exclusive_license",
+          title: "Exclusive License",
+          tag: "time-bound",
+          short: "Exclusive license",
+          desc: "Grant one buyer exclusive use for a fixed term, then rights return to you.",
+        },
+        {
+          value: "custom_negotiation_required",
+          title: "Custom Negotiation",
+          tag: "discuss terms",
+          short: "Custom deal",
+          desc: "Use the listing to start a deal discussion before rights are transferred.",
+        },
+      ],
+      modification: MODIFICATION_RIGHTS_OPTIONS,
+      payments: PAYMENT_STRUCTURE_OPTIONS,
+      negotiations: NEGOTIATION_MODE_OPTIONS,
+      licenseDurations: LICENSE_DURATION_PRESET_MONTHS,
+      pricePresets: PRICE_PRESETS,
+    },
+    computed: {
+      pageCountWarning,
+      effectivePrice,
+      buyerTotalPayable,
+      writerPayout,
+      priceGuide: priceGuide
+        ? "Suggested ₹" + priceGuide.min + "–₹" + priceGuide.max + " for " + priceGuide.label
+        : "Choose a price that matches the scope and readiness of the work.",
+      publishServices,
+      legalAgreement: LEGAL_AGREEMENT,
+      publishInvoiceRows,
+    },
+  };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 max-[640px]:px-2 max-[420px]:px-1.5 py-6 max-[640px]:py-4">
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div>
-            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>
-              {isContentOnlyEditMode ? "Edit Script Content" : editId ? "Edit Your Project" : "Add Your Project"}
-            </h1>
-            <p className="text-sm text-neutral-500">
-              {branchMode
-                ? `Editing your branch in isolated draft mode.${branchUpdatedAt ? " Your latest saved branch is loaded." : ""}`
-                : isContentOnlyEditMode
-                ? "This access level only allows updating the script body."
-                : editId
-                ? "Update your script details and republish"
-                : "Complete the 5-step wizard to publish your script"}
-            </p>
-          </div>
-        </div>
-
-        {/* Step indicators */}
-        <div className={`mb-6 rounded-2xl border p-4 max-[640px]:p-2.5 ${isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-gray-50 border-gray-200"}`}>
-          {/* Mobile layout */}
-          <div className="hidden max-[640px]:block">
-            <div className="flex items-start justify-between gap-1">
-              {visibleSteps.map((s) => (
-                <button
-                  key={`mobile-step-${s.num}`}
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`min-w-0 flex-1 flex flex-col items-center gap-1 ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-6 h-6 max-[360px]:w-[22px] max-[360px]:h-[22px] rounded-lg flex items-center justify-center text-[10px] max-[360px]:text-[9px] font-black shrink-0 ${step === s.num
-                    ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num
-                      ? isDarkMode ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-700"
-                      : isDarkMode ? "bg-white/[0.06] text-neutral-500" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? (
-                      <svg className="w-3 h-3 max-[360px]:w-2.5 max-[360px]:h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : s.num}
-                  </span>
-                  <span className={`text-[8px] max-[360px]:text-[7px] font-semibold leading-none truncate w-full text-center ${step === s.num
-                    ? isDarkMode ? "text-white" : "text-[#1e3a5f]"
-                    : step > s.num
-                      ? isDarkMode ? "text-emerald-300" : "text-emerald-700"
-                      : isDarkMode ? "text-neutral-500" : "text-gray-400"
-                    }`}>
-                    {s.shortLabel}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tablet and desktop layout */}
-          <div className="max-[640px]:hidden flex items-center">
-            {visibleSteps.map((s, i) => (
-              <div key={s.num} className="flex items-center flex-1 min-w-0">
-                <button
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`flex flex-col items-center gap-1 min-[640px]:flex-row min-[640px]:items-center min-[640px]:gap-2.5 transition-all ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${step === s.num
-                    ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num
-                      ? isDarkMode ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-700"
-                      : isDarkMode ? "bg-white/[0.06] text-neutral-500" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : s.num}
-                  </span>
-                  <div className="block text-center min-[640px]:text-left min-w-0">
-                    <p className={`text-xs font-bold leading-none truncate ${step === s.num
-                      ? isDarkMode ? "text-white" : "text-[#1e3a5f]"
-                      : step > s.num
-                        ? isDarkMode ? "text-emerald-300" : "text-emerald-700"
-                        : isDarkMode ? "text-neutral-500" : "text-gray-400"
-                      }`}>{s.label}</p>
-                    <p className={`hidden min-[768px]:block text-[10px] mt-0.5 ${isDarkMode ? "text-neutral-600" : "text-gray-400"}`}>{s.desc}</p>
-                  </div>
-                </button>
-                {i < visibleSteps.length - 1 && (
-                  <div className={`flex-1 h-[2px] mx-3 rounded-full ${step > s.num
-                    ? isDarkMode ? "bg-emerald-500/40" : "bg-emerald-300"
-                    : isDarkMode ? "bg-white/[0.06]" : "bg-gray-200"
-                    }`} />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Main form container */}
-        <div className={`rounded-2xl border p-6 sm:p-8 max-[640px]:p-4 max-[420px]:p-3 ${isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200 shadow-sm"}`}>
-          {error && (
-            <div className="mb-5 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
-          {pdfNotice && (
-            <div className={`mb-5 px-4 py-2.5 rounded-xl text-sm border ${
-              isDarkMode
-                ? "bg-amber-500/10 border-amber-500/20 text-amber-200"
-                : "bg-amber-50 border-amber-200 text-amber-800"
-            }`}>
-              {pdfNotice}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <AnimatePresence mode="wait">
-              {/* ── Step 2: Project Essentials ── */}
-              {step === 2 && (
-                <motion.div
-                  key="step-basics"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-5"
-                >
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter your script title"
-                      className={inputCls}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                        Format *
-                      </label>
-                      <select
-                        name="format"
-                        value={formData.format}
-                        onChange={handleChange}
-                        required
-                        className={inputCls}
-                      >
-                        {formats.map((f) => (
-                          <option key={f.value} value={f.value}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </select>
-                      {formData.format === "other" && (
-                        <input
-                          type="text"
-                          name="formatOther"
-                          value={formData.formatOther}
-                          onChange={handleChange}
-                          required
-                          placeholder="Please specify format"
-                          className={`${inputCls} mt-2`}
-                        />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                        Page Count
-                      </label>
-                      <div className={`${inputCls} flex items-center justify-between select-none pointer-events-none opacity-80`}>
-                        <span>{formData.pageCount || "—"}</span>
-                        <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/40" : "text-gray-400"}`}>
-                          Auto-detected
-                        </span>
-                      </div>
-                      {!formData.pageCount && (
-                        <p className={`text-xs mt-1 ${isDarkMode ? "text-white/40" : "text-gray-400"}`}>
-                          Page count is detected automatically from your uploaded PDF.
-                        </p>
-                      )}
-                      {pageCountWarning && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          ⚠️ {pageCountWarning}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Primary Genre *
-                    </label>
-                    <select
-                      name="primaryGenre"
-                      value={formData.primaryGenre}
-                      onChange={handleChange}
-                      required
-                      className={inputCls}
-                    >
-                      <option value="">Select a genre</option>
-                      {genres.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex flex-col gap-0.5">
-                      <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
-                      <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                        Let buyers know how much of the script is ready.
-                      </p>
-                    </div>
-
-                    {/* Status picker */}
-                    <div className="mt-4">
-                      <p className={`text-xs font-semibold mb-2 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Where is your script right now?</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {[
-                          { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
-                          { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
-                          { value: "ongoing", label: "Still Writing", desc: "Work in progress — you'll add more parts later" },
-                        ].map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setFormData(f => ({ ...f, completionStatus: opt.value }))}
-                            className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${
-                              formData.completionStatus === opt.value
-                                ? isDarkMode
-                                  ? "border-[#2a5080] bg-[#0f2035] ring-1 ring-[#2a5080]"
-                                  : "border-blue-300 bg-blue-50 ring-1 ring-blue-200"
-                                : isDarkMode
-                                  ? "border-[#1d3350] bg-[#0d1826] hover:border-[#2a4a6a]"
-                                  : "border-gray-200 bg-white hover:border-gray-300"
-                            }`}
-                          >
-                            <span className={`text-[13px] font-semibold ${
-                              formData.completionStatus === opt.value
-                                ? isDarkMode ? "text-white" : "text-blue-800"
-                                : isDarkMode ? "text-gray-200" : "text-gray-800"
-                            }`}>{opt.label}</span>
-                            <span className={`text-[11px] leading-snug ${
-                              formData.completionStatus === opt.value
-                                ? isDarkMode ? "text-blue-300" : "text-blue-600"
-                                : isDarkMode ? "text-gray-500" : "text-gray-400"
-                            }`}>{opt.desc}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Parts inputs — only relevant for partial / ongoing */}
-                    {formData.completionStatus !== "complete" && (
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                            Parts / episodes done so far
-                          </label>
-                          <input type="number" min="0" name="completedParts" value={formData.completedParts} onChange={handleChange} placeholder="e.g. 4" className={inputCls} />
-                        </div>
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                            Total parts / episodes planned
-                          </label>
-                          <input type="number" min="0" name="totalParts" value={formData.totalParts} onChange={handleChange} placeholder="e.g. 10" className={inputCls} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Future note */}
-                    <div className="mt-4">
-                      <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                        Anything else buyers should know? <span className={`font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                      </label>
-                      <textarea
-                        name="futurePlans"
-                        value={formData.futurePlans}
-                        onChange={handleChange}
-                        rows={2}
-                        maxLength={300}
-                        placeholder={
-                          formData.completionStatus === "complete"
-                            ? "e.g. This is the final locked version, ready for production."
-                            : "e.g. Remaining episodes are still being written and will be uploaded soon."
-                        }
-                        className={`${inputCls} resize-none`}
-                      />
-                      <p className="text-[10px] text-neutral-500 mt-1 text-right">
-                        {String(formData.futurePlans || "").length}/300
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <label className={`block text-sm ${labelCls} font-medium`}>
-                        Logline *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateMetadata("logline")}
-                        disabled={Boolean(metaLoadingField)}
-                        className={aiBtnCls}
-                      >
-                        {metaLoadingField === "logline" ? "Generating…" : "✨ Generate with AI"}
-                      </button>
-                    </div>
-                    <textarea
-                      name="logline"
-                      value={formData.logline}
-                      onChange={handleChange}
-                      rows={3}
-                      maxLength={500}
-                      placeholder="A one-line hook that sells your concept..."
-                      className={inputCls}
-                    />
-                    {metaNotice.field === "logline" && (
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>
-                    )}
-                    <p className="text-xs text-neutral-500 mt-1 text-right">
-                      {formData.logline.length}/500
-                    </p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <label className={`block text-sm ${labelCls} font-medium`}>
-                        Synopsis *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateMetadata("synopsis")}
-                        disabled={Boolean(metaLoadingField)}
-                        className={aiBtnCls}
-                      >
-                        {metaLoadingField === "synopsis" ? "Generating…" : "✨ Generate with AI"}
-                      </button>
-                    </div>
-                    <textarea
-                      name="synopsis"
-                      value={formData.synopsis}
-                      onChange={handleChange}
-                      required
-                      rows={3}
-                      placeholder="A short synopsis of your project..."
-                      className={inputCls}
-                    />
-                    {metaNotice.field === "synopsis" && (
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Tags
-                    </label>
-                    <input
-                      type="text"
-                      value={tagsInput}
-                      onChange={(e) => setTagsInput(e.target.value)}
-                      placeholder="thriller, detective, serial-killer"
-                      className={inputCls}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 3: Deep Classification ── */}
-              {step === 3 && (
-                <motion.div
-                  key="step-classify"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Select up to 3 options per category to power the Smart Match algorithm.
-                  </p>
-
-                  {/* Tones */}
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
-                      Tone ({classification.tones.length}/3)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {toneOptions.map((tone) => (
-                        <button
-                          key={tone}
-                          type="button"
-                          onClick={() => toggleClassification("tones", tone)}
-                          className={chipCls(classification.tones.includes(tone))}
-                        >
-                          {tone}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Themes */}
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
-                      Theme ({classification.themes.length}/3)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {themeOptions.map((theme) => (
-                        <button
-                          key={theme}
-                          type="button"
-                          onClick={() => toggleClassification("themes", theme)}
-                          className={chipCls(classification.themes.includes(theme))}
-                        >
-                          {theme}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Settings */}
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
-                      Setting ({classification.settings.length}/3)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {settingOptions.map((setting) => (
-                        <button
-                          key={setting}
-                          type="button"
-                          onClick={() => toggleClassification("settings", setting)}
-                          className={chipCls(classification.settings.includes(setting))}
-                        >
-                          {setting}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className={`rounded-2xl border p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-start justify-between gap-3 mb-4">
-                      <div>
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Role Studio</h3>
-                        <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Build a professional role sheet for casting and investor clarity.</p>
-                        {metaNotice.field === "roles" && (
-                          <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateMetadata("roles")}
-                          disabled={Boolean(metaLoadingField)}
-                          className={aiBtnCls}
-                        >
-                          {metaLoadingField === "roles" ? "Generating…" : "✨ Generate with AI"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={addRole}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${isDarkMode ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`}
-                        >
-                          + Add Role
-                        </button>
-                      </div>
-                    </div>
-
-                    {roles.length === 0 ? (
-                      <div className={`rounded-xl border border-dashed px-4 py-5 text-center ${isDarkMode ? "border-[#1d3350] text-gray-500" : "border-gray-300 text-gray-400"}`}>
-                        No roles added yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {roles.map((role, idx) => (
-                          <div key={`role-${idx}`} className={`rounded-xl border p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-white"}`}>
-                            <div className="flex items-center justify-between mb-3">
-                              <p className={`text-xs font-bold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Role {idx + 1}</p>
-                              <button
-                                type="button"
-                                onClick={() => removeRole(idx)}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "text-red-300 border-red-500/30 hover:bg-red-500/10" : "text-red-600 border-red-200 hover:bg-red-50"}`}
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <input
-                                type="text"
-                                value={role.characterName}
-                                onChange={(e) => updateRoleField(idx, "characterName", e.target.value)}
-                                placeholder="Character name"
-                                className={inputCls}
-                              />
-                              <input
-                                type="text"
-                                value={role.type}
-                                onChange={(e) => updateRoleField(idx, "type", e.target.value)}
-                                placeholder="Archetype (e.g. Lead, Antagonist)"
-                                className={inputCls}
-                              />
-                              <select value={role.gender} onChange={(e) => updateRoleField(idx, "gender", e.target.value)} className={inputCls}>
-                                {ROLE_GENDER_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
-                              </select>
-                              <div className="grid grid-cols-2 gap-2">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  placeholder="Min age"
-                                  value={role.ageRange?.min ?? ""}
-                                  onChange={(e) => updateRoleAge(idx, "min", e.target.value)}
-                                  className={inputCls}
-                                />
-                                <input
-                                  type="number"
-                                  min="0"
-                                  placeholder="Max age"
-                                  value={role.ageRange?.max ?? ""}
-                                  onChange={(e) => updateRoleAge(idx, "max", e.target.value)}
-                                  className={inputCls}
-                                />
-                              </div>
-                            </div>
-                            <textarea
-                              rows={2}
-                              value={role.description}
-                              onChange={(e) => updateRoleField(idx, "description", e.target.value)}
-                              placeholder="Performance notes, emotional range, or casting vibe..."
-                              className={`${inputCls} mt-3 resize-none`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 1: File Upload ── */}
-              {step === 1 && (
-                <motion.div
-                  key="step-upload"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div className={`rounded-2xl p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "bg-[#0b1626]" : "bg-white"}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className={`block text-sm ${labelCls} font-medium`}>
-                        Script File (PDF) *
-                      </label>
-                    </div>
-
-                    {fromDraft && textContent ? (
-                      <div className={`flex items-center gap-3 p-4 rounded-xl mb-4 ${isDarkMode ? "bg-green-500/10 border border-green-500/20" : "bg-green-50 border border-green-200"}`}>
-                        <svg className="w-5 h-5 text-green-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
-                          <p className={`text-sm font-semibold ${isDarkMode ? "text-green-300" : "text-green-700"}`}>Script content loaded from editor</p>
-                          <p className={`text-xs mt-0.5 ${isDarkMode ? "text-green-500/80" : "text-green-700/80"}`}>Your draft has been imported. You can optionally replace it with a PDF below.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className={`text-sm mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                        Upload your PDF to automatically extract script content.
-                      </p>
-                    )}
-
-                    {editId && existingUploadedFile && !uploadedFile && (
-                      <div className={`rounded-xl p-3 mb-4 ${isDarkMode ? "border border-blue-500/20 bg-blue-500/10" : "border border-blue-200 bg-blue-50"}`}>
-                        <div className="flex flex-col items-start gap-2.5 min-[416px]:flex-row min-[416px]:items-center min-[416px]:gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? "bg-black/20" : "bg-white"}`}>
-                            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 3.75h6A2.25 2.25 0 0115.75 6v1.5h1.5A2.25 2.25 0 0119.5 9.75v8.25a2.25 2.25 0 01-2.25 2.25h-10.5A2.25 2.25 0 014.5 18V6A2.25 2.25 0 016.75 3.75z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0 w-full">
-                            <p className={`text-sm font-bold break-all ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
-                              Current uploaded PDF: {existingUploadedFile.name}
-                            </p>
-                            <p className={`text-xs ${isDarkMode ? "text-blue-400/80" : "text-blue-700/80"}`}>
-                              Upload a new PDF below to replace this file.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PDF Uploader */}
-                    {!uploadedFile ? (
-                      <div
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onClick={() => !isExtracting && fileInputRef.current?.click()}
-                        className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isExtracting ? isDarkMode ? "border-[#28415f] bg-[#0f1e30] cursor-wait" : "border-blue-300 bg-blue-50 cursor-wait" : isDarkMode ? "border-white/[0.12] cursor-pointer hover:border-white/40" : "border-gray-300 cursor-pointer hover:border-[#1e3a5f]/40 hover:bg-gray-50"}`}
-                      >
-                        <div className="mb-2 flex justify-center">
-                          <svg className={`w-9 h-9 ${isExtracting ? isDarkMode ? "text-blue-300" : "text-blue-600" : isDarkMode ? "text-gray-300" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H6.75A2.25 2.25 0 0 0 4.5 4.5v15A2.25 2.25 0 0 0 6.75 21.75h10.5A2.25 2.25 0 0 0 19.5 19.5v-1.125m-6.75-6.75h6.75m-6.75 3h4.5" />
-                          </svg>
-                        </div>
-                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
-                          {isExtracting ? "Extracting text from file..." : "Drag & drop your PDF or Word file here"}
-                        </p>
-                        <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{isExtracting ? "Please wait..." : "or click to browse"}</p>
-                        <p className={`text-[10px] mt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>Accepted formats: PDF, DOCX, DOC (max 30MB)</p>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept=".pdf,.docx,.doc,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                          onChange={(e) => handleFileSelect(e.target.files[0])}
-                          className="hidden"
-                          disabled={isExtracting}
-                        />
-                      </div>
-                    ) : (
-                      <div className={`rounded-xl p-3 mb-4 ${isDarkMode ? "border border-green-500/20 bg-green-500/10" : "border border-green-200 bg-green-50"}`}>
-                        <div className="flex flex-col items-start gap-2.5 min-[416px]:flex-row min-[416px]:items-center min-[416px]:gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? "bg-black/20" : "bg-white"}`}>
-                            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0 w-full">
-                            <p className={`text-sm font-bold break-all ${isDarkMode ? "text-green-400" : "text-green-700"}`}>
-                              {uploadedFile.name} {pdfTextExtracted ? "(Text Extracted)" : "(Uploaded)"}
-                            </p>
-                            <p className={`text-xs ${isDarkMode ? "text-green-500/90" : "text-green-700/80"}`}>
-                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB{pdfTextExtracted ? "" : " • Ready to continue"}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUploadedFile(null);
-                              setUploadProgress(0);
-                              setTextContent("");
-                              setPdfNotice("");
-                              setPdfTextExtracted(false);
-                            }}
-                            className={`text-sm font-bold px-2 py-1 rounded-md border transition w-full min-[416px]:w-auto ${isDarkMode ? "text-red-400 bg-white/[0.08] border-red-500/20 hover:bg-white/[0.12]" : "text-red-600 bg-white border-red-200 hover:bg-red-50"}`}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {uploadProgress > 0 && uploadProgress < 100 && (
-                      <div className="my-4">
-                        <div className={`w-full rounded-full h-2 overflow-hidden relative ${isDarkMode ? "bg-white/[0.08]" : "bg-gray-200"}`}>
-                          <div
-                            className={`h-2 rounded-full transition-all duration-300 relative ${isDarkMode ? "bg-white" : "bg-[#1e3a5f]"}`}
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                        <p className={`text-xs mt-1 text-center font-medium animate-pulse ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          Processing file... {uploadProgress}%
-                        </p>
-                      </div>
-                    )}
-
-                    {(editId || fromDraft || textContent.trim()) && (
-                      <div className="mt-5 space-y-2">
-                        <label className={`block text-sm ${labelCls} font-medium`}>
-                          Script Content
-                        </label>
-                        <textarea
-                          value={textContent}
-                          onChange={(e) => setTextContent(e.target.value)}
-                          rows={8}
-                          placeholder="Paste or edit your script content here."
-                          className={`w-full rounded-xl border px-3 py-2 text-sm leading-6 outline-none transition ${isDarkMode ? "bg-[#0f1e30] border-white/[0.08] text-gray-200 placeholder:text-gray-500 focus:border-white/30" : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/40"}`}
-                        />
-                        <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          This content is used when publishing updates. Uploading a new PDF will auto-fill this field.
-                        </p>
-                      </div>
-                    )}
-
-                  </div>
-
-                  {!isContentOnlyEditMode && (
-                    <div className={`rounded-2xl border p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-white"}`}>
-                      <div className="mb-4">
-                        <h3 className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>Visual Assets</h3>
-                        <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Add a cover image and trailer to improve profile quality and discovery.</p>
-                      </div>
-
-                      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t ${isDarkMode ? "border-white/[0.06]" : "border-gray-100"}`}>
-                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                          <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Script Thumbnail <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                          </label>
-                          {!thumbnailFile ? (
-                            <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload & Adjust Cover</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>JPEG, PNG, WEBP (Max 5MB)</p>
-                              <input
-                                ref={thumbnailInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp"
-                                onChange={(e) => {
-                                  handleThumbnailSelect(e.target.files?.[0]);
-                                  e.target.value = "";
-                                }}
-                                className="hidden"
-                              />
-                            </div>
-                          ) : (
-                            <div className={`border rounded-xl p-3 flex items-center gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
-                                <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
-                              </div>
-                              <div className="flex flex-col gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => openThumbnailEditor(thumbnailFile)}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                >
-                                  Adjust
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setThumbnailFile(null);
-                                    setError("");
-                                  }}
-                                  className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                          <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Trailer Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                          </label>
-                          <input
-                            ref={trailerInputRef}
-                            type="file"
-                            accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
-                            onChange={(e) => {
-                              handleTrailerSelect(e.target.files?.[0]);
-                              e.target.value = "";
-                            }}
-                            className="hidden"
-                          />
-
-                          {!trailerFile ? (
-                            <div onClick={() => trailerInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36A.75.75 0 0 1 21.75 8.8v6.4a.75.75 0 0 1-1.28.53l-4.72-2.36m-1.5 3.98V6.67A2.25 2.25 0 0 0 12 4.42H4.5a2.25 2.25 0 0 0-2.25 2.25v10.66A2.25 2.25 0 0 0 4.5 19.58H12a2.25 2.25 0 0 0 2.25-2.25Z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload High-Quality Trailer</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM (Max 250MB)</p>
-                            </div>
-                          ) : (
-                            <div className={`border rounded-xl p-3 space-y-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <div className="relative overflow-hidden rounded-lg">
-                                <video
-                                  src={trailerPreviewUrl}
-                                  controls
-                                  preload="metadata"
-                                  className="w-full h-44 object-contain bg-black"
-                                />
-                              </div>
-
-                              <div className="flex items-start gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
-                                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{trailerFile.name}</p>
-                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>
-                                    {(trailerFile.size / 1024 / 1024).toFixed(1)} MB
-                                    {trailerMetaLoading ? " - reading video info..." : trailerMeta ? ` - ${formatDuration(trailerMeta.duration)} - ${trailerMeta.width}x${trailerMeta.height}` : ""}
-                                  </p>
-                                  <p className={`text-[10px] mt-1 ${isDarkMode ? "text-green-500/80" : "text-green-700/80"}`}>Original quality will be preserved on upload.</p>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => trailerInputRef.current?.click()}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                  >
-                                    Replace
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setTrailerFile(null);
-                                      setTrailerOption("none");
-                                      setError("");
-                                    }}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Pitch Video Upload */}
-                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                          <label className={`block text-sm font-medium mb-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Pitch Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                          </label>
-                          <p className={`text-[11px] mb-2.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>A short video pitch for your script. Max 1:30 min · Max 90MB</p>
-                          <input
-                            ref={pitchVideoInputRef}
-                            type="file"
-                            accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
-                            onChange={(e) => {
-                              handlePitchVideoSelect(e.target.files?.[0]);
-                              e.target.value = "";
-                            }}
-                            className="hidden"
-                          />
-                          {!pitchVideoFile ? (
-                            <div onClick={() => pitchVideoInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36A.75.75 0 0 1 21.75 8.8v6.4a.75.75 0 0 1-1.28.53l-4.72-2.36m-1.5 3.98V6.67A2.25 2.25 0 0 0 12 4.42H4.5a2.25 2.25 0 0 0-2.25 2.25v10.66A2.25 2.25 0 0 0 4.5 19.58H12a2.25 2.25 0 0 0 2.25-2.25Z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload Pitch Video</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM · Max 1:30 min · Max 90MB</p>
-                            </div>
-                          ) : (
-                            <div className={`border rounded-xl p-3 space-y-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <div className="relative overflow-hidden rounded-lg">
-                                <video
-                                  src={pitchVideoPreviewUrl}
-                                  controls
-                                  preload="metadata"
-                                  className="w-full h-44 object-contain bg-black"
-                                />
-                              </div>
-                              <div className="flex items-start gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
-                                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{pitchVideoFile.name}</p>
-                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>
-                                    {(pitchVideoFile.size / 1024 / 1024).toFixed(1)} MB
-                                    {pitchVideoMetaLoading ? " · reading..." : pitchVideoMeta ? ` · ${formatDuration(pitchVideoMeta.duration)}` : ""}
-                                  </p>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => pitchVideoInputRef.current?.click()}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                  >
-                                    Replace
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setPitchVideoFile(null); setError(""); }}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    {isContentOnlyEditMode ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => navigate(-1)}
-                          className={`px-6 py-2.5 rounded-xl text-sm transition ${isDarkMode ? "border border-white/[0.08] text-neutral-400 hover:bg-white/[0.05]" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className={`px-6 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-60 ${isDarkMode ? "bg-white text-black hover:bg-neutral-200" : "bg-[#1e3a5f] text-white hover:bg-[#22456f]"}`}
-                        >
-                          {loading ? "Saving..." : "Update Content"}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        {/* Upload is the first step — no Back button, spacer keeps Next right-aligned */}
-                        <div />
-                        <button
-                          type="button"
-                          onClick={handleNext}
-                          className={`px-6 py-2.5 rounded-xl text-sm font-medium transition ${isDarkMode ? "bg-white text-black hover:bg-neutral-200" : "bg-[#1e3a5f] text-white hover:bg-[#22456f]"}`}
-                        >
-                          Next →
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 4: Services & Strategy ── */}
-              {step === 4 && (
-                <motion.div
-                  key="step4"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-5"
-                >
-                  <div className={`rounded-2xl p-4 min-[420px]:p-5 sm:p-8 max-[640px]:p-2.5 max-[420px]:p-2 space-y-5 min-[420px]:space-y-6 ${isDarkMode ? "bg-[#0d1829]" : "bg-white shadow-sm"}`}>
-                    <div>
-                      <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Submission Setup</h2>
-                      <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Choose access, set price, select services, and accept terms.</p>
-                    </div>
-
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 space-y-5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      {/* Header */}
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
-                          <svg className={`w-4.5 h-4.5 ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-[15px] min-[420px]:text-base font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Monetization</h3>
-                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Set what buyers pay to access your script and rights terms.</p>
-                        </div>
-                      </div>
-
-                      {/* Price input */}
-                      <div className={`rounded-xl p-4 sm:p-5 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Your Asking Price</p>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                          <div className="relative w-full sm:w-44">
-                            <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-base font-bold ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>₹</span>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={scriptPrice}
-                              onChange={(e) => {
-                                const normalized = String(e.target.value || "").replace(/^0+(?=\d)/, "");
-                                setScriptPrice(Number(normalized) || 0);
-                                setCustomPriceInput(normalized);
-                                setUseCustomPrice(false);
-                              }}
-                              placeholder="0"
-                              className={`w-full pl-8 pr-4 py-3 rounded-xl text-lg font-bold border-2 outline-none transition-all ${isDarkMode ? "bg-white/[0.04] border-emerald-500/40 text-white focus:border-emerald-400" : "bg-emerald-50/60 border-emerald-200 text-gray-900 focus:border-emerald-500 focus:bg-white"}`}
-                            />
-                          </div>
-                          <p className={`text-[12px] leading-relaxed ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                            This is the amount buyers pay to unlock your script. You can update it anytime before publishing.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* How it works */}
-                      <div className={`rounded-xl p-4 space-y-2.5 ${isDarkMode ? "bg-amber-500/5 border border-amber-500/15" : "bg-amber-50/70 border border-amber-100"}`}>
-                        <p className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>Before you set your price</p>
-                        <ul className="space-y-2">
-                          {[
-                            "Buyers are evaluating rights — for films, web series, TV serials, remakes, or adaptations.",
-                            "They're not paying just to read — they're assessing your script for a potential deal.",
-                            "Price it based on what those rights are worth, not just the read.",
-                          ].map((tip, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${isDarkMode ? "bg-amber-400" : "bg-amber-500"}`} />
-                              <p className={`text-[12px] leading-relaxed ${isDarkMode ? "text-amber-200/70" : "text-amber-800"}`}>{tip}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      <div className="flex items-center gap-2.5 mb-5">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                          <svg className={`w-4 h-4 ${isDarkMode ? "text-blue-300" : "text-blue-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h12M3.75 3h16.5A2.25 2.25 0 0122.5 5.25V9M3.75 3l5.25 5.25m0 0L12 11.25m-3-3L6 11.25m3-3v8.25" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Optional Services</h3>
-                          <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Select only services you want to add now.</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2.5 min-[416px]:space-y-3">
-                        {[
-                          {
-                            key: "hosting",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" /></svg>,
-                            name: "Hosting & Discovery",
-                            price: "FREE",
-                            desc: "Marketplace listing and public discovery",
-                            locked: true,
-                            enabled: true,
-                          },
-                          {
-                            key: "spotlight",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.75.75 0 011.04 0l1.838 1.783a.75.75 0 00.384.2l2.53.36a.75.75 0 01.607.51l.806 2.435a.75.75 0 00.286.37l2.108 1.498a.75.75 0 010 1.227l-2.108 1.498a.75.75 0 00-.286.37l-.806 2.435a.75.75 0 01-.607.51l-2.53.36a.75.75 0 00-.384.2l-1.838 1.783a.75.75 0 01-1.04 0l-1.838-1.783a.75.75 0 00-.384-.2l-2.53-.36a.75.75 0 01-.607-.51l-.806-2.435a.75.75 0 00-.286-.37L2.92 11.882a.75.75 0 010-1.227L5.028 9.157a.75.75 0 00.286-.37l.806-2.435a.75.75 0 01.607-.51l2.53-.36a.75.75 0 00.384-.2L11.48 3.5z" /></svg>,
-                            name: "Activate Spotlight",
-                            price: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight ? "Already bought" : `${SERVICE_PRICES.spotlight} credits`,
-                            desc: "Verified badge, evaluation + trailer service, and featured top placement",
-                            locked: isEditingExistingScriptFlow && purchasedServiceCredits.spotlight,
-                            enabled: services.spotlight,
-                          },
-                          {
-                            key: "aiTrailer",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" /></svg>,
-                            name: "AI Concept Trailer",
-                            price: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "Already bought" : `${SERVICE_PRICES.aiTrailer} credits`,
-                            desc: "60-second cinematic teaser",
-                            badge: "BETA",
-                            locked: isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer,
-                            enabled: trailerOption === "ai",
-                          },
-                          {
-                            key: "evaluation",
-                            icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08" /></svg>,
-                            name: "Professional Evaluation",
-                            price: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation ? "Already bought" : `${SERVICE_PRICES.evaluation} credits`,
-                            desc: "Reader scorecard with strengths and weaknesses",
-                            locked: isEditingExistingScriptFlow && purchasedServiceCredits.evaluation,
-                            enabled: services.evaluation,
-                          },
-                        ].map((service) => (
-                          <button
-                            key={service.key}
-                            type="button"
-                            onClick={() => {
-                              if (service.locked) {
-                                if (service.key === "hosting") {
-                                  setError("Hosting is required for your script to be searchable.");
-                                } else {
-                                  setError("");
-                                }
-                                return;
-                              }
-
-                              if (service.key === "evaluation") {
-                                setServices((current) => ({ ...current, evaluation: !current.evaluation }));
-                              }
-
-                              if (service.key === "spotlight") {
-                                setServices((current) => ({ ...current, spotlight: !current.spotlight }));
-                              }
-
-                              if (service.key === "aiTrailer") {
-                                if (trailerOption === "ai") {
-                                  setTrailerOption(trailerFile ? "upload" : "none");
-                                } else {
-                                  setTrailerOption("ai");
-                                }
-                              }
-
-                              setError("");
-                            }}
-                            className={`w-full text-left rounded-2xl border px-3.5 min-[416px]:px-4 py-3.5 min-[416px]:py-4 transition-all ${service.locked
-                              ? isDarkMode ? "border-[#22405f] bg-[#0e2032] cursor-default" : "border-blue-100 bg-blue-50/70 cursor-default"
-                              : service.enabled
-                                ? isDarkMode ? "border-[#2b5d8f] bg-[#122338]" : "border-[#1e3a5f]/25 bg-[#1e3a5f]/[0.05]"
-                                : isDarkMode ? "border-[#182840] hover:border-[#22405f] hover:bg-white/[0.02]" : "border-gray-200 hover:border-gray-300 hover:bg-white"
-                            }`}
-                          >
-                            <div className="flex items-start gap-2.5 min-[416px]:gap-3">
-                              <div className={`w-9 h-9 min-[416px]:w-10 min-[416px]:h-10 rounded-xl flex items-center justify-center shrink-0 ${service.enabled || service.locked ? isDarkMode ? "bg-white/[0.08] text-white" : "bg-white text-[#1e3a5f]" : isDarkMode ? "bg-white/[0.04] text-gray-400" : "bg-gray-100 text-gray-500"}`}>
-                                {service.icon}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0">
-                                    <div className="flex flex-wrap items-center gap-1.5 min-[416px]:gap-2">
-                                      <h4 className={`text-[13px] min-[416px]:text-sm font-bold leading-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.name}</h4>
-                                      {service.badge && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">{service.badge}</span>}
-                                      {service.locked && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{service.key === "hosting" ? "Included" : "Already Bought"}</span>}
-                                      {service.key === "aiTrailer" && trailerOption === "upload" && trailerFile && (
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>Replaces uploaded trailer</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="hidden min-[416px]:flex flex-col items-end justify-start gap-1.5 shrink-0">
-                                  <p className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      service.enabled 
-                                        ? isDarkMode ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : isDarkMode ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        service.enabled
-                                          ? isDarkMode ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : isDarkMode ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {service.enabled && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{service.enabled ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] mt-1 ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                                </div>
-                                <p className={`text-[12px] mt-1.5 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{service.desc}</p>
-                                <div className="mt-2 min-[416px]:hidden flex items-center justify-between gap-2">
-                                  <p className={`text-[13px] font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{service.price}</p>
-                                  {!service.locked && (
-                                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition-all ${
-                                      service.enabled 
-                                        ? isDarkMode ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                        : isDarkMode ? "border-gray-700/50 text-gray-500" : "border-gray-200 text-gray-500"
-                                    }`}>
-                                      <div className={`w-3 h-3 rounded-sm border flex items-center justify-center transition-all ${
-                                        service.enabled
-                                          ? isDarkMode ? "bg-emerald-500 border-emerald-500 text-white" : "bg-emerald-600 border-emerald-600 text-white"
-                                          : isDarkMode ? "border-gray-600 bg-transparent" : "border-gray-300 bg-white"
-                                      }`}>
-                                        {service.enabled && <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                      </div>
-                                      <p className="text-[10px] font-bold uppercase tracking-wider">{service.enabled ? "Selected" : "Select"}</p>
-                                    </div>
-                                  )}
-                                  {service.locked && service.key !== "hosting" && (
-                                    <p className={`text-[11px] ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>No extra charge</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      <div className="flex items-center gap-2.5 mb-4">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                          <svg className={`w-4 h-4 ${isDarkMode ? "text-rose-300" : "text-rose-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m5.25-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Rights & Licensing Preferences</h3>
-                          <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>These terms become the legal basis for buyer consent and generated agreements.</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Rights Type</label>
-                          <select
-                            value={rightsLicensing.rightsType}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, rightsType: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {RIGHTS_TYPE_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Modification Rights</label>
-                          <select
-                            value={rightsLicensing.modificationRights}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, modificationRights: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {MODIFICATION_RIGHTS_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Payment Structure</label>
-                          <select
-                            value={rightsLicensing.paymentStructure}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, paymentStructure: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {PAYMENT_STRUCTURE_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Negotiation Mode</label>
-                          <select
-                            value={rightsLicensing.negotiationMode}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({ ...prev, negotiationMode: e.target.value }))}
-                            className={inputCls}
-                          >
-                            {NEGOTIATION_MODE_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {rightsLicensing.rightsType === "exclusive_license" && (
-                          <div>
-                            <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>License Duration</label>
-                            {(() => {
-                              const currentDuration = Number(rightsLicensing?.timeBound?.licenseDurationMonths || 12);
-                              const isCustomDuration = !LICENSE_DURATION_PRESET_MONTHS.includes(currentDuration);
-                              const customDurationFallback = isCustomDuration && currentDuration > 0 ? currentDuration : 30;
-
-                              return (
-                                <>
-                                  <select
-                                    value={isCustomDuration ? "custom" : String(currentDuration)}
-                                    onChange={(e) => {
-                                      const selected = e.target.value;
-                                      setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                        ...prev,
-                                        timeBound: {
-                                          ...prev.timeBound,
-                                          licenseDurationMonths: selected === "custom" ? customDurationFallback : Number(selected),
-                                        },
-                                      }));
-                                    }}
-                                    className={inputCls}
-                                  >
-                                    <option value="12">12 months</option>
-                                    <option value="18">18 months</option>
-                                    <option value="24">24 months</option>
-                                    <option value="custom">Custom duration...</option>
-                                  </select>
-
-                                  {isCustomDuration && (
-                                    <div className="mt-2">
-                                      <label className={`block text-[11px] font-semibold mb-1 ${labelCls}`}>Custom Duration (months)</label>
-                                      <input
-                                        type="number"
-                                        min={MIN_LICENSE_DURATION_MONTHS}
-                                        max={MAX_LICENSE_DURATION_MONTHS}
-                                        step="1"
-                                        value={currentDuration}
-                                        onChange={(e) => {
-                                          const nextRaw = Number(e.target.value);
-                                          const nextDuration = Number.isFinite(nextRaw)
-                                            ? Math.max(MIN_LICENSE_DURATION_MONTHS, Math.min(MAX_LICENSE_DURATION_MONTHS, Math.round(nextRaw)))
-                                            : MIN_LICENSE_DURATION_MONTHS;
-
-                                          setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                            ...prev,
-                                            timeBound: {
-                                              ...prev.timeBound,
-                                              licenseDurationMonths: nextDuration,
-                                            },
-                                          }));
-                                        }}
-                                        className={inputCls}
-                                      />
-                                    </div>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
-                        )}
-
-                        {["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing.paymentStructure) && (
-                          <div>
-                            <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Royalty Percentage</label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={rightsLicensing?.royaltySettings?.percentage ?? 0}
-                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                ...prev,
-                                royaltySettings: {
-                                  ...prev.royaltySettings,
-                                  percentage: Number(e.target.value || 0),
-                                },
-                              }))}
-                              className={inputCls}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-4">
-                        <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Custom Conditions (Optional)</label>
-                        <textarea
-                          rows={4}
-                          value={rightsLicensing.customConditions}
-                          onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                            ...prev,
-                            customConditions: e.target.value,
-                          }))}
-                          placeholder="Add any contract-sensitive conditions that buyers must acknowledge."
-                          className={`${inputCls} resize-y`}
-                        />
-                        <p className={`text-[11px] mt-1 text-right ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          {String(rightsLicensing.customConditions || "").length}/{MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH}
-                        </p>
-                      </div>
-
-                      <div className={`mt-4 rounded-xl border px-3 py-3 ${isDarkMode ? "border-[#1b2e46] bg-[#07101c]" : "border-gray-200 bg-white"}`}>
-                        <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Rights Summary Preview</p>
-                        <p className={`text-sm font-semibold mt-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>{RIGHTS_LABEL_MAP[rightsLicensing.rightsType]}</p>
-                        <p className={`text-[12px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{MODIFICATION_LABEL_MAP[rightsLicensing.modificationRights]}</p>
-                        <p className={`text-[12px] ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{PAYMENT_LABEL_MAP[rightsLicensing.paymentStructure]}</p>
-                        <div className="mt-2 rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700">
-                          EXCLUSIVE RIGHTS: this listing cannot be sold to multiple buyers once transaction is settled.
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid grid-cols-1 gap-2.5">
-                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed)}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                              ...prev,
-                              legalAcknowledgement: {
-                                ...prev.legalAcknowledgement,
-                                ownershipConfirmed: e.target.checked,
-                              },
-                            }))}
-                            className="mt-0.5"
-                          />
-                          <span>I confirm I own or control all rights required for this listing.</span>
-                        </label>
-                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.platformTermsAccepted)}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                              ...prev,
-                              legalAcknowledgement: {
-                                ...prev.legalAcknowledgement,
-                                platformTermsAccepted: e.target.checked,
-                              },
-                            }))}
-                            className="mt-0.5"
-                          />
-                          <span>I acknowledge these rights terms are governed under platform legal policies.</span>
-                        </label>
-                        <label className={`flex items-start gap-2.5 text-sm ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood)}
-                            onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                              ...prev,
-                              legalAcknowledgement: {
-                                ...prev.legalAcknowledgement,
-                                exclusivityUnderstood: e.target.checked,
-                              },
-                            }))}
-                            className="mt-0.5"
-                          />
-                          <span>I understand exclusivity prevents parallel multi-buyer transactions.</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      <div className="flex items-center gap-2.5 mb-4">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                          <svg className={`w-4 h-4 ${isDarkMode ? "text-purple-300" : "text-purple-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h3.75A2.625 2.625 0 0116.5 4.875v1.5H7.5v-1.5A2.625 2.625 0 0110.125 2.25zM7.5 9h9m-9 0v8.625A2.625 2.625 0 0010.125 20.25h3.75A2.625 2.625 0 0016.5 17.625V9m-9 0h9" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Submission Agreement</h3>
-                          <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Read and accept before publishing.</p>
-                        </div>
-                      </div>
-
-                      <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                        <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Rights</p>
-                          <p className="text-[12px] mt-2 leading-relaxed">You retain ownership of your script.</p>
-                        </div>
-                        <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>License</p>
-                          <p className="text-[12px] mt-2 leading-relaxed">Platform gets a non-exclusive display and promotion license.</p>
-                        </div>
-                        <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Refunds</p>
-                          <p className="text-[12px] mt-2 leading-relaxed">Service charges are not refundable after processing starts.</p>
-                        </div>
-                      </div>
-
-                      <div ref={agreementRef} className={`rounded-xl p-4 h-48 overflow-y-auto text-xs leading-relaxed border ${isDarkMode ? "border-[#182840] text-gray-400 bg-[#050b14]" : "border-gray-200 text-gray-500 bg-white"}`}>
-                        <pre className="whitespace-pre-wrap font-sans">{LEGAL_AGREEMENT}</pre>
-                      </div>
-
-                      <p className={`text-xs mb-3 mt-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                        Review the full legal document:
-                        {" "}
-                        <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-500 hover:text-blue-400 underline underline-offset-2">
-                          Script Upload Terms & Conditions
-                        </Link>
-                      </p>
-
-                      <label className="flex items-start gap-3 cursor-pointer mt-4">
-                        <input
-                          type="checkbox"
-                          checked={legal.agreedToTerms}
-                          onChange={(e) => setLegal({ ...legal, agreedToTerms: e.target.checked })}
-                          className="w-5 h-5 rounded mt-0.5 accent-[#1e3a5f]"
-                        />
-                        <span className={`text-sm leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          I confirm I own or control the rights to this script and agree to the Script Upload Terms & Conditions (v{SCRIPT_UPLOAD_TERMS_VERSION}).
-                        </span>
-                      </label>
-                    </div>
-
-                    <div className={`rounded-xl p-4 border ${isDarkMode ? "bg-white/[0.03] border-white/[0.08]" : "bg-gray-50 border-gray-200"}`}>
-                      <div className="flex flex-col gap-2 min-[460px]:flex-row min-[460px]:items-center min-[460px]:justify-between">
-                        <span className={`text-sm font-medium ${labelCls}`}>Total Credits Required</span>
-                        <span className={`text-xl min-[420px]:text-2xl font-black ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>{calculateTotal()} credits</span>
-                      </div>
-                      <p className={`text-xs mt-2 ${isDarkMode ? "text-neutral-500" : "text-gray-500"}`}>
-                        {services.hosting && <span>Hosting (FREE)</span>}
-                        {services.evaluation && (
-                          <span>{services.hosting ? " + " : ""}{isEditingExistingScriptFlow && purchasedServiceCredits.evaluation ? "Evaluation (already bought)" : `${SERVICE_PRICES.evaluation} credits evaluation`}</span>
-                        )}
-                        {services.spotlight && (
-                          <span>{services.hosting || services.evaluation ? " + " : ""}{isEditingExistingScriptFlow && purchasedServiceCredits.spotlight ? "Spotlight (already bought)" : `${SERVICE_PRICES.spotlight} credits spotlight`}</span>
-                        )}
-                        {trailerOption === "ai" && (
-                          <span>{services.hosting || services.evaluation || services.spotlight ? " + " : ""}{isEditingExistingScriptFlow && purchasedServiceCredits.aiTrailer ? "AI trailer (already bought)" : `${SERVICE_PRICES.aiTrailer} credits AI trailer`}</span>
-                        )}
-                        {trailerOption === "upload" && trailerFile && (
-                          <span>{services.hosting || services.evaluation || services.spotlight ? " + " : ""}Trailer upload (FREE)</span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col-reverse min-[420px]:flex-row gap-2.5 min-[420px]:gap-3 justify-between pt-1 min-[420px]:pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="w-full min-[420px]:w-auto px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="w-full min-[420px]:w-auto px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 5: Legal & Checkout ── */}
-              {step === 5 && (
-                <motion.div
-                  key="step5"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Final Review</h2>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Validate your invoice and submission details, then submit your project for admin review.</p>
-                  </div>
-
-                  <div className={`rounded-xl px-3 py-2 ${isDarkMode ? "bg-white/[0.04] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Available Credits</p>
-                    <p className={`text-sm font-bold mt-1 ${creditsBalance < totalServiceCost ? "text-red-400" : isDarkMode ? "text-emerald-300" : "text-emerald-700"}`}>{creditsBalance} credits</p>
-                  </div>
-
-                  <div className={`rounded-3xl border overflow-hidden ${isDarkMode ? "border-[#223a58] bg-gradient-to-b from-[#0a1320] to-[#08111b] shadow-[0_12px_28px_rgba(2,6,23,0.35)]" : "border-gray-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]"}`}>
-                    <div className={`flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b ${isDarkMode ? "border-[#1b2e46]" : "border-gray-200"}`}>
-                      <div>
-                        <p className={`text-[10px] font-extrabold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Invoice Preview</p>
-                        <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Calculated from your current pricing and services.</p>
-                      </div>
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-bold border ${isDarkMode ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-300" : "border-cyan-200 bg-cyan-50 text-cyan-700"}`}>Auto-updating</span>
-                    </div>
-
-                    <div className={`max-[520px]:hidden grid grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-2 text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "bg-[#091525] text-gray-500 border-b border-[#1b2e46]" : "bg-gray-50 text-gray-500 border-b border-gray-200"}`}>
-                      <span>Invoice Item</span>
-                      <span>Type</span>
-                      <span className="text-right">Amount</span>
-                    </div>
-
-                    <div>
-                      {publishInvoiceRows.map((row, index) => (
-                        <div key={row.item} className={`grid grid-cols-1 min-[521px]:grid-cols-[minmax(0,1.1fr)_minmax(0,0.7fr)_110px] px-4 py-3.5 items-start gap-2 text-[12px] ${isDarkMode ? `${index % 2 === 0 ? "bg-white/[0.01]" : "bg-[#0b1625]"} border-b border-[#15273d] last:border-b-0` : `${index % 2 === 0 ? "bg-white" : "bg-gray-50/70"} border-b border-gray-100 last:border-b-0`}`}>
-                          <div>
-                            <p className={`font-semibold ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}>{row.item}</p>
-                            <p className={`text-[11px] mt-0.5 leading-relaxed ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{row.detail}</p>
-                          </div>
-                          <div className="pt-0.5 max-[520px]:pt-0">
-                            <span className={`inline-flex items-center whitespace-nowrap text-[10px] font-semibold px-2.5 py-1 rounded-full border ${row.type === "Credit Charge"
-                              ? isDarkMode ? "border-blue-400/30 bg-blue-500/12 text-blue-300" : "border-blue-200 bg-blue-100 text-blue-700"
-                              : row.type === "Revenue Setting"
-                                ? isDarkMode ? "border-indigo-400/30 bg-indigo-500/14 text-indigo-300" : "border-indigo-200 bg-indigo-100 text-indigo-700"
-                              : row.type === "Platform Commission"
-                                ? isDarkMode ? "border-amber-400/30 bg-amber-500/12 text-amber-300" : "border-amber-200 bg-amber-100 text-amber-700"
-                              : row.type === "Checkout Total"
-                                ? isDarkMode ? "border-cyan-400/30 bg-cyan-500/12 text-cyan-300" : "border-cyan-200 bg-cyan-100 text-cyan-700"
-                              : row.type === "Future Earnings"
-                                ? isDarkMode ? "border-emerald-400/30 bg-emerald-500/12 text-emerald-300" : "border-emerald-200 bg-emerald-100 text-emerald-700"
-                                : isDarkMode ? "border-white/[0.16] bg-white/[0.08] text-gray-300" : "border-gray-300 bg-gray-100 text-gray-700"
-                              }`}>{row.type}</span>
-                          </div>
-                          <p className={`text-left min-[521px]:text-right font-extrabold tabular-nums tracking-tight pt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{row.amount}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className={`rounded-xl px-4 py-4 ${isDarkMode ? "bg-blue-500/10 border border-blue-500/15" : "bg-blue-50 border border-blue-100"}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>Publish Cost</p>
-                      <p className={`text-xl font-black mt-1 ${totalServiceCost > creditsBalance ? "text-red-400" : isDarkMode ? "text-white" : "text-gray-900"}`}>{totalServiceCost} cr</p>
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Charged from current balance</p>
-                    </div>
-                    <div className={`rounded-xl px-4 py-4 ${isDarkMode ? "bg-emerald-500/10 border border-emerald-500/15" : "bg-emerald-50 border border-emerald-100"}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-emerald-300" : "text-emerald-700"}`}>Remaining Credits</p>
-                      <p className={`text-xl font-black mt-1 ${creditsAfterPublish < 0 ? "text-red-400" : isDarkMode ? "text-emerald-300" : "text-emerald-700"}`}>{creditsAfterPublish}</p>
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>After this publish action</p>
-                    </div>
-                    <div className={`rounded-xl px-4 py-4 ${isDarkMode ? "bg-purple-500/10 border border-purple-500/15" : "bg-purple-50 border border-purple-100"}`}>
-                      <p className={`text-[10px] font-bold uppercase tracking-[0.14em] ${isDarkMode ? "text-purple-300" : "text-purple-700"}`}>Writer / Premium Sale</p>
-                      <p className={`text-xl font-black mt-1 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{formatCurrency(writerPayout)}</p>
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Writer gets full script fee per paid purchase</p>
-                    </div>
-                  </div>
-
-                  <div className={`rounded-2xl border p-5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                      <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Rights</p>
-                        <p className={`text-[12px] mt-2 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>You retain ownership of your script.</p>
-                      </div>
-                      <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>License</p>
-                        <p className={`text-[12px] mt-2 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Platform gets a non-exclusive display and promotion license.</p>
-                      </div>
-                      <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Refunds</p>
-                        <p className={`text-[12px] mt-2 leading-relaxed ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Service charges are non-refundable after processing starts.</p>
-                      </div>
-                    </div>
-
-                    <p className={`text-xs mb-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                      Review the full legal document:
-                      {" "}
-                      <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-500 hover:text-blue-400 underline underline-offset-2">
-                        Script Upload Terms & Conditions
-                      </Link>
-                    </p>
-
-                    <div
-                      ref={agreementRef}
-                      className={`rounded-xl p-4 h-48 overflow-y-auto text-xs leading-relaxed border ${isDarkMode ? "border-[#182840] text-gray-400 bg-[#050b14]" : "border-gray-200 text-gray-500 bg-white"}`}
-                    >
-                      <pre className="whitespace-pre-wrap font-sans">{LEGAL_AGREEMENT}</pre>
-                    </div>
-
-                    <div className={`rounded-xl px-4 py-4 mt-4 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-gray-50 border border-gray-200"}`}>
-                      <div className="flex items-start gap-2.5">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${legal.agreedToTerms ? isDarkMode ? "bg-emerald-500/15 text-emerald-300" : "bg-emerald-100 text-emerald-700" : isDarkMode ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>
-                          {legal.agreedToTerms ? (
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            "!"
-                          )}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-[12px] font-semibold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>{legal.agreedToTerms ? "Agreement confirmed" : "Agreement required"}</p>
-                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{legal.agreedToTerms ? "Everything is ready. You can submit for admin approval now." : "Please accept the submission agreement to continue."}</p>
-                          <label className="flex items-start gap-2.5 cursor-pointer mt-3">
-                            <input
-                              type="checkbox"
-                              checked={legal.agreedToTerms}
-                              onChange={(e) => setLegal({ ...legal, agreedToTerms: e.target.checked })}
-                              className="w-4 h-4 rounded mt-0.5 accent-[#1e3a5f] disabled:opacity-50"
-                            />
-                            <span className={`text-[11px] leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                              I agree to the Script Upload Terms & Conditions (v{SCRIPT_UPLOAD_TERMS_VERSION}) and confirm publishing rights.
-                            </span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading || !legal.agreedToTerms}
-                      className="flex-1 px-6 py-3 bg-[#1e3a5f] text-white rounded-xl text-sm font-bold hover:bg-[#162d4a] transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md"
-                    >
-                      {loading ? "Submitting..." : "Submit for Approval"}
-                    </button>
-                  </div>
-                  <p className={`text-[11px] text-center ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Submitting will send your project for admin approval with the current pricing, services, and invoice settings.</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </form>
-        </div>
-      </motion.div>
-
+    <>
+      <ScriptUploadWorkspace vm={workspaceVm} />
       {isThumbnailEditorOpen && thumbnailSourceUrl && createPortal(
         <AnimatePresence>
-          <motion.div
+          <Motion.div
             key="thumbnail-modal-bg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -3392,8 +2275,13 @@ const ScriptUpload = () => {
             style={{ background: "rgba(0,0,0,0.76)", backdropFilter: "blur(8px)" }}
             onClick={resetThumbnailEditor}
           >
-            <motion.div
+            <Motion.div
               key="thumbnail-modal"
+              ref={thumbnailDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="su-thumbnail-dialog-title"
+              tabIndex={-1}
               initial={{ opacity: 0, y: 18, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -3406,8 +2294,8 @@ const ScriptUpload = () => {
             >
               <div className={`px-4 sm:px-5 py-3 sm:py-4 border-b flex items-center justify-between shrink-0 ${isDarkMode ? "border-white/[0.08]" : "border-gray-100"}`}>
                 <div>
-                  <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Set Script Cover Image</h3>
-                  <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Drag to frame the best angle. Cover ratio is 3:4.</p>
+                  <h3 id="su-thumbnail-dialog-title" className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Set Script Cover Image</h3>
+                  <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Drag to frame the best angle. Cover ratio is 16:10.</p>
                 </div>
                 <button
                   type="button"
@@ -3427,6 +2315,7 @@ const ScriptUpload = () => {
                     image={thumbnailSourceUrl}
                     crop={thumbnailCrop}
                     zoom={thumbnailZoom}
+                    minZoom={0.1}
                     rotation={thumbnailRotation}
                     aspect={THUMBNAIL_ASPECT}
                     showGrid
@@ -3446,7 +2335,7 @@ const ScriptUpload = () => {
                     </div>
                     <input
                       type="range"
-                      min={1}
+                      min={0.1}
                       max={3}
                       step={0.01}
                       value={thumbnailZoom}
@@ -3511,62 +2400,13 @@ const ScriptUpload = () => {
                   {thumbnailApplying ? "Saving Cover..." : "Save Cover"}
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         </AnimatePresence>,
         document.body
       )}
 
-      {showUnderReviewModal && createPortal(
-        <AnimatePresence>
-          <motion.div
-            key="under-review-modal-bg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
-            style={{ background: "rgba(3, 10, 19, 0.72)", backdropFilter: "blur(6px)" }}
-          >
-            <motion.div
-              key="under-review-modal"
-              initial={{ opacity: 0, y: 14, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 14, scale: 0.96 }}
-              transition={{ type: "spring", damping: 24, stiffness: 280 }}
-              className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${isDarkMode ? "bg-[#091322] border-white/[0.08]" : "bg-white border-gray-200"}`}
-            >
-              <div className="w-12 h-12 rounded-xl bg-amber-500/15 text-amber-300 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-
-              <h3 className={`text-lg font-extrabold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                Script Submitted Successfully
-              </h3>
-              <p className={`text-sm mt-2 leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                Your script is now under review. Please wait for admin approval. You will be notified once it is approved.
-              </p>
-
-              <div className={`mt-4 rounded-xl border px-3 py-2.5 text-xs ${isDarkMode ? "border-white/[0.08] bg-white/[0.03] text-gray-400" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                Redirecting automatically...
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleUnderReviewContinue}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition"
-                >
-                  Continue
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>,
-        document.body
-      )}
-    </div>
+    </>
   );
 };
 

@@ -1,5 +1,6 @@
 import Invoice from "../models/Invoice.js";
 import { generateAndSaveInvoicePdf } from "../utils/invoicePdf.js";
+import { fetchTrustedPdfAsset } from "../utils/remoteAssetPolicy.js";
 
 const canAccessInvoice = (invoice, user) => {
   if (!invoice || !user) return false;
@@ -47,13 +48,7 @@ export const getInvoicePdf = async (req, res) => {
       return res.status(500).json({ message: "Invoice PDF URL is unavailable" });
     }
 
-    const pdfResponse = await fetch(invoice.pdfPath);
-    if (!pdfResponse.ok) {
-      throw new Error("Unable to fetch invoice PDF from cloud storage");
-    }
-
-    const pdfArrayBuffer = await pdfResponse.arrayBuffer();
-    const pdfBuffer = Buffer.from(pdfArrayBuffer);
+    const { buffer: pdfBuffer } = await fetchTrustedPdfAsset(invoice.pdfPath);
 
     const isDownload = String(req.query.download || "").toLowerCase() === "1";
     const disposition = isDownload ? "attachment" : "inline";

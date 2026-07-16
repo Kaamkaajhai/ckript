@@ -7,7 +7,10 @@ import Notification from "../models/Notification.js";
 import { sendOTPEmail } from "../utils/emailService.js";
 import {
   INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE,
+  hasActiveFilmIndustryProfessionalAccess,
   isIndustryProfessionalWithPersonalEmail,
+  isFilmIndustryProfessionalRole,
+  hasBusinessEmail,
 } from "../utils/industryAccess.js";
 import {
   generateOTP,
@@ -21,6 +24,7 @@ import { buildUserCanonicalPath, buildUserShareMeta, buildScriptCanonicalPath, b
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
+import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -176,6 +180,7 @@ const normalizePreferredFormat = (value = "") => {
     "web series": "web_series",
     "limited series": "limited_series",
     "drama school": "drama_school",
+    "micro drama": "micro_drama",
     "standup comedy": "standup_comedy",
   };
 
@@ -201,14 +206,6 @@ const getCloudinaryUploadResourceType = (mimeType = "") => {
   if (normalized.startsWith("image/")) return "image";
   if (normalized.startsWith("video/")) return "video";
   return "raw";
-};
-
-const getCloudinaryResourceTypeFromUrl = (url = "") => {
-  const normalized = String(url || "");
-  if (normalized.includes("/image/upload/")) return "image";
-  if (normalized.includes("/video/upload/")) return "video";
-  if (normalized.includes("/raw/upload/")) return "raw";
-  return "";
 };
 
 const resolveAttachmentCloudinaryResourceType = (attachment) =>
@@ -251,13 +248,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
         attachment: false,
       });
 
-      const response = await fetch(signedUrl);
-      if (!response.ok) continue;
-
-      const arrayBuffer = await response.arrayBuffer();
-      if (arrayBuffer.byteLength > 0) {
-        return Buffer.from(arrayBuffer);
-      }
+      const { buffer } = await fetchTrustedPdfAsset(signedUrl);
+      if (buffer.length > 0) return buffer;
     } catch {
       // Try fallback resource types.
     }
@@ -265,13 +257,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
 
   if (attachmentUrl) {
     try {
-      const fallbackResponse = await fetch(attachmentUrl);
-      if (fallbackResponse.ok) {
-        const fallbackBuffer = await fallbackResponse.arrayBuffer();
-        if (fallbackBuffer.byteLength > 0) {
-          return Buffer.from(fallbackBuffer);
-        }
-      }
+      const { buffer } = await fetchTrustedPdfAsset(attachmentUrl);
+      if (buffer.length > 0) return buffer;
     } catch {
       // Final fallback failed; return null below.
     }
@@ -659,7 +646,7 @@ export const getPublicUserProfile = async (req, res) => {
     }
 
     const user = await User.findOne(profileLookupQuery)
-      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated")
+      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated subscription")
       .lean();
 
     if (!user || user.isDeactivated) {
@@ -732,9 +719,6 @@ export const getPublicUserProfile = async (req, res) => {
               formats: Array.isArray(user.industryProfile.mandates?.formats)
                 ? user.industryProfile.mandates.formats.filter(Boolean).slice(0, 20)
                 : [],
-              budgetTiers: Array.isArray(user.industryProfile.mandates?.budgetTiers)
-                ? user.industryProfile.mandates.budgetTiers.filter(Boolean).slice(0, 20)
-                : [],
               specificHooks: Array.isArray(user.industryProfile.mandates?.specificHooks)
                 ? user.industryProfile.mandates.specificHooks.filter(Boolean).slice(0, 20)
                 : [],
@@ -746,6 +730,15 @@ export const getPublicUserProfile = async (req, res) => {
         : undefined,
       shareMeta: buildUserShareMeta(req, userForShareMeta),
       canonicalPath: buildUserCanonicalPath(userForShareMeta),
+      // Expose only the badge-relevant tier info — no sensitive billing data
+      subscription: user.subscription
+        ? {
+            plan: user.subscription.plan || "",
+            accessTier: user.subscription.accessTier || "",
+            accessStatus: user.subscription.accessStatus || "",
+            accessExpiresAt: user.subscription.accessExpiresAt || user.subscription.expiresAt || null,
+          }
+        : undefined,
     };
 
     const scripts = publicScripts.map((script) => {
@@ -803,7 +796,7 @@ export const getUserProfile = async (req, res) => {
     let blockedByProfile = false;
 
     if (!isOwnProfile) {
-      const currentUser = await User.findById(req.user._id).select("blockedUsers role email");
+      const currentUser = await User.findById(req.user._id).select("blockedUsers role email name subscription");
       blockedByCurrent = currentUser?.blockedUsers?.some((uid) => uid.toString() === targetUserId) || false;
       blockedByProfile = user?.blockedUsers?.some((uid) => {
         const blockedId = uid?._id?.toString?.() || uid?.toString?.();
@@ -830,6 +823,24 @@ export const getUserProfile = async (req, res) => {
       });
       const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
 
+      if (user?.role === "writer" && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const recentNotif = await Notification.findOne({
+          user: targetUserId,
+          from: req.user._id,
+          type: "profile_view",
+          createdAt: { $gte: twentyFourHoursAgo }
+        });
+        if (!recentNotif) {
+          await Notification.create({
+            user: targetUserId,
+            from: req.user._id,
+            type: "profile_view",
+            message: `${currentUser.name || "A film industry professional"} viewed your profile.`
+          });
+        }
+      }
+
       if (user?.isPrivate && !isFollower && !isAdminViewer) {
         const followRequestPending = (user?.followRequests || []).some(
           (entry) => entry?.from?.toString() === req.user._id.toString()
@@ -844,8 +855,15 @@ export const getUserProfile = async (req, res) => {
       }
 
       const isWriterProfile = ["writer", "creator"].includes(String(user?.role || "").toLowerCase());
-      if (isWriterProfile && isIndustryProfessionalWithPersonalEmail(currentUser || req.user)) {
-        return res.status(403).json({ message: INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE });
+      if (
+        isWriterProfile &&
+        isIndustryProfessionalWithPersonalEmail(currentUser || req.user) &&
+        !hasActiveFilmIndustryProfessionalAccess(currentUser || req.user)
+      ) {
+        return res.status(403).json({
+            message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
+            requiresBusinessEmail: true,
+          });
       }
       if (isWriterProfile) {
         await User.updateOne({ _id: user._id }, { $inc: { profileViews: 1 } });
@@ -1064,12 +1082,7 @@ export const updateUserProfile = async (req, res) => {
       if (!user.industryProfile) user.industryProfile = {};
       if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
       user.industryProfile.mandates.genres = preferredGenres;
-      user.markModified("industryProfile");
-    }
-    if (preferredBudgets !== undefined) {
-      if (!user.industryProfile) user.industryProfile = {};
-      if (!user.industryProfile.mandates) user.industryProfile.mandates = {};
-      user.industryProfile.mandates.budgetTiers = preferredBudgets;
+      delete user.industryProfile.mandates.budgetTiers;
       user.markModified("industryProfile");
     }
     if (preferredFormats !== undefined) {
@@ -1080,6 +1093,7 @@ export const updateUserProfile = async (req, res) => {
       user.industryProfile.mandates.formats = normalizeStringArray(preferredFormats, 40)
         .map(normalizePreferredFormat)
         .filter(Boolean);
+      delete user.industryProfile.mandates.budgetTiers;
       user.markModified("industryProfile");
     }
 
@@ -2068,7 +2082,7 @@ export const removeFromWatchlist = async (req, res) => {
 
 export const updateSettings = async (req, res) => {
   try {
-    const { notificationPrefs, isPrivate, language, timezone } = req.body;
+    const { notificationPrefs, isPrivate, language, timezone, preferredCurrency } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -2084,10 +2098,13 @@ export const updateSettings = async (req, res) => {
     if (isPrivate !== undefined) user.isPrivate = isPrivate;
     if (language !== undefined) user.language = normalizeLanguagePreference(language);
     if (timezone !== undefined) user.timezone = timezone;
+    if (preferredCurrency !== undefined && ["INR", "USD"].includes(String(preferredCurrency).toUpperCase())) {
+      user.preferredCurrency = String(preferredCurrency).toUpperCase();
+    }
     if (!user.language) user.language = DEFAULT_LANGUAGE;
 
     await user.save();
-    res.json({ message: "Settings updated", user: { isPrivate: user.isPrivate, language: user.language, timezone: user.timezone, notificationPrefs: user.notificationPrefs } });
+    res.json({ message: "Settings updated", user: { isPrivate: user.isPrivate, language: user.language, timezone: user.timezone, preferredCurrency: user.preferredCurrency, notificationPrefs: user.notificationPrefs } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -2223,6 +2240,21 @@ export const verifyEmailVerificationCode = async (req, res) => {
 
       user.email = user.pendingEmail;
       user.pendingEmail = undefined;
+    }
+
+    if (isFilmIndustryProfessionalRole(user) && hasBusinessEmail(user.email)) {
+      if (!user.subscription) {
+        user.subscription = {
+          plan: "free",
+          accessTier: "film_industry_professional",
+          accessStatus: "active",
+          accessActivatedAt: new Date(),
+        };
+      } else if (user.subscription.accessTier !== "film_industry_professional" || user.subscription.accessStatus !== "active") {
+        user.subscription.accessTier = "film_industry_professional";
+        user.subscription.accessStatus = "active";
+        user.subscription.accessActivatedAt = new Date();
+      }
     }
 
     user.emailVerified = true;

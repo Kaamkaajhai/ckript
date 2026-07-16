@@ -1,31 +1,28 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useContext, useState, useRef, useEffect, useCallback } from "react";
 import { AuthContext } from "../context/AuthContext";
-import BuyCreditsModal from "./BuyCreditsModal";
+import { useAuthModal } from "../context/AuthModalContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
 import ConfirmDialog from "./ConfirmDialog";
 import {
   Zap, TrendingUp, TrendingDown, ArrowDownLeft, ArrowUpRight,
-  Gift, RefreshCw, ShoppingCart, X, Loader2, ChevronRight
+  RefreshCw, ShoppingCart, X, Loader2, ChevronRight
 } from "lucide-react";
 import { useDarkMode } from "../context/DarkModeContext";
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
+  const { openAuthModal } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showBuyCredits, setShowBuyCredits] = useState(false);
-  const [showCreditsPanel, setShowCreditsPanel] = useState(false);
-  const [creditsData, setCreditsData] = useState(null);
-  const [creditsLoading, setCreditsLoading] = useState(false);
   const [recentTx, setRecentTx] = useState([]);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const dropdownRef = useRef(null);
-  const creditsPanelRef = useRef(null);
+
 
   const searchOptions = [
     { key: "all",       label: "All",       icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" },
@@ -45,46 +42,7 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Close credits panel on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (creditsPanelRef.current && !creditsPanelRef.current.contains(e.target)) {
-        setShowCreditsPanel(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
-  const fetchCreditsData = useCallback(async () => {
-    try {
-      setCreditsLoading(true);
-      const [balRes, histRes] = await Promise.all([
-        api.get("/credits/balance"),
-        api.get("/credits/history?page=1&limit=4"),
-      ]);
-      setCreditsData(balRes.data);
-      setRecentTx(histRes.data.transactions || []);
-    } catch {
-      setCreditsData(null);
-      setRecentTx([]);
-    } finally {
-      setCreditsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user && user.role !== "investor") {
-      fetchCreditsData();
-    }
-  }, [user, fetchCreditsData]);
-
-  const handleCreditsUpdate = (data) => {
-    if (data?.credits) {
-      setCreditsData((prev) => ({ ...prev, balance: data.credits.balance }));
-    }
-    fetchCreditsData();
-  };
 
   const handleSearchNavigate = (type) => {
     setShowDropdown(false);
@@ -105,15 +63,7 @@ const Navbar = () => {
     return `${Math.floor(diff / 86400000)}d ago`;
   };
 
-  const txIcon = (type) => {
-    const map = { purchase: ArrowDownLeft, bonus: Gift, refund: RefreshCw, spent: ArrowUpRight };
-    return map[type] || Zap;
-  };
 
-  const txColor = (type) => {
-    if (type === "spent") return dark ? "text-orange-400 bg-orange-400/10" : "text-orange-600 bg-orange-50";
-    return dark ? "text-emerald-400 bg-emerald-400/10" : "text-emerald-600 bg-emerald-50";
-  };
 
   const handleLogout = () => {
     setShowLogoutConfirm(true);
@@ -122,16 +72,13 @@ const Navbar = () => {
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
+    openAuthModal();
   };
 
   return (
     <>
-      <BuyCreditsModal
-        isOpen={showBuyCredits}
-        onClose={() => setShowBuyCredits(false)}
-        onSuccess={handleCreditsUpdate}
-      />
+
 
       {/* Center search */}
       <div className="relative hidden md:block" ref={dropdownRef}>

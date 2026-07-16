@@ -1,8 +1,10 @@
 import { useState, useEffect, useContext } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { isFilmIndustryProfessionalRole, hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import ProjectCard from "../components/ProjectCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -312,9 +314,19 @@ const Skel = ({ dark }) => (
 ══════════════════════════════════════════════ */
 const InvestorHome = () => {
   const { user } = useContext(AuthContext);
+  const { openPricingModal } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
+  const navigate = useNavigate();
   const [feed, setFeed] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const isPersonalEmailBlocked =
+    isFilmIndustryProfessionalRole(user) &&
+    !hasBusinessEmail(user?.email) &&
+    !hasActiveFilmIndustryProfessionalAccess(user);
+
+  const handleScriptBlock = () => setShowUpgradeModal(true);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -389,7 +401,7 @@ const InvestorHome = () => {
                 to="/mandates"
                 className={`ml-auto px-3 py-1.5 rounded-md border text-[11px] font-semibold transition-colors max-[380px]:ml-0 max-[380px]:w-full max-[380px]:text-center ${dark ? "border-white/[0.14] text-gray-200 hover:bg-white/[0.05]" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
               >
-                Mandate
+                Set Preferences
               </Link>
             </Fade>
 
@@ -450,7 +462,7 @@ const InvestorHome = () => {
                       dark={dark}
                     />
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {scripts.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
+                      {scripts.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} onBlock={isPersonalEmailBlocked ? handleScriptBlock : undefined} />)}
                     </div>
                   </section>
                 </Fade>
@@ -464,7 +476,7 @@ const InvestorHome = () => {
                       title="Matched For You" count={matched.length}
                       sub="Based on your profile, genres, and activity" dark={dark} />
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {matched.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
+                      {matched.map((s, i) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} onBlock={isPersonalEmailBlocked ? handleScriptBlock : undefined} />)}
                     </div>
                   </section>
                 </Fade>
@@ -512,6 +524,72 @@ const InvestorHome = () => {
         )}
 
       </div>
+
+      {/* ── Upgrade modal ── */}
+      {showUpgradeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+          onClick={() => setShowUpgradeModal(false)}
+        >
+          <div
+            className={`relative w-full max-w-sm rounded-2xl border p-6 ${dark ? "bg-[#0d1829] border-white/[0.08]" : "bg-white border-gray-200"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close */}
+            <button
+              type="button"
+              onClick={() => setShowUpgradeModal(false)}
+              className={`absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center transition ${dark ? "text-white/30 hover:text-white/60 hover:bg-white/[0.06]" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Icon */}
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 border ${dark ? "bg-white/[0.04] border-white/[0.07]" : "bg-gray-50 border-gray-200"}`}>
+              <svg className={`w-5 h-5 ${dark ? "text-white/30" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+
+            <h3 className={`text-base font-extrabold mb-1 ${dark ? "text-white" : "text-gray-900"}`}>Access Restricted</h3>
+            <p className={`text-[13px] leading-relaxed mb-5 ${dark ? "text-white/40" : "text-gray-500"}`}>
+              Your account uses a personal email. Choose an option to continue.
+            </p>
+
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => { setShowUpgradeModal(false); openPricingModal("industry"); }}
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition text-left flex items-center justify-between"
+              >
+                <span>
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-amber-500 mb-0.5">Premium</span>
+                  Get Film Industry Professional plan
+                </span>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowUpgradeModal(false); navigate("/producer-director-onboarding"); }}
+                className={`w-full px-4 py-2.5 rounded-xl text-sm font-bold border transition text-left flex items-center justify-between ${dark ? "border-white/[0.08] bg-white/[0.04] text-white/70 hover:bg-white/[0.07]" : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"}`}
+              >
+                <span>
+                  <span className={`block text-[10px] font-bold uppercase tracking-wide mb-0.5 ${dark ? "text-white/30" : "text-gray-400"}`}>Free</span>
+                  Update to a business email
+                </span>
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

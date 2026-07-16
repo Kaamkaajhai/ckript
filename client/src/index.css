@@ -819,11 +819,29 @@ html.dark-mode .script-content img {
   margin: 1.2em 0;
 }
 
+/* Read-only screenplay rendering. These rules deliberately MIRROR the CodeMirror editor's element
+   styling (screenplayMode.js theme) — same Courier size/line-height, the same 62ch column, and the
+   same ch-based indents — so a script looks identical in the editor, the CreateProject preview, the
+   producer/admin viewers, and (structurally) the exported PDF. Change here and there together. */
 .screenplay-viewer {
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 15px;      /* matches editor --sp-font-size base */
+  line-height: 1.7;     /* matches editor .cm-content */
   color: inherit;
+  width: 62ch;          /* matches editor .cm-content width — the screenplay text column */
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Force the Courier screenplay font on the viewer AND every descendant (line divs + inline emphasis
+   spans). Needed because the global `* { font-family: Inter }` reset applies directly to each child and
+   would otherwise override the Courier inherited from .screenplay-viewer — rendering the screenplay in
+   a proportional font (and throwing off the ch-based indents, which are relative to the glyph width).
+   Must match the editor's SCREENPLAY_FONT so the view looks identical to Create Project. */
+.screenplay-viewer,
+.screenplay-viewer * {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
 }
 
 .screenplay-line {
@@ -833,76 +851,232 @@ html.dark-mode .script-content img {
 }
 
 .screenplay-line--frontmatter {
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.4em;
   text-align: center;
 }
 
+/* Scene / shot — slugline: bold uppercase with generous air above (editor paddingTop 3.2em). */
 .screenplay-line--scene,
 .screenplay-line--shot {
-  margin: 1.25rem 0 0.45rem;
+  margin: 3.2em 0 0.4em;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .screenplay-line--action {
-  margin: 0 0 0.7rem;
+  max-width: 62ch;
+  margin: 0.5em 0 0;
 }
 
+/* Character cue — indented 22ch, uppercase bold, hugs the dialogue below (editor values). */
 .screenplay-line--character {
-  margin: 1rem 0 0.15rem 32%;
-  max-width: 15rem;
+  margin: 1.2em 0 0 22ch;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .screenplay-line--parenthetical {
-  margin: 0 0 0.12rem 27%;
-  max-width: 20rem;
+  margin: 0 0 0 16ch;
+  font-style: italic;
+  opacity: 0.85;
 }
 
 .screenplay-line--dialogue {
-  margin: 0 0 0.7rem 22%;
-  max-width: 28rem;
+  margin: 0 0 0.35em 10ch;
+  max-width: 35ch;
 }
 
 .screenplay-line--transition {
-  margin: 1rem 0 0.55rem auto;
-  max-width: 16rem;
+  margin: 1.2em 0 0.4em auto;
+  max-width: 62ch;
   text-align: right;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
 }
 
 .screenplay-spacer {
-  height: 0.85rem;
+  height: 1.7em;
+}
+
+/* Centered action (">words<" in the editor) — center within the text column. */
+.screenplay-line--centered {
+  text-align: center;
+  margin-left: 0;
+  margin-right: 0;
+  max-width: 62ch;
 }
 
 @media (max-width: 640px) {
   .screenplay-viewer {
     font-size: 13px;
+    width: 100%;
   }
 
   .screenplay-line--character {
-    margin-left: 18%;
-    max-width: none;
+    margin-left: 18ch;
   }
 
   .screenplay-line--parenthetical {
-    margin-left: 14%;
-    max-width: none;
+    margin-left: 14ch;
   }
 
   .screenplay-line--dialogue {
-    margin-left: 10%;
+    margin-left: 10ch;
     max-width: none;
   }
 
   .screenplay-line--transition {
     max-width: none;
   }
+}
+
+/* Fountain screenplay editor (CodeMirror) host */
+.screenplay-editor .cm-editor {
+  min-height: 1056px;
+  outline: none;
+}
+.screenplay-editor .cm-editor.cm-focused {
+  outline: none;
+}
+.screenplay-editor .cm-scroller {
+  /* Internal page margins. Asymmetric and left-heavy like a real screenplay page (~1.5" L /
+     1" R), so the text block sits inside the sheet, not flush against its left border. */
+  padding: 3rem 3rem 3rem 4.5rem;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  background: transparent;
+}
+.screenplay-editor .cm-editor,
+.screenplay-editor .cm-content {
+  background: transparent;
+}
+.screenplay-editor .cm-content {
+  caret-color: currentColor;
+}
+/* A script page has no left/right border rules — its edge is the white sheet against the grey
+   desk plus the drop shadow, nothing drawn. Kill every border/outline/ring on the editor layers
+   so no focus ring or base-theme rule can bleed through as vertical lines down the page sides. */
+.screenplay-editor .cm-editor,
+.screenplay-editor .cm-editor.cm-focused,
+.screenplay-editor .cm-scroller,
+.screenplay-editor .cm-content,
+.screenplay-editor .cm-content:focus,
+.screenplay-editor .cm-content:focus-visible,
+.screenplay-editor .cm-line {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+/* Belt-and-braces: pin the screenplay body font on the actual text containers. CodeMirror's
+   injected base theme also targets .cm-content/.cm-scroller, so this host-class rule (higher
+   specificity) guarantees Courier Prime wins regardless of stylesheet injection order. */
+.screenplay-editor .cm-scroller,
+.screenplay-editor .cm-content,
+.screenplay-editor .cm-line {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+}
+/* Text colors are set by the CodeMirror theme (near-black on white / off-white on dark,
+   sluglines the only accent) — see screenplayMode.js. */
+
+/* Inline line-comment icon — shown at the right edge of the active (caret) line. It's a CodeMirror
+   widget placed after the line content; absolute-positioning pins it to the page's right margin so
+   it doesn't shift the text. Subtle until hovered, like Google Docs' margin comment affordance. */
+.screenplay-editor .cm-sp-linecomment-btn {
+  position: absolute;
+  right: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-top: -2px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #9aa3ad;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+.screenplay-editor .cm-sp-linecomment-btn:hover {
+  opacity: 1;
+  background: rgba(30, 58, 95, 0.10);
+  color: #1e3a5f;
+}
+.screenplay-editor--dark .cm-sp-linecomment-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #a3c5f2;
+}
+
+/* Marker suppression: hide Fountain syntax characters (~ # ^) and forced-element markers (. @ >)
+   at zero width WITHOUT making them atomic. A mark decoration (not Decoration.replace) keeps every
+   character individually addressable so click-to-place-cursor works on every line; this CSS just
+   collapses the marked glyphs visually. font-size:0 removes the glyph box; the rest neutralizes any
+   inherited spacing so the line reads as a clean label. */
+.screenplay-editor .cm-sp-marker {
+  font-size: 0 !important;
+  letter-spacing: 0 !important;
+}
+
+/* Inline Fountain emphasis rendering (the * and _ markers themselves are hidden via .cm-sp-marker).
+   IMPORTANT: `body` sets `font-synthesis: none` (inherited everywhere), so if the Courier Prime
+   bold/italic faces aren't loaded the browser would render plain text for *bold* and *italic* while
+   _underline_ (which doesn't need a font face) still worked — the exact "underline works, bold/italic
+   don't" symptom. Re-enable synthesis on the emphasis spans so bold/italic always render, whether
+   from the real face or a synthesized one. */
+.screenplay-editor .cm-sp-em-bold { font-weight: 700; font-synthesis: weight; }
+.screenplay-editor .cm-sp-em-italic { font-style: italic; font-synthesis: style; }
+.screenplay-editor .cm-sp-em-underline { text-decoration: underline; text-underline-offset: 2px; }
+.screenplay-editor .cm-sp-em-bolditalic { font-weight: 700; font-style: italic; font-synthesis: weight style; }
+
+/* Scene lock layer (Phase 3) — scenes held by another writer: faint tint + badge */
+.screenplay-editor .cm-sp-locked { background: rgba(0, 0, 0, 0.03); }
+.screenplay-editor--dark .cm-sp-locked { background: rgba(255, 255, 255, 0.04); }
+.screenplay-editor .cm-sp-lockbadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  margin: 6px 0 2px;
+  color: #6b6b6b;
+}
+.screenplay-editor--dark .cm-sp-lockbadge { color: #9aa3ad; }
+.screenplay-editor .cm-sp-lockdot { width: 8px; height: 8px; border-radius: 9999px; display: inline-block; flex: none; }
+.screenplay-editor .cm-sp-lockbtn {
+  font: inherit;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #d4d4d4;
+  background: #fff;
+  color: #1e3a5f;
+  cursor: pointer;
+}
+.screenplay-editor--dark .cm-sp-lockbtn { border-color: #2a4a6a; background: transparent; color: #9db8e0; }
+
+/* Comment highlights (Phase 3 §5) — subtle underline; focused thread gets a soft fill */
+.screenplay-editor .cm-sp-comment {
+  text-decoration: underline;
+  text-decoration-color: #d6a93a;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.screenplay-editor .cm-sp-comment--focus { background: rgba(214, 169, 58, 0.16); border-radius: 2px; }
+.screenplay-editor--dark .cm-sp-comment { text-decoration-color: #caa64a; }
+
+@media (max-width: 640px) {
+  .screenplay-editor .cm-scroller {
+    padding: 2rem 1rem 2rem 1.75rem;
+  }
+  /* Tighter character-column indents on narrow screens (still ch-based). */
+  .screenplay-editor .cm-sp-character { margin-left: 12ch !important; }
+  .screenplay-editor .cm-sp-parenthetical { margin-left: 8ch !important; }
+  .screenplay-editor .cm-sp-dialogue { margin-left: 5ch !important; max-width: none !important; }
 }
 
 .script-content img {
@@ -1501,16 +1675,16 @@ html.dark-mode .script-content img {
 }
 
 /* Fallback: if dark-mode inputs miss explicit text classes, keep content readable. */
-html.dark-mode input:not([class*="text-"]):not([type="checkbox"]):not([type="radio"]),
-html.dark-mode textarea:not([class*="text-"]),
-html.dark-mode select:not([class*="text-"]) {
-  color: #e5edf7;
-  caret-color: #e5edf7;
+html.dark-mode input:not([type="checkbox"]):not([type="radio"]),
+html.dark-mode textarea,
+html.dark-mode select {
+  color: #e5edf7 !important;
+  caret-color: #e5edf7 !important;
 }
 
-html.dark-mode input:not([class*="placeholder:"])::placeholder,
-html.dark-mode textarea:not([class*="placeholder:"])::placeholder {
-  color: #94a3b8;
+html.dark-mode input::placeholder,
+html.dark-mode textarea::placeholder {
+  color: rgba(255, 255, 255, 0.7) !important;
   opacity: 1;
 }
 
@@ -1547,6 +1721,16 @@ html.dark-mode textarea:not([class*="placeholder:"])::placeholder {
     color: #000 !important;
   }
 }
+/* ── Fix native inputs in dark mode ── */
+html.dark-mode input[type="date"]::-webkit-datetime-edit-text,
+html.dark-mode input[type="date"]::-webkit-datetime-edit-month-field,
+html.dark-mode input[type="date"]::-webkit-datetime-edit-day-field,
+html.dark-mode input[type="date"]::-webkit-datetime-edit-year-field,
+html.dark-mode input[type="time"]::-webkit-datetime-edit-text,
+html.dark-mode input[type="time"]::-webkit-datetime-edit-hour-field,
+html.dark-mode input[type="time"]::-webkit-datetime-edit-minute-field {
+  color: white !important;
+}
 
 /* ── Global Translate Engine (hidden widget) ── */
 #google_translate_element,
@@ -1568,4 +1752,9 @@ iframe.VIpgJd-ZVi9od-xl07Ob-OEVmcd,
 html,
 body {
   top: 0 !important;
+}
+
+/* Hide comment icon in read-only mode (preview fallback) */
+.screenplay-editor--readonly .cm-sp-linecomment-btn {
+  display: none !important;
 }

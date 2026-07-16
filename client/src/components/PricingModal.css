@@ -1,0 +1,686 @@
+/* Ckript — Pricing modal · Design E ("Writer trio + industry ribbon").
+   Port of "Pricing Modal v3.dc.html" from the Claude Design handoff.
+
+   One editorial surface for the whole pricing story: the Free / Silver / Gold
+   writer tiers as a three-up grid, with the ₹1999 Film Industry Professional
+   plan as a full-width ribbon beneath. It replaces both the old single-column
+   modal and the /pricing page, and is a real, account-aware checkout — not a
+   decorative card. Writer plans run through useWriterPlanCheckout; the industry
+   ribbon through useFilmIndustryProfessionalCheckout. Both share one Razorpay
+   contract so no surface can drift.
+
+   The handoff's brand red (#D14D37) and serif pairing (Baskervville + PT Serif)
+   match AboutModal + the Landing page, so the overlay reads as part of the
+   product. Fonts load via <link> (shared id), so the surface can never paint
+   unstyled. The pmx- prefix keeps this sheet self-contained.
+
+   States added on top of the static design (production, not in the comp):
+   active badges, days-left, upload-quota meters, per-button loading, role
+   gating, inline error/info, and a unified success view. */
+
+.pmx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 44px 20px;
+  background: radial-gradient(circle at 30% 18%, rgba(34, 29, 26, 0.66), rgba(20, 18, 16, 0.86) 72%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ── Card ─────────────────────────────────────────────────────── */
+.pmx-card {
+  position: relative;
+  width: 940px;
+  max-width: 100%;
+  margin: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  padding: 30px 32px;
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+.pmx-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-right: 40px; /* clear the close button */
+}
+.pmx-eyebrow {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+}
+.pmx-eyebrow i {
+  width: 8px;
+  height: 8px;
+  background: #d14d37;
+  transform: rotate(45deg);
+}
+.pmx-eyebrow span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: #9a978f;
+}
+.pmx-title {
+  margin: 11px 0 0;
+  font-family: "Baskervville", Georgia, serif;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1;
+  color: #0b0a06;
+}
+.pmx-head-aside {
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 12px;
+  font-style: italic;
+  color: #b3afa7;
+  text-align: right;
+  flex: none;
+  max-width: 38%;
+}
+
+/* ── Writer trio ──────────────────────────────────────────────── */
+.pmx-trio {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.pmx-tier {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e3e1da;
+  padding: 20px 18px;
+}
+.pmx-tier--gold {
+  background: #161513;
+  border-color: #161513;
+}
+.pmx-tier-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #d14d37;
+}
+
+.pmx-tier-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+.pmx-tier-name {
+  font-family: "Baskervville", Georgia, serif;
+  font-size: 20px;
+  line-height: 1;
+  color: #0b0a06;
+}
+.pmx-tier--gold .pmx-tier-name {
+  color: #fff;
+}
+
+.pmx-chip {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  white-space: nowrap;
+}
+.pmx-chip--best {
+  color: #d14d37;
+  border: 1px solid rgba(209, 77, 55, 0.5);
+}
+
+.pmx-tier-price {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.pmx-tier-price b {
+  font-family: "Baskervville", Georgia, serif;
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1;
+  color: #0b0a06;
+}
+.pmx-tier--gold .pmx-tier-price b {
+  color: #fff;
+}
+.pmx-tier-price span {
+  font-size: 11px;
+  color: #8a8a8a;
+}
+.pmx-tier--gold .pmx-tier-price span {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.pmx-tier-divider {
+  margin: 14px 0;
+  height: 1px;
+  background: #eceae4;
+}
+.pmx-tier--gold .pmx-tier-divider {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pmx-feats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.pmx-feats li {
+  display: flex;
+  gap: 9px;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #3f3c37;
+}
+.pmx-tier--gold .pmx-feats li {
+  color: rgba(255, 255, 255, 0.78);
+}
+.pmx-feats li i {
+  flex: none;
+  margin-top: 5px;
+  width: 5px;
+  height: 5px;
+  background: #d14d37;
+  transform: rotate(45deg);
+}
+
+/* ── Active state: status pills + quota meter ─────────────────── */
+.pmx-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.pmx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 100px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.pmx-pill--active {
+  border: 1px solid #bfe3cf;
+  background: #f0f9f3;
+  color: #2f8a55;
+}
+.pmx-pill--active i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2f8a55;
+}
+.pmx-pill--days {
+  border: 1px solid #e7d3a8;
+  background: #fdf7e9;
+  color: #9a7416;
+}
+/* On the dark gold card the pills need a lighter footprint */
+.pmx-tier--gold .pmx-pill--active {
+  border-color: rgba(96, 209, 142, 0.4);
+  background: rgba(47, 138, 85, 0.18);
+  color: #79d7a1;
+}
+.pmx-tier--gold .pmx-pill--days {
+  border-color: rgba(231, 211, 168, 0.35);
+  background: rgba(154, 116, 22, 0.18);
+  color: #e2c684;
+}
+
+.pmx-quota {
+  margin-top: 12px;
+}
+.pmx-quota-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 10.5px;
+  color: #8a8a8a;
+}
+.pmx-tier--gold .pmx-quota-row {
+  color: rgba(255, 255, 255, 0.55);
+}
+.pmx-quota-row b {
+  font-weight: 700;
+  color: #3f3c37;
+}
+.pmx-tier--gold .pmx-quota-row b {
+  color: #fff;
+}
+.pmx-quota-track {
+  margin-top: 6px;
+  height: 5px;
+  border-radius: 100px;
+  background: #eceae4;
+  overflow: hidden;
+}
+.pmx-tier--gold .pmx-quota-track {
+  background: rgba(255, 255, 255, 0.12);
+}
+.pmx-quota-fill {
+  height: 100%;
+  border-radius: 100px;
+  background: #d14d37;
+  transition: width 0.5s ease;
+}
+.pmx-quota-fill--full {
+  background: #b5402c;
+}
+
+/* ── Tier buttons ─────────────────────────────────────────────── */
+.pmx-tier-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pmx-btn {
+  height: 38px;
+  width: 100%;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+/* Outline (Free / Silver default) */
+.pmx-btn--outline {
+  background: #fff;
+  color: #0b0a06;
+  border-color: #161513;
+}
+.pmx-btn--outline:hover:not(:disabled) {
+  background: #161513;
+  color: #fff;
+}
+/* Accent (Gold) */
+.pmx-btn--accent {
+  background: #d14d37;
+  color: #fff;
+}
+.pmx-btn--accent:hover:not(:disabled) {
+  background: #b83c28;
+}
+/* Ghost (secondary "renew" line) */
+.pmx-btn--ghost {
+  background: transparent;
+  color: #8a8a8a;
+  border-color: #e3e1da;
+  font-weight: 600;
+}
+.pmx-btn--ghost:hover:not(:disabled) {
+  color: #d14d37;
+  border-color: #d8b6ad;
+}
+.pmx-tier--gold .pmx-btn--ghost {
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.pmx-tier--gold .pmx-btn--ghost:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+/* Active confirmation (go to dashboard) */
+.pmx-btn--active {
+  background: #2f8a55;
+  color: #fff;
+}
+.pmx-btn--active:hover:not(:disabled) {
+  background: #277a49;
+}
+.pmx-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.pmx-btn--outline:disabled {
+  background: #f3f1ec;
+  color: #b3afa7;
+  border-color: #e3e1da;
+  opacity: 1;
+}
+
+/* ── Industry ribbon ──────────────────────────────────────────── */
+.pmx-ribbon {
+  position: relative;
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: #faf8f3;
+  border: 1px solid #e8e4db;
+  padding: 18px 22px;
+}
+.pmx-ribbon-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  background: #d14d37;
+}
+.pmx-ribbon-id {
+  flex: none;
+  max-width: 240px;
+}
+.pmx-ribbon-kicker {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #d14d37;
+}
+.pmx-ribbon-name {
+  margin-top: 4px;
+  font-family: "Baskervville", Georgia, serif;
+  font-size: 19px;
+  line-height: 1.05;
+  color: #0b0a06;
+}
+.pmx-ribbon-desc {
+  flex: 1;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6b6760;
+}
+.pmx-ribbon-right {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pmx-ribbon-price {
+  text-align: right;
+}
+.pmx-ribbon-price b {
+  font-family: "Baskervville", Georgia, serif;
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1;
+  color: #0b0a06;
+}
+.pmx-ribbon-price span {
+  display: block;
+  font-size: 10px;
+  color: #8a8a8a;
+}
+.pmx-ribbon-cta {
+  flex: none;
+  height: 42px;
+  padding: 0 20px;
+  background: #121212;
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+.pmx-ribbon-cta:hover:not(:disabled) {
+  background: #000;
+}
+.pmx-ribbon-cta--active {
+  background: #2f8a55;
+}
+.pmx-ribbon-cta--active:hover:not(:disabled) {
+  background: #277a49;
+}
+.pmx-ribbon-cta:disabled {
+  cursor: not-allowed;
+  background: #b8b5af;
+}
+.pmx-ribbon-renew {
+  flex: none;
+  height: 42px;
+  padding: 0 16px;
+  background: transparent;
+  border: 1px solid #d8d3c8;
+  color: #6b6760;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+.pmx-ribbon-renew:hover:not(:disabled) {
+  color: #d14d37;
+  border-color: #d8b6ad;
+}
+.pmx-ribbon-renew:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Spinner + lock icon ──────────────────────────────────────── */
+.pmx-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: pmx-spin 0.7s linear infinite;
+  flex: none;
+}
+.pmx-btn--outline .pmx-spinner {
+  border-color: rgba(11, 10, 6, 0.25);
+  border-top-color: #0b0a06;
+}
+@keyframes pmx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Inline messages (global) ─────────────────────────────────── */
+.pmx-msgs {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pmx-msg {
+  padding: 9px 13px;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 12.5px;
+  line-height: 1.45;
+  border-radius: 4px;
+}
+.pmx-msg--info {
+  border: 1px solid #cfe3d6;
+  background: #f1f8f4;
+  color: #2f7a4d;
+}
+.pmx-msg--error {
+  border: 1px solid #ecc7c1;
+  background: #fbf1ef;
+  color: #b5402c;
+}
+.pmx-msg--warn {
+  border: 1px solid #e7d3a8;
+  background: #fdf7e9;
+  color: #8a6a16;
+}
+
+/* ── Close ────────────────────────────────────────────────────── */
+.pmx-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #333;
+  z-index: 2;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.pmx-close:hover:not(:disabled) {
+  background: #f0eeea;
+  color: #d14d37;
+}
+.pmx-close:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── Success view ─────────────────────────────────────────────── */
+.pmx-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 26px 8px 14px;
+}
+.pmx-success-mark {
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid #bfe3cf;
+  background: #f0f9f3;
+  color: #2f8a55;
+}
+.pmx-success-kicker {
+  margin-top: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: #2f8a55;
+}
+.pmx-success-title {
+  margin: 10px 0 0;
+  font-family: "Baskervville", Georgia, serif;
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 0.4px;
+  color: #0b0a06;
+}
+.pmx-success-body {
+  margin: 10px auto 0;
+  max-width: 40ch;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #57544f;
+}
+.pmx-success-cta {
+  margin-top: 24px;
+  height: 46px;
+  min-width: 220px;
+  padding: 0 28px;
+  background: #2f8a55;
+  color: #fff;
+  border: none;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.pmx-success-cta:hover {
+  background: #277a49;
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .pmx-overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+  .pmx-card {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 0;
+    padding: 56px 18px 28px;
+  }
+  .pmx-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .pmx-head-aside {
+    display: none;
+  }
+  .pmx-trio {
+    grid-template-columns: 1fr;
+  }
+  .pmx-ribbon {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px 18px 18px 22px;
+  }
+  .pmx-ribbon-id {
+    max-width: 100%;
+  }
+  .pmx-ribbon-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .pmx-ribbon-cta {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pmx-btn,
+  .pmx-ribbon-cta,
+  .pmx-ribbon-renew,
+  .pmx-close,
+  .pmx-quota-fill {
+    transition: none;
+  }
+  .pmx-spinner {
+    animation-duration: 1.4s;
+  }
+}

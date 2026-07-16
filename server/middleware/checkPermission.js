@@ -1,9 +1,10 @@
 import Script from "../models/Script.js";
 
 export const PERMISSIONS = {
-  read: ["full_admin", "editor", "merger", "viewer"],
+  read: ["full_admin", "editor", "merger", "viewer", "commenter"],
   write: ["full_admin", "editor"],
-  comment: ["full_admin", "editor", "merger", "viewer"],
+  // Commenters leave notes but cannot edit (producer-review case); viewers can do neither.
+  comment: ["full_admin", "editor", "merger", "commenter"],
   approve: ["full_admin", "merger"],
   publish: ["full_admin"],
   manage: ["full_admin"],

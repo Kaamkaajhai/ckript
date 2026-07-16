@@ -78,10 +78,11 @@ const DEFAULT_SIGNUP_ROLE = "creator";
 const REFERRAL_STORAGE_KEY = "sb:referral-code";
 const REFERRAL_MAX_LENGTH = 40;
 
-const normalizeReferralInput = (value = "") =>
-  String(value || "")
-    .trim()
-    .slice(0, REFERRAL_MAX_LENGTH);
+const normalizeReferralInput = (value = "") => {
+  const str = String(value || "").trim();
+  if (str === "null" || str === "undefined") return "";
+  return str.slice(0, REFERRAL_MAX_LENGTH);
+};
 
 const Join = () => {
   const { join, setUser } = useContext(AuthContext);

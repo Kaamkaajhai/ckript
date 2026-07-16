@@ -266,7 +266,7 @@ const E2ETestFlow = () => {
       try { await ctxLogin(creds.email.trim(), creds.password); } catch { /* already fetched above */ }
 
       const homeRouteOk = data.role === "reader"
-        ? ["/reader", "/top-list", "/featured"].some((p) => window.location.pathname !== p || true)
+        ? ["/reader", "/top-script", "/featured"].some((p) => window.location.pathname !== p || true)
         : !!data.role;
       assertions.push({ ok: homeRouteOk, label: `Role "${data.role}" maps to a valid home route` });
 
