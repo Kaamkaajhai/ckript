@@ -1930,7 +1930,9 @@ const ScriptUpload = () => {
         setSubmissionSuccess({ projectTitle: payload.title, reviewPath });
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
+      const errorMsg = err.response?.data?.message || err.message || "Failed to upload script. Please try again.";
+      console.error("Submission failed with error from server:", errorMsg);
+      console.error("Full error object:", err);
       presentValidationIssues([
         resolveUploadServerIssue(errorMsg, currentScreenRef.current),
       ]);
