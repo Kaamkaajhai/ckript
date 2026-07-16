@@ -24,6 +24,7 @@ import { buildUserCanonicalPath, buildUserShareMeta, buildScriptCanonicalPath, b
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
+import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -207,14 +208,6 @@ const getCloudinaryUploadResourceType = (mimeType = "") => {
   return "raw";
 };
 
-const getCloudinaryResourceTypeFromUrl = (url = "") => {
-  const normalized = String(url || "");
-  if (normalized.includes("/image/upload/")) return "image";
-  if (normalized.includes("/video/upload/")) return "video";
-  if (normalized.includes("/raw/upload/")) return "raw";
-  return "";
-};
-
 const resolveAttachmentCloudinaryResourceType = (attachment) =>
   normalizeString(attachment?.cloudinaryResourceType) ||
   getCloudinaryResourceTypeFromUrl(attachment?.url) ||
@@ -255,13 +248,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
         attachment: false,
       });
 
-      const response = await fetch(signedUrl);
-      if (!response.ok) continue;
-
-      const arrayBuffer = await response.arrayBuffer();
-      if (arrayBuffer.byteLength > 0) {
-        return Buffer.from(arrayBuffer);
-      }
+      const { buffer } = await fetchTrustedPdfAsset(signedUrl);
+      if (buffer.length > 0) return buffer;
     } catch {
       // Try fallback resource types.
     }
@@ -269,13 +257,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
 
   if (attachmentUrl) {
     try {
-      const fallbackResponse = await fetch(attachmentUrl);
-      if (fallbackResponse.ok) {
-        const fallbackBuffer = await fallbackResponse.arrayBuffer();
-        if (fallbackBuffer.byteLength > 0) {
-          return Buffer.from(fallbackBuffer);
-        }
-      }
+      const { buffer } = await fetchTrustedPdfAsset(attachmentUrl);
+      if (buffer.length > 0) return buffer;
     } catch {
       // Final fallback failed; return null below.
     }

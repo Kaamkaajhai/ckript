@@ -38,6 +38,13 @@ import {
   getRemainingContacts,
 } from "../utils/industryAccess.js";
 import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
+import {
+  RemoteAssetPolicyError,
+  createRemoteAssetGrant,
+  fetchTrustedPdfAsset,
+  normalizeTrustedRemoteAssetUrl,
+  verifyRemoteAssetGrant,
+} from "../utils/remoteAssetPolicy.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
@@ -293,6 +300,87 @@ const SCRIPT_COMPLETION_STATUS_OPTIONS = new Set(["complete", "partial", "ongoin
 const MIN_LICENSE_DURATION_MONTHS = 1;
 const MAX_LICENSE_DURATION_MONTHS = 120;
 
+const getRemoteAssetErrorStatus = (error) =>
+  String(error?.code || "").includes("CONFIGURATION_ERROR") ? 500 : 400;
+
+const sendRemoteAssetError = (res, error) => res.status(getRemoteAssetErrorStatus(error)).json({
+  message: error.message,
+  code: error.code,
+});
+
+const resolveSubmittedScriptFile = ({
+  scriptUrl,
+  fileUrl,
+  fileGrant,
+  ownerId,
+  currentUrl = "",
+  validateStored = false,
+} = {}) => {
+  const submittedScriptUrl = scriptUrl === undefined || scriptUrl === null ? "" : String(scriptUrl).trim();
+  const submittedFileUrl = fileUrl === undefined || fileUrl === null ? "" : String(fileUrl).trim();
+  if (submittedScriptUrl && submittedFileUrl && submittedScriptUrl !== submittedFileUrl) {
+    throw new RemoteAssetPolicyError(
+      "Conflicting script file references were submitted.",
+      "CONFLICTING_SCRIPT_FILE_URLS"
+    );
+  }
+
+  const candidate = submittedScriptUrl || submittedFileUrl;
+  const stored = String(currentUrl || "").trim();
+  if (!candidate) {
+    let resolvedStored = stored;
+    if (stored && validateStored) {
+      try {
+        resolvedStored = normalizeTrustedRemoteAssetUrl(stored);
+      } catch {
+        throw new RemoteAssetPolicyError(
+          "The stored script file is no longer trusted. Re-upload the PDF before publishing.",
+          "STORED_SCRIPT_ASSET_UNTRUSTED"
+        );
+      }
+    }
+    return {
+      changed: false,
+      url: resolvedStored,
+      grant: null,
+    };
+  }
+
+  const normalizedCandidate = normalizeTrustedRemoteAssetUrl(candidate);
+  let normalizedStored = "";
+  if (stored) {
+    try {
+      normalizedStored = normalizeTrustedRemoteAssetUrl(stored);
+    } catch {
+      normalizedStored = "";
+    }
+  }
+
+  if (normalizedStored && normalizedCandidate === normalizedStored) {
+    return { changed: false, url: normalizedStored, grant: null };
+  }
+  if (!fileGrant) {
+    throw new RemoteAssetPolicyError(
+      "This script file was not issued by the upload service. Upload the PDF again.",
+      "MISSING_ASSET_GRANT"
+    );
+  }
+
+  const grant = verifyRemoteAssetGrant(fileGrant, {
+    url: normalizedCandidate,
+    ownerId,
+    purpose: "script-source",
+  });
+  if (String(grant.format || "").toLowerCase() !== "pdf") {
+    throw new RemoteAssetPolicyError(
+      "Only uploaded PDF files can be attached as the script source.",
+      "UNSUPPORTED_SCRIPT_ASSET_FORMAT"
+    );
+  }
+
+  return { changed: true, url: normalizedCandidate, grant };
+};
+
 const sanitizeArchiveSegment = (value = "", fallback = "item") => {
   const normalized = String(value || "")
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, " ")
@@ -301,36 +389,16 @@ const sanitizeArchiveSegment = (value = "", fallback = "item") => {
   return normalized || fallback;
 };
 
-const inferArchiveExtension = ({ url = "", contentType = "" } = {}) => {
-  const normalizedType = String(contentType || "").toLowerCase();
-  if (normalizedType.includes("pdf")) return ".pdf";
-  if (normalizedType.includes("msword")) return ".doc";
-  if (normalizedType.includes("officedocument.wordprocessingml")) return ".docx";
-  if (normalizedType.startsWith("text/plain")) return ".txt";
-
-  try {
-    const pathname = new URL(String(url || "")).pathname || "";
-    const ext = path.extname(pathname);
-    if (ext) return ext.toLowerCase();
-  } catch {
-    // Ignore invalid URLs and fall through to plain text.
-  }
-
-  return ".txt";
+const fetchTrustedPdfBuffer = async (url) => {
+  const { buffer } = await fetchTrustedPdfAsset(url);
+  return buffer;
 };
 
 const fetchArchivePdfBuffer = async (script) => {
   const remoteUrl = String(script?.fileUrl || "").trim();
   if (remoteUrl) {
     try {
-      const response = await fetch(remoteUrl);
-      if (response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        const extension = inferArchiveExtension({ url: remoteUrl, contentType });
-        if (extension === ".pdf") {
-          return Buffer.from(await response.arrayBuffer());
-        }
-      }
+      return await fetchTrustedPdfBuffer(remoteUrl);
     } catch (error) {
       console.error("[fetchArchivePdfBuffer] Remote file download failed:", error?.message || error);
     }
@@ -347,10 +415,7 @@ const fetchArchivePdfBuffer = async (script) => {
         expires_at: Math.floor(Date.now() / 1000) + 10 * 60,
         attachment: false,
       });
-      const response = await fetch(signedUrl);
-      if (response.ok) {
-        return Buffer.from(await response.arrayBuffer());
-      }
+      return await fetchTrustedPdfBuffer(signedUrl);
     } catch (error) {
       console.error("[fetchArchivePdfBuffer] Submission summary PDF download by publicId failed:", error?.message || error);
     }
@@ -358,10 +423,7 @@ const fetchArchivePdfBuffer = async (script) => {
 
   if (summaryUrl) {
     try {
-      const response = await fetch(summaryUrl);
-      if (response.ok) {
-        return Buffer.from(await response.arrayBuffer());
-      }
+      return await fetchTrustedPdfBuffer(summaryUrl);
     } catch (error) {
       console.error("[fetchArchivePdfBuffer] Submission summary PDF download by url failed:", error?.message || error);
     }
@@ -1588,21 +1650,27 @@ export const extractPdfText = async (req, res) => {
     }
 
     let uploadedPdfUrl = "";
-    try {
-      const uploadOptions = {
-        folder: "scriptbridge/scripts",
-        resource_type: "raw",
-        public_id: `script-${req.user?._id || "user"}-${Date.now()}`,
-      };
-      if (docType === "pdf") {
-        uploadOptions.format = "pdf";
-      } else if (docType === "docx") {
-        uploadOptions.format = "docx";
+    let fileGrant = "";
+    if (docType === "pdf") {
+      try {
+        const uploadOptions = {
+          folder: "scriptbridge/scripts",
+          resource_type: "raw",
+          public_id: `script-${req.user?._id || "user"}-${Date.now()}`,
+          format: "pdf",
+        };
+        const uploadResult = await uploadToCloudinary(req.file.buffer, uploadOptions);
+        uploadedPdfUrl = normalizeTrustedRemoteAssetUrl(uploadResult?.secure_url || "");
+        fileGrant = createRemoteAssetGrant({
+          url: uploadedPdfUrl,
+          ownerId: req.user?._id,
+          publicId: uploadResult?.public_id || "",
+          purpose: "script-source",
+          format: "pdf",
+        });
+      } catch (uploadError) {
+        console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
       }
-      const uploadResult = await uploadToCloudinary(req.file.buffer, uploadOptions);
-      uploadedPdfUrl = uploadResult?.secure_url || "";
-    } catch (uploadError) {
-      console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
     }
 
     res.json({
@@ -1610,8 +1678,12 @@ export const extractPdfText = async (req, res) => {
       numItems,
       pageTexts,
       fileUrl: uploadedPdfUrl,
+      fileGrant,
+      sourceMode: uploadedPdfUrl ? "uploaded-pdf" : "imported-text",
       extractedTextAvailable: true,
-      extractionWarning: "",
+      extractionWarning: docType === "docx"
+        ? "Word documents are imported as editable script text. The full script PDF is generated from the editor."
+        : "",
     });
   } catch (error) {
     console.error("Document Extraction Error:", error);
@@ -1668,8 +1740,6 @@ export const saveDraft = async (req, res) => {
         return res.status(409).json({ message: "Only draft projects can be autosaved as drafts." });
       }
 
-      script.projectSource = "editor";
-
       script.title = title || script.title;
       script.textContent = textContent !== undefined ? textContent : script.textContent;
       if (otherData.fountainContent !== undefined) script.fountainContent = otherData.fountainContent;
@@ -1713,16 +1783,17 @@ export const saveDraft = async (req, res) => {
         script.formatOther = String(otherData.formatOther || "").trim();
       }
       if (otherData.pageCount !== undefined) script.pageCount = Number(otherData.pageCount) || 0;
-      if (otherData.fileUrl !== undefined) {
-        const nextFileUrl = String(otherData.fileUrl || "").trim();
-        if (nextFileUrl && !nextFileUrl.includes("placeholder-url.com")) {
-          script.fileUrl = nextFileUrl;
-          script.projectSource = "uploaded";
-        }
+      if (otherData.fileUrl !== undefined || otherData.scriptUrl !== undefined) {
+        const submittedFile = resolveSubmittedScriptFile({
+          scriptUrl: otherData.scriptUrl,
+          fileUrl: otherData.fileUrl,
+          fileGrant: otherData.fileGrant,
+          ownerId: req.user._id,
+          currentUrl: script.fileUrl,
+        });
+        script.fileUrl = submittedFile.url;
       }
-      if (otherData.projectSource !== undefined && ["uploaded", "editor"].includes(otherData.projectSource)) {
-        script.projectSource = otherData.projectSource;
-      }
+      script.projectSource = String(script.fileUrl || "").trim() ? "uploaded" : "editor";
       if (otherData.collabVisibility !== undefined) {
         const normalizedCollabVisibility = String(otherData.collabVisibility || "").trim().toLowerCase();
         if (["open", "private"].includes(normalizedCollabVisibility)) {
@@ -1881,7 +1952,24 @@ export const saveDraft = async (req, res) => {
     }
 
     // Otherwise create a new draft
-    const { _id, id, sid, ...safeOtherData } = otherData || {};
+    const {
+      _id,
+      id,
+      sid,
+      fileUrl: submittedFileUrl,
+      scriptUrl: submittedScriptUrl,
+      fileGrant,
+      projectSource: ignoredProjectSource,
+      ...safeOtherData
+    } = otherData || {};
+    const submittedFile = resolveSubmittedScriptFile({
+      scriptUrl: submittedScriptUrl,
+      fileUrl: submittedFileUrl,
+      fileGrant,
+      ownerId: req.user._id,
+    });
+    safeOtherData.fileUrl = submittedFile.url;
+    safeOtherData.projectSource = submittedFile.url ? "uploaded" : "editor";
 
     if (safeOtherData.legal !== undefined) {
       const incomingLegal = safeOtherData.legal || {};
@@ -1971,7 +2059,6 @@ export const saveDraft = async (req, res) => {
       title: title || "Untitled Draft",
       textContent: textContent || "",
       status: "draft",
-      projectSource: "editor",
       ...safeOtherData,
       contentType: getContentTypeFromFormat(safeOtherData.format, safeOtherData.contentType),
     });
@@ -1979,6 +2066,9 @@ export const saveDraft = async (req, res) => {
     res.status(201).json(newDraft);
   } catch (error) {
     console.error("[saveDraft] failed:", error.message);
+    if (error instanceof RemoteAssetPolicyError) {
+      return sendRemoteAssetError(res, error);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -2139,7 +2229,7 @@ export const updateScript = async (req, res) => {
     const {
       title, logline, format, pageCount, classification,
       formatOther,
-      scriptUrl, description, synopsis, textContent, fileUrl,
+      scriptUrl, description, synopsis, textContent, fileUrl, fileGrant,
       coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal, collabVisibility,
       scriptPreviewAccess,
       viewableScript,
@@ -2273,11 +2363,22 @@ export const updateScript = async (req, res) => {
         });
         script.markModified("scriptPreviewAccess");
       }
-      const realUrl = scriptUrl || fileUrl;
-      if (realUrl && !realUrl.includes("placeholder-url.com")) script.fileUrl = realUrl;
+      const fileReferenceSubmitted = scriptUrl !== undefined || fileUrl !== undefined;
+      const submittedFile = resolveSubmittedScriptFile({
+        scriptUrl,
+        fileUrl,
+        fileGrant,
+        ownerId: req.user._id,
+        currentUrl: script.fileUrl,
+      });
+      const realUrl = submittedFile.url;
+      if (fileReferenceSubmitted) {
+        script.fileUrl = realUrl;
+        script.projectSource = realUrl ? "uploaded" : "editor";
+      }
       if (scriptPreviewPageTexts !== undefined) {
         script.scriptPreviewPageTexts = resolvedPreviewPageTexts;
-      } else if (!resolvedPreviewPageTexts.length && realUrl && !realUrl.includes("placeholder-url.com")) {
+      } else if (!resolvedPreviewPageTexts.length && fileReferenceSubmitted && realUrl) {
         try {
           const extraction = await extractTextFromPdfUrl(realUrl);
           if (Array.isArray(extraction?.pageTexts) && extraction.pageTexts.length > 0) {
@@ -2605,6 +2706,9 @@ export const updateScript = async (req, res) => {
       }
     })();
   } catch (error) {
+    if (error instanceof RemoteAssetPolicyError) {
+      return sendRemoteAssetError(res, error);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -2642,6 +2746,7 @@ export const uploadScript = async (req, res) => {
       textContent,
       fountainContent,
       fileUrl,
+      fileGrant,
       scriptPreviewPageTexts,
       coverImage,
       genre,
@@ -2655,6 +2760,32 @@ export const uploadScript = async (req, res) => {
       holdFee,
       filmDetails,
     } = req.body;
+
+    let existingDraft = null;
+    if (scriptId) {
+      existingDraft = await Script.findById(scriptId);
+      if (!existingDraft) {
+        return res.status(404).json({ message: "Draft not found" });
+      }
+      if (existingDraft.creator.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "Not authorized to publish this draft" });
+      }
+      if (existingDraft.isDeleted) {
+        return res.status(410).json({ message: "This draft was deleted and cannot be published." });
+      }
+      if (existingDraft.status !== "draft") {
+        return res.status(409).json({ message: "This project is already submitted." });
+      }
+    }
+
+    const submittedFile = resolveSubmittedScriptFile({
+      scriptUrl,
+      fileUrl,
+      fileGrant,
+      ownerId: req.user._id,
+      currentUrl: existingDraft?.fileUrl || "",
+      validateStored: true,
+    });
 
     let resolvedTextContent = typeof textContent === "string" ? textContent : "";
     let resolvedPageCount = Number(pageCount) || 0;
@@ -2671,7 +2802,7 @@ export const uploadScript = async (req, res) => {
         resolvedPreviewPageTexts = [];
       }
     }
-    const uploadedScriptUrl = scriptUrl || fileUrl || "";
+    const uploadedScriptUrl = submittedFile.url;
 
     if (uploadedScriptUrl && (!resolvedTextContent.trim() || !resolvedPageCount || !resolvedPreviewPageTexts.length)) {
       try {
@@ -2712,7 +2843,7 @@ export const uploadScript = async (req, res) => {
     if (!synopsis || String(synopsis).trim().length === 0) {
       return res.status(400).json({ message: "Synopsis is required" });
     }
-    if (!scriptUrl && !fileUrl && !resolvedTextContent) {
+    if (!uploadedScriptUrl && !resolvedTextContent) {
       return res.status(400).json({ message: "Script file or text content is required" });
     }
     const ageRangeError = getInvalidRoleAgeRangeMessage(roles);
@@ -2768,7 +2899,7 @@ export const uploadScript = async (req, res) => {
     }
 
 
-    const inferredProjectSource = (scriptUrl || fileUrl) ? "uploaded" : "editor";
+    const inferredProjectSource = uploadedScriptUrl ? "uploaded" : "editor";
 
     // Build the script document
     const scriptData = {
@@ -2781,7 +2912,7 @@ export const uploadScript = async (req, res) => {
       fullContent,
       textContent: resolvedTextContent,
       fountainContent: typeof fountainContent === "string" ? fountainContent : undefined,
-      fileUrl: scriptUrl || fileUrl,
+      fileUrl: uploadedScriptUrl,
       pageCount: resolvedPageCount,
       viewableScript: viewableScriptEnabled,
       scriptPreviewPageTexts: resolvedPreviewPageTexts,
@@ -2900,26 +3031,6 @@ export const uploadScript = async (req, res) => {
     let script;
 
     if (scriptId) {
-      const existingDraft = await Script.findById(scriptId);
-
-      if (!existingDraft) {
-        return res.status(404).json({ message: "Draft not found" });
-      }
-
-      if (existingDraft.creator.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: "Not authorized to publish this draft" });
-      }
-
-      if (existingDraft.isDeleted) {
-        return res.status(410).json({ message: "This draft was deleted and cannot be published." });
-      }
-
-      if (existingDraft.status !== "draft") {
-        return res.status(409).json({ message: "This project is already submitted." });
-      }
-
-      scriptData.projectSource = existingDraft.projectSource || inferredProjectSource;
-
       existingDraft.set(scriptData);
       script = await existingDraft.save();
     } else {
@@ -3008,6 +3119,9 @@ export const uploadScript = async (req, res) => {
     })();
   } catch (error) {
     console.error("Script upload error:", error);
+    if (error instanceof RemoteAssetPolicyError) {
+      return sendRemoteAssetError(res, error);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -3162,12 +3276,7 @@ export const getScriptSubmissionSummaryPdf = async (req, res) => {
       return res.status(404).json({ message: "Submission summary PDF not available." });
     }
 
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      return res.status(502).json({ message: "Failed to fetch submission summary PDF from storage." });
-    }
-
-    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const fileBuffer = await fetchTrustedPdfBuffer(pdfUrl);
     const shouldDownload = String(req.query.download || "") === "1";
     const disposition = shouldDownload ? "attachment" : "inline";
     const filename = sanitizePdfFileName(`${script.title || "script"}-submission-summary.pdf`);
@@ -3204,12 +3313,7 @@ export const getPurchaseRequestAcceptancePdf = async (req, res) => {
       return res.status(404).json({ message: "Acceptance PDF not available." });
     }
 
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      return res.status(502).json({ message: "Failed to fetch acceptance PDF from storage." });
-    }
-
-    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const fileBuffer = await fetchTrustedPdfBuffer(pdfUrl);
     const shouldDownload = String(req.query.download || "") === "1";
     const disposition = shouldDownload ? "attachment" : "inline";
 
@@ -3282,18 +3386,12 @@ export const getScriptPdf = async (req, res) => {
       return res.status(404).json({ message: "PDF file not available." });
     }
 
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      return res.status(502).json({ message: "Failed to fetch script PDF from storage." });
-    }
-
-    const contentType = pdfResponse.headers.get("content-type") || "application/pdf";
-    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const fileBuffer = await fetchTrustedPdfBuffer(pdfUrl);
     const shouldDownload = String(req.query.download || "") === "1";
     const disposition = shouldDownload ? "attachment" : "inline";
     const filename = sanitizePdfFileName(`${script.title || "script"}-full.pdf`);
 
-    res.setHeader("Content-Type", contentType.includes("pdf") ? contentType : "application/pdf");
+    res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
     return res.send(fileBuffer);
   } catch (error) {

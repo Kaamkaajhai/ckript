@@ -1054,6 +1054,8 @@ const ScriptUpload = () => {
         name: file.name,
         size: file.size,
         url: data.fileUrl || "",
+        fileGrant: data.fileGrant || "",
+        sourceMode: data.sourceMode || (data.fileUrl ? "uploaded-pdf" : "imported-text"),
         previewUrl: localPreviewUrl,
       });
       setPdfTextExtracted(Boolean(data.extractedTextAvailable));
@@ -1575,10 +1577,10 @@ const ScriptUpload = () => {
         pageCount: Number(formData.pageCount) || 0,
         textContent: textContent,
         ...(isHttpUrl(uploadedFile?.url)
-          ? { fileUrl: uploadedFile.url, projectSource: "uploaded" }
+          ? { fileUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
           : (isHttpUrl(existingUploadedFile?.url)
-            ? { fileUrl: existingUploadedFile.url, projectSource: "uploaded" }
-            : { projectSource: "editor" })),
+            ? { fileUrl: existingUploadedFile.url }
+            : {})),
         roles: roles
           .filter((role) => role.characterName?.trim())
           .map((role) => ({
@@ -1847,7 +1849,7 @@ const ScriptUpload = () => {
         scriptPreviewPageTexts: pdfPageTexts,
         // Send script URL only when we have a remote file URL.
         ...(isHttpUrl(uploadedFile?.url)
-          ? { scriptUrl: uploadedFile.url }
+          ? { scriptUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
           : (isHttpUrl(existingUploadedFile?.url) ? { scriptUrl: existingUploadedFile.url } : {})),
         services: {
           hosting: services.hosting,
