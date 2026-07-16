@@ -1,10 +1,17 @@
-import crypto from "crypto";
+import net from "node:net";
+import jwt from "jsonwebtoken";
 
 const DEFAULT_MAX_BYTES = 30 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_MAX_REDIRECTS = 2;
 const GRANT_VERSION = 1;
 const DEFAULT_GRANT_TTL_SECONDS = 7 * 24 * 60 * 60;
+const GRANT_ISSUER = "ckript-api";
+const GRANT_AUDIENCE = "remote-asset-upload";
+const BUILT_IN_MEDIA_HOSTS = Object.freeze([
+  "res.cloudinary.com",
+  "api.cloudinary.com",
+]);
 
 export class RemoteAssetPolicyError extends Error {
   constructor(message, code = "UNTRUSTED_REMOTE_ASSET") {
@@ -14,21 +21,37 @@ export class RemoteAssetPolicyError extends Error {
   }
 }
 
-const splitConfiguredHosts = (value = "") =>
-  String(value || "")
-    .split(",")
-    .map((host) => host.trim().toLowerCase())
-    .filter(Boolean);
+const normalizeConfiguredHost = (value) => {
+  const host = String(value || "").trim().toLowerCase().replace(/\.$/, "");
+  const labels = host.split(".");
+  const validLabels = labels.length >= 2 && labels.every((label) => (
+    label.length >= 1
+    && label.length <= 63
+    && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
+  ));
+  if (!host || host.length > 253 || !validLabels || net.isIP(host)) {
+    throw new RemoteAssetPolicyError(
+      "A trusted media host is misconfigured.",
+      "TRUSTED_MEDIA_HOST_CONFIGURATION_ERROR"
+    );
+  }
+  return host;
+};
+
+const splitConfiguredHosts = (value = "") => String(value || "")
+  .split(",")
+  .map((host) => host.trim())
+  .filter(Boolean)
+  .map(normalizeConfiguredHost);
 
 const getConfiguredHosts = () => new Set([
-  "res.cloudinary.com",
-  "api.cloudinary.com",
+  ...BUILT_IN_MEDIA_HOSTS,
   ...splitConfiguredHosts(process.env.TRUSTED_MEDIA_HOSTS),
 ]);
 
 const getGrantSecret = () => {
-  const secret = String(process.env.FILE_UPLOAD_GRANT_SECRET || process.env.JWT_SECRET || "");
-  if (secret.length < 16) {
+  const secret = String(process.env.FILE_UPLOAD_GRANT_SECRET || "");
+  if (Buffer.byteLength(secret, "utf8") < 32) {
     throw new RemoteAssetPolicyError(
       "File upload grant signing is not configured.",
       "ASSET_GRANT_CONFIGURATION_ERROR"
@@ -37,15 +60,45 @@ const getGrantSecret = () => {
   return secret;
 };
 
-const encodeBase64Url = (value) => Buffer.from(value).toString("base64url");
-const decodeBase64Url = (value) => Buffer.from(value, "base64url").toString("utf8");
-const signGrantPayload = (encodedPayload) =>
-  crypto.createHmac("sha256", getGrantSecret()).update(encodedPayload).digest("base64url");
+const selectTrustedHostname = (candidate, allowedHosts) => {
+  const normalizedCandidate = String(candidate || "").toLowerCase().replace(/\.$/, "");
+  for (const allowedHost of allowedHosts || []) {
+    const serverConfiguredHost = normalizeConfiguredHost(allowedHost);
+    if (normalizedCandidate === serverConfiguredHost) {
+      // Return the server-owned allow-list value, never the request-derived hostname.
+      return serverConfiguredHost;
+    }
+  }
+  throw new RemoteAssetPolicyError("The remote asset host is not trusted.", "UNTRUSTED_REMOTE_ASSET_HOST");
+};
 
-const signaturesMatch = (left, right) => {
-  const leftBuffer = Buffer.from(String(left || ""));
-  const rightBuffer = Buffer.from(String(right || ""));
-  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+const decodeTrustedPathSegment = (segment) => {
+  try {
+    const decoded = decodeURIComponent(segment);
+    if (decoded === "." || decoded === ".." || /[\\\u0000-\u001f\u007f]/.test(decoded)) {
+      throw new Error("unsafe path segment");
+    }
+    return decoded;
+  } catch {
+    throw new RemoteAssetPolicyError("The remote asset path is invalid.", "INVALID_REMOTE_ASSET_PATH");
+  }
+};
+
+const encodeTrustedPathname = (pathname) => String(pathname || "/")
+  .split("/")
+  .map((segment) => (
+    // encodeURIComponent is an explicit SSRF boundary: user data cannot add path separators.
+    encodeURIComponent(decodeTrustedPathSegment(segment))
+  ))
+  .join("/");
+
+const encodeTrustedSearch = (searchParams) => {
+  const entries = [];
+  for (const [key, value] of searchParams.entries()) {
+    // Query names and values cannot alter the trusted origin or request path.
+    entries.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
+  }
+  return entries.length ? `?${entries.join("&")}` : "";
 };
 
 export const normalizeTrustedRemoteAssetUrl = (value, {
@@ -80,15 +133,13 @@ export const normalizeTrustedRemoteAssetUrl = (value, {
     throw new RemoteAssetPolicyError("Remote asset URLs cannot contain fragments.", "REMOTE_ASSET_FRAGMENT");
   }
 
-  const hostname = parsed.hostname.toLowerCase();
+  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
   const trustedHosts = allowedHosts instanceof Set
     ? allowedHosts
     : new Set(Array.from(allowedHosts || [], (host) => String(host).trim().toLowerCase()));
-  if (!trustedHosts.has(hostname)) {
-    throw new RemoteAssetPolicyError("The remote asset host is not trusted.", "UNTRUSTED_REMOTE_ASSET_HOST");
-  }
+  const trustedHostname = selectTrustedHostname(hostname, trustedHosts);
 
-  if (hostname === "res.cloudinary.com" || hostname === "api.cloudinary.com") {
+  if (BUILT_IN_MEDIA_HOSTS.includes(trustedHostname)) {
     const expectedCloudName = String(cloudName || "").trim();
     if (!expectedCloudName) {
       throw new RemoteAssetPolicyError(
@@ -96,21 +147,39 @@ export const normalizeTrustedRemoteAssetUrl = (value, {
         "CLOUDINARY_VALIDATION_CONFIGURATION_ERROR"
       );
     }
-    const pathSegments = parsed.pathname.split("/").filter(Boolean);
-    const cloudNameSegment = hostname === "api.cloudinary.com" && pathSegments[0] === "v1_1"
+    const pathSegments = parsed.pathname
+      .split("/")
+      .filter(Boolean)
+      .map(decodeTrustedPathSegment);
+    const cloudNameSegment = trustedHostname === "api.cloudinary.com" && pathSegments[0] === "v1_1"
       ? pathSegments[1]
       : pathSegments[0];
     if (cloudNameSegment !== expectedCloudName) {
       throw new RemoteAssetPolicyError("The Cloudinary asset belongs to a different account.", "UNTRUSTED_CLOUDINARY_ACCOUNT");
     }
+
+    const resourceTypes = new Set(["image", "video", "raw"]);
+    const isDeliveryUrl = trustedHostname === "res.cloudinary.com"
+      && resourceTypes.has(pathSegments[1])
+      && pathSegments[2] === "upload"
+      && pathSegments.length >= 4;
+    const isSignedDownloadUrl = trustedHostname === "api.cloudinary.com"
+      && pathSegments[0] === "v1_1"
+      && resourceTypes.has(pathSegments[2])
+      && pathSegments[3] === "download"
+      && Boolean(parsed.searchParams.get("timestamp"))
+      && Boolean(parsed.searchParams.get("signature"));
+    if (!isDeliveryUrl && !isSignedDownloadUrl) {
+      throw new RemoteAssetPolicyError(
+        "The Cloudinary URL is not a supported delivery endpoint.",
+        "UNTRUSTED_CLOUDINARY_ENDPOINT"
+      );
+    }
   }
 
-  parsed.hostname = hostname;
-  parsed.username = "";
-  parsed.password = "";
-  parsed.hash = "";
-  if (parsed.port === "443") parsed.port = "";
-  return parsed.toString();
+  const safePathname = encodeTrustedPathname(parsed.pathname);
+  const safeSearch = encodeTrustedSearch(parsed.searchParams);
+  return `https://${trustedHostname}${safePathname}${safeSearch}`;
 };
 
 export const getCloudinaryResourceTypeFromUrl = (value) => {
@@ -141,18 +210,25 @@ export const createRemoteAssetGrant = ({
   }
 
   const issuedAt = Math.floor(Date.now() / 1000);
+  const requestedTtl = Number(expiresInSeconds);
+  const ttlSeconds = Number.isFinite(requestedTtl) && requestedTtl > 0
+    ? Math.min(DEFAULT_GRANT_TTL_SECONDS, Math.max(60, Math.trunc(requestedTtl)))
+    : DEFAULT_GRANT_TTL_SECONDS;
   const payload = {
     v: GRANT_VERSION,
-    sub: normalizedOwnerId,
     purpose: String(purpose || "script-source"),
     url: normalizedUrl,
     publicId: String(publicId || ""),
     format: String(format || "pdf").toLowerCase(),
     iat: issuedAt,
-    exp: issuedAt + Math.max(60, Number(expiresInSeconds) || DEFAULT_GRANT_TTL_SECONDS),
   };
-  const encodedPayload = encodeBase64Url(JSON.stringify(payload));
-  return `${encodedPayload}.${signGrantPayload(encodedPayload)}`;
+  return jwt.sign(payload, getGrantSecret(), {
+    algorithm: "HS256",
+    issuer: GRANT_ISSUER,
+    audience: GRANT_AUDIENCE,
+    subject: normalizedOwnerId,
+    expiresIn: ttlSeconds,
+  });
 };
 
 export const verifyRemoteAssetGrant = (grant, {
@@ -161,22 +237,38 @@ export const verifyRemoteAssetGrant = (grant, {
   purpose = "script-source",
   now = Math.floor(Date.now() / 1000),
 } = {}) => {
-  const [encodedPayload, suppliedSignature, ...extraParts] = String(grant || "").split(".");
-  if (!encodedPayload || !suppliedSignature || extraParts.length > 0) {
+  const encodedGrant = String(grant || "").trim();
+  if (!encodedGrant) {
     throw new RemoteAssetPolicyError("The file upload grant is invalid.", "INVALID_ASSET_GRANT");
-  }
-  const expectedSignature = signGrantPayload(encodedPayload);
-  if (!signaturesMatch(suppliedSignature, expectedSignature)) {
-    throw new RemoteAssetPolicyError("The file upload grant signature is invalid.", "INVALID_ASSET_GRANT_SIGNATURE");
   }
 
   let payload;
   try {
-    payload = JSON.parse(decodeBase64Url(encodedPayload));
-  } catch {
+    payload = jwt.verify(encodedGrant, getGrantSecret(), {
+      algorithms: ["HS256"],
+      issuer: GRANT_ISSUER,
+      audience: GRANT_AUDIENCE,
+      clockTimestamp: Number(now),
+    });
+  } catch (error) {
+    if (error?.name === "TokenExpiredError") {
+      throw new RemoteAssetPolicyError(
+        "The file upload grant has expired. Upload the file again.",
+        "EXPIRED_ASSET_GRANT"
+      );
+    }
+    if (/signature/i.test(String(error?.message || ""))) {
+      throw new RemoteAssetPolicyError(
+        "The file upload grant signature is invalid.",
+        "INVALID_ASSET_GRANT_SIGNATURE"
+      );
+    }
     throw new RemoteAssetPolicyError("The file upload grant payload is invalid.", "INVALID_ASSET_GRANT_PAYLOAD");
   }
 
+  if (!payload || typeof payload !== "object") {
+    throw new RemoteAssetPolicyError("The file upload grant payload is invalid.", "INVALID_ASSET_GRANT_PAYLOAD");
+  }
   const normalizedUrl = normalizeTrustedRemoteAssetUrl(url);
   if (payload.v !== GRANT_VERSION) {
     throw new RemoteAssetPolicyError("The file upload grant version is unsupported.", "UNSUPPORTED_ASSET_GRANT_VERSION");
@@ -190,8 +282,8 @@ export const verifyRemoteAssetGrant = (grant, {
   if (String(payload.url || "") !== normalizedUrl) {
     throw new RemoteAssetPolicyError("The file URL does not match its upload grant.", "ASSET_GRANT_URL_MISMATCH");
   }
-  if (!Number.isFinite(Number(payload.exp)) || Number(payload.exp) < Number(now)) {
-    throw new RemoteAssetPolicyError("The file upload grant has expired. Upload the file again.", "EXPIRED_ASSET_GRANT");
+  if (!Number.isFinite(Number(payload.iat)) || !Number.isFinite(Number(payload.exp))) {
+    throw new RemoteAssetPolicyError("The file upload grant lifetime is invalid.", "INVALID_ASSET_GRANT_LIFETIME");
   }
   return payload;
 };

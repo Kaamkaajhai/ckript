@@ -45,6 +45,7 @@ import {
   normalizeTrustedRemoteAssetUrl,
   verifyRemoteAssetGrant,
 } from "../utils/remoteAssetPolicy.js";
+import { parseMongoObjectId } from "../utils/mongoId.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
@@ -1712,9 +1713,14 @@ export const saveDraft = async (req, res) => {
     }
 
     const { scriptId, title, textContent, ...otherData } = req.body;
+    const hasScriptId = scriptId !== undefined && scriptId !== null && scriptId !== "";
+    const draftObjectId = hasScriptId ? parseMongoObjectId(scriptId) : null;
+    if (hasScriptId && !draftObjectId) {
+      return res.status(400).json({ message: "Invalid draft ID." });
+    }
 
     // Enforce Writer limits for new drafts (shared rule — see utils/scriptLimits.js)
-    if (!scriptId && writerLimitApplies(req.user.role)) {
+    if (!draftObjectId && writerLimitApplies(req.user.role)) {
       const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
       const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" });
       if (status.limitReached) {
@@ -1723,12 +1729,12 @@ export const saveDraft = async (req, res) => {
     }
 
     // If we have an ID, update the existing draft
-    if (scriptId) {
-      const script = await Script.findById(scriptId);
+    if (draftObjectId) {
+      const script = await Script.findOne({
+        _id: { $eq: draftObjectId },
+        creator: { $eq: req.user._id },
+      });
       if (!script) return res.status(404).json({ message: "Script not found" });
-      if (script.creator.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: "Not authorized" });
-      }
       if (script.isDeleted) {
         return res.status(410).json({ message: "This project was deleted by creator and can no longer be edited." });
       }
@@ -2207,7 +2213,11 @@ export const getMyScripts = async (req, res) => {
 
 export const updateScript = async (req, res) => {
   try {
-    const script = await Script.findById(req.params.id);
+    const scriptObjectId = parseMongoObjectId(req.params.id);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
     if (!script) return res.status(404).json({ message: "Script not found" });
 
     const isOwner = script.creator.toString() === req.user._id.toString();
@@ -2762,13 +2772,18 @@ export const uploadScript = async (req, res) => {
     } = req.body;
 
     let existingDraft = null;
-    if (scriptId) {
-      existingDraft = await Script.findById(scriptId);
+    const hasScriptId = scriptId !== undefined && scriptId !== null && scriptId !== "";
+    const draftObjectId = hasScriptId ? parseMongoObjectId(scriptId) : null;
+    if (hasScriptId && !draftObjectId) {
+      return res.status(400).json({ message: "Invalid draft ID." });
+    }
+    if (draftObjectId) {
+      existingDraft = await Script.findOne({
+        _id: { $eq: draftObjectId },
+        creator: { $eq: req.user._id },
+      });
       if (!existingDraft) {
         return res.status(404).json({ message: "Draft not found" });
-      }
-      if (existingDraft.creator.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: "Not authorized to publish this draft" });
       }
       if (existingDraft.isDeleted) {
         return res.status(410).json({ message: "This draft was deleted and cannot be published." });
@@ -2822,7 +2837,7 @@ export const uploadScript = async (req, res) => {
     }
 
     // Enforce Writer limits for new uploads (shared rule — see utils/scriptLimits.js)
-    if (!scriptId && writerLimitApplies(req.user.role)) {
+    if (!draftObjectId && writerLimitApplies(req.user.role)) {
       const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
       const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "upload" });
       if (status.limitReached) {
@@ -3030,7 +3045,7 @@ export const uploadScript = async (req, res) => {
 
     let script;
 
-    if (scriptId) {
+    if (draftObjectId) {
       existingDraft.set(scriptData);
       script = await existingDraft.save();
     } else {

@@ -22,14 +22,14 @@ test("accepts the configured Cloudinary account and normalizes the URL", () => {
   assert.equal(normalizeTrustedRemoteAssetUrl(privateDownloadUrl), privateDownloadUrl);
 });
 
-test("classifies Cloudinary resource types from parsed path segments, not substrings", () => {
+test("classifies only supported Cloudinary delivery routes, not path substrings", () => {
   assert.equal(
     getCloudinaryResourceTypeFromUrl("https://res.cloudinary.com/ckript-test/raw/upload/v1/script.pdf"),
     "raw"
   );
   assert.equal(
     getCloudinaryResourceTypeFromUrl("https://res.cloudinary.com/ckript-test/raw/not-upload/v1/image/upload/file.pdf"),
-    "image"
+    ""
   );
   assert.equal(
     getCloudinaryResourceTypeFromUrl("https://evil.test/ckript-test/raw/upload/file.pdf"),
@@ -45,21 +45,50 @@ test("rejects substring lookalikes, foreign Cloudinary accounts, credentials, po
     "https://user:pass@res.cloudinary.com/ckript-test/raw/upload/script.pdf",
     "https://res.cloudinary.com:8443/ckript-test/raw/upload/script.pdf",
     "http://res.cloudinary.com/ckript-test/raw/upload/script.pdf",
+    "https://res.cloudinary.com/ckript-test/raw/admin/script.pdf",
+    "https://api.cloudinary.com/v1_1/ckript-test/raw/download?timestamp=123",
   ];
   for (const candidate of rejected) {
     assert.throws(() => normalizeTrustedRemoteAssetUrl(candidate), RemoteAssetPolicyError);
   }
+  assert.throws(
+    () => normalizeTrustedRemoteAssetUrl("https://127.0.0.1/admin", { allowedHosts: new Set(["127.0.0.1"]) }),
+    /misconfigured/i
+  );
+});
+
+test("rebuilds paths and queries from encoded components at the outbound request boundary", () => {
+  const normalized = normalizeTrustedRemoteAssetUrl(
+    "https://res.cloudinary.com/ckript-test/raw/upload/folder%2Fscript.pdf?next=https%3A%2F%2F169.254.169.254%2Flatest"
+  );
+  assert.equal(
+    normalized,
+    "https://res.cloudinary.com/ckript-test/raw/upload/folder%2Fscript.pdf?next=https%3A%2F%2F169.254.169.254%2Flatest"
+  );
+  assert.throws(
+    () => normalizeTrustedRemoteAssetUrl("https://res.cloudinary.com/ckript-test/raw/upload/folder%5Cadmin.pdf"),
+    /path is invalid/i
+  );
 });
 
 test("binds an upload grant to its owner, purpose, and exact normalized URL", () => {
   const grant = createRemoteAssetGrant({ url: trustedPdfUrl, ownerId: "writer-1", publicId: "scriptbridge/scripts/script" });
   const payload = verifyRemoteAssetGrant(grant, { url: trustedPdfUrl, ownerId: "writer-1" });
   assert.equal(payload.publicId, "scriptbridge/scripts/script");
+  assert.equal(String(grant).split(".").length, 3);
   assert.throws(() => verifyRemoteAssetGrant(grant, { url: trustedPdfUrl, ownerId: "writer-2" }), /another user/i);
   assert.throws(
     () => verifyRemoteAssetGrant(grant, { url: trustedPdfUrl.replace("script.pdf", "other.pdf"), ownerId: "writer-1" }),
     /does not match/i
   );
+
+  const cappedGrant = createRemoteAssetGrant({
+    url: trustedPdfUrl,
+    ownerId: "writer-1",
+    expiresInSeconds: 365 * 24 * 60 * 60,
+  });
+  const cappedPayload = verifyRemoteAssetGrant(cappedGrant, { url: trustedPdfUrl, ownerId: "writer-1" });
+  assert.equal(cappedPayload.exp - cappedPayload.iat, 7 * 24 * 60 * 60);
 });
 
 test("rejects expired and tampered upload grants", () => {
