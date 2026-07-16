@@ -1,5 +1,5 @@
 import { useContext, useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { io } from "socket.io-client";
 import { AuthContext } from "../context/AuthContext";
@@ -12,7 +12,6 @@ import api from "../services/api";
 import { getApiOrigin, isSocketSupported } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
-import { isFilmIndustryProfessionalRole } from "../utils/industryAccess";
 
 const SOCKET_ORIGIN = getApiOrigin() || (typeof window !== "undefined" ? window.location.origin : "");
 const POPUP_STACK_LIMIT = 1;
@@ -21,11 +20,10 @@ const NOTIFICATION_POLL_INTERVAL_MS = 30000;
 const NOTIFICATION_REFRESH_DEBOUNCE_MS = 350;
 const MotionDiv = motion.div;
 
-const MainLayout = ({ children }) => {
+const MainLayout = ({ children, contentVariant = "page" }) => {
   const { user, logout } = useContext(AuthContext);
   const { openPricingModal, openAuthModal } = useAuthModal();
   const navigate = useNavigate();
-  const location = useLocation();
   const { isDarkMode } = useDarkMode();
   const [searchQuery, setSearchQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -993,7 +991,7 @@ const MainLayout = ({ children }) => {
 
       {/* Main content */}
       <main className={`pt-20 sm:pt-16 pb-0 md:ml-[64px] ${sidebarCollapsed ? "lg:ml-[64px]" : "lg:ml-[270px]"} min-h-screen`}>
-        <div className="w-full mx-auto p-4 sm:p-6 lg:p-8 max-w-[1400px]">
+        <div className={contentVariant === "full" ? "w-full" : "w-full mx-auto p-4 sm:p-6 lg:p-8 max-w-[1400px]"}>
           {children}
         </div>
       </main>
