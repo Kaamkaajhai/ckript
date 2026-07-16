@@ -39,7 +39,7 @@ html.dark-mode .sd3-overlay {
   --sd3-danger-soft: #2c1717;
 }
 
-.sd3-page { height: 100%; min-height: 100%; overflow-y: auto; padding-bottom: 72px; background: var(--sd3-soft); }
+.sd3-page { flex: 1 1 0%; align-self: stretch; width: 100%; max-width: none; min-width: 0; height: 100%; min-height: 100%; overflow-y: auto; padding-bottom: 72px; background: var(--sd3-soft); }
 .sd3-page *, .sd3-overlay * { box-sizing: border-box; }
 .sd3-page h1, .sd3-page h2, .sd3-page h3, .sd3-overlay h2, .sd3-overlay h3 { font-family: var(--sd3-display); font-weight: 500; }
 .sd3-page button, .sd3-page input, .sd3-page textarea, .sd3-page select, .sd3-overlay button, .sd3-overlay input, .sd3-overlay textarea, .sd3-overlay select { font-family: var(--sd3-body); }
