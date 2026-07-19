@@ -651,33 +651,28 @@ export const createScreenplayExtensions = ({ getEntities, dark, onElementChange 
   // everything else is near-black on white / off-white on dark. Character cues are
   // distinguished by weight+case (not color); parentheticals recede in lighter grey italic.
   EditorView.theme({
-    ".cm-content": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    // Slugline accent — brighter/more saturated on the dark page so it still reads as
-    // the anchor element (a desaturated blue can wash out on the dark blue-grey sheet).
-    ".cm-sp-scene": { color: dark ? "#a3c5f2" : "#1e3a5f" },
-    ".cm-sp-shot": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-character": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-transition": { color: dark ? "#e6e6e6" : "#1a1a1a" },
+    ".cm-content": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    // Slugline accent — uses the warm red from the landing page.
+    ".cm-sp-scene": { color: dark ? "#D14D37" : "#0B0A06" },
+    ".cm-sp-shot": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-character": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-transition": { color: dark ? "#f5f2eb" : "#0B0A06" },
     // Parentheticals recede but stay readable — they carry performance direction.
-    ".cm-sp-parenthetical": { color: dark ? "#9aa3ad" : "#595959", fontStyle: "italic" },
-    // Stage 2: act breaks & dual cues are structure (near-black/off-white); sequences recede.
-    ".cm-sp-act, .cm-sp-endact": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-dual": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-lyrics": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    // Sequence headers are subordinate structure, not disabled — darker than a faint grey so
-    // they read as a deliberate, quieter tier (sits just above the parenthetical grey).
-    ".cm-sp-sequence": { color: dark ? "#aeb8c4" : "#555555" },
-    // The ONLY line background: a barely-there neutral tint on the caret's current line.
-    // Kept very faint so it reads as a soft band, never a solid grey row. It is constrained to
-    // the text column (not the full page sheet) because .cm-content is itself 62ch and centered,
-    // so the line box never spans the sheet. No background bands behind element types.
+    ".cm-sp-parenthetical": { color: dark ? "#9a978f" : "#57544f", fontStyle: "italic" },
+    // Stage 2: act breaks & dual cues are structure.
+    ".cm-sp-act, .cm-sp-endact": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-dual": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-lyrics": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    // Sequence headers are subordinate structure.
+    ".cm-sp-sequence": { color: dark ? "#9a978f" : "#57544f" },
+    // The ONLY line background: a barely-there warm tint on the caret's current line.
     ".cm-activeLine": {
-      backgroundColor: dark ? "rgba(255,255,255,0.018)" : "rgba(0,0,0,0.013)",
+      backgroundColor: dark ? "rgba(209,77,55,0.04)" : "rgba(11,10,6,0.02)",
       borderRadius: "3px",
     },
-    // Selection highlight: a soft tint in the same neutral family, never a hard blue block.
+    // Selection highlight: warm tint.
     "& .cm-selectionBackground, &.cm-focused .cm-selectionBackground, & ::selection": {
-      backgroundColor: dark ? "rgba(120,150,200,0.16)" : "rgba(30,58,95,0.10)",
+      backgroundColor: dark ? "rgba(209,77,55,0.12)" : "rgba(11,10,6,0.08)",
     },
   }),
   EditorView.lineWrapping,

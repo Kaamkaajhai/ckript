@@ -27,10 +27,10 @@ const Step1Write = () => {
     <>
       {/* docked insert / elements toolbar — screenplay only (prose uses TipTap) */}
       {useScreenplayEditor ? (
-        <div className="ckcp-toolbar" style={{ flex: "none", display: "flex", alignItems: "center", gap: "8px", height: "52px", padding: "0 18px", borderBottom: `1px solid ${dark ? "#262626" : "#f0f0f0"}` }}>
+        <div className="ckcp-toolbar" style={{ flex: "none", display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px", minHeight: "52px", padding: "8px 18px", borderBottom: `1px solid ${dark ? "#262626" : "#f0f0f0"}` }}>
           <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: ".5px", textTransform: "uppercase", color: "#b3b3b3", flex: "none" }}>Insert</span>
           <div className="ckcp-vr" style={{ width: "1px", height: "20px", background: dark ? "#2a2a2a" : "#eeeeee", margin: "0 4px", flex: "none" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "2px", flex: "1", minWidth: 0, overflowX: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "2px", flex: "1", minWidth: 0 }}>
             {CORE_ELEMENTS.map((el) => {
               const active = currentElement === el.value;
               return (

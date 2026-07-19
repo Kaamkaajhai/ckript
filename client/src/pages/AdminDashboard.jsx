@@ -1094,6 +1094,7 @@ const AdminDashboard = () => {
         placeholder = "",
         inputType = "text",
         multiline = false,
+        options = [],
     }) => new Promise((resolve) => {
         adminDialogResolverRef.current = resolve;
         setAdminDialog({
@@ -1106,6 +1107,7 @@ const AdminDashboard = () => {
             placeholder,
             inputType,
             multiline,
+            options,
         });
     });
 
@@ -2692,20 +2694,25 @@ const AdminDashboard = () => {
 
         const planDisplayName = plan === "gold" ? "Gold" : plan === "silver" ? "Silver" : plan;
 
-        const confirmed = await openAdminDialog({
-            type: "confirm",
+        const cycle = await openAdminDialog({
+            type: "select",
             title: `Grant ${planDisplayName} Plan`,
-            message: `Are you sure you want to grant the ${planDisplayName} plan to ${user.name || user.email}?`,
+            message: `Select the billing cycle for the ${planDisplayName} plan you are granting to ${user.name || user.email}.`,
             confirmText: "Grant",
             cancelText: "Cancel",
+            defaultValue: "monthly",
+            options: [
+                { label: "Monthly (30 days)", value: "monthly" },
+                { label: "Annual (365 days)", value: "annual" }
+            ]
         });
 
-        if (!confirmed) return;
+        if (!cycle) return;
 
         const loadingKey = `grant-writer-plan-${user._id}`;
         try {
             setUserActionLoading(loadingKey);
-            const { data } = await adminApi.post(`/admin/users/${user._id}/grant-writer-plan`, { plan });
+            const { data } = await adminApi.post(`/admin/users/${user._id}/grant-writer-plan`, { plan, cycle });
             showToast(data?.message || `Granted ${planDisplayName} plan successfully`);
 
             if (data?.user?._id) {
@@ -4992,6 +4999,21 @@ const AdminDashboard = () => {
                         )
                     )}
 
+                    {adminDialog.type === "select" && (
+                        <select
+                            autoFocus
+                            value={adminDialog.value}
+                            onChange={(event) => setAdminDialog((prev) => ({ ...prev, value: event.target.value }))}
+                            className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 outline-none focus:border-blue-400/60"
+                        >
+                            {adminDialog.options?.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                    )}
+
                     <div className="mt-4 flex items-center justify-end gap-2">
                         <button
                             type="button"
@@ -5002,7 +5024,7 @@ const AdminDashboard = () => {
                         </button>
                         <button
                             type="button"
-                            onClick={() => closeAdminDialog(adminDialog.type === "prompt" ? adminDialog.value : true)}
+                            onClick={() => closeAdminDialog(adminDialog.type === "prompt" || adminDialog.type === "select" ? adminDialog.value : true)}
                             className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#1e3a5f] text-white hover:bg-[#2a4b77]"
                         >
                             {adminDialog.confirmText || "Confirm"}
