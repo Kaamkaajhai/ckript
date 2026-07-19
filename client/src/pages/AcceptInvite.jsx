@@ -29,7 +29,7 @@ export default function AcceptInvite() {
     }
 
     if (!user) {
-      navigate(`/login?next=${encodeURIComponent(currentPath)}`, { replace: true });
+      navigate(`/signup?role=writer&next=${encodeURIComponent(currentPath)}`, { replace: true });
       return;
     }
 
@@ -51,7 +51,7 @@ export default function AcceptInvite() {
         const targetScriptId = data?.script?._id;
         if (targetScriptId) {
           setTimeout(() => {
-            navigate(`/collaborate?scriptId=${encodeURIComponent(targetScriptId)}`, { replace: true });
+            navigate(`/script/${encodeURIComponent(targetScriptId)}`, { replace: true });
           }, 1200);
         }
       })

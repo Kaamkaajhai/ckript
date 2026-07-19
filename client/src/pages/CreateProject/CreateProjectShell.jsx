@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import CollaboratorsModal from "../../components/collab/CollaboratorsModal";
 import { useCreateProject } from "./CreateProjectContext";
 import { STEPS, CP_ACCENT } from "./constants";
 import { cpIconBtnStyle, cpMoreMenuStyle, cpMoreItemStyle, cpZoomBtnStyle } from "./editorStyles";
@@ -11,6 +13,8 @@ import { cpIconBtnStyle, cpMoreMenuStyle, cpMoreItemStyle, cpZoomBtnStyle } from
    Everything is read from CreateProjectContext — this component holds no state. */
 
 const CreateProjectShell = ({ children }) => {
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false);
+
   const {
     adjustZoom, charCount, creationBlocked, dark, detailsStep, detailsSubSteps, drafts, editorZoom, enforceGoldPlan,
     error, estimatedPages, exportMenuOpen, exportingScreenplay, handleBack, handleExitEditor,
@@ -18,7 +22,7 @@ const CreateProjectShell = ({ children }) => {
     loading, saved, saving, screenplayEnabled, screenplayFileInputRef,
     scriptLimit, setError, setDetailsStep, setExportMenuOpen, setFocusMode, setScreenplayEnabled, setShowDrafts,
     setShowVersionHistory, setSaved, setStep, setTitle, step, title, toggleDarkMode,
-    useScreenplayEditor, currentElement, wordCount,
+    useScreenplayEditor, currentElement, wordCount, scriptId, collabMyUserId,
   } = useCreateProject();
 
   const activeStep = STEPS[step - 1];
@@ -65,6 +69,12 @@ const CreateProjectShell = ({ children }) => {
           </button>
           <button type="button" aria-label="History" title="Version history" onClick={() => setShowVersionHistory(true)} className="ckcp-iconbtn" style={cpIconBtnStyle(dark)}>
             <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>history</span>
+          </button>
+          
+          <div className="ckcp-vr" style={{ width: "1px", height: "20px", background: dark ? "#2a2a2a" : "#eeeeee", margin: "0 3px" }} />
+          
+          <button type="button" aria-label="Share" title="Manage collaborators" onClick={() => setShowCollaboratorsModal(true)} className="ckcp-iconbtn" style={cpIconBtnStyle(dark)}>
+            <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>group_add</span>
           </button>
 
           {/* Editor-only controls — writing step only. */}
@@ -279,6 +289,15 @@ const CreateProjectShell = ({ children }) => {
           </div>
         </div>
       </div>
+      
+      {showCollaboratorsModal && (
+        <CollaboratorsModal 
+          scriptId={scriptId}
+          currentUserId={collabMyUserId}
+          onClose={() => setShowCollaboratorsModal(false)}
+          dark={dark}
+        />
+      )}
     </div>
   );
 };
