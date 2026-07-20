@@ -12,13 +12,21 @@ export default function ScreenplayReadOnly({ text = "", dark = false, zoom = 1, 
 
   const editor = <ScreenplayEditor value={value} readOnly dark={dark} zoom={zoom} />;
 
-  if (!sheet) return <div className={`relative z-0 ${className}`.trim()}>{editor}</div>;
+  if (!sheet) {
+    return (
+      <div className={`relative z-0 overflow-hidden ${className}`.trim()}>
+        <div className="ckript-script-watermark" aria-hidden="true" />
+        <div className="relative z-0">{editor}</div>
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`relative w-full max-w-[760px] max-[1200px]:max-w-none mx-auto shadow-2xl ${dark ? "bg-[#111827]" : "bg-white"} ${className}`.trim()}
+      className={`relative overflow-hidden w-full max-w-[760px] max-[1200px]:max-w-none mx-auto shadow-2xl ${dark ? "bg-[#111827]" : "bg-white"} ${className}`.trim()}
       style={{ paddingTop: 56, paddingBottom: 56 }}
     >
+      <div className="ckript-script-watermark" aria-hidden="true" />
       <div className="relative z-0">{editor}</div>
     </div>
   );

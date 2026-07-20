@@ -18,7 +18,7 @@ import {
   sendPurchaseRejectedEmail,
 } from "../utils/emailService.js";
 import { generateAndSaveInvoicePdf } from "../utils/invoicePdf.js";
-import { writerLimitApplies, buildScriptLimitStatus } from "../utils/scriptLimits.js";
+import { writerLimitApplies, buildScriptLimitStatus, getScriptUploadCycleStart } from "../utils/scriptLimits.js";
 import { generateAndUploadAgreementPdfs } from "../utils/agreementPdf.js";
 import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionPdf.js";
 import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
@@ -1695,7 +1695,12 @@ export const getScriptLimit = async (req, res) => {
     if (!writerLimitApplies(req.user.role)) {
       return res.json({ applies: false, limitReached: false });
     }
-    const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+    const cycleStart = getScriptUploadCycleStart(req.user);
+    const usedQuery = { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+    if (cycleStart) {
+      usedQuery.createdAt = { $gte: cycleStart };
+    }
+    const used = await Script.countDocuments(usedQuery);
     return res.json({ applies: true, ...buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" }) });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to read script limit." });
@@ -1717,7 +1722,12 @@ export const saveDraft = async (req, res) => {
 
     // Enforce Writer limits for new drafts (shared rule — see utils/scriptLimits.js)
     if (!draftObjectId && writerLimitApplies(req.user.role)) {
-      const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      const cycleStart = getScriptUploadCycleStart(req.user);
+      const usedQuery = { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      if (cycleStart) {
+        usedQuery.createdAt = { $gte: cycleStart };
+      }
+      const used = await Script.countDocuments(usedQuery);
       const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" });
       if (status.limitReached) {
         return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });
@@ -2834,7 +2844,12 @@ export const uploadScript = async (req, res) => {
 
     // Enforce Writer limits for new uploads (shared rule — see utils/scriptLimits.js)
     if (!draftObjectId && writerLimitApplies(req.user.role)) {
-      const used = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
+      const cycleStart = getScriptUploadCycleStart(req.user);
+      const usedQuery = { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      if (cycleStart) {
+        usedQuery.createdAt = { $gte: cycleStart };
+      }
+      const used = await Script.countDocuments(usedQuery);
       const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "upload" });
       if (status.limitReached) {
         return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });

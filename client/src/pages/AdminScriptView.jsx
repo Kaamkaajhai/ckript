@@ -56,6 +56,7 @@ import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import { buildWatermarkedPdfFromPdfBlob } from "../utils/pdfWatermark";
 import {
   getScriptCompletionFuturePlans,
   getScriptCompletionProgressText,
@@ -359,7 +360,7 @@ const AdminScriptView = () => {
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
   const hasUploadedPdf = Boolean(uploadedPdfUrl);
   const derivedPdfUrl = hasUploadedPdf 
-    ? uploadedPdfUrl 
+    ? script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf?download=0`) : uploadedPdfUrl
     : script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0`) : "";
 
   const formatLabel = script?.format === "other"
@@ -432,10 +433,25 @@ const AdminScriptView = () => {
   // Download the SAME PDF the script renders as everywhere else — never an ad-hoc flat rebuild. A
   // script missing both fileUrl AND fountainContent won't have a valid PDF at /export/pdf either,
   // but button is disabled in that case.
-  const handleDownloadScript = () => {
-    if (derivedPdfUrl) {
-      window.open(derivedPdfUrl.replace("download=0", "download=1"), "_blank", "noopener,noreferrer");
-      return;
+  const handleDownloadScript = async () => {
+    if (!derivedPdfUrl || !script?._id) return;
+
+    const safeTitle = String(script?.title || "script")
+      .replace(/[^a-z0-9]+/gi, "_")
+      .replace(/^_+|_+$/g, "") || "script";
+
+    try {
+      const response = await adminApi.get(
+        hasUploadedPdf ? `/scripts/${script._id}/pdf` : `/scripts/${script._id}/export/pdf?download=1`,
+        { responseType: "blob" }
+      );
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const finalBlob = hasUploadedPdf
+        ? await buildWatermarkedPdfFromPdfBlob(blob, { title: script?.title || "Script" })
+        : blob;
+      downloadPdfBlob(finalBlob, `${safeTitle}.pdf`);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to download watermarked script PDF.");
     }
   };
 

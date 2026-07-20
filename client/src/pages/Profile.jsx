@@ -211,6 +211,8 @@ const Profile = () => {
   const [bookmarkedScripts, setBookmarkedScripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowsMe, setIsFollowsMe] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [followRequestPending, setFollowRequestPending] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState("projects");
@@ -259,12 +261,10 @@ const Profile = () => {
   const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
   const [deleteAccountReason, setDeleteAccountReason] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const [referralSummary, setReferralSummary] = useState(null);
-  const [referralLoading, setReferralLoading] = useState(false);
+
   const [meetings, setMeetings] = useState([]);
   const [meetingsLoading, setMeetingsLoading] = useState(false);
-  const [referralError, setReferralError] = useState("");
-  const [referralCopyFeedback, setReferralCopyFeedback] = useState("");
+
   const [profileAccessMessage, setProfileAccessMessage] = useState("");
   const [profileRequiresBusinessEmail, setProfileRequiresBusinessEmail] = useState(false);
   const isFetchingProfileRef = useRef(false);
@@ -297,7 +297,9 @@ const Profile = () => {
       setIsBlockedByCurrent(Boolean(data.user.blockedByCurrent));
       setBlockedByProfile(Boolean(data.user.blockedByProfile));
       const followers = Array.isArray(data.user?.followers) ? data.user.followers : [];
-      setIsFollowing(followers.some((f) => f?._id === currentUser?._id));
+      setIsFollowing(followers.some((f) => (f?._id || f) === currentUser?._id));
+      const following = Array.isArray(data.user?.following) ? data.user.following : [];
+      setIsFollowsMe(following.some((f) => (f?._id || f) === currentUser?._id));
       setFollowRequestPending(Boolean(data.user?.followRequestPending));
 
       if (tabInitializedForProfileRef.current !== data.user._id) {
@@ -390,8 +392,9 @@ const Profile = () => {
   };
 
   const handleFollow = async () => {
-    if (isBlockedByCurrent || blockedByProfile) return;
+    if (isBlockedByCurrent || blockedByProfile || followLoading) return;
     try {
+      setFollowLoading(true);
       if (isFollowing) {
         await api.post("/users/unfollow", { userId: profile._id });
         setIsFollowing(false);
@@ -421,6 +424,8 @@ const Profile = () => {
       }
     } catch (error) {
       console.error("Error following/unfollowing:", error);
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -595,7 +600,8 @@ const Profile = () => {
   const canViewContactDetails = Boolean(
     !isOwnProfile &&
     currentUser?._id &&
-    (viewerHasProAccess)
+    (viewerHasProAccess) &&
+    profile?.allowIndustryContact !== false
   );
   // For pro-access viewers: contact reveal state
   const profileWriterId = String(profile?._id || "");
@@ -636,11 +642,7 @@ const Profile = () => {
     })
     : null;
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
-  const referralCode = String(referralSummary?.referralCode || profile?.referralCode || currentUser?.referralCode || "").trim();
-  const fallbackReferralLink = referralCode
-    ? `${browserOrigin}/${encodeURIComponent(referralCode)}`
-    : "";
-  const referralShareLink = String(referralSummary?.referralLink || "").trim() || fallbackReferralLink;
+
   const profileShareKey = String(profile?.writerProfile?.username || "").trim().toLowerCase() || String(profile?._id || "").trim();
   const defaultProfileRoute = profileShareKey
     ? `/share/profile/${encodeURIComponent(profileShareKey)}`
@@ -669,45 +671,6 @@ const Profile = () => {
 
   const formatNumber = (value) => new Intl.NumberFormat("en-IN").format(Number(value) || 0);
 
-  const handleCopyReferralLink = async () => {
-    if (!referralShareLink) return;
-    const copied = await copyToClipboard(referralShareLink);
-    setReferralCopyFeedback(copied ? "Referral link copied" : "Copy failed. Please copy manually.");
-    setTimeout(() => setReferralCopyFeedback(""), 2200);
-  };
-
-  useEffect(() => {
-    if (activeTab !== "settings" || !isOwnProfile || !isWriterUser) {
-      setReferralSummary(null);
-      setReferralError("");
-      setReferralCopyFeedback("");
-      return;
-    }
-
-    let isActive = true;
-
-    const loadReferralSummary = async () => {
-      try {
-        setReferralLoading(true);
-        setReferralError("");
-        const { data } = await api.get("/auth/referral-summary");
-        if (!isActive) return;
-        setReferralSummary(data || null);
-      } catch {
-        if (!isActive) return;
-        setReferralSummary(null);
-        setReferralError("Unable to load referral details right now.");
-      } finally {
-        if (isActive) setReferralLoading(false);
-      }
-    };
-
-    loadReferralSummary();
-
-    return () => {
-      isActive = false;
-    };
-  }, [activeTab, isOwnProfile, isWriterUser]);
 
 
   useEffect(() => {
@@ -971,10 +934,10 @@ const Profile = () => {
                 <div className="hidden max-[470px]:flex items-center max-[470px]:justify-between gap-1 mb-3.5 max-[470px]:w-full">
                   <button
                     onClick={handleFollow}
-                    disabled={isBlockedByCurrent || blockedByProfile}
+                    disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                     className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border max-[470px]:flex-1 max-[470px]:px-2 max-[470px]:text-[11px] disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                   >
-                    {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                    {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                   </button>
                   <button
                     onClick={handleToggleBlock}
@@ -1022,10 +985,10 @@ const Profile = () => {
                         ) : (
                           <button
                             onClick={handleFollow}
-                            disabled={isBlockedByCurrent || blockedByProfile}
+                            disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                             className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                           >
-                            {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                            {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                           </button>
                         )}
                       </div>
@@ -1129,10 +1092,10 @@ const Profile = () => {
                       <>
                         <button
                           onClick={handleFollow}
-                          disabled={isBlockedByCurrent || blockedByProfile}
+                          disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                           className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                         >
-                          {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                          {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                         </button>
                         <button
                           onClick={handleToggleBlock}
@@ -1182,10 +1145,10 @@ const Profile = () => {
                             <>
                               <button
                                 onClick={handleFollow}
-                                disabled={isBlockedByCurrent || blockedByProfile}
+                                disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                                 className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                               >
-                                {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                                {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                               </button>
                               <button
                                 onClick={handleToggleBlock}
@@ -1324,10 +1287,10 @@ const Profile = () => {
                           <>
                             <button
                               onClick={handleFollow}
-                              disabled={isBlockedByCurrent || blockedByProfile}
+                              disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                               className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                             >
-                              {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                              {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                             </button>
                             <button
                               onClick={handleToggleBlock}
@@ -2357,6 +2320,18 @@ const Profile = () => {
                   <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.isPrivate ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
                 </button>
               </div>
+              {isWriterUser && (
+                <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
+                  <div>
+                    <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Allow Industry Contact</p>
+                    <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>Let verified industry professionals access your contact details</p>
+                  </div>
+                  <button onClick={async () => { try { setSavingSettings(true); const newVal = profile.allowIndustryContact === false ? true : false; await api.put("/users/settings", { allowIndustryContact: newVal }); setProfile({ ...profile, allowIndustryContact: newVal }); setSettingsMsg("Contact preference updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr("Failed"); } finally { setSavingSettings(false); } }}
+                    className={`w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.allowIndustryContact !== false ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
+                    <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.allowIndustryContact !== false ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
+                  </button>
+                </div>
+              )}
               <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
                 <div>
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Email Verified</p>
@@ -2483,58 +2458,7 @@ const Profile = () => {
           </SectionCard>
           </div>
 
-          {isWriterUser && (
-            <div className="py-6 first:pt-0 last:pb-0">
-            <SectionCard
-              dark={dark} noBox
-              title="Referral"
-              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25l1.72 3.486 3.848.559-2.784 2.714.657 3.832L12 17.034l-3.441 1.807.657-3.832-2.784-2.714 3.848-.559L12 8.25z" /></svg>}
-            >
-              <div className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
-                <p className={`text-[12px] ${dark ? "text-white/45" : "text-gray-500"}`}>
-                  Share your referral link. If a writer signs up with your link or referral and verifies their account, both writers get 15 credits.
-                </p>
 
-                <div>
-                  <p className={`text-[11px] font-bold uppercase tracking-wider mb-1.5 ${dark ? "text-white/30" : "text-gray-400"}`}>
-                    Referral Code
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                    <div className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-black tracking-wider ${dark ? "bg-white/[0.06] text-white" : "bg-gray-100 text-gray-900"}`}>
-                      {referralCode || "--"}
-                    </div>
-                    <div className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold ${dark ? "bg-emerald-500/12 text-emerald-300" : "bg-emerald-50 text-emerald-700"}`}>
-                      Bonus: {formatNumber(referralSummary?.totalBonusCredits || 0)} credits
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleCopyReferralLink}
-                      disabled={!referralShareLink || referralLoading}
-                      className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 ${dark ? "bg-white/[0.08] text-white hover:bg-white/[0.14]" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
-                    >
-                      Copy Link
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <p className={`text-[11px] font-bold uppercase tracking-wider mb-1.5 ${dark ? "text-white/30" : "text-gray-400"}`}>
-                    Referral Link
-                  </p>
-                  <div className={`rounded-xl border px-3 py-2.5 text-xs break-all ${dark ? "border-white/[0.08] bg-white/[0.02] text-white/75" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
-                    {referralLoading ? "Loading referral link..." : referralShareLink || "Referral link unavailable"}
-                  </div>
-                  {referralError && <p className="mt-1.5 text-xs text-red-500">{referralError}</p>}
-                  {referralCopyFeedback && (
-                    <p className={`mt-1.5 text-xs ${dark ? "text-emerald-300" : "text-emerald-600"}`}>
-                      {referralCopyFeedback}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </SectionCard>
-          </div>
-          )}
 
           {/* Notification Preferences */}
           <div className="py-6 first:pt-0 last:pb-0">

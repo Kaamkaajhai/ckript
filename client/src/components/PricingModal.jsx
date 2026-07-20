@@ -203,7 +203,7 @@ function TierCard({ plan, state }) {
             <span style={{ fontSize: "11px", color: "var(--pmx-text-muted, #888)" }}>
               {daysUntilReset != null ? `Resets in ${daysUntilReset} days` : ""}
             </span>
-            <span>{remaining} more available</span>
+            <span>{remaining} more available this month</span>
           </div>
         </div>
       )}

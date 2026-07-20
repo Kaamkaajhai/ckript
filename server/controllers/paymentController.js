@@ -317,6 +317,18 @@ export const revealWriterContact = async (req, res) => {
       });
     }
 
+    const writer = await User.findById(writerId)
+      .select("email phone writerProfile.links name username allowIndustryContact role")
+      .lean();
+    if (!writer) return res.status(404).json({ message: "Writer not found" });
+
+    if (writer.allowIndustryContact === false && ["writer", "creator"].includes(writer.role)) {
+      return res.status(403).json({
+        message: "This writer has opted out of sharing contact details with industry professionals.",
+        optedOut: true
+      });
+    }
+
     const writerObjectId = String(writerId);
     const alreadyRevealed = hasRevealedContact(user, writerObjectId);
 
@@ -343,11 +355,6 @@ export const revealWriterContact = async (req, res) => {
         }
       );
     }
-
-    const writer = await User.findById(writerId)
-      .select("email phone writerProfile.links name username")
-      .lean();
-    if (!writer) return res.status(404).json({ message: "Writer not found" });
 
     const refreshedUser = await User.findById(user._id).select("subscription").lean();
     const contactsUsed = getRevealedContactCount(refreshedUser || user);
