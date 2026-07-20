@@ -53,6 +53,7 @@ export default function ScreenplayEditor({
   const hostRef = useRef(null);
   const viewRef = useRef(null);
   const readOnlyComp = useRef(new Compartment());
+  const themeComp = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onElementChangeRef = useRef(onElementChange);
@@ -86,11 +87,11 @@ export default function ScreenplayEditor({
         keymap.of([...completionKeymap, ...defaultKeymap, ...historyKeymap]),
         cmPlaceholder(placeholder),
         readOnlyComp.current.of([EditorView.editable.of(!readOnly), EditorState.readOnly.of(readOnly)]),
-        ...createScreenplayExtensions({
+        themeComp.current.of(createScreenplayExtensions({
           getEntities,
           dark,
           onElementChange: (type) => onElementChangeRef.current?.(type),
-        }),
+        })),
         ...createLockExtensions(),
         ...(onAddComment ? createCommentExtensions() : []),
         ...(onAddComment ? createLineCommentExtensions() : []),
@@ -171,7 +172,10 @@ export default function ScreenplayEditor({
           if (!v) return;
           const n = Math.max(1, Math.min(Number(lineNo) || 1, v.state.doc.lines));
           const line = v.state.doc.line(n);
-          v.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+          v.dispatch({
+            selection: { anchor: line.from },
+            effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 80 })
+          });
           v.focus();
         },
         // Current selection (for "Add comment").
@@ -232,6 +236,20 @@ export default function ScreenplayEditor({
       });
     }
   }, [value]);
+
+  // Push dark mode changes into the editor theme extension.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const getEntities = () => entitiesFromText(view.state.doc.toString() || "");
+    view.dispatch({
+      effects: themeComp.current.reconfigure(createScreenplayExtensions({
+        getEntities,
+        dark,
+        onElementChange: (type) => onElementChangeRef.current?.(type),
+      })),
+    });
+  }, [dark]);
 
   // Push the current lock state into the editor (drives read-only + tint + badges).
   useEffect(() => {

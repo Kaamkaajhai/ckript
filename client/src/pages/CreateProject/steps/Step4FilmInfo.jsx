@@ -19,8 +19,8 @@ const Step4FilmInfo = () => {
                 <h3 className={`text-sm font-semibold mb-3 ${dark ? "text-gray-300" : "text-gray-700"}`}>Your Creative Role</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
-                    { key: "wantToDirect", label: "Want to Direct", sub: "I want to direct this script myself", color: dark ? "border-violet-500/50 bg-violet-500/10" : "border-violet-400 bg-violet-50", textColor: dark ? "text-violet-200" : "text-violet-700" },
-                    { key: "wantToProduce", label: "Want to Produce", sub: "I am also the producer of this project", color: dark ? "border-amber-500/50 bg-amber-500/10" : "border-amber-400 bg-amber-50", textColor: dark ? "text-amber-200" : "text-amber-700" },
+                    { key: "wantToDirect", label: "Want to Direct", sub: "I want to direct this script myself", color: dark ? "border-white bg-white/10" : "border-black bg-gray-50", textColor: dark ? "text-white" : "text-black" },
+                    { key: "wantToProduce", label: "Want to Produce", sub: "I am also the producer of this project", color: dark ? "border-white bg-white/10" : "border-black bg-gray-50", textColor: dark ? "text-white" : "text-black" },
                   ].map(({ key, label, sub, color, textColor }) => (
                     <button
                       key={key}
