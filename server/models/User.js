@@ -50,6 +50,7 @@ const userSchema = new mongoose.Schema({
 
   // Account settings
   isPrivate: { type: Boolean, default: false },
+  allowIndustryContact: { type: Boolean, default: true },
   language: { type: String, default: "en" },
   timezone: { type: String, default: "Asia/Kolkata" },
   // Preferred display/checkout currency (auto-detected from IP, overridable via a toggle).

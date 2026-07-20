@@ -2,6 +2,7 @@ import { useState } from "react";
 import { jsPDF } from "jspdf";
 import api from "../../../services/api";
 import { fountainToFdx } from "../../../components/screenplay/fdx";
+import { addCkriptWatermarkToJsPdf } from "../../../utils/pdfWatermark";
 
 /**
  * Owns the wizard's file exports: the "download main content as PDF" action,
@@ -68,6 +69,7 @@ export function usePdfExport({ editor, title, scriptId, screenplayValue, user, s
       const usableHeight = pageHeight - marginTop * 2;
 
       const scriptTitle = title?.trim() || "Untitled Draft";
+      addCkriptWatermarkToJsPdf(doc);
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
@@ -83,6 +85,7 @@ export function usePdfExport({ editor, title, scriptId, screenplayValue, user, s
       for (const line of contentLines) {
         if (y + lineHeight > marginTop + usableHeight) {
           doc.addPage();
+          addCkriptWatermarkToJsPdf(doc);
           y = marginTop;
         }
         doc.text(line, marginX, y);

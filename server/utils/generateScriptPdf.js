@@ -6,6 +6,7 @@ const PAGE_SIZE = "A4";
 const FONT_NAME = "Courier";
 const FONT_SIZE = 12;
 const LINE_GAP = 2;
+const DEFAULT_WATERMARK = "CKRIPT";
 
 const normalizeScriptText = (value = "") =>
   String(value || "")
@@ -28,7 +29,28 @@ const drawPageNumber = (doc, pageNumber) => {
     });
 };
 
-export const generateScriptPdf = async (plainText) =>
+const drawWatermark = (doc, watermark = DEFAULT_WATERMARK) => {
+  const label = String(watermark || DEFAULT_WATERMARK).trim();
+  if (!label) return;
+
+  const pageWidth = doc.page.width;
+  const pageHeight = doc.page.height;
+  doc.save();
+  doc.rotate(-45, { origin: [pageWidth / 2, pageHeight / 2] });
+  doc.font("Helvetica-Bold").fontSize(44).fillColor("#000000").fillOpacity(0.07);
+  const text = `${label}   ${label}   ${label}`;
+  for (let row = -2; row <= 2; row += 1) {
+    doc.text(text, -pageWidth * 0.55, pageHeight / 2 + row * 120, {
+      width: pageWidth * 2.1,
+      align: "center",
+      lineBreak: false,
+    });
+  }
+  doc.restore();
+  doc.fillOpacity(1).fillColor("#111111");
+};
+
+export const generateScriptPdf = async (plainText, opts = {}) =>
   new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: PAGE_SIZE,
@@ -67,6 +89,7 @@ export const generateScriptPdf = async (plainText) =>
     const totalPages = doc.bufferedPageRange().count;
     for (let index = 0; index < totalPages; index += 1) {
       doc.switchToPage(index);
+      drawWatermark(doc, opts.watermark);
       drawPageNumber(doc, index + 1);
     }
 
