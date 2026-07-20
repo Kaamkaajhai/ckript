@@ -47,7 +47,12 @@ const titlePageToObject = (tp) => {
   return obj && Object.keys(obj).length ? obj : null;
 };
 
-const VALID_COLLAB_ROLES = ["editor", "merger", "viewer", "full_admin"];
+// `commenter` is a first-class role in the Script schema enum and in PERMISSIONS (it grants the
+// `comment` tier without `write`), but it was missing here — and normalizeCollaboratorRoleInput
+// falls back to "editor" for anything unlisted. Inviting someone as a Commenter therefore granted
+// them full write access instead. Listed for invites; requests stay on the narrower set because
+// CollabRequest has its own enum that does not include it.
+const VALID_COLLAB_ROLES = ["editor", "merger", "viewer", "full_admin", "commenter"];
 const REQUESTABLE_ROLES = ["editor", "merger", "viewer", "full_admin"];
 const REVIEW_DECISIONS = ["approved", "rejected"];
 const REQUEST_DECISIONS = ["accepted", "rejected"];

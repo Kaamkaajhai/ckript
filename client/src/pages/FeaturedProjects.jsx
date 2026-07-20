@@ -414,10 +414,10 @@ const FeaturedCarousel = ({ scripts, dark, getImageUrl, onWatchPreview }) => {
 
   const script = SLIDES[current];
   const trailerPlaybackUrl = resolveTrailerUrl(script);
-  const resolveImg = (url) => {
-    if (!url) return null;
-    return url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
-  };
+  // Was building `${API_BASE_URL}${url}` against an identifier that is never defined in this file —
+  // every relative cover/avatar threw at render. resolveMediaUrl is the shared helper (already
+  // imported above and used elsewhere here) and handles absolute/data/blob URLs too.
+  const resolveImg = (url) => resolveMediaUrl(url) || null;
 
   const slideVariants = {
     enter: (dir) => ({ x: dir > 0 ? "6%" : "-6%", opacity: 0 }),

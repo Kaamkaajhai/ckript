@@ -1143,7 +1143,7 @@ const InvestorOnboarding = () => {
               <p className="ob-subtitle">Share your previous work and notable credits. Optional — you can skip.</p>
               <ErrorBox msg={error} />
               {creditUploadNotice && <div className="ob-error-box" style={{ background: "rgba(120,80,0,0.2)", borderColor: "rgba(251,191,36,0.3)", color: "#FBBF24" }}>{creditUploadNotice}</div>}
-              <form onSubmit={handleProfile}>
+              <form onSubmit={handleInvestorProfile}>
                 <div className="ob-field">
                   <label className="ob-label">Previous Credits</label>
                   <textarea className="ob-input ob-textarea" placeholder="List films, shows, or projects you've been involved with..." value={investorProfile.previousCredits} onChange={(e) => setInvestorProfile({ ...investorProfile, previousCredits: e.target.value })} rows={3} />
@@ -1172,7 +1172,7 @@ const InvestorOnboarding = () => {
                       {creditAttachments.map(a => (
                         <div key={a.attachmentId} className="ob-chip ob-chip--active" style={{ gap: 6 }}>
                           {a.originalName || "file"}
-                          <button type="button" onClick={() => handleRemoveCreditAttachment(a.attachmentId)} style={{ background: "none", border: "none", color: "#F87171", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
+                          <button type="button" onClick={() => handleRemoveNotableCreditAttachment(a)} style={{ background: "none", border: "none", color: "#F87171", cursor: "pointer", padding: 0, lineHeight: 1 }}>×</button>
                         </div>
                       ))}
                       {pendingCreditFiles.map((f, i) => (
