@@ -50,6 +50,7 @@ const Topbar = ({
   onMarkAllRead,
   onOpenNotif,
   onDeleteNotif,
+  onFollowRequestDecision,
   // user menu
   dropdownRef,
   dropdownOpen,
@@ -58,7 +59,7 @@ const Topbar = ({
 }) => (
   <header className="ck-header">
     <Link to="/dashboard" className="ck-header__logo" aria-label="Ckript home">
-      <BrandLogo className="h-[60px] w-auto" />
+      <BrandLogo className="h-[60px] w-auto" noLink={true} />
     </Link>
 
     <form className="ck-header__search" onSubmit={onSearch}>
@@ -129,6 +130,22 @@ const Topbar = ({
                     {n.script?.title && <strong style={{ color: "#1c1a17" }}> "{n.script.title}"</strong>}
                   </div>
                   <div className="ck-notif-item__time">{timeAgo(n.createdAt)}</div>
+                  {n.type === "follow_request" && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => onFollowRequestDecision?.(n, "accept")}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#1c1a17", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => onFollowRequestDecision?.(n, "reject")}
+                        style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ece8e0", background: "transparent", color: "#6f695f", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); onDeleteNotif(n._id); }}

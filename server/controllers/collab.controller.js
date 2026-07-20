@@ -218,6 +218,7 @@ const ensureEditorBranch = async (script, userId) => {
 
 const createCollaboratorEntry = ({
   userId,
+  invitedEmail,
   role,
   accessLevel = COLLAB_ACCESS_LEVELS.FULL_ACCESS,
   invitedBy,
@@ -227,6 +228,7 @@ const createCollaboratorEntry = ({
   joinedAt = null,
 }) => ({
   userId,
+  invitedEmail,
   role,
   accessLevel,
   invitedBy,
@@ -291,20 +293,27 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    const invitedUser = await User.findOne({ email }).select("_id name email");
-    if (!invitedUser) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const invitedUser = await User.findOne({ email }).select("_id name email role");
 
-    if (normalizeObjectId(invitedUser._id) === normalizeObjectId(req.user._id)) {
+    if (invitedUser && normalizeObjectId(invitedUser._id) === normalizeObjectId(req.user._id)) {
       return res.status(400).json({ error: "You cannot invite yourself" });
     }
 
+    const industryRoles = ["investor", "producer", "director", "actor", "industry", "professional"];
+    if (invitedUser && industryRoles.includes(invitedUser.role)) {
+      return res.status(403).json({ 
+        error: "🎬 This account belongs to a Film Industry Professional. You can only invite fellow writers to collaborate on scripts." 
+      });
+    }
+
     const existingCollaborator = (script.collaborators || []).find(
-      (collab) =>
-        normalizeObjectId(collab.userId) === normalizeObjectId(invitedUser._id)
-        && collab.isActive === true
-        && ["pending", "accepted"].includes(collab.status)
+      (collab) => {
+        const isSameUser = invitedUser && collab.userId && normalizeObjectId(collab.userId) === normalizeObjectId(invitedUser._id);
+        const isSameEmail = !collab.userId && collab.invitedEmail === email;
+        return (isSameUser || isSameEmail)
+          && collab.isActive === true
+          && ["pending", "accepted"].includes(collab.status)
+      }
     );
 
     if (existingCollaborator) {
@@ -315,7 +324,8 @@ export const inviteCollaborator = async (req, res) => {
     const inviteExpiresAt = getInviteExpiryDate();
 
     script.collaborators.push(createCollaboratorEntry({
-      userId: invitedUser._id,
+      userId: invitedUser ? invitedUser._id : undefined,
+      invitedEmail: invitedUser ? undefined : email,
       role,
       accessLevel,
       invitedBy: req.user._id,
@@ -328,8 +338,8 @@ export const inviteCollaborator = async (req, res) => {
     let emailResult = { success: false, skipped: true };
     try {
       emailResult = await sendInviteEmail({
-        to: invitedUser.email,
-        recipientName: invitedUser.name,
+        to: email,
+        recipientName: invitedUser ? invitedUser.name : email.split("@")[0],
         scriptTitle: script.title,
         token: inviteToken,
         role,
@@ -339,22 +349,25 @@ export const inviteCollaborator = async (req, res) => {
       console.error("inviteCollaborator email failed:", emailError.message);
     }
 
-    await createNotification({
-      userId: invitedUser._id,
-      type: "collab_invite",
-      from: req.user._id,
-      script: script._id,
-      message: `You were invited to collaborate on ${script.title} as ${role}.`,
-    });
+    if (invitedUser) {
+      await createNotification({
+        userId: invitedUser._id,
+        type: "collab_invite",
+        from: req.user._id,
+        script: script._id,
+        message: `You were invited to collaborate on ${script.title} as ${role}.`,
+      });
 
-    emitNotification(req, invitedUser._id, "collab_invite", {
-      scriptId: script._id,
-      role,
-      token: inviteToken,
-    });
+      emitNotification(req, invitedUser._id, "collab_invite", {
+        scriptId: script._id,
+        role,
+        token: inviteToken,
+      });
+    }
 
     await createAuditEntry(script._id, req.user._id, "invite_sent", {
-      invitedUserId: invitedUser._id,
+      invitedUserId: invitedUser ? invitedUser._id : null,
+      invitedEmail: invitedUser ? null : email,
       role,
       emailSent: emailResult?.success === true,
       emailSkipped: emailResult?.skipped === true,
@@ -463,8 +476,17 @@ export const acceptInvite = async (req, res) => {
       return res.status(409).json({ error: "Invite already used" });
     }
 
-    if (normalizeObjectId(collaborator.userId) !== normalizeObjectId(req.user._id)) {
-      return res.status(403).json({ error: "Wrong account" });
+    if (collaborator.userId) {
+      if (normalizeObjectId(collaborator.userId) !== normalizeObjectId(req.user._id)) {
+        return res.status(403).json({ error: "Wrong account" });
+      }
+    } else if (collaborator.invitedEmail) {
+      if (req.user.email.toLowerCase() !== collaborator.invitedEmail.toLowerCase()) {
+        return res.status(403).json({ error: "Wrong account" });
+      }
+      collaborator.userId = req.user._id;
+    } else {
+      return res.status(403).json({ error: "Invalid invite data" });
     }
 
     collaborator.status = "accepted";

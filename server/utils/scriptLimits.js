@@ -40,3 +40,29 @@ export const buildScriptLimitStatus = (plan, used, { verb = "create" } = {}) => 
     message,
   };
 };
+
+export const getScriptUploadCycleStart = (user) => {
+  if (!user || !user.subscription) return null;
+  
+  const activatedAt = user.subscription.accessActivatedAt;
+  const expiresAt = user.subscription.accessExpiresAt;
+  
+  if (activatedAt && expiresAt) {
+    const start = new Date(activatedAt);
+    const end = new Date(expiresAt);
+    const now = new Date();
+
+    if (now <= end) {
+      let current = new Date(start);
+      while (current <= now) {
+        current.setMonth(current.getMonth() + 1);
+      }
+      
+      let previous = new Date(current);
+      previous.setMonth(previous.getMonth() - 1);
+      return previous;
+    }
+  }
+  
+  return null;
+};

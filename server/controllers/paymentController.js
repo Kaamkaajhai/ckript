@@ -317,6 +317,18 @@ export const revealWriterContact = async (req, res) => {
       });
     }
 
+    const writer = await User.findById(writerId)
+      .select("email phone writerProfile.links name username allowIndustryContact role")
+      .lean();
+    if (!writer) return res.status(404).json({ message: "Writer not found" });
+
+    if (writer.allowIndustryContact === false && ["writer", "creator"].includes(writer.role)) {
+      return res.status(403).json({
+        message: "This writer has opted out of sharing contact details with industry professionals.",
+        optedOut: true
+      });
+    }
+
     const writerObjectId = String(writerId);
     const alreadyRevealed = hasRevealedContact(user, writerObjectId);
 
@@ -343,11 +355,6 @@ export const revealWriterContact = async (req, res) => {
         }
       );
     }
-
-    const writer = await User.findById(writerId)
-      .select("email phone writerProfile.links name username")
-      .lean();
-    if (!writer) return res.status(404).json({ message: "Writer not found" });
 
     const refreshedUser = await User.findById(user._id).select("subscription").lean();
     const contactsUsed = getRevealedContactCount(refreshedUser || user);
@@ -422,7 +429,7 @@ export const consumeMessageWriterSlot = async (req, res) => {
 
 export const createWriterRazorpayOrder = async (req, res) => {
   try {
-    const { tier } = req.body;
+    const { tier, cycle } = req.body;
     if (!tier || !["silver", "gold"].includes(tier)) {
       return res.status(400).json({ message: "Invalid tier for subscription." });
     }
@@ -439,13 +446,21 @@ export const createWriterRazorpayOrder = async (req, res) => {
       return res.status(503).json({ message: "Razorpay is not configured. Keys are missing." });
     }
 
-    // Amount is server-authoritative from the price matrix; only the currency comes from the client.
     const currency = resolveCurrency(req.body?.currency, currentUser.preferredCurrency);
     const prices = PLAN_PRICES[WRITER_PLAN_KEY[tier]];
+    
+    let baseAmount = prices[currency];
+    let baseInrAmount = prices.INR;
+
+    if (cycle === "annual") {
+      baseAmount = Math.round((baseAmount / 100) * 12 * 0.85) * 100;
+      baseInrAmount = Math.round((baseInrAmount / 100) * 12 * 0.85) * 100;
+    }
+
     const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
-      amount: prices[currency],
+      amount: baseAmount,
       currency,
-      inrAmount: prices.INR,
+      inrAmount: baseInrAmount,
       receipt: `rcpt_${currentUser._id.toString().substring(18)}_${tier}_${Date.now()}`,
     });
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
@@ -465,7 +480,7 @@ export const createWriterRazorpayOrder = async (req, res) => {
 
 export const verifyWriterRazorpayPayment = async (req, res) => {
   try {
-    const { tier, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const { tier, cycle, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     
     if (!tier || !["silver", "gold"].includes(tier)) {
       return res.status(400).json({ message: "Invalid tier for verification." });
@@ -489,7 +504,8 @@ export const verifyWriterRazorpayPayment = async (req, res) => {
 
     const model = tier === "gold" ? WRITER_GOLD_MODEL : WRITER_SILVER_MODEL;
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + model.durationDays * 24 * 60 * 60 * 1000);
+    const durationDays = cycle === "annual" ? 365 : model.durationDays;
+    const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
     const update = {
       $set: {

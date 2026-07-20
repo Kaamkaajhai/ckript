@@ -43,6 +43,18 @@ const MODIFICATION_LABELS = {
   writer_retains_creative_approval_rights: "Writer retains creative approval",
 };
 
+const PAYMENT_LABELS = {
+  one_time_upfront_payment: "One-time upfront payment",
+  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
+  revenue_sharing_model: "Revenue sharing model",
+  custom_deal: "Custom deal",
+};
+
+const NEGOTIATION_LABELS = {
+  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
+  open_to_discussion_after_purchase: "Open to discussion after purchase",
+};
+
 const money = (value) => formatCurrency(Number(value || 0), "INR");
 const initials = (name = "") => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "CK";
 const text = (value, fallback = "Not provided") => String(value || "").trim() || fallback;
@@ -346,8 +358,6 @@ function DealDrawer({ vm }) {
         <dl>
           <div><dt>Rights</dt><dd>{RIGHTS_LABELS[rights?.rightsType] || "Not specified"}</dd></div>
           <div><dt>Modification</dt><dd>{MODIFICATION_LABELS[rights?.modificationRights] || "Not specified"}</dd></div>
-          <div><dt>Buyer commission</dt><dd>5%</dd></div>
-          <div><dt>Payment window</dt><dd>72 hours after approval</dd></div>
         </dl>
       </section>
       {vm.capabilities.owner ? (
@@ -372,7 +382,7 @@ function DealDrawer({ vm }) {
       ) : vm.script?.myPendingRequest ? (
         <div className="sd3-action-banner"><FileText size={20} /><div><b>Request {vm.script.myPendingRequest.status}</b><p>The writer controls approval. Payment terms are accepted only on the secure payment page.</p></div></div>
       ) : vm.capabilities.canPurchase ? (
-        <div className="sd3-action-banner"><FileText size={20} /><div><b>Request purchase access</b><p>Review the rights and writer conditions, then send an optional note. No payment is taken until the writer approves.</p></div><button type="button" className="sd3-button sd3-button--primary" onClick={vm.openPurchase}>Start request</button></div>
+        <div className="sd3-action-banner"><FileText size={20} /><div><b>Interested in this script?</b><p>Review the rights and writer conditions, then contact the writer directly to discuss a deal or schedule a meeting.</p></div></div>
       ) : (
         <div className="sd3-empty-state"><LockKeyhole size={28} /><h3>Deal access restricted</h3><p>Purchase controls are available only to eligible industry accounts.</p></div>
       )}
@@ -458,7 +468,30 @@ function PurchaseDialog({ vm, open, onClose }) {
         <dl className="sd3-detail-list"><div><dt>Rights</dt><dd>{RIGHTS_LABELS[rights?.rightsType] || "Not specified"}</dd></div><div><dt>Payment window</dt><dd>72 hours</dd></div><div><dt>Full access</dt><dd>After verified payment</dd></div></dl>
         <button type="button" className="sd3-button sd3-button--primary sd3-full" onClick={() => setStep(2)}>Review conditions<ChevronRight size={14} /></button>
       </> : <>
-        <div className="sd3-terms-scroll"><h3>Rights summary</h3><p>{RIGHTS_LABELS[rights?.rightsType] || "Rights type not specified"}. {MODIFICATION_LABELS[rights?.modificationRights] || "Modification rights not specified"}.</p><h3>Writer conditions</h3><p>{text(vm.writerCustomConditions, "No additional writer conditions.")}</p><h3>Payment terms</h3><p>The secure payment page collects the binding platform, writer, custom-condition, and rights acknowledgements after owner approval.</p></div>
+        <div className="sd3-terms-scroll">
+          <h3>Rights summary</h3>
+          <ul className="sd3-prose list-disc pl-4 space-y-1 mt-2 text-sm text-gray-300">
+            <li><strong>Rights Type:</strong> {RIGHTS_LABELS[rights?.rightsType] || "Not specified"}</li>
+            {rights?.rightsType === "exclusive_license" && (
+              <li><strong>License Duration:</strong> {rights?.timeBound?.licenseDurationMonths} months</li>
+            )}
+            <li><strong>Modification:</strong> {MODIFICATION_LABELS[rights?.modificationRights] || "Not specified"}</li>
+            <li><strong>Payment Structure:</strong> {PAYMENT_LABELS[rights?.paymentStructure] || "Not specified"}</li>
+            {["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rights?.paymentStructure) && (
+              <li>
+                <strong>Royalty:</strong> {rights?.royaltySettings?.percentage || 0}% 
+                {rights?.royaltySettings?.durationType === "years" ? ` for ${rights?.royaltySettings?.durationYears} years` : 
+                 rights?.royaltySettings?.durationType === "project_lifetime" ? " for project lifetime" : ""}
+              </li>
+            )}
+            <li><strong>Negotiation Mode:</strong> {NEGOTIATION_LABELS[rights?.negotiationMode] || "Not specified"}</li>
+            <li><strong>IP Ownership:</strong> {rights?.legalAcknowledgement?.ownershipConfirmed ? "Confirmed by writer" : "Pending"}</li>
+          </ul>
+          <h3 className="mt-4">Writer conditions</h3>
+          <p>{text(vm.writerCustomConditions, "No additional writer conditions.")}</p>
+          <h3>Payment terms</h3>
+          <p>The secure payment page collects the binding platform, writer, custom-condition, and rights acknowledgements after owner approval.</p>
+        </div>
         <label className="sd3-field" htmlFor="sd3-purchase-note">Message to the writer <span>Optional</span><textarea id="sd3-purchase-note" value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} placeholder="Why is this project a fit for you?" /></label>
         <div className="sd3-modal-actions"><button type="button" className="sd3-button" onClick={() => setStep(1)}>Back</button><button type="button" className="sd3-button sd3-button--primary" disabled={vm.requestLoading} onClick={async () => { const ok = await vm.handleRequestPurchase(note); if (ok) closeDialog(); }}>{vm.requestLoading ? "Sending…" : "Send request"}</button></div>
       </>}

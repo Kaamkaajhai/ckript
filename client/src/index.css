@@ -588,11 +588,11 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 
 html.dark-mode {
   color-scheme: dark;
-  background: #060d18;
+  background: #0b0b0b;
 }
 
 html.dark-mode body {
-  background: #060d18;
+  background: #0b0b0b;
   color: #e2e8f0;
 }
 
@@ -1757,4 +1757,29 @@ body {
 /* Hide comment icon in read-only mode (preview fallback) */
 .screenplay-editor--readonly .cm-sp-linecomment-btn {
   display: none !important;
+}
+
+.ckript-script-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ckript-script-watermark::before {
+  content: "CKRIPT   CKRIPT   CKRIPT";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  color: rgba(15, 23, 42, 0.08);
+  font-family: Inter, Arial, sans-serif;
+  font-size: clamp(34px, 7vw, 68px);
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-align: center;
+  transform: translate(-50%, -50%) rotate(-36deg);
+  white-space: nowrap;
 }

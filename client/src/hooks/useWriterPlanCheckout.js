@@ -108,7 +108,7 @@ export function useWriterPlanCheckout() {
                        user, so a host modal can dismiss itself first
   */
   const startCheckout = useCallback(
-    async ({ tier, isRenew = false, signInRedirect = "/pricing", onSuccess, onRequireAuth } = {}) => {
+    async ({ tier, isRenew = false, cycle = "monthly", signInRedirect = "/pricing", onSuccess, onRequireAuth } = {}) => {
       const plan = WRITER_TIERS[tier];
       setError("");
       setMessage("");
@@ -140,7 +140,7 @@ export function useWriterPlanCheckout() {
           return;
         }
 
-        const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier, currency: currency || "INR" });
+        const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier, cycle, currency: currency || "INR" });
 
         const options = {
           key: orderData.key,
@@ -154,6 +154,7 @@ export function useWriterPlanCheckout() {
               setMessage("Verifying payment...");
               const { data: verifyData } = await api.post("/payment/writer/verify-razorpay-payment", {
                 tier,
+                cycle,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,

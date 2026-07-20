@@ -24,7 +24,8 @@ const roleSchema = new mongoose.Schema({
 }, { _id: true });
 
 const collaboratorSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+  invitedEmail: { type: String, lowercase: true, trim: true },
   role: { type: String, enum: ["editor", "merger", "viewer", "full_admin", "commenter"], required: true, default: "editor", set: normalizeCollaboratorRole },
   accessLevel: {
     type: String,

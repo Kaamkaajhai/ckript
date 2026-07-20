@@ -43,7 +43,7 @@ export function usePayloads({
       ...normalized,
       legalAcknowledgement: {
         ...normalized.legalAcknowledgement,
-        platformTermsAccepted: Boolean(legal.agreedToTerms) && Boolean(normalized.legalAcknowledgement.platformTermsAccepted),
+        platformTermsAccepted: Boolean(legal.agreedToTerms) || Boolean(normalized.legalAcknowledgement.platformTermsAccepted),
       },
       royaltySettings: royaltyBased
         ? normalized.royaltySettings

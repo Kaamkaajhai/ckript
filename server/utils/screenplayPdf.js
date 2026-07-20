@@ -5,15 +5,25 @@ import PDFDocument from "pdfkit";
 // formatter (normalization) stays in screenplayParser.js.
 import { formatScreenplayLikeText } from "./screenplayParser.js";
 import { textToBlocks, parseInlineEmphasis } from "./classify.js";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // US screenplay standard: US Letter, 12pt Courier, 1" top/bottom/right, 1.5" left.
 const PT = 72; // points per inch
 const PAGE = { width: 8.5 * PT, height: 11 * PT };
 const MARGIN = { top: 1 * PT, bottom: 1 * PT, left: 1.5 * PT, right: 1 * PT };
-const FONT = "Courier";
-const FONT_BOLD = "Courier-Bold";
-const FONT_ITALIC = "Courier-Oblique";
-const FONT_BOLD_ITALIC = "Courier-BoldOblique";
+const FONT_REGULAR_PATH = path.join(__dirname, "../assets/fonts/CourierPrime-Regular.ttf");
+const FONT_BOLD_PATH = path.join(__dirname, "../assets/fonts/CourierPrime-Bold.ttf");
+const FONT_ITALIC_PATH = path.join(__dirname, "../assets/fonts/CourierPrime-Italic.ttf");
+const FONT_BOLD_ITALIC_PATH = path.join(__dirname, "../assets/fonts/CourierPrime-BoldItalic.ttf");
+
+const FONT = "CourierPrime";
+const FONT_BOLD = "CourierPrime-Bold";
+const FONT_ITALIC = "CourierPrime-Italic";
+const FONT_BOLD_ITALIC = "CourierPrime-BoldItalic";
 const FONT_SIZE = 12;
 const LINE = FONT_SIZE; // single-spaced
 const CONTENT_RIGHT = PAGE.width - MARGIN.right;
@@ -90,6 +100,24 @@ export const generateScreenplayPdf = (scriptText, opts = {}) =>
       margins: { top: MARGIN.top, bottom: MARGIN.bottom, left: MARGIN.left, right: MARGIN.right },
     });
 
+    try {
+      doc.registerFont(FONT, FONT_REGULAR_PATH);
+      doc.registerFont(FONT_BOLD, FONT_BOLD_PATH);
+      doc.registerFont(FONT_ITALIC, FONT_ITALIC_PATH);
+      doc.registerFont(FONT_BOLD_ITALIC, FONT_BOLD_ITALIC_PATH);
+    } catch (err) {
+      console.warn("[screenplayPdf] Failed to register CourierPrime fonts. They may be missing.");
+    }
+
+    try {
+      doc.registerFont(FONT, FONT_REGULAR_PATH);
+      doc.registerFont(FONT_BOLD, FONT_BOLD_PATH);
+      doc.registerFont(FONT_ITALIC, FONT_ITALIC_PATH);
+      doc.registerFont(FONT_BOLD_ITALIC, FONT_BOLD_ITALIC_PATH);
+    } catch (err) {
+      console.warn("[screenplayPdf] Failed to register CourierPrime fonts. They may be missing.");
+    }
+
     const chunks = [];
     doc.on("error", reject);
     doc.on("data", (c) => chunks.push(c));
@@ -114,7 +142,8 @@ export const generateScreenplayPdf = (scriptText, opts = {}) =>
     const tpAuthor = (tp?.author || author || "").trim();
     const tpSource = (tp?.source || "").trim();
     const tpDraft = (tp?.draftDate || "").trim();
-    if (tpTitle || tpAuthor || tpSource || tpDraft) {
+    const tpContact = (tp?.contact || tp?.Contact || "").trim();
+    if (tpTitle || tpAuthor || tpSource || tpDraft || tpContact) {
       const cx = MARGIN.left;
       doc.fillColor("#111111").fillOpacity(1);
       let ty = PAGE.height * 0.38;
@@ -137,10 +166,16 @@ export const generateScreenplayPdf = (scriptText, opts = {}) =>
         doc.font(FONT).fontSize(FONT_SIZE);
         doc.text(tpSource, cx, ty, { width: ACTION_WIDTH, align: "center" });
       }
-      // Draft date sits low on the page (industry bottom-left/centre); keep it centred for simplicity.
+      // Draft date sits low on the page (industry bottom-left)
+      let bottomY = PAGE.height * 0.78;
       if (tpDraft) {
         doc.font(FONT).fontSize(FONT_SIZE);
-        doc.text(tpDraft, cx, PAGE.height * 0.82, { width: ACTION_WIDTH, align: "center" });
+        doc.text(tpDraft, cx, bottomY, { width: ACTION_WIDTH, align: "left" });
+        bottomY += doc.heightOfString(tpDraft, { width: ACTION_WIDTH }) + LINE;
+      }
+      if (tpContact) {
+        doc.font(FONT).fontSize(FONT_SIZE);
+        doc.text(tpContact, cx, bottomY, { width: ACTION_WIDTH, align: "left" });
       }
       doc.addPage();
       y = MARGIN.top;

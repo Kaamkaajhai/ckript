@@ -72,7 +72,7 @@ export const normalizeRightsLicensingState = (incoming = {}) => {
 
   return {
     rightsType: normalizedRightsType,
-    exclusivity: true,
+    exclusivity: incoming?.exclusivity !== undefined ? Boolean(incoming.exclusivity) : defaults.exclusivity,
     modificationRights: MODIFICATION_LABEL_MAP[incoming?.modificationRights]
       ? incoming.modificationRights
       : defaults.modificationRights,

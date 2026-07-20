@@ -28,10 +28,7 @@ const Credits = () => {
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [activeTab, setActiveTab] = useState("services");
-  const [referralSummary, setReferralSummary] = useState(null);
-  const [referralLoading, setReferralLoading] = useState(false);
-  const [referralError, setReferralError] = useState("");
-  const [referralCopyFeedback, setReferralCopyFeedback] = useState("");
+
 
   const isWriterUser = ["creator", "writer"].includes(String(user?.role || "").toLowerCase());
 
@@ -71,24 +68,7 @@ const Credits = () => {
     }
   }, []);
 
-  const fetchReferralSummary = useCallback(async () => {
-    if (!isWriterUser) {
-      setReferralSummary(null);
-      return;
-    }
 
-    try {
-      setReferralLoading(true);
-      setReferralError("");
-      const { data } = await api.get("/auth/referral-summary");
-      setReferralSummary(data || null);
-    } catch {
-      setReferralSummary(null);
-      setReferralError("Unable to load referral details right now.");
-    } finally {
-      setReferralLoading(false);
-    }
-  }, [isWriterUser]);
 
   useEffect(() => {
     const init = async () => {
@@ -97,12 +77,11 @@ const Credits = () => {
         fetchBalance(),
         fetchHistory(1),
         fetchPricing(),
-        fetchReferralSummary(),
       ]);
       setLoading(false);
     };
     init();
-  }, [fetchBalance, fetchHistory, fetchPricing, fetchReferralSummary]);
+  }, [fetchBalance, fetchHistory, fetchPricing]);
 
   useEffect(() => {
     if (historyPage > 1) fetchHistory(historyPage);
@@ -132,12 +111,7 @@ const Credits = () => {
     return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(date);
   };
 
-  const referralCode = String(referralSummary?.referralCode || user?.referralCode || "").trim();
-  const fallbackOrigin = typeof window !== "undefined" ? window.location.origin : "";
-  const fallbackReferralLink = referralCode
-    ? `${fallbackOrigin}/${encodeURIComponent(referralCode)}`
-    : "";
-  const referralShareLink = String(referralSummary?.referralLink || "").trim() || fallbackReferralLink;
+
 
   const copyToClipboard = async (value) => {
     if (!value) return false;
@@ -166,12 +140,7 @@ const Credits = () => {
     }
   };
 
-  const handleCopyReferralLink = async () => {
-    if (!referralShareLink) return;
-    const copied = await copyToClipboard(referralShareLink);
-    setReferralCopyFeedback(copied ? "Referral link copied" : "Copy failed. Please copy manually.");
-    setTimeout(() => setReferralCopyFeedback(""), 2200);
-  };
+
 
   const txConfig = {
     purchase: { label: "Purchase", icon: ArrowDownLeft, darkCls: "text-emerald-400 bg-emerald-500/10", lightCls: "text-emerald-700 bg-emerald-50" },
@@ -330,51 +299,7 @@ const Credits = () => {
           </motion.div>
         </div>
 
-        {isWriterUser && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`rounded-2xl border p-5 ${dark ? "bg-[#0d1b2e] border-[#1a2e48]" : "bg-white border-gray-100"}`}
-          >
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div>
-                <h2 className={`text-lg font-black ${dark ? "text-white" : "text-gray-900"}`}>Writer Referral</h2>
-                <p className={`text-sm mt-1 ${dark ? "text-gray-500" : "text-gray-500"}`}>
-                  Share your referral link. If a writer joins using your link or your referral and completes signup verification, both writers get 15 credits.
-                </p>
-              </div>
-            </div>
 
-            <div className="mt-4">
-              <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>Referral Code</p>
-              <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                <div className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-black tracking-wider ${dark ? "bg-white/[0.06] text-white" : "bg-gray-100 text-gray-900"}`}>
-                  {referralCode || "--"}
-                </div>
-                <div className={`inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs font-semibold ${dark ? "bg-emerald-500/12 text-emerald-300" : "bg-emerald-50 text-emerald-700"}`}>
-                  Bonus: {formatNumber(referralSummary?.totalBonusCredits || 0)} credits
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopyReferralLink}
-                  disabled={!referralShareLink}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-50 ${dark ? "bg-white/[0.08] text-white hover:bg-white/[0.14]" : "bg-gray-100 text-gray-800 hover:bg-gray-200"}`}
-                >
-                  Copy Link
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3">
-              <p className={`text-[11px] font-bold uppercase tracking-widest mb-1.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>Referral Link</p>
-              <div className={`rounded-xl border px-3 py-2.5 text-xs break-all ${dark ? "border-[#1a2e48] bg-white/[0.02] text-gray-300" : "border-gray-100 bg-gray-50 text-gray-700"}`}>
-                {referralLoading ? "Loading referral link..." : referralShareLink || "Referral link unavailable"}
-              </div>
-              {referralError && <p className="mt-1.5 text-xs text-red-500">{referralError}</p>}
-              {referralCopyFeedback && <p className={`mt-1.5 text-xs ${dark ? "text-emerald-300" : "text-emerald-600"}`}>{referralCopyFeedback}</p>}
-            </div>
-          </motion.div>
-        )}
 
         {/* ── Tabs ── */}
         <div className={`flex gap-1 p-1 rounded-xl w-fit ${dark ? "bg-white/[0.04]" : "bg-gray-100"}`}>

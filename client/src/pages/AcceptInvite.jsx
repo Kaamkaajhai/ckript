@@ -29,7 +29,7 @@ export default function AcceptInvite() {
     }
 
     if (!user) {
-      navigate(`/login?next=${encodeURIComponent(currentPath)}`, { replace: true });
+      navigate(`/signup?role=writer&next=${encodeURIComponent(currentPath)}`, { replace: true });
       return;
     }
 

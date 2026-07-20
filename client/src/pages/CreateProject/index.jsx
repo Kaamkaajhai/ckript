@@ -1738,13 +1738,13 @@ const CreateProject = () => {
   // Click "Fix Grammar"
   // Styling helpers
   const cardCls = `rounded-2xl border backdrop-blur-sm ${dark ? "bg-[#0d1520]/80 border-[#182840]" : "bg-white/90 border-gray-200 shadow-sm"}`;
-  const aiBtnCls = `shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition disabled:opacity-50 disabled:cursor-not-allowed ${dark ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`;
+  const aiBtnCls = `shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition disabled:opacity-50 disabled:cursor-not-allowed ${dark ? "bg-white/[0.06] border-[#333] text-gray-300 hover:bg-white/[0.1]" : "bg-white border-gray-200 text-black hover:bg-gray-50"}`;
   const inputCls = `w-full px-4 py-3 rounded-xl text-sm transition-all duration-200 outline-none ${dark
-    ? "bg-white/[0.04] border border-[#1d3350] text-gray-100 placeholder:text-gray-600 focus:border-[#1e3a5f] focus:ring-1 focus:ring-[#1e3a5f]/30"
-    : "bg-gray-50 border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/50 focus:ring-1 focus:ring-[#1e3a5f]/10"}`;
+    ? "bg-[#111] border border-[#333] text-gray-100 placeholder:text-gray-600 focus:border-white focus:ring-1 focus:ring-white/30"
+    : "bg-gray-50 border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black/10"}`;
   const chipCls = (sel) => `px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer ${sel
-    ? dark ? "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20" : "bg-[#1e3a5f] text-white shadow-md shadow-[#1e3a5f]/20"
-    : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
+    ? "bg-[#D14D37] text-white shadow-sm"
+    : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.1] border border-[#333]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
 
   const ctx = {
     BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
@@ -1765,7 +1765,7 @@ const CreateProject = () => {
             </p>
             <div className="flex flex-col gap-2 mt-5">
               <button type="button" disabled={exiting} onClick={confirmExitSaveDraft}
-                className="w-full py-2.5 rounded-xl text-sm font-bold bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition disabled:opacity-50">
+                className={`w-full py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-50 ${dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"}`}>
                 {exiting ? "Saving…" : "Save as draft & exit"}
               </button>
               <button type="button" disabled={exiting} onClick={confirmExitDiscard}
@@ -1813,6 +1813,7 @@ const CreateProject = () => {
           onCaretLine={handleCaretLine}
           apiRef={screenplayApiRef}
           dark={dark}
+          onToggleDark={toggleDarkMode}
           title={title}
           currentElement={currentElement}
           scriptId={scriptId}
@@ -1952,7 +1953,7 @@ const CreateProject = () => {
                 <button
                   type="button"
                   onClick={handleUnderReviewContinue}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition"
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold transition ${dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"}`}
                 >
                   Continue
                 </button>
@@ -2166,7 +2167,7 @@ const CreateProject = () => {
                   type="button"
                   onClick={handleApplyThumbnail}
                   disabled={thumbnailApplying}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed bg-[#1e3a5f] hover:bg-[#162d4a] text-white"
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed ${dark ? "bg-white text-black hover:bg-gray-200" : "bg-black text-white hover:bg-gray-800"}`}
                 >
                   {thumbnailApplying ? "Saving Cover..." : "Save Cover"}
                 </button>

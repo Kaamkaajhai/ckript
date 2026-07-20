@@ -360,7 +360,7 @@ const AdminScriptView = () => {
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
   const hasUploadedPdf = Boolean(uploadedPdfUrl);
   const derivedPdfUrl = hasUploadedPdf 
-    ? uploadedPdfUrl 
+    ? script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf?download=0`) : uploadedPdfUrl
     : script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0`) : "";
 
   const formatLabel = script?.format === "other"
@@ -433,10 +433,25 @@ const AdminScriptView = () => {
   // Download the SAME PDF the script renders as everywhere else — never an ad-hoc flat rebuild. A
   // script missing both fileUrl AND fountainContent won't have a valid PDF at /export/pdf either,
   // but button is disabled in that case.
-  const handleDownloadScript = () => {
-    if (derivedPdfUrl) {
-      window.open(derivedPdfUrl.replace("download=0", "download=1"), "_blank", "noopener,noreferrer");
-      return;
+  const handleDownloadScript = async () => {
+    if (!derivedPdfUrl || !script?._id) return;
+
+    const safeTitle = String(script?.title || "script")
+      .replace(/[^a-z0-9]+/gi, "_")
+      .replace(/^_+|_+$/g, "") || "script";
+
+    try {
+      const response = await adminApi.get(
+        hasUploadedPdf ? `/scripts/${script._id}/pdf` : `/scripts/${script._id}/export/pdf?download=1`,
+        { responseType: "blob" }
+      );
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const finalBlob = hasUploadedPdf
+        ? await buildWatermarkedPdfFromPdfBlob(blob, { title: script?.title || "Script" })
+        : blob;
+      downloadPdfBlob(finalBlob, `${safeTitle}.pdf`);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to download watermarked script PDF.");
     }
   };
 
@@ -1248,9 +1263,34 @@ const AdminScriptView = () => {
           </div>
         </div>
 
+        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Rights & Licensing</p>
+            <p className="text-xs text-white/60">Intellectual property terms set by the writer.</p>
+          </div>
 
-
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { label: "Rights Type", value: RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || script?.rightsLicensing?.rightsType || "-" },
+              { label: "Modification Rights", value: MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || script?.rightsLicensing?.modificationRights || "-" },
+              { label: "Payment Structure", value: PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || script?.rightsLicensing?.paymentStructure || "-" },
+              { label: "Royalty Settings", value: script?.rightsLicensing?.royaltySettings?.percentage ? `${script?.rightsLicensing?.royaltySettings?.percentage}% (${script?.rightsLicensing?.royaltySettings?.durationType})` : "-" },
+              { label: "License Duration", value: script?.rightsLicensing?.timeBound?.licenseDurationMonths ? `${script?.rightsLicensing?.timeBound?.licenseDurationMonths} months` : "Perpetual" },
+              { label: "Negotiation Mode", value: NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || script?.rightsLicensing?.negotiationMode || "-" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">{item.label}</p>
+                <p className="text-xs text-white/85">{item.value}</p>
+              </div>
+            ))}
+          </div>
+          {script?.rightsLicensing?.customConditions && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mt-2">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Custom Conditions</p>
+              <p className="text-sm text-white/90 whitespace-pre-wrap">{script.rightsLicensing.customConditions}</p>
+            </div>
+          )}
+        </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
           <div>

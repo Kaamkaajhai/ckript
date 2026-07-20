@@ -104,13 +104,14 @@ export const exportScreenplayPdf = async (req, res) => {
       return res.status(404).json({ message: "This project has no screenplay content to export." });
     }
 
-    // Non-owners always get a watermark stamping their identity for traceable sharing.
-    // Owners may opt in via ?watermark=...
-    let watermark = "";
+    // Every generated copy carries the Ckript mark; non-owners also get their identity stamped
+    // for traceable sharing.
+    let watermark = "CKRIPT";
     if (!access.isOwner && !access.isAdmin) {
-      watermark = req.user.email || req.user.name || req.user._id.toString();
+      const identity = req.user.email || req.user.name || req.user._id.toString();
+      watermark = `CKRIPT ${identity}`;
     } else if (req.query.watermark) {
-      watermark = String(req.query.watermark).slice(0, 80);
+      watermark = `CKRIPT ${String(req.query.watermark).slice(0, 80)}`;
     }
 
     // Title-page author: the credited writers first, so a co-written script is attributed on the

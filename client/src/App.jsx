@@ -13,6 +13,7 @@ import CookieConsentBanner from "./components/CookieConsentBanner";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
 import useIsMobile from "./mobile/hooks/useIsMobile";
+import { getAuthenticatedProfileShell, getSharedProfileExperience } from "./features/profile-pc/profilePolicy";
 
 const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
@@ -170,14 +171,69 @@ function SingleSegmentProfileOrReferralRoute() {
     return <Navigate to={`/share/profile/${encodeURIComponent(normalizedSegment)}`} replace />;
   }
 
-  const isCreator = user?.role === "writer" || user?.role === "creator";
   return (
     <PrivateRoute>
-      {isCreator
-        ? <DashboardLayout variant="page"><Profile /></DashboardLayout>
-        : <MainLayout><Profile /></MainLayout>}
+      <AuthenticatedProfileShell>
+        <Profile />
+      </AuthenticatedProfileShell>
     </PrivateRoute>
   );
+}
+
+function AuthenticatedProfileShell({ children }) {
+  const { user } = useContext(AuthContext);
+  const shell = getAuthenticatedProfileShell(user?.role);
+
+  return shell.layout === "dashboard"
+    ? <DashboardLayout variant={shell.contentVariant}>{children}</DashboardLayout>
+    : <MainLayout contentVariant={shell.contentVariant}>{children}</MainLayout>;
+}
+
+// Profiles have one mounting contract regardless of whether the viewer opens
+// their own profile, an id-based URL, or another member's canonical username.
+function ProtectedProfileLayout() {
+  const content = (
+    <Suspense
+      fallback={
+        <div className="min-h-[60vh] flex items-center justify-center text-sm text-gray-500">
+          Loading profile…
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  );
+
+  return (
+    <PrivateRoute>
+      <AuthenticatedProfileShell>{content}</AuthenticatedProfileShell>
+    </PrivateRoute>
+  );
+}
+
+function SharedProfileRoute() {
+  const { user, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-sm text-gray-500 bg-white">
+        Loading profile…
+      </div>
+    );
+  }
+
+  // A copied share URL is also a valid signed-in entry point. Authenticated
+  // viewers get the real profile (permissions, follow/message, canonical URL),
+  // while logged-out visitors retain the sanitized public representation.
+  if (getSharedProfileExperience(user) === "authenticated") {
+    return (
+      <AuthenticatedProfileShell>
+        <Profile />
+      </AuthenticatedProfileShell>
+    );
+  }
+
+  return <PublicProfile />;
 }
 
 // Shared layout for authenticated app routes. Creators/writers get the unified
@@ -380,7 +436,7 @@ function App() {
               <Route path="/join" element={<Navigate to="/" replace />} />
               <Route path="/signup" element={<Navigate to="/" replace />} />
               <Route path="/invite/:token" element={<AcceptInvite />} />
-              <Route path="/share/profile/:id" element={<PublicProfile />} />
+              <Route path="/share/profile/:id" element={<SharedProfileRoute />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
@@ -390,7 +446,6 @@ function App() {
                 <Route path="/top-script" element={<TopList />} />
                 <Route path="/featured" element={<FeaturedProjects />} />
                 <Route path="/trending" element={<Navigate to="/top-script" replace />} />
-                <Route path="/profile/:id?" element={<Profile />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
                 <Route path="/new-project" element={<NewProject />} />
@@ -410,6 +465,9 @@ function App() {
                 <Route path="/reader/script/:id" element={<ScriptReader />} />
                 <Route path="/reader/profile/:id?" element={<ReaderProfile />} />
                 <Route path="/reader/search" element={<ReaderHome />} />
+              </Route>
+              <Route element={<ProtectedProfileLayout />}>
+                <Route path="/profile/:id?" element={<Profile />} />
               </Route>
               <Route element={<ProtectedScriptDetailLayout />}>
                 <Route path="/script/:id" element={<ScriptDetail />} />

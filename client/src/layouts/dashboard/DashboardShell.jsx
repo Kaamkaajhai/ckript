@@ -11,7 +11,7 @@
  */
 import { useContext, useState, useRef, useEffect, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { io } from "socket.io-client";
 import { AuthContext } from "../../context/AuthContext";
 import ConfirmDialog from "../../components/ConfirmDialog";
@@ -56,7 +56,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
   const [notifPopups,   setNotifPopups]   = useState([]);
   const [dropdownOpen,  setDropdownOpen]  = useState(false);
   const [showLogout,    setShowLogout]    = useState(false);
-  const [avatarErr,     setAvatarErr]     = useState(false);
+  const [avatarErrorUrl, setAvatarErrorUrl] = useState("");
   const [searchQ,       setSearchQ]       = useState("");
   // Drawer always starts closed on each visit (no persistence) — the burger
   // opens it as a temporary, in-session overlay.
@@ -87,7 +87,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U";
 
-  useEffect(() => { setAvatarErr(false); }, [resolvedImg]);
+  const avatarErr = Boolean(resolvedImg && avatarErrorUrl === resolvedImg);
 
   const toggleExpanded = useCallback(() => setExpanded((prev) => !prev), []);
 
@@ -168,10 +168,15 @@ const DashboardShell = ({ children, variant = "page" }) => {
 
   useEffect(() => {
     if (!user?._id) return;
-    fetchNotifs();
-    fetchMsgCount();
+    const initialRefresh = window.setTimeout(() => {
+      fetchNotifs();
+      fetchMsgCount();
+    }, 0);
     const id = window.setInterval(fetchNotifs, NOTIF_POLL_MS);
-    return () => window.clearInterval(id);
+    return () => {
+      window.clearTimeout(initialRefresh);
+      window.clearInterval(id);
+    };
   }, [fetchNotifs, fetchMsgCount, user?._id]);
 
   // ── Socket ─────────────────────────────────────────────────────────────────
@@ -231,6 +236,18 @@ const DashboardShell = ({ children, variant = "page" }) => {
     setNotifOpen(true);
   };
 
+  const handleFollowRequestDecision = async (notif, decision) => {
+    const fromUserId = notif?.from?._id || notif?.from;
+    if (!fromUserId) return;
+    try {
+      const endpoint = decision === "accept"
+        ? "/users/follow-requests/accept"
+        : "/users/follow-requests/reject";
+      await api.post(endpoint, { fromUserId });
+      handleDeleteNotif(notif._id);
+    } catch { /* ignore */ }
+  };
+
   const handleNotifToggle = () => {
     if (!notifOpen) { fetchNotifs(); handleMarkAllRead(); }
     setNotifOpen((v) => !v);
@@ -274,7 +291,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
         profilePath={profilePath}
         resolvedImg={resolvedImg}
         avatarErr={avatarErr}
-        onAvatarError={() => setAvatarErr(true)}
+        onAvatarError={() => setAvatarErrorUrl(resolvedImg)}
         initials={initials}
         recentProjects={recentProjects}
       />
@@ -285,7 +302,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
           profilePath={profilePath}
           resolvedImg={resolvedImg}
           avatarErr={avatarErr}
-          onAvatarError={() => setAvatarErr(true)}
+          onAvatarError={() => setAvatarErrorUrl(resolvedImg)}
           initials={initials}
           searchQ={searchQ}
           onSearchChange={setSearchQ}
@@ -298,6 +315,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
           onMarkAllRead={handleMarkAllRead}
           onOpenNotif={openNotif}
           onDeleteNotif={handleDeleteNotif}
+          onFollowRequestDecision={handleFollowRequestDecision}
           dropdownRef={dropdownRef}
           dropdownOpen={dropdownOpen}
           onDropdownToggle={() => { setDropdownOpen((v) => !v); setNotifOpen(false); }}
@@ -338,7 +356,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
       <div className="ck-notif-popup">
         <AnimatePresence initial={false}>
           {visiblePopups.map((notif) => (
-            <motion.div
+            <Motion.div
               key={notif._id}
               initial={{ opacity: 0, x: 60, scale: 0.92 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
@@ -357,12 +375,29 @@ const DashboardShell = ({ children, variant = "page" }) => {
                   </p>
                   <p style={{ fontSize: 11, color: "#a39d92", margin: "3px 0 0" }}>{timeAgo(notif.createdAt)}</p>
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <button
-                      onClick={() => openNotif(notif)}
-                      style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#1c1a17", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
-                    >
-                      Open
-                    </button>
+                    {notif.type === "follow_request" ? (
+                      <>
+                        <button
+                          onClick={() => handleFollowRequestDecision(notif, "accept")}
+                          style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#1c1a17", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleFollowRequestDecision(notif, "reject")}
+                          style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ece8e0", background: "transparent", color: "#6f695f", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => openNotif(notif)}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#1c1a17", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                      >
+                        Open
+                      </button>
+                    )}
                     <button
                       onClick={() => dismissPopup(notif._id)}
                       style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ece8e0", background: "transparent", color: "#6f695f", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
@@ -372,7 +407,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </Motion.div>
           ))}
         </AnimatePresence>
       </div>
