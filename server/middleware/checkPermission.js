@@ -1,14 +1,16 @@
 import Script from "../models/Script.js";
 
+// Collaboration is live co-writing on one shared script: everyone edits the same document, with
+// per-scene locks deciding who may type where. Roles therefore answer "may you write, comment, read,
+// or manage people" — there is no branch to review, so the old `approve`/`merge` tiers (and the
+// `merger` role that existed only to serve them) are gone.
 export const PERMISSIONS = {
-  read: ["full_admin", "editor", "merger", "viewer", "commenter"],
+  read: ["full_admin", "editor", "viewer", "commenter"],
   write: ["full_admin", "editor"],
   // Commenters leave notes but cannot edit (producer-review case); viewers can do neither.
-  comment: ["full_admin", "editor", "merger", "commenter"],
-  approve: ["full_admin", "merger"],
+  comment: ["full_admin", "editor", "commenter"],
   publish: ["full_admin"],
   manage: ["full_admin"],
-  merge: ["full_admin", "merger"],
 };
 
 export const COLLAB_ACCESS_LEVELS = {

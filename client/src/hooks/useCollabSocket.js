@@ -86,34 +86,6 @@ export default function useCollabSocket(scriptId, enabled = true, options = {}) 
       callbacksRef.current?.onCollabRequestResponded?.(payload);
     });
 
-    socket.on("pr_raised", (payload) => {
-      callbacksRef.current?.onPRRaised?.(payload);
-    });
-
-    socket.on("pr_updated", (payload) => {
-      callbacksRef.current?.onPRUpdated?.(payload);
-    });
-
-    socket.on("pr_merged", (payload) => {
-      callbacksRef.current?.onPRMerged?.(payload);
-    });
-
-    socket.on("pr_rejected", (payload) => {
-      callbacksRef.current?.onPRRejected?.(payload);
-    });
-
-    socket.on("pr_reverted", (payload) => {
-      callbacksRef.current?.onPRReverted?.(payload);
-    });
-
-    socket.on("editor_joined", (payload) => {
-      callbacksRef.current?.onEditorJoined?.(payload);
-    });
-
-    socket.on("editor_left", (payload) => {
-      callbacksRef.current?.onEditorLeft?.(payload);
-    });
-
     return () => {
       socket.emit("leave_script", { scriptId });
       socket.disconnect();
@@ -129,7 +101,5 @@ export default function useCollabSocket(scriptId, enabled = true, options = {}) 
     emitContentChange: (delta, sectionRef) => socketRef.current?.emit("content_change", { scriptId, delta, sectionRef }),
     emitTypingStart: (sectionRef) => socketRef.current?.emit("typing_start", { scriptId, sectionRef }),
     emitTypingStop: (sectionRef) => socketRef.current?.emit("typing_stop", { scriptId, sectionRef }),
-    emitEditorActive: (sId, name, avatar) => socketRef.current?.emit("editor_active", { scriptId: sId, name, avatar }),
-    emitEditorInactive: (sId) => socketRef.current?.emit("editor_inactive", { scriptId: sId }),
   };
 }

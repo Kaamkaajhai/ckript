@@ -1679,12 +1679,11 @@ const ScriptDetail = () => {
       showNotice("Editing is locked while the current submission is awaiting admin approval.", "error");
       return;
     }
-    // Editor-format scripts are co-written live in the shared editor (duet, scene-locked) — owner and
-    // invited co-writers alike. Uploaded PDF projects have no live editor, so a collaborator there
-    // still falls back to the branch/PR flow.
+    // Everyone with edit rights co-writes the same script: the live scene-locked editor for
+    // editor-format projects, the upload editor for uploaded PDFs. There is no separate branch.
     navigate(shouldEditInTextEditor
       ? `/create-project/${script._id}`
-      : (isOwner ? `/upload?edit=${script._id}` : `/script/${script._id}/branch/edit`));
+      : `/upload?edit=${script._id}`);
   };
   const handleMeetingScheduled = (payload = {}) => {
     setMeetingSent(true);

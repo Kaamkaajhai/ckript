@@ -10,7 +10,6 @@ import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
 import Invoice from "../models/Invoice.js";
 import Agreement from "../models/Agreement.js";
-import Revision from "../models/Revision.js";
 import AuditLog from "../models/AuditLog.js";
 import {
   sendPurchaseRequestEmail,
@@ -2335,25 +2334,23 @@ export const updateScript = async (req, res) => {
       }
     }
 
-    const collaboratorSubmittedContentRevision = !isOwner
+    // Co-writers edit the shared script directly (live collaboration), so a content change from a
+    // non-owner is applied in place rather than parked as a revision for approval. Settings remain
+    // owner-only.
+    const collaboratorEditingContent = !isOwner
       && textContent !== undefined
       && String(textContent) !== String(script.textContent || "");
 
-    if (!isOwner && !collaboratorSubmittedContentRevision) {
+    if (!isOwner && !collaboratorEditingContent) {
       return res.status(403).json({
-        message: "Only the project owner can edit project settings. Collaborators can submit script-content revisions only.",
+        message: "Only the project owner can edit project settings. Collaborators can edit script content.",
       });
     }
 
-    if (collaboratorSubmittedContentRevision) {
+    if (collaboratorEditingContent) {
       if (!canCollaboratorWrite) {
         return res.status(403).json({ message: "Not authorized to edit script content" });
       }
-      const existingPending = await Revision.findOne({
-        scriptId: script._id,
-        authorId: req.user._id,
-        status: "pending_review",
-      });
     }
 
     if (!isContentOnlyCollaborator && !legal?.agreedToTerms) {
@@ -2567,90 +2564,6 @@ export const updateScript = async (req, res) => {
       script.markModified("rightsLicensing");
     }
 
-    if (collaboratorSubmittedContentRevision) {
-      await script.save();
-      const existingPending = await Revision.findOne({
-        scriptId: script._id,
-        authorId: req.user._id,
-        status: "pending_review",
-      });
-
-      let revision = existingPending;
-      const baseContent = String(script.textContent || "");
-      const nextContent = String(textContent || "");
-      const wasResubmitted = Boolean(existingPending);
-
-      if (revision) {
-        revision.baseContent = baseContent;
-        revision.content = nextContent;
-        revision.sectionRef = "textContent";
-        revision.reviewNote = "";
-        revision.reviewerId = null;
-        revision.reviewedAt = null;
-        await revision.save();
-      } else {
-        revision = await Revision.create({
-          scriptId: script._id,
-          authorId: req.user._id,
-          baseContent,
-          content: nextContent,
-          sectionRef: "textContent",
-          status: "pending_review",
-        });
-      }
-
-      const owner = await User.findById(getScriptOwnerId(script)).select("_id name email");
-      const editorIds = (Array.isArray(script.collaborators) ? script.collaborators : [])
-        .filter((collab) =>
-          collab?.isActive === true
-          && collab?.status === "accepted"
-          && collab?.role === "editor"
-          && normalizeObjectId(collab?.userId) !== normalizeObjectId(req.user._id)
-        )
-        .map((collab) => collab.userId);
-      const editors = editorIds.length
-        ? await User.find({ _id: { $in: editorIds } }).select("_id name email")
-        : [];
-      const recipients = [...(owner ? [owner] : []), ...editors].filter((recipient, index, list) =>
-        normalizeObjectId(recipient?._id)
-        && list.findIndex((entry) => normalizeObjectId(entry?._id) === normalizeObjectId(recipient?._id)) === index
-      );
-
-      await Promise.all(recipients.map((recipient) =>
-        Notification.create({
-          user: recipient._id,
-          type: "revision_update",
-          from: req.user._id,
-          script: script._id,
-          message: `A revision for ${script.title} is ready for review.`,
-        })
-      ));
-
-      emitScriptEvent(req, script._id, "revision_submitted", { revisionId: revision._id });
-      recipients.forEach((recipient) => {
-        emitNotification(req, recipient._id, "revision_submitted", {
-          revisionId: revision._id,
-          scriptId: script._id,
-          sectionRef: "textContent",
-        });
-      });
-
-      await createAuditEntry(script._id, req.user._id, wasResubmitted ? "revision_resubmitted" : "revision_submitted", {
-        revisionId: revision._id,
-        sectionRef: "textContent",
-        source: "script_update",
-      });
-
-      return res.json({
-        ...script.toObject(),
-        revisionSubmitted: true,
-        revisionId: revision._id,
-        updatedExisting: wasResubmitted,
-        message: wasResubmitted
-          ? "Your pending revision was updated and sent back for review."
-          : "Revision submitted for review. The owner can approve and merge it into the current script.",
-      });
-    }
 
     // Publishing layer fields
     if (!isContentOnlyCollaborator && targetIndustry !== undefined) {

@@ -377,7 +377,6 @@ const ScriptUpload = () => {
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
   const editId = searchParams.get("edit");
-  const branchMode = searchParams.get("branch") === "1";
   const [step, setStep] = useState(1);
   const [detailStep, setDetailStep] = useState(0);
   const [fromDraft, setFromDraft] = useState(false);
@@ -508,12 +507,6 @@ const ScriptUpload = () => {
   const [isContentOnlyEditMode, setIsContentOnlyEditMode] = useState(false);
   const [isEditModeResolving, setIsEditModeResolving] = useState(Boolean(editId));
   const [originalEditContent, setOriginalEditContent] = useState("");
-  const [branchUpdatedAt, setBranchUpdatedAt] = useState("");
-
-  useEffect(() => {
-    if (!branchMode || !editId) return;
-    navigate(`/script/${editId}/branch/edit`, { replace: true });
-  }, [branchMode, editId, navigate]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -650,10 +643,7 @@ const ScriptUpload = () => {
     }
     const load = async () => {
       try {
-        const [{ data }, branchResponse] = await Promise.all([
-          api.get(`/scripts/${editId}`),
-          branchMode ? api.get(`/collab/${editId}/branch`).catch(() => null) : Promise.resolve(null),
-        ]);
+        const { data } = await api.get(`/scripts/${editId}`);
         const isEditApprovalPending = data?.status === "pending_approval" && data?.approvalRequestType === "edit_submission";
         const purchasedFromHistory = {
           evaluation: Boolean(
@@ -676,18 +666,14 @@ const ScriptUpload = () => {
         if (isEditApprovalPending) {
           setError("This script edit is already in admin review. You can edit again after approval or rejection.");
         }
-        const contentOnlyMode = Boolean(branchMode || (data?.isCollaborator && data?.canEditMetadata === false));
+        const contentOnlyMode = Boolean(data?.isCollaborator && data?.canEditMetadata === false);
         setIsContentOnlyEditMode(contentOnlyMode);
         if (contentOnlyMode) {
           setStep(1);
         }
-        const branchData = branchResponse?.data?.branch || null;
-        const initialContent = branchMode
-          ? (branchData?.content || "")
-          : (data.textContent || "");
+        const initialContent = data.textContent || "";
         setTextContent(initialContent);
         setOriginalEditContent(initialContent);
-        setBranchUpdatedAt(branchData?.updatedAt || "");
         setExistingUploadedFile(data.fileUrl ? {
           name: getFileNameFromUrl(data.fileUrl),
           size: null,
@@ -764,7 +750,7 @@ const ScriptUpload = () => {
       }
     };
     load();
-  }, [branchMode, editId, setError]);
+  }, [editId, setError]);
 
   // Load draft when coming from Create Project editor
   useEffect(() => {
@@ -1790,16 +1776,6 @@ const ScriptUpload = () => {
     setLoading(true);
 
     try {
-      if (branchMode && editId) {
-        const { data } = await api.patch(`/collab/${editId}/branch`, {
-          content: textContent,
-        });
-        setOriginalEditContent(data?.branch?.content || textContent);
-        setBranchUpdatedAt(data?.branch?.updatedAt || "");
-        navigate(`/script/${editId}/collaborate/pull-requests`);
-        return;
-      }
-
       if (isContentOnlyEditMode && editId) {
         await api.post(`/collab/${editId}/revisions`, {
           baseContent: originalEditContent,
@@ -2043,7 +2019,6 @@ const ScriptUpload = () => {
     mode: {
       isContentOnlyEditMode,
       editId,
-      branchMode,
     },
     state: {
       step,
@@ -2099,7 +2074,6 @@ const ScriptUpload = () => {
       scriptPrice,
       customPriceInput,
       useCustomPrice,
-      branchUpdatedAt,
       toastMessage,
     },
     actions: {

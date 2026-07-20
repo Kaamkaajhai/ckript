@@ -3,8 +3,6 @@ import { getScriptOwnerId } from "../middleware/checkPermission.js";
 
 const sectionLocks = new Map();
 const activeUsers = new Map();
-// Tracks users who are actively inside BranchEditor (separate from general presence)
-const activeEditors = new Map();
 
 const buildLockKey = (scriptId, sectionRef) => `${scriptId}:${sectionRef}`;
 
@@ -217,33 +215,6 @@ export const registerCollabSocket = (io) => {
       }
     });
 
-    socket.on("editor_active", (payload = {}) => {
-      const scriptId = String(payload.scriptId || "").trim();
-      if (!scriptId) return;
-      const userId = String(socket.user?._id || "");
-      const name = String(payload.name || socket.user?.name || "Editor");
-      const avatar = String(payload.avatar || "");
-
-      if (!activeEditors.has(scriptId)) activeEditors.set(scriptId, new Map());
-      activeEditors.get(scriptId).set(userId, { userId, name, avatar });
-      // Tag socket so we can clean up on disconnect
-      if (!socket.data.activeEditorScripts) socket.data.activeEditorScripts = new Set();
-      socket.data.activeEditorScripts.add(scriptId);
-
-      io.to(`script:${scriptId}`).emit("editor_joined", { userId, name, avatar });
-    });
-
-    socket.on("editor_inactive", (payload = {}) => {
-      const scriptId = String(payload.scriptId || "").trim();
-      if (!scriptId) return;
-      const userId = String(socket.user?._id || "");
-
-      activeEditors.get(scriptId)?.delete(userId);
-      socket.data.activeEditorScripts?.delete(scriptId);
-
-      io.to(`script:${scriptId}`).emit("editor_left", { userId });
-    });
-
     socket.on("typing_start", (payload = {}) => {
       const scriptId = String(payload.scriptId || "").trim();
       const sectionRef = String(payload.sectionRef || "").trim();
@@ -284,13 +255,6 @@ export const registerCollabSocket = (io) => {
         io.to(`script:${scriptId}`).emit("user_left", {
           userId: String(socket.user?._id),
         });
-      });
-      // Clean up active editor presence on disconnect
-      const editorScripts = socket.data?.activeEditorScripts || new Set();
-      [...editorScripts].forEach((scriptId) => {
-        const userId = String(socket.user?._id || "");
-        activeEditors.get(scriptId)?.delete(userId);
-        io.to(`script:${scriptId}`).emit("editor_left", { userId });
       });
     });
   });

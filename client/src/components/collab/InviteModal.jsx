@@ -3,14 +3,12 @@ import { createPortal } from "react-dom";
 import api from "../../services/api";
 import { useDarkMode } from "../../context/DarkModeContext";
 
-// Values match the server's collaborator enum (VALID_COLLAB_ROLES in collab.controller.js) — a role
-// missing there is silently downgraded to "editor" on invite, so never offer one that isn't listed.
-// Labels lead with live co-writing, but Merger stays: it is the only role besides Co-owner that can
-// review and merge pull requests, so dropping it would strand the branch/PR flow.
+// Values must match VALID_COLLAB_ROLES in collab.controller.js — a role missing there is silently
+// downgraded to "editor" on invite, so never offer one that is not listed. Collaboration is live
+// co-writing on one shared script, so these describe who may type, comment, read or manage people.
 const ROLES = [
   { value: "editor", label: "Co-writer", hint: "Writes with you live — one scene each at a time" },
   { value: "commenter", label: "Commenter", hint: "Reads and leaves notes, cannot edit" },
-  { value: "merger", label: "Merger", hint: "Reviews and merges pull requests, cannot write" },
   { value: "viewer", label: "Reader", hint: "Read-only access" },
   { value: "full_admin", label: "Co-owner", hint: "Co-writes and manages collaborators" },
 ];
