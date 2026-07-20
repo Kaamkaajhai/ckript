@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
 
-const BrandLogo = ({ className = "h-10 w-auto" }) => {
+const BrandLogo = ({ className = "h-10 w-auto", noLink = false }) => {
   const { user } = useContext(AuthContext);
 
   const handleClick = (e) => {
@@ -10,6 +10,16 @@ const BrandLogo = ({ className = "h-10 w-auto" }) => {
     e.preventDefault();
     window.location.href = "/";
   };
+
+  if (noLink) {
+    return (
+      <img
+        src="/ckript-logo-official-nobg.png"
+        alt="Ckript Logo"
+        className={`${className} object-contain`}
+      />
+    );
+  }
 
   return (
     <Link to="/" onClick={handleClick} className="flex items-center">

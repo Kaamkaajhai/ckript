@@ -21,7 +21,7 @@ const getTransporter = () => {
   if (cachedTransporter) return cachedTransporter;
 
   const emailUser = String(process.env.EMAIL_USER || "").trim();
-  const emailPassword = String(process.env.EMAIL_PASSWORD || "").trim();
+  const emailPassword = String(process.env.EMAIL_PASSWORD || "").replace(/\s+/g, "");
   if (!emailUser || !emailPassword) {
     return null;
   }

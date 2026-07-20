@@ -1065,7 +1065,7 @@ export const removeWriterPlanFromUser = async (req, res) => {
 
 export const grantWriterPlanToUser = async (req, res) => {
     try {
-        const { plan } = req.body;
+        const { plan, cycle = "monthly" } = req.body;
         const targetUser = await User.findById(req.params.id);
         if (!targetUser) return res.status(404).json({ message: "User not found" });
 
@@ -1077,6 +1077,8 @@ export const grantWriterPlanToUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid plan specified" });
         }
 
+        const durationDays = cycle === "annual" ? 365 : 30;
+
         targetUser.subscription = {
             ...targetUser.subscription,
             plan: plan,
@@ -1084,7 +1086,7 @@ export const grantWriterPlanToUser = async (req, res) => {
             isActive: true,
             accessTier: plan === "gold" ? "writer_gold" : "writer_silver",
             accessStatus: "active",
-            accessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+            accessExpiresAt: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
             lastAccessUpdate: new Date()
         };
 

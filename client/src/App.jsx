@@ -208,6 +208,33 @@ function ProtectedMainLayout() {
   );
 }
 
+// Script detail owns a cinematic, full-bleed workspace. URLs and role-aware
+// chrome remain identical; only the content inset differs from generic pages.
+function ProtectedScriptDetailLayout() {
+  const { user } = useContext(AuthContext);
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  const content = (
+    <Suspense
+      fallback={
+        <div className="min-h-[60vh] flex items-center justify-center text-sm text-gray-500">
+          Loading project…
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  );
+
+  return (
+    <PrivateRoute>
+      {isCreator
+        ? <DashboardLayout variant="fill">{content}</DashboardLayout>
+        : <MainLayout contentVariant="full">{content}</MainLayout>}
+    </PrivateRoute>
+  );
+}
+
 // Creator/writer dashboard uses the independent 2B DashboardLayout.
 // Investors fall back to MainLayout (their dashboard has a different design).
 function DashboardRoute() {
@@ -372,9 +399,6 @@ function App() {
                 <Route path="/search" element={<Search />} />
                 <Route path="/script/:scriptId/branch/edit" element={<BranchEditor />} />
                 <Route path="/script/:id/pay" element={<ScriptPaymentPage />} />
-                <Route path="/script/:id" element={<ScriptDetail />} />
-                <Route path="/script/:projectHeading/:writerUsername" element={<ScriptDetail />} />
-                <Route path="/:projectHeading/:writerUsername" element={<ScriptDetail />} />
                 <Route path="/mandates" element={<Mandates />} />
                 <Route path="/writers" element={<Writers />} />
                 <Route path="/home" element={<InvestorHome />} />
@@ -383,6 +407,11 @@ function App() {
                 <Route path="/reader/script/:id" element={<ScriptReader />} />
                 <Route path="/reader/profile/:id?" element={<ReaderProfile />} />
                 <Route path="/reader/search" element={<ReaderHome />} />
+              </Route>
+              <Route element={<ProtectedScriptDetailLayout />}>
+                <Route path="/script/:id" element={<ScriptDetail />} />
+                <Route path="/script/:projectHeading/:writerUsername" element={<ScriptDetail />} />
+                <Route path="/:projectHeading/:writerUsername" element={<ScriptDetail />} />
               </Route>
               <Route
                 path="/reader/featured"

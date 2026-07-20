@@ -139,6 +139,7 @@ function TierCard({ plan, state }) {
     onPrimary,
     onRenew,
     renewLoading,
+    daysUntilReset,
   } = state;
 
   const remaining = quota != null && uploadedCount != null ? Math.max(0, quota - uploadedCount) : null;
@@ -158,6 +159,11 @@ function TierCard({ plan, state }) {
       </div>
 
       <div className="pmx-tier-price">
+        {plan.originalPrice && (
+          <s style={{ color: "var(--pmx-text-muted, #888)", fontSize: "0.85em", marginRight: "8px", fontWeight: "normal", opacity: 0.8 }}>
+            {plan.originalPrice}
+          </s>
+        )}
         <b>{plan.price}</b>
         <span>{plan.per}</span>
       </div>
@@ -194,7 +200,9 @@ function TierCard({ plan, state }) {
             />
           </div>
           <div className="pmx-quota-row" style={{ marginTop: 5 }}>
-            <span />
+            <span style={{ fontSize: "11px", color: "var(--pmx-text-muted, #888)" }}>
+              {daysUntilReset != null ? `Resets in ${daysUntilReset} days` : ""}
+            </span>
             <span>{remaining} more available</span>
           </div>
         </div>
@@ -223,13 +231,38 @@ function TierCard({ plan, state }) {
 function PricingModalInner({ onClose, tab = "all" }) {
   const { user } = useContext(AuthContext);
   const { currency = "INR" } = useCurrency() || {};
+  const [isAnnual, setIsAnnual] = useState(false);
 
   // Prices come from the shared matrix, formatted in the active currency (free plan is 0 anywhere).
-  const priceLabelFor = (key) =>
-    key === "free"
-      ? formatCurrency(0, currency)
-      : formatSubunits(getPlanPrice(WRITER_PLAN_KEY[key], currency), currency);
-  const pricedWriterPlans = WRITER_PLANS.map((p) => ({ ...p, price: priceLabelFor(p.key) }));
+  const priceLabelFor = (key) => {
+    if (key === "free") return formatCurrency(0, currency);
+    const basePrice = getPlanPrice(WRITER_PLAN_KEY[key], currency);
+    if (isAnnual) {
+      const monthlyMajor = basePrice / 100;
+      const annualMajor = Math.round(monthlyMajor * 12 * 0.85);
+      return currency === "USD" ? `$${annualMajor}` : `₹${annualMajor}`;
+    }
+    return formatSubunits(basePrice, currency);
+  };
+  
+  const getOriginalPrice = (key, currency) => {
+    if (key === "silver") {
+      if (isAnnual) return currency === "USD" ? "$60" : "₹4788";
+      return currency === "USD" ? "$12" : "₹999";
+    }
+    if (key === "gold") {
+      if (isAnnual) return currency === "USD" ? "$108" : "₹8388";
+      return currency === "USD" ? "$25" : "₹2299";
+    }
+    return null;
+  };
+
+  const pricedWriterPlans = WRITER_PLANS.map((p) => ({ 
+    ...p, 
+    price: priceLabelFor(p.key),
+    originalPrice: getOriginalPrice(p.key, currency),
+    per: p.key === "free" ? p.per : (isAnnual ? "/ year" : "/ month")
+  }));
   const fipPriceLabel = formatSubunits(getPlanPrice("film_industry_professional", currency), currency);
 
   let effectiveTab = tab;
@@ -255,6 +288,8 @@ function PricingModalInner({ onClose, tab = "all" }) {
   // Upload usage for active writers, to draw the quota meter (same source the
   // dashboard uses). Fetched lazily while the modal is open.
   const [uploadedCount, setUploadedCount] = useState(null);
+  const [daysUntilReset, setDaysUntilReset] = useState(null);
+
   useEffect(() => {
     if (!writer.isWriter) return;
     let alive = true;
@@ -262,7 +297,39 @@ function PricingModalInner({ onClose, tab = "all" }) {
       try {
         const res = await api.get("/scripts/mine");
         const all = Array.isArray(res.data) ? res.data : [];
-        const mine = all.filter((s) => !s?.isCollaborator);
+        let mine = all.filter((s) => !s?.isCollaborator);
+
+        let cycleStart = null;
+        let cycleEnd = null;
+        const activatedAt = writer.user?.subscription?.accessActivatedAt;
+        const expiresAt = writer.user?.subscription?.accessExpiresAt;
+
+        if (activatedAt && expiresAt) {
+          const start = new Date(activatedAt);
+          const end = new Date(expiresAt);
+          const now = new Date();
+
+          if (now <= end) {
+            let current = new Date(start);
+            while (current <= now) {
+              current.setMonth(current.getMonth() + 1);
+            }
+            cycleEnd = current > end ? end : current;
+
+            let previous = new Date(current);
+            previous.setMonth(previous.getMonth() - 1);
+            cycleStart = previous;
+
+            const diffTime = cycleEnd.getTime() - now.getTime();
+            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (alive) setDaysUntilReset(daysLeft > 0 ? daysLeft : 0);
+          }
+        }
+
+        if (cycleStart) {
+          mine = mine.filter((s) => new Date(s.createdAt) >= cycleStart);
+        }
+
         if (alive) setUploadedCount(mine.length);
       } catch {
         /* non-fatal — the meter just won't render */
@@ -271,7 +338,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
     return () => {
       alive = false;
     };
-  }, [writer.isWriter]);
+  }, [writer.isWriter, writer.user?.subscription?.accessActivatedAt, writer.user?.subscription?.accessExpiresAt]);
 
   const busy = !success && (Boolean(writer.loading) || Boolean(fip.loading));
 
@@ -289,6 +356,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
       writer.startCheckout({
         tier,
         isRenew,
+        cycle: isAnnual ? "annual" : "monthly",
         signInRedirect: "/pricing",
         onRequireAuth: onClose, // never stack auth behind this modal
         onSuccess: () =>
@@ -300,7 +368,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
           }),
       });
     },
-    [writer, onClose]
+    [writer, onClose, isAnnual]
   );
 
   // ── FIP checkout wiring ───────────────────────────────────────
@@ -366,6 +434,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
           daysLeft: writer.daysLeft,
           quota: meta.quota,
           uploadedCount,
+          daysUntilReset,
           primaryLabel: "Go to dashboard",
           primaryKind: "active",
           primaryDisabled: false,
@@ -394,7 +463,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
         onPrimary: () => buyWriter(key, false),
       };
     },
-    [writer, uploadedCount, goTo, buyWriter, onClose, openAuthModal]
+    [writer, uploadedCount, daysUntilReset, goTo, buyWriter, onClose, openAuthModal]
   );
 
   const freeState = useMemo(() => tierState("free"), [tierState]);
@@ -558,8 +627,22 @@ function PricingModalInner({ onClose, tab = "all" }) {
                   <div className="pmx-head-aside">
                     {effectiveTab === "writer" ? "Choose a writer plan below." : "Choose a writer plan — or get industry access below."}
                   </div>
-                  <div style={{ marginTop: 10 }}>
+                  <div style={{ marginTop: 10, display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
                     <CurrencyToggle />
+                    <div style={{ display: "flex", alignItems: "center", background: "var(--pmx-bg-elevated, #1c1c1e)", padding: "4px", borderRadius: "8px", gap: "4px", fontSize: "12px", fontWeight: "600", color: "#888" }}>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsAnnual(false)} 
+                        style={{ padding: "4px 12px", borderRadius: "6px", background: !isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: !isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                        Monthly
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsAnnual(true)} 
+                        style={{ padding: "4px 12px", borderRadius: "6px", background: isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                        Annually <span style={{ color: "#4ade80", fontSize: "10px", marginLeft: "2px" }}>-15%</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 

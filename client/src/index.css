@@ -588,11 +588,11 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 
 html.dark-mode {
   color-scheme: dark;
-  background: #060d18;
+  background: #0b0b0b;
 }
 
 html.dark-mode body {
-  background: #060d18;
+  background: #0b0b0b;
   color: #e2e8f0;
 }
 

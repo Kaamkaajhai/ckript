@@ -23,10 +23,10 @@ export default function ScreenplayElementBar({ currentElement = "action", onSetE
         const Icon = el.Icon;
         const base = "flex flex-col items-center justify-center gap-1 w-14 max-[640px]:w-11 px-1.5 py-1.5 rounded-lg transition select-none";
         const state = active
-          ? "bg-[#1e3a5f] text-white shadow-sm"
+          ? (dark ? "bg-[#D14D37]/15 text-[#D14D37] shadow-sm" : "bg-[#0B0A06] shadow-sm")
           : dark
-            ? "text-gray-400 hover:bg-white/[0.06] hover:text-gray-200"
-            : "text-gray-600 hover:bg-gray-100";
+            ? "text-[#b0b0b0] hover:bg-[#1e1e1e] hover:text-[#f2f2f2]"
+            : "text-[#57544f] hover:bg-[#f0efe9] hover:text-[#0B0A06]";
         return (
           <button
             key={el.value}
@@ -34,6 +34,7 @@ export default function ScreenplayElementBar({ currentElement = "action", onSetE
             onClick={() => onSetElement?.(el.value)}
             title={el.tab ? `${el.label} — Tab ${el.tab}` : el.label}
             className={`${base} ${state}`}
+            style={active && !dark ? { color: "#ffffff" } : { color: "inherit" }}
           >
             <Icon className="w-[17px] h-[17px]" strokeWidth={1.8} aria-hidden="true" />
             <span className="text-[10px] leading-none tracking-tight max-[640px]:hidden">{el.label}</span>
