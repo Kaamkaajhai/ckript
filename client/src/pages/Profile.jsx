@@ -1,6 +1,6 @@
 import { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 import api from "../services/api";
 import { sendPitch } from "../services/scriptPitchService";
 import { AuthContext } from "../context/AuthContext";
@@ -14,15 +14,11 @@ import GoogleCalendarCard from "../components/GoogleCalendarCard";
 import CurrencyToggle from "../components/CurrencyToggle";
 import SocialShareButton from "../components/SocialShareButton";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
-import { formatCurrency } from "../utils/currency";
 import PasswordInput from "../components/PasswordInput";
 import { applyLanguagePreference, getBackendLanguageValue, getProfileLanguageValue } from "../utils/languagePreference";
-import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
-  hasBusinessEmail,
   hasActiveFilmIndustryProfessionalAccess,
-  isFilmIndustryProfessionalRole,
   getRemainingContacts,
   getContactsLimit,
   getRevealedContactCount,
@@ -31,19 +27,32 @@ import {
 } from "../utils/industryAccess";
 import PremiumModelBadge from "../components/PremiumModelBadge";
 import WriterModelBadge from "../components/WriterModelBadge";
+import {
+  ProfilePcPage,
+  ProfilePcSkeleton,
+  ProfileWorkspaceBookmarks,
+  ProfileWorkspaceMeetings,
+  ProfileWorkspaceCredentials,
+  ProfileWorkspaceIdentity,
+  ProfileWorkspaceOverview,
+  ProfileWorkspaceProjects,
+  createLatestProfileRequestCoordinator,
+  isSameProfile,
+  isWriterProfileRole,
+} from "../features/profile-pc";
 
 /* â”€â”€ Helper components â”€â”€ */
 
 const SectionCard = ({ title, icon, badge, dark, noBox, children }) => (
   <div
-    className={noBox ? "" : `rounded-2xl p-4 sm:p-6 border transition-colors ${dark
+    className={`profile-workspace-section-card ${noBox ? "" : `rounded-2xl p-4 sm:p-6 border transition-colors ${dark
       ? "bg-[#0d1520] border-white/[0.06]"
       : "bg-white border-gray-200/70 shadow-sm"
-      }`}
+      }`}`}
   >
-    <div className="flex items-center gap-2.5 mb-4">
+    <div className="profile-workspace-section-card__header flex items-center gap-2.5 mb-4">
       <div
-        className={`w-7 h-7 rounded-lg flex items-center justify-center ${dark
+        className={`profile-workspace-section-card__icon w-7 h-7 rounded-lg flex items-center justify-center ${dark
           ? "bg-white/[0.05] text-white/40"
           : "bg-[#1e3a5f]/[0.06] text-[#1e3a5f]/60"
           }`}
@@ -51,14 +60,14 @@ const SectionCard = ({ title, icon, badge, dark, noBox, children }) => (
         {icon}
       </div>
       <h3
-        className={`text-[16px] font-bold ${dark ? "text-white/70" : "text-gray-800"
+        className={`profile-workspace-section-card__title text-[16px] font-bold ${dark ? "text-white/70" : "text-gray-800"
           }`}
       >
         {title}
       </h3>
       {badge && (
         <span
-          className={`ml-auto text-[13px] font-medium ${dark ? "text-white/25" : "text-gray-400"
+          className={`profile-workspace-section-card__badge ml-auto text-[13px] font-medium ${dark ? "text-white/25" : "text-gray-400"
             }`}
         >
           {badge}
@@ -196,7 +205,7 @@ const DeleteProjectButton = ({ dark, onConfirm, title }) => {
 };
 
 const Profile = () => {
-  const isWriter = (role) => role === "creator" || role === "writer";
+  const isWriter = isWriterProfileRole;
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -211,6 +220,8 @@ const Profile = () => {
   const [bookmarkedScripts, setBookmarkedScripts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowsMe, setIsFollowsMe] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [followRequestPending, setFollowRequestPending] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState("projects");
@@ -218,7 +229,7 @@ const Profile = () => {
   // "Saved projects" link → ?tab=bookmarks). Runs on mount and whenever the query changes.
   useEffect(() => {
     const urlTab = new URLSearchParams(location.search).get("tab");
-    if (urlTab && ["about", "projects", "bookmarks", "meetings", "settings"].includes(urlTab)) {
+    if (urlTab && ["about", "projects", "credentials", "bookmarks", "purchases", "meetings", "settings"].includes(urlTab)) {
       setActiveTab(urlTab);
     }
   }, [location.search]);
@@ -263,19 +274,28 @@ const Profile = () => {
   const [meetingsLoading, setMeetingsLoading] = useState(false);
   const [profileAccessMessage, setProfileAccessMessage] = useState("");
   const [profileRequiresBusinessEmail, setProfileRequiresBusinessEmail] = useState(false);
-  const isFetchingProfileRef = useRef(false);
+  const profileRequestRef = useRef(null);
+  if (!profileRequestRef.current) {
+    profileRequestRef.current = createLatestProfileRequestCoordinator();
+  }
   const bookmarkRefreshTimerRef = useRef(null);
   const tabInitializedForProfileRef = useRef(null);
 
   const fetchProfile = useCallback(async ({ silent = false } = {}) => {
     const profileId = id || currentUser?._id;
-    if (!profileId || isFetchingProfileRef.current) return;
+    if (!profileId) return;
+
+    const { requestId, controller } = profileRequestRef.current.begin();
 
     try {
-      isFetchingProfileRef.current = true;
-      if (!silent) setLoading(true);
+      if (!silent) {
+        setLoading(true);
+        setProfileAccessMessage("");
+        setProfileRequiresBusinessEmail(false);
+      }
 
-      const { data } = await api.get(`/users/${profileId}`);
+      const { data } = await api.get(`/users/${profileId}`, { signal: controller.signal });
+      if (!profileRequestRef.current.isCurrent(requestId)) return;
       const canonicalProfilePath = getProfileCanonicalPath(data?.user, {
         viewerId: currentUser?._id,
         viewerRole: currentUser?.role,
@@ -293,7 +313,9 @@ const Profile = () => {
       setIsBlockedByCurrent(Boolean(data.user.blockedByCurrent));
       setBlockedByProfile(Boolean(data.user.blockedByProfile));
       const followers = Array.isArray(data.user?.followers) ? data.user.followers : [];
-      setIsFollowing(followers.some((f) => f?._id === currentUser?._id));
+      setIsFollowing(followers.some((f) => (f?._id || f) === currentUser?._id));
+      const following = Array.isArray(data.user?.following) ? data.user.following : [];
+      setIsFollowsMe(following.some((f) => (f?._id || f) === currentUser?._id));
       setFollowRequestPending(Boolean(data.user?.followRequestPending));
 
       if (tabInitializedForProfileRef.current !== data.user._id) {
@@ -302,10 +324,13 @@ const Profile = () => {
         const nextScripts = (data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted);
         // A ?tab= deep-link wins over the computed default (see the effect above).
         const urlTab = new URLSearchParams(location.search).get("tab");
-        setActiveTab(urlTab || (isInvestorProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about")));
+        const isWriterProfile = role === "writer" || role === "creator";
+        setActiveTab(urlTab || (isInvestorProfile || isWriterProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about")));
         tabInitializedForProfileRef.current = data.user._id;
       }
     } catch (error) {
+      if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
+      if (!profileRequestRef.current.isCurrent(requestId)) return;
       const status = error?.response?.status;
       const serverMessage = error?.response?.data?.message;
       const isPrivateAccount = Boolean(error?.response?.data?.privateAccount);
@@ -332,13 +357,18 @@ const Profile = () => {
       }
       console.error("Error fetching profile:", error);
     } finally {
-      isFetchingProfileRef.current = false;
-      if (!silent) setLoading(false);
+      if (profileRequestRef.current.isCurrent(requestId)) {
+        profileRequestRef.current.finish(requestId);
+        if (!silent) setLoading(false);
+      }
     }
-  }, [id, currentUser?._id, currentUser?.role, location.pathname, navigate]);
+  }, [id, currentUser?._id, currentUser?.role, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     fetchProfile();
+    return () => {
+      profileRequestRef.current.cancel();
+    };
   }, [fetchProfile]);
 
   useEffect(() => {
@@ -386,8 +416,9 @@ const Profile = () => {
   };
 
   const handleFollow = async () => {
-    if (isBlockedByCurrent || blockedByProfile) return;
+    if (isBlockedByCurrent || blockedByProfile || followLoading) return;
     try {
+      setFollowLoading(true);
       if (isFollowing) {
         await api.post("/users/unfollow", { userId: profile._id });
         setIsFollowing(false);
@@ -417,6 +448,8 @@ const Profile = () => {
       }
     } catch (error) {
       console.error("Error following/unfollowing:", error);
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -534,33 +567,6 @@ const Profile = () => {
     }
   };
 
-  const copyToClipboard = async (value) => {
-    if (!value) return false;
-    try {
-      if (navigator?.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-        return true;
-      }
-    } catch {
-      // Fallback below.
-    }
-
-    try {
-      const temp = document.createElement("textarea");
-      temp.value = value;
-      temp.setAttribute("readonly", "true");
-      temp.style.position = "absolute";
-      temp.style.left = "-9999px";
-      document.body.appendChild(temp);
-      temp.select();
-      const copied = document.execCommand("copy");
-      document.body.removeChild(temp);
-      return copied;
-    } catch {
-      return false;
-    }
-  };
-
   const openConnectionsModal = (type) => {
     setConnectionsType(type);
     setShowConnectionsModal(true);
@@ -580,18 +586,18 @@ const Profile = () => {
     navigate(getProfilePath(userRef));
   };
 
-  const isOwnProfile = currentUser._id === profile?._id;
-  const isWriterUser = isWriter(profile?.role);
+  const isOwnProfile = isSameProfile(currentUser, profile);
+  const isWriterUser = isWriterProfileRole(profile?.role);
   const isInvestorProfile = String(profile?.role || "").toLowerCase() === "investor";
   const viewerIsIndustryRole = ["investor", "producer", "director", "industry", "professional"].includes(
     String(currentUser?.role || "").toLowerCase()
   );
-  const viewerHasBusinessEmail = viewerIsIndustryRole && hasBusinessEmail(currentUser?.email);
   const viewerHasProAccess = viewerIsIndustryRole && hasActiveFilmIndustryProfessionalAccess(currentUser);
   const canViewContactDetails = Boolean(
     !isOwnProfile &&
     currentUser?._id &&
-    (viewerHasProAccess)
+    viewerHasProAccess &&
+    profile?.allowIndustryContact !== false
   );
   // For pro-access viewers: contact reveal state
   const profileWriterId = String(profile?._id || "");
@@ -621,9 +627,9 @@ const Profile = () => {
       };
     })
     .filter(Boolean);
-  const purchasedCount = purchasedScripts.length;
   const profileCompletion = profile?.profileCompletion;
   const showProfileCompletion = isOwnProfile && profileCompletion && !profileCompletion.isComplete;
+  const showFinancialAnalytics = Boolean(profile?.featureFlags?.financialAnalytics);
 
   const memberSince = profile?.createdAt
     ? new Date(profile.createdAt).toLocaleDateString("en-US", {
@@ -632,7 +638,6 @@ const Profile = () => {
     })
     : null;
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
-
   const profileShareKey = String(profile?.writerProfile?.username || "").trim().toLowerCase() || String(profile?._id || "").trim();
   const defaultProfileRoute = profileShareKey
     ? `/share/profile/${encodeURIComponent(profileShareKey)}`
@@ -659,7 +664,54 @@ const Profile = () => {
     return `${(import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "")}${url}`;
   };
 
-  const formatNumber = (value) => new Intl.NumberFormat("en-IN").format(Number(value) || 0);
+  const handleRevealContact = async () => {
+    if (!profileWriterId || contactRevealLoading) return;
+    setContactRevealError("");
+    setContactRevealLoading(true);
+    try {
+      const { data } = await api.post(`/payment/reveal-contact/${profileWriterId}`);
+      setRevealedProfileContact(data.contact);
+      setContactRevealStats({
+        contactsUsed: data.contactsUsed,
+        contactsLimit: data.contactsLimit,
+        remainingContacts: data.remainingContacts,
+      });
+      setShowContactDetails(true);
+      if (data.contactsUsed !== undefined) {
+        setUser((prev) => {
+          if (!prev) return prev;
+          const alreadyRecorded = (Array.isArray(prev.subscription?.revealedContacts)
+            ? prev.subscription.revealedContacts
+            : []).some((entry) => String(entry?.writerId || entry) === profileWriterId);
+          const updated = {
+            ...prev,
+            subscription: {
+              ...(prev.subscription || {}),
+              revealedContacts: alreadyRecorded
+                ? prev.subscription.revealedContacts
+                : [
+                  ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
+                  { writerId: profileWriterId, revealedAt: new Date().toISOString() },
+                ],
+            },
+          };
+          localStorage.setItem("user", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    } catch (err) {
+      setContactRevealError(err?.response?.data?.message || "Failed to reveal contact.");
+    } finally {
+      setContactRevealLoading(false);
+    }
+  };
+
+  const handleMeetingStatusChange = async (meetingId, status) => {
+    await api.patch(`/meetings/${meetingId}/status`, { status });
+    setMeetings((previous) => previous.map((meeting) => (
+      meeting._id === meetingId ? { ...meeting, status } : meeting
+    )));
+  };
 
 
   useEffect(() => {
@@ -690,22 +742,27 @@ const Profile = () => {
     if (!showMessageRequestModal || !messageTextareaRef.current) return;
 
     const textarea = messageTextareaRef.current;
+    textarea.focus();
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 220)}px`;
   }, [showMessageRequestModal, messageRequestText]);
 
+  useEffect(() => {
+    if (!showConnectionsModal && !showPitchModal && !showMessageRequestModal && !showDeleteAccountModal) return;
+    const closeTopOverlay = (event) => {
+      if (event.key !== "Escape") return;
+      setShowConnectionsModal(false);
+      setShowPitchModal(false);
+      setShowMessageRequestModal(false);
+      setShowDeleteAccountModal(false);
+    };
+    document.addEventListener("keydown", closeTopOverlay);
+    return () => document.removeEventListener("keydown", closeTopOverlay);
+  }, [showConnectionsModal, showDeleteAccountModal, showMessageRequestModal, showPitchModal]);
+
   /* â”€â”€ Loading â”€â”€ */
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[60vh]">
-        <div
-          className={`w-7 h-7 border-2 rounded-full animate-spin ${dark
-            ? "border-white/10 border-t-white/50"
-            : "border-gray-200 border-t-[#1e3a5f]"
-            }`}
-        />
-      </div>
-    );
+    return <ProfilePcSkeleton isDark={dark} />;
   }
 
   /* â”€â”€ Not found â”€â”€ */
@@ -899,8 +956,48 @@ const Profile = () => {
   /* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
      RENDER
      â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
+  const writerIdentity = isWriterUser ? (
+    <ProfileWorkspaceIdentity
+      profile={profile}
+      scriptsCount={scripts.length}
+      isOwnProfile={isOwnProfile}
+      resolvedImage={resolveImage(profile.profileImage)}
+      memberSince={memberSince}
+      profileShare={profileShare}
+      isFollowing={isFollowing}
+      isFollowsMe={isFollowsMe}
+      followLoading={followLoading}
+      followRequestPending={followRequestPending}
+      isBlockedByCurrent={isBlockedByCurrent}
+      blockedByProfile={blockedByProfile}
+      blockingAction={blockingAction}
+      onFollow={handleFollow}
+      onBlock={handleToggleBlock}
+      onEdit={() => setShowEditModal(true)}
+      onMessage={() => setShowMessageRequestModal(true)}
+      onFollowers={() => openConnectionsModal("followers")}
+      onFollowing={() => openConnectionsModal("following")}
+      canViewContactDetails={canViewContactDetails}
+      contactAlreadyRevealed={profileContactAlreadyRevealed}
+      contactRevealBlocked={profileContactRevealBlocked}
+      contactRevealLoading={contactRevealLoading}
+      contactRevealError={contactRevealError}
+      contactsUsed={profileContactsUsed}
+      contactsLimit={profileContactsLimit}
+      remainingContacts={profileRemainingContacts}
+      showContactDetails={showContactDetails}
+      onToggleContact={() => setShowContactDetails((previous) => !previous)}
+      onRevealContact={handleRevealContact}
+      revealedContact={revealedProfileContact}
+      contactLinks={profileContactLinkItems}
+    />
+  ) : null;
+  const ProfileRoot = isWriterUser ? ProfilePcPage : "div";
+
   return (
-    <div className={`mx-auto space-y-5 ${isWriterUser || isInvestorProfile ? "max-w-6xl" : "max-w-3xl"}`}>
+    <ProfileRoot {...(isWriterUser
+      ? { identity: writerIdentity, isDark: dark }
+      : { className: `mx-auto space-y-5 ${isInvestorProfile ? "max-w-6xl" : "max-w-3xl"}` })}>
       <ProfileCompletionBanner
         completion={showProfileCompletion ? profileCompletion : null}
         subtitle="Your profile is incomplete. Add missing details from Edit Profile."
@@ -909,154 +1006,12 @@ const Profile = () => {
       />
 
       {/* ════════ PROFILE CARD ════════ */}
-      <motion.div
+      {!isWriterUser && <Motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
         className={`rounded-2xl transition-colors relative overflow-visible ${t.card}`}
       >
-        {/* Writer-first premium hero */}
-        {isWriterUser ? (
-          <div className="px-5 sm:px-8 pt-2 sm:pt-3 pb-7 relative z-20">
-            <div className={`rounded-3xl p-5 sm:p-6 ${dark ? "bg-[#0b1320]/95" : "bg-white/95"}`}>
-              {!isOwnProfile && (
-                <div className="hidden max-[470px]:flex items-center max-[470px]:justify-between gap-1 mb-3.5 max-[470px]:w-full">
-                  <button
-                    onClick={handleFollow}
-                    disabled={isBlockedByCurrent || blockedByProfile}
-                    className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border max-[470px]:flex-1 max-[470px]:px-2 max-[470px]:text-[11px] disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
-                  >
-                    {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
-                  </button>
-                  <button
-                    onClick={handleToggleBlock}
-                    disabled={blockingAction || blockedByProfile}
-                    className={`px-3 sm:px-4 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border max-[470px]:flex-1 max-[470px]:px-2 max-[470px]:text-[11px] disabled:opacity-55 disabled:cursor-not-allowed ${isBlockedByCurrent ? t.unblockBtn : t.blockBtn}`}
-                  >
-                    {blockingAction ? "Updating..." : isBlockedByCurrent ? "Unblock" : "Block"}
-                  </button>
-                </div>
-              )}
-
-              <div className="flex flex-col md:flex-row md:items-start gap-4 sm:gap-5">
-                <div className="flex items-start gap-3 flex-1 min-w-0 max-[470px]:flex-col max-[470px]:items-center">
-                  <div className="shrink-0 flex flex-col items-start gap-2 max-[470px]:items-center">
-                    {profile.profileImage ? (
-                      <img
-                        src={resolveImage(profile.profileImage)}
-                        alt={profile.name}
-                        className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover ring-[3px] ${t.avatarRing}`}
-                      />
-                    ) : (
-                      <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-br flex items-center justify-center ring-[3px] ${t.avatarRing} ${t.avatarGrad}`}>
-                        <span className="text-3xl sm:text-4xl font-extrabold text-white/85">
-                          {profile.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-
-                      <div className="flex flex-col items-start gap-2 mt-2 max-[470px]:items-center">
-                        <SocialShareButton
-                          share={profileShare}
-                          buttonLabel="Share"
-                          className={`px-3 sm:px-4 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-semibold transition-all flex items-center gap-1.5 ${dark ? "bg-white/[0.07] hover:bg-white/[0.14] text-white/80" : "bg-white hover:bg-[#f4f8ff] text-[#1a3557] shadow-sm"}`}
-                        />
-                        {isOwnProfile ? (
-                          <button
-                            onClick={() => setShowEditModal(true)}
-                            className={`px-3 sm:px-4 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-semibold transition-all flex items-center gap-1.5 ${t.editBtn}`}
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                            </svg>
-                            Edit Profile
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleFollow}
-                            disabled={isBlockedByCurrent || blockedByProfile}
-                            className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
-                          >
-                            {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
-                          </button>
-                        )}
-                      </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1 max-[470px]:w-full max-[470px]:text-center">
-                    <div className="flex items-center gap-2 flex-wrap max-[470px]:justify-center">
-                      <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight ${t.h1}`}>{profile.name}</h1>
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.roleBg}`}>
-                        {profile.role}
-                      </span>
-                      {hasActiveFilmIndustryProfessionalAccess(profile) && (
-                        <PremiumModelBadge size="md" dark={dark} />
-                      )}
-                      {isWriter(profile.role) && profile.subscription?.accessStatus === "active" && profile.subscription?.plan && (!profile.subscription?.accessExpiresAt || new Date(profile.subscription.accessExpiresAt) > new Date()) && (
-                        <WriterModelBadge plan={profile.subscription.plan} size="md" dark={dark} />
-                      )}
-                      {profile.writerProfile?.wgaMember && (
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.wgaBadge}`}>WGA</span>
-                      )}
-                      {profile.writerProfile?.sgaMember && (
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-[0.12em] border ${t.wgaBadge}`}>SWA</span>
-                      )}
-                      {!isOwnProfile && (
-                        <button
-                          onClick={handleToggleBlock}
-                          disabled={blockingAction || blockedByProfile}
-                          className={`px-3 sm:px-4 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border sm:ml-auto max-[470px]:hidden disabled:opacity-55 disabled:cursor-not-allowed ${isBlockedByCurrent ? t.unblockBtn : t.blockBtn}`}
-                        >
-                          {blockingAction ? "Updating..." : isBlockedByCurrent ? "Unblock" : "Block"}
-                        </button>
-                      )}
-                    </div>
-
-                    {profile.writerProfile?.representationStatus && profile.writerProfile.representationStatus !== "unrepresented" && (
-                      <p className={`text-[13px] mt-1.5 capitalize max-[470px]:text-center ${dark ? "text-white/50" : "text-gray-600"}`}>
-                        {profile.writerProfile.representationStatus.replace(/_/g, " & ")}
-                        {profile.writerProfile?.agencyName ? ` at ${profile.writerProfile.agencyName}` : ""}
-                      </p>
-                    )}
-
-                    {isOwnProfile && (
-                      <p className={`text-[12px] font-medium mt-1.5 max-[470px]:text-center ${t.email}`}>{profile.email}</p>
-                    )}
-
-                    {profile.bio && (
-                      <p className={`text-[14px] leading-relaxed mt-3 line-clamp-4 max-[470px]:text-center ${t.body}`}>
-                        {profile.bio}
-                      </p>
-                    )}
-
-                    <div className="w-full mt-3.5">
-                      <div className="grid grid-cols-3 gap-1.5 w-full max-[470px]:gap-1">
-                        {[
-                          { label: "Projects", value: scripts.length },
-                          { label: "Followers", value: profile.followers.length, connectionType: "followers" },
-                          { label: "Following", value: profile.following.length, connectionType: "following" },
-                        ].map((item) => (
-                          <button
-                            key={item.label}
-                            type="button"
-                            disabled={!item.connectionType}
-                            onClick={item.connectionType ? () => openConnectionsModal(item.connectionType) : undefined}
-                            className={`rounded-xl px-2.5 py-2 text-left max-[470px]:text-center overflow-hidden transition-colors disabled:opacity-100 ${item.connectionType ? dark ? "hover:bg-white/[0.08]" : "hover:bg-[#f0f6ff]" : "cursor-default"}`}
-                          >
-                            <p className={`text-lg font-black tabular-nums leading-none ${dark ? "text-white" : "text-gray-900"}`}>{item.value}</p>
-                            <p className={`block w-full text-[10px] max-[470px]:text-[9px] font-bold uppercase tracking-[0.12em] max-[470px]:tracking-[0.08em] mt-0.5 max-[470px]:truncate ${dark ? "text-white/35" : "text-gray-500"}`}>{item.label}</p>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
           <>
             {profile.role === "investor" ? (
               <div className="px-4 sm:px-8 pt-2 sm:pt-3 pb-6 sm:pb-7 relative z-20">
@@ -1081,11 +1036,21 @@ const Profile = () => {
                       <>
                         <button
                           onClick={handleFollow}
-                          disabled={isBlockedByCurrent || blockedByProfile}
+                          disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                           className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                         >
-                          {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                          {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                         </button>
+                        {isWriter(currentUser?.role) && (
+                          <button
+                            type="button"
+                            onClick={handleOpenPitchModal}
+                            disabled={isBlockedByCurrent || blockedByProfile || followLoading}
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${t.followIdle}`}
+                          >
+                            Pitch Script
+                          </button>
+                        )}
                         <button
                           onClick={handleToggleBlock}
                           disabled={blockingAction || blockedByProfile}
@@ -1134,11 +1099,21 @@ const Profile = () => {
                             <>
                               <button
                                 onClick={handleFollow}
-                                disabled={isBlockedByCurrent || blockedByProfile}
+                                disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                                 className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                               >
-                                {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                                {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                               </button>
+                              {isWriter(currentUser?.role) && (
+                                <button
+                                  type="button"
+                                  onClick={handleOpenPitchModal}
+                                  disabled={isBlockedByCurrent || blockedByProfile || followLoading}
+                                  className={`px-3 sm:px-4 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${t.followIdle}`}
+                                >
+                                  Pitch Script
+                                </button>
+                              )}
                               <button
                                 onClick={handleToggleBlock}
                                 disabled={blockingAction || blockedByProfile}
@@ -1276,10 +1251,10 @@ const Profile = () => {
                           <>
                             <button
                               onClick={handleFollow}
-                              disabled={isBlockedByCurrent || blockedByProfile}
+                              disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                               className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                             >
-                              {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                              {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                             </button>
                             <button
                               onClick={handleToggleBlock}
@@ -1320,23 +1295,35 @@ const Profile = () => {
               </>
             )}
           </>
-        )}
-      </motion.div>
+      </Motion.div>}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className={isWriterUser ? "profile-workspace-tabs" : "flex items-center gap-2 overflow-x-auto pb-1"}>
+        {isWriterUser && (
+          <nav className="profile-workspace-breadcrumb" aria-label="Breadcrumb">
+            <button type="button" onClick={() => navigate("/writers")} className="bg-transparent border-0 p-0 cursor-pointer">Writers</button>
+            <span>/</span>
+            <strong>{profile.name}</strong>
+          </nav>
+        )}
+        <div className={isWriterUser ? "profile-workspace-tablist" : "contents"} role={isWriterUser ? "tablist" : undefined} aria-label={isWriterUser ? "Profile sections" : undefined}>
         {[
-          { key: "about", label: "About" },
+          { key: "about", label: isWriterUser ? "Overview" : "About" },
           ...(profile.role !== "investor" ? [{ key: "projects", label: "Projects", count: scripts.length }] : []),
+          ...(isWriterUser ? [{ key: "credentials", label: "Guilds & skills" }] : []),
           ...(isOwnProfile ? [{ key: "bookmarks", label: "Bookmarks", count: profile.favoriteScripts?.length || bookmarkedScripts.length }] : []),
+          ...(isOwnProfile && purchasedScripts.length > 0 ? [{ key: "purchases", label: "Purchases", count: purchasedScripts.length }] : []),
 
           ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }] : []),
           ...(isOwnProfile ? [{ key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
           <button
             key={tab.key}
+            type="button"
+            role={isWriterUser ? "tab" : undefined}
+            aria-selected={isWriterUser ? activeTab === tab.key : undefined}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 max-[585px]:px-3 max-[585px]:py-2 max-[585px]:text-[12px] max-[350px]:text-[11px] ${activeTab === tab.key
+            className={isWriterUser ? "profile-workspace-tab" : `px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 max-[585px]:px-3 max-[585px]:py-2 max-[585px]:text-[12px] max-[350px]:text-[11px] ${activeTab === tab.key
               ? dark
                 ? "bg-[#1c2b42] text-white border-[#314765]"
                 : "bg-[#1e3a5f] text-white border-[#1e3a5f]"
@@ -1349,7 +1336,7 @@ const Profile = () => {
               {tab.label}
               {tab.count !== undefined && (
                 <span
-                  className={`text-[11px] px-1.5 py-0.5 rounded-md font-bold tabular-nums ${activeTab === tab.key
+                  className={isWriterUser ? "profile-workspace-tab__count" : `text-[11px] px-1.5 py-0.5 rounded-md font-bold tabular-nums ${activeTab === tab.key
                     ? "bg-white/20 text-white"
                     : dark
                       ? "bg-white/10 text-white/60"
@@ -1362,16 +1349,25 @@ const Profile = () => {
             </span>
           </button>
         ))}
+        </div>
       </div>
 
       {/* ──────── MEETINGS TAB ──────── */}
       {activeTab === "meetings" && isOwnProfile && (
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="space-y-6"
+          className={`space-y-6 ${isWriterUser ? "profile-workspace-panel" : ""}`}
         >
+          {isWriterUser ? (
+            <ProfileWorkspaceMeetings
+              meetings={meetings}
+              loading={meetingsLoading}
+              currentUserId={currentUser?._id}
+              onStatusChange={handleMeetingStatusChange}
+            />
+          ) : (
           <SectionCard dark={dark} noBox title="Meeting Requests" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}>
             {meetingsLoading ? (
               <div className="flex justify-center items-center py-10">
@@ -1488,17 +1484,33 @@ const Profile = () => {
               </div>
             )}
           </SectionCard>
-        </motion.div>
+          )}
+        </Motion.div>
       )}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ PROJECTS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "projects" && profile.role !== "investor" && (
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
+          className={isWriterUser ? "profile-workspace-panel" : ""}
         >
-          {scripts.length === 0 ? (
+          {isWriterUser ? (
+            <ProfileWorkspaceProjects
+              scripts={scripts}
+              profile={profile}
+              isOwnProfile={isOwnProfile}
+              navigate={navigate}
+              renderDelete={(script) => (
+                <DeleteProjectButton
+                  dark={dark}
+                  onConfirm={() => handleDeleteScript(script._id)}
+                  title={script.title}
+                />
+              )}
+            />
+          ) : scripts.length === 0 ? (
             <div
               className={`py-20 text-center transition-colors`}
             >
@@ -1531,7 +1543,7 @@ const Profile = () => {
           ) : (
             <div className={`grid grid-cols-1 min-[460px]:grid-cols-2 ${isWriterUser ? "lg:grid-cols-3" : ""} gap-4`}>
               {scripts.map((script, idx) => (
-                <motion.div
+                <Motion.div
                   key={script._id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1546,20 +1558,27 @@ const Profile = () => {
                       title={script.title}
                     />
                   )}
-                </motion.div>
+                </Motion.div>
               ))}
             </div>
           )}
-        </motion.div>
+        </Motion.div>
       )}
 
       {activeTab === "bookmarks" && isOwnProfile && (
-        <motion.div
+        <Motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
+          className={isWriterUser ? "profile-workspace-panel" : ""}
         >
-          {bookmarkedScripts.length === 0 ? (
+          {isWriterUser ? (
+            <ProfileWorkspaceBookmarks
+              scripts={bookmarkedScripts}
+              navigate={navigate}
+              onRemoved={(scriptId) => setBookmarkedScripts((previous) => previous.filter((script) => script._id !== scriptId))}
+            />
+          ) : bookmarkedScripts.length === 0 ? (
             <div className={`py-20 text-center transition-colors`}>
               <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
                 <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -1572,7 +1591,7 @@ const Profile = () => {
           ) : (
             <div className={`grid grid-cols-1 min-[460px]:grid-cols-2 ${isWriterUser ? "lg:grid-cols-3" : ""} gap-4`}>
               {bookmarkedScripts.map((script, idx) => (
-                <motion.div
+                <Motion.div
                   key={script._id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1580,20 +1599,77 @@ const Profile = () => {
                   className="relative group/card"
                 >
                   <ProjectCard project={script} userName={script.creator?.name || "Unknown Author"} />
-                </motion.div>
+                </Motion.div>
               ))}
             </div>
           )}
-        </motion.div>
+        </Motion.div>
       )}
 
-      {/* â”€â”€â”€â”€â”€â”€â”€â”€ ABOUT TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {activeTab === "about" && (
-        <motion.div
+      {activeTab === "purchases" && isOwnProfile && (
+        <Motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}
+          className={isWriterUser ? "profile-workspace-panel" : ""}
+        >
+          <div className="grid grid-cols-1 min-[460px]:grid-cols-2 lg:grid-cols-3 gap-4">
+            {purchasedScripts.map((script, index) => (
+              <Motion.div
+                key={script._id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04 }}
+              >
+                <ProjectCard project={script} userName={script.creator?.name || "Unknown Author"} />
+              </Motion.div>
+            ))}
+          </div>
+        </Motion.div>
+      )}
+
+      {/* â”€â”€â”€â”€â”€â”€â”€â”€ ABOUT TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {activeTab === "about" && isWriterUser && (
+        <Motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="profile-workspace-panel"
+        >
+          <ProfileWorkspaceOverview
+            profile={profile}
+            scripts={scripts}
+            isOwnProfile={isOwnProfile}
+            navigate={navigate}
+            onViewAll={() => setActiveTab("projects")}
+            renderDelete={(script) => (
+              <DeleteProjectButton
+                dark={dark}
+                onConfirm={() => handleDeleteScript(script._id)}
+                title={script.title}
+              />
+            )}
+          />
+        </Motion.div>
+      )}
+
+      {activeTab === "credentials" && isWriterUser && (
+        <Motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="profile-workspace-panel"
+        >
+          <ProfileWorkspaceCredentials profile={profile} />
+        </Motion.div>
+      )}
+
+      {activeTab === "about" && !isWriterUser && (
+        <Motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"} ${isWriterUser ? "profile-workspace-panel" : ""}`}
         >
           {/* Bio */}
           <div className="pb-6 first:pt-0 last:pb-0">
@@ -1723,43 +1799,7 @@ const Profile = () => {
                         <button
                           type="button"
                           disabled={contactRevealLoading}
-                          onClick={async () => {
-                            if (!profileWriterId || contactRevealLoading) return;
-                            setContactRevealError("");
-                            setContactRevealLoading(true);
-                            try {
-                              const { data } = await api.post(`/payment/reveal-contact/${profileWriterId}`);
-                              setRevealedProfileContact(data.contact);
-                              setContactRevealStats({
-                                contactsUsed: data.contactsUsed,
-                                contactsLimit: data.contactsLimit,
-                                remainingContacts: data.remainingContacts,
-                              });
-                              setShowContactDetails(true);
-                              // Update global user so counts stay in sync
-                              if (data.contactsUsed !== undefined) {
-                                setUser((prev) => {
-                                  if (!prev) return prev;
-                                  const updated = {
-                                    ...prev,
-                                    subscription: {
-                                      ...(prev.subscription || {}),
-                                      revealedContacts: [
-                                        ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
-                                        { writerId: profileWriterId, revealedAt: new Date().toISOString() },
-                                      ],
-                                    },
-                                  };
-                                  localStorage.setItem("user", JSON.stringify(updated));
-                                  return updated;
-                                });
-                              }
-                            } catch (err) {
-                              setContactRevealError(err?.response?.data?.message || "Failed to reveal contact.");
-                            } finally {
-                              setContactRevealLoading(false);
-                            }
-                          }}
+                          onClick={handleRevealContact}
                           className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition disabled:opacity-60"
                         >
                           {contactRevealLoading ? (
@@ -2254,14 +2294,20 @@ const Profile = () => {
             </>
           )}
 
-        </motion.div>
+        </Motion.div>
       )}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ SETTINGS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "settings" && isOwnProfile && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
+        <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={isWriterUser ? "profile-workspace-panel profile-workspace-settings" : `rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
+          {isWriterUser && (
+            <header className="profile-workspace-settings__header">
+              <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06-2.83 2.83-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21h-4v-.09a1.65 1.65 0 00-1.08-1.5 1.65 1.65 0 00-1.82.33l-.06.06-2.83-2.83.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3v-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06 2.83-2.83.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3h4v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06 2.83 2.83-.06.06A1.65 1.65 0 0019.4 9c.12.61.66 1.04 1.28 1.04H21v4h-.32c-.62 0-1.16.43-1.28 1z" /></svg></span>
+              <div><h2>Settings</h2><p>Manage your account, communication preferences, security, and workspace history.</p></div>
+            </header>
+          )}
           {(settingsMsg || settingsErr) && (
-            <div className="pb-6 flex flex-col gap-3">
+            <div className={`${isWriterUser ? "profile-workspace-settings__alerts" : "pb-6"} flex flex-col gap-3`}>
               {settingsMsg && (
                 <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[13px] font-medium">
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -2281,7 +2327,7 @@ const Profile = () => {
 
           {/* Integrations — Google Calendar for producers/industry pros who schedule meetings */}
           {["producer", "investor", "director", "professional", "industry"].includes(String(profile?.role || "").toLowerCase()) && (
-            <div className="py-6 first:pt-0 last:pb-0">
+            <div className="profile-workspace-settings__section profile-workspace-settings__section--integration py-6 first:pt-0 last:pb-0">
               <SectionCard dark={dark} noBox title="Integrations" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>}>
                 <GoogleCalendarCard dark={dark} />
               </SectionCard>
@@ -2289,27 +2335,59 @@ const Profile = () => {
           )}
 
           {/* Account */}
-          <div className="py-6 first:pt-0 last:pb-0">
+          <div className="profile-workspace-settings__section profile-workspace-settings__section--account py-6 first:pt-0 last:pb-0">
             <SectionCard dark={dark} noBox title="Account" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}>
             <div className="space-y-4">
-              <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
+              <div className={`profile-workspace-settings__preference flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
                 <div>
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Display currency</p>
                   <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>Prices and checkout shown in this currency</p>
                 </div>
                 <CurrencyToggle dark={dark} />
               </div>
-              <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
+              <div className={`profile-workspace-settings__preference flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
                 <div>
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Private Account</p>
                   <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>Only approved followers can see your profile</p>
                 </div>
-                <button onClick={async () => { try { setSavingSettings(true); await api.put("/users/settings", { isPrivate: !profile.isPrivate }); setProfile({ ...profile, isPrivate: !profile.isPrivate }); setSettingsMsg("Privacy updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr("Failed"); } finally { setSavingSettings(false); } }}
-                  className={`w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.isPrivate ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
+                <button aria-label="Toggle private account" aria-pressed={Boolean(profile.isPrivate)} onClick={async () => { try { setSavingSettings(true); await api.put("/users/settings", { isPrivate: !profile.isPrivate }); setProfile({ ...profile, isPrivate: !profile.isPrivate }); setSettingsMsg("Privacy updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } finally { setSavingSettings(false); } }}
+                  className={`profile-workspace-settings__switch w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.isPrivate ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                   <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.isPrivate ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
                 </button>
               </div>
-              <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
+              {isWriterUser && (
+                <div className={`profile-workspace-settings__preference flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
+                  <div>
+                    <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Allow Industry Contact</p>
+                    <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>Let verified industry professionals request your contact details</p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Toggle industry contact access"
+                    aria-pressed={profile.allowIndustryContact !== false}
+                    disabled={savingSettings}
+                    onClick={async () => {
+                      const allowIndustryContact = profile.allowIndustryContact === false;
+                      try {
+                        setSavingSettings(true);
+                        setSettingsErr("");
+                        await api.put("/users/settings", { allowIndustryContact });
+                        setProfile({ ...profile, allowIndustryContact });
+                        setSettingsMsg("Contact preference updated");
+                        setTimeout(() => setSettingsMsg(""), 3000);
+                      } catch {
+                        setSettingsErr("Failed to update contact preference");
+                      } finally {
+                        setSavingSettings(false);
+                      }
+                    }}
+                    className={`profile-workspace-settings__switch w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${profile.allowIndustryContact !== false ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}
+                  >
+                    <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.allowIndustryContact !== false ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
+                  </button>
+                </div>
+              )}
+              <div className={`profile-workspace-settings__preference profile-workspace-settings__preference--email flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-white/[0.06] bg-white/[0.02]" : "border-gray-100 bg-gray-50/60"}`}>
                 <div>
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Email Verified</p>
                   <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>{profile.pendingEmail ? `Current: ${profile.email}` : profile.email}</p>
@@ -2347,7 +2425,7 @@ const Profile = () => {
                 </div>
               </div>
               {(profile.pendingEmail || !profile.emailVerified) && (
-                <div className={`rounded-xl border p-4 ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
+                <div className={`profile-workspace-settings__form-card profile-workspace-settings__form-card--verify rounded-xl border p-4 ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
                   <p className={`text-[12px] font-bold uppercase tracking-wider mb-3 ${dark ? "text-white/30" : "text-gray-400"}`}>Verify Email</p>
                   <div className="space-y-2.5">
                     <input
@@ -2412,7 +2490,7 @@ const Profile = () => {
                   </div>
                 </div>
               )}
-              <div className={`rounded-xl border p-4 ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
+              <div className={`profile-workspace-settings__form-card rounded-xl border p-4 ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
                 <p className={`text-[12px] font-bold uppercase tracking-wider mb-3 ${dark ? "text-white/30" : "text-gray-400"}`}>Change Email</p>
                 <div className="space-y-2.5">
                   <input id="change-email-input" type="email" placeholder="New email address" value={emailForm.newEmail} onChange={e => setEmailForm({ ...emailForm, newEmail: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
@@ -2421,7 +2499,7 @@ const Profile = () => {
                     className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-30" : "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-40"}`}>{savingSettings ? "Saving..." : "Update Email"}</button>
                 </div>
               </div>
-              <div className={`rounded-xl border p-4 ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
+              <div className={`profile-workspace-settings__form-card rounded-xl border p-4 ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
                 <p className={`text-[12px] font-bold uppercase tracking-wider mb-3 ${dark ? "text-white/30" : "text-gray-400"}`}>Change Password</p>
                 <div className="space-y-2.5">
                   <PasswordInput placeholder="Current password" value={pwForm.currentPassword} onChange={e => setPwForm({ ...pwForm, currentPassword: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
@@ -2435,17 +2513,15 @@ const Profile = () => {
           </SectionCard>
           </div>
 
-
-
           {/* Notification Preferences */}
-          <div className="py-6 first:pt-0 last:pb-0">
+          <div className="profile-workspace-settings__section profile-workspace-settings__section--notifications py-6 first:pt-0 last:pb-0">
             <SectionCard dark={dark} noBox title="Notification Preferences" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>}>
             <div className="space-y-2.5">
               {[{ key: "smartMatchAlerts", label: "Smart Match Alerts", desc: "When a new script matches your mandates" }, { key: "holdAlerts", label: "Hold Alerts", desc: "Option hold status updates" }, { key: "viewAlerts", label: "View Alerts", desc: "When someone views your profile" }].map((pref) => (
-                <div key={pref.key} className={`flex items-center justify-between py-2.5 px-3 rounded-xl ${dark ? "bg-white/[0.02]" : "bg-gray-50/60"}`}>
+                <div key={pref.key} className={`profile-workspace-settings__preference flex items-center justify-between py-2.5 px-3 rounded-xl ${dark ? "bg-white/[0.02]" : "bg-gray-50/60"}`}>
                   <div><p className={`text-[13px] font-semibold ${dark ? "text-white/65" : "text-gray-700"}`}>{pref.label}</p><p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>{pref.desc}</p></div>
-                  <button onClick={async () => { const nv = !profile.notificationPrefs?.[pref.key]; try { await api.put("/users/settings", { notificationPrefs: { [pref.key]: nv } }); setProfile({ ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: nv } }); } catch (e) { setSettingsErr("Failed"); } }}
-                    className={`w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.notificationPrefs?.[pref.key] ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
+                  <button aria-label={`Toggle ${pref.label}`} aria-pressed={Boolean(profile.notificationPrefs?.[pref.key])} onClick={async () => { const nv = !profile.notificationPrefs?.[pref.key]; try { await api.put("/users/settings", { notificationPrefs: { [pref.key]: nv } }); setProfile({ ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: nv } }); } catch { setSettingsErr("Failed"); } }}
+                    className={`profile-workspace-settings__switch w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.notificationPrefs?.[pref.key] ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                     <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.notificationPrefs?.[pref.key] ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
                   </button>
                 </div>
@@ -2455,19 +2531,19 @@ const Profile = () => {
           </div>
 
           {/* Localization */}
-          <div className="py-6 first:pt-0 last:pb-0">
+          <div className="profile-workspace-settings__section profile-workspace-settings__section--localization py-6 first:pt-0 last:pb-0">
             <SectionCard dark={dark} noBox title="Localization" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418" /></svg>}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Language</p>
-                <select value={getProfileLanguageValue(profile.language)} onChange={async (e) => { const nextLanguage = getBackendLanguageValue(e.target.value); try { await api.put("/users/settings", { language: nextLanguage }); setProfile({ ...profile, language: nextLanguage }); if (currentUser) { const updatedUser = { ...currentUser, language: nextLanguage }; setUser(updatedUser); localStorage.setItem("user", JSON.stringify(updatedUser)); } await applyLanguagePreference(nextLanguage, { forceReload: true }); setSettingsMsg("Language updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch (err) { setSettingsErr("Failed"); } }}
+                <select value={getProfileLanguageValue(profile.language)} onChange={async (e) => { const nextLanguage = getBackendLanguageValue(e.target.value); try { await api.put("/users/settings", { language: nextLanguage }); setProfile({ ...profile, language: nextLanguage }); if (currentUser) { const updatedUser = { ...currentUser, language: nextLanguage }; setUser(updatedUser); localStorage.setItem("user", JSON.stringify(updatedUser)); } await applyLanguagePreference(nextLanguage, { forceReload: true }); setSettingsMsg("Language updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
                   className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none cursor-pointer ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80" : "bg-white border-gray-200 text-gray-800"}`}>
                   <option value="en">English</option><option value="hi">Hindi</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option>
                 </select>
               </div>
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Timezone</p>
-                <select value={profile.timezone || "Asia/Kolkata"} onChange={async (e) => { try { await api.put("/users/settings", { timezone: e.target.value }); setProfile({ ...profile, timezone: e.target.value }); setSettingsMsg("Timezone updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch (err) { setSettingsErr("Failed"); } }}
+                <select value={profile.timezone || "Asia/Kolkata"} onChange={async (e) => { try { await api.put("/users/settings", { timezone: e.target.value }); setProfile({ ...profile, timezone: e.target.value }); setSettingsMsg("Timezone updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
                   className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none cursor-pointer ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80" : "bg-white border-gray-200 text-gray-800"}`}>
                   <option value="Asia/Kolkata">Asia/Kolkata (IST)</option><option value="America/New_York">America/New_York (EST)</option><option value="America/Los_Angeles">America/Los_Angeles (PST)</option><option value="America/Chicago">America/Chicago (CST)</option><option value="Europe/London">Europe/London (GMT)</option><option value="Europe/Paris">Europe/Paris (CET)</option><option value="Asia/Tokyo">Asia/Tokyo (JST)</option><option value="Asia/Shanghai">Asia/Shanghai (CST)</option><option value="Australia/Sydney">Australia/Sydney (AEST)</option>
                 </select>
@@ -2477,14 +2553,14 @@ const Profile = () => {
           </div>
 
           {/* Blocked Users */}
-          <div className="py-6 first:pt-0 last:pb-0">
+          <div className="profile-workspace-settings__section profile-workspace-settings__section--blocked py-6 first:pt-0 last:pb-0">
             <SectionCard dark={dark} noBox title="Blocked Users" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-12.728 12.728M5.636 5.636l12.728 12.728" /></svg>}>
             {blockedUsers.length === 0 ? (
               <p className={`text-[12px] italic ${dark ? "text-white/25" : "text-gray-400"}`}>No blocked users.</p>
             ) : (
               <div className="space-y-2.5 max-h-[360px] overflow-y-auto pr-1">
                 {blockedUsers.map((u) => (
-                  <div key={u._id} className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-gray-50 border-gray-200"}`}>
+                  <div key={u._id} className={`profile-workspace-settings__person-row flex items-center justify-between px-3 py-2.5 rounded-xl border ${dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-gray-50 border-gray-200"}`}>
                     <div className="flex items-center gap-2.5 min-w-0">
                       {u.profileImage ? (
                         <img src={resolveImage(u.profileImage)} alt={u.name} className="w-8 h-8 rounded-full object-cover" />
@@ -2513,7 +2589,7 @@ const Profile = () => {
           </div>
 
           {isWriterUser && (
-            <div className="py-6 first:pt-0 last:pb-0">
+            <div className="profile-workspace-settings__section profile-workspace-settings__section--deleted py-6 first:pt-0 last:pb-0">
             <SectionCard
               dark={dark} noBox
               title="Deleted Projects"
@@ -2529,7 +2605,7 @@ const Profile = () => {
                   {deletedScripts.map((script) => (
                     <div
                       key={script._id}
-                      className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-gray-50 border-gray-200"}`}
+                      className={`profile-workspace-settings__deleted-row flex items-start gap-3 rounded-xl border px-3 py-2.5 ${dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-gray-50 border-gray-200"}`}
                     >
                       {script.coverImage ? (
                         <img
@@ -2570,9 +2646,9 @@ const Profile = () => {
           )}
 
           {/* Danger Zone */}
-          <div className="py-6 first:pt-0 last:pb-0">
+          <div className="profile-workspace-settings__section profile-workspace-settings__section--danger py-6 first:pt-0 last:pb-0">
             <SectionCard dark={dark} noBox title="Danger Zone" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>}>
-            <div className={`flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-red-500/15 bg-red-500/[0.03]" : "border-red-100 bg-red-50/40"}`}>
+            <div className={`profile-workspace-settings__danger-row flex items-center justify-between py-3 px-4 rounded-xl border ${dark ? "border-red-500/15 bg-red-500/[0.03]" : "border-red-100 bg-red-50/40"}`}>
               <div><p className={`text-[13px] font-semibold ${dark ? "text-red-400/80" : "text-red-600"}`}>Delete Account</p><p className={`text-[11px] ${dark ? "text-red-400/30" : "text-red-400"}`}>Permanently delete your account and all data</p></div>
               <button
                 onClick={() => setShowDeleteAccountModal(true)}
@@ -2620,11 +2696,11 @@ const Profile = () => {
               </div>
             </div>
           )}
-        </motion.div>
+        </Motion.div>
       )}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ FINANCIAL TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {false && (() => {
+      {showFinancialAnalytics && (() => {
         /* Gather scores from all scripts */
         const scored = scripts.filter(s => s.scriptScore?.overall);
         const dims = ["plot", "characters", "dialogue", "pacing", "marketability"];
@@ -2641,7 +2717,7 @@ const Profile = () => {
         const maxDist = Math.max(...dist.map(d => d.count), 1);
 
         return (
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
+          <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
 
             {scored.length === 0 ? (
               <div className={`py-20 text-center`}>
@@ -2755,7 +2831,7 @@ const Profile = () => {
                     <span className={`ml-auto text-[11px] font-medium ${dark ? "text-white/25" : "text-gray-400"}`}>{scored.length} evaluated</span>
                   </div>
                   <div className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
-                    {scored.sort((a, b) => (b.scriptScore?.overall || 0) - (a.scriptScore?.overall || 0)).map((s, i) => (
+                    {scored.sort((a, b) => (b.scriptScore?.overall || 0) - (a.scriptScore?.overall || 0)).map((s) => (
                       <div key={s._id} className={`rounded-xl border p-4 transition-all hover:scale-[1.01] ${dark ? "bg-white/[0.02] border-white/[0.06] hover:border-white/[0.1]" : "bg-gray-50/50 border-gray-100 hover:border-gray-200"}`}>
                         <div className="flex items-center gap-4 mb-3">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-extrabold shrink-0`}
@@ -2790,7 +2866,7 @@ const Profile = () => {
                 </div>
               </>
             )}
-          </motion.div>
+          </Motion.div>
         );
       })()}
 
@@ -2802,7 +2878,7 @@ const Profile = () => {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowConnectionsModal(false)}
         >
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, scale: 0.97, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             className={`rounded-2xl shadow-2xl max-w-md w-full border overflow-hidden ${dark ? "bg-[#0d1520] border-white/[0.08]" : "bg-white border-gray-200"}`}
@@ -2870,7 +2946,7 @@ const Profile = () => {
                 </div>
               )}
             </div>
-          </motion.div>
+          </Motion.div>
         </div>
       )}
 
@@ -2880,7 +2956,7 @@ const Profile = () => {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowPitchModal(false)}
         >
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className={`rounded-2xl shadow-2xl max-w-lg w-full p-6 border ${dark ? "bg-[#0d1520] border-white/[0.06]" : "bg-white border-gray-200"}`}
@@ -2975,7 +3051,7 @@ const Profile = () => {
                 </div>
               </>
             )}
-          </motion.div>
+          </Motion.div>
         </div>
       )}
 
@@ -2985,7 +3061,7 @@ const Profile = () => {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowMessageRequestModal(false)}
         >
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className={`rounded-2xl shadow-2xl max-w-lg w-full p-6 border ${dark ? "bg-[#0d1520] border-white/[0.06]" : "bg-white border-gray-200"}`}
@@ -3083,7 +3159,7 @@ const Profile = () => {
                 </div>
               </>
             )}
-          </motion.div>
+          </Motion.div>
         </div>
       )}
 
@@ -3110,7 +3186,7 @@ const Profile = () => {
           }}
         />
       )}
-    </div>
+    </ProfileRoot>
   );
 };
 
