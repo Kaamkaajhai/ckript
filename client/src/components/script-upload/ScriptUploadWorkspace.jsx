@@ -270,7 +270,7 @@ function BasicsPanel({ vm }) {
   return (
     <div className="su-panel-stack">
       <div className="su-grid-2">
-        <div><FieldLabel meta="Required" required>Format</FieldLabel><TagSelect ariaLabel="Format" options={options.formats} value={state.formData.format} onChange={(v) => actions.handleChange({ target: { name: "format", value: v } })} size="sm" /></div>
+        <div><FieldLabel meta="Required" required>Format</FieldLabel><TagSelect id="su-format" ariaLabel="Format" options={options.formats} value={state.formData.format} onChange={(v) => actions.handleChange({ target: { name: "format", value: v } })} size="sm" {...validationFieldProps(state, "su-format")} /></div>
         <div><FieldLabel meta="Auto-detected">Page count</FieldLabel><div id="su-page-count" className="su-readonly-value" tabIndex={-1} {...validationFieldProps(state, "su-page-count")}><strong>{state.formData.pageCount || "—"}</strong><span>pages</span></div></div>
       </div>
       {state.formData.format === "other" && <div><FieldLabel htmlFor="su-format-other" meta="Required" required>Custom format</FieldLabel><input id="su-format-other" name="formatOther" value={state.formData.formatOther} onChange={actions.handleChange} placeholder="Specify the format" {...validationFieldProps(state, "su-format-other")} /></div>}
@@ -450,11 +450,13 @@ function ClassifyPanel({ vm }) {
       <div>
         <FieldLabel htmlFor="su-primary-genre" meta="Required" required>Primary genre</FieldLabel>
         <TagSelect
+          id="su-primary-genre"
           ariaLabel="Primary genre"
           options={options.genres}
           value={state.formData.primaryGenre}
           onChange={(v) => actions.handleChange({ target: { name: "primaryGenre", value: v } })}
           size="sm"
+          {...validationFieldProps(state, "su-primary-genre")}
         />
       </div>
 

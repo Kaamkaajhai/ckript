@@ -28,6 +28,11 @@ export default function TagSelect({
   ariaLabel,
   className = "",
   size = "md",
+  // `id` and the extra props matter for form validation: callers scroll the user to the offending
+  // control via document.getElementById(fieldId) and mark it with aria-invalid. A tag group has to
+  // carry those the same way the <select> it replaced did.
+  id,
+  ...rest
 }) {
   const items = normalizeOptions(options);
   const selected = multiple ? (Array.isArray(value) ? value : []) : value;
@@ -48,7 +53,7 @@ export default function TagSelect({
   const pad = size === "sm" ? "px-3 py-1 text-[11.5px]" : "px-3.5 py-1.5 text-[12.5px]";
 
   return (
-    <div role="group" aria-label={ariaLabel} className={`flex flex-wrap gap-2 ${className}`}>
+    <div id={id} role="group" aria-label={ariaLabel} tabIndex={-1} className={`flex flex-wrap gap-2 ${className}`} {...rest}>
       {items.map((opt) => {
         const active = isSelected(opt.value);
         // At the cap, un-picked tags read as unavailable rather than silently doing nothing on tap.
