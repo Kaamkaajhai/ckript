@@ -16,6 +16,8 @@ export function usePayloads({
   formData,
   screenplayEnabled,
   title,
+  savedBaseContentRef,
+  writers,
   screenplayValue,
   sceneSynopses,
   outlineNotes,
@@ -80,10 +82,23 @@ export function usePayloads({
       title: title?.trim() ? title.trim() : "Untitled Draft",
       textContent: screenplayMode ? screenplayValue : editor.getHTML(),
       fountainContent: screenplayMode ? screenplayValue : undefined,
+      // Server-side three-way merge base for co-written scripts (see saveDraft). Undefined on a
+      // brand-new draft, where there is nothing to merge against.
+      baseContent: savedBaseContentRef?.current || undefined,
       sceneSynopses: screenplayMode ? sceneSynopses : undefined,
       outlineNotes: screenplayMode ? outlineNotes : undefined,
       titlePage: screenplayMode ? (titlePageActive ? titlePage : null) : undefined,
       companyName: String(formData.companyName || "").trim(),
+      // Authorship credits (display-only). Blank rows are dropped server-side too, but filtering
+      // here keeps the autosave signature stable while someone is mid-typing a new name.
+      writers: (writers || [])
+        .filter((w) => String(w?.name || "").trim())
+        .map((w, index) => ({
+          userId: w?.userId || null,
+          name: String(w.name).trim(),
+          creditType: w?.creditType || "written_by",
+          order: index,
+        })),
       format: formData.format,
       styleMedium: targetFilm ? formData.styleMedium : undefined,
       contentType: getContentTypeFromFormat(formData.format),
@@ -124,7 +139,7 @@ export function usePayloads({
       publishingDetails,
       ...(scriptId ? { scriptId } : {}),
     };
-  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes, titlePage, titlePageActive]);
+  }, [buildRightsPayload, classification.settings, classification.themes, classification.tones, collabVisibility, editor, estimatedPages, filmDetails, formData, legal.agreedToTerms, legal.customInvestorTerms, scriptId, title, targetFilm, targetPublishing, publishingDetails, screenplayValue, screenplayEnabled, sceneSynopses, outlineNotes, titlePage, titlePageActive, writers]);
 
   return { buildRightsPayload, buildScriptPreviewPayload, buildDraftPayload };
 }

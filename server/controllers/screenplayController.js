@@ -2,6 +2,7 @@ import Script from "../models/Script.js";
 import { generateScreenplayPdf } from "../utils/screenplayPdf.js";
 import { formatScreenplayLikeText } from "../utils/screenplayParser.js";
 import { serializeTitlePage, hasTitlePage } from "../utils/classify.js";
+import { formatScriptCredit } from "../utils/writerCredits.js";
 
 // Map (mongoose) | Map | plain → plain object of title-page fields, or null when empty.
 const titlePageToObject = (tp) => {
@@ -51,7 +52,7 @@ const canAccessScript = (script, user) => {
 
 const loadScriptForExport = async (req, res) => {
   const script = await Script.findById(req.params.id).select(
-    "title creator collaborators unlockedBy purchasedBy fountainContent textContent companyName titlePage"
+    "title creator writers collaborators unlockedBy purchasedBy fountainContent textContent companyName titlePage"
   );
   if (!script) {
     res.status(404).json({ message: "Script not found" });
@@ -112,7 +113,10 @@ export const exportScreenplayPdf = async (req, res) => {
       watermark = String(req.query.watermark).slice(0, 80);
     }
 
-    const author = script.companyName || "";
+    // Title-page author: the credited writers first, so a co-written script is attributed on the
+    // exported PDF. `titlePage.author` (writer-configured) still wins downstream; companyName is
+    // only the last resort it used to fall back to.
+    const author = formatScriptCredit(script) || script.companyName || "";
     // Structured title page (Map → plain object) when present; the writer-configured fields win.
     const titlePageObj = titlePageToObject(script.titlePage);
     const wantTitlePage = req.query.titlePage === "1" || Boolean(titlePageObj);

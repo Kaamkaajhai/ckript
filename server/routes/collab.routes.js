@@ -79,7 +79,7 @@ router.get("/:scriptId/branch", protect, checkPermission("write"), getBranch);
 router.patch("/:scriptId/branch", protect, checkPermission("write"), saveBranch);
 router.post("/:scriptId/pr", protect, checkPermission("write"), raisePR);
 router.get("/:scriptId/prs", protect, checkPermission("read"), getPRs);
-router.get("/:scriptId/prs/:prId/diff", protect, checkPermission("merge"), getDiff);
+router.get("/:scriptId/prs/:prId/diff", protect, checkPermission("read"), getDiff);
 router.post("/:scriptId/prs/:prId/review", protect, checkPermission("merge"), reviewPR);
 router.post("/:scriptId/prs/:prId/revert", protect, checkPermission("merge"), revertPR);
 

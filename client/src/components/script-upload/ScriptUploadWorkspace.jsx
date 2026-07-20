@@ -4,6 +4,7 @@ import { motion as Motion, AnimatePresence } from "framer-motion";
 import ScreenplayPdfViewer from "../ScreenplayPdfViewer";
 import { MatIcon } from "../../layouts/dashboard/icons";
 import "./ScriptUploadWorkspace.css";
+import TagSelect from "../TagSelect";
 
 const PHASES = [
   { num: 1, label: "Upload", desc: "Script file & title" },
@@ -269,7 +270,7 @@ function BasicsPanel({ vm }) {
   return (
     <div className="su-panel-stack">
       <div className="su-grid-2">
-        <div><FieldLabel htmlFor="su-format" meta="Required" required>Format</FieldLabel><select id="su-format" name="format" value={state.formData.format} onChange={actions.handleChange} {...validationFieldProps(state, "su-format")}>{options.formats.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div>
+        <div><FieldLabel meta="Required" required>Format</FieldLabel><TagSelect ariaLabel="Format" options={options.formats} value={state.formData.format} onChange={(v) => actions.handleChange({ target: { name: "format", value: v } })} size="sm" /></div>
         <div><FieldLabel meta="Auto-detected">Page count</FieldLabel><div id="su-page-count" className="su-readonly-value" tabIndex={-1} {...validationFieldProps(state, "su-page-count")}><strong>{state.formData.pageCount || "—"}</strong><span>pages</span></div></div>
       </div>
       {state.formData.format === "other" && <div><FieldLabel htmlFor="su-format-other" meta="Required" required>Custom format</FieldLabel><input id="su-format-other" name="formatOther" value={state.formData.formatOther} onChange={actions.handleChange} placeholder="Specify the format" {...validationFieldProps(state, "su-format-other")} /></div>}
@@ -303,7 +304,7 @@ function CastPanel({ vm }) {
           <section className="su-role-card" key={`role-${index}`}>
             <header><span>{index + 1}</span><strong>{role.characterName || `Role ${index + 1}`}</strong><button type="button" onClick={() => actions.removeRole(index)} aria-label={`Remove role ${index + 1}`}><MatIcon name="close" size={16} /></button></header>
             <div className="su-grid-2"><input aria-label={`Role ${index + 1} character name`} value={role.characterName} onChange={(event) => actions.updateRoleField(index, "characterName", event.target.value)} placeholder="Character name" /><input aria-label={`Role ${index + 1} type`} value={role.type} onChange={(event) => actions.updateRoleField(index, "type", event.target.value)} placeholder="Lead, antagonist, supporting…" /></div>
-            <div className="su-role-meta"><select aria-label={`Role ${index + 1} gender`} value={role.gender} onChange={(event) => actions.updateRoleField(index, "gender", event.target.value)}>{options.roleGenders.map((gender) => <option key={gender}>{gender}</option>)}</select><input id={`su-role-${index}-min-age`} aria-label={`Role ${index + 1} minimum age`} type="number" min="0" value={role.ageRange?.min ?? ""} onChange={(event) => actions.updateRoleAge(index, "min", event.target.value)} placeholder="Min age" {...validationFieldProps(state, `su-role-${index}-min-age`)} /><input id={`su-role-${index}-max-age`} aria-label={`Role ${index + 1} maximum age`} type="number" min="0" value={role.ageRange?.max ?? ""} onChange={(event) => actions.updateRoleAge(index, "max", event.target.value)} placeholder="Max age" {...validationFieldProps(state, `su-role-${index}-max-age`)} /></div>
+            <div className="su-role-meta"><TagSelect ariaLabel={`Role ${index + 1} gender`} options={options.roleGenders} value={role.gender} onChange={(v) => actions.updateRoleField(index, "gender", v)} size="sm" /><input id={`su-role-${index}-min-age`} aria-label={`Role ${index + 1} minimum age`} type="number" min="0" value={role.ageRange?.min ?? ""} onChange={(event) => actions.updateRoleAge(index, "min", event.target.value)} placeholder="Min age" {...validationFieldProps(state, `su-role-${index}-min-age`)} /><input id={`su-role-${index}-max-age`} aria-label={`Role ${index + 1} maximum age`} type="number" min="0" value={role.ageRange?.max ?? ""} onChange={(event) => actions.updateRoleAge(index, "max", event.target.value)} placeholder="Max age" {...validationFieldProps(state, `su-role-${index}-max-age`)} /></div>
             <textarea aria-label={`Role ${index + 1} description`} value={role.description} onChange={(event) => actions.updateRoleField(index, "description", event.target.value)} rows={2} placeholder="Performance notes, emotional range, or casting vibe…" />
           </section>
         ))}</div>
@@ -448,38 +449,34 @@ function ClassifyPanel({ vm }) {
     <div className="su-panel-stack">
       <div>
         <FieldLabel htmlFor="su-primary-genre" meta="Required" required>Primary genre</FieldLabel>
-        <select id="su-primary-genre" name="primaryGenre" value={state.formData.primaryGenre} onChange={actions.handleChange} {...validationFieldProps(state, "su-primary-genre")}>
-          <option value="">Select a primary genre…</option>
-          {options.genres.map((genre) => <option key={genre}>{genre}</option>)}
-        </select>
+        <TagSelect
+          ariaLabel="Primary genre"
+          options={options.genres}
+          value={state.formData.primaryGenre}
+          onChange={(v) => actions.handleChange({ target: { name: "primaryGenre", value: v } })}
+          size="sm"
+        />
       </div>
 
       {rows.map(([key, label, pool]) => {
         const selected = state.classification[key];
-        const selectId = "su-classify-" + key;
         return (
           <div key={key}>
-            <FieldLabel htmlFor={selectId} meta={selected.length + "/3"}>{label}</FieldLabel>
-            <select
-              id={selectId}
-              value=""
-              disabled={selected.length >= 3}
-              onChange={(event) => {
-                if (event.target.value) actions.toggleClassification(key, event.target.value);
+            <FieldLabel meta={selected.length + "/3"}>{label}</FieldLabel>
+            <TagSelect
+              ariaLabel={label}
+              options={pool}
+              value={selected}
+              onChange={(next) => {
+                const changed = next.length > selected.length
+                  ? next.find((v) => !selected.includes(v))
+                  : selected.find((v) => !next.includes(v));
+                if (changed) actions.toggleClassification(key, changed);
               }}
-            >
-              <option value="">
-                {selected.length >= 3 ? "Maximum 3 selected" : "Add " + label.toLowerCase().slice(0, -1) + "…"}
-              </option>
-              {pool.filter((item) => !selected.includes(item)).map((item) => <option key={item}>{item}</option>)}
-            </select>
-            <div className="su-chips">
-              {selected.map((item) => (
-                <button type="button" key={item} onClick={() => actions.toggleClassification(key, item)} aria-label={"Remove " + item + " from " + label}>
-                  {item}<MatIcon name="close" size={14} />
-                </button>
-              ))}
-            </div>
+              multiple
+              max={3}
+              size="sm"
+            />
           </div>
         );
       })}

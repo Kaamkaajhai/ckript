@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import { diff_match_patch } from "diff-match-patch";
+import { applyThreeWayMerge } from "../utils/contentMerge.js";
+import { addWriterCredit } from "../utils/writerCredits.js";
 import { uploadToCloudinary } from "../config/cloudinary.js";
 import Script from "../models/Script.js";
 import User from "../models/User.js";
@@ -176,35 +178,9 @@ const updateScriptSectionContent = (script, sectionRef, content) => {
   return "textContent";
 };
 
-const applyRevisionMerge = ({
-  currentContent = "",
-  baseContent = "",
-  proposedContent = "",
-}) => {
-  const normalizedCurrent = String(currentContent || "");
-  const normalizedBase = String(baseContent || "");
-  const normalizedProposed = String(proposedContent || "");
-
-  if (!normalizedBase) {
-    return {
-      mergedContent: normalizedProposed,
-      merged: false,
-      conflict: false,
-      fallbackApplied: true,
-    };
-  }
-
-  const patches = dmp.patch_make(normalizedBase, normalizedProposed);
-  const [mergedContent, appliedFlags] = dmp.patch_apply(patches, normalizedCurrent);
-  const conflict = Array.isArray(appliedFlags) && appliedFlags.some((flag) => flag !== true);
-
-  return {
-    mergedContent,
-    merged: true,
-    conflict,
-    fallbackApplied: false,
-  };
-};
+// Shared with saveDraft's duet merge — see utils/contentMerge.js. Kept as an alias so the existing
+// revision-review call sites read unchanged.
+const applyRevisionMerge = applyThreeWayMerge;
 
 const getActiveEditors = async (script) => {
   const editorIds = (script.collaborators || [])
@@ -496,6 +472,20 @@ export const acceptInvite = async (req, res) => {
     collaborator.inviteToken = null;
     collaborator.inviteExpiresAt = null;
     collaborator.isActive = true;
+
+    // A co-writer who joins to WRITE gets an authorship credit by default (seeded behind the owner).
+    // Credit is display-only and the owner can remove it — but the common case is that someone
+    // invited to write on the script should be named on it, so the default is to include them.
+    if (collaborator.role === "editor" || collaborator.role === "full_admin") {
+      const owner = await User.findById(getOwnerId(script)).select("name").lean();
+      addWriterCredit(script, {
+        userId: req.user._id,
+        name: req.user.name,
+        ownerName: owner?.name || "",
+      });
+      script.markModified("writers");
+    }
+
     await script.save();
 
     if (collaborator.role === "editor") {
@@ -1634,6 +1624,15 @@ export const getDiff = async (req, res) => {
     const pr = await PullRequest.findById(req.params.prId).populate("authorId", "name profileImage");
     if (!pr || normalizeObjectId(pr.scriptId) !== normalizeObjectId(req.params.scriptId)) {
       return res.status(404).json({ error: "Pull request not found" });
+    }
+
+    // The route is guarded by `read` (any collaborator), so scope the diff to the PR's own author
+    // or someone who can actually merge it — editors need to review their own PR before it's merged.
+    const requesterId = normalizeObjectId(req.user?._id || req.user?.id);
+    const isAuthor = normalizeObjectId(pr.authorId) === requesterId;
+    const canMerge = hasScriptPermission(req.script, requesterId, "merge");
+    if (!isAuthor && !canMerge) {
+      return res.status(403).json({ error: "Only the pull request author or a merger can view this diff." });
     }
 
     const [branch, script] = await Promise.all([

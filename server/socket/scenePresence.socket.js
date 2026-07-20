@@ -245,6 +245,37 @@ export const registerScenePresence = (io) => {
       }
     });
 
+    // ── Live scene content ───────────────────────────────────────────────────
+    // The lock holder streams their scene's text to everyone else in the script. Because a scene
+    // can only ever have ONE holder, there are no concurrent edits within a scene to reconcile —
+    // which is why a plain authoritative broadcast is safe here and no OT/CRDT is needed.
+    //
+    // Authority check matters: without it any collaborator could overwrite a scene they don't hold,
+    // which would defeat the whole lock model. We relay only — persistence stays with the
+    // (three-way-merged) draft save, so a dropped packet can never corrupt the stored script.
+    socket.on("scene:content:change", (payload = {}) => {
+      const scriptId = String(payload.scriptId || "").trim();
+      const sceneId = String(payload.sceneId || "").trim();
+      if (!scriptId || !sceneId || typeof payload.text !== "string") return;
+
+      const userId = String(socket.user?._id || "");
+      const lock = getLockRoom(scriptId).get(sceneId);
+      if (!lock || lock.holderId !== userId || lock.expiresAt <= Date.now()) return;
+
+      // Typing is proof of life — keep the lock warm so it isn't swept mid-edit.
+      lock.heartbeatAt = Date.now();
+      lock.expiresAt = Date.now() + LOCK_TTL_MS;
+
+      socket.to(roomKey(scriptId)).emit("scene:content:updated", {
+        sceneId,
+        text: payload.text,
+        heading: typeof payload.heading === "string" ? payload.heading : "",
+        byUserId: userId,
+        byName: resolveName(socket),
+        at: Date.now(),
+      });
+    });
+
     // "Request edit" — notify the current holder's sockets; the holder chooses to release.
     socket.on("scene:lock:request-edit", (payload = {}) => {
       const scriptId = String(payload.scriptId || "").trim();

@@ -7,6 +7,7 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import SocialShareButton from "./SocialShareButton";
+import { formatScriptCredit } from "../utils/writerCredits";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionProgressText,
@@ -305,9 +306,11 @@ const ProjectCard = ({ project, userName, onBlock }) => {
           />
         </div>
 
-        {/* Author */}
+        {/* Author — every credited writer, not just the owner. Derived from the project so all
+            ~14 call sites get co-writer credits without each having to pass them; `userName`
+            remains the fallback for callers whose payload has no credits/creator populated. */}
         <p className={`mt-[3px] text-[11px] font-medium ${dark ? "text-[#3b4f63]" : "text-gray-400"}`}>
-          by {userName || "Unknown Author"}
+          by {formatScriptCredit(project, { max: 2 }) || userName || "Unknown Author"}
         </p>
         {project?.sid && (
           <p className={`mt-1 text-[10px] font-semibold tracking-wide ${dark ? "text-[#5f87b8]" : "text-[#1e3a5f]"}`}>

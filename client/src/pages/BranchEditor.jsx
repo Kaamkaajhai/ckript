@@ -368,7 +368,7 @@ const BranchEditor = () => {
       setMergedBanner(true);
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
       redirectTimerRef.current = setTimeout(() => {
-        navigate(`/collaborate?scriptId=${scriptId}`);
+        navigate(`/script/${scriptId}/collaborate/pull-requests`);
       }, 3000);
     },
     onEditorJoined: (payload) => {
@@ -492,7 +492,7 @@ const BranchEditor = () => {
         <div>
           <button
             type="button"
-            onClick={() => navigate(`/collaborate?scriptId=${scriptId}`)}
+            onClick={() => navigate(`/script/${scriptId}/collaborate/pull-requests`)}
             className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${dark ? "border-[#1c2a3a] bg-[#101b2b] text-gray-200 hover:bg-[#162234]" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
           >
             <span aria-hidden="true">←</span>

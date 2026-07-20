@@ -27,6 +27,7 @@ import ScreenplayPdfViewer from "../../components/ScreenplayPdfViewer";
 import ScreenplayReadOnly from "../../components/ScreenplayReadOnly";
 import MeetingModal from "../../components/MeetingModal";
 import { formatCurrency } from "../../utils/currency";
+import { getScriptWriters, formatWriterNames, getCreditTypeLabel as creditLabel } from "../../utils/writerCredits";
 import { useScrollLock } from "../../hooks/useScrollLock";
 import "./scriptDetailCinematic.css";
 
@@ -382,9 +383,26 @@ function DealDrawer({ vm }) {
 function ContactDrawer({ vm }) {
   const contact = vm.writerContact || {};
   const links = vm.availableWriterLinks || [];
+  const contactCredits = getScriptWriters(vm.script);
   return (
     <>
       <div className="sd3-contact-identity"><span className="sd3-avatar sd3-avatar--large">{initials(vm.script?.creator?.name)}</span><div><h3>{text(vm.script?.creator?.name, "Writer")}</h3><p>{text(vm.script?.companyName || vm.script?.creator?.writerProfile?.company, "Ckript writer")}</p></div></div>
+      {/* Every credited writer is listed, so a producer can see who actually worked on the script.
+          Contact actions below apply to the project owner — the point of contact for the project. */}
+      {contactCredits.length > 1 && (
+        <section className="sd3-drawer-section">
+          <h3>Credited writers ({contactCredits.length})</h3>
+          <ul className="sd3-writer-credits__list">
+            {contactCredits.map((w, i) => (
+              <li key={`${w.id || w.name}-${i}`}>
+                <span className="sd3-avatar sd3-avatar--tiny">{initials(w.name)}</span>
+                <span>{w.name}{i === 0 ? " · point of contact" : ""}</span>
+                <em>{creditLabel(w.creditType)}</em>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {!vm.canViewWriterInfo ? (
         <div className="sd3-empty-state"><LockKeyhole size={28} /><h3>Professional contact access</h3><p>Private contact details require an active Film Industry Professional plan. Public writer identity remains available.</p><button type="button" className="sd3-button sd3-button--primary" onClick={vm.openPricing}>View plans</button></div>
       ) : (
@@ -461,6 +479,9 @@ export default function ScriptDetailCinematic({ vm }) {
   const [declineNote, setDeclineNote] = useState("");
   const { script, capabilities, journey, recommended } = vm;
   const creator = script?.creator || {};
+  // Credits fall back to the owner for pre-credits scripts, so these are always safe to render.
+  const credits = getScriptWriters(script);
+  const scriptCredit = formatWriterNames(credits.map((w) => w.name));
   const producer = Number(script?.producerRating?.average || 0);
   const readerRating = Number(script?.rating || 0);
   const ai = Number(script?.scriptScore?.overall || 0);
@@ -498,10 +519,13 @@ export default function ScriptDetailCinematic({ vm }) {
             <p className="sd3-eyebrow">{script?.sid || "Ckript project"} · {text(script?.classification?.primaryGenre || script?.primaryGenre || script?.genre, "Unclassified")}</p>
             <h1 id="sd3-project-title">{text(script?.title, "Untitled project")}</h1>
             <p>{text(script?.logline, "The writer has not added a logline yet.")}</p>
+            {/* Authorship credit — reads "Written by A & B" so every co-writer is named up front. */}
+            {scriptCredit && <p className="sd3-hero__credit">Written by {scriptCredit}</p>}
             <div className="sd3-hero__meta"><span>{script?.pageCount ? `${script.pageCount} pages` : "Page count pending"}</span><span>{text(script?.filmDetails?.filmLanguage, "Language pending")}</span><span>{Number(script?.views || 0).toLocaleString("en-IN")} views</span><span><Star size={11} fill="currentColor" />{producer ? producer.toFixed(1) : "—"} producer rating</span></div>
           </div>
           <div className="sd3-hero__dock">
-            {capabilities.canEdit && <button type="button" className="sd3-hero-action" onClick={vm.openEdit}><Pencil size={15} />{capabilities.owner ? "Edit project" : "Edit branch"}</button>}
+            {capabilities.canEdit && <button type="button" className="sd3-hero-action" onClick={vm.openEdit}><Pencil size={15} />{capabilities.owner ? "Edit project" : "Co-write"}</button>}
+            {vm.canOpenCollaborationHub && <button type="button" className="sd3-hero-action" onClick={vm.openCollaborationHub}><Users size={15} />Collaborate</button>}
             {vm.canPlayTrailer && <button type="button" className="sd3-hero-action" onClick={() => setMediaOpen(true)}><Play size={15} />Play trailer</button>}
             {capabilities.canBookmark && <button type="button" className="sd3-hero-action" aria-pressed={vm.isBookmarked} onClick={vm.handleToggleBookmark}><Bookmark size={15} fill={vm.isBookmarked ? "currentColor" : "none"} />{vm.isBookmarked ? "Saved" : "Save"}</button>}
             <SocialShareButton share={vm.scriptShare} className="sd3-hero-action" buttonLabel="Share" />
@@ -527,7 +551,26 @@ export default function ScriptDetailCinematic({ vm }) {
         <aside className="sd3-aside" aria-label="Project summary">
           <article className="sd3-aside-card sd3-commercial-card"><p className="sd3-eyebrow">Commercial snapshot</p><strong>{money(script?.price)}</strong><span>{RIGHTS_LABELS[script?.rightsLicensing?.rightsType] || "Rights not specified"}</span><div><section><b>{producer ? producer.toFixed(1) : "—"}</b><small>Producer</small></section><section><b>{readerRating ? readerRating.toFixed(1) : "—"}</b><small>Readers</small></section><section><b>{ai || "—"}</b><small>AI score</small></section></div></article>
           <article className="sd3-aside-card sd3-signal-card"><header><p className="sd3-eyebrow">Strongest signals</p><button type="button" onClick={() => setPanel("evidence")}>Details</button></header>{[["Plot", script?.scriptScore?.plot], ["Market", script?.scriptScore?.marketability], ["Dialogue", script?.scriptScore?.dialogue]].map(([label, value]) => <div key={label}><span>{label}</span><i><b style={{ width: `${Number(value || 0)}%` }} /></i><em>{Number(value || 0) || "—"}</em></div>)}</article>
-          <article className="sd3-aside-card sd3-writer-card"><div className="sd3-contact-identity"><span className="sd3-avatar sd3-avatar--large">{initials(creator?.name)}</span><div><b>{text(creator?.name, "Writer")}</b><small>{text(script?.companyName || creator?.writerProfile?.company, "Ckript writer")}</small></div></div><p>{text(creator?.writerProfile?.bio, "Open the writer profile or contact options for more context.")}</p><button type="button" className="sd3-button sd3-full" onClick={() => vm.canViewWriterInfo ? setPanel("contact") : vm.openProfile()}>{vm.canViewWriterInfo ? "Open contact options" : "View writer profile"}</button></article>
+          <article className="sd3-aside-card sd3-writer-card">
+            <div className="sd3-contact-identity"><span className="sd3-avatar sd3-avatar--large">{initials(creator?.name)}</span><div><b>{text(creator?.name, "Writer")}</b><small>{text(script?.companyName || creator?.writerProfile?.company, "Ckript writer")}</small></div></div>
+            {/* Co-writers get named here too — the owner is only the first credit, not the sole author. */}
+            {credits.length > 1 && (
+              <div className="sd3-writer-credits">
+                <p className="sd3-eyebrow">{credits.length} writers credited</p>
+                <ul>
+                  {credits.map((w, i) => (
+                    <li key={`${w.id || w.name}-${i}`}>
+                      <span className="sd3-avatar sd3-avatar--tiny">{initials(w.name)}</span>
+                      <span>{w.name}</span>
+                      <em>{creditLabel(w.creditType)}</em>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p>{text(creator?.writerProfile?.bio, "Open the writer profile or contact options for more context.")}</p>
+            <button type="button" className="sd3-button sd3-full" onClick={() => vm.canViewWriterInfo ? setPanel("contact") : vm.openProfile()}>{vm.canViewWriterInfo ? "Open contact options" : "View writer profile"}</button>
+          </article>
           <article className="sd3-aside-card sd3-tool-card"><button type="button" onClick={() => setPanel("tools")}>Project tools & permissions<ChevronRight size={14} /></button><button type="button" onClick={() => setPanel("story")}>Metadata & publication<ChevronRight size={14} /></button><button type="button" onClick={() => setPanel("contact")}>Writer & contact<ChevronRight size={14} /></button>{capabilities.owner && <button type="button" className="is-danger" onClick={() => vm.setShowDeleteModal(true)}>Danger zone<ChevronRight size={14} /></button>}</article>
         </aside>
       </div>
@@ -540,7 +583,8 @@ export default function ScriptDetailCinematic({ vm }) {
       <Overlay open={panel === "contact"} onClose={() => setPanel("")} title="Writer and contact"><ContactDrawer vm={{ ...vm, openMeeting: () => { setPanel(""); vm.openMeeting(); } }} /></Overlay>
       <Overlay open={panel === "tools"} onClose={() => setPanel("")} title="Project tools and permissions" eyebrow="Supported actions">
         <div className="sd3-tool-list">
-          {capabilities.canEdit && <button type="button" onClick={vm.openEdit}><Pencil size={17} /><span><b>{capabilities.owner ? "Edit project" : "Edit collaboration branch"}</b><small>Open the existing editor with current permissions.</small></span><ChevronRight size={15} /></button>}
+          {capabilities.canEdit && <button type="button" onClick={vm.openEdit}><Pencil size={17} /><span><b>{capabilities.owner ? "Edit project" : "Co-write this script"}</b><small>{capabilities.owner ? "Open the editor with current permissions." : "Write live alongside the other writers, one scene each."}</small></span><ChevronRight size={15} /></button>}
+          {vm.canOpenCollaborationHub && <button type="button" onClick={vm.openCollaborationHub}><Users size={17} /><span><b>Collaboration hub</b><small>Invite writers, manage requests, review and merge pull requests.</small></span><ChevronRight size={15} /></button>}
           <button type="button" onClick={() => openPanel("read")}><FileText size={17} /><span><b>Script access</b><small>Preview, copy, print and download according to access.</small></span><ChevronRight size={15} /></button>
           {capabilities.buyer && vm.script?.myPendingRequest?.invoice && <button type="button" onClick={() => vm.handleInvoicePdfAction(vm.script.myPendingRequest.invoice, "open")}><Download size={17} /><span><b>Open invoice</b><small>View the verified purchase invoice.</small></span><ChevronRight size={15} /></button>}
           <button type="button" onClick={() => setPanel("story")}><Film size={17} /><span><b>Metadata and publication</b><small>View SID, completion, classifications and roles.</small></span><ChevronRight size={15} /></button>

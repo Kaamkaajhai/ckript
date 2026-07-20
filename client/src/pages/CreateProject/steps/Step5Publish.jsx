@@ -2,6 +2,7 @@ import { useCreateProject } from "../CreateProjectContext";
 import { Link } from "react-router-dom";
 import { LEGAL_AGREEMENT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants";
 import { normalizeRightsLicensingState } from "../lib/rights";
+import TagSelect from "../../../components/TagSelect";
 
 const Step5Publish = () => {
   const {
@@ -164,10 +165,14 @@ const Step5Publish = () => {
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
                                   <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Rights Type</label>
-                                  <select value={publishingDetails.publishingRights?.exclusivity || "non_exclusive"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, exclusivity: e.target.value } }))} className={inputCls}>
-                                    <option value="exclusive">Exclusive</option>
-                                    <option value="non_exclusive">Non-Exclusive</option>
-                                  </select>
+                                  <TagSelect
+                                    ariaLabel="exclusivity"
+                                    options={[{ value: "exclusive", label: "Exclusive" }, { value: "non_exclusive", label: "Non-Exclusive" }]}
+                                    value={publishingDetails.publishingRights?.exclusivity || "non_exclusive"}
+                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, exclusivity: v } }))}
+                                    dark={dark}
+                                    size="sm"
+                                  />
                                 </div>
                                 <div className="sm:col-span-2">
                                   <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Formats Included</label>
@@ -193,20 +198,25 @@ const Step5Publish = () => {
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                   <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Territory</label>
-                                  <select value={(publishingDetails.publishingRights?.territory && publishingDetails.publishingRights.territory[0]) || "worldwide"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, territory: [e.target.value] } }))} className={inputCls}>
-                                    <option value="worldwide">Worldwide</option>
-                                    <option value="specific_regions">Specific Regions</option>
-                                    <option value="india_only">India Only</option>
-                                  </select>
+                                  <TagSelect
+                                    ariaLabel="territory"
+                                    options={[{ value: "worldwide", label: "Worldwide" }, { value: "specific_regions", label: "Specific Regions" }, { value: "india_only", label: "India Only" }]}
+                                    value={(publishingDetails.publishingRights?.territory && publishingDetails.publishingRights.territory[0]) || "worldwide"}
+                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, territory: [v] } }))}
+                                    dark={dark}
+                                    size="sm"
+                                  />
                                 </div>
                                 <div>
                                   <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Language Rights</label>
-                                  <select value={(publishingDetails.publishingRights?.languages && publishingDetails.publishingRights.languages[0]) || "all_languages"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, languages: [e.target.value] } }))} className={inputCls}>
-                                    <option value="all_languages">All Languages</option>
-                                    <option value="english">English Only</option>
-                                    <option value="hindi">Hindi Only</option>
-                                    <option value="regional">Regional Languages</option>
-                                  </select>
+                                  <TagSelect
+                                    ariaLabel="languages"
+                                    options={[{ value: "all_languages", label: "All Languages" }, { value: "english", label: "English Only" }, { value: "hindi", label: "Hindi Only" }, { value: "regional", label: "Regional Languages" }]}
+                                    value={(publishingDetails.publishingRights?.languages && publishingDetails.publishingRights.languages[0]) || "all_languages"}
+                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, languages: [v] } }))}
+                                    dark={dark}
+                                    size="sm"
+                                  />
                                 </div>
                               </div>
                             </div>
@@ -229,11 +239,14 @@ const Step5Publish = () => {
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="sm:col-span-2 lg:col-span-1">
                                   <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Payment Type</label>
-                                  <select value={publishingDetails.publishingRights?.paymentType || "one_time_upfront"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, paymentType: e.target.value } }))} className={inputCls}>
-                                    <option value="one_time_upfront">One-time Buyout</option>
-                                    <option value="royalty_based">Royalty-based</option>
-                                    <option value="advance_plus_royalty">Advance + Royalty</option>
-                                  </select>
+                                  <TagSelect
+                                    ariaLabel="paymentType"
+                                    options={[{ value: "one_time_upfront", label: "One-time Buyout" }, { value: "royalty_based", label: "Royalty-based" }, { value: "advance_plus_royalty", label: "Advance + Royalty" }]}
+                                    value={publishingDetails.publishingRights?.paymentType || "one_time_upfront"}
+                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, paymentType: v } }))}
+                                    dark={dark}
+                                    size="sm"
+                                  />
                                 </div>
                                 {["royalty_based", "advance_plus_royalty"].includes(publishingDetails.publishingRights?.paymentType) && (
                                   <div>
@@ -260,18 +273,25 @@ const Step5Publish = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               <div>
                                 <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>5. Creative Control</h4>
-                                <select value={publishingDetails.publishingRights?.modificationRights || "buyer_must_consult_writer"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, modificationRights: e.target.value } }))} className={inputCls}>
-                                  <option value="buyer_can_freely_modify">Publisher can modify freely</option>
-                                  <option value="buyer_must_consult_writer">Must consult writer</option>
-                                  <option value="writer_approval_required">Writer approval required</option>
-                                </select>
+                                <TagSelect
+                                    ariaLabel="modificationRights"
+                                    options={[{ value: "buyer_can_freely_modify", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_approval_required", label: "Writer approval required" }]}
+                                    value={publishingDetails.publishingRights?.modificationRights || "buyer_must_consult_writer"}
+                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, modificationRights: v } }))}
+                                    dark={dark}
+                                    size="sm"
+                                  />
                               </div>
                               <div>
                                 <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>6. Negotiation Mode</h4>
-                                <select value={publishingDetails.publishingRights?.negotiationMode || "fixed_terms"} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, negotiationMode: e.target.value } }))} className={inputCls}>
-                                  <option value="fixed_terms">Fixed terms</option>
-                                  <option value="open_to_negotiation">Open to negotiation</option>
-                                </select>
+                                <TagSelect
+                                    ariaLabel="negotiationMode"
+                                    options={[{ value: "fixed_terms", label: "Fixed terms" }, { value: "open_to_negotiation", label: "Open to negotiation" }]}
+                                    value={publishingDetails.publishingRights?.negotiationMode || "fixed_terms"}
+                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, negotiationMode: v } }))}
+                                    dark={dark}
+                                    size="sm"
+                                  />
                               </div>
                             </div>
 

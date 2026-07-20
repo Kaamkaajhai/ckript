@@ -56,6 +56,7 @@ import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import { formatScriptCredit } from "../utils/writerCredits";
 import {
   getScriptCompletionFuturePlans,
   getScriptCompletionProgressText,
@@ -366,7 +367,7 @@ const AdminScriptView = () => {
     ? (String(script?.formatOther || "").trim() || "Other")
     : (FORMAT_LABELS[script?.format] || script?.format || "-");
   const headingValue = String(script?.title || "").trim() || "Untitled";
-  const writerName = String(script?.creator?.name || "").trim() || "Unknown";
+  const writerName = formatScriptCredit(script) || String(script?.creator?.name || "").trim() || "Unknown";
   const companyName = String(script?.companyName || "").trim();
   const primaryGenre = script?.primaryGenre || script?.classification?.primaryGenre || script?.genre || "-";
   const tags = Array.isArray(script?.tags) ? script.tags.filter(Boolean) : [];

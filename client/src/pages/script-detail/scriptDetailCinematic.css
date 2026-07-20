@@ -127,6 +127,19 @@ html.dark-mode .sd3-overlay {
 .sd3-tool-card .is-danger { color: var(--sd3-danger); }
 .sd3-avatar { width: 34px; height: 34px; display: inline-grid; place-items: center; flex: 0 0 34px; border: 1px solid var(--sd3-line); border-radius: 50%; color: var(--sd3-accent-deep); background: var(--sd3-accent-soft); font-family: var(--sd3-display); font-size: 11px; font-weight: 700; }
 .sd3-avatar--large { width: 45px; height: 45px; flex-basis: 45px; font-size: 14px; }
+.sd3-avatar--tiny { width: 22px; height: 22px; flex-basis: 22px; font-size: 9px; }
+
+/* Writer credits — every co-writer named, on the hero and in the writer/contact panels. */
+.sd3-hero__credit { margin: 10px 0 0; color: rgba(255,255,255,.86); font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+.sd3-writer-credits { margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid var(--sd3-border); }
+.sd3-writer-credits ul,
+.sd3-writer-credits__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sd3-writer-credits li,
+.sd3-writer-credits__list li { display: flex; align-items: center; gap: 9px; min-width: 0; font-size: 12.5px; }
+.sd3-writer-credits li > span:nth-child(2),
+.sd3-writer-credits__list li > span:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sd3-writer-credits li em,
+.sd3-writer-credits__list li em { flex: none; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; opacity: .6; }
 .sd3-contact-identity { display: flex; align-items: center; gap: 11px; }
 .sd3-contact-identity h3, .sd3-contact-identity p, .sd3-contact-identity b, .sd3-contact-identity small { display: block; margin: 0; }
 .sd3-contact-identity h3 { font-size: 20px; }

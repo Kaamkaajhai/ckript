@@ -219,18 +219,36 @@ export default function ScreenplayEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync external value changes into the editor (e.g. loading a draft, AI fill, import).
+  // Sync external value changes into the editor (e.g. loading a draft, AI fill, import, and a
+  // co-writer's live scene arriving over the socket).
   // Tagged remoteSync so the lock guard treats it as a programmatic sync, not a user edit.
+  //
+  // The change is narrowed to the differing span rather than replacing the whole document. That
+  // matters for live co-writing: a full-doc replace cannot map the selection, so every remote scene
+  // update would collapse the local writer's cursor mid-sentence. Trimming the common prefix/suffix
+  // means an edit in someone else's scene lies entirely outside our caret's range and CodeMirror
+  // maps the selection through it untouched.
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     const current = view.state.doc.toString();
-    if (value !== current) {
-      view.dispatch({
-        changes: { from: 0, to: current.length, insert: value || "" },
-        annotations: remoteSync.of(true),
-      });
+    const next = value || "";
+    if (next === current) return;
+
+    let start = 0;
+    const max = Math.min(current.length, next.length);
+    while (start < max && current[start] === next[start]) start += 1;
+    let endCurrent = current.length;
+    let endNext = next.length;
+    while (endCurrent > start && endNext > start && current[endCurrent - 1] === next[endNext - 1]) {
+      endCurrent -= 1;
+      endNext -= 1;
     }
+
+    view.dispatch({
+      changes: { from: start, to: endCurrent, insert: next.slice(start, endNext) },
+      annotations: remoteSync.of(true),
+    });
   }, [value]);
 
   // Push the current lock state into the editor (drives read-only + tint + badges).

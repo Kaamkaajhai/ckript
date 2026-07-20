@@ -1664,9 +1664,12 @@ const ScriptDetail = () => {
       showNotice("Editing is locked while the current submission is awaiting admin approval.", "error");
       return;
     }
-    navigate(isOwner
-      ? (shouldEditInTextEditor ? `/create-project/${script._id}` : `/upload?edit=${script._id}`)
-      : `/script/${script._id}/branch/edit`);
+    // Editor-format scripts are co-written live in the shared editor (duet, scene-locked) — owner and
+    // invited co-writers alike. Uploaded PDF projects have no live editor, so a collaborator there
+    // still falls back to the branch/PR flow.
+    navigate(shouldEditInTextEditor
+      ? `/create-project/${script._id}`
+      : (isOwner ? `/upload?edit=${script._id}` : `/script/${script._id}/branch/edit`));
   };
   const handleMeetingScheduled = (payload = {}) => {
     setMeetingSent(true);
@@ -1713,6 +1716,8 @@ const ScriptDetail = () => {
           handleToggleBookmark,
           openProfile: openWriterProfile,
           openEdit: openProjectEditor,
+          canOpenCollaborationHub,
+          openCollaborationHub: () => navigate(`/script/${script._id}/collaborate`),
           openPayment: () => navigate(`/script/${script._id}/pay`),
           openPricing: () => openPricingModal(),
           recordPreviewOpen: () => setActiveTab("synopsis"),

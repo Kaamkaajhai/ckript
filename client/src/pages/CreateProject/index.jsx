@@ -105,6 +105,8 @@ const CreateProject = () => {
   const [loading, setLoading] = useState(false);
   const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
   const lastDraftSignatureRef = useRef("");
+  // Server content this client last synced with — the base for the duet three-way merge on save.
+  const savedBaseContentRef = useRef("");
   const autoSaveInFlightRef = useRef(false);
   // Once the server rejects a NEW draft with a hard, non-transient error (e.g. 402 plan limit,
   // 403), stop the autosave loop from hammering the endpoint. Reset when the user edits again so a
@@ -299,6 +301,9 @@ const CreateProject = () => {
   // Page count + preview-window clamping are defined below, after the screenplay state.
   const [tagsInput, setTagsInput] = useState("");
   const [roles, setRoles] = useState([]);
+  // Authorship credits (display-only). Seeded with the signed-in writer so a solo project is
+  // credited correctly without anyone touching this panel.
+  const [writers, setWriters] = useState([]);
   const [filmDetails, setFilmDetails] = useState({
     filmLanguage: "",
     filmLanguageCustom: "",
@@ -549,6 +554,15 @@ const CreateProject = () => {
       setPreviewPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
       if (data.classification?.primaryGenre || data.genre) setFormData(f => ({ ...f, primaryGenre: data.classification?.primaryGenre || data.genre || "" }));
       if (data.companyName !== undefined) setFormData(f => ({ ...f, companyName: data.companyName || "" }));
+      // Credits: use what's stored, else seed from the owner so the panel is never blank on a
+      // pre-credits script (co-writers are appended server-side when they accept an invite).
+      setWriters(Array.isArray(data.writers) && data.writers.length
+        ? data.writers.map((w) => ({
+            userId: w?.userId?._id || w?.userId || null,
+            name: String(w?.name || "").trim(),
+            creditType: w?.creditType || "written_by",
+          }))
+        : [{ userId: data?.creator?._id || data?.creator || null, name: String(data?.creator?.name || "").trim(), creditType: "written_by" }].filter((w) => w.name));
       if (data.logline) setFormData(f => ({ ...f, logline: data.logline }));
       if (data.synopsis) setFormData(f => ({ ...f, synopsis: data.synopsis }));
       else if (data.description) setFormData(f => ({ ...f, synopsis: data.description }));
@@ -620,6 +634,8 @@ const CreateProject = () => {
         }));
       }
       lastDraftSignatureRef.current = `${(data.title || "Untitled Draft").trim()}::${String(data.textContent || "").length}:${String(data.textContent || "").slice(0, 120)}:${String(data.textContent || "").slice(-120)}`;
+      // Merge base for duet saves: the exact server content this session started from.
+      savedBaseContentRef.current = String(data.fountainContent || data.textContent || "");
       setSaved(true);
       setShowDrafts(false);
     } catch { }
@@ -631,6 +647,8 @@ const CreateProject = () => {
     formData,
     screenplayEnabled,
     title,
+    savedBaseContentRef,
+    writers,
     screenplayValue,
     sceneSynopses,
     outlineNotes,
@@ -751,6 +769,9 @@ const CreateProject = () => {
 
     try {
       const { data } = await api.post("/scripts/draft", payload);
+      // Advance the merge base to what we just sent, so the next save transmits only the delta since
+      // this point and the server can replay it onto a co-writer's concurrent changes.
+      savedBaseContentRef.current = String(payload.textContent || "");
       // Synchronously record the id so a save that fires before React re-renders still UPDATES.
       scriptIdRef.current = data._id;
       setScriptId(data._id);
@@ -1046,6 +1067,38 @@ const CreateProject = () => {
   const removeRole = (index) => {
     setRoles((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // ── Writer credits ──────────────────────────────────────────────────────
+  // Credit order is meaningful in screen credits, so the list is explicitly orderable.
+  const addWriter = () => {
+    setWriters((prev) => [...prev, { userId: null, name: "", creditType: "written_by" }]);
+    setSaved(false);
+  };
+  const updateWriter = (index, field, value) => {
+    setWriters((prev) => prev.map((w, i) => (i === index ? { ...w, [field]: value } : w)));
+    setSaved(false);
+  };
+  const removeWriter = (index) => {
+    setWriters((prev) => prev.filter((_, i) => i !== index));
+    setSaved(false);
+  };
+  const moveWriter = (index, direction) => {
+    setWriters((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = prev.slice();
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+    setSaved(false);
+  };
+
+  // Brand-new project: credit the signed-in writer by default so a solo script is attributed
+  // without anyone opening this panel. Existing drafts hydrate their credits in loadDraft.
+  useEffect(() => {
+    if (draftId || !user?.name) return;
+    setWriters((prev) => (prev.length ? prev : [{ userId: user._id || null, name: user.name, creditType: "written_by" }]));
+  }, [draftId, user?._id, user?.name]);
   const getInvalidRoleAgeRangeMessage = () => {
     const invalidIndex = roles.findIndex((role) => {
       const min = role?.ageRange?.min;
@@ -1508,6 +1561,7 @@ const CreateProject = () => {
     collabEditRequest,
     collabClearEditRequest,
     collabCommentsVersion,
+    broadcastSceneEdit,
     sceneComments,
     addSceneComment,
     setCommentResolved,
@@ -1525,6 +1579,7 @@ const CreateProject = () => {
     outlineWithSceneIds,
   } = useScreenplayCollab({
     screenplayValue,
+    setScreenplayValue,
     useScreenplayEditor,
     scriptId,
     user,
@@ -1583,12 +1638,14 @@ const CreateProject = () => {
     setWordCount(text.split(/\s+/).filter(Boolean).length);
     setCharCount(text.length);
     setSaved(false);
+    // Stream the scene we hold to the other writers so they see this edit live.
+    broadcastSceneEdit(text);
     if (screenplayMirrorTimer.current) clearTimeout(screenplayMirrorTimer.current);
     screenplayMirrorTimer.current = setTimeout(() => {
       if (editor) editor.commands.setContent(textToParagraphHtml(text));
     }, 400);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor]);
+  }, [editor, broadcastSceneEdit]);
 
   // Corkboard reorder (Phase 4 §2.2). Moving a card rewrites the Fountain text by moving the
   // whole scene block; routing it through handleScreenplayChange feeds the new value to the
@@ -1690,7 +1747,7 @@ const CreateProject = () => {
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.08] border border-[#1d3350]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
 
   const ctx = {
-    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
+    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
 
   return (

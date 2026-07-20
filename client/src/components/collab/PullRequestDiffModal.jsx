@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
+import { useDarkMode } from "../../context/DarkModeContext";
 
 import { diff_match_patch as DiffMatchPatch } from "diff-match-patch";
 
@@ -11,7 +12,7 @@ function lineDiff(a, b) {
   const dmp = new DiffMatchPatch();
   const text1 = String(a || "").replace(/\r\n/g, "\n");
   const text2 = String(b || "").replace(/\r\n/g, "\n");
-  
+
   const aLines = dmp.diff_linesToChars_(text1, text2);
   const diffs = dmp.diff_main(aLines.chars1, aLines.chars2, false);
   dmp.diff_charsToLines_(diffs, aLines.lineArray);
@@ -19,13 +20,13 @@ function lineDiff(a, b) {
 
   const out = [];
   let ol = 1, nl = 1;
-  
+
   for (const [op, text] of diffs) {
     const lines = text.split("\n");
     if (lines.length > 0 && lines[lines.length - 1] === "") {
       lines.pop();
     }
-    
+
     for (const line of lines) {
       if (op === 0) {
         out.push({ type: "equal", text: line, oldLine: ol++, newLine: nl++ });
@@ -36,7 +37,7 @@ function lineDiff(a, b) {
       }
     }
   }
-  
+
   return out;
 }
 
@@ -45,7 +46,7 @@ function groupBlocks(diff) {
   const blocks=[]; let ci=0;
   let i=0;
   const dmp = new DiffMatchPatch();
-  
+
   while(i<diff.length){
     if(diff[i].type==="equal"){
       const ctx=[];
@@ -58,18 +59,18 @@ function groupBlocks(diff) {
         else inserted.push(diff[i]);
         i++;
       }
-      
+
       // Intra-line highlighting
       if (removed.length > 0 && inserted.length > 0) {
         const removedText = removed.map(l => l.text).join("\n");
         const insertedText = inserted.map(l => l.text).join("\n");
         const intraDiffs = dmp.diff_main(removedText, insertedText);
         dmp.diff_cleanupSemantic(intraDiffs);
-        
+
         let rLineIdx = 0, iLineIdx = 0;
         removed.forEach(l => l.segments = []);
         inserted.forEach(l => l.segments = []);
-        
+
         for (const [op, text] of intraDiffs) {
           if (op === -1 || op === 0) {
             const parts = text.split("\n");
@@ -91,7 +92,7 @@ function groupBlocks(diff) {
           }
         }
       }
-      
+
       blocks.push({type:"change",id:ci++,removed,inserted});
     }
   }
@@ -123,13 +124,50 @@ function trimContext(lines, isFirst, isLast) {
   return {before,sep:hidden,after};
 }
 
-const C={ bg:"#0d1117", surface:"#161b22", border:"#30363d", muted:"#7d8590", text:"#e6edf3",
+// Theme palettes. The diff add/delete colours stay semantic (green/red) in both themes; the surrounding
+// chrome tracks the app's light/dark toggle so the modal matches the rest of the product.
+const DARK = {
+  overlay:"rgba(0,0,0,.55)", bg:"#0d1117", surface:"#161b22", border:"#30363d", muted:"#7d8590", text:"#e6edf3",
   addBg:"#0f2f1f", addBorder:"#3fb950", addText:"#aff5b4",
   delBg:"#2d1212", delBorder:"#f85149", delText:"#ffa198",
-  hunkBg:"#1c2128", hunkText:"#79c0ff",
-  curBtn:"#1a3a5c", incBtn:"#1a3a1a", bothBtn:"#2a2010" };
+  hunkBg:"#1c2128", hunkText:"#79c0ff", codeAccent:"#79c0ff",
+  curBtn:"#1a3a5c", incBtn:"#1a3a1a", bothBtn:"#2a2010",
+  blockHeaderBg:"#12191f",
+  curBandBg:"#1e0f0f", curBandBorder:"#3d1a1a",
+  incBandBg:"#0a1f0a", incBandBorder:"#1a3d1a",
+  segInsBg:"#2ea04340", segDelBg:"#f8514940",
+  chipBg:"#21262d",
+  warnBorder:"#d2992260", warnBg:"#1a150a", warnText:"#e3b341",
+  mergedBorder:"#6e40c940", mergedBg:"#1a0a3a", mergedText:"#c084fc",
+  rejBorder:"#f8514940", rejBg:"#2d0f0f", rejText:"#fca5a5",
+  errBorder:"#f8514940", errBg:"#f8514911", errText:"#ff7b72",
+  focusBorder:"#388bfd",
+  approveBg:"#238636", approveBorder:"#2ea04320",
+  rejBtnBg:"#f8514915", rejBtnBorder:"#f8514940", rejBtnText:"#f85149",
+  badgeMerged:"#6e40c9", badgeRejected:"#b91c1c", badgeOpen:"#238636",
+};
+const LIGHT = {
+  overlay:"rgba(0,0,0,.5)", bg:"#ffffff", surface:"#f6f8fa", border:"#e4e2dc", muted:"#57606a", text:"#1f2328",
+  addBg:"#e6ffec", addBorder:"#2da44e", addText:"#116329",
+  delBg:"#ffebe9", delBorder:"#cf222e", delText:"#82071e",
+  hunkBg:"#ddf4ff", hunkText:"#0969da", codeAccent:"#0969da",
+  curBtn:"#ddf4ff", incBtn:"#dafbe1", bothBtn:"#fff8c5",
+  blockHeaderBg:"#f6f8fa",
+  curBandBg:"#ffebe9", curBandBorder:"#ffcecb",
+  incBandBg:"#e6ffec", incBandBorder:"#bff5c9",
+  segInsBg:"#2da44e33", segDelBg:"#cf222e33",
+  chipBg:"#eaeef2",
+  warnBorder:"#d4a72c66", warnBg:"#fff8e6", warnText:"#7d4e00",
+  mergedBorder:"#8250df66", mergedBg:"#faf5ff", mergedText:"#8250df",
+  rejBorder:"#cf222e40", rejBg:"#fff0ee", rejText:"#a40e26",
+  errBorder:"#cf222e40", errBg:"#ffebe9", errText:"#cf222e",
+  focusBorder:"#D14D37",
+  approveBg:"#1f883d", approveBorder:"#1f883d",
+  rejBtnBg:"#fff0ee", rejBtnBorder:"#cf222e40", rejBtnText:"#cf222e",
+  badgeMerged:"#8250df", badgeRejected:"#cf222e", badgeOpen:"#1f883d",
+};
 
-function LineRow({line, side}){
+function LineRow({line, C}){
   const isAdd=line.type==="insert", isDel=line.type==="delete";
   const bg=isAdd?C.addBg:isDel?C.delBg:"transparent";
   const bl=isAdd?`2px solid ${C.addBorder}`:isDel?`2px solid ${C.delBorder}`:"2px solid transparent";
@@ -146,7 +184,7 @@ function LineRow({line, side}){
       <td style={{padding:"0 12px 0 4px",color:tc,whiteSpace:"pre-wrap",wordBreak:"break-all",fontFamily:"monospace",fontSize:12}}>
         {line.segments ? line.segments.map((seg, i) => (
           <span key={i} style={{
-            background: seg.type === "insert" ? "#2ea04340" : seg.type === "delete" ? "#f8514940" : "transparent",
+            background: seg.type === "insert" ? C.segInsBg : seg.type === "delete" ? C.segDelBg : "transparent",
             borderRadius: 2
           }}>{seg.text}</span>
         )) : (line.text || " ")}
@@ -155,7 +193,7 @@ function LineRow({line, side}){
   );
 }
 
-function HunkSep({count,oldStart,newStart}){
+function HunkSep({count,oldStart,newStart,C}){
   return(
     <tr>
       <td colSpan={4} style={{background:C.hunkBg,color:C.hunkText,padding:"3px 12px",userSelect:"none",fontFamily:"monospace",fontSize:11,borderTop:`1px solid ${C.border}`}}>
@@ -171,7 +209,7 @@ const OPTS=[
   {id:"both",     label:"Accept Both",      desc:"Keep both versions",color:"#d29922"},
 ];
 
-function ChangeBlock({block, decision, onDecide, readOnly}){
+function ChangeBlock({block, decision, onDecide, readOnly, C}){
   const d=decision??"incoming";
   const hasRemoved=block.removed.length>0;
   const hasInserted=block.inserted.length>0;
@@ -182,7 +220,7 @@ function ChangeBlock({block, decision, onDecide, readOnly}){
   return(
     <div style={{borderTop:`1px solid ${C.border}`}}>
       {/* Block header */}
-      <div style={{background:"#12191f",padding:"4px 12px",display:"flex",alignItems:"center",gap:8,borderTop:`1px solid ${C.border}`}}>
+      <div style={{background:C.blockHeaderBg,padding:"4px 12px",display:"flex",alignItems:"center",gap:8,borderTop:`1px solid ${C.border}`}}>
         <span style={{fontSize:10,fontWeight:700,color:labelColor,letterSpacing:1,textTransform:"uppercase"}}>{label}</span>
         {!readOnly&&isModify&&(
           <span style={{fontSize:10,color:C.muted,marginLeft:4}}>— choose how to resolve</span>
@@ -205,12 +243,12 @@ function ChangeBlock({block, decision, onDecide, readOnly}){
       {hasRemoved&&(
         <>
           {!readOnly&&hasInserted&&(
-            <div style={{padding:"2px 12px",fontSize:10,fontWeight:600,color:C.delBorder,background:"#1e0f0f",borderTop:`1px solid #3d1a1a`,letterSpacing:.5}}>
+            <div style={{padding:"2px 12px",fontSize:10,fontWeight:600,color:C.delBorder,background:C.curBandBg,borderTop:`1px solid ${C.curBandBorder}`,letterSpacing:.5}}>
               ▼ CURRENT (base)
             </div>
           )}
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <tbody>{block.removed.map((l,i)=><LineRow key={i} line={l}/>)}</tbody>
+            <tbody>{block.removed.map((l,i)=><LineRow key={i} line={l} C={C}/>)}</tbody>
           </table>
         </>
       )}
@@ -219,19 +257,19 @@ function ChangeBlock({block, decision, onDecide, readOnly}){
       {hasInserted&&(
         <>
           {!readOnly&&hasRemoved&&(
-            <div style={{padding:"2px 12px",fontSize:10,fontWeight:600,color:C.addBorder,background:"#0a1f0a",borderTop:`1px solid #1a3d1a`,letterSpacing:.5}}>
+            <div style={{padding:"2px 12px",fontSize:10,fontWeight:600,color:C.addBorder,background:C.incBandBg,borderTop:`1px solid ${C.incBandBorder}`,letterSpacing:.5}}>
               ▲ INCOMING (PR)
             </div>
           )}
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <tbody>{block.inserted.map((l,i)=><LineRow key={i} line={l}/>)}</tbody>
+            <tbody>{block.inserted.map((l,i)=><LineRow key={i} line={l} C={C}/>)}</tbody>
           </table>
         </>
       )}
 
       {/* Decision indicator */}
       {!readOnly&&(
-        <div style={{padding:"3px 12px",fontSize:10,background:"#0d1117",color:C.muted,borderTop:`1px solid ${C.border}`}}>
+        <div style={{padding:"3px 12px",fontSize:10,background:C.bg,color:C.muted,borderTop:`1px solid ${C.border}`}}>
           Result: {d==="current"?"Using current (base) lines":d==="incoming"?"Using incoming (PR) lines":"Keeping both versions"}
         </div>
       )}
@@ -240,6 +278,9 @@ function ChangeBlock({block, decision, onDecide, readOnly}){
 }
 
 export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}){
+  const { isDarkMode } = useDarkMode();
+  const C = isDarkMode ? DARK : LIGHT;
+
   const [loading,setLoading]=useState(true);
   const [submitting,setSubmitting]=useState(false);
   const [error,setError]=useState("");
@@ -308,12 +349,12 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
   const decide=(blockId,choice)=>setDecisions(p=>({...p,[blockId]:choice}));
 
   const statusBadge=isReadOnly
-    ?{label:pr?.status==="approved"?"Merged":"Rejected",bg:pr?.status==="approved"?"#6e40c9":"#b91c1c"}
-    :{label:"Open",bg:"#238636"};
+    ?{label:pr?.status==="approved"?"Merged":"Rejected",bg:pr?.status==="approved"?C.badgeMerged:C.badgeRejected}
+    :{label:"Open",bg:C.badgeOpen};
 
   return(
-    <div style={{position:"fixed",inset:0,zIndex:100,background:"rgba(0,0,0,.75)",backdropFilter:"blur(4px)",display:"flex",alignItems:"stretch",padding:"0"}}>
-      <div style={{margin:"auto",width:"100%",maxWidth:960,display:"flex",flexDirection:"column",background:C.bg,border:`1px solid ${C.border}`,borderRadius:12,maxHeight:"calc(100vh - 32px)",overflow:"hidden"}}>
+    <div style={{position:"fixed",inset:0,zIndex:100,background:C.overlay,backdropFilter:"blur(4px)",display:"flex",alignItems:"stretch",padding:"0"}} onMouseDown={onClose}>
+      <div onMouseDown={(e)=>e.stopPropagation()} style={{margin:"auto",width:"100%",maxWidth:960,display:"flex",flexDirection:"column",background:C.bg,border:`1px solid ${C.border}`,borderRadius:16,maxHeight:"calc(100vh - 32px)",overflow:"hidden",boxShadow:"0 24px 70px rgba(0,0,0,.35)"}}>
 
         {/* Header */}
         <div style={{background:C.surface,borderBottom:`1px solid ${C.border}`,padding:"12px 20px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
@@ -325,7 +366,7 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
               </span>
             </div>
             <div style={{marginTop:2,fontSize:11,color:C.muted}}>
-              by {rawData?.authorName||pr?.authorId?.name||"Unknown"} · merging into <code style={{color:"#79c0ff"}}>main</code>
+              by {rawData?.authorName||pr?.authorId?.name||"Unknown"} · merging into <code style={{color:C.codeAccent}}>main</code>
               {!isReadOnly&&changeCount>0&&<span style={{marginLeft:8,color:C.muted}}>· {resolvedCount}/{changeCount} blocks resolved</span>}
             </div>
           </div>
@@ -346,17 +387,17 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
               <span style={{fontSize:13}}>Loading diff…</span>
             </div>
           ):error&&!rawData?(
-            <div style={{margin:20,padding:"10px 14px",borderRadius:8,border:`1px solid #f8514940`,background:"#f8514911",color:"#ff7b72",fontSize:13}}>{error}</div>
+            <div style={{margin:20,padding:"10px 14px",borderRadius:8,border:`1px solid ${C.errBorder}`,background:C.errBg,color:C.errText,fontSize:13}}>{error}</div>
           ):(
             <div style={{padding:16,display:"flex",flexDirection:"column",gap:16}}>
 
               {/* Stats */}
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                <span style={{padding:"3px 10px",borderRadius:6,fontSize:11,fontWeight:700,background:"#21262d",color:C.text,border:`1px solid ${C.border}`}}>1 file changed</span>
+                <span style={{padding:"3px 10px",borderRadius:6,fontSize:11,fontWeight:700,background:C.chipBg,color:C.text,border:`1px solid ${C.border}`}}>1 file changed</span>
                 <span style={{fontSize:13,fontWeight:700,color:C.addBorder}}>+{additions} additions</span>
                 <span style={{fontSize:13,fontWeight:700,color:C.delBorder}}>−{deletions} deletions</span>
                 {hasChanges&&(
-                  <div style={{display:"flex",height:8,width:100,borderRadius:4,overflow:"hidden",background:"#21262d"}}>
+                  <div style={{display:"flex",height:8,width:100,borderRadius:4,overflow:"hidden",background:C.chipBg}}>
                     <div style={{width:`${Math.round(additions/(additions+deletions)*100)}%`,background:C.addBorder}}/>
                     <div style={{width:`${Math.round(deletions/(additions+deletions)*100)}%`,background:C.delBorder}}/>
                   </div>
@@ -365,7 +406,7 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
 
               {/* Outdated branch warning */}
               {rawData?.isOutdated && (
-                <div style={{padding:"10px 14px",borderRadius:8,border:"1px solid #d2992260",background:"#1a150a",color:"#e3b341",fontSize:13,display:"flex",gap:8,alignItems:"flex-start"}}>
+                <div style={{padding:"10px 14px",borderRadius:8,border:`1px solid ${C.warnBorder}`,background:C.warnBg,color:C.warnText,fontSize:13,display:"flex",gap:8,alignItems:"flex-start"}}>
                   <span style={{fontSize:16,lineHeight:1}}>⚠️</span>
                   <span>
                     <strong>This branch was created before recent changes were merged into the script.</strong>{" "}
@@ -400,25 +441,25 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
                         return(
                           <div key={bi}>
                             {!isFirst&&before.length===0&&sep===null&&after.length===0?(
-                              <HunkSep count={block.lines.length} oldStart={firstOld} newStart={firstNew}/>
+                              <HunkSep count={block.lines.length} oldStart={firstOld} newStart={firstNew} C={C}/>
                             ):(
                               <>
                                 {sep!==null&&!isFirst&&(
                                   <>
                                     <table style={{width:"100%",borderCollapse:"collapse"}}>
-                                      <tbody>{before.map((l,i)=><LineRow key={i} line={l}/>)}</tbody>
+                                      <tbody>{before.map((l,i)=><LineRow key={i} line={l} C={C}/>)}</tbody>
                                     </table>
-                                    <HunkSep count={sep} oldStart={before[before.length-1]?.oldLine??""} newStart={before[before.length-1]?.newLine??""}/>
+                                    <HunkSep count={sep} oldStart={before[before.length-1]?.oldLine??""} newStart={before[before.length-1]?.newLine??""} C={C}/>
                                   </>
                                 )}
                                 {(sep===null||isFirst)&&(
                                   <table style={{width:"100%",borderCollapse:"collapse"}}>
-                                    <tbody>{before.map((l,i)=><LineRow key={i} line={l}/>)}</tbody>
+                                    <tbody>{before.map((l,i)=><LineRow key={i} line={l} C={C}/>)}</tbody>
                                   </table>
                                 )}
                                 {after.length>0&&(
                                   <table style={{width:"100%",borderCollapse:"collapse"}}>
-                                    <tbody>{after.map((l,i)=><LineRow key={`a${i}`} line={l}/>)}</tbody>
+                                    <tbody>{after.map((l,i)=><LineRow key={`a${i}`} line={l} C={C}/>)}</tbody>
                                   </table>
                                 )}
                               </>
@@ -427,7 +468,7 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
                         );
                       }
                       return(
-                        <ChangeBlock key={bi} block={block} decision={decisions[block.id]} onDecide={c=>decide(block.id,c)} readOnly={isReadOnly}/>
+                        <ChangeBlock key={bi} block={block} decision={decisions[block.id]} onDecide={c=>decide(block.id,c)} readOnly={isReadOnly} C={C}/>
                       );
                     })}
                   </div>
@@ -436,7 +477,7 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
 
               {/* Reviewed banner */}
               {isReadOnly&&(
-                <div style={{padding:"10px 16px",borderRadius:8,border:`1px solid ${pr?.status==="approved"?"#6e40c940":"#f8514940"}`,background:pr?.status==="approved"?"#1a0a3a":"#2d0f0f",color:pr?.status==="approved"?"#c084fc":"#fca5a5",fontSize:13}}>
+                <div style={{padding:"10px 16px",borderRadius:8,border:`1px solid ${pr?.status==="approved"?C.mergedBorder:C.rejBorder}`,background:pr?.status==="approved"?C.mergedBg:C.rejBg,color:pr?.status==="approved"?C.mergedText:C.rejText,fontSize:13}}>
                   <strong>{pr?.status==="approved"?"✓ Merged":"✕ Rejected"}.</strong>
                   {pr?.reviewNote&&<span> Reviewer note: {pr.reviewNote}</span>}
                 </div>
@@ -451,13 +492,13 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
                   <textarea value={note} onChange={e=>setNote(e.target.value)}
                     placeholder="Leave a comment for the author…" rows={3}
                     style={{width:"100%",resize:"vertical",padding:"8px 12px",borderRadius:8,border:`1px solid ${C.border}`,background:C.surface,color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}
-                    onFocus={e=>e.target.style.borderColor="#388bfd"}
+                    onFocus={e=>e.target.style.borderColor=C.focusBorder}
                     onBlur={e=>e.target.style.borderColor=C.border}/>
                 </div>
               )}
 
               {error&&(
-                <div style={{padding:"8px 12px",borderRadius:8,border:`1px solid #f8514940`,background:"#f8514911",color:"#ff7b72",fontSize:13}}>{error}</div>
+                <div style={{padding:"8px 12px",borderRadius:8,border:`1px solid ${C.errBorder}`,background:C.errBg,color:C.errText,fontSize:13}}>{error}</div>
               )}
             </div>
           )}
@@ -473,14 +514,14 @@ export default function PullRequestDiffModal({scriptId, pr, onClose, onReviewed}
           ):(
             <>
               <button type="button" disabled={loading||submitting} onClick={()=>submitReview("rejected")}
-                style={{display:"flex",alignItems:"center",gap:6,padding:"6px 16px",borderRadius:8,border:`1px solid #f8514940`,background:"#f8514915",color:"#f85149",fontSize:13,fontWeight:600,cursor:"pointer",opacity:(loading||submitting)?.5:1}}>
+                style={{display:"flex",alignItems:"center",gap:6,padding:"6px 16px",borderRadius:8,border:`1px solid ${C.rejBtnBorder}`,background:C.rejBtnBg,color:C.rejBtnText,fontSize:13,fontWeight:600,cursor:"pointer",opacity:(loading||submitting)?.5:1}}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.06 1.06L9.06 8l3.22 3.22a.749.749 0 0 1-1.06 1.06L8 9.06l-3.22 3.22a.749.749 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>
                 {submitting?"Rejecting…":"Reject PR"}
               </button>
               <div style={{display:"flex",gap:8}}>
                 <button type="button" onClick={onClose} disabled={submitting} style={{padding:"6px 16px",borderRadius:8,border:`1px solid ${C.border}`,background:"transparent",color:C.muted,fontSize:13,fontWeight:600,cursor:"pointer"}}>Close</button>
                 <button type="button" disabled={loading||submitting} onClick={()=>submitReview("approved")}
-                  style={{display:"flex",alignItems:"center",gap:6,padding:"6px 16px",borderRadius:8,border:"1px solid #2ea04320",background:"#238636",color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:(loading||submitting)?.5:1}}>
+                  style={{display:"flex",alignItems:"center",gap:6,padding:"6px 16px",borderRadius:8,border:`1px solid ${C.approveBorder}`,background:C.approveBg,color:"#fff",fontSize:13,fontWeight:600,cursor:"pointer",opacity:(loading||submitting)?.5:1}}>
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>
                   {submitting?"Merging…":"Approve & Merge"}
                 </button>

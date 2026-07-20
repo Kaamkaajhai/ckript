@@ -37,6 +37,7 @@ const ScriptUpload = lazy(() => import("./pages/ScriptUpload"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
 const BranchEditor = lazy(() => import("./pages/BranchEditor"));
+const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
@@ -398,6 +399,8 @@ function App() {
                 <Route path="/upload" element={<ScriptUpload />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/script/:scriptId/branch/edit" element={<BranchEditor />} />
+                <Route path="/script/:scriptId/collaborate" element={<CollaborationHub />} />
+                <Route path="/script/:scriptId/collaborate/:section" element={<CollaborationHub />} />
                 <Route path="/script/:id/pay" element={<ScriptPaymentPage />} />
                 <Route path="/mandates" element={<Mandates />} />
                 <Route path="/writers" element={<Writers />} />
