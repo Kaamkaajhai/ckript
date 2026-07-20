@@ -5,7 +5,7 @@ import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
 import BrandLogo from "./BrandLogo";
-import ReferralShareCard from "./ReferralShareCard";
+
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
@@ -256,11 +256,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
     </div>
   );
 
-  const SidebarReferralCard = () => (
-    <div className="px-3 pt-2 pb-1">
-      <ReferralShareCard dark={isDarkMode} compact />
-    </div>
-  );
+
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">

@@ -627,16 +627,41 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                           Mark read
                         </button>
                       )}
-                      <button
-                        onClick={() => openNotificationTarget(notification)}
-                        className={`min-h-[38px] min-w-[88px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
-                          isDarkMode
-                            ? "bg-sky-500 !text-white hover:bg-sky-400"
-                            : "bg-[#0f1d31] !text-white hover:bg-[#19314f]"
-                        }`}
-                      >
-                        {getNotifActionLabel(notification)}
-                      </button>
+                      {notification.type === "follow_request" ? (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(notification, "accept"); }}
+                            className={`min-h-[38px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
+                              isDarkMode
+                                ? "bg-blue-500 !text-white hover:bg-blue-600"
+                                : "bg-[#1e3a5f] !text-white hover:bg-[#152a47]"
+                            }`}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(notification, "reject"); }}
+                            className={`min-h-[38px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors border ${
+                              isDarkMode
+                                ? "border-white/15 text-[#b0c0d0] hover:bg-white/[0.05]"
+                                : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                            }`}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => openNotificationTarget(notification)}
+                          className={`min-h-[38px] min-w-[88px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
+                            isDarkMode
+                              ? "bg-sky-500 !text-white hover:bg-sky-400"
+                              : "bg-[#0f1d31] !text-white hover:bg-[#19314f]"
+                          }`}
+                        >
+                          {getNotifActionLabel(notification)}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -849,16 +874,16 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                           </p>
                           {n.type === "follow_request" && (
                             <div className="flex items-center gap-2 mt-2">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(n, "accept"); }}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
-                                  isDarkMode
-                                    ? "bg-blue-500 text-white hover:bg-blue-600"
-                                    : "bg-[#1e3a5f] text-white hover:bg-[#152a47]"
-                                }`}
-                              >
-                                Accept
-                              </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(n, "accept"); }}
+                                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                                    isDarkMode
+                                      ? "bg-blue-500 text-white hover:bg-blue-600"
+                                      : "bg-[#1e3a5f] text-white hover:bg-[#152a47]"
+                                  }`}
+                                >
+                                  Approve
+                                </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(n, "reject"); }}
                                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors border ${

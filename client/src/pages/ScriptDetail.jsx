@@ -37,6 +37,7 @@ import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import MeetingModal from "../components/MeetingModal";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import { addCkriptWatermarkToJsPdf, buildWatermarkedPdfFromPdfBlob } from "../utils/pdfWatermark";
 import { splitScreenplayIntoPages } from "../components/screenplay/pages";
 import ProducerRatingCard from "../components/ProducerRatingCard";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -142,6 +143,7 @@ const buildPreviewPdfBlob = ({ title = "Script", pageBlocks = [], fallbackText =
 
   sourcePages.forEach((page, index) => {
     if (index > 0) doc.addPage("a4", "portrait");
+    addCkriptWatermarkToJsPdf(doc);
 
     const lines = [];
     String(page.text || "")
@@ -477,17 +479,25 @@ const ScriptDetail = () => {
   const handleDownload = async () => {
     const safeTitle = (script?.title || "script").replace(/[^a-z0-9]/gi, "_");
     const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
-    // Stored PDF (uploaded original OR the canonical merge PDF) → download it as-is.
     if (uploadedPdfUrl) {
-      const link = document.createElement("a");
-      link.href = uploadedPdfUrl;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.download = `${safeTitle}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      return;
+      try {
+        const response = await api.get(`/scripts/${activeScriptId}/pdf`, { responseType: "blob" });
+        const watermarkedBlob = await buildWatermarkedPdfFromPdfBlob(
+          new Blob([response.data], { type: "application/pdf" }),
+          { title: script?.title || "Script" }
+        );
+        const url = URL.createObjectURL(watermarkedBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${safeTitle}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        return;
+      } catch (error) {
+        console.error("Uploaded PDF watermark download failed, trying canonical export:", error);
+      }
     }
 
     const raw = script?.textContent || "";
@@ -536,7 +546,12 @@ const ScriptDetail = () => {
         });
         if (response.ok) {
           const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
+          const watermarkedBlob = await buildWatermarkedPdfFromPdfBlob(blob, {
+            title: script?.title || "Script",
+            startPage: previewStartPage,
+            endPage: previewEndPage,
+          });
+          const url = URL.createObjectURL(watermarkedBlob);
           const link = document.createElement("a");
           link.href = url;
           link.download = `${safeTitle || "script"}_viewable_preview.pdf`;

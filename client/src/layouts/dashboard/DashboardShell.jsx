@@ -236,6 +236,18 @@ const DashboardShell = ({ children, variant = "page" }) => {
     setNotifOpen(true);
   };
 
+  const handleFollowRequestDecision = async (notif, decision) => {
+    const fromUserId = notif?.from?._id || notif?.from;
+    if (!fromUserId) return;
+    try {
+      const endpoint = decision === "accept"
+        ? "/users/follow-requests/accept"
+        : "/users/follow-requests/reject";
+      await api.post(endpoint, { fromUserId });
+      handleDeleteNotif(notif._id);
+    } catch { /* ignore */ }
+  };
+
   const handleNotifToggle = () => {
     if (!notifOpen) { fetchNotifs(); handleMarkAllRead(); }
     setNotifOpen((v) => !v);
@@ -303,6 +315,7 @@ const DashboardShell = ({ children, variant = "page" }) => {
           onMarkAllRead={handleMarkAllRead}
           onOpenNotif={openNotif}
           onDeleteNotif={handleDeleteNotif}
+          onFollowRequestDecision={handleFollowRequestDecision}
           dropdownRef={dropdownRef}
           dropdownOpen={dropdownOpen}
           onDropdownToggle={() => { setDropdownOpen((v) => !v); setNotifOpen(false); }}
@@ -362,12 +375,29 @@ const DashboardShell = ({ children, variant = "page" }) => {
                   </p>
                   <p style={{ fontSize: 11, color: "#a39d92", margin: "3px 0 0" }}>{timeAgo(notif.createdAt)}</p>
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <button
-                      onClick={() => openNotif(notif)}
-                      style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#1c1a17", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
-                    >
-                      Open
-                    </button>
+                    {notif.type === "follow_request" ? (
+                      <>
+                        <button
+                          onClick={() => handleFollowRequestDecision(notif, "accept")}
+                          style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#1c1a17", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleFollowRequestDecision(notif, "reject")}
+                          style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ece8e0", background: "transparent", color: "#6f695f", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => openNotif(notif)}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#1c1a17", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}
+                      >
+                        Open
+                      </button>
+                    )}
                     <button
                       onClick={() => dismissPopup(notif._id)}
                       style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ece8e0", background: "transparent", color: "#6f695f", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ck-body)" }}

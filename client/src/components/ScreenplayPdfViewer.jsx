@@ -108,6 +108,7 @@ const PdfPage = ({ pdfDocument, pageNumber }) => {
         className="relative overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(0,0,0,0.14)]"
         style={pageHeight ? { minHeight: `${pageHeight}px` } : undefined}
       >
+        <div className="ckript-script-watermark" aria-hidden="true" />
         <canvas ref={canvasRef} className="block w-full h-auto bg-white" />
       </div>
     </div>
@@ -119,7 +120,8 @@ const NativePdfPage = ({ sourceUrl, pageNumber }) => {
 
   return (
     <div className="mx-auto w-full max-w-[794px]">
-      <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(0,0,0,0.14)]">
+      <div className="relative overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_18px_48px_rgba(0,0,0,0.14)]">
+        <div className="ckript-script-watermark" aria-hidden="true" />
         <object
           data={pageSrc}
           type="application/pdf"

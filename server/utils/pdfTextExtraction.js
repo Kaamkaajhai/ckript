@@ -193,17 +193,26 @@ export const extractTextFromPdfBuffer = async (buffer) => {
           });
           
           let lastY;
+          let lastX = 0;
+          let lastWidth = 0;
           let text = '';
           for (let item of textContent?.items || []) {
             if (lastY == item.transform[5] || !lastY) {
               if (lastY && text && !text.endsWith(' ')) {
-                text += ' ';
+                const expectedNextX = lastX + lastWidth;
+                const actualX = item.transform[4];
+                // Insert space only if there's a significant gap
+                if (actualX - expectedNextX > (item.height || 12) * 0.15) {
+                  text += ' ';
+                }
               }
               text += item.str;
             } else {
               text += '\n' + item.str;
             }
             lastY = item.transform[5];
+            lastX = item.transform[4];
+            lastWidth = item.width || 0;
           }
           
           // Clean up multiple spaces but preserve newlines
