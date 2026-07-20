@@ -72,6 +72,8 @@ export function ProfileWorkspaceIdentity({
   memberSince,
   profileShare,
   isFollowing,
+  isFollowsMe,
+  followLoading,
   followRequestPending,
   isBlockedByCurrent,
   blockedByProfile,
@@ -153,9 +155,9 @@ export function ProfileWorkspaceIdentity({
             type="button"
             className={`profile-workspace-btn ${isFollowing || followRequestPending ? "" : "profile-workspace-btn--accent"}`}
             onClick={onFollow}
-            disabled={isBlockedByCurrent || blockedByProfile}
+            disabled={isBlockedByCurrent || blockedByProfile || followLoading}
           >
-            {blockedByProfile ? "Blocked you" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+            {followLoading ? "Updating…" : blockedByProfile ? "Blocked you" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow back" : "Follow"}
           </button>
         )}
 
