@@ -1036,16 +1036,16 @@ const Profile = () => {
                       <>
                         <button
                           onClick={handleFollow}
-                          disabled={isBlockedByCurrent || blockedByProfile}
+                          disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                           className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                         >
-                          {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                          {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                         </button>
                         {isWriter(currentUser?.role) && (
                           <button
                             type="button"
                             onClick={handleOpenPitchModal}
-                            disabled={isBlockedByCurrent || blockedByProfile}
+                            disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                             className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${t.followIdle}`}
                           >
                             Pitch Script
@@ -1099,16 +1099,16 @@ const Profile = () => {
                             <>
                               <button
                                 onClick={handleFollow}
-                                disabled={isBlockedByCurrent || blockedByProfile}
+                                disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                                 className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                               >
-                                {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                                {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                               </button>
                               {isWriter(currentUser?.role) && (
                                 <button
                                   type="button"
                                   onClick={handleOpenPitchModal}
-                                  disabled={isBlockedByCurrent || blockedByProfile}
+                                  disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                                   className={`px-3 sm:px-4 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${t.followIdle}`}
                                 >
                                   Pitch Script
@@ -1251,10 +1251,10 @@ const Profile = () => {
                           <>
                             <button
                               onClick={handleFollow}
-                              disabled={isBlockedByCurrent || blockedByProfile}
+                              disabled={isBlockedByCurrent || blockedByProfile || followLoading}
                               className={`px-4 sm:px-5 py-1.5 rounded-xl text-[12px] sm:text-[13px] font-bold transition-all border disabled:opacity-55 disabled:cursor-not-allowed ${isFollowing ? t.followActive : t.followIdle}`}
                             >
-                              {blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : "Follow"}
+                              {followLoading ? "Wait..." : blockedByProfile ? "Blocked You" : isBlockedByCurrent ? "Blocked" : isFollowing ? "Following" : followRequestPending ? "Requested" : isFollowsMe ? "Follow Back" : "Follow"}
                             </button>
                             <button
                               onClick={handleToggleBlock}
