@@ -85,286 +85,19 @@ const Step5Publish = () => {
                     </div>
                   </div>
 
-
-
-
-
-                  {targetPublishing && (
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 ${dark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50/60"}`}>
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${dark ? "bg-emerald-500/10" : "bg-emerald-100"}`}>
-                            <svg className={`w-4 h-4 ${dark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          </div>
-                          <div>
-                            <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Publishing Rights</h3>
-                            <p className={`text-[11px] ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>Do you want to sell publishing rights?</p>
-                          </div>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" checked={publishingDetails.sellPublishingRights || false} onChange={(e) => setPublishingDetails(p => ({ ...p, sellPublishingRights: e.target.checked }))} />
-                          <div className={`w-11 h-6 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${dark ? "bg-gray-700 peer-checked:bg-emerald-500" : "bg-gray-200 peer-checked:bg-emerald-500"}`}></div>
-                        </label>
-                      </div>
-
-                      {publishingDetails.sellPublishingRights && (
-                        <div className={`mt-5 pt-5 border-t ${dark ? "border-emerald-500/20" : "border-emerald-200"}`}>
-                          <h4 className={`text-[11px] font-bold uppercase tracking-widest mb-3 ${dark ? "text-emerald-500" : "text-emerald-700"}`}>Auto-fill Presets</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-                            <button type="button" onClick={() => {
-                              setPublishingDetails(p => ({
-                                ...p,
-                                publishingRights: {
-                                  ...p.publishingRights,
-                                  rightsBundle: "basic",
-                                  exclusivity: "non_exclusive",
-                                  digitalPublishing: true,
-                                  bookPublishing: false,
-                                  audiobookRights: false,
-                                  adaptationIncluded: false,
-                                  territory: ["worldwide"],
-                                  languages: ["all_languages"],
-                                  durationYears: "3 years",
-                                  paymentType: "royalty_based",
-                                  negotiationMode: "fixed_terms"
-                                }
-                              }))
-                            }} 
-                              className={`rounded-xl p-4 text-left transition-all border ${publishingDetails.publishingRights?.rightsBundle === "basic" ? dark ? "bg-emerald-600/20 border-emerald-500" : "bg-emerald-100 border-emerald-600" : dark ? "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                              <h4 className={`text-sm font-bold ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Basic Entry</h4>
-                              <p className={`text-[10px] mt-1 ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>Digital-only, non-exclusive, 3 years.</p>
-                            </button>
-                            <button type="button" onClick={() => {
-                              setPublishingDetails(p => ({
-                                ...p,
-                                publishingRights: {
-                                  ...p.publishingRights,
-                                  rightsBundle: "full",
-                                  exclusivity: "exclusive",
-                                  digitalPublishing: true,
-                                  bookPublishing: true,
-                                  audiobookRights: true,
-                                  adaptationIncluded: true,
-                                  territory: ["worldwide"],
-                                  languages: ["all_languages"],
-                                  durationYears: "perpetual",
-                                  paymentType: "advance_plus_royalty",
-                                  negotiationMode: "open_to_negotiation"
-                                }
-                              }))
-                            }} 
-                              className={`rounded-xl p-4 text-left transition-all border ${publishingDetails.publishingRights?.rightsBundle === "full" ? dark ? "bg-emerald-600/20 border-emerald-500" : "bg-emerald-100 border-emerald-600" : dark ? "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                              <h4 className={`text-sm font-bold ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Full Traditional</h4>
-                              <p className={`text-[10px] mt-1 ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>All formats, exclusive, long-term.</p>
-                            </button>
-                            <button type="button" onClick={() => {
-                              setPublishingDetails(p => ({
-                                ...p,
-                                publishingRights: {
-                                  ...p.publishingRights,
-                                  rightsBundle: "custom",
-                                }
-                              }))
-                            }} 
-                              className={`rounded-xl p-4 text-left transition-all border ${publishingDetails.publishingRights?.rightsBundle === "custom" ? dark ? "bg-emerald-600/20 border-emerald-500" : "bg-emerald-100 border-emerald-600" : dark ? "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.06]" : "bg-white border-gray-200 hover:bg-gray-50"}`}>
-                              <h4 className={`text-sm font-bold ${dark ? "text-emerald-300" : "text-emerald-800"}`}>Custom Setup</h4>
-                              <p className={`text-[10px] mt-1 ${dark ? "text-emerald-500/70" : "text-emerald-600/70"}`}>Build your own rights configuration.</p>
-                            </button>
-                          </div>
-
-                          <div className="space-y-6">
-                            {/* 1. Rights Scope */}
-                            <div>
-                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>1. Rights Scope</h4>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div>
-                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Rights Type</label>
-                                  <TagSelect
-                                    ariaLabel="exclusivity"
-                                    options={[{ value: "exclusive", label: "Exclusive" }, { value: "non_exclusive", label: "Non-Exclusive" }]}
-                                    value={publishingDetails.publishingRights?.exclusivity || "non_exclusive"}
-                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, exclusivity: v } }))}
-                                    dark={dark}
-                                    size="sm"
-                                  />
-                                </div>
-                                <div className="sm:col-span-2">
-                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Formats Included</label>
-                                  <div className="flex flex-wrap gap-4 mt-2">
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={publishingDetails.publishingRights?.bookPublishing || false} onChange={e => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, bookPublishing: e.target.checked } }))} /> Print</label>
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={publishingDetails.publishingRights?.digitalPublishing || false} onChange={e => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, digitalPublishing: e.target.checked } }))} /> Digital (eBook)</label>
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={publishingDetails.publishingRights?.audiobookRights || false} onChange={e => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, audiobookRights: e.target.checked } }))} /> Audio (Audiobook)</label>
-                                  </div>
-                                </div>
-                                <div className="sm:col-span-3">
-                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Adaptation Rights (Film/TV)</label>
-                                  <div className="flex gap-4 mt-2">
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="adaptationIncluded" checked={publishingDetails.publishingRights?.adaptationIncluded === true} onChange={() => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, adaptationIncluded: true } }))} /> Included</label>
-                                    <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="adaptationIncluded" checked={publishingDetails.publishingRights?.adaptationIncluded !== true} onChange={() => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, adaptationIncluded: false } }))} /> Not Included</label>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* 2. Territory & Language */}
-                            <div>
-                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>2. Territory & Language</h4>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Territory</label>
-                                  <TagSelect
-                                    ariaLabel="territory"
-                                    options={[{ value: "worldwide", label: "Worldwide" }, { value: "specific_regions", label: "Specific Regions" }, { value: "india_only", label: "India Only" }]}
-                                    value={(publishingDetails.publishingRights?.territory && publishingDetails.publishingRights.territory[0]) || "worldwide"}
-                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, territory: [v] } }))}
-                                    dark={dark}
-                                    size="sm"
-                                  />
-                                </div>
-                                <div>
-                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Language Rights</label>
-                                  <TagSelect
-                                    ariaLabel="languages"
-                                    options={[{ value: "all_languages", label: "All Languages" }, { value: "english", label: "English Only" }, { value: "hindi", label: "Hindi Only" }, { value: "regional", label: "Regional Languages" }]}
-                                    value={(publishingDetails.publishingRights?.languages && publishingDetails.publishingRights.languages[0]) || "all_languages"}
-                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, languages: [v] } }))}
-                                    dark={dark}
-                                    size="sm"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* 3. Duration */}
-                            <div>
-                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>3. License Duration</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {["3 years", "5 years", "10 years", "perpetual"].map(dur => (
-                                  <button key={dur} type="button" onClick={() => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, durationYears: dur } }))} className={`px-4 py-2 rounded-lg text-[13px] font-semibold border transition-all ${publishingDetails.publishingRights?.durationYears === dur ? "bg-emerald-600 text-white border-emerald-600" : dark ? "border-[#1d3350] text-gray-400 hover:border-[#2a4a6a]" : "border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-                                    {dur.charAt(0).toUpperCase() + dur.slice(1)}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* 4. Payment Structure */}
-                            <div>
-                              <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>4. Payment Structure</h4>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div className="sm:col-span-2 lg:col-span-1">
-                                  <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Payment Type</label>
-                                  <TagSelect
-                                    ariaLabel="paymentType"
-                                    options={[{ value: "one_time_upfront", label: "One-time Buyout" }, { value: "royalty_based", label: "Royalty-based" }, { value: "advance_plus_royalty", label: "Advance + Royalty" }]}
-                                    value={publishingDetails.publishingRights?.paymentType || "one_time_upfront"}
-                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, paymentType: v } }))}
-                                    dark={dark}
-                                    size="sm"
-                                  />
-                                </div>
-                                {["royalty_based", "advance_plus_royalty"].includes(publishingDetails.publishingRights?.paymentType) && (
-                                  <div>
-                                    <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Royalty % (Optional)</label>
-                                    <div className="relative">
-                                      <input type="number" min="0" max="100" placeholder="e.g. 15" value={publishingDetails.publishingRights?.royaltyPercentage || ""} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, royaltyPercentage: Number(e.target.value) } }))} className={inputCls} />
-                                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
-                                    </div>
-                                  </div>
-                                )}
-                                {publishingDetails.publishingRights?.paymentType === "advance_plus_royalty" && (
-                                  <div>
-                                    <label className={`block text-xs font-semibold mb-1 ${dark ? "text-gray-300" : "text-gray-700"}`}>Advance (Optional)</label>
-                                    <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
-                                      <input type="number" min="0" placeholder="e.g. 50000" value={publishingDetails.publishingRights?.advanceAmount || ""} onChange={(e) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, advanceAmount: Number(e.target.value) } }))} className={`${inputCls} pl-8`} />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* 5 & 6. Control and Deal Mode */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div>
-                                <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>5. Creative Control</h4>
-                                <TagSelect
-                                    ariaLabel="modificationRights"
-                                    options={[{ value: "buyer_can_freely_modify", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_approval_required", label: "Writer approval required" }]}
-                                    value={publishingDetails.publishingRights?.modificationRights || "buyer_must_consult_writer"}
-                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, modificationRights: v } }))}
-                                    dark={dark}
-                                    size="sm"
-                                  />
-                              </div>
-                              <div>
-                                <h4 className={`text-[13px] font-bold mb-3 ${dark ? "text-emerald-400" : "text-emerald-700"}`}>6. Negotiation Mode</h4>
-                                <TagSelect
-                                    ariaLabel="negotiationMode"
-                                    options={[{ value: "fixed_terms", label: "Fixed terms" }, { value: "open_to_negotiation", label: "Open to negotiation" }]}
-                                    value={publishingDetails.publishingRights?.negotiationMode || "fixed_terms"}
-                                    onChange={(v) => setPublishingDetails(p => ({ ...p, publishingRights: { ...p.publishingRights, negotiationMode: v } }))}
-                                    dark={dark}
-                                    size="sm"
-                                  />
-                              </div>
-                            </div>
-
-                          </div>
-                        </div>
-                      )}
-
-                      <div className={`mt-5 pt-5 border-t ${dark ? "border-emerald-500/20" : "border-emerald-200"}`}>
-                        <h4 className={`text-[11px] font-bold uppercase tracking-widest mb-3 ${dark ? "text-emerald-500" : "text-emerald-700"}`}>
-                          Rights Acknowledgements
-                        </h4>
-                        <div className="grid grid-cols-1 gap-2.5">
-                          <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed)}
-                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                ...prev,
-                                legalAcknowledgement: {
-                                  ...prev.legalAcknowledgement,
-                                  ownershipConfirmed: e.target.checked,
-                                },
-                              }))}
-                              className="mt-0.5"
-                            />
-                            <span>I confirm I own or control all rights required for this listing.</span>
-                          </label>
-                          <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(rightsLicensing?.legalAcknowledgement?.platformTermsAccepted)}
-                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                ...prev,
-                                legalAcknowledgement: {
-                                  ...prev.legalAcknowledgement,
-                                  platformTermsAccepted: e.target.checked,
-                                },
-                              }))}
-                              className="mt-0.5"
-                            />
-                            <span>I acknowledge these rights terms under platform legal policy.</span>
-                          </label>
-                          <label className={`flex items-start gap-2.5 text-sm ${dark ? "text-gray-300" : "text-gray-600"}`}>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood)}
-                              onChange={(e) => setRightsLicensing((prev) => normalizeRightsLicensingState({
-                                ...prev,
-                                legalAcknowledgement: {
-                                  ...prev.legalAcknowledgement,
-                                  exclusivityUnderstood: e.target.checked,
-                                },
-                              }))}
-                              className="mt-0.5"
-                            />
-                            <span>I understand exclusivity enforcement for settled transactions.</span>
-                          </label>
-                        </div>
-                      </div>
+                  {/* Rights Accordion */}
+                  <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 space-y-6 ${dark ? "border-emerald-500/20 bg-emerald-500/5" : "border-emerald-200 bg-emerald-50/60"}`}>
+                    <div>
+                      <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Rights Type</h3>
+                      <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>What type of rights are you offering?</p>
+                      <TagSelect
+                        ariaLabel="rightsType"
+                        options={[{ value: "full_rights_sale", label: "Full Rights Sale (Ownership Transfer)" }, { value: "exclusive_license", label: "Exclusive License" }, { value: "custom_negotiation_required", label: "Custom Negotiation Required" }]}
+                        value={rightsLicensing?.rightsType || "custom_negotiation_required"}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, rightsType: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     {rightsLicensing?.rightsType === "exclusive_license" && (
@@ -378,24 +111,27 @@ const Step5Publish = () => {
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Modification Rights</h3>
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>How much creative control are you willing to give up?</p>
-                      <select value={rightsLicensing?.modificationRights || ""} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, modificationRights: e.target.value }))} className={inputCls}>
-                        <option value="" disabled>Select modification rights...</option>
-                        <option value="buyer_can_freely_modify">Publisher can modify freely</option>
-                        <option value="buyer_must_consult_writer">Must consult writer</option>
-                        <option value="writer_approval_required">Writer approval required</option>
-                      </select>
+                      <TagSelect
+                        ariaLabel="modificationRights"
+                        options={[{ value: "buyer_can_freely_modify", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_approval_required", label: "Writer approval required" }]}
+                        value={rightsLicensing?.modificationRights || ""}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, modificationRights: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Payment Structure</h3>
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>How do you expect to be paid for these rights?</p>
-                      <select value={rightsLicensing?.paymentStructure || ""} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, paymentStructure: e.target.value }))} className={inputCls}>
-                        <option value="" disabled>Select payment structure...</option>
-                        <option value="one_time_upfront_payment">One-time upfront payment</option>
-                        <option value="lower_upfront_plus_royalty_percent">Lower upfront + royalty %</option>
-                        <option value="revenue_sharing_model">Revenue sharing model</option>
-                        <option value="custom_deal">Custom deal</option>
-                      </select>
+                      <TagSelect
+                        ariaLabel="paymentStructure"
+                        options={[{ value: "one_time_upfront_payment", label: "One-time upfront payment" }, { value: "lower_upfront_plus_royalty_percent", label: "Lower upfront + royalty %" }, { value: "revenue_sharing_model", label: "Revenue sharing model" }, { value: "custom_deal", label: "Custom deal" }]}
+                        value={rightsLicensing?.paymentStructure || ""}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, paymentStructure: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     {["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing?.paymentStructure) && (
@@ -406,11 +142,14 @@ const Step5Publish = () => {
                         </div>
                         <div>
                           <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Royalty Duration</h3>
-                          <select value={rightsLicensing?.royaltySettings?.durationType || "none"} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, royaltySettings: { ...prev.royaltySettings, durationType: e.target.value } }))} className={inputCls}>
-                            <option value="none">None</option>
-                            <option value="project_lifetime">Project Lifetime</option>
-                            <option value="years">Fixed Years</option>
-                          </select>
+                          <TagSelect
+                            ariaLabel="Royalty duration"
+                            options={[{ value: "none", label: "None" }, { value: "project_lifetime", label: "Project Lifetime" }, { value: "years", label: "Fixed Years" }]}
+                            value={rightsLicensing?.royaltySettings?.durationType || "none"}
+                            onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, royaltySettings: { ...prev.royaltySettings, durationType: v } }))}
+                            dark={dark}
+                            size="sm"
+                          />
                         </div>
                         {rightsLicensing?.royaltySettings?.durationType === "years" && (
                           <div className="sm:col-span-2">
@@ -424,11 +163,14 @@ const Step5Publish = () => {
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Negotiation Mode</h3>
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>Are you open to counter-offers?</p>
-                      <select value={rightsLicensing?.negotiationMode || ""} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, negotiationMode: e.target.value }))} className={inputCls}>
-                        <option value="" disabled>Select negotiation mode...</option>
-                        <option value="fixed_terms">Fixed terms</option>
-                        <option value="open_to_negotiation">Open to negotiation</option>
-                      </select>
+                      <TagSelect
+                        ariaLabel="negotiationMode"
+                        options={[{ value: "fixed_terms", label: "Fixed terms" }, { value: "open_to_negotiation", label: "Open to negotiation" }]}
+                        value={rightsLicensing?.negotiationMode || ""}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, negotiationMode: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     <div>

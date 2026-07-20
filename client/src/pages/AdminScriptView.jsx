@@ -57,6 +57,7 @@ import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { formatScriptCredit } from "../utils/writerCredits";
+import { buildWatermarkedPdfFromPdfBlob } from "../utils/pdfWatermark";
 import {
   getScriptCompletionFuturePlans,
   getScriptCompletionProgressText,
