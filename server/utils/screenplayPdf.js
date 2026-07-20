@@ -100,22 +100,23 @@ export const generateScreenplayPdf = (scriptText, opts = {}) =>
       margins: { top: MARGIN.top, bottom: MARGIN.bottom, left: MARGIN.left, right: MARGIN.right },
     });
 
+    // PDFKit parses a registered font LAZILY, so a missing or damaged TTF does not throw at
+    // registerFont — it throws at the first doc.font() call and fails the whole export with
+    // "Unknown font format". Register, then force the parse immediately so the problem is caught
+    // here, and fall back to PDFKit's built-in Courier family (the standard screenplay face) so a
+    // bad font asset degrades the typeface instead of taking PDF export down entirely.
     try {
       doc.registerFont(FONT, FONT_REGULAR_PATH);
       doc.registerFont(FONT_BOLD, FONT_BOLD_PATH);
       doc.registerFont(FONT_ITALIC, FONT_ITALIC_PATH);
       doc.registerFont(FONT_BOLD_ITALIC, FONT_BOLD_ITALIC_PATH);
+      for (const face of [FONT, FONT_BOLD, FONT_ITALIC, FONT_BOLD_ITALIC]) doc.font(face);
     } catch (err) {
-      console.warn("[screenplayPdf] Failed to register CourierPrime fonts. They may be missing.");
-    }
-
-    try {
-      doc.registerFont(FONT, FONT_REGULAR_PATH);
-      doc.registerFont(FONT_BOLD, FONT_BOLD_PATH);
-      doc.registerFont(FONT_ITALIC, FONT_ITALIC_PATH);
-      doc.registerFont(FONT_BOLD_ITALIC, FONT_BOLD_ITALIC_PATH);
-    } catch (err) {
-      console.warn("[screenplayPdf] Failed to register CourierPrime fonts. They may be missing.");
+      console.warn(`[screenplayPdf] CourierPrime unusable (${err?.message || err}); using built-in Courier.`);
+      doc.registerFont(FONT, "Courier");
+      doc.registerFont(FONT_BOLD, "Courier-Bold");
+      doc.registerFont(FONT_ITALIC, "Courier-Oblique");
+      doc.registerFont(FONT_BOLD_ITALIC, "Courier-BoldOblique");
     }
 
     const chunks = [];
