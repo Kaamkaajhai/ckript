@@ -121,10 +121,18 @@ export const exportScreenplayPdf = async (req, res) => {
     const author = formatScriptCredit(script) || script.companyName || "";
     // Structured title page (Map → plain object) when present; the writer-configured fields win.
     const titlePageObj = titlePageToObject(script.titlePage);
-    const wantTitlePage = req.query.titlePage === "1" || Boolean(titlePageObj);
+    // titlePage=0 explicitly disables the generated title page. The preview window counts SCRIPT
+    // pages, so a viewer showing "pages 1-2" must fetch a PDF whose page 1 is the first content
+    // page — with the title sheet prepended, every preview was off by one (the reported "2 pages,
+    // one of which is the title page").
+    const wantTitlePage = req.query.titlePage === "0"
+      ? false
+      : (req.query.titlePage === "1" || Boolean(titlePageObj));
     const pdfBuffer = await generateScreenplayPdf(text, {
       title: wantTitlePage ? script.title : undefined,
-      author,
+      // The generator synthesizes a cover from a bare author too, so titlePage=0 must drop it —
+      // otherwise the credits line alone re-creates the title sheet and shifts every page by one.
+      author: wantTitlePage ? author : undefined,
       titlePage: wantTitlePage ? titlePageObj : null,
       watermark,
     });

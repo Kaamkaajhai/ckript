@@ -1908,7 +1908,15 @@ export const saveDraft = async (req, res) => {
           mode: otherData.scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages",
           start: otherData.scriptPreviewAccess?.start || script.scriptPreviewAccess?.start || 1,
           end: otherData.scriptPreviewAccess?.end || script.scriptPreviewAccess?.end || 8,
-          maxUnits: Number(script.pageCount || 0),
+          // Clamp against the preview PAGES the window slices — not pageCount, which comes from a
+          // different estimator and, when it lagged (estimate 1, real pages 3), silently shrank the
+          // writer's saved window. Incoming texts first: they are assigned just below this call.
+          maxUnits: Number(
+            (Array.isArray(otherData.scriptPreviewPageTexts) && otherData.scriptPreviewPageTexts.length)
+            || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+            || script.pageCount
+            || 0
+          ),
         });
         script.markModified("scriptPreviewAccess");
       }
@@ -2095,7 +2103,11 @@ export const saveDraft = async (req, res) => {
         mode: safeOtherData.scriptPreviewAccess?.mode || "pages",
         start: safeOtherData.scriptPreviewAccess?.start || 1,
         end: safeOtherData.scriptPreviewAccess?.end || 8,
-        maxUnits: Number(safeOtherData.pageCount || 0),
+        maxUnits: Number(
+          (Array.isArray(safeOtherData.scriptPreviewPageTexts) && safeOtherData.scriptPreviewPageTexts.length)
+          || safeOtherData.pageCount
+          || 0
+        ),
       });
     }
     if (safeOtherData.scriptPreviewPageTexts !== undefined) {
@@ -2457,7 +2469,11 @@ export const updateScript = async (req, res) => {
           maxUnits: Number(
             String(scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || Number(pageCount || 0) || 0)
+              : (resolvedPreviewPageTexts.length
+                || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount
+                || Number(pageCount || 0)
+                || 0)
           ),
         });
         script.markModified("scriptPreviewAccess");
@@ -2915,7 +2931,8 @@ export const uploadScript = async (req, res) => {
       maxUnits: Number(
         String(scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
           ? (scriptCompletion?.totalParts || 0)
-          : (pageCount || resolvedPageCount || 0)
+          : ((Array.isArray(scriptPreviewPageTexts) && scriptPreviewPageTexts.length)
+            || pageCount || resolvedPageCount || 0)
       ),
     });
     const viewableScriptEnabled = Boolean(viewableScript);
@@ -3634,7 +3651,8 @@ export const getScriptById = async (req, res) => {
           maxUnits: Number(
             String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || 0)
+              : ((Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount || 0)
           ),
         })
       : null;
@@ -3941,7 +3959,8 @@ export const getPublicScriptById = async (req, res) => {
           maxUnits: Number(
             String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || 0)
+              : ((Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount || 0)
           ),
         })
       : null;

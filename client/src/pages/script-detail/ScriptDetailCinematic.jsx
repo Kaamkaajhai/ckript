@@ -256,7 +256,7 @@ function ReadDrawer({ vm }) {
         )
       ) : (
         <ScreenplayPdfViewer
-          pdfUrl={uploadedScriptPdfUrl}
+          pdfUrl={capabilities.fullScript ? uploadedScriptPdfUrl : ""}
           title={`${script?.title || "Script"} preview`}
           startPage={previewStart || 1}
           endPage={previewEnd || previewStart || 1}

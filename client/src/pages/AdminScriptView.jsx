@@ -363,6 +363,12 @@ const AdminScriptView = () => {
   const derivedPdfUrl = hasUploadedPdf 
     ? script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf?download=0`) : uploadedPdfUrl
     : script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0`) : "";
+  // Preview windows count SCRIPT pages, so the preview viewer needs the export WITHOUT the
+  // generated title sheet — otherwise page 1 of the PDF is the title and the whole window
+  // shifts by one (writer selects 2 pages, admin sees title + 1).
+  const previewPdfUrl = hasUploadedPdf
+    ? derivedPdfUrl
+    : (script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0&titlePage=0`) : "");
 
   const formatLabel = script?.format === "other"
     ? (String(script?.formatOther || "").trim() || "Other")
@@ -1424,7 +1430,7 @@ const AdminScriptView = () => {
             </div>
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={derivedPdfUrl}
+                pdfUrl={previewPdfUrl}
                 title={script?.title || "Script"}
                 startPage={Number(script?.scriptPreviewAccess?.start || 1)}
                 endPage={Number(script?.scriptPreviewAccess?.end || 8)}
