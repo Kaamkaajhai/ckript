@@ -67,6 +67,7 @@ import {
 import { applyThreeWayMerge } from "../utils/contentMerge.js";
 import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.js";
 import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
+import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1672,10 +1673,19 @@ export const extractPdfText = async (req, res) => {
       }
     }
 
+    // Strip the source PDF's page furniture (running header, page numbers, "(CONTINUED)") before
+    // the editor receives it — otherwise it lands in the script body, surfaces as content in the
+    // viewable-script preview, and skews pagination. Conservative by design: character cues repeat
+    // exactly like a running header, so only unambiguous furniture is removed.
+    const cleanedText = stripPdfPageFurniture(text, { title: req.body?.title || "" });
+    const cleanedPageTexts = Array.isArray(pageTexts)
+      ? pageTexts.map((page) => stripPdfPageFurniture(String(page || ""), { title: req.body?.title || "" }))
+      : [];
+
     res.json({
-      text,
+      text: cleanedText,
       numItems,
-      pageTexts,
+      pageTexts: cleanedPageTexts,
       fileUrl: uploadedPdfUrl,
       fileGrant,
       sourceMode: uploadedPdfUrl ? "uploaded-pdf" : "imported-text",

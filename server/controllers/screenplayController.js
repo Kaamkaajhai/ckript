@@ -3,6 +3,7 @@ import { generateScreenplayPdf } from "../utils/screenplayPdf.js";
 import { formatScreenplayLikeText } from "../utils/screenplayParser.js";
 import { serializeTitlePage, hasTitlePage } from "../utils/classify.js";
 import { formatScriptCredit } from "../utils/writerCredits.js";
+import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 
 // Map (mongoose) | Map | plain → plain object of title-page fields, or null when empty.
 const titlePageToObject = (tp) => {
@@ -155,7 +156,11 @@ export const importFountain = async (req, res) => {
     if (raw.length > 2_000_000) {
       return res.status(413).json({ message: "File is too large to import." });
     }
-    const normalized = formatScreenplayLikeText(raw);
+    // Text pulled out of a PDF carries that PDF's page furniture (running header, page numbers,
+    // "(CONTINUED)"). Left in, it becomes script content in the viewable preview and skews
+    // pagination, so clean it before the editor ever sees it.
+    const cleaned = stripPdfPageFurniture(raw, { title: req.body?.title || "" });
+    const normalized = formatScreenplayLikeText(cleaned);
     return res.json({ fountainContent: normalized });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to import Fountain." });
