@@ -228,8 +228,9 @@ describe("ScriptUploadWorkspace", () => {
     const vm = createVm({ step: 5 });
     const view = renderWorkspace(vm);
 
-    expect(view.textContent).toContain("Full Rights Sale");
-    expect(view.textContent).toContain("Set your price");
+    // Anchors that we are actually on the Publish step. Keep these to strings the step really
+    // renders — the point of the test is the button behaviour below, not the marketing copy.
+    expect(view.textContent).toContain("Set your script price");
     expect(view.textContent).toContain("Legal acknowledgements");
     const publishButton = Array.from(view.querySelectorAll("button")).find((button) => button.textContent.includes("Publish for review"));
     expect(publishButton.disabled).toBe(false);

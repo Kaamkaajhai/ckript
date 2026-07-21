@@ -10,6 +10,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { Film } from "lucide-react";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { formatScriptCredit } from "../utils/writerCredits";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -237,7 +238,7 @@ const ScriptReader = () => {
                 {script.creator?.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
               <div>
-                <p className={`text-sm font-bold group-hover:text-[#1e3a5f] transition-colors ${dark ? "text-gray-200" : "text-gray-900"}`}>{script.creator?.name || "Unknown"}</p>
+                <p className={`text-sm font-bold group-hover:text-[#1e3a5f] transition-colors ${dark ? "text-gray-200" : "text-gray-900"}`}>{formatScriptCredit(script, { max: 2 }) || "Unknown"}</p>
                 <p className="text-[11px] text-gray-400 font-medium capitalize">{script.creator?.role || "Writer"}</p>
               </div>
             </Link>

@@ -5,10 +5,10 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import useCollabSocket from "../hooks/useCollabSocket";
 import InviteModal from "../components/collab/InviteModal";
-import PullRequestDiffModal from "../components/collab/PullRequestDiffModal";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import { getCollabRoleLabel } from "../constants/collabRoles";
 
 const REQUEST_TABS = ["pending", "accepted", "rejected"];
 const ACTIVITY_FILTERS = ["all", "invites", "requests", "revisions", "publishing"];
@@ -17,13 +17,7 @@ const ACCESS_LEVEL_OPTIONS = [
   { value: "full_access", label: "Full Access" },
   { value: "content_only", label: "Content Only" },
 ];
-const ROLE_LABELS = {
-  editor: "Editor",
-  merger: "Merger",
-  viewer: "Viewer",
-  full_admin: "Admin",
-};
-const getRoleLabel = (value = "") => ROLE_LABELS[String(value || "").trim().toLowerCase()] || value || "Unknown";
+const getRoleLabel = getCollabRoleLabel;
 const getAccessLevelLabel = (value) => (
   value === "content_only" ? "Content Only" : "Full Access"
 );
@@ -155,16 +149,6 @@ export default function CollaborationHub() {
   const [activityFilter, setActivityFilter] = useState("all");
   const [busyKey, setBusyKey] = useState("");
   const [requestAccessLevels, setRequestAccessLevels] = useState({});
-  const [prs, setPrs] = useState([]);
-  const [branch, setBranch] = useState(null);
-  const [prTab, setPrTab] = useState("open");
-  const [showPrComposer, setShowPrComposer] = useState(false);
-  const [prForm, setPrForm] = useState({ title: "", message: "" });
-  const [prNotice, setPrNotice] = useState(null);
-  const [selectedPr, setSelectedPr] = useState(null);
-  const [activeEditors, setActiveEditors] = useState([]);
-  const [toast, setToast] = useState(null);
-  const toastTimerRef = useRef(null);
   const collabDataRef = useRef(null);
   const visibilityToggleSeqRef = useRef(0);
   collabDataRef.current = collabData;
@@ -197,9 +181,6 @@ export default function CollaborationHub() {
   const canManageCollaborators = userRole === "full_admin";
   const canSeeCollaborators = Boolean(userRole);
   const canSeeRequests = userRole === "full_admin";
-  const canSeePullRequests = userRole !== "viewer" && Boolean(userRole);
-  const canManagePrs = userRole === "full_admin" || userRole === "merger";
-  const isEditor = userRole === "editor";
   const canLoadRoleScopedData = Boolean(resolvedScriptId && userRole);
 
   const navItems = useMemo(() => {
@@ -207,11 +188,10 @@ export default function CollaborationHub() {
       { id: "overview", label: "Overview" },
       ...(canSeeCollaborators ? [{ id: "collaborators", label: "Collaborators" }] : []),
       ...(canSeeRequests ? [{ id: "requests", label: "Requests" }] : []),
-      ...(canSeePullRequests ? [{ id: "pull-requests", label: "Pull Requests" }] : []),
       { id: "activity", label: "Activity Log" },
     ];
     return items;
-  }, [canSeeCollaborators, canSeePullRequests, canSeeRequests]);
+  }, [canSeeCollaborators, canSeeRequests]);
 
   useEffect(() => {
     if (!resolvedScriptId) return;
@@ -246,8 +226,6 @@ export default function CollaborationHub() {
         setIsRoleResolved(false);
         setRequests([]);
         setActivity([]);
-        setPrs([]);
-        setBranch(null);
 
         const [scriptRes, collabRes] = await Promise.allSettled([
           api.get(`/scripts/${resolvedScriptId}`),
@@ -320,26 +298,16 @@ export default function CollaborationHub() {
         const requestsPromise = canSeeRequests
           ? api.get(`/collab/${resolvedScriptId}/requests`)
           : Promise.resolve({ data: { requests: [] } });
-        const branchPromise = isEditor
-          ? api.get(`/collab/${resolvedScriptId}/branch`)
-          : Promise.resolve({ data: { branch: null } });
-        const prsPromise = canSeePullRequests
-          ? api.get(`/collab/${resolvedScriptId}/prs`)
-          : Promise.resolve({ data: { prs: [] } });
 
-        const [activityRes, requestsRes, prsRes, branchRes] = await Promise.allSettled([
+        const [activityRes, requestsRes] = await Promise.allSettled([
           api.get(`/collab/${resolvedScriptId}/activity`),
           requestsPromise,
-          prsPromise,
-          branchPromise,
         ]);
 
         if (ignore) return;
 
         setActivity(activityRes.status === "fulfilled" ? activityRes.value.data?.activity || [] : []);
         setRequests(requestsRes.status === "fulfilled" ? requestsRes.value.data?.requests || [] : []);
-        setPrs(prsRes.status === "fulfilled" ? prsRes.value.data?.prs || [] : []);
-        setBranch(branchRes.status === "fulfilled" ? branchRes.value.data?.branch || null : null);
       } catch (error) {
         if (ignore) return;
         setPageError(error?.response?.data?.error || "Failed to load collaboration hub.");
@@ -368,27 +336,7 @@ export default function CollaborationHub() {
       ignore = true;
       if (activityTimer) clearInterval(activityTimer);
     };
-  }, [canLoadRoleScopedData, canSeePullRequests, canSeeRequests, isEditor, resolvedScriptId]);
-
-  const showToast = useCallback((type, message) => {
-    setToast({ type, message });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
-  }, []);
-
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-  }, []);
-
-  const refreshScript = useCallback(async () => {
-    if (!resolvedScriptId) return;
-    try {
-      const { data } = await api.get(`/scripts/${resolvedScriptId}`);
-      setScript(data || null);
-    } catch {
-      // Keep current script state on background refresh failures.
-    }
-  }, [resolvedScriptId]);
+  }, [canLoadRoleScopedData, canSeeRequests, resolvedScriptId]);
 
   const refreshCollaborators = useCallback(async () => {
     if (!resolvedScriptId) return;
@@ -402,34 +350,6 @@ export default function CollaborationHub() {
     setRequests(data?.requests || []);
   }, [isOwner, resolvedScriptId]);
 
-  const refreshBranch = useCallback(async () => {
-    if (!isEditor || !resolvedScriptId) {
-      setBranch(null);
-      return;
-    }
-
-    try {
-      const { data } = await api.get(`/collab/${resolvedScriptId}/branch`);
-      setBranch(data?.branch || null);
-    } catch (error) {
-      if (error?.response?.status === 404) {
-        setBranch(null);
-        return;
-      }
-      throw error;
-    }
-  }, [isEditor, resolvedScriptId]);
-
-  const refreshPrs = useCallback(async () => {
-    if (!canSeePullRequests) {
-      setPrs([]);
-      return;
-    }
-
-    const { data } = await api.get(`/collab/${resolvedScriptId}/prs`);
-    setPrs(data?.prs || []);
-  }, [canSeePullRequests, resolvedScriptId]);
-
   const refreshActivity = useCallback(async () => {
     const { data } = await api.get(`/collab/${resolvedScriptId}/activity`);
     setActivity(data?.activity || []);
@@ -440,10 +360,8 @@ export default function CollaborationHub() {
       refreshCollaborators(),
       refreshRequests(),
       refreshActivity(),
-      refreshPrs(),
-      refreshBranch(),
     ]);
-  }, [refreshActivity, refreshBranch, refreshCollaborators, refreshPrs, refreshRequests]);
+  }, [refreshActivity, refreshCollaborators, refreshRequests]);
 
   const { onlineUsers } = useCollabSocket(
     resolvedScriptId,
@@ -455,37 +373,6 @@ export default function CollaborationHub() {
       },
       onCollabRequestResponded: async () => {
         await Promise.allSettled([refreshRequests(), refreshActivity(), refreshCollaborators()]);
-      },
-      onPRRaised: async () => {
-        setPrNotice({ type: "success", message: "A new pull request was raised." });
-        await Promise.allSettled([refreshPrs(), refreshActivity()]);
-      },
-      onPRUpdated: async () => {
-        await Promise.allSettled([refreshPrs(), refreshActivity()]);
-      },
-      onPRMerged: async () => {
-        showToast("success", "PR merged — script has been updated");
-        await Promise.allSettled([refreshScript(), refreshPrs(), refreshBranch(), refreshActivity()]);
-      },
-      onPRRejected: async (payload) => {
-        setPrNotice({ type: "error", message: payload?.note ? `Pull request rejected: ${payload.note}` : "A pull request was rejected." });
-        await Promise.allSettled([refreshPrs(), refreshActivity()]);
-      },
-      onPRReverted: async () => {
-        showToast("warning", "A merged PR was reverted");
-        await Promise.allSettled([refreshScript(), refreshPrs(), refreshBranch(), refreshActivity()]);
-      },
-      onEditorJoined: (payload) => {
-        const uid = String(payload?.userId || "");
-        if (!uid) return;
-        setActiveEditors((prev) => {
-          const filtered = prev.filter((e) => e.userId !== uid);
-          return [...filtered, { userId: uid, name: payload.name || "Editor", avatar: payload.avatar || "" }];
-        });
-      },
-      onEditorLeft: (payload) => {
-        const uid = String(payload?.userId || "");
-        setActiveEditors((prev) => prev.filter((e) => e.userId !== uid));
       },
     }
   );
@@ -636,19 +523,6 @@ export default function CollaborationHub() {
     }
   };
 
-  const revertMergedPR = async (prId) => {
-    if (!window.confirm("Are you sure you want to revert this Pull Request? The script will be restored to its state exactly before this merge.")) return;
-    try {
-      setBusyKey(`revert:${prId}`);
-      await api.post(`/collab/${scriptId}/prs/${prId}/revert`);
-      showToast("success", "Pull Request reverted successfully");
-      await Promise.allSettled([refreshScript(), refreshPrs(), refreshActivity()]);
-    } catch (error) {
-      window.alert(error?.response?.data?.error || "Failed to revert pull request.");
-    } finally {
-      setBusyKey("");
-    }
-  };
 
   const filteredRequests = useMemo(
     () => requests.filter((entry) => entry?.status === requestTab),
@@ -660,42 +534,6 @@ export default function CollaborationHub() {
     return activity.filter((entry) => getActivityCategory(entry?.action) === activityFilter);
   }, [activity, activityFilter]);
 
-  const visiblePrs = useMemo(() => {
-    const source = isEditor
-      ? prs.filter((entry) => String(entry?.authorId?._id || "") === currentUserId)
-      : prs;
-    return source.filter((entry) => String(entry?.status || "") === prTab);
-  }, [currentUserId, isEditor, prTab, prs]);
-
-  const latestMergedPrId = useMemo(() => {
-    const approvedPrs = prs.filter((entry) => String(entry?.status || "") === "approved");
-    if (approvedPrs.length === 0) return null;
-    approvedPrs.sort((a, b) => new Date(b.reviewedAt || b.createdAt || 0) - new Date(a.reviewedAt || a.createdAt || 0));
-    return approvedPrs[0]._id;
-  }, [prs]);
-
-  const editorPrs = useMemo(
-    () => prs.filter((entry) => String(entry?.authorId?._id || "") === currentUserId),
-    [currentUserId, prs]
-  );
-  const editorOpenPr = useMemo(
-    () => editorPrs.find((entry) => String(entry?.status || "") === "open") || null,
-    [editorPrs]
-  );
-  const editorLatestReviewedPr = useMemo(
-    () => editorPrs.find((entry) => String(entry?.status || "") !== "open") || null,
-    [editorPrs]
-  );
-
-  const openPrCount = useMemo(() => {
-    if (!canSeePullRequests) return 0;
-    const open = prs.filter((entry) => String(entry?.status || "") === "open");
-    if (userRole === "editor") {
-      return open.filter((entry) => String(entry?.authorId?._id || "") === currentUserId).length;
-    }
-    return open.length;
-  }, [canSeePullRequests, currentUserId, prs, userRole]);
-
   const recentActivity = activity.slice(0, 5);
   const onlineUserIds = new Set((onlineUsers || []).map((entry) => String(entry?.userId || "")));
   const pendingRequestCount = requests.filter((entry) => entry?.status === "pending").length;
@@ -706,7 +544,7 @@ export default function CollaborationHub() {
     ? [
       { label: "Collaborators", shortLabel: "Collab", value: acceptedCollaborators.length, accent: "from-[#1e3a5f] to-[#2d5a8e]" },
       { label: "Pending Requests", shortLabel: "Pending", value: pendingRequestCount, accent: "from-amber-500 to-orange-500" },
-      { label: "Open PRs", shortLabel: "Open PRs", value: openPrCount, accent: "from-emerald-500 to-teal-500" },
+      { label: "Activity items", shortLabel: "Activity", value: activity.length, accent: "from-emerald-500 to-teal-500" },
       {
         label: "Visibility",
         shortLabel: "Visibility",
@@ -717,25 +555,11 @@ export default function CollaborationHub() {
     ]
     : [
       { label: "Collaborators", shortLabel: "Collab", value: acceptedCollaborators.length, accent: "from-[#1e3a5f] to-[#2d5a8e]" },
-      { label: "Open pull requests", shortLabel: "Open PRs", value: openPrCount, accent: "from-amber-500 to-orange-500" },
+      { label: "Pending requests", shortLabel: "Pending", value: pendingRequestCount, accent: "from-amber-500 to-orange-500" },
       { label: "Activity items", shortLabel: "Activity", value: activity.length, accent: "from-emerald-500 to-teal-500" },
       { label: "Your role", shortLabel: "Role", value: roleOverviewLabel, accent: "from-rose-500 to-red-500", helper: "Workspace access" },
     ];
 
-  const createPr = async () => {
-    try {
-      setBusyKey("create-pr");
-      const { data } = await api.post(`/collab/${scriptId}/pr`, prForm);
-      setPrNotice({ type: "success", message: data?.message || "Pull request raised successfully." });
-      setPrForm({ title: "", message: "" });
-      setShowPrComposer(false);
-      await refreshPrs();
-    } catch (error) {
-      window.alert(error?.response?.data?.error || "Failed to raise pull request.");
-    } finally {
-      setBusyKey("");
-    }
-  };
 
   const renderAvatar = (person, size = "h-10 w-10") => {
     const image = person?.profileImage || person?.user?.profileImage || "";
@@ -803,15 +627,6 @@ export default function CollaborationHub() {
 
   return (
     <div className={`min-h-screen ${surface} pb-28 sm:pb-24 lg:pb-8`}>
-      {toast ? (
-        <div className="fixed bottom-24 right-3 z-[10020] sm:bottom-6 sm:right-6">
-          <div className={`rounded-xl px-4 py-3 shadow-2xl text-sm font-semibold ${
-            toast.type === "success" ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
-          }`}>
-            {toast.message}
-          </div>
-        </div>
-      ) : null}
       <div className="mx-auto flex max-w-[1440px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-5 lg:flex-row lg:gap-6 lg:px-8">
         <aside className={`hidden lg:flex lg:w-[280px] lg:shrink-0 lg:flex-col lg:rounded-3xl lg:border lg:p-5 lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] ${shellCard}`}>
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
@@ -886,15 +701,6 @@ export default function CollaborationHub() {
             </div>
           </section>
 
-          {prNotice ? (
-            <div className={`rounded-2xl border px-4 py-3 text-sm ${
-              prNotice.type === "error"
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700"
-            }`}>
-              {prNotice.message}
-            </div>
-          ) : null}
 
           {currentSection === "overview" && (
             <>
@@ -1252,262 +1058,6 @@ export default function CollaborationHub() {
             </SectionShell>
           )}
 
-          {currentSection === "pull-requests" && canSeePullRequests && (
-            <SectionShell title="Pull Requests" subtitle="Review branch proposals and track merge outcomes">
-
-              {/* ── Editor view ─────────────────────────────────────────── */}
-              {isEditor ? (
-                <div className="space-y-4">
-                  {/* Branch status card */}
-                  <div className={`rounded-3xl border p-5 ${isDarkMode ? "border-[#1c2a3a] bg-[#101b2b]" : "border-gray-100 bg-gray-50/50"}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className={`text-base font-semibold ${titleTone}`}>Your branch</p>
-                        <p className={`mt-1 text-sm ${muted}`}>
-                          {branch?.updatedAt
-                            ? `Last saved ${timeAgo(branch.updatedAt)}`
-                            : "No branch found — start editing to create one."}
-                        </p>
-                      </div>
-
-                      {/* Status badge */}
-                      {editorOpenPr ? (
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                          Under review — waiting for merger
-                        </span>
-                      ) : null}
-                      {editorLatestReviewedPr?.status === "approved" && (
-                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                          Merged ✓
-                        </span>
-                      )}
-                      {editorLatestReviewedPr?.status === "rejected" && (
-                        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                          Rejected
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                      {resolvedScriptId ? (
-                        <button
-                          type="button"
-                          disabled={Boolean(editorOpenPr)}
-                          onClick={() => navigate(`/script/${resolvedScriptId}/branch/edit`)}
-                          className="w-full rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-                        >
-                          {editorLatestReviewedPr?.status === "rejected" ? "Edit and re-raise" : "Edit my branch"}
-                        </button>
-                      ) : null}
-                      {resolvedScriptId && editorOpenPr ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPrForm({ title: editorOpenPr.title || "", message: editorOpenPr.message || "" });
-                            setShowPrComposer(true);
-                          }}
-                          className={`w-full rounded-2xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${isDarkMode ? "border border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
-                        >
-                          Update open PR
-                        </button>
-                      ) : resolvedScriptId ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPrForm({ title: "", message: "" });
-                            setShowPrComposer(true);
-                          }}
-                          className={`w-full rounded-2xl px-4 py-2.5 text-sm font-semibold sm:w-auto ${isDarkMode ? "border border-[#1c2a3a] text-white hover:bg-[#101b2b]" : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"}`}
-                        >
-                          Raise Pull Request
-                        </button>
-                      ) : null}
-                    </div>
-                    {editorOpenPr ? (
-                      <p className={`mt-3 max-w-xl text-xs leading-relaxed ${muted}`}>
-                        Editing is locked while your PR is open. Update this open PR, or wait until it is reviewed.
-                      </p>
-                    ) : null}
-
-                    {/* Rejection note */}
-                    {editorLatestReviewedPr?.status === "rejected" && editorLatestReviewedPr?.reviewNote && (
-                      <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${isDarkMode ? "border-red-500/20 bg-red-500/10 text-red-300" : "border-red-200 bg-red-50 text-red-700"}`}>
-                        <span className="font-semibold">Rejection note: </span>{editorLatestReviewedPr.reviewNote}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* PR composer */}
-                  {showPrComposer ? (
-                    <div className={`rounded-3xl border p-5 ${isDarkMode ? "border-[#1c2a3a] bg-[#101b2b]" : "border-gray-100 bg-white"}`}>
-                      <p className={`text-base font-semibold ${titleTone}`}>
-                        {editorOpenPr ? "Update your open Pull Request" : "Raise a Pull Request"}
-                      </p>
-                      <div className="mt-4 space-y-3">
-                        <input
-                          value={prForm.title}
-                          onChange={(event) => setPrForm((current) => ({ ...current, title: event.target.value }))}
-                          placeholder="PR title"
-                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900"
-                        />
-                        <textarea
-                          value={prForm.message}
-                          onChange={(event) => setPrForm((current) => ({ ...current, message: event.target.value }))}
-                          placeholder="Optional message"
-                          rows={4}
-                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-900"
-                        />
-                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                          <button
-                            type="button"
-                            disabled={busyKey === "create-pr"}
-                            onClick={createPr}
-                            className="w-full rounded-2xl bg-[#1e3a5f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto"
-                          >
-                            {editorOpenPr ? "Save PR update" : "Raise Pull Request"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowPrComposer(false)}
-                            className={`w-full rounded-2xl border px-4 py-2.5 text-sm font-semibold sm:w-auto ${isDarkMode ? "border-[#1c2a3a] text-white" : "border-gray-200 text-gray-700"}`}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-              ) : (
-                /* ── Merger / full_admin view ──────────────────────────── */
-                <div className="space-y-4">
-                  {/* Status tabs */}
-                  <div className="flex flex-wrap gap-2">
-                    {PR_TABS.map((tab) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        onClick={() => setPrTab(tab)}
-                        className={`rounded-2xl px-4 py-2.5 text-sm font-semibold ${
-                          prTab === tab
-                            ? "bg-[#1e3a5f] text-white"
-                            : isDarkMode
-                              ? "bg-[#101b2b] text-[#9db3cc]"
-                              : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {tab.replace(/^\w/, (m) => m.toUpperCase())}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Active Editors section */}
-                  {acceptedCollaborators.filter((c) => c.role === "editor").length > 0 && (
-                    <div className="mb-6 space-y-3">
-                      <h3 className={`text-sm font-semibold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Active Editors</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {acceptedCollaborators.filter((c) => c.role === "editor").map((editor) => {
-                          const editorUserId = String(editor.user?._id || editor.userId || "");
-                          const editorPr = prs.filter((pr) => String(pr.authorId?._id || pr.authorId) === editorUserId)[0] || null;
-                          const isEditing = activeEditors.some((e) => e.userId === editorUserId);
-                          
-                          let prStatusDot = "bg-gray-400";
-                          let prStatusText = "Working (No PR)";
-                          if (editorPr) {
-                            if (editorPr.status === "open") { prStatusDot = "bg-amber-400"; prStatusText = "PR pending"; }
-                            else if (editorPr.status === "approved") { prStatusDot = "bg-emerald-500"; prStatusText = "Merged ✓"; }
-                            else if (editorPr.status === "rejected") { prStatusDot = "bg-red-500"; prStatusText = "Changes requested"; }
-                          }
-
-                          return (
-                            <div key={editorUserId} className={`flex items-center justify-between p-3 rounded-2xl border ${isDarkMode ? "border-[#1c2a3a] bg-[#101b2b]" : "border-gray-200 bg-white"}`}>
-                              <div className="flex items-center gap-3">
-                                <div className="relative">
-                                  {renderAvatar(editor.user || { _id: editorUserId, name: "Editor" })}
-                                  {isEditing && (
-                                    <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white animate-pulse" />
-                                  )}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className={`text-sm font-semibold ${titleTone}`}>{editor.user?.name || "Editor"}</span>
-                                  <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${prStatusDot}`} />
-                                    <span className={`text-[11px] ${muted}`}>{prStatusText}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* PR list */}
-                  {visiblePrs.length > 0 ? visiblePrs.map((entry) => {
-                    const prStatus = String(entry?.status || "open");
-                    const isOpen = prStatus === "open";
-                    const statusBadge = isOpen
-                      ? { label: "Open", cls: "bg-emerald-100 text-emerald-700" }
-                      : prStatus === "approved"
-                        ? { label: "Merged", cls: "bg-violet-100 text-violet-700" }
-                        : { label: "Rejected", cls: "bg-red-100 text-red-700" };
-
-                    return (
-                      <div key={entry._id} className={`rounded-3xl border p-5 ${isDarkMode ? "border-[#1c2a3a] bg-[#101b2b]" : "border-gray-100 bg-gray-50/50"}`}>
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                          <div className="flex items-center gap-3">
-                            {renderAvatar(entry.authorId)}
-                            <div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`text-base font-semibold ${titleTone}`}>{entry.title}</p>
-                                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge.cls}`}>
-                                  {statusBadge.label}
-                                </span>
-                              </div>
-                              <p className={`text-sm ${muted}`}>{entry.authorId?.name || "Unknown author"} · {timeAgo(entry.updatedAt || entry.createdAt)}</p>
-                              {!isOpen && entry.reviewNote ? (
-                                <p className={`mt-1 text-xs ${muted}`}>Note: {entry.reviewNote}</p>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                            {String(entry._id) === String(latestMergedPrId) && canManagePrs ? (
-                              <button
-                                type="button"
-                                disabled={busyKey === `revert:${entry._id}`}
-                                onClick={() => revertMergedPR(entry._id)}
-                                className="w-full rounded-2xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 disabled:opacity-60 sm:w-auto"
-                              >
-                                Revert Merge
-                              </button>
-                            ) : null}
-                            <button
-                              type="button"
-                              disabled={!canManagePrs && isOpen}
-                              onClick={() => setSelectedPr(entry)}
-                              className={`w-full rounded-2xl px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 sm:w-auto ${
-                                isOpen ? "bg-[#1e3a5f]" : isDarkMode ? "bg-[#1c2a3a] text-gray-300" : "bg-gray-200 text-gray-700"
-                              }`}
-                            >
-                              {isOpen ? "Review" : "View Diff"}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }) : (
-                    <p className={`text-sm ${muted}`}>No pull requests in this queue right now.</p>
-                  )}
-
-                  <p className={`mt-2 text-xs text-center ${muted}`}>
-                    PRs are reviewed oldest first to minimize conflicts between editors.
-                  </p>
-                </div>
-              )}
-            </SectionShell>
-          )}
 
           {currentSection === "activity" && (
             <SectionShell title="Activity Log" subtitle="Everything that happened on this script">
@@ -1577,24 +1127,6 @@ export default function CollaborationHub() {
         />
       ) : null}
 
-      {selectedPr ? (
-        <PullRequestDiffModal
-          scriptId={scriptId}
-          pr={selectedPr}
-          onClose={() => setSelectedPr(null)}
-          onReviewed={async (decision) => {
-            setSelectedPr(null);
-            setPrTab(decision === "approved" ? "approved" : "rejected");
-            setPrNotice({
-              type: decision === "approved" ? "success" : "error",
-              message: decision === "approved"
-                ? "Pull request merged successfully."
-                : "Pull request rejected. Switched to Rejected tab.",
-            });
-            await Promise.allSettled([refreshPrs(), refreshBranch(), api.get(`/scripts/${scriptId}`).then(({ data }) => setScript(data || null))]);
-          }}
-        />
-      ) : null}
     </div>
   );
 }

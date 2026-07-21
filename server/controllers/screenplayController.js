@@ -2,6 +2,8 @@ import Script from "../models/Script.js";
 import { generateScreenplayPdf } from "../utils/screenplayPdf.js";
 import { formatScreenplayLikeText } from "../utils/screenplayParser.js";
 import { serializeTitlePage, hasTitlePage } from "../utils/classify.js";
+import { formatScriptCredit } from "../utils/writerCredits.js";
+import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 
 // Map (mongoose) | Map | plain → plain object of title-page fields, or null when empty.
 const titlePageToObject = (tp) => {
@@ -51,7 +53,7 @@ const canAccessScript = (script, user) => {
 
 const loadScriptForExport = async (req, res) => {
   const script = await Script.findById(req.params.id).select(
-    "title creator collaborators unlockedBy purchasedBy fountainContent textContent companyName titlePage"
+    "title creator writers collaborators unlockedBy purchasedBy fountainContent textContent companyName titlePage"
   );
   if (!script) {
     res.status(404).json({ message: "Script not found" });
@@ -113,13 +115,24 @@ export const exportScreenplayPdf = async (req, res) => {
       watermark = `CKRIPT ${String(req.query.watermark).slice(0, 80)}`;
     }
 
-    const author = script.companyName || "";
+    // Title-page author: the credited writers first, so a co-written script is attributed on the
+    // exported PDF. `titlePage.author` (writer-configured) still wins downstream; companyName is
+    // only the last resort it used to fall back to.
+    const author = formatScriptCredit(script) || script.companyName || "";
     // Structured title page (Map → plain object) when present; the writer-configured fields win.
     const titlePageObj = titlePageToObject(script.titlePage);
-    const wantTitlePage = req.query.titlePage === "1" || Boolean(titlePageObj);
+    // titlePage=0 explicitly disables the generated title page. The preview window counts SCRIPT
+    // pages, so a viewer showing "pages 1-2" must fetch a PDF whose page 1 is the first content
+    // page — with the title sheet prepended, every preview was off by one (the reported "2 pages,
+    // one of which is the title page").
+    const wantTitlePage = req.query.titlePage === "0"
+      ? false
+      : (req.query.titlePage === "1" || Boolean(titlePageObj));
     const pdfBuffer = await generateScreenplayPdf(text, {
       title: wantTitlePage ? script.title : undefined,
-      author,
+      // The generator synthesizes a cover from a bare author too, so titlePage=0 must drop it —
+      // otherwise the credits line alone re-creates the title sheet and shifts every page by one.
+      author: wantTitlePage ? author : undefined,
       titlePage: wantTitlePage ? titlePageObj : null,
       watermark,
     });
@@ -151,7 +164,11 @@ export const importFountain = async (req, res) => {
     if (raw.length > 2_000_000) {
       return res.status(413).json({ message: "File is too large to import." });
     }
-    const normalized = formatScreenplayLikeText(raw);
+    // Text pulled out of a PDF carries that PDF's page furniture (running header, page numbers,
+    // "(CONTINUED)"). Left in, it becomes script content in the viewable preview and skews
+    // pagination, so clean it before the editor ever sees it.
+    const cleaned = stripPdfPageFurniture(raw, { title: req.body?.title || "" });
+    const normalized = formatScreenplayLikeText(cleaned);
     return res.json({ fountainContent: normalized });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to import Fountain." });

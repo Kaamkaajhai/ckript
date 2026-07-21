@@ -157,6 +157,7 @@ export default function ScreenplayPdfViewer({
   const [nativePdfUrl, setNativePdfUrl] = useState("");
   const [activePageIndex, setActivePageIndex] = useState(0);
   const pagerRef = useRef(null);
+  const blobUrlRef = useRef("");
 
   const scrollToPager = () => {
     const el = pagerRef.current;
@@ -215,6 +216,13 @@ export default function ScreenplayPdfViewer({
             credentials: requestUrl.includes("/api/") ? "include" : "omit",
             headers,
           });
+          if (response.status === 401 || response.status === 403) {
+            // Access boundary, not a failure: this viewer isn't entitled to the PDF (e.g. a
+            // preview-only producer). The structured page sheets are the designed experience —
+            // fall back to them without an error banner.
+            setNativePdfUrl("");
+            return;
+          }
           if (!response.ok) {
             throw new Error(`Failed to fetch PDF preview (${response.status})`);
           }
@@ -223,7 +231,18 @@ export default function ScreenplayPdfViewer({
 
         if (cancelled || !data) return;
 
-        activeLoadingTask = getDocument({ data });
+        // Hand the authenticated bytes to the native fallback as a blob URL — an <object> tag
+        // cannot send the Authorization header, so pointing it at the /api/ URL can never work.
+        try {
+          const blobUrl = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+          if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+          blobUrlRef.current = blobUrl;
+          setNativePdfUrl(blobUrl);
+        } catch {
+          // Blob creation is best-effort; the canvas renderer path is unaffected.
+        }
+
+        activeLoadingTask = getDocument({ data: data.slice() });
         const doc = await activeLoadingTask.promise;
         if (cancelled) {
           doc.destroy();
@@ -256,9 +275,14 @@ export default function ScreenplayPdfViewer({
       return () => URL.revokeObjectURL(objectUrl);
     }
 
+    // Initial value only — loadPdf upgrades this to a blob URL once the authenticated fetch lands.
     setNativePdfUrl(pdfUrl || "");
     return undefined;
   }, [pdfFile, pdfUrl]);
+
+  useEffect(() => () => {
+    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+  }, []);
 
   const previewPages = useMemo(() => {
     if (pdfDocument && !pdfError) {
@@ -283,7 +307,9 @@ export default function ScreenplayPdfViewer({
   const totalPages = usingPdfRenderer ? previewPages.length : Math.max(previewPages.length, 1);
   // Only use native <object> renderer for API proxy URLs we control — external URLs (Cloudinary, etc.)
   // served with Content-Disposition:attachment trigger an unwanted browser download dialog.
-  const usingNativePdfRenderer = !usingPdfRenderer && Boolean(nativePdfUrl) && String(nativePdfUrl).includes("/api/");
+  // Only blob URLs: an <object> plugin cannot attach the Authorization header, so pointing it at
+  // a protected /api/ URL fails by construction ("cannot display PDFs inline").
+  const usingNativePdfRenderer = !usingPdfRenderer && String(nativePdfUrl).startsWith("blob:");
   // Structured (non-PDF) fallback → render REAL stacked page sheets (Word/Docs look).
   // The Prev/Next pager stays active for ALL rendering paths.
   const usingFallback = !usingPdfRenderer && !usingNativePdfRenderer;
@@ -346,6 +372,9 @@ export default function ScreenplayPdfViewer({
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
             PDF rendering failed, so the screenplay is shown with a structured fallback.
+            {pdfError && pdfError !== "Failed to load PDF preview" ? (
+              <span className="block mt-0.5 text-[11px] text-amber-700/80">({pdfError})</span>
+            ) : null}
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer", "full_admin", "commenter"];
+const VALID_COLLABORATOR_ROLES = ["editor", "viewer", "full_admin", "commenter"];
 const normalizeCollaboratorRole = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
   return VALID_COLLABORATOR_ROLES.includes(normalized) ? normalized : "editor";
@@ -26,7 +26,7 @@ const roleSchema = new mongoose.Schema({
 const collaboratorSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
   invitedEmail: { type: String, lowercase: true, trim: true },
-  role: { type: String, enum: ["editor", "merger", "viewer", "full_admin", "commenter"], required: true, default: "editor", set: normalizeCollaboratorRole },
+  role: { type: String, enum: ["editor", "viewer", "full_admin", "commenter"], required: true, default: "editor", set: normalizeCollaboratorRole },
   accessLevel: {
     type: String,
     enum: ["full_access", "content_only"],
@@ -48,9 +48,28 @@ collaboratorSchema.pre("validate", function normalizeRole() {
   this.role = normalizeCollaboratorRole(this.role);
 });
 
+// Authorship CREDITS — deliberately separate from both `creator` and `collaborators`:
+//   • `creator`      = owner. Sole payee, approver, legal counterparty and canonical-URL key.
+//   • `collaborators`= who can ACCESS the script (a commenter must not earn a writing credit).
+//   • `writers`      = who is CREDITED as an author. Display/attribution only — it carries no
+//                      rights, money or approval, so it can include people who aren't Ckript users.
+// Credit ORDER is meaningful in screenwriting, hence the explicit `order` field.
+const writerCreditSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  // Denormalized so a credit survives an account rename/deletion and can name a non-user.
+  name: { type: String, required: true, trim: true, maxlength: 120 },
+  creditType: {
+    type: String,
+    enum: ["written_by", "story_by", "screenplay_by", "adapted_by", "additional_material"],
+    default: "written_by",
+  },
+  order: { type: Number, default: 0 },
+}, { _id: true });
+
 const scriptSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  writers: [writerCreditSchema],
   collabVisibility: {
     type: String,
     enum: ["private", "open"],

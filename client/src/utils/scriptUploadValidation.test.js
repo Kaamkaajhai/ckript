@@ -68,7 +68,11 @@ describe("script upload validation", () => {
     ]);
   });
 
-  it("reports each legal acknowledgement on its real Publish control", () => {
+  // The upload flow surfaces a single legal acknowledgement (platform terms) — there is no
+  // ownership or exclusivity checkbox on this screen, and the server likewise only requires
+  // platformTermsAccepted. Validation must therefore report ONLY that one: flagging a field with no
+  // control would block Publish while pointing the writer at an input that isn't on the page.
+  it("reports the legal acknowledgement on its real Publish control, and no phantom fields", () => {
     const context = validContext({
       legal: { agreedToTerms: false, customInvestorTerms: "" },
       rightsLicensing: {
@@ -82,10 +86,21 @@ describe("script upload validation", () => {
     });
 
     expect(validateUploadScreen("publish", context).map((validationIssue) => validationIssue.fieldId)).toEqual([
-      "su-legal-ownership",
       "su-legal-terms",
-      "su-legal-exclusivity",
     ]);
+  });
+
+  it("passes Publish validation once the platform terms are accepted", () => {
+    const base = validContext();
+    const context = validContext({
+      legal: { agreedToTerms: true, customInvestorTerms: "" },
+      rightsLicensing: {
+        ...base.rightsLicensing,
+        legalAcknowledgement: { ...base.rightsLicensing.legalAcknowledgement, platformTermsAccepted: true },
+      },
+    });
+
+    expect(validateUploadScreen("publish", context).map((i) => i.fieldId)).not.toContain("su-legal-terms");
   });
 
   it("routes server failures back to the owning screen", () => {

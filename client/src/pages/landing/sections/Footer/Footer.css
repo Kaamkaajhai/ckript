@@ -77,3 +77,35 @@
   flex-wrap: wrap;
 }
 .ckl .ckl-footer-copy { font-family: var(--ck-sans); font-size: 14px; color: #76726a; }
+
+/* Statutory corporate disclosure. Deliberately quieter than the rest of the footer — it's
+   compliance text, not navigation, so it reads last without competing with the links above. */
+.ckl .ckl-footer-legal {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(118, 114, 106, 0.18);
+  font-family: var(--ck-sans);
+  color: #8d8981;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+.ckl .ckl-footer-legal-desc { margin: 0 0 12px; max-width: 760px; }
+.ckl .ckl-footer-legal-head {
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #76726a;
+}
+.ckl .ckl-footer-legal-row { margin: 0; }
+.ckl .ckl-footer-legal-key { color: #76726a; font-weight: 600; }
+.ckl .ckl-footer-legal-sep { margin: 0 8px; opacity: 0.45; }
+.ckl .ckl-footer-legal-mail { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.ckl .ckl-footer-legal-mail:hover { color: var(--ck-red); }
+
+@media (max-width: 640px) {
+  /* The entity/CIN line is two facts joined by a pipe — stack them rather than let the pipe
+     strand at a line end. */
+  .ckl .ckl-footer-legal-sep { display: block; height: 0; margin: 0; overflow: hidden; }
+}

@@ -10,7 +10,6 @@ import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
 import Invoice from "../models/Invoice.js";
 import Agreement from "../models/Agreement.js";
-import Revision from "../models/Revision.js";
 import AuditLog from "../models/AuditLog.js";
 import {
   sendPurchaseRequestEmail,
@@ -65,6 +64,10 @@ import {
   resolveCollaboratorAccessLevel,
   resolveScriptRole,
 } from "../middleware/checkPermission.js";
+import { applyThreeWayMerge } from "../utils/contentMerge.js";
+import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.js";
+import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
+import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1670,10 +1673,19 @@ export const extractPdfText = async (req, res) => {
       }
     }
 
+    // Strip the source PDF's page furniture (running header, page numbers, "(CONTINUED)") before
+    // the editor receives it — otherwise it lands in the script body, surfaces as content in the
+    // viewable-script preview, and skews pagination. Conservative by design: character cues repeat
+    // exactly like a running header, so only unambiguous furniture is removed.
+    const cleanedText = stripPdfPageFurniture(text, { title: req.body?.title || "" });
+    const cleanedPageTexts = Array.isArray(pageTexts)
+      ? pageTexts.map((page) => stripPdfPageFurniture(String(page || ""), { title: req.body?.title || "" }))
+      : [];
+
     res.json({
-      text,
+      text: cleanedText,
       numItems,
-      pageTexts,
+      pageTexts: cleanedPageTexts,
       fileUrl: uploadedPdfUrl,
       fileGrant,
       sourceMode: uploadedPdfUrl ? "uploaded-pdf" : "imported-text",
@@ -1707,13 +1719,17 @@ export const getScriptLimit = async (req, res) => {
   }
 };
 
+// Body fields a `content_only` co-writer may change during a duet autosave. Everything else on the
+// draft is listing metadata and stays owner/full_access-only.
+const CO_WRITER_CONTENT_FIELDS = new Set(["fountainContent", "sceneSynopses", "outlineNotes", "titlePage"]);
+
 export const saveDraft = async (req, res) => {
   try {
     if (!requireProjectCreatorAccess(req, res)) {
       return;
     }
 
-    const { scriptId, title, textContent, ...otherData } = req.body;
+    const { scriptId, title, textContent, baseContent, ...otherData } = req.body;
     const hasScriptId = scriptId !== undefined && scriptId !== null && scriptId !== "";
     const draftObjectId = hasScriptId ? parseMongoObjectId(scriptId) : null;
     if (hasScriptId && !draftObjectId) {
@@ -1736,11 +1752,26 @@ export const saveDraft = async (req, res) => {
 
     // If we have an ID, update the existing draft
     if (draftObjectId) {
-      const script = await Script.findOne({
-        _id: { $eq: draftObjectId },
-        creator: { $eq: req.user._id },
-      });
+      const script = await Script.findById(draftObjectId);
       if (!script) return res.status(404).json({ message: "Script not found" });
+
+      // Duet co-writing: the owner OR an accepted collaborator with write access may save the shared
+      // draft. This lookup used to be creator-only, so an invited co-writer's every autosave 404'd and
+      // their work was silently lost.
+      const isDraftOwner = String(script.creator) === String(req.user._id);
+      let canEditDraftMetadata = true;
+      if (!isDraftOwner) {
+        if (!hasScriptPermission(script, req.user._id, "write")) {
+          return res.status(404).json({ message: "Script not found" });
+        }
+        canEditDraftMetadata = resolveCollaboratorAccessLevel(script, req.user._id) !== "content_only";
+        if (!canEditDraftMetadata) {
+          for (const key of Object.keys(otherData)) {
+            if (!CO_WRITER_CONTENT_FIELDS.has(key)) delete otherData[key];
+          }
+        }
+      }
+
       if (script.isDeleted) {
         return res.status(410).json({ message: "This project was deleted by creator and can no longer be edited." });
       }
@@ -1752,9 +1783,29 @@ export const saveDraft = async (req, res) => {
         return res.status(409).json({ message: "Only draft projects can be autosaved as drafts." });
       }
 
-      script.title = title || script.title;
-      script.textContent = textContent !== undefined ? textContent : script.textContent;
-      if (otherData.fountainContent !== undefined) script.fountainContent = otherData.fountainContent;
+      if (canEditDraftMetadata) script.title = title || script.title;
+
+      // Duet-safe content write. Each co-writer edits their own full copy of the script, so a plain
+      // assignment means whoever saves last silently wipes the other's scenes. When the script has
+      // co-writers we instead replay this client's delta (baseContent -> proposed) onto the stored
+      // content, so independent saves converge. Solo drafts keep the original overwrite path.
+      const hasCoWriters = (script.collaborators || []).some(
+        (collab) => collab?.isActive === true && collab?.status === "accepted"
+      );
+      const mergeContentField = (currentValue, proposedValue) => {
+        if (proposedValue === undefined) return currentValue;
+        if (!hasCoWriters || typeof baseContent !== "string" || !baseContent) return proposedValue;
+        return applyThreeWayMerge({
+          currentContent: String(currentValue || ""),
+          baseContent,
+          proposedContent: proposedValue,
+        }).mergedContent;
+      };
+
+      script.textContent = mergeContentField(script.textContent, textContent);
+      if (otherData.fountainContent !== undefined) {
+        script.fountainContent = mergeContentField(script.fountainContent, otherData.fountainContent);
+      }
       if (otherData.sceneSynopses !== undefined) {
         // Corkboard synopses: a plain map of normalized-heading -> one-line summary. Coerce to
         // strings and cap each line so it stays lightweight metadata.
@@ -1776,6 +1827,12 @@ export const saveDraft = async (req, res) => {
         if (tp) for (const [k, v] of Object.entries(tp)) { if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300); }
         script.titlePage = Object.keys(cleaned).length ? cleaned : undefined;
         script.markModified("titlePage");
+      }
+      // Authorship credits — listing metadata, so a content_only co-writer cannot rewrite them
+      // (`writers` is deliberately absent from CO_WRITER_CONTENT_FIELDS).
+      if (otherData.writers !== undefined && canEditDraftMetadata) {
+        script.writers = normalizeWriterCredits(otherData.writers);
+        script.markModified("writers");
       }
       if (otherData.companyName !== undefined) script.companyName = String(otherData.companyName || "").trim();
       if (otherData.logline !== undefined) script.logline = otherData.logline;
@@ -1851,7 +1908,15 @@ export const saveDraft = async (req, res) => {
           mode: otherData.scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages",
           start: otherData.scriptPreviewAccess?.start || script.scriptPreviewAccess?.start || 1,
           end: otherData.scriptPreviewAccess?.end || script.scriptPreviewAccess?.end || 8,
-          maxUnits: Number(script.pageCount || 0),
+          // Clamp against the preview PAGES the window slices — not pageCount, which comes from a
+          // different estimator and, when it lagged (estimate 1, real pages 3), silently shrank the
+          // writer's saved window. Incoming texts first: they are assigned just below this call.
+          maxUnits: Number(
+            (Array.isArray(otherData.scriptPreviewPageTexts) && otherData.scriptPreviewPageTexts.length)
+            || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+            || script.pageCount
+            || 0
+          ),
         });
         script.markModified("scriptPreviewAccess");
       }
@@ -1859,6 +1924,15 @@ export const saveDraft = async (req, res) => {
         script.scriptPreviewPageTexts = Array.isArray(otherData.scriptPreviewPageTexts)
           ? otherData.scriptPreviewPageTexts.map((page) => String(page || ""))
           : [];
+      }
+      // Same backfill as updateScript: a viewable editor script must never be left with no preview
+      // pages, since there is no PDF to fall back on.
+      if (script.viewableScript && !(script.scriptPreviewPageTexts || []).some((page) => String(page || "").trim())) {
+        const derived = derivePreviewPageTexts(script);
+        if (derived.length) {
+          script.scriptPreviewPageTexts = derived;
+          script.markModified("scriptPreviewPageTexts");
+        }
       }
       if (otherData.services !== undefined) {
         const incomingServices = otherData.services || {};
@@ -2029,7 +2103,11 @@ export const saveDraft = async (req, res) => {
         mode: safeOtherData.scriptPreviewAccess?.mode || "pages",
         start: safeOtherData.scriptPreviewAccess?.start || 1,
         end: safeOtherData.scriptPreviewAccess?.end || 8,
-        maxUnits: Number(safeOtherData.pageCount || 0),
+        maxUnits: Number(
+          (Array.isArray(safeOtherData.scriptPreviewPageTexts) && safeOtherData.scriptPreviewPageTexts.length)
+          || safeOtherData.pageCount
+          || 0
+        ),
       });
     }
     if (safeOtherData.scriptPreviewPageTexts !== undefined) {
@@ -2148,7 +2226,20 @@ export const deleteScript = async (req, res) => {
 
 export const getMyDrafts = async (req, res) => {
   try {
-    const drafts = await Script.find({ creator: req.user._id, status: "draft", isDeleted: { $ne: true } })
+    // Include drafts the user co-writes (accepted, active collaborator) — otherwise an invited
+    // co-writer has no way back into the shared script after closing the editor.
+    const drafts = await Script.find({
+      status: "draft",
+      isDeleted: { $ne: true },
+      $or: [
+        { creator: req.user._id },
+        {
+          collaborators: {
+            $elemMatch: { userId: req.user._id, status: "accepted", isActive: true },
+          },
+        },
+      ],
+    })
       .sort({ updatedAt: -1 })
       .lean();
     res.json(drafts);
@@ -2205,7 +2296,9 @@ export const getMyScripts = async (req, res) => {
           isCollaborator: !isCreatorOwned && Boolean(collaboratorEntry),
           collaboratorRole: collaboratorEntry?.role || null,
           collaboratorAccessLevel: collaboratorEntry?.accessLevel || null,
-          canEditScript: isCreatorOwned || collaboratorEntry?.role === "editor",
+          // Mirror PERMISSIONS.write (full_admin + editor) — hardcoding "editor" here dropped
+          // Co-owners, who do have write access, so their scripts looked read-only in this list.
+          canEditScript: isCreatorOwned || hasScriptPermission(script, req.user._id, "write"),
           canEditMetadata: isCreatorOwned,
         };
       })
@@ -2275,25 +2368,23 @@ export const updateScript = async (req, res) => {
       }
     }
 
-    const collaboratorSubmittedContentRevision = !isOwner
+    // Co-writers edit the shared script directly (live collaboration), so a content change from a
+    // non-owner is applied in place rather than parked as a revision for approval. Settings remain
+    // owner-only.
+    const collaboratorEditingContent = !isOwner
       && textContent !== undefined
       && String(textContent) !== String(script.textContent || "");
 
-    if (!isOwner && !collaboratorSubmittedContentRevision) {
+    if (!isOwner && !collaboratorEditingContent) {
       return res.status(403).json({
-        message: "Only the project owner can edit project settings. Collaborators can submit script-content revisions only.",
+        message: "Only the project owner can edit project settings. Collaborators can edit script content.",
       });
     }
 
-    if (collaboratorSubmittedContentRevision) {
+    if (collaboratorEditingContent) {
       if (!canCollaboratorWrite) {
         return res.status(403).json({ message: "Not authorized to edit script content" });
       }
-      const existingPending = await Revision.findOne({
-        scriptId: script._id,
-        authorId: req.user._id,
-        status: "pending_review",
-      });
     }
 
     if (!isContentOnlyCollaborator && !legal?.agreedToTerms) {
@@ -2301,8 +2392,12 @@ export const updateScript = async (req, res) => {
     }
 
     let normalizedRights = script.rightsLicensing || {};
+    // Declared out here because two separate `if (!isContentOnlyCollaborator)` blocks below both
+    // need it — scoping it to the first one made the second throw ReferenceError.
+    let resolvedPreviewPageTexts = [];
+
     if (!isContentOnlyCollaborator) {
-      let resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
+      resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
         ? scriptPreviewPageTexts.map((value) => String(value || "").trim())
         : [];
       if (!resolvedPreviewPageTexts.length && typeof scriptPreviewPageTexts === "string" && scriptPreviewPageTexts.trim()) {
@@ -2374,7 +2469,11 @@ export const updateScript = async (req, res) => {
           maxUnits: Number(
             String(scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || Number(pageCount || 0) || 0)
+              : (resolvedPreviewPageTexts.length
+                || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount
+                || Number(pageCount || 0)
+                || 0)
           ),
         });
         script.markModified("scriptPreviewAccess");
@@ -2408,6 +2507,17 @@ export const updateScript = async (req, res) => {
           }
         } catch (error) {
           console.warn("[updateScript] Failed to refresh preview page texts:", error?.message || error);
+        }
+      }
+
+      // Editor-authored scripts have no PDF to extract from, so if the client never sent preview
+      // pages the script would end up viewable with nothing to show. Derive them from the
+      // screenplay text using the same line-based pagination the editor and PDF use.
+      if (script.viewableScript && !(script.scriptPreviewPageTexts || []).some((page) => String(page || "").trim())) {
+        const derived = derivePreviewPageTexts(script);
+        if (derived.length) {
+          script.scriptPreviewPageTexts = derived;
+          script.markModified("scriptPreviewPageTexts");
         }
       }
       if (coverImage !== undefined) script.coverImage = coverImage;
@@ -2507,90 +2617,6 @@ export const updateScript = async (req, res) => {
       script.markModified("rightsLicensing");
     }
 
-    if (collaboratorSubmittedContentRevision) {
-      await script.save();
-      const existingPending = await Revision.findOne({
-        scriptId: script._id,
-        authorId: req.user._id,
-        status: "pending_review",
-      });
-
-      let revision = existingPending;
-      const baseContent = String(script.textContent || "");
-      const nextContent = String(textContent || "");
-      const wasResubmitted = Boolean(existingPending);
-
-      if (revision) {
-        revision.baseContent = baseContent;
-        revision.content = nextContent;
-        revision.sectionRef = "textContent";
-        revision.reviewNote = "";
-        revision.reviewerId = null;
-        revision.reviewedAt = null;
-        await revision.save();
-      } else {
-        revision = await Revision.create({
-          scriptId: script._id,
-          authorId: req.user._id,
-          baseContent,
-          content: nextContent,
-          sectionRef: "textContent",
-          status: "pending_review",
-        });
-      }
-
-      const owner = await User.findById(getScriptOwnerId(script)).select("_id name email");
-      const editorIds = (Array.isArray(script.collaborators) ? script.collaborators : [])
-        .filter((collab) =>
-          collab?.isActive === true
-          && collab?.status === "accepted"
-          && collab?.role === "editor"
-          && normalizeObjectId(collab?.userId) !== normalizeObjectId(req.user._id)
-        )
-        .map((collab) => collab.userId);
-      const editors = editorIds.length
-        ? await User.find({ _id: { $in: editorIds } }).select("_id name email")
-        : [];
-      const recipients = [...(owner ? [owner] : []), ...editors].filter((recipient, index, list) =>
-        normalizeObjectId(recipient?._id)
-        && list.findIndex((entry) => normalizeObjectId(entry?._id) === normalizeObjectId(recipient?._id)) === index
-      );
-
-      await Promise.all(recipients.map((recipient) =>
-        Notification.create({
-          user: recipient._id,
-          type: "revision_update",
-          from: req.user._id,
-          script: script._id,
-          message: `A revision for ${script.title} is ready for review.`,
-        })
-      ));
-
-      emitScriptEvent(req, script._id, "revision_submitted", { revisionId: revision._id });
-      recipients.forEach((recipient) => {
-        emitNotification(req, recipient._id, "revision_submitted", {
-          revisionId: revision._id,
-          scriptId: script._id,
-          sectionRef: "textContent",
-        });
-      });
-
-      await createAuditEntry(script._id, req.user._id, wasResubmitted ? "revision_resubmitted" : "revision_submitted", {
-        revisionId: revision._id,
-        sectionRef: "textContent",
-        source: "script_update",
-      });
-
-      return res.json({
-        ...script.toObject(),
-        revisionSubmitted: true,
-        revisionId: revision._id,
-        updatedExisting: wasResubmitted,
-        message: wasResubmitted
-          ? "Your pending revision was updated and sent back for review."
-          : "Revision submitted for review. The owner can approve and merge it into the current script.",
-      });
-    }
 
     // Publishing layer fields
     if (!isContentOnlyCollaborator && targetIndustry !== undefined) {
@@ -2905,7 +2931,8 @@ export const uploadScript = async (req, res) => {
       maxUnits: Number(
         String(scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
           ? (scriptCompletion?.totalParts || 0)
-          : (pageCount || resolvedPageCount || 0)
+          : ((Array.isArray(scriptPreviewPageTexts) && scriptPreviewPageTexts.length)
+            || pageCount || resolvedPageCount || 0)
       ),
     });
     const viewableScriptEnabled = Boolean(viewableScript);
@@ -3369,9 +3396,14 @@ export const getScriptPdf = async (req, res) => {
       return res.status(404).json({ message: "Script not found" });
     }
 
+    // Accepted collaborators are exempt from the marketplace business-email/plan gate on the script
+    // they were invited to (see the same carve-out in getScriptById).
+    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
+
     if (
       isIndustryProfessionalWithPersonalEmail(req.user) &&
       !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      !canCollaboratorRead &&
       String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
     ) {
       return res.status(403).json({
@@ -3384,7 +3416,6 @@ export const getScriptPdf = async (req, res) => {
     const isAdmin = req.user.role === "admin";
     const collaboratorRole = resolveScriptRole(script, req.user._id);
     const isAcceptedCollaborator = !isOwner && Boolean(collaboratorRole);
-    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
     let isBuyer = hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
 
     if (!isBuyer) {
@@ -3441,13 +3472,21 @@ export const getScriptById = async (req, res) => {
 
     const script = await Script.findById(scriptId)
       .populate("creator", "name email phone profileImage role bio followers username writerProfile.username writerProfile.links")
+      // Credits link to profiles where the credited person is a Ckript user (non-users stay name-only).
+      .populate("writers.userId", "name profileImage username writerProfile.username")
       .populate("heldBy", "name role");
 
     if (!script) return res.status(404).json({ message: "Script not found" });
 
+    // Someone explicitly invited onto THIS script keeps access regardless of the business-email/plan
+    // gate below — that gate exists to stop industry pros browsing the marketplace, not to lock out
+    // an accepted collaborator from the one script they were invited to.
+    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
+
     if (
       isIndustryProfessionalWithPersonalEmail(req.user) &&
       !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      !canCollaboratorRead &&
       String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
     ) {
       return res.status(403).json({
@@ -3468,7 +3507,6 @@ export const getScriptById = async (req, res) => {
     const isAdmin = req.user.role === "admin";
     const collaboratorRole = resolveScriptRole(script, req.user._id);
     const isAcceptedCollaborator = !isOwner && Boolean(collaboratorRole);
-    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
     const canCollaboratorWrite = hasScriptPermission(script, req.user._id, "write");
     let isBuyer = hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
 
@@ -3613,7 +3651,8 @@ export const getScriptById = async (req, res) => {
           maxUnits: Number(
             String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || 0)
+              : ((Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount || 0)
           ),
         })
       : null;
@@ -3920,7 +3959,8 @@ export const getPublicScriptById = async (req, res) => {
           maxUnits: Number(
             String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || 0)
+              : ((Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount || 0)
           ),
         })
       : null;

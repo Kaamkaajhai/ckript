@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useDarkMode } from "../context/DarkModeContext";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import { formatScriptCredit } from "../utils/writerCredits";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionProgressText,
@@ -168,7 +169,7 @@ const ScriptCard = ({ script, index = 0, onClick }) => {
                 </div>
               )}
               <span className={`text-[11px] truncate ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                {script.creator?.name || "Unknown"}
+                {formatScriptCredit(script, { max: 2 }) || "Unknown"}
               </span>
             </div>
 

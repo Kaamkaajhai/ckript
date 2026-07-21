@@ -2,6 +2,7 @@ import { useCreateProject } from "../CreateProjectContext";
 import { Link } from "react-router-dom";
 import { LEGAL_AGREEMENT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants";
 import { normalizeRightsLicensingState } from "../lib/rights";
+import TagSelect from "../../../components/TagSelect";
 
 const Step5Publish = () => {
   const {
@@ -89,11 +90,14 @@ const Step5Publish = () => {
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Rights Type</h3>
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>What type of rights are you offering?</p>
-                      <select value={rightsLicensing?.rightsType || "custom_negotiation_required"} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, rightsType: e.target.value }))} className={inputCls}>
-                        <option value="full_rights_sale">Full Rights Sale (Ownership Transfer)</option>
-                        <option value="exclusive_license">Exclusive License</option>
-                        <option value="custom_negotiation_required">Custom Negotiation Required</option>
-                      </select>
+                      <TagSelect
+                        ariaLabel="rightsType"
+                        options={[{ value: "full_rights_sale", label: "Full Rights Sale (Ownership Transfer)" }, { value: "exclusive_license", label: "Exclusive License" }, { value: "custom_negotiation_required", label: "Custom Negotiation Required" }]}
+                        value={rightsLicensing?.rightsType || "custom_negotiation_required"}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, rightsType: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     {rightsLicensing?.rightsType === "exclusive_license" && (
@@ -107,24 +111,27 @@ const Step5Publish = () => {
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Modification Rights</h3>
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>How much creative control are you willing to give up?</p>
-                      <select value={rightsLicensing?.modificationRights || ""} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, modificationRights: e.target.value }))} className={inputCls}>
-                        <option value="" disabled>Select modification rights...</option>
-                        <option value="buyer_can_freely_modify">Publisher can modify freely</option>
-                        <option value="buyer_must_consult_writer">Must consult writer</option>
-                        <option value="writer_approval_required">Writer approval required</option>
-                      </select>
+                      <TagSelect
+                        ariaLabel="modificationRights"
+                        options={[{ value: "buyer_can_freely_modify", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_approval_required", label: "Writer approval required" }]}
+                        value={rightsLicensing?.modificationRights || ""}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, modificationRights: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Payment Structure</h3>
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>How do you expect to be paid for these rights?</p>
-                      <select value={rightsLicensing?.paymentStructure || ""} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, paymentStructure: e.target.value }))} className={inputCls}>
-                        <option value="" disabled>Select payment structure...</option>
-                        <option value="one_time_upfront_payment">One-time upfront payment</option>
-                        <option value="lower_upfront_plus_royalty_percent">Lower upfront + royalty %</option>
-                        <option value="revenue_sharing_model">Revenue sharing model</option>
-                        <option value="custom_deal">Custom deal</option>
-                      </select>
+                      <TagSelect
+                        ariaLabel="paymentStructure"
+                        options={[{ value: "one_time_upfront_payment", label: "One-time upfront payment" }, { value: "lower_upfront_plus_royalty_percent", label: "Lower upfront + royalty %" }, { value: "revenue_sharing_model", label: "Revenue sharing model" }, { value: "custom_deal", label: "Custom deal" }]}
+                        value={rightsLicensing?.paymentStructure || ""}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, paymentStructure: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     {["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing?.paymentStructure) && (
@@ -135,11 +142,14 @@ const Step5Publish = () => {
                         </div>
                         <div>
                           <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Royalty Duration</h3>
-                          <select value={rightsLicensing?.royaltySettings?.durationType || "none"} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, royaltySettings: { ...prev.royaltySettings, durationType: e.target.value } }))} className={inputCls}>
-                            <option value="none">None</option>
-                            <option value="project_lifetime">Project Lifetime</option>
-                            <option value="years">Fixed Years</option>
-                          </select>
+                          <TagSelect
+                            ariaLabel="Royalty duration"
+                            options={[{ value: "none", label: "None" }, { value: "project_lifetime", label: "Project Lifetime" }, { value: "years", label: "Fixed Years" }]}
+                            value={rightsLicensing?.royaltySettings?.durationType || "none"}
+                            onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, royaltySettings: { ...prev.royaltySettings, durationType: v } }))}
+                            dark={dark}
+                            size="sm"
+                          />
                         </div>
                         {rightsLicensing?.royaltySettings?.durationType === "years" && (
                           <div className="sm:col-span-2">
@@ -153,11 +163,14 @@ const Step5Publish = () => {
                     <div>
                       <h3 className={`text-sm font-bold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>Negotiation Mode</h3>
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>Are you open to counter-offers?</p>
-                      <select value={rightsLicensing?.negotiationMode || ""} onChange={(e) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, negotiationMode: e.target.value }))} className={inputCls}>
-                        <option value="" disabled>Select negotiation mode...</option>
-                        <option value="fixed_terms">Fixed terms</option>
-                        <option value="open_to_negotiation">Open to negotiation</option>
-                      </select>
+                      <TagSelect
+                        ariaLabel="negotiationMode"
+                        options={[{ value: "fixed_terms", label: "Fixed terms" }, { value: "open_to_negotiation", label: "Open to negotiation" }]}
+                        value={rightsLicensing?.negotiationMode || ""}
+                        onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, negotiationMode: v }))}
+                        dark={dark}
+                        size="sm"
+                      />
                     </div>
 
                     <div>
