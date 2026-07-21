@@ -13,7 +13,6 @@ import {
   removeCollaborator,
   resendInvite,
   requestCollab,
-  resolveComment,
   respondToRequest,
   updateCollaboratorRole,
   updateVisibility,
@@ -53,8 +52,6 @@ router.patch("/:scriptId/collaborators/:userId/role", protect, checkPermission("
 router.delete("/:scriptId/collaborators/:userId", protect, checkPermission("manage"), removeCollaborator);
 router.post("/:scriptId/collaborators/:userId/resend-invite", protect, checkPermission("manage"), resendInvite);
 router.patch("/:scriptId/visibility", protect, checkPermission("manage"), updateVisibility);
-
-router.patch("/:scriptId/comments/:commentId/resolve", protect, resolveComment);
 
 router.post("/:scriptId/publish", protect, checkPermission("publish"), publishScript);
 router.get("/:scriptId/activity", protect, checkPermission("read"), getActivityLog);

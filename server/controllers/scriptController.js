@@ -66,6 +66,7 @@ import {
 } from "../middleware/checkPermission.js";
 import { applyThreeWayMerge } from "../utils/contentMerge.js";
 import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.js";
+import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1906,6 +1907,15 @@ export const saveDraft = async (req, res) => {
           ? otherData.scriptPreviewPageTexts.map((page) => String(page || ""))
           : [];
       }
+      // Same backfill as updateScript: a viewable editor script must never be left with no preview
+      // pages, since there is no PDF to fall back on.
+      if (script.viewableScript && !(script.scriptPreviewPageTexts || []).some((page) => String(page || "").trim())) {
+        const derived = derivePreviewPageTexts(script);
+        if (derived.length) {
+          script.scriptPreviewPageTexts = derived;
+          script.markModified("scriptPreviewPageTexts");
+        }
+      }
       if (otherData.services !== undefined) {
         const incomingServices = otherData.services || {};
         script.services = {
@@ -2360,8 +2370,12 @@ export const updateScript = async (req, res) => {
     }
 
     let normalizedRights = script.rightsLicensing || {};
+    // Declared out here because two separate `if (!isContentOnlyCollaborator)` blocks below both
+    // need it — scoping it to the first one made the second throw ReferenceError.
+    let resolvedPreviewPageTexts = [];
+
     if (!isContentOnlyCollaborator) {
-      let resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
+      resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
         ? scriptPreviewPageTexts.map((value) => String(value || "").trim())
         : [];
       if (!resolvedPreviewPageTexts.length && typeof scriptPreviewPageTexts === "string" && scriptPreviewPageTexts.trim()) {
@@ -2467,6 +2481,17 @@ export const updateScript = async (req, res) => {
           }
         } catch (error) {
           console.warn("[updateScript] Failed to refresh preview page texts:", error?.message || error);
+        }
+      }
+
+      // Editor-authored scripts have no PDF to extract from, so if the client never sent preview
+      // pages the script would end up viewable with nothing to show. Derive them from the
+      // screenplay text using the same line-based pagination the editor and PDF use.
+      if (script.viewableScript && !(script.scriptPreviewPageTexts || []).some((page) => String(page || "").trim())) {
+        const derived = derivePreviewPageTexts(script);
+        if (derived.length) {
+          script.scriptPreviewPageTexts = derived;
+          script.markModified("scriptPreviewPageTexts");
         }
       }
       if (coverImage !== undefined) script.coverImage = coverImage;

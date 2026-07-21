@@ -471,10 +471,6 @@ export const acceptInvite = async (req, res) => {
 
     await script.save();
 
-    if (collaborator.role === "editor") {
-      await ensureEditorBranch(script, collaborator.userId);
-    }
-
     await createAuditEntry(script._id, req.user._id, "invite_accepted", {
       role: collaborator.role,
     });
@@ -688,10 +684,6 @@ export const respondToRequest = async (req, res) => {
       collabRequest.status = "accepted";
       collabRequest.respondedAt = new Date();
       await collabRequest.save();
-
-      if (role === "editor") {
-        await ensureEditorBranch(script, collabRequest.requesterId._id);
-      }
 
       await createNotification({
         userId: collabRequest.requesterId._id,
@@ -1005,43 +997,6 @@ export const updateVisibility = async (req, res) => {
 
 
 
-export const resolveComment = async (req, res) => {
-  try {
-    const comment = await Comment.findById(req.params.commentId);
-    if (!comment?.revisionId) {
-      return res.status(404).json({ error: "Comment not found" });
-    }
-
-    const revision = await Revision.findById(comment.revisionId);
-    if (!revision) {
-      return res.status(404).json({ error: "Revision not found" });
-    }
-
-    const script = await Script.findById(revision.scriptId);
-    if (!script) {
-      return res.status(404).json({ error: "Script not found" });
-    }
-
-    const isOwner = normalizeObjectId(getOwnerId(script)) === normalizeObjectId(req.user._id);
-    const isAuthor = normalizeObjectId(comment.userId) === normalizeObjectId(req.user._id);
-    if (!isOwner && !isAuthor) {
-      return res.status(403).json({ error: "Only the comment author or owner can resolve this comment" });
-    }
-
-    comment.resolved = true;
-    await comment.save();
-
-    await createAuditEntry(script._id, req.user._id, "comment_resolved", {
-      commentId: comment._id,
-      revisionId: revision._id,
-    });
-
-    return res.status(200).json({ message: "Comment resolved" });
-  } catch (error) {
-    console.error("resolveComment failed:", error.message);
-    return res.status(500).json({ error: "Failed to resolve comment" });
-  }
-};
 
 export const publishScript = async (req, res) => {
   try {
