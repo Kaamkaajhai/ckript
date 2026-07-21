@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
 import InviteModal from "./InviteModal";
+import { getCollabRoleLabel } from "../../constants/collabRoles";
 
 const getCollaboratorUserId = (entry) => String(
   entry?.user?._id
@@ -118,7 +119,7 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
             </div>
             <div className={`flex items-center gap-2 ${compact ? "w-full justify-between mt-1" : ""}`}>
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${dark ? "bg-[#1e3a5f]/40 text-blue-300" : "bg-gray-100 text-gray-600"}`}>
-                {entry.role}
+                {getCollabRoleLabel(entry.role)}
               </span>
               {isOwner && String(entry.user?._id) !== currentUserId ? (
                 <div className="flex items-center gap-1.5 ml-auto">
@@ -167,7 +168,7 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${dark ? "bg-amber-500/20 text-amber-300" : "bg-amber-100 text-amber-800"}`}>
-                    {entry.role}
+                    {getCollabRoleLabel(entry.role)}
                   </span>
                   <span className={`text-[10px] uppercase font-bold tracking-wide ${dark ? "text-amber-500/60" : "text-amber-700/60"}`}>
                     • {entry.accessLevel === "content_only" ? "content only" : "full access"}

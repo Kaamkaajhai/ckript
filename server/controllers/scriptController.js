@@ -2264,7 +2264,9 @@ export const getMyScripts = async (req, res) => {
           isCollaborator: !isCreatorOwned && Boolean(collaboratorEntry),
           collaboratorRole: collaboratorEntry?.role || null,
           collaboratorAccessLevel: collaboratorEntry?.accessLevel || null,
-          canEditScript: isCreatorOwned || collaboratorEntry?.role === "editor",
+          // Mirror PERMISSIONS.write (full_admin + editor) — hardcoding "editor" here dropped
+          // Co-owners, who do have write access, so their scripts looked read-only in this list.
+          canEditScript: isCreatorOwned || hasScriptPermission(script, req.user._id, "write"),
           canEditMetadata: isCreatorOwned,
         };
       })

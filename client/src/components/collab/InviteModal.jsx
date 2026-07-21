@@ -3,15 +3,7 @@ import { createPortal } from "react-dom";
 import api from "../../services/api";
 import { useDarkMode } from "../../context/DarkModeContext";
 
-// Values must match VALID_COLLAB_ROLES in collab.controller.js — a role missing there is silently
-// downgraded to "editor" on invite, so never offer one that is not listed. Collaboration is live
-// co-writing on one shared script, so these describe who may type, comment, read or manage people.
-const ROLES = [
-  { value: "editor", label: "Co-writer", hint: "Writes with you live — one scene each at a time" },
-  { value: "commenter", label: "Commenter", hint: "Reads and leaves notes, cannot edit" },
-  { value: "viewer", label: "Reader", hint: "Read-only access" },
-  { value: "full_admin", label: "Co-owner", hint: "Co-writes and manages collaborators" },
-];
+import { COLLAB_ROLES as ROLES } from "../../constants/collabRoles";
 
 export default function InviteModal({ scriptId, onClose, onSuccess, dark: darkProp }) {
   const { isDarkMode } = useDarkMode();

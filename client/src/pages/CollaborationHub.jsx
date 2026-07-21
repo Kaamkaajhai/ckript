@@ -8,6 +8,7 @@ import InviteModal from "../components/collab/InviteModal";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import { getCollabRoleLabel } from "../constants/collabRoles";
 
 const REQUEST_TABS = ["pending", "accepted", "rejected"];
 const ACTIVITY_FILTERS = ["all", "invites", "requests", "revisions", "publishing"];
@@ -16,13 +17,7 @@ const ACCESS_LEVEL_OPTIONS = [
   { value: "full_access", label: "Full Access" },
   { value: "content_only", label: "Content Only" },
 ];
-const ROLE_LABELS = {
-  editor: "Editor",
-  merger: "Merger",
-  viewer: "Viewer",
-  full_admin: "Admin",
-};
-const getRoleLabel = (value = "") => ROLE_LABELS[String(value || "").trim().toLowerCase()] || value || "Unknown";
+const getRoleLabel = getCollabRoleLabel;
 const getAccessLevelLabel = (value) => (
   value === "content_only" ? "Content Only" : "Full Access"
 );
