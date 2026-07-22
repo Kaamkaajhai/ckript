@@ -788,7 +788,10 @@ function PricingModalInner({ onClose, tab = "all" }) {
                             type="button"
                             className="pmx-btn pmx-btn--outline"
                             style={{ width: "100%" }}
-                            onClick={fipState.onClick}
+                            onClick={() => {
+                              if (!fip.user) goTo("/producer-director-onboarding");
+                              else goTo("/home");
+                            }}
                             disabled={fipState.disabled || fipState.loading}
                           >
                             {fipState.label === "For industry pros" ? "For industry pros" : "Get Started"}
