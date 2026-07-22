@@ -1139,7 +1139,7 @@ export const grantFipPlanToUser = async (req, res) => {
 
         await Notification.create({
             user: targetUser._id,
-            type: "system",
+            type: "admin_alert",
             message: "You have been granted a 1-year Diamond Film Industry Professional subscription by an administrator. Enjoy full access to Ckript!",
         });
 
