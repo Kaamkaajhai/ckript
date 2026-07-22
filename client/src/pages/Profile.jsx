@@ -401,41 +401,6 @@ const Profile = () => {
     };
   }, [id, currentUser?._id, currentUser?.writerProfile?.username, fetchProfile]);
 
-  const fetchSessions = useCallback(async () => {
-    try {
-      setLoadingSessions(true);
-      const { data } = await api.get("/auth/sessions");
-      setSessions(data);
-    } catch (error) {
-      console.error("Failed to fetch sessions:", error);
-    } finally {
-      setLoadingSessions(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "settings" && isOwnProfile) {
-      fetchSessions();
-    }
-  }, [activeTab, isOwnProfile, fetchSessions]);
-
-  const handleRemoveSession = async (sessionId) => {
-    try {
-      await api.delete(`/auth/sessions/${sessionId}`);
-      fetchSessions();
-    } catch (error) {
-      console.error("Failed to remove session:", error);
-    }
-  };
-
-  const handleRemoveAllOtherSessions = async () => {
-    try {
-      await api.delete("/auth/sessions/all-others");
-      fetchSessions();
-    } catch (error) {
-      console.error("Failed to remove all other sessions:", error);
-    }
-  };
 
   const handleDeleteScript = async (scriptId) => {
     try {
@@ -628,6 +593,42 @@ const Profile = () => {
   };
 
   const isOwnProfile = isSameProfile(currentUser, profile);
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      setLoadingSessions(true);
+      const { data } = await api.get("/auth/sessions");
+      setSessions(data);
+    } catch (error) {
+      console.error("Failed to fetch sessions:", error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "settings" && isOwnProfile) {
+      fetchSessions();
+    }
+  }, [activeTab, isOwnProfile, fetchSessions]);
+
+  const handleRemoveSession = async (sessionId) => {
+    try {
+      await api.delete(`/auth/sessions/${sessionId}`);
+      fetchSessions();
+    } catch (error) {
+      console.error("Failed to remove session:", error);
+    }
+  };
+
+  const handleRemoveAllOtherSessions = async () => {
+    try {
+      await api.delete("/auth/sessions/all-others");
+      fetchSessions();
+    } catch (error) {
+      console.error("Failed to remove all other sessions:", error);
+    }
+  };
   const isWriterUser = isWriterProfileRole(profile?.role);
   const isInvestorProfile = String(profile?.role || "").toLowerCase() === "investor";
   const viewerIsIndustryRole = ["investor", "producer", "director", "industry", "professional"].includes(
