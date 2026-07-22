@@ -1079,21 +1079,25 @@ export const grantWriterPlanToUser = async (req, res) => {
         }
 
         const durationDays = cycle === "annual" ? 365 : 30;
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-        targetUser.subscription.plan = plan;
-        targetUser.subscription.aiImagesGeneratedTotal = 0;
-        targetUser.subscription.isActive = true;
-        targetUser.subscription.accessTier = plan === "gold" ? "writer_gold" : "writer_silver";
-        targetUser.subscription.accessStatus = "active";
-        targetUser.subscription.accessActivatedAt = new Date();
-        targetUser.subscription.accessExpiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
-        targetUser.subscription.lastAccessUpdate = new Date();
-
-        if (targetUser.writerProfile) {
-            targetUser.writerProfile.plan = plan;
-        }
-
-        await targetUser.save();
+        await User.updateOne(
+            { _id: targetUser._id },
+            {
+                $set: {
+                    "subscription.plan": plan,
+                    "subscription.aiImagesGeneratedTotal": 0,
+                    "subscription.isActive": true,
+                    "subscription.accessTier": plan === "gold" ? "writer_gold" : "writer_silver",
+                    "subscription.accessStatus": "active",
+                    "subscription.accessActivatedAt": now,
+                    "subscription.accessExpiresAt": expiresAt,
+                    "subscription.lastAccessUpdate": now,
+                    ...(targetUser.writerProfile ? { "writerProfile.plan": plan } : {})
+                }
+            }
+        );
 
         // Send email
         await sendWriterPlanGrantedEmail(targetUser.email, {
@@ -1117,27 +1121,31 @@ export const grantFipPlanToUser = async (req, res) => {
         }
 
         const durationDays = 365;
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-        targetUser.subscription.plan = "diamond";
-        targetUser.subscription.aiImagesGeneratedTotal = 0;
-        targetUser.subscription.isActive = true;
-        targetUser.subscription.accessTier = "film_industry_professional";
-        targetUser.subscription.accessStatus = "active";
-        targetUser.subscription.accessActivatedAt = new Date();
-        targetUser.subscription.accessExpiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
-        targetUser.subscription.lastAccessUpdate = new Date();
-        targetUser.subscription.revealedContacts = [];
-        targetUser.subscription.messagedWriters = [];
-        targetUser.subscription.scheduledMeetings = [];
-        targetUser.subscription.contactsLimit = 10;
-        targetUser.subscription.messageWritersLimit = 10;
-        targetUser.subscription.meetingsLimit = 10;
-
-        if (targetUser.industryProfile) {
-            targetUser.industryProfile.isVerified = true;
-        }
-
-        await targetUser.save();
+        await User.updateOne(
+            { _id: targetUser._id },
+            {
+                $set: {
+                    "subscription.plan": "diamond",
+                    "subscription.aiImagesGeneratedTotal": 0,
+                    "subscription.isActive": true,
+                    "subscription.accessTier": "film_industry_professional",
+                    "subscription.accessStatus": "active",
+                    "subscription.accessActivatedAt": now,
+                    "subscription.accessExpiresAt": expiresAt,
+                    "subscription.lastAccessUpdate": now,
+                    "subscription.revealedContacts": [],
+                    "subscription.messagedWriters": [],
+                    "subscription.scheduledMeetings": [],
+                    "subscription.contactsLimit": 10,
+                    "subscription.messageWritersLimit": 10,
+                    "subscription.meetingsLimit": 10,
+                    ...(targetUser.industryProfile ? { "industryProfile.isVerified": true } : {})
+                }
+            }
+        );
 
         await Notification.create({
             user: targetUser._id,
