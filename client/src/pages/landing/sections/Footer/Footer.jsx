@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuthModal } from "../../../../context/AuthModalContext";
-import Icon from "../../_shared/Icon";
 import { LOGO_FOOTER_SRC } from "../../_shared/theme";
+import { COMPANY, COPYRIGHT_LINE } from "../../../../constants/company";
 import { FOOTER_COLS } from "./footer.data";
 import "./Footer.css";
 
@@ -22,18 +22,7 @@ export default function Footer() {
           <div className="ckl-footer-brand">
             <img className="ckl-footer-logo" src={LOGO_FOOTER_SRC} alt="Ckript" />
             <p className="ckl-footer-tagline">From the page to the screen.</p>
-            <div className="ckl-footer-hq">
-              <div className="ckl-footer-hq-head">Ckript Headquarters</div>
-              <div className="ckl-footer-hq-row">
-                <Icon name="location_on" size={20} color="#76726a" style={{ flex: "none", marginTop: 2 }} />
-                <p className="ckl-footer-hq-addr">
-                  SUIT-D, 400-A, 4th Floor,<br />
-                  12 Ajit Singh House, Yusuf Sarai Commercial Complex,<br />
-                  New Delhi 110016, India<br />
-                  <span className="ckl-footer-hq-near">Near Green Park Metro Station Exit-2</span>
-                </p>
-              </div>
-            </div>
+            {/* The address now lives once, in the statutory Registered Office line below. */}
           </div>
 
           <div className="ckl-footer-cols">
@@ -72,8 +61,26 @@ export default function Footer() {
         </div>
 
         <div className="ckl-footer-bottom">
-          <span className="ckl-footer-copy">© 2026 Ckript. All rights reserved.</span>
+          <span className="ckl-footer-copy">{COPYRIGHT_LINE}</span>
           <span className="ckl-footer-copy">Made for storytellers.</span>
+        </div>
+
+        {/* Statutory corporate disclosure — legal entity, CIN and registered office. */}
+        <div className="ckl-footer-legal">
+          <p className="ckl-footer-legal-desc">{COMPANY.description}</p>
+          <div className="ckl-footer-legal-head">Corporate Information</div>
+          <p className="ckl-footer-legal-row">
+            <span className="ckl-footer-legal-key">Legal Entity:</span> {COMPANY.legalName}
+            <span className="ckl-footer-legal-sep">|</span>
+            <span className="ckl-footer-legal-key">CIN:</span> {COMPANY.cin}
+          </p>
+          <p className="ckl-footer-legal-row">
+            <span className="ckl-footer-legal-key">Registered Office:</span> {COMPANY.registeredOffice}
+          </p>
+          <p className="ckl-footer-legal-row">
+            <span className="ckl-footer-legal-key">Contact:</span>{" "}
+            <a href={`mailto:${COMPANY.supportEmail}`} className="ckl-footer-legal-mail">{COMPANY.supportEmail}</a>
+          </p>
         </div>
       </div>
     </footer>

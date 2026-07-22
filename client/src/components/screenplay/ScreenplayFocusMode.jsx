@@ -199,17 +199,26 @@ export default function ScreenplayFocusMode({
 
         <span className={dividerCls} />
 
-        {/* Page ⇄ Cards toggle — same script, two representations (Phase 4 §2.1) */}
-        <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-[#0b0b0b] ring-1 ring-[#262626]" : "bg-[#f0efe9] ring-1 ring-[#e7e5df]"}`}>
-          {[["page", "Page"], ["cards", "Cards"]].map(([id, label]) => (
-            <button key={id} type="button" onClick={() => { setCenterView(id); if (id === "page") requestAnimationFrame(() => apiRef?.current?.requestMeasure?.()); }}
-              className={`px-3.5 py-1.5 rounded-md text-[12px] font-semibold transition-all ${centerView === id
+        {/* Ribbon tabs — Elements ⇄ Text Format, Word-style: the tab lives up here and its controls
+            render in the ribbon row directly below. Only meaningful over the page view. */}
+        {centerView === "page" && (
+          <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-[#0b0b0b] ring-1 ring-[#262626]" : "bg-[#f0efe9] ring-1 ring-[#e7e5df]"}`}>
+            <button type="button" onClick={() => setLowerBarMode("elements")}
+              className={`px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition ${lowerBarMode === "elements"
                 ? (dark ? "bg-[#1e1e1e] text-[#f2f2f2] shadow-sm" : "bg-white text-[#0B0A06] shadow-sm")
-                : `${muted} hover:${dark ? "text-[#f2f2f2]" : "text-[#0B0A06]"}`}`}>
-              {label}
+                : `${muted} hover:${dark ? "text-gray-300" : "text-gray-600"}`}`}>
+              Elements
             </button>
-          ))}
-        </div>
+            <button type="button" onClick={() => setLowerBarMode("format")}
+              title="Text formatting — bold, italic, underline"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12px] font-semibold transition ${lowerBarMode === "format"
+                ? (dark ? "bg-[#1e1e1e] text-[#f2f2f2] shadow-sm" : "bg-white text-[#0B0A06] shadow-sm")
+                : `${muted} hover:${dark ? "text-gray-300" : "text-gray-600"}`}`}>
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4z" /></svg>
+              Text Format
+            </button>
+          </div>
+        )}
 
         {title && (
           <span className={`text-[13px] font-medium truncate max-w-[280px] max-[900px]:hidden ${dark ? "text-[#f2f2f2]" : "text-[#0B0A06]"}`}>{title}</span>
@@ -283,24 +292,9 @@ export default function ScreenplayFocusMode({
         </div>
       </div>
 
-      {/* ── Secondary bar: ribbon-tab toggle → Elements OR Text Format (matches the normal screen) ── */}
+      {/* ── Ribbon row: the controls for whichever tab is selected in the top bar ── */}
       {centerView === "page" && (
         <div className={`shrink-0 flex items-center gap-3 px-4 py-1.5 border-b ${barCls}`}>
-          {/* Elements ⇄ Text Format toggle */}
-          <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-[#0b0b0b] ring-1 ring-[#262626]" : "bg-[#f0efe9] ring-1 ring-[#e7e5df]"}`}>
-            <button type="button" onClick={() => setLowerBarMode("elements")}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${lowerBarMode === "elements" ? (dark ? "bg-[#1e1e1e] text-[#f2f2f2] shadow-sm" : "bg-white text-[#0B0A06] shadow-sm") : `${muted} hover:${dark ? "text-[#f2f2f2]" : "text-[#0B0A06]"}`}`}>
-              Elements
-            </button>
-            <button type="button" onClick={() => setLowerBarMode("format")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${lowerBarMode === "format" ? (dark ? "bg-[#1e1e1e] text-[#f2f2f2] shadow-sm" : "bg-white text-[#0B0A06] shadow-sm") : `${muted} hover:${dark ? "text-[#f2f2f2]" : "text-[#0B0A06]"}`}`}
-              title="Text formatting — bold, italic, underline">
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 4v3h5.5v12h3V7H19V4z" /></svg>
-              Text Format
-            </button>
-          </div>
-          <span className={dividerCls} />
-
           {lowerBarMode === "format" ? (
             <>
               {/* Fountain inline emphasis — wraps the selection with *italic* / **bold** / ***both*** /
@@ -417,14 +411,45 @@ export default function ScreenplayFocusMode({
             <div className="px-4 pt-4 pb-2 flex items-center gap-2">
               <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-[#0b0b0b] ring-1 ring-[#262626]" : "bg-gray-200/60"}`}>
                 {[["scenes", "Scenes", sceneCount], ["pages", "Pages", pages.length]].map(([id, label, count]) => (
-                  <button key={id} type="button" onClick={() => setLeftTab(id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition ${leftTab === id ? (dark ? "bg-[#1e1e1e] text-[#f2f2f2] shadow-sm" : "bg-white text-gray-900 shadow-sm") : `${muted} hover:${dark ? "text-[#f2f2f2]" : "text-gray-700"}`}`}>
+                  <button key={id} type="button"
+                    onClick={() => {
+                      setLeftTab(id);
+                      // Page entries scroll the page view, so jumping to one from the corkboard would
+                      // scroll something the writer can't see — return to the page first.
+                      if (id === "pages" && centerView !== "page") {
+                        setCenterView("page");
+                        requestAnimationFrame(() => apiRef?.current?.requestMeasure?.());
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition ${leftTab === id ? (dark ? "bg-[#1e1e1e] text-[#f2f2f2] shadow-sm" : "bg-white text-[#0B0A06] shadow-sm") : `${muted} hover:${dark ? "text-[#f2f2f2]" : "text-[#0B0A06]"}`}`}>
                     {label}
                     <span className={`px-1.5 rounded-full text-[9px] ${leftTab === id ? "bg-white/20" : (dark ? "bg-white/[0.06]" : "bg-gray-300/50")}`}>{count}</span>
                   </button>
                 ))}
               </div>
             </div>
+
+            {/* Page ⇄ Cards — SCENES tab only. Cards is a scene-restructuring tool (drag to reorder);
+                pages are a computed projection of the text, so the Pages tab is navigation-only and
+                must not offer it. */}
+            {leftTab === "scenes" && (
+              <div className="px-4 pb-3">
+                <div className={`flex items-center rounded-lg p-0.5 ${dark ? "bg-[#0b0b0b] ring-1 ring-[#262626]" : "bg-[#f0efe9] ring-1 ring-[#e7e5df]"}`}>
+                  {[
+                    ["page", "Page", "M4 5h16v14H4z M8 9h8M8 13h5"],
+                    ["cards", "Cards", "M4 5h7v6H4z M13 5h7v6h-7z M4 13h7v6H4z M13 13h7v6h-7z"],
+                  ].map(([id, label, path]) => (
+                    <button key={id} type="button"
+                      onClick={() => { setCenterView(id); if (id === "page") requestAnimationFrame(() => apiRef?.current?.requestMeasure?.()); }}
+                      title={id === "cards" ? "Corkboard — drag cards to reorder scenes" : "Script page view"}
+                      className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-bold transition ${centerView === id ? (dark ? "bg-[#1e1e1e] text-[#f2f2f2] shadow-sm" : "bg-white text-[#0B0A06] shadow-sm") : `${muted} hover:${dark ? "text-[#f2f2f2]" : "text-[#0B0A06]"}`}`}>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={path} /></svg>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── PAGES TAB ── */}
             {leftTab === "pages" ? (

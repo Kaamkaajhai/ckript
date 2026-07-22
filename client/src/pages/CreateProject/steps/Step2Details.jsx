@@ -4,6 +4,8 @@ import { Image as ImageIcon, Film, CheckCircle2 } from "lucide-react";
 import ScreenplayReadOnly from "../../../components/ScreenplayReadOnly";
 import { filmFormats, publishingFormats, styleOptions, ROLE_GENDER_OPTIONS, CP_ACCENT } from "../constants";
 import { getContentTypeFromFormat } from "../lib/format";
+import { CREDIT_TYPES } from "../../../utils/writerCredits";
+import TagSelect from "../../../components/TagSelect";
 
 /* Step 2 · Details — a mini-wizard.
    The old step was one long scrolling form styled in the pre-shell blue/emerald
@@ -30,7 +32,8 @@ const AiIcon = () => (
 
 /* ───────────────────────── Panel · Basics ───────────────────────── */
 const PanelBasics = () => {
-  const { formData, handleChange, targetFilm, estimatedPages, pageStatus, formatInfo, wordCount, dark } = useCreateProject();
+  const { formData, handleChange, targetFilm, estimatedPages, pageStatus, formatInfo, wordCount, dark,
+    writers, addWriter, updateWriter, removeWriter, moveWriter } = useCreateProject();
   const tint = pageTint(pageStatus, dark);
   return (
     <>
@@ -41,11 +44,63 @@ const PanelBasics = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="ckcp-label">Writer <span className="ckcp-opt">Required</span></label>
-          <input type="text" name="writer" value={formData.writer} onChange={handleChange} placeholder="Writer's name" className="ckcp-input" />
+      {/* Writer credits. A script can be written by several people, so this is a list rather than a
+          single name. These are CREDITS only — they don't grant access (that's Collaborators) and
+          don't change who gets paid (that stays the project owner). */}
+      <div style={{ marginBottom: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+          <label className="ckcp-label" style={{ marginBottom: 0 }}>
+            {writers.length > 1 ? "Writers" : "Writer"} <span className="ckcp-opt">Required</span>
+          </label>
+          <button type="button" onClick={addWriter} className="ckcp-ghostbtn">
+            <span className="material-symbols-outlined" style={{ fontSize: "15px" }}>add</span>Add writer
+          </button>
         </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          {writers.map((writer, idx) => (
+            <div key={`writer-${idx}`} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input
+                type="text"
+                value={writer.name}
+                onChange={(e) => updateWriter(idx, "name", e.target.value)}
+                placeholder={idx === 0 ? "Writer's name" : "Co-writer's name"}
+                className="ckcp-input"
+                style={{ flex: "1 1 auto", minWidth: 0 }}
+              />
+              <select
+                value={writer.creditType || "written_by"}
+                onChange={(e) => updateWriter(idx, "creditType", e.target.value)}
+                className="ckcp-input"
+                style={{ flex: "0 0 168px" }}
+                title="How this person is credited"
+              >
+                {CREDIT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              {/* Credit order is meaningful on screen, so it's explicitly arrangeable. */}
+              <button type="button" onClick={() => moveWriter(idx, -1)} disabled={idx === 0}
+                className="ckcp-ghostbtn" title="Move up" style={{ padding: "6px", opacity: idx === 0 ? 0.35 : 1 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "15px" }}>arrow_upward</span>
+              </button>
+              <button type="button" onClick={() => moveWriter(idx, 1)} disabled={idx === writers.length - 1}
+                className="ckcp-ghostbtn" title="Move down" style={{ padding: "6px", opacity: idx === writers.length - 1 ? 0.35 : 1 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "15px" }}>arrow_downward</span>
+              </button>
+              <button type="button" onClick={() => removeWriter(idx)} disabled={writers.length <= 1}
+                className="ckcp-ghostbtn is-danger" title="Remove writer"
+                style={{ padding: "6px", opacity: writers.length <= 1 ? 0.35 : 1 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: "15px" }}>close</span>
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="ckcp-card-p" style={{ marginTop: "6px" }}>
+          Everyone listed here is credited on the project page, in search results and on the title page.
+          Co-writers you invite to collaborate are added here automatically.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="ckcp-label">Company name <span className="ckcp-opt">Optional</span></label>
           <input type="text" name="companyName" value={formData.companyName} onChange={handleChange} placeholder="Company name" className="ckcp-input" />
@@ -55,17 +110,27 @@ const PanelBasics = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="ckcp-label">Format <span className="ckcp-opt">Required</span></label>
-          <select name="format" value={formData.format} onChange={handleChange} className="ckcp-input">
-            {(targetFilm ? filmFormats : publishingFormats).map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-          </select>
+          <TagSelect
+            ariaLabel="Format"
+            options={targetFilm ? filmFormats : publishingFormats}
+            value={formData.format}
+            onChange={(v) => handleChange({ target: { name: "format", value: v } })}
+            dark={dark}
+            size="sm"
+          />
         </div>
         {targetFilm && (
           <div>
             <label className="ckcp-label">Style (medium) <span className="ckcp-opt">Optional</span></label>
-            <select name="styleMedium" value={formData.styleMedium} onChange={handleChange} className="ckcp-input">
-              <option value="">Select style…</option>
-              {styleOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <TagSelect
+              ariaLabel="Style (medium)"
+              options={styleOptions}
+              value={formData.styleMedium}
+              onChange={(v) => handleChange({ target: { name: "styleMedium", value: v } })}
+              dark={dark}
+              size="sm"
+              allowClear
+            />
           </div>
         )}
       </div>
@@ -135,7 +200,7 @@ const PanelStory = () => {
 
 /* ───────────────────────── Panel · Cast ───────────────────────── */
 const PanelCast = () => {
-  const { roles, addRole, removeRole, updateRoleField, updateRoleAge, handleGenerateMetadata, metaLoadingField, metaNotice } = useCreateProject();
+  const { roles, addRole, removeRole, updateRoleField, updateRoleAge, handleGenerateMetadata, metaLoadingField, metaNotice, dark } = useCreateProject();
   return (
     <>
       <div className="ckcp-dhead">
@@ -169,9 +234,14 @@ const PanelCast = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input type="text" value={role.characterName} onChange={(e) => updateRoleField(idx, "characterName", e.target.value)} placeholder="Character name" className="ckcp-input" />
                 <input type="text" value={role.type} onChange={(e) => updateRoleField(idx, "type", e.target.value)} placeholder="Archetype (e.g. Lead, Antagonist)" className="ckcp-input" />
-                <select value={role.gender} onChange={(e) => updateRoleField(idx, "gender", e.target.value)} className="ckcp-input">
-                  {ROLE_GENDER_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
-                </select>
+                <TagSelect
+                  ariaLabel="Gender"
+                  options={ROLE_GENDER_OPTIONS}
+                  value={role.gender}
+                  onChange={(v) => updateRoleField(idx, "gender", v)}
+                  dark={dark}
+                  size="sm"
+                />
                 <div className="grid grid-cols-2 gap-2">
                   <input type="number" min="0" placeholder="Min age" value={role.ageRange?.min ?? ""} onChange={(e) => updateRoleAge(idx, "min", e.target.value)} className="ckcp-input" />
                   <input type="number" min="0" placeholder="Max age" value={role.ageRange?.max ?? ""} onChange={(e) => updateRoleAge(idx, "max", e.target.value)} className="ckcp-input" />
@@ -188,7 +258,7 @@ const PanelCast = () => {
 
 /* ───────────────────────── Panel · Market (publishing) ───────────────────────── */
 const PanelMarket = () => {
-  const { publishingDetails, setPublishingDetails, handleProseClick, proseLoading } = useCreateProject();
+  const { publishingDetails, setPublishingDetails, handleProseClick, proseLoading, dark } = useCreateProject();
   const toggle = (field, value) => setPublishingDetails((prev) => {
     const curr = prev[field] || [];
     return { ...prev, [field]: curr.includes(value) ? curr.filter((x) => x !== value) : [...curr, value] };
@@ -227,12 +297,15 @@ const PanelMarket = () => {
 
       <div className="ckcp-card ckcp-grow">
         <label className="ckcp-label">Series potential</label>
-        <select value={publishingDetails.seriesPotential} onChange={(e) => setPublishingDetails((p) => ({ ...p, seriesPotential: e.target.value }))} className="ckcp-input">
-          <option value="">Select potential…</option>
-          <option value="Standalone">Standalone</option>
-          <option value="Trilogy">Trilogy</option>
-          <option value="Multi-part universe">Multi-part universe</option>
-        </select>
+        <TagSelect
+          ariaLabel="Series potential"
+          options={["Standalone", "Trilogy", "Multi-part universe"]}
+          value={publishingDetails.seriesPotential}
+          onChange={(v) => setPublishingDetails((prev) => ({ ...prev, seriesPotential: v }))}
+          dark={dark}
+          size="sm"
+          allowClear
+        />
 
         <div className="ckcp-label" style={{ marginTop: "16px" }}>
           <span>Prose sample <span className="ckcp-opt">Novel-formatted excerpt</span></span>

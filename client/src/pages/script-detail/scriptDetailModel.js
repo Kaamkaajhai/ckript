@@ -1,3 +1,4 @@
+import { canRoleWrite } from "../../constants/collabRoles";
 const present = (value) => {
   if (Array.isArray(value)) return value.length > 0;
   if (typeof value === "number") return Number.isFinite(value);
@@ -33,7 +34,9 @@ export const getViewerCapabilities = ({ script = {}, user = {} } = {}) => {
     reader,
     buyer: Boolean(script?.isUnlocked && !owner && !collaborator),
     fullScript,
-    canEdit: Boolean(script?._id && (owner || script?.canEditScript || collaboratorRole === "editor")),
+    // canEditScript comes from the server (mirrors PERMISSIONS.write); the role check is a local
+    // fallback and must cover every write-capable role, not just editor.
+    canEdit: Boolean(script?._id && (owner || script?.canEditScript || canRoleWrite(collaboratorRole))),
     canCollaborate: Boolean(script?._id && (owner || collaborator)),
     canBookmark: Boolean(viewerId && !owner && !collaborator),
     canPurchase: Boolean(!owner && !collaborator && script?.canPurchase && !script?.isSold),

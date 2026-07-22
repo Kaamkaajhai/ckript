@@ -14,6 +14,8 @@
 //   heartbeat(sceneId) -> void
 //   onLockChange(cb) -> unsubscribe       // cb(locksBySceneId)
 //   requestEdit(sceneId) -> void          // ask the current holder to release
+//   sendSceneContent(sceneId, text, heading) -> void   // stream the scene you hold (throttled)
+//   onSceneContent(cb) -> unsubscribe     // cb({ sceneId, text, heading, byUserId, byName })
 //   onReconnect(cb) -> unsubscribe
 //   onDisconnect(cb) -> unsubscribe
 //   destroy() -> void
@@ -43,6 +45,7 @@ const listeners = () => {
 };
 
 const ACTIVE_SCENE_DEBOUNCE_MS = 400;
+const SCENE_CONTENT_THROTTLE_MS = 300;
 
 // ── Single-user / disabled implementation ───────────────────────────────────
 // Used when collaboration is off or there's no auth token. You are always alone, so every
@@ -53,6 +56,7 @@ class LocalCollabSync {
     this._locks = listeners();
     this._editReq = listeners();
     this._comments = listeners();
+    this._content = listeners();
     this._reconnect = listeners();
     this._disconnect = listeners();
   }
@@ -65,13 +69,15 @@ class LocalCollabSync {
   heartbeat() {}
   onLockChange(cb) { return this._locks.add(cb); }
   requestEdit() {}
+  sendSceneContent() {}
+  onSceneContent(cb) { return this._content.add(cb); }
   onEditRequested(cb) { return this._editReq.add(cb); }
   onCommentsChanged(cb) { return this._comments.add(cb); }
   onReconnect(cb) { return this._reconnect.add(cb); }
   onDisconnect(cb) { return this._disconnect.add(cb); }
   destroy() {
     this._presence.clear(); this._locks.clear(); this._editReq.clear(); this._comments.clear();
-    this._reconnect.clear(); this._disconnect.clear();
+    this._content.clear(); this._reconnect.clear(); this._disconnect.clear();
   }
 }
 
@@ -85,10 +91,13 @@ class SocketCollabSync {
     this._user = null;
     this._socket = null;
     this._activeTimer = null;
+    this._contentTimer = null;
+    this._pendingContent = null;
     this._presence = listeners();
     this._locks = listeners();
     this._editReq = listeners();
     this._comments = listeners();
+    this._content = listeners();
     this._reconnect = listeners();
     this._disconnect = listeners();
   }
@@ -121,6 +130,9 @@ class SocketCollabSync {
     });
     socket.on("scene:comment:change", (payload = {}) => {
       this._comments.emit(payload);
+    });
+    socket.on("scene:content:updated", (payload = {}) => {
+      this._content.emit(payload);
     });
   }
 
@@ -166,6 +178,21 @@ class SocketCollabSync {
     this._socket?.emit("scene:lock:request-edit", { scriptId: this._scriptId, sceneId });
   }
 
+  // Stream the scene you hold. Trailing-throttled so a fast typist sends ~3 msgs/sec instead of one
+  // per keystroke, while the final keystroke of a burst is always delivered.
+  sendSceneContent(sceneId, text, heading = "") {
+    if (!this._socket || !sceneId) return;
+    this._pendingContent = { scriptId: this._scriptId, sceneId, text, heading };
+    if (this._contentTimer) return;
+    this._contentTimer = setTimeout(() => {
+      this._contentTimer = null;
+      const pending = this._pendingContent;
+      this._pendingContent = null;
+      if (pending) this._socket?.emit("scene:content:change", pending);
+    }, SCENE_CONTENT_THROTTLE_MS);
+  }
+
+  onSceneContent(cb) { return this._content.add(cb); }
   onEditRequested(cb) { return this._editReq.add(cb); }
   onCommentsChanged(cb) { return this._comments.add(cb); }
   onReconnect(cb) { return this._reconnect.add(cb); }
@@ -173,11 +200,12 @@ class SocketCollabSync {
 
   destroy() {
     if (this._activeTimer) clearTimeout(this._activeTimer);
+    if (this._contentTimer) clearTimeout(this._contentTimer);
     this.leave();
     this._socket?.disconnect();
     this._socket = null;
     this._presence.clear(); this._locks.clear(); this._editReq.clear(); this._comments.clear();
-    this._reconnect.clear(); this._disconnect.clear();
+    this._content.clear(); this._reconnect.clear(); this._disconnect.clear();
   }
 }
 

@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import useScenePresence from "../../../hooks/useScenePresence";
 import useSceneComments from "../../../hooks/useSceneComments";
 import { buildAnchor, resolveAnchor } from "../../../components/screenplay/commentAnchor";
-import { getScenes, sceneIdAtLine } from "../../../components/screenplay/sceneIdentity";
+import { getScenes, getSceneText, replaceSceneText, sceneIdAtLine } from "../../../components/screenplay/sceneIdentity";
 
 /**
  * Owns the screenplay collaboration layer: live presence (who's here + which
@@ -13,6 +13,7 @@ import { getScenes, sceneIdAtLine } from "../../../components/screenplay/sceneId
  */
 export function useScreenplayCollab({
   screenplayValue,
+  setScreenplayValue,
   useScreenplayEditor,
   scriptId,
   user,
@@ -30,17 +31,45 @@ export function useScreenplayCollab({
   // eslint-disable-next-line react-hooks/refs
   screenplayValueRef.current = screenplayValue;
   const presenceEnabled = useScreenplayEditor && Boolean(scriptId);
+
+  // A co-writer's scene arrived — splice it into our copy. useScenePresence has already filtered out
+  // our own echo and any scene we hold the lock on, so this can never overwrite what we're typing.
+  const applyRemoteScene = useCallback(({ sceneId, text } = {}) => {
+    const current = screenplayValueRef.current || "";
+    const next = replaceSceneText(current, sceneId, text);
+    if (next == null || next === current) return;
+    // Keep the synchronous mirror in step so a save fired before re-render sends the merged text.
+    screenplayValueRef.current = next;
+    setScreenplayValue?.(next);
+  }, [setScreenplayValue]);
+
   const {
     people: collabPeople,
     setActiveScene: collabSetActiveScene,
     locks: collabLocks,
     myUserId: collabMyUserId,
+    myLockedScene: collabMyLockedScene,
     requestEdit: collabRequestEdit,
     releaseHeld: collabReleaseHeld,
     editRequest: collabEditRequest,
     clearEditRequest: collabClearEditRequest,
     commentsVersion: collabCommentsVersion,
-  } = useScenePresence({ scriptId, enabled: presenceEnabled, user, canEdit: canEditContent });
+    sendSceneContent,
+  } = useScenePresence({
+    scriptId,
+    enabled: presenceEnabled,
+    user,
+    canEdit: canEditContent,
+    onRemoteScene: applyRemoteScene,
+  });
+
+  // Local edit → stream the scene we hold to the other writers (throttled in the sync layer).
+  const broadcastSceneEdit = useCallback((nextText) => {
+    if (!presenceEnabled || !collabMyLockedScene) return;
+    const sceneText = getSceneText(nextText, collabMyLockedScene);
+    if (sceneText == null) return;
+    sendSceneContent(collabMyLockedScene, sceneText);
+  }, [presenceEnabled, collabMyLockedScene, sendSceneContent]);
 
   // Comments (Phase 3 — Slice 2); live-refreshes on the socket comment-change signal.
   const { comments: sceneComments, addComment: addSceneComment, setResolved: setCommentResolved, deleteComment: deleteSceneComment } =
@@ -112,6 +141,8 @@ export function useScreenplayCollab({
     collabEditRequest,
     collabClearEditRequest,
     collabCommentsVersion,
+    collabMyLockedScene,
+    broadcastSceneEdit,
     sceneComments,
     addSceneComment,
     setCommentResolved,

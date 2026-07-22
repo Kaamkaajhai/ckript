@@ -353,8 +353,11 @@ const ScriptDetail = () => {
       .replace(/\n[ \t]+\n/g, "\n\n")
       .trim();
   };
+  // NB: do NOT drop empty pages here. The splitter preserves them so array index maps 1:1 to page
+  // number (page N === pages[N-1]); filtering them out shifts every later page and makes the
+  // preview window return fewer — and mislabelled — pages than the writer selected.
   const previewPageTexts = hasViewableScript && Array.isArray(script?.scriptPreviewPageTexts)
-    ? script.scriptPreviewPageTexts.map((pageText) => String(pageText || "").trim()).filter(Boolean)
+    ? script.scriptPreviewPageTexts.map((pageText) => String(pageText || "").trim())
     : [];
   const previewStartPage = hasViewableScript ? Math.max(1, Number(script?.scriptPreviewAccess?.start || 1)) : 1;
   const previewEndPage = hasViewableScript ? Math.max(previewStartPage, Number(script?.scriptPreviewAccess?.end || previewStartPage)) : 1;
@@ -1680,9 +1683,11 @@ const ScriptDetail = () => {
       showNotice("Editing is locked while the current submission is awaiting admin approval.", "error");
       return;
     }
-    navigate(isOwner
-      ? (shouldEditInTextEditor ? `/create-project/${script._id}` : `/upload?edit=${script._id}`)
-      : `/script/${script._id}/branch/edit`);
+    // Everyone with edit rights co-writes the same script: the live scene-locked editor for
+    // editor-format projects, the upload editor for uploaded PDFs. There is no separate branch.
+    navigate(shouldEditInTextEditor
+      ? `/create-project/${script._id}`
+      : `/upload?edit=${script._id}`);
   };
   const handleMeetingScheduled = (payload = {}) => {
     setMeetingSent(true);
@@ -1729,6 +1734,8 @@ const ScriptDetail = () => {
           handleToggleBookmark,
           openProfile: openWriterProfile,
           openEdit: openProjectEditor,
+          canOpenCollaborationHub,
+          openCollaborationHub: () => navigate(`/script/${script._id}/collaborate`),
           openPayment: () => navigate(`/script/${script._id}/pay`),
           openPricing: () => openPricingModal(),
           recordPreviewOpen: () => setActiveTab("synopsis"),

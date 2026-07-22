@@ -56,6 +56,7 @@ import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import { formatScriptCredit } from "../utils/writerCredits";
 import { buildWatermarkedPdfFromPdfBlob } from "../utils/pdfWatermark";
 import {
   getScriptCompletionFuturePlans,
@@ -362,12 +363,18 @@ const AdminScriptView = () => {
   const derivedPdfUrl = hasUploadedPdf 
     ? script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf?download=0`) : uploadedPdfUrl
     : script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0`) : "";
+  // Preview windows count SCRIPT pages, so the preview viewer needs the export WITHOUT the
+  // generated title sheet — otherwise page 1 of the PDF is the title and the whole window
+  // shifts by one (writer selects 2 pages, admin sees title + 1).
+  const previewPdfUrl = hasUploadedPdf
+    ? derivedPdfUrl
+    : (script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0&titlePage=0`) : "");
 
   const formatLabel = script?.format === "other"
     ? (String(script?.formatOther || "").trim() || "Other")
     : (FORMAT_LABELS[script?.format] || script?.format || "-");
   const headingValue = String(script?.title || "").trim() || "Untitled";
-  const writerName = String(script?.creator?.name || "").trim() || "Unknown";
+  const writerName = formatScriptCredit(script) || String(script?.creator?.name || "").trim() || "Unknown";
   const companyName = String(script?.companyName || "").trim();
   const primaryGenre = script?.primaryGenre || script?.classification?.primaryGenre || script?.genre || "-";
   const tags = Array.isArray(script?.tags) ? script.tags.filter(Boolean) : [];
@@ -1423,7 +1430,7 @@ const AdminScriptView = () => {
             </div>
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={derivedPdfUrl}
+                pdfUrl={previewPdfUrl}
                 title={script?.title || "Script"}
                 startPage={Number(script?.scriptPreviewAccess?.start || 1)}
                 endPage={Number(script?.scriptPreviewAccess?.end || 8)}

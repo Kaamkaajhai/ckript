@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { ShieldCheck, ChevronRight } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
-import policyData from "../data/legalText.json";
+import { COMPANY, COPYRIGHT_LINE } from "../constants/company";
 
 const LAST_UPDATED = "July 22, 2026";
 const EFFECTIVE_DATE = "July 22, 2026";
@@ -139,9 +139,17 @@ export default function PrivacyPolicy() {
           ))}
         </div>
 
+        {/* Statutory corporate disclosure — the entity behind this policy. */}
+        <div className="mt-16 pt-8 border-t border-gray-200 text-[12.5px] leading-relaxed text-gray-500">
+          <div className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-gray-400">Corporate Information</div>
+          <p><span className="font-semibold text-gray-600">Legal Entity:</span> {COMPANY.legalName} <span className="mx-2 opacity-40">|</span> <span className="font-semibold text-gray-600">CIN:</span> {COMPANY.cin}</p>
+          <p><span className="font-semibold text-gray-600">Registered Office:</span> {COMPANY.registeredOffice}</p>
+          <p><span className="font-semibold text-gray-600">Contact:</span> <a href={`mailto:${COMPANY.supportEmail}`} className="underline underline-offset-2 hover:text-gray-700">{COMPANY.supportEmail}</a></p>
+        </div>
+
         {/* Footer nav */}
-        <div className="mt-16 pt-8 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-500">
-          <span>&copy; {new Date().getFullYear()} Ckript. All rights reserved.</span>
+        <div className="mt-8 pt-8 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-500">
+          <span>{COPYRIGHT_LINE}</span>
           <div className="flex gap-6">
             <Link to="/terms-of-service" className="hover:text-cyan-400 transition">
               Terms of Service

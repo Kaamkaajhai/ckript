@@ -51,7 +51,8 @@ export default function AcceptInvite() {
         const targetScriptId = data?.script?._id;
         if (targetScriptId) {
           setTimeout(() => {
-            navigate(`/script/${encodeURIComponent(targetScriptId)}`, { replace: true });
+            // Land co-writers straight in the shared editor — that's where the duet happens.
+            navigate(`/create-project/${encodeURIComponent(targetScriptId)}`, { replace: true });
           }, 1200);
         }
       })

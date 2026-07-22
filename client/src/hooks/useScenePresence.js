@@ -7,7 +7,7 @@ const HEARTBEAT_MS = 15000;
 // sockets). Returns the people in the room, the lock map, and a setActiveScene fn the editor
 // calls as the caret moves — which also auto-acquires the focused scene's lock and releases
 // the previous one (one editor per scene, §4).
-export default function useScenePresence({ scriptId, enabled, user, canEdit = true }) {
+export default function useScenePresence({ scriptId, enabled, user, canEdit = true, onRemoteScene }) {
   const [people, setPeople] = useState([]);
   const [locks, setLocks] = useState({});            // sceneId -> { holderId, holderName, color }
   const [myLockedScene, setMyLockedScene] = useState(null);
@@ -15,6 +15,9 @@ export default function useScenePresence({ scriptId, enabled, user, canEdit = tr
   const [commentsVersion, setCommentsVersion] = useState(0); // bumps on remote comment changes → refetch
 
   const syncRef = useRef(null);
+  // Held in a ref so a changing handler identity never tears down the socket connection.
+  const onRemoteSceneRef = useRef(onRemoteScene);
+  onRemoteSceneRef.current = onRemoteScene;
   const activeSceneRef = useRef(null);
   const heldSceneRef = useRef(null);
   const canEditRef = useRef(canEdit);
@@ -54,6 +57,14 @@ export default function useScenePresence({ scriptId, enabled, user, canEdit = tr
       }
     });
     const offComments = sync.onCommentsChanged(() => setCommentsVersion((v) => v + 1));
+    // Live scene text from another writer. Two guards keep this from ever touching your own work:
+    // ignore our own echo, and never apply a scene we currently hold the lock on.
+    const offContent = sync.onSceneContent((payload = {}) => {
+      if (!payload.sceneId || typeof payload.text !== "string") return;
+      if (myUserId && String(payload.byUserId || "") === myUserId) return;
+      if (payload.sceneId === heldSceneRef.current) return;
+      onRemoteSceneRef.current?.(payload);
+    });
     // On reconnect, re-acquire the scene we were editing (reconcile, don't duplicate).
     const offReconnect = sync.onReconnect(() => {
       const scene = heldSceneRef.current || activeSceneRef.current;
@@ -63,7 +74,7 @@ export default function useScenePresence({ scriptId, enabled, user, canEdit = tr
     sync.join(scriptId, user || null);
 
     return () => {
-      offPresence?.(); offLocks?.(); offEditReq?.(); offComments?.(); offReconnect?.();
+      offPresence?.(); offLocks?.(); offEditReq?.(); offComments?.(); offContent?.(); offReconnect?.();
       sync.destroy();
       syncRef.current = null;
       setPeople([]); setLocks({}); setMyLockedScene(null); setEditRequest(null);
@@ -120,5 +131,12 @@ export default function useScenePresence({ scriptId, enabled, user, canEdit = tr
 
   const clearEditRequest = useCallback(() => setEditRequest(null), []);
 
-  return { people, locks, myUserId, myLockedScene, setActiveScene, requestEdit, releaseHeld, editRequest, clearEditRequest, commentsVersion };
+  // Stream a scene's text to the other writers. Only ever sends a scene we actually hold — the
+  // server enforces the same rule, so a stale client can't overwrite someone else's scene.
+  const sendSceneContent = useCallback((sceneId, text, heading = "") => {
+    if (!sceneId || sceneId !== heldSceneRef.current) return;
+    syncRef.current?.sendSceneContent(sceneId, text, heading);
+  }, []);
+
+  return { people, locks, myUserId, myLockedScene, setActiveScene, requestEdit, releaseHeld, editRequest, clearEditRequest, commentsVersion, sendSceneContent };
 }
