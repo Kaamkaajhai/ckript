@@ -1016,7 +1016,7 @@ const Profile = () => {
       onFollow={handleFollow}
       onBlock={handleToggleBlock}
       onEdit={() => setShowEditModal(true)}
-      onMessage={() => setShowMessageRequestModal(true)}
+      onMessage={!isWriter(currentUser?.role) ? () => setShowMessageRequestModal(true) : null}
       onFollowers={() => openConnectionsModal("followers")}
       onFollowing={() => openConnectionsModal("following")}
       canViewContactDetails={canViewContactDetails}
