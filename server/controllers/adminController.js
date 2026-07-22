@@ -26,6 +26,7 @@ import {
     sendAdminPremiumRemovedEmail,
     sendAdminBroadcastEmail,
     sendWriterPlanGrantedEmail,
+    sendFipPlanGrantedEmail,
 } from "../utils/emailService.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
@@ -1103,6 +1104,50 @@ export const grantWriterPlanToUser = async (req, res) => {
         });
 
         res.json({ message: `Writer plan ${plan} successfully granted`, user: buildAdminManagedUserSummary(targetUser) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const grantFipPlanToUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+
+        const durationDays = 365;
+
+        targetUser.subscription = {
+            ...targetUser.subscription,
+            plan: "diamond",
+            aiImagesGeneratedTotal: 0,
+            isActive: true,
+            accessTier: "film_industry_professional",
+            accessStatus: "active",
+            accessExpiresAt: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
+            lastAccessUpdate: new Date()
+        };
+
+        if (targetUser.industryProfile) {
+            targetUser.industryProfile.isVerified = true;
+        }
+
+        await targetUser.save();
+
+        await Notification.create({
+            user: targetUser._id,
+            type: "system",
+            message: "You have been granted a 1-year Diamond Film Industry Professional subscription by an administrator. Enjoy full access to Ckript!",
+        });
+
+        await sendFipPlanGrantedEmail(targetUser.email, {
+            userName: targetUser.name || "Professional",
+        });
+
+        res.json({ message: "1-Year FIP plan successfully granted", user: buildAdminManagedUserSummary(targetUser) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

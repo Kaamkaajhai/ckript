@@ -2731,6 +2731,45 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleGrantFipPlan = async (user) => {
+        if (!user?._id || userActionLoading) return;
+        if (user.isDeactivated) {
+            showToast("Cannot modify a deleted account", "error");
+            return;
+        }
+
+        const confirmed = await openAdminDialog({
+            type: "confirm",
+            title: "Grant 1-Year FIP Plan",
+            message: `Grant a 1-year Film Industry Professional (Diamond) plan to ${user.name || user.email}?`,
+            confirmText: "Grant",
+            cancelText: "Cancel",
+        });
+
+        if (!confirmed) return;
+
+        const loadingKey = `grant-fip-plan-${user._id}`;
+        try {
+            setUserActionLoading(loadingKey);
+            const { data } = await adminApi.post(`/admin/users/${user._id}/grant-fip-plan`);
+            showToast(data?.message || "Granted 1-Year FIP plan successfully");
+
+            if (data?.user?._id) {
+                setSelectedUserDetail((prev) => {
+                    if (!prev || String(prev._id) !== String(data.user._id)) return prev;
+                    return { ...prev, ...data.user };
+                });
+            }
+
+            fetchData(search);
+        } catch (err) {
+            console.error(err);
+            showToast(err?.response?.data?.message || "Failed to grant FIP plan", "error");
+        } finally {
+            setUserActionLoading("");
+        }
+    };
+
     const handleRemoveWriterPlan = async (user) => {
         if (!user?._id || userActionLoading) return;
         if (user.isDeactivated) {
@@ -4622,6 +4661,15 @@ const AdminDashboard = () => {
                                             {userActionLoading === `grant-writer-plan-${user._id}` ? "Granting..." : "Grant Silver Plan"}
                                         </button>
                                     </>
+                                )}
+                                {["film_industry_professional", "investor", "director", "producer"].includes(user.role) && !isUserDeleted && (
+                                    <button
+                                        onClick={() => handleGrantFipPlan(user)}
+                                        disabled={userActionLoading === `grant-fip-plan-${user._id}`}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#0e7490] hover:text-[#155e75] hover:bg-[#0e7490]/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {userActionLoading === `grant-fip-plan-${user._id}` ? "Granting..." : "Grant 1-Year FIP Plan"}
+                                    </button>
                                 )}
                                 {!isUserFrozen && !isUserDeleted && (
                                     <button

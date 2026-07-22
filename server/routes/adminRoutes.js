@@ -14,6 +14,7 @@ import {
     removePremiumModelFromUser,
     removeWriterPlanFromUser,
     grantWriterPlanToUser,
+    grantFipPlanToUser,
     getScripts,
     getAIUsageScripts,
     getEvaluationPurchases,
@@ -84,6 +85,7 @@ router.post("/users/:id/remove-premium", removePremiumModelFromUser);
 // Writer Plan Management
 router.post("/users/:id/grant-writer-plan", grantWriterPlanToUser);
 router.post("/users/:id/remove-writer-plan", removeWriterPlanFromUser);
+router.post("/users/:id/grant-fip-plan", grantFipPlanToUser);
 router.post("/broadcast/:audience", sendAudienceBroadcast);
 
 // Scripts (admin auth from router.use(protect, adminOnly) above is the only gate — the extra
