@@ -1128,7 +1128,13 @@ export const grantFipPlanToUser = async (req, res) => {
             accessTier: "film_industry_professional",
             accessStatus: "active",
             accessExpiresAt: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
-            lastAccessUpdate: new Date()
+            lastAccessUpdate: new Date(),
+            revealedContacts: [],
+            messagedWriters: [],
+            scheduledMeetings: [],
+            contactsLimit: 10,
+            messageWritersLimit: 10,
+            meetingsLimit: 10,
         };
 
         if (targetUser.industryProfile) {
