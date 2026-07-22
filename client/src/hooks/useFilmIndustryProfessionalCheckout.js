@@ -60,7 +60,7 @@ export function useFilmIndustryProfessionalCheckout() {
   const [message, setMessage] = useState("");
 
   const isEligibleRole = isFilmIndustryProfessionalRole(user);
-  const hasAccess = hasActiveFilmIndustryProfessionalAccess(user);
+  const hasAccess = hasActiveFilmIndustryProfessionalAccess(user) && user?.subscription?.plan === "pro";
 
   const reset = useCallback(() => {
     setError("");
@@ -82,6 +82,7 @@ export function useFilmIndustryProfessionalCheckout() {
   const startCheckout = useCallback(
     async ({
       isRenew = false,
+      cycle = "monthly",
       returnTo = "",
       signInRedirect = "/pricing",
       onSuccess,
@@ -125,7 +126,7 @@ export function useFilmIndustryProfessionalCheckout() {
 
         const { data: orderData } = await api.post(
           "/payment/film-industry-professional/create-razorpay-order",
-          { currency: currency || "INR" }
+          { currency: currency || "INR", cycle }
         );
 
         const options = {
@@ -133,7 +134,7 @@ export function useFilmIndustryProfessionalCheckout() {
           amount: orderData.amount,
           currency: orderData.currency,
           name: "Ckript",
-          description: "Film Industry Professional Plan",
+          description: "Diamond Plan",
           order_id: orderData.orderId,
           handler: async (response) => {
             try {
@@ -145,6 +146,7 @@ export function useFilmIndustryProfessionalCheckout() {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_signature: response.razorpay_signature,
                   returnTo,
+                  cycle,
                 }
               );
 

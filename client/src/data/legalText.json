@@ -1,0 +1,2576 @@
+[
+  {
+    "id": "section-1",
+    "title": "1. Introduction",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Welcome to Ckript (\"Ckript\", \"Company\", \"we\", \"our\", or \"us\")."
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript is an AI-powered CreativeTech platform that connects writers, authors, storytellers, screenwriters, publishers, producers, studios, directors, production houses, literary agents, and other creative professionals through a secure technology platform designed for story discovery, collaboration, and intellectual property showcasing."
+      },
+      {
+        "type": "paragraph",
+        "text": "We recognize that the content shared on Ckript often represents valuable intellectual property, years of creative effort, and commercially significant ideas. Protecting the privacy and security of our users and their creative works is therefore one of our highest priorities."
+      },
+      {
+        "type": "paragraph",
+        "text": "This Privacy Policy explains how we collect, use, process, store, protect, disclose, and otherwise handle information when you access or use Ckript's website, mobile applications, APIs, AI-powered services, competitions, events, marketplace, and any other products or services operated by Ckript (collectively referred to as the \"Services\")."
+      },
+      {
+        "type": "paragraph",
+        "text": "This Privacy Policy should be read together with our:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Terms & Conditions",
+          "​ Cookie Policy",
+          "​ Copyright & Intellectual Property Policy",
+          "​ AI Usage Policy",
+          "​ Community Guidelines",
+          "​ Marketplace Policy",
+          "​ Competition Rules (where applicable)"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "By using any Ckript Service, you acknowledge that you have read, understood, and agree to this Privacy Policy."
+      },
+      {
+        "type": "paragraph",
+        "text": "If you do not agree with this Privacy Policy, you must discontinue use of our Services."
+      }
+    ]
+  },
+  {
+    "id": "section-2",
+    "title": "2. About Ckript",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript is an AI-powered platform designed to transform how creative stories are discovered, evaluated, protected, and commercialized."
+      },
+      {
+        "type": "paragraph",
+        "text": "Our platform enables creators to securely showcase their work while allowing verified industry professionals to discover high-quality stories through modern technology."
+      },
+      {
+        "type": "paragraph",
+        "text": "Depending on the features available, our Services may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Secure script and manuscript hosting",
+          "​ AI-powered script analysis",
+          "​ AI-generated cinematic trailer generation",
+          "​ Story recommendation systems",
+          "​ Writer portfolios",
+          "​ Producer discovery",
+          "​ Publisher discovery",
+          "​ Industry networking",
+          "​ Marketplace listings",
+          "​ Meeting scheduling",
+          "​ Creative competitions",
+          "​ Global Script Challenge",
+          "​ Learning resources",
+          "​ Premium memberships",
+          "​ Future AI-powered creative tools"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "As our platform evolves, additional Services may become available and will generally be governed by this Privacy Policy unless otherwise stated."
+      }
+    ]
+  },
+  {
+    "id": "section-3",
+    "title": "3. Scope",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "This Privacy Policy applies to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ www.ckript.com",
+          "​ Mobile applications",
+          "​ Creator dashboards",
+          "​ Producer dashboards",
+          "​ Publisher dashboards",
+          "​ Marketplace",
+          "​ Competitions",
+          "​ Global Script Challenge",
+          "​ AI Services",
+          "​ Customer Support",
+          "​ APIs",
+          "​ Future Ckript products",
+          "​ Marketing communications",
+          "​ Events",
+          "​ Community programs"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "This Privacy Policy does not apply to third-party websites, services, or applications that are not owned or controlled by Ckript, even if accessed through our Services."
+      }
+    ]
+  },
+  {
+    "id": "section-4",
+    "title": "4. Definitions",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "For purposes of this Privacy Policy:"
+      },
+      {
+        "type": "paragraph",
+        "text": "Account A registered Ckript user account."
+      },
+      {
+        "type": "paragraph",
+        "text": "Creator Any writer, author, novelist, storyteller, screenwriter, editor, playwright, comic creator, content creator, or other individual uploading or managing creative works through Ckript."
+      },
+      {
+        "type": "paragraph",
+        "text": "Industry Professional Any verified producer, production house, publisher, director, OTT platform, literary agent, studio, investor, recruiter, or other professional using Ckript to discover creative talent or intellectual property."
+      },
+      {
+        "type": "paragraph",
+        "text": "Creative Work Any script, screenplay, manuscript, story, novel, book, outline, treatment, synopsis, logline, pitch, concept, character, dialogue, artwork, audio, video, image, presentation, or other intellectual property uploaded to Ckript."
+      },
+      {
+        "type": "paragraph",
+        "text": "Personal Information Any information relating to an identified or reasonably identifiable natural person."
+      },
+      {
+        "type": "paragraph",
+        "text": "Processing Any operation performed on personal information including collection, storage, use, analysis, disclosure, deletion, modification, or transfer."
+      },
+      {
+        "type": "paragraph",
+        "text": "Services All websites, software, mobile applications, APIs, AI features, competitions, events, marketplaces, networking tools, subscriptions, and future products operated by Ckript."
+      },
+      {
+        "type": "paragraph",
+        "text": "User Any person or organization accessing or using the Services."
+      },
+      {
+        "type": "paragraph",
+        "text": "Professional Reader A trained reviewer authorized by Ckript to review, moderate, score, or evaluate creative submissions as part of platform operations or competitions."
+      },
+      {
+        "type": "paragraph",
+        "text": "Professional Readers are independent reviewers acting under confidentiality obligations and do not acquire ownership rights in users' creative works."
+      }
+    ]
+  },
+  {
+    "id": "section-5",
+    "title": "5. Eligibility",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "To use Ckript, you must:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Be legally capable of entering into a binding agreement under the laws applicable to"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "you."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Provide accurate registration information.",
+          "​ Use the Services only for lawful purposes.",
+          "​ Comply with our Terms & Conditions and Community Guidelines."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Users under the age required by applicable law to independently use online services may only access Ckript with the permission of a parent or legal guardian where required."
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript may suspend or terminate accounts that violate eligibility requirements or provide false information."
+      }
+    ]
+  },
+  {
+    "id": "section-6",
+    "title": "6. Privacy Principles",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript is built around the following privacy principles:"
+      },
+      {
+        "type": "paragraph",
+        "text": "Creator First Creators remain the owners of their original creative works."
+      },
+      {
+        "type": "paragraph",
+        "text": "Transparency We explain how information is collected and used in clear language."
+      },
+      {
+        "type": "paragraph",
+        "text": "Security We implement commercially reasonable administrative, technical, and organizational safeguards designed to protect user information and creative works."
+      },
+      {
+        "type": "paragraph",
+        "text": "Data Minimization We seek to collect only the information reasonably necessary to operate, improve, and secure the Services."
+      },
+      {
+        "type": "paragraph",
+        "text": "User Control Users are provided with tools and settings to manage their accounts, privacy preferences, and visibility where applicable."
+      },
+      {
+        "type": "paragraph",
+        "text": "Continuous Improvement Our privacy and security practices evolve alongside technology, industry standards, and applicable legal requirements."
+      }
+    ]
+  },
+  {
+    "id": "section-7",
+    "title": "7. Acceptance of this Privacy Policy",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "By creating an account, accessing our Services, uploading content, participating in competitions, using AI-powered tools, communicating with other users, or otherwise interacting with Ckript, you acknowledge that:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ You have read this Privacy Policy.",
+          "​ You understand how your information is collected and processed.",
+          "​ You consent to the practices described in this Privacy Policy where consent is the"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "applicable legal basis."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ You agree to comply with this Privacy Policy and related platform policies."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "If you are accessing the Services on behalf of a company, organization, institution, or other legal entity, you represent and warrant that you have authority to bind that entity to this Privacy Policy."
+      }
+    ]
+  },
+  {
+    "id": "section-8",
+    "title": "8. Changes to this Privacy Policy",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "As Ckript grows, introduces new features, expands internationally, or responds to changes in technology or applicable law, we may update this Privacy Policy."
+      },
+      {
+        "type": "paragraph",
+        "text": "When material changes are made, we may:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Update the \"Last Updated\" date.",
+          "​ Publish the revised Privacy Policy on our website.",
+          "​ Notify users through email, in-app notifications, or other appropriate communication"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "channels where required."
+      },
+      {
+        "type": "paragraph",
+        "text": "Continued use of the Services after the effective date of an updated Privacy Policy constitutes acceptance of the revised Privacy Policy, except where applicable law requires additional consent."
+      }
+    ]
+  },
+  {
+    "id": "section-9",
+    "title": "9. Information We Collect",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "To provide, improve, secure, and operate the Services, Ckript collects different categories of information depending on how you interact with the platform."
+      },
+      {
+        "type": "paragraph",
+        "text": "The information we collect generally falls into the following categories:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Information you provide directly.",
+          "​ Information collected automatically.",
+          "​ Information received from third parties.",
+          "​ Information generated through your use of AI-powered features.",
+          "​ Information relating to creative works uploaded to the platform."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We only collect information that is reasonably necessary for legitimate business purposes, legal compliance, platform security, fraud prevention, or improving the user experience."
+      }
+    ]
+  },
+  {
+    "id": "section-10",
+    "title": "10. Information You Provide",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "When creating an account or using the Services, you may voluntarily provide information including, but not limited to:"
+      },
+      {
+        "type": "paragraph",
+        "text": "10.1 Account Information"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Full name",
+          "​ Username",
+          "​ Display name",
+          "​ Email address",
+          "​ Mobile number",
+          "​ Password (stored securely in encrypted or hashed form)",
+          "​ Profile photograph",
+          "​ Date of birth (where required)",
+          "​ Country",
+          "​ State",
+          "​ City",
+          "​ Language preferences",
+          "​ Time zone"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Some information may be mandatory for account creation, while other fields remain optional."
+      },
+      {
+        "type": "paragraph",
+        "text": "10.2 Professional Information Depending on your account type, you may also provide:"
+      },
+      {
+        "type": "paragraph",
+        "text": "For Creators"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Biography",
+          "​ Experience",
+          "​ Writing genres",
+          "​ Skills",
+          "​ Awards",
+          "​ Portfolio",
+          "​ Published works",
+          "​ Website",
+          "​ Social media profiles",
+          "​ Professional achievements",
+          "​ Educational background",
+          "​ Resume or CV (where applicable)"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "For Producers and Industry Professionals"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Company name",
+          "​ Studio",
+          "​ Production house",
+          "​ Publisher",
+          "​ Organization",
+          "​ Designation",
+          "​ Company website",
+          "​ Business email",
+          "​ Company social media",
+          "​ Business verification documents",
+          "​ Areas of interest",
+          "​ Preferred genres",
+          "​ Production interests"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Providing certain professional information may be necessary for account verification or participation in specific platform features."
+      }
+    ]
+  },
+  {
+    "id": "section-11",
+    "title": "11. Creative Works You Upload",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "One of Ckript's core purposes is enabling creators to showcase their creative work."
+      },
+      {
+        "type": "paragraph",
+        "text": "Accordingly, users may upload various forms of intellectual property, including:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Screenplays",
+          "​ Scripts",
+          "​ Manuscripts",
+          "​ Books",
+          "​ Novels",
+          "​ Short stories",
+          "​ Poems",
+          "​ Dialogues",
+          "​ Treatments",
+          "​ Synopses",
+          "​ Loglines",
+          "​ Story concepts",
+          "​ Character descriptions",
+          "​ Pitch decks",
+          "​ Storyboards",
+          "​ Images",
+          "​ Audio",
+          "​ Videos",
+          "​ AI-generated assets",
+          "​ Attachments",
+          "​ Supporting documents"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "This content may also include metadata such as:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Genre",
+          "​ Language",
+          "​ Submission date",
+          "​ Version history",
+          "​ Word count",
+          "​ Page count",
+          "​ Tags",
+          "​ Categories",
+          "​ Visibility settings"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Creators remain responsible for the information they choose to upload."
+      }
+    ]
+  },
+  {
+    "id": "section-12",
+    "title": "12. AI Interaction Data",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "When using AI-powered features offered by Ckript, we may process information necessary to deliver the requested functionality."
+      },
+      {
+        "type": "paragraph",
+        "text": "This may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Script analysis requests",
+          "​ AI prompts",
+          "​ AI-generated summaries",
+          "​ Story recommendations",
+          "​ Character analysis",
+          "​ Genre analysis",
+          "​ AI trailer generation requests",
+          "​ User feedback regarding AI outputs",
+          "​ Feature usage data"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "AI processing is performed solely for providing requested Services, improving platform functionality, enhancing user experience, maintaining security, or other purposes described in this Privacy Policy."
+      },
+      {
+        "type": "paragraph",
+        "text": "Unless otherwise disclosed or permitted by applicable law, private creative works are not intentionally used to train proprietary AI models without an appropriate legal basis, such as your explicit consent."
+      }
+    ]
+  },
+  {
+    "id": "section-13",
+    "title": "13. Communications",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "When communicating with Ckript, we may collect:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Customer support requests",
+          "​ Emails",
+          "​ Chat messages",
+          "​ Feedback",
+          "​ Surveys",
+          "​ Bug reports",
+          "​ Feature requests",
+          "​ Complaint information",
+          "​ Competition communications",
+          "​ Meeting requests",
+          "​ Event registrations"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We may maintain records of communications for customer support, quality assurance, security, dispute resolution, and legal compliance."
+      }
+    ]
+  },
+  {
+    "id": "section-14",
+    "title": "14. Payment Information",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Where premium features, subscriptions, competitions, or marketplace services require payment, payment-related information may be collected."
+      },
+      {
+        "type": "paragraph",
+        "text": "Depending on the payment provider, this may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Billing name",
+          "​ Billing address",
+          "​ GST information (where applicable)",
+          "​ Payment reference",
+          "​ Transaction identifiers",
+          "​ Invoice information",
+          "​ Subscription details"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Sensitive payment credentials, such as complete payment card numbers, are generally processed directly by authorized payment processors and are not stored by Ckript unless required for lawful operational purposes."
+      },
+      {
+        "type": "paragraph",
+        "text": "14.1 Refund Policy Where users purchase premium subscriptions, competition registrations, marketplace services, or any other paid offerings through Ckript, refunds, cancellations, credits, and payment-related disputes shall be governed by the Ckript Refund Policy, which forms part of our platform policies."
+      },
+      {
+        "type": "paragraph",
+        "text": "The Refund Policy describes, among other things:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Eligible and non-eligible refunds.",
+          "​ Subscription cancellation procedures.",
+          "​ Competition and event fee refund rules.",
+          "​ Refund timelines.",
+          "​ Payment dispute resolution.",
+          "​ Applicable taxes, processing fees, or deductions.",
+          "​ Exceptional circumstances under which refunds may be granted."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Processing payment information for refund requests may require us to use and share certain billing or transaction information with authorized payment processors and financial service providers solely for the purpose of verifying transactions, processing refunds, preventing fraud, complying with applicable laws, and maintaining accurate financial records."
+      },
+      {
+        "type": "paragraph",
+        "text": "Please refer to the Ckript Refund Policy for complete details regarding refunds, cancellations, and payment-related terms."
+      }
+    ]
+  },
+  {
+    "id": "section-15",
+    "title": "15. Competition Information",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "When participating in competitions, challenges, hackathons, fellowships, grants, or similar programs (including the Global Script Challenge), users may provide additional information such as:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Submission details",
+          "​ Creative work",
+          "​ Team information",
+          "​ Judging materials",
+          "​ Profile information",
+          "​ Portfolio links",
+          "​ Pitch videos",
+          "​ Supporting documentation",
+          "​ Identity verification documents (where required)",
+          "​ Prize distribution information"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Such information is processed for administering the competition, evaluating submissions, communicating with participants, and fulfilling legal or operational obligations."
+      }
+    ]
+  },
+  {
+    "id": "section-16",
+    "title": "16. Contact Information Shared",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Through the Platform Creators may choose to make certain professional information available through their public or limited-visibility profiles."
+      },
+      {
+        "type": "paragraph",
+        "text": "Subject to the creator's privacy settings and applicable platform features, verified industry professionals may be able to view information such as:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Professional email address",
+          "​ Contact number",
+          "​ Website",
+          "​ Portfolio links",
+          "​ LinkedIn profile",
+          "​ Instagram profile",
+          "​ X (Twitter) profile",
+          "​ IMDb profile",
+          "​ Other professional social media profiles"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Users remain responsible for determining which information they choose to make available."
+      },
+      {
+        "type": "paragraph",
+        "text": "16.1 Producer Connections and Meeting Requests To facilitate professional networking and collaboration, Ckript may provide verified producers, studios, publishers, directors, literary agents, and other authorized industry professionals with tools to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Request meetings",
+          "​ Send collaboration requests",
+          "​ Schedule discussions",
+          "​ Initiate communication",
+          "​ Express interest in creative works"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Meeting invitations, scheduling requests, or contact requests facilitated by Ckript do not obligate either party to proceed with negotiations or enter into any commercial agreement."
+      },
+      {
+        "type": "paragraph",
+        "text": "Participation in such interactions remains entirely voluntary."
+      }
+    ]
+  },
+  {
+    "id": "section-17",
+    "title": "17. Location Information",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Certain features of Ckript may require access to your device's location."
+      },
+      {
+        "type": "paragraph",
+        "text": "With your permission, we may collect:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Approximate location",
+          "​ Precise GPS location",
+          "​ Country",
+          "​ State",
+          "​ City",
+          "​ Regional preferences"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Location information may be used to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Personalize your experience.",
+          "​ Display region-specific opportunities.",
+          "​ Recommend nearby events or competitions.",
+          "​ Improve content recommendations.",
+          "​ Detect suspicious login activity.",
+          "​ Enhance platform security.",
+          "​ Comply with applicable legal obligations."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "You may disable location permissions through your device or browser settings at any time."
+      },
+      {
+        "type": "paragraph",
+        "text": "Certain location-based features may become unavailable if permission is denied."
+      }
+    ]
+  },
+  {
+    "id": "section-18",
+    "title": "18. Information Collected",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Automatically When you access the Services, certain technical information may be collected automatically."
+      },
+      {
+        "type": "paragraph",
+        "text": "This may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ IP address",
+          "​ Browser type",
+          "​ Operating system",
+          "​ Device model",
+          "​ Device identifiers",
+          "​ Language settings",
+          "​ Time zone",
+          "​ Referring website",
+          "​ Session duration",
+          "​ Pages visited",
+          "​ Clickstream data",
+          "​ Search queries",
+          "​ Crash reports",
+          "​ Error logs",
+          "​ Network information",
+          "​ Performance metrics"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "This information helps us maintain security, diagnose technical issues, improve performance, and enhance user experience."
+      }
+    ]
+  },
+  {
+    "id": "section-19",
+    "title": "19. Cookies and Similar Technologies",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript uses cookies, pixels, local storage, SDKs, and similar technologies to operate, secure, and improve the Services."
+      },
+      {
+        "type": "paragraph",
+        "text": "These technologies may be used to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Keep users signed in.",
+          "​ Remember user preferences.",
+          "​ Maintain session security.",
+          "​ Analyze platform usage.",
+          "​ Improve performance.",
+          "​ Detect fraud.",
+          "​ Personalize user experiences.",
+          "​ Measure feature adoption.",
+          "​ Support platform analytics."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Cookies may be categorized as:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Essential Cookies",
+          "​ Functional Cookies",
+          "​ Analytics Cookies",
+          "​ Performance Cookies",
+          "​ Preference Cookies",
+          "​ Security Cookies"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "You may manage cookie preferences through your browser settings. However, disabling certain cookies may affect the availability or functionality of some Services."
+      }
+    ]
+  },
+  {
+    "id": "section-20",
+    "title": "20. Information Received from Third",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Parties We may receive information from third parties, including:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Authentication providers (e.g., Google Sign-In)",
+          "​ Payment processors",
+          "​ Business partners",
+          "​ Competition organizers",
+          "​ Publicly available sources",
+          "​ Verification service providers",
+          "​ Referral programs",
+          "​ Marketing partners",
+          "​ Security providers"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "The information received depends on the permissions granted by you and the services you choose to use."
+      }
+    ]
+  },
+  {
+    "id": "section-21",
+    "title": "21. Information We Do Not",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Intentionally Collect Unless specifically required for a particular Service or permitted by law, Ckript does not intentionally collect:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Government-issued identification documents (except where necessary for verification"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "or legal compliance)"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Biometric identifiers",
+          "​ Health records",
+          "​ Financial account credentials",
+          "​ Sensitive personal information unrelated to the Services"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "If such information is submitted inadvertently, users should contact us so appropriate action may be taken."
+      }
+    ]
+  },
+  {
+    "id": "section-22",
+    "title": "22. Our Creator-First Philosophy",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript is built on a simple principle:"
+      },
+      {
+        "type": "paragraph",
+        "text": "Creators own their stories."
+      },
+      {
+        "type": "paragraph",
+        "text": "We recognize that every screenplay, script, manuscript, novel, book, story, treatment, concept, pitch deck, or other creative work uploaded to Ckript may represent significant creative effort and commercial value."
+      },
+      {
+        "type": "paragraph",
+        "text": "Accordingly, we design our Services to help creators securely showcase their work, connect with verified industry professionals, and explore opportunities while respecting their ownership and privacy."
+      },
+      {
+        "type": "paragraph",
+        "text": "Nothing in this Privacy Policy transfers ownership of a creator's original work to Ckript."
+      }
+    ]
+  },
+  {
+    "id": "section-23",
+    "title": "23. Ownership of Creative Works",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Unless expressly agreed otherwise in a separate written agreement:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ You retain all ownership rights in your original creative works.",
+          "​ Uploading content to Ckript does not transfer copyright or intellectual property"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "ownership to Ckript."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Ckript does not become the author, owner, assignee, publisher, or copyright holder of"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "your work merely because it is uploaded to the platform."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ You may remove eligible content from the platform in accordance with our policies,"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "subject to legal, contractual, competition, backup, or operational requirements."
+      },
+      {
+        "type": "paragraph",
+        "text": "Nothing in this Privacy Policy shall be interpreted as assigning your copyright or other intellectual property rights to Ckript."
+      }
+    ]
+  },
+  {
+    "id": "section-24",
+    "title": "24. Limited License to Operate the",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Platform By uploading content to Ckript, you grant us a limited, non-exclusive, revocable (where applicable), worldwide, royalty-free license to host, store, process, reproduce, display, transmit, and otherwise use your content solely for the purpose of operating, securing, maintaining, improving, and providing the Services you request."
+      },
+      {
+        "type": "paragraph",
+        "text": "This license includes activities reasonably necessary to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Store uploaded files.",
+          "​ Display your work according to your chosen visibility settings.",
+          "​ Generate AI-powered analysis or trailers when requested.",
+          "​ Enable search and discovery features.",
+          "​ Conduct moderation and quality assurance.",
+          "​ Administer competitions.",
+          "​ Maintain backups.",
+          "​ Prevent fraud and misuse.",
+          "​ Comply with applicable law."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "This license does not transfer ownership of your work to Ckript."
+      }
+    ]
+  },
+  {
+    "id": "section-25",
+    "title": "25. Visibility of Your Creative Works",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Creators control how their works are made available through the platform, subject to the features offered by Ckript."
+      },
+      {
+        "type": "paragraph",
+        "text": "Depending on your chosen settings and subscription tier, creative works may be:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Private",
+          "​ Shared only with authorized Ckript personnel for operational purposes",
+          "​ Shared with designated Professional Readers for evaluation",
+          "​ Discoverable by verified industry professionals",
+          "​ Publicly listed where you expressly choose to publish them"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We will not intentionally make private works publicly available without your instruction or another lawful basis."
+      }
+    ]
+  },
+  {
+    "id": "section-26",
+    "title": "26. Internal Access to Creative Works",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Access to unpublished scripts, manuscripts, stories, and other private creative works is strictly restricted."
+      },
+      {
+        "type": "paragraph",
+        "text": "Only authorized personnel who require access to perform legitimate platform functions may view unpublished submissions."
+      },
+      {
+        "type": "paragraph",
+        "text": "Such personnel may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Authorized Ckript Administrators",
+          "​ Approved Professional Readers",
+          "​ Content Moderation Team",
+          "​ Quality Assurance Team",
+          "​ Technical Support personnel (where operationally necessary)"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Access is granted solely on a need-to-know basis and only for legitimate purposes such as:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Content approval",
+          "​ AI quality assurance",
+          "​ Script evaluation",
+          "​ Competition judging",
+          "​ Score generation",
+          "​ Technical troubleshooting",
+          "​ Platform moderation",
+          "​ Security investigations"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "No employee, contractor, reviewer, or administrator is permitted to access unpublished creative works for personal use or commercial exploitation."
+      }
+    ]
+  },
+  {
+    "id": "section-27",
+    "title": "27. Confidentiality Obligations",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Protecting unpublished creative works is a core responsibility of Ckript."
+      },
+      {
+        "type": "paragraph",
+        "text": "All authorized personnel who are permitted to access unpublished creative works are required to comply with strict confidentiality obligations."
+      },
+      {
+        "type": "paragraph",
+        "text": "Where appropriate, administrators, Professional Readers, contractors, judges, moderators, and other authorized personnel may be required to execute legally binding:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Non-Disclosure Agreements (NDAs)",
+          "​ Confidentiality Agreements",
+          "​ Contractor Confidentiality Clauses",
+          "​ Data Protection Obligations",
+          "​ Intellectual Property Protection Commitments"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Unauthorized disclosure, copying, downloading, distribution, commercial use, or misuse of creators' works is strictly prohibited and may result in disciplinary action, termination of engagement, legal proceedings, or other appropriate remedies."
+      }
+    ]
+  },
+  {
+    "id": "section-28",
+    "title": "28. AI Review and Professional",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Evaluation Where creators choose to use AI-powered evaluation features, Ckript may process submitted creative works to provide services such as:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Script scoring",
+          "​ Story structure analysis",
+          "​ Character evaluation",
+          "​ Dialogue analysis",
+          "​ Genre identification",
+          "​ Pacing analysis",
+          "​ Market-readiness insights",
+          "​ Commercial recommendations",
+          "​ AI-generated trailers",
+          "​ Personalized recommendations"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "In addition, designated Professional Readers may review submissions to provide editorial assessments, quality evaluations, moderation decisions, or competition scoring."
+      },
+      {
+        "type": "paragraph",
+        "text": "Such evaluations are intended to assist creators and do not constitute professional, legal, financial, publishing, or production advice."
+      }
+    ]
+  },
+  {
+    "id": "section-29",
+    "title": "29. Watermarked Preview Protection",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "To discourage unauthorized copying, recording, distribution, or misuse of creative works, Ckript may automatically apply security measures to materials displayed through the platform."
+      },
+      {
+        "type": "paragraph",
+        "text": "These measures may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Visible watermarks",
+          "​ Invisible watermarks",
+          "​ Digital fingerprints",
+          "​ Viewer identifiers",
+          "​ User identifiers",
+          "​ Account identifiers",
+          "​ Device identifiers (where appropriate)",
+          "​ Session identifiers",
+          "​ Access timestamps",
+          "​ Dynamic overlays",
+          "​ Other security markings"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "These protections may be applied to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Scripts",
+          "​ Screenplays",
+          "​ Story previews",
+          "​ Manuscripts",
+          "​ Books",
+          "​ Excerpts",
+          "​ AI-generated trailers",
+          "​ Images",
+          "​ PDFs",
+          "​ Other preview materials"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "The presence or absence of such security measures does not affect ownership of the underlying work."
+      }
+    ]
+  },
+  {
+    "id": "section-30",
+    "title": "30. Producer Discovery and Creator",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Connections One of Ckript's primary purposes is facilitating meaningful connections between creators and verified industry professionals."
+      },
+      {
+        "type": "paragraph",
+        "text": "Subject to creators' privacy settings and applicable platform features, verified producers, studios, publishers, literary agents, OTT platforms, directors, or other authorized professionals may be able to view:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Creator profiles",
+          "​ Portfolio information",
+          "​ Selected creative works",
+          "​ Professional biography",
+          "​ Genres",
+          "​ Skills",
+          "​ Professional email address",
+          "​ Contact number",
+          "​ Website",
+          "​ Social media links",
+          "​ Public achievements"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Creators retain control over which information is made publicly available through the settings provided by the platform."
+      }
+    ]
+  },
+  {
+    "id": "section-31",
+    "title": "31. Meeting Scheduling and",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Communication Ckript may provide tools that allow verified creators and verified industry professionals to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Request meetings",
+          "​ Schedule discussions",
+          "​ Exchange collaboration requests",
+          "​ Express interest in projects",
+          "​ Initiate communication",
+          "​ Arrange interviews",
+          "​ Coordinate virtual or in-person meetings"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript acts solely as a facilitator of these interactions."
+      },
+      {
+        "type": "paragraph",
+        "text": "Participation in any meeting, discussion, negotiation, or collaboration remains entirely voluntary."
+      }
+    ]
+  },
+  {
+    "id": "section-32",
+    "title": "32. Role of Ckript in Commercial",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Transactions Ckript is a technology platform designed to facilitate discovery, networking, introductions, and communication between creators and industry professionals."
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript does not independently buy, sell, license, acquire, broker, assign, or transfer ownership of creative works unless expressly stated in a separate written agreement."
+      },
+      {
+        "type": "paragraph",
+        "text": "Unless otherwise agreed in writing:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Ckript is not the purchaser of your script.",
+          "​ Ckript is not the seller of your script.",
+          "​ Ckript is not a literary agent or talent representative.",
+          "​ Ckript is not a party to negotiations between creators and producers.",
+          "​ Ckript does not negotiate commercial terms on behalf of creators."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "If a producer, publisher, studio, or other industry professional wishes to acquire, option, license, purchase, commission, or otherwise commercially exploit a creator's work, any resulting agreement is entered into directly between those parties unless Ckript expressly participates under a separate written contract."
+      }
+    ]
+  },
+  {
+    "id": "section-33",
+    "title": "33. Responsibility for Uploaded",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Content Ckript does not independently verify:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Ownership",
+          "​ Originality",
+          "​ Copyright status",
+          "​ Licensing rights",
+          "​ Chain of title",
+          "​ Legal authority"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "for every creative work uploaded to the platform."
+      },
+      {
+        "type": "paragraph",
+        "text": "Users are solely responsible for ensuring that they possess all necessary rights, permissions, licenses, and legal authority before uploading, publishing, or sharing any content through the Services."
+      },
+      {
+        "type": "paragraph",
+        "text": "Uploading content that infringes the rights of another person or entity may result in content removal, account suspension, or other actions under our policies."
+      }
+    ]
+  },
+  {
+    "id": "section-34",
+    "title": "34. Copyright Registration Disclaimer",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Uploading a screenplay, manuscript, script, story, novel, book, treatment, pitch, or other creative work to Ckript does not constitute copyright registration."
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript is not a governmental copyright office, intellectual property registry, or legal authority responsible for registering copyrights."
+      },
+      {
+        "type": "paragraph",
+        "text": "Creators are encouraged to register eligible works with the appropriate governmental authority or recognized copyright office if they wish to obtain the legal benefits associated with formal copyright registration."
+      }
+    ]
+  },
+  {
+    "id": "section-35",
+    "title": "35. Confidentiality Limitations",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "While Ckript implements commercially reasonable technical, organizational, and contractual safeguards to protect unpublished creative works, no internet-based platform can guarantee absolute confidentiality or absolute security."
+      },
+      {
+        "type": "paragraph",
+        "text": "Creators handling particularly sensitive or commercially valuable projects should consider using additional legal protections, including separate Non-Disclosure Agreements (NDAs), before sharing confidential information with third parties."
+      }
+    ]
+  },
+  {
+    "id": "section-36",
+    "title": "36. How We Use Your Information",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "We process personal information only where we have a legitimate purpose or another lawful basis under applicable law."
+      },
+      {
+        "type": "paragraph",
+        "text": "Depending on your interaction with the Services, we may use your information to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Create and manage your account.",
+          "​ Verify your identity where required.",
+          "​ Provide and maintain the Services.",
+          "​ Host and display your creative works according to your selected privacy settings.",
+          "​ Enable AI-powered analysis, recommendations, scoring, and trailer generation.",
+          "​ Facilitate communication between creators and verified industry professionals.",
+          "​ Schedule meetings and collaboration requests.",
+          "​ Process competition submissions.",
+          "​ Personalize user experiences.",
+          "​ Recommend relevant opportunities, creators, producers, publishers, or content.",
+          "​ Improve search and discovery.",
+          "​ Improve AI models and platform features where permitted by applicable law and"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "consistent with this Privacy Policy."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Detect fraud, abuse, and unauthorized activity.",
+          "​ Protect creators' intellectual property.",
+          "​ Maintain platform security.",
+          "​ Respond to customer support requests.",
+          "​ Comply with legal obligations.",
+          "​ Enforce our Terms & Conditions and other platform policies."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not use personal information for purposes materially different from those described in this Privacy Policy without providing notice or obtaining consent where required by law."
+      }
+    ]
+  },
+  {
+    "id": "section-37",
+    "title": "37. Cookies and Similar Technologies",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript uses cookies and similar technologies to provide, secure, and improve the Services."
+      },
+      {
+        "type": "paragraph",
+        "text": "These technologies may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Browser cookies",
+          "​ Session cookies",
+          "​ Persistent cookies",
+          "​ Local storage",
+          "​ IndexedDB",
+          "​ Pixels",
+          "​ Web beacons",
+          "​ Software Development Kits (SDKs)",
+          "​ Device identifiers",
+          "​ Similar tracking technologies"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "These technologies help us recognize your device, remember your preferences, maintain security, and improve the overall user experience."
+      },
+      {
+        "type": "paragraph",
+        "text": "37.1 Essential Cookies Essential cookies are required for the operation of the platform and cannot generally be disabled without affecting functionality."
+      },
+      {
+        "type": "paragraph",
+        "text": "These cookies may be used for:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ User authentication",
+          "​ Login sessions",
+          "​ Security verification",
+          "​ Fraud prevention",
+          "​ Session management",
+          "​ Load balancing",
+          "​ Account protection",
+          "​ Platform stability"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "37.2 Functional Cookies Functional cookies remember user preferences to improve convenience."
+      },
+      {
+        "type": "paragraph",
+        "text": "Examples include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Language preferences",
+          "​ Theme selection (Light/Dark Mode)",
+          "​ Dashboard preferences",
+          "​ Accessibility settings",
+          "​ Recently viewed content",
+          "​ Personalized recommendations"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "37.3 Analytics Cookies Analytics cookies help us understand how users interact with the Services."
+      },
+      {
+        "type": "paragraph",
+        "text": "They may collect information regarding:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Pages visited",
+          "​ Navigation flow",
+          "​ Feature usage",
+          "​ Session duration",
+          "​ Device type",
+          "​ Browser type",
+          "​ Platform performance",
+          "​ User engagement"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Analytics data is generally aggregated or pseudonymized wherever reasonably practicable."
+      },
+      {
+        "type": "paragraph",
+        "text": "37.4 Performance Cookies Performance cookies help us:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Improve loading speed",
+          "​ Identify technical issues",
+          "​ Monitor API performance",
+          "​ Improve scalability",
+          "​ Optimize infrastructure",
+          "​ Detect system failures"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "37.5 Security Cookies Security cookies help protect the platform by:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Detecting suspicious activity",
+          "​ Preventing unauthorized access",
+          "​ Preventing automated abuse",
+          "​ Supporting fraud detection",
+          "​ Identifying compromised sessions"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "37.6 Managing Cookies Most web browsers allow users to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Delete cookies",
+          "​ Block cookies",
+          "​ Receive cookie notifications",
+          "​ Manage site permissions"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Disabling certain cookies may reduce functionality or prevent portions of the Services from operating correctly."
+      }
+    ]
+  },
+  {
+    "id": "section-38",
+    "title": "38. Location Services",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Certain features of Ckript may require access to your device's location."
+      },
+      {
+        "type": "paragraph",
+        "text": "With your permission, we may collect:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Approximate location",
+          "​ Precise GPS location (where authorized)",
+          "​ Country",
+          "​ State or Province",
+          "​ City",
+          "​ Regional information",
+          "​ Time zone"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Location information may be used to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Personalize your experience.",
+          "​ Recommend nearby events, competitions, workshops, or networking opportunities.",
+          "​ Display region-specific content and opportunities.",
+          "​ Improve creator and industry professional discovery.",
+          "​ Enhance account security by detecting unusual login activity.",
+          "​ Prevent fraud and unauthorized access.",
+          "​ Comply with applicable legal obligations."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Location access is entirely optional unless required for a specific feature. You may disable location permissions at any time through your device or browser settings. Certain location-dependent features may become unavailable if permission is withdrawn."
+      }
+    ]
+  },
+  {
+    "id": "section-39",
+    "title": "39. Third-Party Services",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "To operate the Services efficiently, Ckript works with trusted third-party service providers."
+      },
+      {
+        "type": "paragraph",
+        "text": "These providers perform services on our behalf and may process personal information only as necessary to deliver those services."
+      },
+      {
+        "type": "paragraph",
+        "text": "Depending on the Services you use, these providers may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Cloud hosting providers",
+          "​ Database providers",
+          "​ Authentication providers",
+          "​ AI service providers",
+          "​ Payment processors",
+          "​ Email delivery providers",
+          "​ Customer support providers",
+          "​ Analytics providers",
+          "​ Content Delivery Networks (CDNs)",
+          "​ Security providers",
+          "​ Monitoring and logging providers",
+          "​ Communication service providers"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "The specific providers used by Ckript may change over time as our infrastructure evolves."
+      },
+      {
+        "type": "paragraph",
+        "text": "39.1 Authentication Providers You may choose to register or sign in using supported authentication providers, such as Google Sign-In."
+      },
+      {
+        "type": "paragraph",
+        "text": "When you authenticate through a third-party provider, we may receive information such as:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Name",
+          "​ Email address",
+          "​ Profile photograph",
+          "​ Account identifier",
+          "​ Language preference"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "The information we receive depends on the permissions you grant to the authentication provider."
+      },
+      {
+        "type": "paragraph",
+        "text": "39.2 AI Service Providers Certain AI-powered features may rely on trusted third-party AI infrastructure to process user requests."
+      },
+      {
+        "type": "paragraph",
+        "text": "Examples include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Script analysis",
+          "​ Story evaluation",
+          "​ Character analysis",
+          "​ Dialogue review",
+          "​ AI-generated trailers",
+          "​ Recommendations",
+          "​ Language processing"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Where third-party AI providers process user content on our behalf, we seek to ensure that:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Processing is limited to providing the requested functionality.",
+          "​ Appropriate contractual and security protections are maintained.",
+          "​ User content is handled in accordance with this Privacy Policy."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not intentionally use private creative works to train proprietary AI models without an appropriate legal basis, such as your explicit consent."
+      },
+      {
+        "type": "paragraph",
+        "text": "39.3 Cloud Storage Providers Creative works uploaded to Ckript may be securely stored using cloud infrastructure."
+      },
+      {
+        "type": "paragraph",
+        "text": "This may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Scripts",
+          "​ Manuscripts",
+          "​ Images",
+          "​ Videos",
+          "​ Audio",
+          "​ Documents",
+          "​ Attachments",
+          "​ AI-generated assets"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "We implement commercially reasonable safeguards to protect stored information from unauthorized access."
+      },
+      {
+        "type": "paragraph",
+        "text": "39.4 Payment Providers Premium subscriptions, competition fees, or other paid services may be processed through authorized third-party payment providers."
+      },
+      {
+        "type": "paragraph",
+        "text": "Payment providers may process:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Billing information",
+          "​ Transaction identifiers",
+          "​ Payment confirmations",
+          "​ Refund information",
+          "​ Tax information where applicable"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript generally does not store complete payment card details."
+      },
+      {
+        "type": "paragraph",
+        "text": "39.5 Email and Communication Providers We may use trusted communication providers to send:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Account verification emails",
+          "​ Password reset emails",
+          "​ Security alerts",
+          "​ Platform notifications",
+          "​ Competition updates",
+          "​ Meeting invitations",
+          "​ Subscription notices",
+          "​ Product announcements",
+          "​ Customer support communications"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-40",
+    "title": "40. How We Share Information",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "We do not sell your personal information to advertisers or unrelated third parties."
+      },
+      {
+        "type": "paragraph",
+        "text": "We may share information only in the circumstances described below."
+      },
+      {
+        "type": "paragraph",
+        "text": "40.1 With Your Consent We may share information where you expressly request or authorize us to do so."
+      },
+      {
+        "type": "paragraph",
+        "text": "Examples include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Sharing public creator profiles.",
+          "​ Displaying portfolio information.",
+          "​ Sharing selected contact information with verified industry professionals according to"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "your privacy settings."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Facilitating collaboration requests.",
+          "​ Scheduling meetings.",
+          "​ Exporting your account data."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "40.2 With Service Providers We may share information with trusted service providers that assist us in operating the platform, including providers responsible for:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Hosting",
+          "​ Cloud infrastructure",
+          "​ Authentication",
+          "​ Payments",
+          "​ Customer support",
+          "​ AI processing",
+          "​ Analytics",
+          "​ Email delivery",
+          "​ Security monitoring",
+          "​ Infrastructure management"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "These providers are contractually expected to use your information only for providing services to Ckript and not for unrelated purposes."
+      },
+      {
+        "type": "paragraph",
+        "text": "40.3 With Verified Industry Professionals Subject to your account settings and the features you choose to use, verified producers, publishers, studios, literary agents, directors, OTT platforms, or other authorized industry professionals may be able to view certain information that you intentionally make available, including:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Public profile information",
+          "​ Portfolio details",
+          "​ Professional biography",
+          "​ Selected creative works",
+          "​ Contact information",
+          "​ Professional social media links",
+          "​ Meeting availability",
+          "​ Collaboration preferences"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Creators remain responsible for managing the visibility of the information they choose to share through the platform."
+      },
+      {
+        "type": "paragraph",
+        "text": "40.4 Legal Compliance We may disclose information where necessary to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Comply with applicable laws or regulations.",
+          "​ Respond to lawful requests from courts, regulators, or government authorities.",
+          "​ Protect the rights, safety, and security of Ckript, our users, or the public.",
+          "​ Investigate fraud, abuse, security incidents, or violations of our policies.",
+          "​ Enforce our legal rights and agreements."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Where legally permitted, we may notify affected users before making such disclosures."
+      },
+      {
+        "type": "paragraph",
+        "text": "40.5 Business Transfers If Ckript undergoes a merger, acquisition, investment, restructuring, sale of assets, or similar corporate transaction, user information may be transferred as part of that transaction, subject to applicable legal requirements and appropriate confidentiality obligations."
+      },
+      {
+        "type": "paragraph",
+        "text": "40.6 Public Information Information that you intentionally choose to make public, such as public profiles, portfolio descriptions, achievements, or publicly listed creative works, may be visible to other users and visitors in accordance with your chosen privacy settings."
+      }
+    ]
+  },
+  {
+    "id": "section-41",
+    "title": "41. Security of Your Information",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Protecting the privacy of our users and the confidentiality of their creative works is a fundamental part of Ckript's platform design."
+      },
+      {
+        "type": "paragraph",
+        "text": "We implement commercially reasonable administrative, technical, physical, and organizational safeguards designed to protect personal information and uploaded creative works against unauthorized access, disclosure, alteration, loss, misuse, destruction, or other unlawful processing."
+      },
+      {
+        "type": "paragraph",
+        "text": "While we strive to maintain a high level of security, no internet-based platform or electronic storage system can guarantee absolute security."
+      }
+    ]
+  },
+  {
+    "id": "section-42",
+    "title": "42. Security Measures",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Depending on the nature of the Services and applicable operational requirements, Ckript may implement security measures including:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Encryption of data in transit using HTTPS/TLS.",
+          "​ Encryption of sensitive information at rest where appropriate.",
+          "​ Secure cloud infrastructure.",
+          "​ Firewalls and network segmentation.",
+          "​ Access control policies.",
+          "​ Multi-factor authentication for privileged administrative accounts where appropriate.",
+          "​ Continuous security monitoring.",
+          "​ Malware detection.",
+          "​ Intrusion detection and prevention systems.",
+          "​ Security logging.",
+          "​ Backup and disaster recovery procedures.",
+          "​ Infrastructure redundancy.",
+          "​ Periodic software updates and security patches.",
+          "​ Vulnerability assessments.",
+          "​ Role-based access control.",
+          "​ Least-privilege access principles."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Security practices may evolve over time as technology and industry standards develop."
+      }
+    ]
+  },
+  {
+    "id": "section-43",
+    "title": "43. Protection of Creative Works",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Because Ckript is designed for writers, storytellers, authors, and other creators, we implement additional safeguards intended to protect unpublished creative works."
+      },
+      {
+        "type": "paragraph",
+        "text": "These safeguards may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Restricted access controls.",
+          "​ Visibility settings selected by creators.",
+          "​ Watermarked previews.",
+          "​ Secure document storage.",
+          "​ Controlled preview environments.",
+          "​ Activity logging.",
+          "​ Access monitoring.",
+          "​ Confidentiality obligations for authorized personnel.",
+          "​ Platform moderation.",
+          "​ Intellectual property protection mechanisms."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "These measures are intended to reduce the risk of unauthorized access or misuse but do not constitute a guarantee against all possible security incidents."
+      }
+    ]
+  },
+  {
+    "id": "section-44",
+    "title": "44. Internal Access Controls",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Access to personal information and unpublished creative works is granted only where reasonably necessary for legitimate operational purposes."
+      },
+      {
+        "type": "paragraph",
+        "text": "We follow the principle of least privilege, meaning that authorized personnel receive only the minimum level of access required to perform their responsibilities."
+      },
+      {
+        "type": "paragraph",
+        "text": "Access may be limited based on:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Job responsibilities.",
+          "​ Operational necessity.",
+          "​ Departmental role.",
+          "​ Security clearance.",
+          "​ Technical authorization.",
+          "​ Platform permissions."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Access permissions may be modified or revoked at any time based on operational, legal, or security requirements."
+      }
+    ]
+  },
+  {
+    "id": "section-45",
+    "title": "45. Audit Logs and Monitoring",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "To help maintain platform integrity and investigate potential security incidents, Ckript may maintain logs relating to access and activity within the Services."
+      },
+      {
+        "type": "paragraph",
+        "text": "These logs may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Login history.",
+          "​ Device information.",
+          "​ IP addresses.",
+          "​ Access timestamps.",
+          "​ Administrative actions.",
+          "​ Script access events.",
+          "​ File uploads and downloads.",
+          "​ Account changes.",
+          "​ Security events.",
+          "​ API requests."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Audit logs may be used for:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Security investigations.",
+          "​ Fraud detection.",
+          "​ Troubleshooting.",
+          "​ Compliance.",
+          "​ Platform reliability.",
+          "​ Incident response."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-46",
+    "title": "46. Confidentiality of Personnel",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Employees, contractors, Professional Readers, moderators, judges, consultants, and other authorized personnel who may access personal information or unpublished creative works are expected to comply with strict confidentiality obligations."
+      },
+      {
+        "type": "paragraph",
+        "text": "Where appropriate, such individuals may be required to execute:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Non-Disclosure Agreements (NDAs).",
+          "​ Confidentiality Agreements.",
+          "​ Intellectual Property Protection Agreements.",
+          "​ Data Protection Commitments.",
+          "​ Employment confidentiality clauses.",
+          "​ Contractor confidentiality provisions."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Failure to comply with these obligations may result in disciplinary action, termination of engagement, legal proceedings, or other appropriate remedies."
+      }
+    ]
+  },
+  {
+    "id": "section-47",
+    "title": "47. International Data Transfers",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript may operate globally and use service providers located in different countries."
+      },
+      {
+        "type": "paragraph",
+        "text": "As a result, personal information and creative works may be processed or stored outside your country of residence."
+      },
+      {
+        "type": "paragraph",
+        "text": "Where international transfers occur, we seek to implement appropriate safeguards consistent with applicable law, which may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Contractual protections.",
+          "​ Organizational safeguards.",
+          "​ Technical security measures.",
+          "​ Vendor due diligence."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "By using the Services, you acknowledge that your information may be transferred to jurisdictions with privacy laws that differ from those of your country."
+      }
+    ]
+  },
+  {
+    "id": "section-48",
+    "title": "48. Data Retention",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "We retain personal information only for as long as reasonably necessary to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Operate the Services.",
+          "​ Maintain user accounts.",
+          "​ Provide requested features.",
+          "​ Process AI services.",
+          "​ Facilitate creator and industry professional interactions.",
+          "​ Administer competitions.",
+          "​ Resolve disputes.",
+          "​ Detect fraud.",
+          "​ Maintain platform security.",
+          "​ Comply with legal obligations.",
+          "​ Enforce our agreements."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Retention periods vary depending on the type of information, applicable legal requirements, and operational needs."
+      },
+      {
+        "type": "paragraph",
+        "text": "When information is no longer required, we will delete, anonymize, or securely dispose of it where reasonably practicable."
+      }
+    ]
+  },
+  {
+    "id": "section-49",
+    "title": "49. Account Deletion",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Users may request deletion of their Ckript account through available account settings or by contacting us."
+      },
+      {
+        "type": "paragraph",
+        "text": "Upon receiving a valid request, we will take reasonable steps to remove or anonymize eligible personal information within a commercially reasonable period."
+      },
+      {
+        "type": "paragraph",
+        "text": "However, we may retain certain information where necessary to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Comply with applicable law.",
+          "​ Resolve disputes.",
+          "​ Enforce agreements.",
+          "​ Prevent fraud.",
+          "​ Protect creators and other users.",
+          "​ Maintain financial records.",
+          "​ Preserve backups.",
+          "​ Investigate security incidents."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Deletion of an account does not automatically remove information that has already been lawfully shared with other users or information required to maintain the integrity of completed transactions, competitions, or communications."
+      }
+    ]
+  },
+  {
+    "id": "section-50",
+    "title": "50. Backup and Disaster Recovery",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "To help ensure service continuity and protect against accidental data loss, Ckript may maintain encrypted backups of certain platform data."
+      },
+      {
+        "type": "paragraph",
+        "text": "Backups may be used to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Restore services following technical failures.",
+          "​ Recover from security incidents.",
+          "​ Maintain business continuity.",
+          "​ Support disaster recovery."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Backup copies are protected using commercially reasonable security measures and are retained only for operational, legal, or regulatory purposes."
+      }
+    ]
+  },
+  {
+    "id": "section-51",
+    "title": "51. Data Breach Response",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "If Ckript becomes aware of a security incident affecting personal information or uploaded creative works, we will take appropriate steps to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Investigate the incident.",
+          "​ Contain and mitigate potential harm.",
+          "​ Secure affected systems.",
+          "​ Restore platform integrity.",
+          "​ Notify affected users where required by applicable law.",
+          "​ Notify relevant regulatory authorities where legally required.",
+          "​ Review and strengthen our security practices to reduce the likelihood of similar"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "incidents."
+      },
+      {
+        "type": "paragraph",
+        "text": "Not every security event results in unauthorized access to personal information, and notifications will be made based on the nature of the incident and applicable legal requirements."
+      }
+    ]
+  },
+  {
+    "id": "section-52",
+    "title": "52. User Responsibilities for Security",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "While Ckript works to protect the platform, users also play an important role in safeguarding their accounts."
+      },
+      {
+        "type": "paragraph",
+        "text": "Users are encouraged to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Create strong and unique passwords.",
+          "​ Keep login credentials confidential.",
+          "​ Enable multi-factor authentication where available.",
+          "​ Use trusted devices and networks.",
+          "​ Log out from shared or public devices.",
+          "​ Review account activity regularly.",
+          "​ Report suspected unauthorized access promptly."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Users remain responsible for activities conducted through their accounts unless such activities result from Ckript's failure to implement reasonable security measures."
+      }
+    ]
+  },
+  {
+    "id": "section-53",
+    "title": "53. Your Privacy Rights",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Subject to applicable law, you may have the following rights regarding your personal information:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Access the personal information we hold about you.",
+          "​ Update or correct inaccurate or incomplete information.",
+          "​ Request deletion of eligible personal information.",
+          "​ Download or export certain account information in a commonly used electronic"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "format where technically feasible."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Withdraw consent where processing is based on consent.",
+          "​ Object to or request restriction of certain processing activities where permitted by"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "law."
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Request clarification regarding how your information is collected, used, disclosed, or"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "protected."
+      },
+      {
+        "type": "paragraph",
+        "text": "To protect your privacy and the security of your account, we may verify your identity before processing certain requests."
+      }
+    ]
+  },
+  {
+    "id": "section-54",
+    "title": "54. Access and Correction",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "You may review and update much of your account information directly through your account settings."
+      },
+      {
+        "type": "paragraph",
+        "text": "This may include:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Profile information",
+          "​ Contact details",
+          "​ Biography",
+          "​ Portfolio information",
+          "​ Social media links",
+          "​ Privacy settings",
+          "​ Notification preferences"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "If you are unable to update certain information yourself, you may contact us and we will make reasonable efforts to assist you where appropriate."
+      }
+    ]
+  },
+  {
+    "id": "section-55",
+    "title": "55. Data Portability",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Where required by applicable law and technically feasible, you may request a copy of certain personal information that you have provided to Ckript in a structured, commonly used, and machine-readable format."
+      },
+      {
+        "type": "paragraph",
+        "text": "This right does not generally apply to:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Internal security logs",
+          "​ Fraud detection data",
+          "​ Proprietary algorithms",
+          "​ Confidential business information",
+          "​ Information relating to other users",
+          "​ Internal moderation records"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "section-56",
+    "title": "56. Withdrawal of Consent",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Where we rely on your consent as the legal basis for processing, you may withdraw that consent at any time."
+      },
+      {
+        "type": "paragraph",
+        "text": "Withdrawal of consent does not affect the lawfulness of processing carried out before the withdrawal."
+      },
+      {
+        "type": "paragraph",
+        "text": "Please note that withdrawing consent may prevent us from providing certain features or Services."
+      }
+    ]
+  },
+  {
+    "id": "section-57",
+    "title": "57. Children's Privacy",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript is intended primarily for writers, creators, professionals, publishers, producers, studios, and other users who are legally permitted to enter into binding agreements."
+      },
+      {
+        "type": "paragraph",
+        "text": "We do not knowingly collect personal information from children in violation of applicable law."
+      },
+      {
+        "type": "paragraph",
+        "text": "If we become aware that personal information has been collected from a child without the required consent, we will take reasonable steps to delete such information."
+      },
+      {
+        "type": "paragraph",
+        "text": "Parents or legal guardians who believe that a child has submitted personal information through the Services may contact us to request review or deletion."
+      }
+    ]
+  },
+  {
+    "id": "section-58",
+    "title": "58. Third-Party Websites and",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Services Our Services may contain links to third-party websites, applications, social media platforms, or external services."
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript does not own or control those third-party services and is not responsible for their:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Privacy practices",
+          "​ Security measures",
+          "​ Content",
+          "​ Policies",
+          "​ Availability"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Users should review the privacy policies and terms of any third-party services they choose to access."
+      }
+    ]
+  },
+  {
+    "id": "section-59",
+    "title": "59. Compliance with Applicable Laws",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript is committed to complying with applicable privacy and data protection laws in the jurisdictions in which it operates."
+      },
+      {
+        "type": "paragraph",
+        "text": "Our privacy practices may evolve over time to reflect:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Changes in applicable laws and regulations.",
+          "​ New technologies.",
+          "​ Industry standards.",
+          "​ Platform features.",
+          "​ Security improvements.",
+          "​ Business operations."
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Nothing in this Privacy Policy should be interpreted as a representation that Ckript is certified under any particular legal framework unless expressly stated."
+      }
+    ]
+  },
+  {
+    "id": "section-60",
+    "title": "60. Changes to this Privacy Policy",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "We may revise this Privacy Policy from time to time to reflect changes in our Services, legal obligations, technology, or business practices."
+      },
+      {
+        "type": "paragraph",
+        "text": "When material changes are made, we may:"
+      },
+      {
+        "type": "list",
+        "items": [
+          "​ Update the \"Last Updated\" date.",
+          "​ Publish the revised Privacy Policy on our website.",
+          "​ Notify users by email, in-app notification, or other reasonable means where required"
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "by applicable law."
+      },
+      {
+        "type": "paragraph",
+        "text": "Your continued use of the Services after an updated Privacy Policy becomes effective constitutes acceptance of the revised Privacy Policy, except where additional consent is required by law."
+      }
+    ]
+  },
+  {
+    "id": "section-61",
+    "title": "61. Contact Us",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "If you have questions, requests, complaints, or concerns regarding this Privacy Policy or our privacy practices, you may contact us using the details below."
+      },
+      {
+        "type": "paragraph",
+        "text": "Ckript Private Limited Website: https://ckript.com Privacy Email: privacy@ckript.com Support Email: support@ckript.com Legal Email: legal@ckript.com If dedicated privacy or legal email addresses have not yet been established, you may contact us through our primary support channel until those addresses become operational."
+      }
+    ]
+  },
+  {
+    "id": "section-62",
+    "title": "62. Governing Law",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "This Privacy Policy shall be governed by and construed in accordance with the laws of the Republic of India, without regard to conflict of law principles."
+      },
+      {
+        "type": "paragraph",
+        "text": "Nothing in this Privacy Policy limits any mandatory rights that users may have under applicable law."
+      }
+    ]
+  },
+  {
+    "id": "section-63",
+    "title": "63. Dispute Resolution",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "We encourage users to contact Ckript first to attempt to resolve any concerns informally."
+      },
+      {
+        "type": "paragraph",
+        "text": "If a dispute cannot be resolved through good-faith discussions, it shall be governed by the dispute resolution provisions contained in the Ckript Terms & Conditions, unless applicable law requires otherwise."
+      }
+    ]
+  },
+  {
+    "id": "section-64",
+    "title": "64. Severability",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "If any provision of this Privacy Policy is held to be unlawful, invalid, or unenforceable by a court or competent authority, the remaining provisions shall remain in full force and effect."
+      },
+      {
+        "type": "paragraph",
+        "text": "The invalid provision shall be interpreted, where possible, in a manner that most closely reflects its original purpose while remaining legally enforceable."
+      }
+    ]
+  },
+  {
+    "id": "section-65",
+    "title": "65. No Waiver",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Failure by Ckript to enforce any provision of this Privacy Policy shall not constitute a waiver of that provision or of any other rights available to Ckript under applicable law."
+      }
+    ]
+  },
+  {
+    "id": "section-66",
+    "title": "66. Entire Privacy Policy",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "This Privacy Policy constitutes the complete privacy notice governing the collection, use, disclosure, and protection of personal information through Ckript's Services, unless supplemented by a separate privacy notice applicable to a particular feature, product, competition, or service."
+      }
+    ]
+  },
+  {
+    "id": "section-67",
+    "title": "67. Version History",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Summary 1.0 [DD Month YYYY] Initial publication of the Ckript Privacy Policy."
+      },
+      {
+        "type": "paragraph",
+        "text": "Future updates will be reflected in this version history to improve transparency."
+      }
+    ]
+  },
+  {
+    "id": "section-68",
+    "title": "68. Contact Summary",
+    "content": [
+      {
+        "type": "paragraph",
+        "text": "Ckript Private Limited Website: https://ckript.com General Support: support@ckript.com Privacy: privacy@ckript.com Legal: legal@ckript.com Final Statement Thank you for trusting Ckript with your creativity."
+      },
+      {
+        "type": "paragraph",
+        "text": "Our mission is to build a secure, transparent, and creator-first platform where writers, storytellers, authors, publishers, producers, studios, and other creative professionals can discover opportunities, collaborate confidently, and protect the intellectual property that powers the entertainment industry."
+      },
+      {
+        "type": "paragraph",
+        "text": "As Ckript grows, we remain committed to continuously improving our privacy, security, and governance practices to meet evolving legal requirements, technological advancements, and the expectations of our global creative community."
+      }
+    ]
+  }
+]

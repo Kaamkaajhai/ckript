@@ -58,6 +58,10 @@ export const isIndustryProfessionalWithPersonalEmail = (user = {}) =>
   isFilmIndustryProfessionalRole(user) &&
   !hasBusinessEmail(user?.email);
 
+export const isEligibleForFipFreeTier = (user = {}) =>
+  isFilmIndustryProfessionalRole(user) &&
+  !isIndustryProfessionalWithPersonalEmail(user);
+
 export const hasActiveFilmIndustryProfessionalAccess = (user = {}) => {
   const subscription = user?.subscription || {};
   const accessTier = String(subscription?.accessTier || "").trim().toLowerCase();
@@ -73,20 +77,46 @@ export const hasActiveFilmIndustryProfessionalAccess = (user = {}) => {
   return Number.isFinite(expiryTime) && expiryTime > Date.now();
 };
 
-export const getContactsLimit = (user = {}) =>
-  Number(user?.subscription?.contactsLimit || 10);
+export const hasAnyFipAccess = (user = {}) =>
+  hasActiveFilmIndustryProfessionalAccess(user) || isEligibleForFipFreeTier(user);
+
+export const getCurrentBillingCycleStart = (user = {}) => {
+  const subscription = user?.subscription || {};
+  const activatedAt = subscription?.accessActivatedAt
+    ? new Date(subscription.accessActivatedAt)
+    : null;
+
+  if (!activatedAt) return 0;
+
+  const now = new Date();
+  let cycleStart = new Date(activatedAt);
+
+  while (true) {
+    const nextCycle = new Date(cycleStart);
+    nextCycle.setMonth(nextCycle.getMonth() + 1);
+    if (nextCycle.getTime() > now.getTime()) {
+      break;
+    }
+    cycleStart = nextCycle;
+  }
+
+  return cycleStart.getTime();
+};
+
+export const getContactsLimit = (user = {}) => {
+  const plan = user?.subscription?.plan || "free";
+  return plan === "free" ? 1 : Number(user?.subscription?.contactsLimit || 10);
+};
 
 export const getRevealedContactsSinceActivation = (user = {}) => {
   const subscription = user?.subscription || {};
-  const activatedAt = subscription?.accessActivatedAt
-    ? new Date(subscription.accessActivatedAt).getTime()
-    : 0;
+  const cycleStart = getCurrentBillingCycleStart(user);
   const revealedContacts = Array.isArray(subscription?.revealedContacts)
     ? subscription.revealedContacts
     : [];
   return revealedContacts.filter((entry) => {
     const revealedAt = entry?.revealedAt ? new Date(entry.revealedAt).getTime() : 0;
-    return revealedAt >= activatedAt;
+    return revealedAt >= cycleStart;
   });
 };
 
@@ -108,20 +138,20 @@ export const getRemainingContacts = (user = {}) =>
   Math.max(0, getContactsLimit(user) - getRevealedContactCount(user));
 
 // Message Writers Utilities
-export const getMessageWritersLimit = (user = {}) =>
-  Number(user?.subscription?.messageWritersLimit || 10);
+export const getMessageWritersLimit = (user = {}) => {
+  const plan = user?.subscription?.plan || "free";
+  return plan === "free" ? 1 : Number(user?.subscription?.messageWritersLimit || 10);
+};
 
 export const getMessagedWritersSinceActivation = (user = {}) => {
   const subscription = user?.subscription || {};
-  const activatedAt = subscription?.accessActivatedAt
-    ? new Date(subscription.accessActivatedAt).getTime()
-    : 0;
+  const cycleStart = getCurrentBillingCycleStart(user);
   const messagedWriters = Array.isArray(subscription?.messagedWriters)
     ? subscription.messagedWriters
     : [];
   return messagedWriters.filter((entry) => {
     const messagedAt = entry?.messagedAt ? new Date(entry.messagedAt).getTime() : 0;
-    return messagedAt >= activatedAt;
+    return messagedAt >= cycleStart;
   });
 };
 
@@ -143,20 +173,20 @@ export const getRemainingMessageWriters = (user = {}) =>
   Math.max(0, getMessageWritersLimit(user) - getMessagedWritersCount(user));
 
 // Scheduled Meetings Utilities
-export const getMeetingsLimit = (user = {}) =>
-  Number(user?.subscription?.meetingsLimit || 10);
+export const getMeetingsLimit = (user = {}) => {
+  const plan = user?.subscription?.plan || "free";
+  return plan === "free" ? 1 : Number(user?.subscription?.meetingsLimit || 10);
+};
 
 export const getScheduledMeetingsSinceActivation = (user = {}) => {
   const subscription = user?.subscription || {};
-  const activatedAt = subscription?.accessActivatedAt
-    ? new Date(subscription.accessActivatedAt).getTime()
-    : 0;
+  const cycleStart = getCurrentBillingCycleStart(user);
   const scheduledMeetings = Array.isArray(subscription?.scheduledMeetings)
     ? subscription.scheduledMeetings
     : [];
   return scheduledMeetings.filter((entry) => {
     const scheduledAt = entry?.scheduledAt ? new Date(entry.scheduledAt).getTime() : 0;
-    return scheduledAt >= activatedAt;
+    return scheduledAt >= cycleStart;
   });
 };
 
