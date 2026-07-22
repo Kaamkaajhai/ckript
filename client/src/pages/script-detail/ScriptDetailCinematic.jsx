@@ -358,6 +358,10 @@ function DealDrawer({ vm }) {
         <dl>
           <div><dt>Rights</dt><dd>{RIGHTS_LABELS[rights?.rightsType] || "Not specified"}</dd></div>
           <div><dt>Modification</dt><dd>{MODIFICATION_LABELS[rights?.modificationRights] || "Not specified"}</dd></div>
+          <div><dt>Payment</dt><dd>{PAYMENT_LABELS[rights?.paymentStructure] || "Not specified"}</dd></div>
+          <div><dt>Royalty</dt><dd>{rights?.royaltySettings?.percentage ? `${rights.royaltySettings.percentage}% (${rights.royaltySettings.durationType === "years" ? `${rights.royaltySettings.durationYears} years` : rights.royaltySettings.durationType === "project_lifetime" ? "Project Lifetime" : rights.royaltySettings.durationType})` : "None"}</dd></div>
+          <div><dt>License Duration</dt><dd>{rights?.timeBound?.licenseDurationMonths ? `${rights.timeBound.licenseDurationMonths} months` : "Perpetual"}</dd></div>
+          <div><dt>Negotiation</dt><dd>{NEGOTIATION_LABELS[rights?.negotiationMode] || "Not specified"}</dd></div>
         </dl>
       </section>
       {vm.capabilities.owner ? (
