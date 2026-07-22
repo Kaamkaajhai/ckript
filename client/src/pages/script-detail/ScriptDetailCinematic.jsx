@@ -423,9 +423,9 @@ function ContactDrawer({ vm }) {
           )}
           {vm.revealError && <p className="sd3-field-error" role="alert">{vm.revealError}</p>}
           <div className="sd3-contact-actions"><button type="button" onClick={vm.handleMessageWriter} disabled={vm.messageWriterBlocked}><MessageCircle size={15} />Message · {vm.messageWritersUsed}/{vm.messageWritersLimit}</button><button type="button" onClick={vm.openMeeting} disabled={vm.meetingsBlocked}><Users size={15} />Meeting · {vm.meetingsUsed}/{vm.meetingsLimit}</button></div>
+          {vm.contactAlreadyRevealed && links.length > 0 && <section className="sd3-drawer-section"><h3>Professional links</h3><div className="sd3-professional-links">{links.map((link) => <a key={link.key} href={link.href} target="_blank" rel="noopener noreferrer">{link.label}<ExternalLink size={13} /></a>)}</div></section>}
         </>
       )}
-      {links.length > 0 && <section className="sd3-drawer-section"><h3>Professional links</h3><div className="sd3-professional-links">{links.map((link) => <a key={link.key} href={link.href} target="_blank" rel="noopener noreferrer">{link.label}<ExternalLink size={13} /></a>)}</div></section>}
     </>
   );
 }
