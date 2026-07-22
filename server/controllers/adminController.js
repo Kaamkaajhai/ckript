@@ -1080,16 +1080,14 @@ export const grantWriterPlanToUser = async (req, res) => {
 
         const durationDays = cycle === "annual" ? 365 : 30;
 
-        targetUser.subscription = {
-            ...targetUser.subscription,
-            plan: plan,
-            aiImagesGeneratedTotal: 0,
-            isActive: true,
-            accessTier: plan === "gold" ? "writer_gold" : "writer_silver",
-            accessStatus: "active",
-            accessExpiresAt: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
-            lastAccessUpdate: new Date()
-        };
+        targetUser.subscription.plan = plan;
+        targetUser.subscription.aiImagesGeneratedTotal = 0;
+        targetUser.subscription.isActive = true;
+        targetUser.subscription.accessTier = plan === "gold" ? "writer_gold" : "writer_silver";
+        targetUser.subscription.accessStatus = "active";
+        targetUser.subscription.accessActivatedAt = new Date();
+        targetUser.subscription.accessExpiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+        targetUser.subscription.lastAccessUpdate = new Date();
 
         if (targetUser.writerProfile) {
             targetUser.writerProfile.plan = plan;
@@ -1120,22 +1118,20 @@ export const grantFipPlanToUser = async (req, res) => {
 
         const durationDays = 365;
 
-        targetUser.subscription = {
-            ...targetUser.subscription,
-            plan: "diamond",
-            aiImagesGeneratedTotal: 0,
-            isActive: true,
-            accessTier: "film_industry_professional",
-            accessStatus: "active",
-            accessExpiresAt: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
-            lastAccessUpdate: new Date(),
-            revealedContacts: [],
-            messagedWriters: [],
-            scheduledMeetings: [],
-            contactsLimit: 10,
-            messageWritersLimit: 10,
-            meetingsLimit: 10,
-        };
+        targetUser.subscription.plan = "diamond";
+        targetUser.subscription.aiImagesGeneratedTotal = 0;
+        targetUser.subscription.isActive = true;
+        targetUser.subscription.accessTier = "film_industry_professional";
+        targetUser.subscription.accessStatus = "active";
+        targetUser.subscription.accessActivatedAt = new Date();
+        targetUser.subscription.accessExpiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+        targetUser.subscription.lastAccessUpdate = new Date();
+        targetUser.subscription.revealedContacts = [];
+        targetUser.subscription.messagedWriters = [];
+        targetUser.subscription.scheduledMeetings = [];
+        targetUser.subscription.contactsLimit = 10;
+        targetUser.subscription.messageWritersLimit = 10;
+        targetUser.subscription.meetingsLimit = 10;
 
         if (targetUser.industryProfile) {
             targetUser.industryProfile.isVerified = true;
