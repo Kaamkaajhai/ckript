@@ -60,7 +60,7 @@ export function useFilmIndustryProfessionalCheckout() {
   const [message, setMessage] = useState("");
 
   const isEligibleRole = isFilmIndustryProfessionalRole(user);
-  const hasAccess = hasActiveFilmIndustryProfessionalAccess(user) && user?.subscription?.plan === "pro";
+  const hasAccess = hasActiveFilmIndustryProfessionalAccess(user) && (user?.subscription?.plan === "pro" || user?.subscription?.plan === "diamond");
 
   const reset = useCallback(() => {
     setError("");
