@@ -9,7 +9,7 @@ const WRITER_ROLES = new Set(["writer", "creator"]);
 
 // plan → how many non-draft scripts are allowed, and the plan to upgrade to for more.
 const PLAN_LIMITS = {
-  free: { limit: 1, requiredPlan: "silver" },
+  free: { limit: 5, requiredPlan: "silver" },
   silver: { limit: 8, requiredPlan: "gold" },
   gold: { limit: 20, requiredPlan: "custom" },
   pro: { limit: 20, requiredPlan: "custom" },

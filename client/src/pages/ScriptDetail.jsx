@@ -45,6 +45,7 @@ import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
   hasBusinessEmail,
   hasActiveFilmIndustryProfessionalAccess,
+  hasAnyFipAccess,
   getRemainingContacts,
   getContactsLimit,
   getRevealedContactCount,
@@ -261,7 +262,7 @@ const ScriptDetail = () => {
     user?._id &&
     ["investor", "producer", "director", "industry", "professional"].includes(String(user?.role || "").toLowerCase());
   const viewerHasBusinessEmail = isIndustryRole && hasBusinessEmail(user?.email);
-  const viewerHasProAccess = isIndustryRole && hasActiveFilmIndustryProfessionalAccess(user);
+  const viewerHasProAccess = isIndustryRole && hasAnyFipAccess(user);
   const canViewWriterInfo = viewerHasProAccess;
 
   const revealStatus = script?.writerContactRevealStatus || null;

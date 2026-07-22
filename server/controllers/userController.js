@@ -823,6 +823,19 @@ export const getUserProfile = async (req, res) => {
       });
       const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
 
+      if (
+        user?.role === "writer" &&
+        hasActiveFilmIndustryProfessionalAccess(currentUser)
+      ) {
+        const plan = currentUser.subscription?.plan || "free";
+        if (plan === "free" && !hasBusinessEmail(currentUser.email)) {
+          return res.status(403).json({
+            message: "Viewing writer profiles requires a company email. Upgrade your plan or update your email.",
+            personalEmailFipRestricted: true,
+          });
+        }
+      }
+
       if (user?.role === "writer" && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const recentNotif = await Notification.findOne({

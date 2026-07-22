@@ -29,6 +29,7 @@ import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMe
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
 import {
   hasActiveFilmIndustryProfessionalAccess,
+  hasAnyFipAccess,
   hasBusinessEmail,
   isIndustryProfessionalWithPersonalEmail,
   hasRevealedContact,
@@ -137,7 +138,7 @@ const canViewerAccessWriterContact = (viewer, creatorId) => {
   }
 
   const role = String(viewer?.role || "").toLowerCase();
-  return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasActiveFilmIndustryProfessionalAccess(viewer);
+  return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasAnyFipAccess(viewer);
 };
 
 const normalizeTrailerLayout = (value) => {
@@ -3604,7 +3605,17 @@ export const getScriptById = async (req, res) => {
     const userRole = req.user.role;
     const isWriter = userRole === 'writer' || userRole === 'creator';
     const canPurchase = !canCollaboratorRead && ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);
-    const hasViewablePreview = hasViewableScriptPreview(script);
+    let hasViewablePreview = hasViewableScriptPreview(script);
+    
+    // Explicit block for Free FIPs with personal email
+    if (
+      !canViewFullScript &&
+      hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      (req.user.subscription?.plan || "free") === "free" &&
+      !hasBusinessEmail(req.user.email)
+    ) {
+      hasViewablePreview = false;
+    }
     const normalizedPreviewAccess = hasViewablePreview
       ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
           mode: script.scriptPreviewAccess?.mode || "pages",

@@ -471,6 +471,18 @@ const userSchema = new mongoose.Schema({
     archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     archivedProfile: { type: mongoose.Schema.Types.Mixed, default: null },
   },
+  activeSessions: [
+    {
+      sessionId: { type: String, required: true },
+      device: { type: String, default: "Unknown Device" }, // Raw UA fallback
+      browser: { type: String, default: "Unknown" },
+      os: { type: String, default: "Unknown" },
+      location: { type: String, default: "Unknown Location" },
+      ip: { type: String, default: "Unknown IP" },
+      loginTime: { type: Date, default: Date.now },
+      lastSeen: { type: Date, default: Date.now }
+    }
+  ],
 }, { timestamps: true });
 
 userSchema.index(
