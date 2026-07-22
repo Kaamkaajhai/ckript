@@ -47,6 +47,7 @@ const generateToken = (id, sessionId) => {
 import crypto from "crypto";
 import { UAParser } from "ua-parser-js";
 import geoip from "geoip-lite";
+import axios from "axios";
 
 const addSessionToUser = async (req, user) => {
   const sessionId = crypto.randomUUID();
@@ -59,11 +60,33 @@ const addSessionToUser = async (req, user) => {
   
   let location = "Unknown Location";
   if (ip && ip !== "Unknown IP") {
-    // In local development req.ip is often ::1 or 127.0.0.1 which resolves to null
-    const geo = geoip.lookup(ip);
-    if (geo) {
-      const cityRegion = geo.city || geo.region || "Unknown City";
-      location = `${cityRegion}, ${geo.country || "Unknown Country"}`;
+    // In local development req.ip is often ::1 or 127.0.0.1
+    if (ip === "::1" || ip === "127.0.0.1") {
+      location = "Localhost";
+    } else {
+      try {
+        const apiKey = process.env.IP_API_KEY;
+        if (apiKey) {
+          const response = await axios.get(`https://api.ipgeolocation.io/ipgeo?apiKey=${apiKey}&ip=${ip}`);
+          if (response.data) {
+            const cityRegion = response.data.city || response.data.state_prov || "Unknown City";
+            location = `${cityRegion}, ${response.data.country_code2 || response.data.country_name || "Unknown Country"}`;
+          }
+        } else {
+          const geo = geoip.lookup(ip);
+          if (geo) {
+            const cityRegion = geo.city || geo.region || "Unknown City";
+            location = `${cityRegion}, ${geo.country || "Unknown Country"}`;
+          }
+        }
+      } catch (err) {
+        console.error("IP Geolocation API failed:", err.message);
+        const geo = geoip.lookup(ip);
+        if (geo) {
+          const cityRegion = geo.city || geo.region || "Unknown City";
+          location = `${cityRegion}, ${geo.country || "Unknown Country"}`;
+        }
+      }
     }
   }
 
