@@ -60,8 +60,8 @@ const addSessionToUser = async (req, user) => {
   
   let location = "Unknown Location";
   if (ip && ip !== "Unknown IP") {
-    // In local development req.ip is often ::1 or 127.0.0.1
-    if (ip === "::1" || ip === "127.0.0.1") {
+    // In local development req.ip is often ::1, 127.0.0.1, or ::ffff:127.0.0.1
+    if (ip === "::1" || ip === "127.0.0.1" || ip.includes("127.0.0.1")) {
       location = "Localhost";
     } else {
       try {
