@@ -211,7 +211,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser, setUser, logout } = useContext(AuthContext);
-  const { openPricingModal } = useAuthModal();
+  const { openPricingModal, openProducerOnboarding } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
 
   const [profile, setProfile] = useState(null);
@@ -831,7 +831,7 @@ const Profile = () => {
                 </p>
                 <button
                   type="button"
-                  onClick={() => navigate("/industry-onboarding")}
+                  onClick={() => openProducerOnboarding()}
                   className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
                 >
                   Sign up as Film Industry Professional

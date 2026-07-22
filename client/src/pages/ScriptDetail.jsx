@@ -181,7 +181,7 @@ const buildPreviewPdfBlob = ({ title = "Script", pageBlocks = [], fallbackText =
 const ScriptDetail = () => {
   const { id, projectHeading, writerUsername } = useParams();
   const { user, setUser } = useContext(AuthContext);
-  const { openPricingModal } = useAuthModal();
+  const { openPricingModal, openProducerOnboarding } = useAuthModal();
   const { isDarkMode } = useDarkMode();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1418,12 +1418,13 @@ const ScriptDetail = () => {
                   <p className={`text-[12px] leading-relaxed mb-3 ${t.muted}`}>
                     Use a company email address to browse scripts and view writer profiles at no cost.
                   </p>
-                  <Link
-                    to="/industry-onboarding"
+                  <button
+                    type="button"
+                    onClick={() => openProducerOnboarding()}
                     className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition ${t.btnSec}`}
                   >
                     Sign up as Film Industry Professional
-                  </Link>
+                  </button>
                 </div>
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
                   <p className="text-[11px] font-bold uppercase tracking-wide mb-1 text-amber-500">Premium Plan</p>
