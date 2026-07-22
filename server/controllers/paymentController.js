@@ -286,6 +286,7 @@ export const verifyRazorpayPayment = async (req, res) => {
         "subscription.sourcePath": normalizeReturnPath(returnTo) || "/home",
         "subscription.revealedContacts": [],
         "subscription.messagedWriters": [],
+        "subscription.scheduledMeetings": [],
         "subscription.contactsLimit": 10,
         "subscription.messageWritersLimit": 10,
         "subscription.meetingsLimit": 10,

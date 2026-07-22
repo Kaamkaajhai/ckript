@@ -124,7 +124,7 @@ const userSchema = new mongoose.Schema({
     // Specialized tags (themes, tones, settings)
     specializedTags: [String],
     // Plan selection
-    plan: { type: String, enum: ["free", "paid", "silver", "gold"], default: "free" },
+    plan: { type: String, enum: ["free", "paid", "silver", "gold", "diamond"], default: "free" },
     // Diversity data (optional)
     diversity: {
       gender: { type: String },
@@ -266,7 +266,7 @@ const userSchema = new mongoose.Schema({
   }],
   // Subscription & credits
   subscription: {
-    plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
+    plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold", "diamond"], default: "free" },
     expiresAt: { type: Date },
     scriptScoreCredits: { type: Number, default: 0 },
     aiImagesGeneratedTotal: { type: Number, default: 0 },

@@ -26,6 +26,7 @@ import {
     sendAdminPremiumRemovedEmail,
     sendAdminBroadcastEmail,
     sendWriterPlanGrantedEmail,
+    sendFipPlanGrantedEmail,
 } from "../utils/emailService.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
@@ -1078,23 +1079,25 @@ export const grantWriterPlanToUser = async (req, res) => {
         }
 
         const durationDays = cycle === "annual" ? 365 : 30;
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-        targetUser.subscription = {
-            ...targetUser.subscription,
-            plan: plan,
-            aiImagesGeneratedTotal: 0,
-            isActive: true,
-            accessTier: plan === "gold" ? "writer_gold" : "writer_silver",
-            accessStatus: "active",
-            accessExpiresAt: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000),
-            lastAccessUpdate: new Date()
-        };
-
-        if (targetUser.writerProfile) {
-            targetUser.writerProfile.plan = plan;
-        }
-
-        await targetUser.save();
+        await User.updateOne(
+            { _id: targetUser._id },
+            {
+                $set: {
+                    "subscription.plan": plan,
+                    "subscription.aiImagesGeneratedTotal": 0,
+                    "subscription.isActive": true,
+                    "subscription.accessTier": plan === "gold" ? "writer_gold" : "writer_silver",
+                    "subscription.accessStatus": "active",
+                    "subscription.accessActivatedAt": now,
+                    "subscription.accessExpiresAt": expiresAt,
+                    "subscription.lastAccessUpdate": now,
+                    ...(targetUser.writerProfile ? { "writerProfile.plan": plan } : {})
+                }
+            }
+        );
 
         // Send email
         await sendWriterPlanGrantedEmail(targetUser.email, {
@@ -1103,6 +1106,58 @@ export const grantWriterPlanToUser = async (req, res) => {
         });
 
         res.json({ message: `Writer plan ${plan} successfully granted`, user: buildAdminManagedUserSummary(targetUser) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const grantFipPlanToUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+
+        const durationDays = 365;
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+        await User.updateOne(
+            { _id: targetUser._id },
+            {
+                $set: {
+                    "subscription.plan": "diamond",
+                    "subscription.aiImagesGeneratedTotal": 0,
+                    "subscription.isActive": true,
+                    "subscription.accessTier": "film_industry_professional",
+                    "subscription.accessStatus": "active",
+                    "subscription.accessActivatedAt": now,
+                    "subscription.accessExpiresAt": expiresAt,
+                    "subscription.lastAccessUpdate": now,
+                    "subscription.revealedContacts": [],
+                    "subscription.messagedWriters": [],
+                    "subscription.scheduledMeetings": [],
+                    "subscription.contactsLimit": 10,
+                    "subscription.messageWritersLimit": 10,
+                    "subscription.meetingsLimit": 10,
+                    ...(targetUser.industryProfile ? { "industryProfile.isVerified": true } : {})
+                }
+            }
+        );
+
+        await Notification.create({
+            user: targetUser._id,
+            type: "admin_alert",
+            message: "You have been granted a 1-year Diamond Film Industry Professional subscription by an administrator. Enjoy full access to Ckript!",
+        });
+
+        await sendFipPlanGrantedEmail(targetUser.email, {
+            userName: targetUser.name || "Professional",
+        });
+
+        res.json({ message: "1-Year FIP plan successfully granted", user: buildAdminManagedUserSummary(targetUser) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

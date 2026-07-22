@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ShieldCheck, ChevronRight } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
 import { COMPANY, COPYRIGHT_LINE } from "../constants/company";
+import policyData from "../data/legalText.json";
 
 const LAST_UPDATED = "July 22, 2026";
 const EFFECTIVE_DATE = "July 22, 2026";

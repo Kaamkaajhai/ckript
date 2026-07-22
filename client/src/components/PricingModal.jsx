@@ -727,12 +727,15 @@ function PricingModalInner({ onClose, tab = "all" }) {
                   const isActivePlan = isFree ? (fip.hasAccess && fip.user?.subscription?.plan === "free") : fipState.active;
 
                   return (
-                    <div className="pmx-tier" key={plan.key} style={{ maxWidth: 300, width: "100%" }}>
+                    <div className={`pmx-tier${plan.key === "pro" ? " pmx-tier--gold" : ""}`} key={plan.key} style={{ maxWidth: 300, width: "100%" }}>
+                      {plan.key === "pro" && <span className="pmx-tier-bar" />}
                       <div className="pmx-tier-top">
                         <span className="pmx-tier-name">{plan.name}</span>
-                        {isActivePlan && (
+                        {isActivePlan ? (
                           <span className="pmx-pill pmx-pill--active" style={{ marginLeft: "auto" }}><i />Active</span>
-                        )}
+                        ) : plan.key === "pro" ? (
+                          <span className="pmx-chip pmx-chip--best" style={{ marginLeft: "auto" }}>Recommended</span>
+                        ) : null}
                       </div>
                       
                       <div className="pmx-tier-price">
@@ -769,8 +772,8 @@ function PricingModalInner({ onClose, tab = "all" }) {
                           <>
                             <button
                               type="button"
-                              className={`pmx-btn${fipState.kind === "active" ? " pmx-btn--active" : ""}`}
-                              style={{ background: "#888782", color: "#fff", borderColor: "#888782", width: "100%" }}
+                              className={`pmx-btn pmx-btn--${fipState.kind}`}
+                              style={{ width: "100%" }}
                               onClick={fipState.onClick}
                               disabled={fipState.disabled || fipState.loading}
                             >
@@ -788,7 +791,10 @@ function PricingModalInner({ onClose, tab = "all" }) {
                             type="button"
                             className="pmx-btn pmx-btn--outline"
                             style={{ width: "100%" }}
-                            onClick={fipState.onClick}
+                            onClick={() => {
+                              if (!fip.user) goTo("/producer-director-onboarding");
+                              else goTo("/home");
+                            }}
                             disabled={fipState.disabled || fipState.loading}
                           >
                             {fipState.label === "For industry pros" ? "For industry pros" : "Get Started"}
