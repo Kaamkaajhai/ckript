@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import CollaboratorsModal from "../../components/collab/CollaboratorsModal";
+import CompetitionBar from "../../components/competition/CompetitionBar";
 import { useCreateProject } from "./CreateProjectContext";
 import { STEPS, CP_ACCENT } from "./constants";
 import { cpIconBtnStyle, cpMoreMenuStyle, cpMoreItemStyle, cpZoomBtnStyle } from "./editorStyles";
@@ -23,6 +24,7 @@ const CreateProjectShell = ({ children }) => {
     scriptLimit, setError, setDetailsStep, setExportMenuOpen, setFocusMode, setScreenplayEnabled, setShowDrafts,
     setShowVersionHistory, setSaved, setStep, setTitle, step, title, toggleDarkMode,
     useScreenplayEditor, currentElement, wordCount, scriptId, collabMyUserId,
+    competitionMode,
   } = useCreateProject();
 
   const activeStep = STEPS[step - 1];
@@ -49,9 +51,12 @@ const CreateProjectShell = ({ children }) => {
           <input type="text" className="ckcp-page-title" placeholder="Untitled project" value={title}
             onChange={e => { setTitle(e.target.value); setSaved(false); }}
             style={{ minWidth: 0, flex: "1 1 auto", border: "none", background: "transparent", fontFamily: "var(--ckcp-font-display)", fontWeight: 600, fontSize: "18px", letterSpacing: ".2px", color: dark ? "#f2f2f2" : "#111111", padding: 0 }} />
-          <span className="ckcp-crumb" style={{ flex: "none", whiteSpace: "nowrap", fontSize: "11.5px", fontWeight: 500, letterSpacing: ".2px", color: "#9a9a9a" }}>
-            Create Project&nbsp;/&nbsp;<span style={{ color: "#767676" }}>Step {step} · {activeStep?.label}{detailsCrumb ? ` · ${detailsCrumb}` : ""}</span>
-          </span>
+          {/* In competition mode there is no wizard to breadcrumb — the deadline is the context. */}
+          {!competitionMode && (
+            <span className="ckcp-crumb" style={{ flex: "none", whiteSpace: "nowrap", fontSize: "11.5px", fontWeight: 500, letterSpacing: ".2px", color: "#9a9a9a" }}>
+              Create Project&nbsp;/&nbsp;<span style={{ color: "#767676" }}>Step {step} · {activeStep?.label}{detailsCrumb ? ` · ${detailsCrumb}` : ""}</span>
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: "none" }}>
           {/* Save indicator (moved here from the old outer header). */}
@@ -122,7 +127,10 @@ const CreateProjectShell = ({ children }) => {
       {/* ───────── WORKSPACE (rail + main column) ───────── */}
       <div className="ckcp-workspace" style={{ display: "flex", border: `1px solid ${dark ? "#262626" : "#f0f0f0"}`, borderRadius: "14px", overflow: "hidden" }}>
 
-        {/* Left "Project setup" rail — the single step navigator (desktop / tablet). */}
+        {/* Left "Project setup" rail — the single step navigator (desktop / tablet).
+            Hidden in competition mode: a competition entry is written, submitted and judged; it is
+            never taken through the publish wizard, so the steps would be dead ends. */}
+        {!competitionMode && (
         <div className="ckcp-scroll ckcp-rail" style={{ width: "158px", flex: "none", background: dark ? "#141414" : "#fafafa", borderRight: `1px solid ${dark ? "#262626" : "#f0f0f0"}`, padding: "22px 16px", overflowY: "auto" }}>
           <div style={{ fontSize: "10px", fontWeight: 600, letterSpacing: ".4px", color: "#b3b3b3", marginBottom: "18px" }}>Project setup</div>
           {STEPS.map((s, i) => {
@@ -145,11 +153,16 @@ const CreateProjectShell = ({ children }) => {
             );
           })}
         </div>
+        )}
 
         {/* Main column */}
         <div className="ckcp-main" style={{ flex: "1", minWidth: 0, display: "flex", flexDirection: "column", background: dark ? "#0f0f0f" : "#ffffff" }}>
 
+          {/* Competition mode replaces the whole step navigator with the deadline + submit bar. */}
+          {competitionMode && <CompetitionBar />}
+
           {/* Compact horizontal stepper — phones only (rail is hidden there). */}
+          {!competitionMode && (
           <div className="ckcp-mobstepper" style={{ display: "none", flex: "none", alignItems: "center", gap: "6px", padding: "12px 14px", borderBottom: `1px solid ${dark ? "#262626" : "#f0f0f0"}`, overflowX: "auto" }}>
             {STEPS.map((s, i) => {
               const active = s.num === step;
@@ -166,6 +179,7 @@ const CreateProjectShell = ({ children }) => {
               );
             })}
           </div>
+          )}
 
           {/* Banner slot — plan-limit gate + inline errors, pinned above the body. */}
           {(creationBlocked || error) && (
@@ -267,7 +281,10 @@ const CreateProjectShell = ({ children }) => {
               </div>
             )}
 
-            {/* Right cluster — the single Back / Next / Submit navigation. */}
+            {/* Right cluster — the single Back / Next / Submit navigation. Competition mode submits
+                through CompetitionBar instead; publishing a competition entry to the marketplace is
+                not a thing that can happen. */}
+            {!competitionMode && (
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: "none" }}>
               <button type="button" onClick={handleBack} disabled={step === 1}
                 style={{ height: "38px", padding: "0 16px", border: "none", borderRadius: "9px", background: "transparent", color: dark ? (step === 1 ? "#4a4a4a" : "#b0b0b0") : (step === 1 ? "#cfcfcf" : "#767676"), fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: step === 1 ? "default" : "pointer" }}>Back</button>
@@ -286,6 +303,7 @@ const CreateProjectShell = ({ children }) => {
                 </button>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>
