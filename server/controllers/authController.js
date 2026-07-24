@@ -757,6 +757,7 @@ export const join = async (req, res) => {
         }
         if (referrerUser && !userExists.referredBy) {
           userExists.referredBy = referrerUser._id;
+          userExists.referredAt = new Date();
         }
         
         if (skipEmailVerification) {
@@ -820,6 +821,7 @@ export const join = async (req, res) => {
       password, 
       role,
       referredBy: referrerUser?._id,
+      referredAt: referrerUser ? new Date() : undefined,
       phone: shouldValidatePhone ? phone : undefined,
       address: shouldValidateAddress ? address : undefined,
       dateOfBirth: normalizedDateOfBirth,
@@ -1387,6 +1389,7 @@ export const applyReferralCode = async (req, res) => {
     }
 
     currentUser.referredBy = referrer._id;
+    currentUser.referredAt = new Date();
     await currentUser.save();
 
     let referralBonusResult = { awarded: false };
