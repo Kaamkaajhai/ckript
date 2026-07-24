@@ -6,7 +6,7 @@ import User from "../models/User.js";
 import { createNotification, sendEmailNotification } from "../utils/notify.js";
 import { getCompetitionPhase } from "../utils/competitionPhase.js";
 import { runEntryAIProcessing } from "./competitionAI.js";
-import { getReferralProgress, REFERRAL_TIERS } from "../utils/competitionReferrals.js";
+import { getReferralProgress, tiersFor, referralWindow } from "../utils/competitionReferrals.js";
 
 // Reward definitions. Mirrors WRITER_GOLD_MODEL / WRITER_SILVER_MODEL in paymentController.js — a
 // prize subscription must land the account in exactly the state a paid one would, or entitlement
@@ -117,6 +117,32 @@ const CONTENT_FIELDS = [
   "bannerUrl", "prizePool", "visibility", "referralTiers",
 ];
 
+/**
+ * Drop incomplete referral-tier rows before they reach the schema.
+ *
+ * The admin editor is a repeater, so "+ Add" leaves a blank row the moment it is clicked. The schema
+ * enforces `count >= 1`, which would turn an ordinary half-finished edit into an opaque 500. A blank
+ * row means "not filled in yet", not "invalid input", so it is dropped rather than rejected.
+ */
+const sanitizeReferralTiers = (rows) => {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => ({
+      count: Number(row?.count),
+      id: String(row?.id || "").trim(),
+      label: String(row?.label || "").trim(),
+      days: Math.max(0, Number(row?.days) || 0),
+    }))
+    .filter((row) => Number.isFinite(row.count) && row.count >= 1 && row.id)
+    .map((row) => ({ ...row, label: row.label || row.id }));
+};
+
+// Fields needing shaping before they hit the schema.
+const normalizeContent = (payload) => {
+  if (payload.referralTiers !== undefined) payload.referralTiers = sanitizeReferralTiers(payload.referralTiers);
+  return payload;
+};
+
 export const adminCreateCompetition = async (req, res) => {
   try {
     const { name, dates, ...rest } = req.body || {};
@@ -136,7 +162,7 @@ export const adminCreateCompetition = async (req, res) => {
       special: payload.prizes?.special || [],
     };
 
-    const competition = await Competition.create(payload);
+    const competition = await Competition.create(normalizeContent(payload));
     return res.status(201).json({ competition });
   } catch (error) {
     console.error("[competition admin] create failed:", error?.message || error);
@@ -161,8 +187,9 @@ export const adminUpdateCompetition = async (req, res) => {
       competition.dates = { ...competition.dates.toObject(), ...dates };
     }
 
+    const incoming = normalizeContent({ ...rest });
     for (const field of CONTENT_FIELDS) {
-      if (rest[field] !== undefined) competition[field] = rest[field];
+      if (incoming[field] !== undefined) competition[field] = incoming[field];
     }
 
     await competition.save();
@@ -245,6 +272,104 @@ export const adminRetryEntryAI = async (req, res) => {
   } catch (error) {
     console.error("[competition admin] retry AI failed:", error?.message || error);
     return res.status(500).json({ message: "Failed to re-run AI processing." });
+  }
+};
+
+// ── Referral analytics ──────────────────────────────────────────────────────
+
+// RFC-4180-ish: quote every field and double any embedded quote, so a name containing a comma
+// cannot shift every following column.
+const csvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+const toCsv = (headers, rows) =>
+  [headers.map(csvCell).join(","), ...rows.map((row) => row.map(csvCell).join(","))].join("\n");
+
+// GET /api/admin/referrals/analytics[?competitionId=&format=csv]
+export const adminReferralAnalytics = async (req, res) => {
+  try {
+    const competitionId = asId(req.query.competitionId);
+    const competition = competitionId ? await Competition.findById(competitionId).lean() : null;
+    if (competitionId && !competition) return res.status(404).json({ message: "Competition not found." });
+
+    // Scoped to the competition window when one is given, otherwise all time.
+    const window = competition ? referralWindow(competition) : { start: null, end: null };
+    const match = { referredBy: { $ne: null } };
+    if (window.start && window.end) match.referredAt = { $gte: window.start, $lte: window.end };
+
+    const [totals] = await User.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          totalReferrals: { $sum: 1 },
+          qualified: { $sum: { $cond: ["$hasReceivedReferralBonus", 1, 0] } },
+        },
+      },
+    ]);
+
+    const totalReferrals = totals?.totalReferrals || 0;
+    const qualified = totals?.qualified || 0;
+
+    const topReferrers = await User.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: "$referredBy",
+          referrals: { $sum: 1 },
+          qualified: { $sum: { $cond: ["$hasReceivedReferralBonus", 1, 0] } },
+        },
+      },
+      { $sort: { qualified: -1, referrals: -1 } },
+      { $limit: 25 },
+      { $lookup: { from: "users", localField: "_id", foreignField: "_id", as: "referrer" } },
+      { $unwind: "$referrer" },
+      {
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          name: "$referrer.name",
+          email: "$referrer.email",          // admin-only view; the participant view never sees emails
+          referralCode: "$referrer.referralCode",
+          referrals: 1,
+          qualified: 1,
+        },
+      },
+    ]);
+
+    // What was actually granted, read from the reward ledger rather than inferred from counts — the
+    // ledger is the record of what really happened.
+    const rewardRows = await CompetitionEntry.aggregate([
+      ...(competitionId ? [{ $match: { competitionId: new mongoose.Types.ObjectId(competitionId) } }] : []),
+      { $unwind: "$rewardsGranted" },
+      { $match: { "rewardsGranted.type": /^referral_/ } },
+      { $group: { _id: "$rewardsGranted.type", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]);
+
+    const payload = {
+      competition: competition ? { _id: competition._id, name: competition.name } : null,
+      totalReferrals,
+      qualified,
+      awaitingVerification: Math.max(0, totalReferrals - qualified),
+      // Of the people who signed up through a link, how many finished verifying.
+      conversionRate: totalReferrals ? Math.round((qualified / totalReferrals) * 100) : 0,
+      rewardsDistributed: rewardRows.map((r) => ({ tier: r._id.replace(/^referral_/, ""), count: r.count })),
+      topReferrers,
+    };
+
+    if (String(req.query.format || "").toLowerCase() === "csv") {
+      const csv = toCsv(
+        ["Referrer", "Email", "Referral code", "Referrals", "Qualified"],
+        topReferrers.map((r) => [r.name, r.email, r.referralCode, r.referrals, r.qualified]),
+      );
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="referrals-${Date.now()}.csv"`);
+      return res.send(csv);
+    }
+
+    return res.json(payload);
+  } catch (error) {
+    console.error("[competition admin] referral analytics failed:", error?.message || error);
+    return res.status(500).json({ message: "Failed to load referral analytics." });
   }
 };
 
@@ -415,11 +540,16 @@ export const adminDeclareResults = async (req, res) => {
     // Referral drive rewards, settled at the same moment as everything else so a writer's whole
     // outcome lands in one go. Badge-only for the lower tiers; the top tiers add subscription time,
     // which is the one non-badge grant in this codebase that demonstrably persists.
+    // Tiers are per-competition and admin-editable, so read them from the competition rather than a
+    // module constant. grantOnce keys on `referral_<tierId>`, so editing tiers mid-competition can
+    // add a reward but can never re-grant one already in the ledger.
+    const referralTiers = tiersFor(competition);
     for (const entry of entries) {
       const progress = await getReferralProgress(entry.userId, competition);
       if (!progress.earned) continue;
 
-      const tier = REFERRAL_TIERS.find((t) => t.id === progress.earned.id);
+      const tier = referralTiers.find((t) => t.id === progress.earned.id);
+      if (!tier) continue;   // tier was renamed or removed after this entry qualified
       await grantOnce(entry, `referral_${tier.id}`, async () => {
         await awardBadge(entry.userId, { id: tier.id, label: tier.label }, competition._id);
         if (tier.days > 0) {

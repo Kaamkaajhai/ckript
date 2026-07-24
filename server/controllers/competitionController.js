@@ -6,7 +6,12 @@ import User from "../models/User.js";
 import { createNotification, sendEmailNotification } from "../utils/notify.js";
 import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
 import { generateCompetitionCertificate } from "../utils/competitionCertificatePdf.js";
-import { getReferralProgress, ensureReferralCode } from "../utils/competitionReferrals.js";
+import {
+  getReferralProgress,
+  ensureReferralCode,
+  listCompetitionReferrals,
+  referralWindow,
+} from "../utils/competitionReferrals.js";
 import { countPages } from "../utils/paginate.js";
 import { classifyText } from "../utils/classify.js";
 import {
@@ -673,6 +678,29 @@ export const getCompetitionCertificate = async (req, res) => {
   } catch (error) {
     console.error("[competition] certificate failed:", error?.message || error);
     return res.status(500).json({ message: "Failed to generate your certificate." });
+  }
+};
+
+// GET /api/competitions/:id/referrals  (protect) — the signed-in user's own referral history
+export const getMyCompetitionReferrals = async (req, res) => {
+  try {
+    const competition = await loadPublishedById(req.params.id);
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    const [progress, referrals] = await Promise.all([
+      getReferralProgress(req.user._id, competition),
+      listCompetitionReferrals(req.user._id, competition),
+    ]);
+
+    return res.json({
+      progress,
+      referrals,
+      referralCode: await ensureReferralCode(req.user),
+      window: referralWindow(competition),
+    });
+  } catch (error) {
+    console.error("[competition] referral history failed:", error?.message || error);
+    return res.status(500).json({ message: "Failed to load your referrals." });
   }
 };
 

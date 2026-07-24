@@ -12,6 +12,7 @@ import {
   getCompetitionCertificate,
   getCompletedCompetitions,
   getHallOfFameEntry,
+  getMyCompetitionReferrals,
 } from "../controllers/competitionController.js";
 
 const router = express.Router();
@@ -27,6 +28,7 @@ router.get("/mine", protect, getMyCompetitions);
 router.post("/:id/register", protect, registerForCompetition);
 router.get("/:id/me", protect, getMyEntry);
 router.get("/:id/participants", protect, getCompetitionParticipants);
+router.get("/:id/referrals", protect, getMyCompetitionReferrals);
 router.get("/:id/certificate", protect, getCompetitionCertificate);
 router.post("/:id/open-editor", protect, openCompetitionEditor);
 router.post("/:id/submit", protect, submitCompetitionEntry);

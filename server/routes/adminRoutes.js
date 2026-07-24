@@ -66,6 +66,7 @@ import {
     adminListEntries,
     adminRetryEntryAI,
     adminDeclareResults,
+    adminReferralAnalytics,
 } from "../controllers/competitionAdminController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
 
@@ -160,6 +161,9 @@ router.post("/competitions/:id/archive", adminArchiveCompetition);
 router.get("/competitions/:id/entries", adminListEntries);
 router.post("/competitions/:id/entries/:entryId/retry-ai", adminRetryEntryAI);
 router.post("/competitions/:id/results", adminDeclareResults);
+
+// Referral analytics (?competitionId= scopes it, ?format=csv exports)
+router.get("/referrals/analytics", adminReferralAnalytics);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);

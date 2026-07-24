@@ -50,11 +50,33 @@ export const ensureReferralCode = async (user) => {
  *     existing marker for that). Counting unverified signups would make the drive trivially farmable.
  */
 
+/** Used when a competition does not define its own tiers. */
 export const REFERRAL_TIERS = [
   { count: 3, id: "challenge_referral_bronze", label: "Challenge Advocate", days: 0 },
   { count: 5, id: "challenge_referral_silver", label: "Challenge Champion", days: 15 },
   { count: 10, id: "challenge_referral_gold", label: "Challenge Ambassador", days: 30 },
 ];
+
+/**
+ * The tiers in force for one competition, admin-configurable per edition.
+ *
+ * Always sorted ascending by count — `tierFor` and the "next tier" lookup both assume that order,
+ * and an admin typing rows into a repeater will not necessarily keep them sorted. Rows missing a
+ * count or id are dropped rather than trusted, because a tier id becomes a reward-ledger key.
+ */
+export const tiersFor = (competition) => {
+  const custom = (competition?.referralTiers || [])
+    .filter((tier) => Number(tier?.count) > 0 && String(tier?.id || "").trim())
+    .map((tier) => ({
+      count: Number(tier.count),
+      id: String(tier.id).trim(),
+      label: String(tier.label || tier.id).trim(),
+      days: Math.max(0, Number(tier.days) || 0),
+    }))
+    .sort((a, b) => a.count - b.count);
+
+  return custom.length ? custom : REFERRAL_TIERS;
+};
 
 /** The window a referral must fall inside to count toward a competition. */
 export const referralWindow = (competition) => ({
@@ -79,24 +101,69 @@ export const countCompetitionReferrals = async (userId, competition) => {
   });
 };
 
-/** The tier reached at a given count, or null. */
-export const tierFor = (count) =>
-  [...REFERRAL_TIERS].reverse().find((tier) => count >= tier.count) || null;
+/** The highest tier reached at a given count, or null. */
+export const tierFor = (count, tiers = REFERRAL_TIERS) =>
+  [...tiers].reverse().find((tier) => count >= tier.count) || null;
+
+/**
+ * Everyone this user referred during the competition window, for their own history table.
+ *
+ * Returns NO email address. The referrer is being shown other people's accounts, and knowing that
+ * someone signed up is not a reason to be handed their email.
+ *
+ * Two states, not four: `qualified` (the referred account verified its email — this is what counts
+ * toward a tier) and `registered` (signed up, not yet verified). A click that never became a signup
+ * leaves no trace anywhere, so a "pending" state would always be empty and is not invented here.
+ */
+export const listCompetitionReferrals = async (userId, competition) => {
+  const { start, end } = referralWindow(competition);
+  if (!start || !end) return [];
+
+  const referred = await User.find({ referredBy: userId, referredAt: { $gte: start, $lte: end } })
+    .select("name profileImage writerProfile.username createdAt referredAt hasReceivedReferralBonus referralBonusAwardedAt")
+    .sort({ referredAt: -1 })
+    .lean();
+
+  return referred.map((user) => ({
+    name: user.name || "Writer",
+    username: user.writerProfile?.username || "",
+    profileImage: user.profileImage || "",
+    // createdAt is when they actually signed up; referredAt is when the LINK was recorded, which for
+    // the apply-a-code-later path can be much later.
+    registeredAt: user.createdAt,
+    status: user.hasReceivedReferralBonus ? "qualified" : "registered",
+    qualifiedAt: user.referralBonusAwardedAt || null,
+  }));
+};
 
 /**
  * Progress for the dashboard: current count, the tier earned, and what the next one needs.
  */
 export const getReferralProgress = async (userId, competition) => {
-  const count = await countCompetitionReferrals(userId, competition);
-  const earned = tierFor(count);
-  const next = REFERRAL_TIERS.find((tier) => count < tier.count) || null;
+  const tiers = tiersFor(competition);
+  const [count, signedUp] = await Promise.all([
+    countCompetitionReferrals(userId, competition),
+    countSignedUpReferrals(userId, competition),
+  ]);
+  const earned = tierFor(count, tiers);
+  const next = tiers.find((tier) => count < tier.count) || null;
 
   return {
     count,
-    earned: earned ? { id: earned.id, label: earned.label } : null,
-    next: next ? { label: next.label, needed: next.count - count, at: next.count } : null,
-    tiers: REFERRAL_TIERS.map(({ id, label, count: at, days }) => ({ id, label, at, days })),
+    // Signed up but not yet verified — they do not count toward a tier yet, and saying so is more
+    // honest than showing only the qualified number and letting the referrer wonder.
+    awaitingVerification: Math.max(0, signedUp - count),
+    earned: earned ? { id: earned.id, label: earned.label, days: earned.days } : null,
+    next: next ? { label: next.label, needed: next.count - count, at: next.count, days: next.days } : null,
+    tiers: tiers.map(({ id, label, count: at, days }) => ({ id, label, at, days })),
   };
+};
+
+/** Everyone referred in the window, verified or not. */
+const countSignedUpReferrals = async (userId, competition) => {
+  const { start, end } = referralWindow(competition);
+  if (!start || !end) return 0;
+  return User.countDocuments({ referredBy: userId, referredAt: { $gte: start, $lte: end } });
 };
 
 export default getReferralProgress;

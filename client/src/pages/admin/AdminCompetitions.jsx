@@ -26,6 +26,10 @@ const EMPTY_FORM = {
   overview: "",
   eligibility: "",
   format: "Any format written in the Ckript editor",
+  visibility: "public",
+  bannerUrl: "",
+  prizePool: "",
+  referralTiers: [],
   theme: { title: "", brief: "", allowedGenres: [], guidelines: "" },
   prizes: { winner: [], runnerUp: [], special: [] },
   rules: [""],
@@ -224,6 +228,10 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
       },
       theme: { ...EMPTY_FORM.theme, ...(existing.theme || {}) },
       prizes: { winner: [], runnerUp: [], special: [], ...(existing.prizes || {}) },
+      visibility: existing.visibility || "public",
+      bannerUrl: existing.bannerUrl || "",
+      prizePool: existing.prizePool || "",
+      referralTiers: existing.referralTiers || [],
       rules: existing.rules?.length ? existing.rules : [""],
     };
   });
@@ -241,6 +249,11 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
     overview: form.overview,
     eligibility: form.eligibility,
     format: form.format,
+    visibility: form.visibility,
+    bannerUrl: form.bannerUrl,
+    prizePool: form.prizePool,
+    // Empty rows are dropped; an empty list means "use the platform defaults".
+    referralTiers: (form.referralTiers || []).filter((t) => Number(t.count) > 0 && String(t.id || "").trim()),
     theme: form.theme,
     prizes: form.prizes,
     rules: form.rules.filter((r) => r.trim()),
@@ -311,6 +324,25 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
 
         <label className={`${cls.label(dark)} mt-4`}>Format</label>
         <input value={form.format} onChange={(e) => set("format", e.target.value)} className={`${cls.input(dark)} mt-1`} />
+
+        <label className={`${cls.label(dark)} mt-4`}>Banner image URL</label>
+        <input value={form.bannerUrl} onChange={(e) => set("bannerUrl", e.target.value)} placeholder="https://…"
+          className={`${cls.input(dark)} mt-1`} />
+
+        <label className={`${cls.label(dark)} mt-4`}>Prize pool</label>
+        <input value={form.prizePool} onChange={(e) => set("prizePool", e.target.value)}
+          placeholder="e.g. ₹50,000 + Gold subscriptions" className={`${cls.input(dark)} mt-1`} />
+        <p className={`mt-1 text-xs ${cls.body(dark)}`}>Shown on the Hall of Fame. Free text — any currency, cash or not.</p>
+
+        <label className={`${cls.label(dark)} mt-4`}>Visibility</label>
+        <select value={form.visibility} onChange={(e) => set("visibility", e.target.value)} className={`${cls.input(dark)} mt-1`}>
+          <option value="public">Public — listed everywhere</option>
+          <option value="hidden">Hidden — reachable by direct link only</option>
+        </select>
+        <p className={`mt-1 text-xs ${cls.body(dark)}`}>
+          Hidden competitions never appear on the public challenge page or in the Hall of Fame, but run
+          normally for anyone who has the link. Use for internal betas, university or sponsor-only events.
+        </p>
       </Group>
 
       <Group title="Schedule">
@@ -379,6 +411,25 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
         </div>
       </Group>
 
+      <Group title="Referral rewards">
+        <p className={`mb-3 text-xs ${cls.body(dark)}`}>
+          Writers who bring other writers in earn these. Leave empty to use the platform defaults
+          (3 → Challenge Advocate, 5 → +15 days Silver, 10 → +30 days Silver). The ID becomes the
+          reward's permanent key — changing it after results are declared will not re-grant anything.
+        </p>
+        <ObjectRows
+          dark={dark}
+          values={form.referralTiers}
+          onChange={(v) => set("referralTiers", v)}
+          fields={[
+            { key: "count", placeholder: "Referrals needed" },
+            { key: "id", placeholder: "Reward ID (e.g. challenge_referral_gold)", wide: true },
+            { key: "label", placeholder: "Label" },
+            { key: "days", placeholder: "Silver days (0 = badge only)" },
+          ]}
+        />
+      </Group>
+
       <Group title="Rules">
         <StringRows dark={dark} values={form.rules} onChange={(v) => set("rules", v)} placeholder="Rule text" />
       </Group>
@@ -390,12 +441,12 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
 
       <Group title="Judges">
         <ObjectRows dark={dark} values={form.judges} onChange={(v) => set("judges", v)}
-          fields={[{ key: "name", placeholder: "Name" }, { key: "title", placeholder: "Title" }, { key: "photoUrl", placeholder: "Photo URL", wide: true }]} />
+          fields={[{ key: "name", placeholder: "Name" }, { key: "title", placeholder: "Title" }, { key: "photoUrl", placeholder: "Photo URL" }, { key: "bio", placeholder: "Short bio", wide: true }]} />
       </Group>
 
       <Group title="Sponsors">
         <ObjectRows dark={dark} values={form.sponsors} onChange={(v) => set("sponsors", v)}
-          fields={[{ key: "name", placeholder: "Name" }, { key: "logoUrl", placeholder: "Logo URL" }, { key: "url", placeholder: "Link", wide: true }]} />
+          fields={[{ key: "name", placeholder: "Name" }, { key: "logoUrl", placeholder: "Logo URL" }, { key: "url", placeholder: "Link" }, { key: "tier", placeholder: "Tier (e.g. Gold)" }]} />
       </Group>
 
       <Group title="Community links">
