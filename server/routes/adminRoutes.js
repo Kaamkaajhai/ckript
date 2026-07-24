@@ -57,6 +57,16 @@ import {
     sendAudienceBroadcast,
 } from "../controllers/adminController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
+import {
+    adminListCompetitions,
+    adminCreateCompetition,
+    adminUpdateCompetition,
+    adminPublishCompetition,
+    adminArchiveCompetition,
+    adminListEntries,
+    adminRetryEntryAI,
+    adminDeclareResults,
+} from "../controllers/competitionAdminController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
 
 const router = express.Router();
@@ -140,6 +150,16 @@ router.get("/agreements/:id/pdf", getAdminAgreementPdf);
 router.get("/legal/terms/current", getAdminPurchaseTermsCurrent);
 router.get("/legal/terms/versions", getAdminPurchaseTermsVersions);
 router.post("/legal/terms/versions", createAdminPurchaseTermsVersion);
+
+// Competitions (auth comes from router.use(protect, adminOnly) above)
+router.get("/competitions", adminListCompetitions);
+router.post("/competitions", adminCreateCompetition);
+router.put("/competitions/:id", adminUpdateCompetition);
+router.post("/competitions/:id/publish", adminPublishCompetition);
+router.post("/competitions/:id/archive", adminArchiveCompetition);
+router.get("/competitions/:id/entries", adminListEntries);
+router.post("/competitions/:id/entries/:entryId/retry-ai", adminRetryEntryAI);
+router.post("/competitions/:id/results", adminDeclareResults);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);
