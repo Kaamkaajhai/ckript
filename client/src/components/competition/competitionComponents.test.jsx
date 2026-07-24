@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 import { act } from "react";
 import CountdownTimer from "./CountdownTimer";
 import PhaseTimeline from "./PhaseTimeline";
+import CompetitionJourney from "./CompetitionJourney";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -151,5 +152,47 @@ describe("PhaseTimeline", () => {
   it("renders nothing when there are no steps", () => {
     const el = render(<PhaseTimeline steps={[]} />);
     expect(el.textContent).toBe("");
+  });
+});
+
+describe("CompetitionJourney", () => {
+  // The exact shape the server sends for a participant.
+  const journey = [
+    { key: "registered", label: "Registered", date: "2026-02-01T00:00:00.000Z", status: "done" },
+    { key: "competition_starts", label: "Theme released", date: "2026-03-01T00:00:00.000Z", status: "done" },
+    { key: "writing", label: "Writing", date: null, status: "current" },
+    { key: "submission", label: "Submitted", date: null, status: "upcoming" },
+    { key: "certificate", label: "Certificate available", date: null, status: "upcoming" },
+  ];
+
+  it("renders every step and counts the completed ones", () => {
+    const el = render(<CompetitionJourney steps={journey} />);
+    for (const step of journey) expect(el.textContent).toContain(step.label);
+    expect(el.textContent).toContain("2 of 5 complete");
+  });
+
+  it("renders each step exactly once per layout", () => {
+    const el = render(<CompetitionJourney steps={journey} />);
+    // One mobile list + one desktop list; CSS shows whichever fits, so each step appears twice.
+    expect(el.querySelectorAll("li").length).toBe(journey.length * 2);
+  });
+
+  it("marks the current step distinctly from done and upcoming", () => {
+    const el = render(<CompetitionJourney steps={journey} />);
+    const current = [...el.querySelectorAll("span")].filter((n) => n.className.includes("text-[#D14D37]"));
+    expect(current.length).toBeGreaterThan(0);
+    // A done step gets a check mark; upcoming steps get neither.
+    expect(el.querySelectorAll("svg").length).toBeGreaterThan(0);
+  });
+
+  it("renders nothing without steps", () => {
+    const el = render(<CompetitionJourney steps={[]} />);
+    expect(el.textContent).toBe("");
+  });
+
+  it("shows full completion when every step is done", () => {
+    const done = journey.map((s) => ({ ...s, status: "done" }));
+    const el = render(<CompetitionJourney steps={done} />);
+    expect(el.textContent).toContain("5 of 5 complete");
   });
 });

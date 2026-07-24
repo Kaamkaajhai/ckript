@@ -152,6 +152,43 @@ test("every timeline shape stays monotonic", () => {
   }
 });
 
+test("a participant timeline ends with the certificate step", () => {
+  const entry = { createdAt: T(2 * HOUR), status: "judged", submittedAt: T(40 * HOUR), ai: { processedAt: T(41 * HOUR) } };
+  const declared = { ...competition, resultsDeclaredAt: T(80 * HOUR) };
+  const steps = buildTimeline(declared, entry, T(90 * HOUR));
+
+  const last = steps[steps.length - 1];
+  assert.equal(last.key, "certificate", "certificate is the final step");
+  assert.equal(last.status, "done", "a judged entry can download its certificate");
+  // Same gate as getCompetitionCertificate — if these ever diverge the UI would promise a download
+  // the server refuses.
+  assert.equal(entry.status, "judged");
+});
+
+test("the certificate step is NOT offered before the entry is judged", () => {
+  const entry = { createdAt: T(2 * HOUR), status: "ai_processed", submittedAt: T(40 * HOUR), ai: { processedAt: T(41 * HOUR) } };
+  const steps = buildTimeline(competition, entry, T(70 * HOUR));
+  const certificate = steps.find((s) => s.key === "certificate");
+  assert.ok(certificate, "the step is still listed, so the writer can see it coming");
+  assert.notEqual(certificate.status, "done");
+});
+
+test("the certificate step is participant-only", () => {
+  const steps = buildTimeline(competition, null, T(90 * HOUR));
+  assert.equal(steps.find((s) => s.key === "certificate"), undefined);
+});
+
+test("the start step is named for what the participant experiences", () => {
+  const entry = { createdAt: T(2 * HOUR), status: "writing", ai: {} };
+  const forEntrant = buildTimeline(competition, entry, T(30 * HOUR)).find((s) => s.key === "competition_starts");
+  const forPublic = buildTimeline(competition, null, T(30 * HOUR)).find((s) => s.key === "competition_starts");
+
+  // The theme is revealed at startsAt, so that is the event an entrant is waiting on.
+  assert.equal(forEntrant.label, "Theme released");
+  // The public page has no entry and should keep neutral wording.
+  assert.equal(forPublic.label, "Competition starts");
+});
+
 test("timeline dates are ISO strings or null", () => {
   for (const step of buildTimeline(competition, null, T(5 * HOUR))) {
     assert.ok(step.date === null || !Number.isNaN(Date.parse(step.date)), `${step.key} date`);

@@ -9,6 +9,7 @@ import api from "../../services/api";
 import useCompetition from "../../components/competition/useCompetition";
 import CountdownTimer from "../../components/competition/CountdownTimer";
 import PhaseTimeline from "../../components/competition/PhaseTimeline";
+import CompetitionJourney from "../../components/competition/CompetitionJourney";
 import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
 import ReferralDrive from "../../components/competition/ReferralDrive";
 import {
@@ -181,6 +182,10 @@ const CompetitionDashboard = () => {
         </div>
       </Card>
 
+      <Card>
+        <CompetitionJourney steps={timeline} />
+      </Card>
+
       {phase === "announced" || phase === "registration_open" || phase === "registration_closed" ? (
         <Card>
           <CountdownTimer target={competition.dates?.startsAt} serverNow={serverNow} label="Competition starts in" onExpire={refresh} />
@@ -271,11 +276,6 @@ const CompetitionDashboard = () => {
 
       <AIResults ai={entry.ai} />
 
-      <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Your progress</h2>
-        <div className="mt-4"><PhaseTimeline steps={timeline} serverNow={serverNow} /></div>
-      </Card>
-
       <Link
         to="/my-competitions"
         className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-[#D14D37] dark:border-gray-700 dark:bg-gray-800"
@@ -351,7 +351,12 @@ const CompetitionDashboard = () => {
         </div>
       </Card>
 
-      <ReferralDrive referrals={referrals} referralCode={referralCode} />
+      <ReferralDrive
+        competitionId={competition._id}
+        competitionName={competition.name}
+        referrals={referrals}
+        referralCode={referralCode}
+      />
 
       <Card>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Who else is writing</h2>

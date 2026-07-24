@@ -87,7 +87,14 @@ export const buildTimeline = (competition, entry = null, now = new Date()) => {
     steps.push({ key: "registration_closes", label: "Registration closes", date: iso(d.regClosesAt), done: passed(d.regClosesAt) });
   }
 
-  steps.push({ key: "competition_starts", label: "Competition starts", date: iso(d.startsAt), done: passed(d.startsAt) });
+  steps.push({
+    key: "competition_starts",
+    // For a participant the meaningful event at startsAt is the reveal — the theme is withheld
+    // server-side until exactly this moment. The public timeline keeps the neutral wording.
+    label: entry ? "Theme released" : "Competition starts",
+    date: iso(d.startsAt),
+    done: passed(d.startsAt),
+  });
   steps.push({
     key: "writing",
     label: entry ? "Writing" : "48-hour writing window",
@@ -126,6 +133,19 @@ export const buildTimeline = (competition, entry = null, now = new Date()) => {
     // Rewards land with the declaration; for a participant, when their entry is judged.
     done: entry ? rank >= ENTRY_RANK.judged : declared,
   });
+
+  // The certificate becomes downloadable at exactly the same moment — getCompetitionCertificate
+  // gates on `entry.status === "judged"`, which is this same rank check. No new state: the step
+  // simply names an outcome the entry already carries. Participant-only, since there is no
+  // certificate to speak of on the public timeline.
+  if (entry) {
+    steps.push({
+      key: "certificate",
+      label: "Certificate available",
+      date: iso(competition?.resultsDeclaredAt),
+      done: rank >= ENTRY_RANK.judged,
+    });
+  }
 
   // A timeline is monotonic: once a step is unfinished, nothing after it can be finished. The
   // per-step `done` flags come from two different sources (the entry's own progress vs the
