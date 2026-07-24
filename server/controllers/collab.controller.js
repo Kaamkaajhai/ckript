@@ -246,6 +246,13 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    // The competition is solo: one writer, one entry. The generic collaboration surface is closed on
+    // a competition script, because otherwise inviting co-writers here would be an unguarded way to
+    // enter work that is not your own.
+    if (script.competitionId) {
+      return res.status(403).json({ error: "Competition entries are written solo — collaborators cannot be added." });
+    }
+
     const role = normalizeCollaboratorRoleInput(req.body?.role, "editor");
     const accessLevel = normalizeAccessLevel(req.body?.accessLevel);
 
@@ -418,10 +425,16 @@ export const acceptInvite = async (req, res) => {
     }
 
     const script = await Script.findOne({ "collaborators.inviteToken": token })
-      .select("title creator collaborators collabVisibility");
+      // competitionId is selected so the guard below can actually see it — without it the guard would
+      // read undefined and silently never fire.
+      .select("title creator collaborators collabVisibility competitionId");
 
     if (!script) {
       return res.status(404).json({ error: "Invalid invite link" });
+    }
+
+    if (script.competitionId) {
+      return res.status(403).json({ error: "This script is a competition entry and cannot be co-written." });
     }
 
     const collaborator = script.collaborators.find((entry) => entry.inviteToken === token);
@@ -515,9 +528,15 @@ export const acceptInvite = async (req, res) => {
 
 export const requestCollab = async (req, res) => {
   try {
-    const script = await Script.findById(req.params.scriptId).select("title creator collabVisibility collaborators");
+    const script = await Script.findById(req.params.scriptId).select("title creator collabVisibility collaborators competitionId");
     if (!script) {
       return res.status(404).json({ error: "Script not found" });
+    }
+
+    // A competition entry is written solo. Without this, collabVisibility "open" would be an
+    // unguarded join path straight into a live entry.
+    if (script.competitionId) {
+      return res.status(403).json({ error: "Competition entries are written solo." });
     }
 
     if (script.collabVisibility !== "open") {
@@ -792,6 +811,10 @@ export const updateCollaboratorRole = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    if (script.competitionId) {
+      return res.status(403).json({ error: "Competition entries are written solo." });
+    }
+
     const collaborator = findCurrentCollaboratorEntry(script, req.params.userId);
 
     if (!collaborator) {
@@ -879,6 +902,12 @@ export const removeCollaborator = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    // A competition script has no collaborators to manage, and this endpoint must not become a way
+    // to mutate one mid-competition.
+    if (script.competitionId) {
+      return res.status(403).json({ error: "Competition entries are written solo." });
+    }
+
     if (normalizeObjectId(req.params.userId) === normalizeObjectId(getOwnerId(script))) {
       return res.status(400).json({ error: "Owner cannot be removed from their own script" });
     }
@@ -958,6 +987,11 @@ export const updateVisibility = async (req, res) => {
     const script = req.script || await Script.findById(req.params.scriptId);
     if (!script) {
       return res.status(404).json({ error: "Script not found" });
+    }
+
+    // Prevents flipping a competition entry to "open", which would create a public join path.
+    if (script.competitionId) {
+      return res.status(403).json({ error: "Competition entries cannot change visibility." });
     }
 
     script.collabVisibility = collabVisibility;
