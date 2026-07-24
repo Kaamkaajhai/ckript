@@ -23,6 +23,11 @@ const competitionSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 120 },
   slug: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
   lifecycle: { type: String, enum: ["draft", "published", "archived"], default: "draft", index: true },
+  // Orthogonal to lifecycle. A `hidden` competition runs completely normally for the people who have
+  // its link, but is never DISCOVERED: it is excluded from the Hall of Fame and never chosen as the
+  // public "active" competition. That is what makes internal beta / university-only /
+  // sponsor-exclusive events possible on the same infrastructure.
+  visibility: { type: String, enum: ["public", "hidden"], default: "public", index: true },
 
   dates: {
     regOpensAt: { type: Date, required: true },
@@ -47,6 +52,12 @@ const competitionSchema = new mongoose.Schema({
   eligibility: { type: String, maxlength: 2000, default: "" },
   format: { type: String, maxlength: 1000, default: "Any format written in the Ckript editor" },
 
+  // Hero image for the Hall of Fame record.
+  bannerUrl: { type: String, default: "" },
+  // Free text rather than a number+currency: prizes here mix cash with subscriptions, trailers and
+  // features, and the cash element is settled off-platform in whatever currency suits the edition.
+  prizePool: { type: String, trim: true, maxlength: 200, default: "" },
+
   prizes: {
     winner: [{ type: String }],
     runnerUp: [{ type: String }],
@@ -55,10 +66,19 @@ const competitionSchema = new mongoose.Schema({
 
   rules: [{ type: String, maxlength: 1000 }],
   faq: [{ q: { type: String, maxlength: 300 }, a: { type: String, maxlength: 2000 } }],
-  judges: [{ name: String, title: String, photoUrl: String }],
-  sponsors: [{ name: String, logoUrl: String, url: String }],
+  judges: [{ name: String, title: String, photoUrl: String, bio: { type: String, maxlength: 600, default: "" } }],
+  sponsors: [{ name: String, logoUrl: String, url: String, tier: { type: String, trim: true, maxlength: 40, default: "" } }],
   communityLinks: [{ label: String, url: String }],
   resources: [{ label: String, url: String }],
+
+  // Referral reward tiers for THIS competition. Left empty, utils/competitionReferrals.js falls back
+  // to its module defaults, so every existing competition keeps working untouched.
+  referralTiers: [{
+    count: { type: Number, min: 1 },
+    id: { type: String, trim: true },
+    label: { type: String, trim: true, maxlength: 80 },
+    days: { type: Number, min: 0, default: 0 },
+  }],
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true });

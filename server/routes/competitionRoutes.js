@@ -10,12 +10,16 @@ import {
   getCompetitionHistory,
   getCompetitionParticipants,
   getCompetitionCertificate,
+  getCompletedCompetitions,
+  getHallOfFameEntry,
 } from "../controllers/competitionController.js";
 
 const router = express.Router();
 
-// Public
+// Public. These sit above the `/:id/...` block so they are never captured as an id.
 router.get("/active", getActiveCompetition);
+router.get("/completed", getCompletedCompetitions);
+router.get("/hall-of-fame/:slug", getHallOfFameEntry);
 router.get("/history/:userId", getCompetitionHistory);
 
 // Participant. `/mine` is declared before `/:id/...` so it is never captured as an id.

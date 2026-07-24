@@ -109,9 +109,12 @@ const validateDates = (dates = {}) => {
   return null;
 };
 
+// Whitelist of admin-editable fields. Anything missing here is SILENTLY dropped from an update —
+// add new editable fields to this list or the admin will save and see no error and no change.
 const CONTENT_FIELDS = [
   "name", "theme", "overview", "eligibility", "format", "prizes", "rules",
   "faq", "judges", "sponsors", "communityLinks", "resources",
+  "bannerUrl", "prizePool", "visibility", "referralTiers",
 ];
 
 export const adminCreateCompetition = async (req, res) => {

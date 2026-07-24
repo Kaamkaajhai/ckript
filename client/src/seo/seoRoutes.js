@@ -31,6 +31,26 @@ const staticSeoRoutes = [
     kind: "homepage",
   },
   {
+    // The live competition. Public marketing surface — it was never registered here, so it was
+    // absent from the sitemap and never prerendered.
+    path: "/challenge",
+    title: "Ckript Global Script Challenge | 48-Hour Screenwriting Competition",
+    description:
+      "Write a complete script in 48 hours. One theme, one weekend, one shot. Ckript's global screenwriting challenge is open to writers everywhere.",
+    changefreq: "daily",
+    priority: "0.9",
+  },
+  {
+    // The permanent archive of past competitions — the platform's credibility page, so it should be
+    // indexed. Individual /hall-of-fame/:slug pages set their own metadata at runtime.
+    path: "/hall-of-fame",
+    title: "Hall of Fame | Ckript Competition Winners",
+    description:
+      "Celebrating the best writers and scripts from every Ckript competition — winners, runners-up and featured writers from past challenges.",
+    changefreq: "weekly",
+    priority: "0.8",
+  },
+  {
     path: "/contact",
     title: "Contact Ckript",
     description:

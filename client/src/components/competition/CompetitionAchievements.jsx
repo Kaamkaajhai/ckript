@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Trophy, Medal } from "lucide-react";
 import publicApi from "../../services/publicApi";
+import { yearSuffix } from "./labels";
 
 /**
  * A writer's competition record, for the public profile and their own profile view.
@@ -34,8 +36,36 @@ const CompetitionAchievements = ({ userId, badges = [], className = "" }) => {
   const shownBadges = Array.isArray(badges) ? badges : [];
   if (!shownBadges.length && !history.length) return null;
 
+  // The most recent win, promoted out of the history list into a banner. Winning a competition is
+  // the strongest credential a writer has here, so it should not be one row among many.
+  // `competitionSlug` is blank for a hidden competition, which has no public record to link to.
+  const topWin = history.find((row) => row.award === "winner");
+
   return (
     <section className={className}>
+      {topWin ? (
+        <div className="mb-6 rounded-2xl border border-amber-300 bg-gradient-to-r from-amber-50 to-transparent p-5 dark:border-amber-700 dark:from-amber-900/20">
+          <div className="flex items-start gap-3">
+            <Trophy className="mt-0.5 h-6 w-6 shrink-0 text-amber-500" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                Hall of Fame Winner
+              </p>
+              <p className="mt-1 text-gray-800 dark:text-gray-100">
+                Winner of the{" "}
+                {topWin.competitionSlug ? (
+                  <Link to={`/hall-of-fame/${topWin.competitionSlug}`} className="font-semibold text-[#D14D37] hover:underline">
+                    {topWin.competitionName} {yearSuffix(topWin.competitionName, topWin.year)}
+                  </Link>
+                ) : (
+                  <span className="font-semibold">{topWin.competitionName} {yearSuffix(topWin.competitionName, topWin.year)}</span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {shownBadges.length ? (
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Badges</h3>
@@ -65,7 +95,8 @@ const CompetitionAchievements = ({ userId, badges = [], className = "" }) => {
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-                    {row.competitionName} <span className="font-normal text-gray-500 dark:text-gray-400">{row.year}</span>
+                    {row.competitionName}{" "}
+                    <span className="font-normal text-gray-500 dark:text-gray-400">{yearSuffix(row.competitionName, row.year)}</span>
                   </p>
                   {row.scriptTitle ? (
                     <p className="truncate text-xs text-gray-600 dark:text-gray-300">{row.scriptTitle}</p>

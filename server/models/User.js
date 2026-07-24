@@ -25,7 +25,8 @@ export const createReferralCode = () => {
 const userSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   referralCode: { type: String, unique: true, sparse: true, index: true, uppercase: true, trim: true },
-  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  // Indexed: the admin top-referrers aggregation groups on this across the whole user collection.
+  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
   // WHEN the referral link was recorded. Without this the only time signal is
   // `referralBonusAwardedAt`, which is stamped at email verification — potentially days after the
   // click — so any window-scoped count (a competition referral drive, say) would be badly skewed.

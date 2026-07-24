@@ -41,9 +41,12 @@ const publicCompetition = (competition, phase) => {
  */
 const findActiveCompetition = async () => {
   const now = new Date();
+  // `hidden` competitions are never DISCOVERED — an internal or university-only event must not take
+  // over the public landing page. It stays fully usable for anyone holding its direct link.
+  const discoverable = { lifecycle: "published", visibility: { $ne: "hidden" } };
 
   const current = await Competition.findOne({
-    lifecycle: "published",
+    ...discoverable,
     resultsDeclaredAt: null,
     "dates.regOpensAt": { $lte: now },
   }).sort({ "dates.startsAt": -1 });
@@ -51,14 +54,14 @@ const findActiveCompetition = async () => {
 
   // Nothing open yet — show the next one due to open.
   const upcoming = await Competition.findOne({
-    lifecycle: "published",
+    ...discoverable,
     resultsDeclaredAt: null,
     "dates.regOpensAt": { $gt: now },
   }).sort({ "dates.regOpensAt": 1 });
   if (upcoming) return upcoming;
 
   // Everything is finished: show the most recently declared so results stay reachable.
-  return Competition.findOne({ lifecycle: "published" }).sort({ "dates.startsAt": -1 });
+  return Competition.findOne(discoverable).sort({ "dates.startsAt": -1 });
 };
 
 const loadPublishedById = async (id) => {
@@ -81,23 +84,175 @@ const buildPublicResults = async (competitionId) => {
     competitionId,
     "result.award": { $in: ["winner", "runner_up", "special"] },
   })
-    .populate("userId", "name profileImage writerProfile.username username")
+    .populate("userId", "name profileImage writerProfile.username username isPrivate isDeactivated")
     .lean();
 
+  // A writer who has since gone private or deleted their account is omitted entirely — the same rule
+  // getCompetitionHistory applies. Their placing is not re-assigned to anyone else.
+  const visible = entries.filter((e) => e.userId && !e.userId.isPrivate && !e.userId.isDeactivated);
+
+  // NOTE: deliberately no scriptId. Competition entries stay private drafts; the Hall of Fame links
+  // to the writer's profile, never to their script.
   const shape = (entry) => ({
+    userId: String(entry.userId._id),
     name: entry.userId?.name || "Writer",
     username: entry.userId?.writerProfile?.username || entry.userId?.username || "",
     profileImage: entry.userId?.profileImage || "",
     scriptTitle: entry.snapshot?.title || "",
     logline: entry.ai?.logline || "",
     specialTitle: entry.result?.specialTitle || "",
+    rewards: (entry.rewardsGranted || []).map((r) => r.type),
   });
 
   return {
-    winner: entries.filter((e) => e.result.award === "winner").map(shape)[0] || null,
-    runnerUp: entries.filter((e) => e.result.award === "runner_up").map(shape)[0] || null,
-    special: entries.filter((e) => e.result.award === "special").map(shape),
+    winner: visible.filter((e) => e.result.award === "winner").map(shape)[0] || null,
+    runnerUp: visible.filter((e) => e.result.award === "runner_up").map(shape)[0] || null,
+    special: visible.filter((e) => e.result.award === "special").map(shape),
   };
+};
+
+/**
+ * Aggregate statistics for one competition.
+ *
+ * Individual-safe by construction: it returns counts only, never a row that could be traced back to
+ * a person. In particular `countries` is a DISTINCT COUNT — registration.country is collected for
+ * grouping, and no individual's country is ever published.
+ */
+const buildCompetitionStats = async (competitionId) => {
+  const SUBMITTED = ["submitted", "ai_processed", "judged"];
+  const [row] = await CompetitionEntry.aggregate([
+    { $match: { competitionId } },
+    {
+      $group: {
+        _id: null,
+        totalParticipants: { $sum: 1 },
+        scriptsSubmitted: { $sum: { $cond: [{ $in: ["$status", SUBMITTED] }, 1, 0] } },
+        // Fold case and whitespace before counting: country is free text, so "USA", "usa " and
+        // "Usa" are one country, not three. (Different spellings — "USA" vs "United States" — still
+        // count separately; normalising those needs a country list, which is not worth it yet.)
+        countries: { $addToSet: { $toLower: { $trim: { input: { $ifNull: ["$registration.country", ""] } } } } },
+      },
+    },
+  ]);
+
+  const totalParticipants = row?.totalParticipants || 0;
+  const scriptsSubmitted = row?.scriptsSubmitted || 0;
+  return {
+    totalParticipants,
+    scriptsSubmitted,
+    countriesRepresented: (row?.countries || []).filter(Boolean).length,
+    // How many of the writers who signed up actually finished. 0 participants ⇒ 0, not NaN.
+    completionRate: totalParticipants ? Math.round((scriptsSubmitted / totalParticipants) * 100) : 0,
+  };
+};
+
+// A competition belongs in the Hall of Fame once its results are declared. Archived editions stay —
+// archiving retires a competition from the live page, it does not erase its history. Hidden ones
+// never appear.
+const HALL_OF_FAME_FILTER = {
+  lifecycle: { $ne: "draft" },
+  visibility: { $ne: "hidden" },
+  resultsDeclaredAt: { $ne: null },
+};
+
+// GET /api/competitions/completed  (public) — the Hall of Fame index
+export const getCompletedCompetitions = async (req, res) => {
+  try {
+    const competitions = await Competition.find(HALL_OF_FAME_FILTER)
+      .sort({ resultsDeclaredAt: -1 })
+      .lean();
+
+    const items = await Promise.all(competitions.map(async (competition) => {
+      const [results, stats] = await Promise.all([
+        buildPublicResults(competition._id),
+        buildCompetitionStats(competition._id),
+      ]);
+      return {
+        _id: competition._id,
+        name: competition.name,
+        slug: competition.slug,
+        year: new Date(competition.dates?.startsAt || competition.resultsDeclaredAt).getUTCFullYear(),
+        theme: competition.theme?.title || "",
+        bannerUrl: competition.bannerUrl || "",
+        prizePool: competition.prizePool || "",
+        dates: competition.dates,
+        resultsDeclaredAt: competition.resultsDeclaredAt,
+        winner: results.winner,
+        runnerUp: results.runnerUp,
+        ...stats,
+      };
+    }));
+
+    return res.json({
+      items,
+      years: [...new Set(items.map((i) => i.year))].sort((a, b) => b - a),
+    });
+  } catch (error) {
+    console.error("[competition] completed list failed:", error?.message || error);
+    return res.status(500).json({ message: "Failed to load the Hall of Fame." });
+  }
+};
+
+// GET /api/competitions/hall-of-fame/:slug  (public) — one competition's permanent record
+export const getHallOfFameEntry = async (req, res) => {
+  try {
+    const slug = String(req.params.slug || "").trim().toLowerCase();
+    const competition = await Competition.findOne({ ...HALL_OF_FAME_FILTER, slug }).lean();
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    const [results, stats] = await Promise.all([
+      buildPublicResults(competition._id),
+      buildCompetitionStats(competition._id),
+    ]);
+
+    // Scripts from this competition that the writer has since chosen to publish. Empty until then —
+    // winning entries are NOT auto-published, so this section simply stays hidden.
+    const featuredScripts = await Script.find({
+      competitionId: competition._id,
+      isFeatured: true,
+      status: { $in: ["published", "approved"] },
+      isDeleted: { $ne: true },
+    })
+      .select("title coverImage genre primaryGenre logline creator")
+      .populate("creator", "name profileImage writerProfile.username")
+      .lean();
+
+    return res.json({
+      competition: {
+        _id: competition._id,
+        name: competition.name,
+        slug: competition.slug,
+        year: new Date(competition.dates?.startsAt || competition.resultsDeclaredAt).getUTCFullYear(),
+        theme: competition.theme,          // fully public once results are declared
+        bannerUrl: competition.bannerUrl || "",
+        prizePool: competition.prizePool || "",
+        overview: competition.overview || "",
+        dates: competition.dates,
+        resultsDeclaredAt: competition.resultsDeclaredAt,
+        prizes: competition.prizes,
+        judges: competition.judges || [],
+        sponsors: competition.sponsors || [],
+      },
+      results,
+      stats,
+      featuredScripts: featuredScripts.map((script) => ({
+        _id: script._id,
+        title: script.title,
+        coverImage: script.coverImage || "",
+        genre: script.primaryGenre || script.genre || "",
+        logline: script.logline || "",
+        writer: {
+          _id: script.creator?._id,
+          name: script.creator?.name || "Writer",
+          username: script.creator?.writerProfile?.username || "",
+          profileImage: script.creator?.profileImage || "",
+        },
+      })),
+    });
+  } catch (error) {
+    console.error("[competition] hall of fame entry failed:", error?.message || error);
+    return res.status(500).json({ message: "Failed to load the competition." });
+  }
 };
 
 // ── Participant endpoints ───────────────────────────────────────────────────
@@ -105,7 +260,13 @@ const buildPublicResults = async (competitionId) => {
 // GET /api/competitions/active  (public)
 export const getActiveCompetition = async (req, res) => {
   try {
-    const competition = await findActiveCompetition();
+    // `?c=<slug>` targets one competition explicitly. This is how a hidden (internal / university /
+    // sponsor-exclusive) competition is reached: it is excluded from discovery, so without this its
+    // own entrants could never load it. Draft competitions stay unreachable either way.
+    const requestedSlug = String(req.query.c || "").trim().toLowerCase();
+    const competition = requestedSlug
+      ? await Competition.findOne({ slug: requestedSlug, lifecycle: "published" })
+      : await findActiveCompetition();
     if (!competition) return res.status(404).json({ message: "No active competition" });
 
     const now = new Date();
@@ -554,7 +715,9 @@ export const getCompetitionHistory = async (req, res) => {
     // Only judged entries are public: nothing about an in-flight competition leaks, and there are no
     // rankings — just the achievement.
     const entries = await CompetitionEntry.find({ userId: req.params.userId, status: "judged" })
-      .populate("competitionId", "name dates resultsDeclaredAt")
+      // slug + visibility so the profile can link to the Hall of Fame entry — and refrain from
+      // linking for a hidden competition, which has no public record.
+      .populate("competitionId", "name slug dates resultsDeclaredAt visibility")
       .sort({ submittedAt: -1 })
       .lean();
 
@@ -570,6 +733,10 @@ export const getCompetitionHistory = async (req, res) => {
       .filter((entry) => entry.competitionId)
       .map((entry) => ({
         competitionName: entry.competitionId.name,
+        // Only a competition with a public Hall of Fame record is linkable.
+        competitionSlug: entry.competitionId.visibility === "hidden" || !entry.competitionId.resultsDeclaredAt
+          ? ""
+          : entry.competitionId.slug || "",
         year: new Date(entry.competitionId.dates?.startsAt || entry.createdAt).getUTCFullYear(),
         scriptTitle: entry.snapshot?.title || "",
         achievement: entry.result?.specialTitle || AWARD_LABELS[entry.result?.award] || "Participant",

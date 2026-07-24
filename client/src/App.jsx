@@ -39,6 +39,8 @@ const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
 const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const CompetitionLanding = lazy(() => import("./pages/challenge/CompetitionLanding"));
+const HallOfFame = lazy(() => import("./pages/hall-of-fame/HallOfFame"));
+const HallOfFameDetail = lazy(() => import("./pages/hall-of-fame/HallOfFameDetail"));
 const CompetitionRegister = lazy(() => import("./pages/challenge/CompetitionRegister"));
 const CompetitionDashboard = lazy(() => import("./pages/challenge/CompetitionDashboard"));
 const MyCompetitions = lazy(() => import("./pages/challenge/MyCompetitions"));
@@ -443,6 +445,9 @@ function App() {
               <Route path="/share/project/:id" element={<PublicScript />} />
               {/* Public so a logged-out visitor can read the competition page before signing up. */}
               <Route path="/challenge" element={<CompetitionLanding />} />
+              {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
+              <Route path="/hall-of-fame" element={<HallOfFame />} />
+              <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
