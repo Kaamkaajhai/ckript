@@ -70,6 +70,10 @@ const scriptSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   writers: [writerCreditSchema],
+  // Competition linkage. `competitionLocked` is set at submission and makes the script read-only:
+  // enforced in saveDraft and updateScript so no write path can bypass it.
+  competitionId: { type: mongoose.Schema.Types.ObjectId, ref: "Competition", default: null, index: true },
+  competitionLocked: { type: Boolean, default: false },
   collabVisibility: {
     type: String,
     enum: ["private", "open"],

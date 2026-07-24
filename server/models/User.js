@@ -10,7 +10,10 @@ const createSid = (prefix) => {
   return `${prefix}-${token}`;
 };
 
-const createReferralCode = () => {
+// Exported because the pre-validate hook below only fires on save: accounts created before the hook
+// existed have no code at all, so anything that needs to SHOW a referral link has to be able to mint
+// one on demand. Alphabet omits I/O/0/1 — these get read aloud and typed by hand.
+export const createReferralCode = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let token = "";
   for (let i = 0; i < 8; i += 1) {
@@ -23,6 +26,11 @@ const userSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   referralCode: { type: String, unique: true, sparse: true, index: true, uppercase: true, trim: true },
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  // WHEN the referral link was recorded. Without this the only time signal is
+  // `referralBonusAwardedAt`, which is stamped at email verification — potentially days after the
+  // click — so any window-scoped count (a competition referral drive, say) would be badly skewed.
+  // Set alongside referredBy at every site that writes it.
+  referredAt: { type: Date },
   hasReceivedReferralBonus: { type: Boolean, default: false },
   referralBonusAwardedAt: { type: Date },
   name: { type: String, required: true },
@@ -433,6 +441,15 @@ const userSchema = new mongoose.Schema({
   referralStats: {
     successfulReferrals: { type: Number, default: 0 },
   },
+
+  // Earned achievement badges (competitions). Server-persisted and public — unlike the localStorage
+  // reader badges in client AchievementSystem.jsx, which are a separate, unrelated feature.
+  badges: [{
+    id: { type: String },        // challenge_winner | challenge_runner_up | challenge_special | challenge_participant
+    label: { type: String },
+    competitionId: { type: mongoose.Schema.Types.ObjectId, ref: "Competition" },
+    awardedAt: { type: Date, default: Date.now },
+  }],
   // Stripe Connected Account (for payouts)
   stripeAccountId: { type: String },
   stripeCustomerId: { type: String },
