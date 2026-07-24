@@ -38,6 +38,10 @@ const ScriptUpload = lazy(() => import("./pages/ScriptUpload"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
 const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
+const CompetitionLanding = lazy(() => import("./pages/challenge/CompetitionLanding"));
+const CompetitionRegister = lazy(() => import("./pages/challenge/CompetitionRegister"));
+const CompetitionDashboard = lazy(() => import("./pages/challenge/CompetitionDashboard"));
+const MyCompetitions = lazy(() => import("./pages/challenge/MyCompetitions"));
 const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
@@ -437,6 +441,8 @@ function App() {
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/share/profile/:id" element={<SharedProfileRoute />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
+              {/* Public so a logged-out visitor can read the competition page before signing up. */}
+              <Route path="/challenge" element={<CompetitionLanding />} />
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
@@ -450,6 +456,9 @@ function App() {
                 <Route path="/new-project" element={<NewProject />} />
                 <Route path="/create-project" element={<CreateProject />} />
                 <Route path="/create-project/:draftId" element={<CreateProject />} />
+                <Route path="/challenge/register" element={<CompetitionRegister />} />
+                <Route path="/challenge/dashboard" element={<CompetitionDashboard />} />
+                <Route path="/my-competitions" element={<MyCompetitions />} />
                 <Route path="/upload" element={<ScriptUpload />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/script/:scriptId/collaborate" element={<CollaborationHub />} />
