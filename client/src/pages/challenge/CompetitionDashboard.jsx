@@ -256,6 +256,19 @@ const CompetitionDashboard = () => {
           ) : (
             <p className="mt-2 text-gray-700 dark:text-gray-200">{PARTICIPANT_COMPLETION_MESSAGE(competition.name)}</p>
           )}
+
+          {/* The competition released the script when results were declared. Say so — otherwise a
+              winner has a "featured placement" prize with no idea that publishing is what claims it,
+              and everyone else does not know their script is theirs to work on again. */}
+          {entry.status === "judged" ? (
+            <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-700/40 dark:text-gray-200">
+              Your script is unlocked — you'll find it in{" "}
+              <Link to="/dashboard" className="font-medium text-[#D14D37] hover:underline">your drafts</Link>.
+              {["winner", "runner_up"].includes(entry.result?.award)
+                ? " Publish it to claim your featured placement."
+                : " It's yours to edit, publish or co-write as you like."}
+            </p>
+          ) : null}
           {entry.rewardsGranted?.length ? (
             <ul className="mt-4 space-y-1 text-sm text-gray-700 dark:text-gray-200">
               {entry.rewardsGranted.map((reward, i) => (

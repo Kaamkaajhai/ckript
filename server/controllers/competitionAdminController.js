@@ -567,6 +567,17 @@ export const adminDeclareResults = async (req, res) => {
       await entry.save();
     }
 
+    // The competition hands every entry back to its writer. The lock existed to make submission
+    // final while the event was running; results are out, and `entry.snapshot` — the copy that was
+    // actually judged — stays frozen forever regardless, so nothing about the result can change.
+    // Writers can now publish (which is what makes the "Featured Script" prize real), edit, or
+    // invite co-writers on their own script again. Idempotent, so a re-declare is harmless.
+    const released = await Script.updateMany(
+      { competitionId: competition._id },
+      { $set: { competitionLocked: false, competitionReleasedAt: now } },
+    );
+    counts.scriptsReleased = released.modifiedCount ?? 0;
+
     competition.resultsDeclaredAt = now;
     await competition.save();
 

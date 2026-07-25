@@ -85,8 +85,11 @@ const competitionSchema = new mongoose.Schema({
 
 // Default prize lists, applied on create when the admin leaves them empty.
 export const DEFAULT_PRIZES = {
-  winner: ["Cash Prize", "Featured Script", "Gold Subscription (30 days)", "AI Trailer", "Winner Badge"],
-  runnerUp: ["Silver Subscription (30 days)", "Featured Script", "Runner-Up Badge"],
+  // "Featured placement" is worded as conditional on purpose: an entry is a private draft, and
+  // winning does not publish it. The script is released back to the writer when results are
+  // declared, and the featured flag it already carries takes effect if they choose to publish.
+  winner: ["Cash Prize", "Featured placement when you publish your script", "Gold Subscription (30 days)", "AI Trailer", "Winner Badge"],
+  runnerUp: ["Silver Subscription (30 days)", "Featured placement when you publish your script", "Runner-Up Badge"],
 };
 
 competitionSchema.pre("validate", async function ensureSlug() {

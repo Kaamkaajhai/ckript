@@ -249,7 +249,7 @@ export const inviteCollaborator = async (req, res) => {
     // The competition is solo: one writer, one entry. The generic collaboration surface is closed on
     // a competition script, because otherwise inviting co-writers here would be an unguarded way to
     // enter work that is not your own.
-    if (script.competitionId) {
+    if (script.competitionId && !script.competitionReleasedAt) {
       return res.status(403).json({ error: "Competition entries are written solo — collaborators cannot be added." });
     }
 
@@ -427,13 +427,13 @@ export const acceptInvite = async (req, res) => {
     const script = await Script.findOne({ "collaborators.inviteToken": token })
       // competitionId is selected so the guard below can actually see it — without it the guard would
       // read undefined and silently never fire.
-      .select("title creator collaborators collabVisibility competitionId");
+      .select("title creator collaborators collabVisibility competitionId competitionReleasedAt");
 
     if (!script) {
       return res.status(404).json({ error: "Invalid invite link" });
     }
 
-    if (script.competitionId) {
+    if (script.competitionId && !script.competitionReleasedAt) {
       return res.status(403).json({ error: "This script is a competition entry and cannot be co-written." });
     }
 
@@ -528,14 +528,14 @@ export const acceptInvite = async (req, res) => {
 
 export const requestCollab = async (req, res) => {
   try {
-    const script = await Script.findById(req.params.scriptId).select("title creator collabVisibility collaborators competitionId");
+    const script = await Script.findById(req.params.scriptId).select("title creator collabVisibility collaborators competitionId competitionReleasedAt");
     if (!script) {
       return res.status(404).json({ error: "Script not found" });
     }
 
     // A competition entry is written solo. Without this, collabVisibility "open" would be an
     // unguarded join path straight into a live entry.
-    if (script.competitionId) {
+    if (script.competitionId && !script.competitionReleasedAt) {
       return res.status(403).json({ error: "Competition entries are written solo." });
     }
 
@@ -811,7 +811,7 @@ export const updateCollaboratorRole = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
-    if (script.competitionId) {
+    if (script.competitionId && !script.competitionReleasedAt) {
       return res.status(403).json({ error: "Competition entries are written solo." });
     }
 
@@ -904,7 +904,7 @@ export const removeCollaborator = async (req, res) => {
 
     // A competition script has no collaborators to manage, and this endpoint must not become a way
     // to mutate one mid-competition.
-    if (script.competitionId) {
+    if (script.competitionId && !script.competitionReleasedAt) {
       return res.status(403).json({ error: "Competition entries are written solo." });
     }
 
@@ -990,7 +990,7 @@ export const updateVisibility = async (req, res) => {
     }
 
     // Prevents flipping a competition entry to "open", which would create a public join path.
-    if (script.competitionId) {
+    if (script.competitionId && !script.competitionReleasedAt) {
       return res.status(403).json({ error: "Competition entries cannot change visibility." });
     }
 

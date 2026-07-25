@@ -2237,8 +2237,11 @@ export const getMyDrafts = async (req, res) => {
     const drafts = await Script.find({
       status: "draft",
       isDeleted: { $ne: true },
-      // Competition entries are reached from the challenge dashboard, never the normal drafts list.
-      competitionId: null,
+      // A competition entry is reached from the challenge dashboard while the event is running, so
+      // it stays out of the normal drafts list. Once the competition releases it (results declared)
+      // it becomes an ordinary draft again and belongs here — otherwise the writer could not find
+      // the script they have just been given back.
+      $nor: [{ competitionId: { $ne: null }, competitionReleasedAt: null }],
       $or: [
         { creator: req.user._id },
         {
