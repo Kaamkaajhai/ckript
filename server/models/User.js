@@ -273,6 +273,23 @@ const userSchema = new mongoose.Schema({
     script: { type: mongoose.Schema.Types.ObjectId, ref: "Script" },
     viewedAt: { type: Date, default: Date.now },
   }],
+  // Credit ledger. Fully written by authController (referral bonuses) and adminController
+  // (manual grants), but the schema path was missing — so under Mongoose's default strict mode
+  // every one of those writes was silently discarded and no referral bonus was ever actually paid.
+  // `transactions` is the audit trail; `balance` is the only figure anything reads.
+  credits: {
+    balance: { type: Number, default: 0 },
+    totalPurchased: { type: Number, default: 0 },
+    totalSpent: { type: Number, default: 0 },
+    transactions: [{
+      type: { type: String, enum: ["purchase", "bonus", "spend", "refund"], default: "bonus" },
+      amount: { type: Number, default: 0 },
+      description: { type: String, default: "" },
+      reference: { type: String, index: true },   // rollback + idempotency key
+      createdAt: { type: Date, default: Date.now },
+    }],
+  },
+
   // Subscription & credits
   subscription: {
     plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
@@ -441,6 +458,7 @@ const userSchema = new mongoose.Schema({
 
   referralStats: {
     successfulReferrals: { type: Number, default: 0 },
+    totalBonusCredits: { type: Number, default: 0 },
   },
 
   // Earned achievement badges (competitions). Server-persisted and public — unlike the localStorage

@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { PENDING_AUTH_REDIRECT_KEY } from "../services/api";
 import AuthModal from "../components/AuthModal";
 import ProducerOnboardingModal from "../components/ProducerOnboardingModal";
 import WriterOnboardingModal from "../components/WriterOnboardingModal";
@@ -109,6 +110,25 @@ export const AuthModalProvider = ({ children }) => {
       }
     }
   }, [location.pathname, navigate]);
+
+  // A session that expired mid-request lands here. The axios interceptor can't reach this context
+  // (it runs outside React), so it parks the page the user was on in sessionStorage and sends them
+  // to /?reason=session-expired. Pick that up once and pop sign-in with the original page as the
+  // redirect, so an expiry costs them a sign-in rather than their place in the app.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(location.search).get("reason") !== "session-expired") return;
+    let parked = "";
+    try {
+      parked = sessionStorage.getItem(PENDING_AUTH_REDIRECT_KEY) || "";
+      sessionStorage.removeItem(PENDING_AUTH_REDIRECT_KEY); // consume once
+    } catch { /* storage unavailable — still open the modal, just without a redirect */ }
+    // Reading a one-shot handoff from two external systems (the URL marker and sessionStorage).
+    // There is no render-time equivalent, and consuming the key makes this fire exactly once.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setState({ open: true, redirect: parked });
+    navigate("/", { replace: true }); // drop the marker so a refresh doesn't re-trigger
+  }, [location.search, navigate]);
 
   // Password recovery, as an overlay. Like pricing, the /forgot-password route
   // still works for deep links via ForgotPasswordRoute.

@@ -42,10 +42,11 @@ export const ensureReferralCode = async (user) => {
  *
  * Two deliberate constraints, both learned from the existing referral code:
  *
- *  1. Rewards are BADGES and SUBSCRIPTION time only. The legacy `awardReferralBonusForUser` increments
- *     `credits.balance`, a path that does not exist on the User schema — Mongoose strict mode discards
- *     it silently, so every referral bonus ever "awarded" was worth nothing. Until that field exists
- *     and something spends it, granting credits here would be theatre.
+ *  1. Rewards are BADGES and SUBSCRIPTION time only. The legacy `awardReferralBonusForUser` also
+ *     increments `credits.balance` — a path that was missing from the User schema until recently, so
+ *     Mongoose strict mode discarded it and every signup bonus ever "awarded" was worth nothing. The
+ *     path now exists and those bonuses persist, but nothing SPENDS credits yet, so the competition
+ *     drive still pays in badges and subscription days, which are redeemable today.
  *  2. A referral only counts once the referred account is VERIFIED (`hasReceivedReferralBonus` is the
  *     existing marker for that). Counting unverified signups would make the drive trivially farmable.
  */
