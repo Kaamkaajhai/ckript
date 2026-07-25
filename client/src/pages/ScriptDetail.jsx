@@ -64,7 +64,7 @@ import {
   getScriptCompletionStatusLabel,
 } from "../utils/scriptCompletion";
 import { getApiBaseUrl, isSocketSupported } from "../utils/apiOrigin";
-import ScriptDetailCinematic from "./script-detail/ScriptDetailCinematic";
+import ScriptWorkbenchPage from "../features/script-workbench";
 import {
   deriveScriptJourney,
   getRecommendedAction,
@@ -1705,7 +1705,7 @@ const ScriptDetail = () => {
   // Keep the mature controller and endpoint wiring centralized while the
   // cinematic component owns the route's single production presentation.
   return (
-    <ScriptDetailCinematic
+    <ScriptWorkbenchPage
         vm={{
           script,
           user,
