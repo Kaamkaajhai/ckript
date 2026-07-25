@@ -105,6 +105,16 @@ const ObjectRows = ({ dark, values = [], fields, onChange }) => (
   </div>
 );
 
+// MUST stay at module scope. Defined inside CompetitionEditor's body it was a brand-new component
+// type on every render, so React tore down and remounted every field on each keystroke — the input
+// kept the character but lost the cursor, making the form unusable one letter at a time.
+const Group = ({ dark, title, children }) => (
+  <div className={`${cls.card(dark)} mt-4`}>
+    <h3 className={`mb-3 text-sm font-bold uppercase tracking-wide ${dark ? "text-white/70" : "text-gray-700"}`}>{title}</h3>
+    {children}
+  </div>
+);
+
 const PhasePill = ({ phase, lifecycle }) => (
   <span className="inline-flex items-center gap-2">
     <span className="rounded-full bg-[#D14D37]/10 px-2.5 py-1 text-[11px] font-bold text-[#D14D37]">
@@ -296,13 +306,6 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
     run(() => adminApi.post(`/admin/competitions/${competitionId}/archive`), "Competition archived.");
   };
 
-  const Group = ({ title, children }) => (
-    <div className={`${cls.card(dark)} mt-4`}>
-      <h3 className={`mb-3 text-sm font-bold uppercase tracking-wide ${dark ? "text-white/70" : "text-gray-700"}`}>{title}</h3>
-      {children}
-    </div>
-  );
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -312,7 +315,7 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
 
       {error ? <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p> : null}
 
-      <Group title="Basics">
+      <Group dark={dark} title="Basics">
         <label className={cls.label(dark)}>Name</label>
         <input value={form.name} onChange={(e) => set("name", e.target.value)} className={`${cls.input(dark)} mt-1`} />
 
@@ -345,7 +348,7 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
         </p>
       </Group>
 
-      <Group title="Schedule">
+      <Group dark={dark} title="Schedule">
         <p className={`mb-3 text-xs ${cls.body(dark)}`}>
           Entered in your local time. Phases derive from these — correcting a date updates every screen instantly.
         </p>
@@ -370,7 +373,7 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
         </div>
       </Group>
 
-      <Group title="Theme (hidden from writers until the competition goes live)">
+      <Group dark={dark} title="Theme (hidden from writers until the competition goes live)">
         <label className={cls.label(dark)}>Theme title</label>
         <input value={form.theme.title} onChange={(e) => setTheme("title", e.target.value)} className={`${cls.input(dark)} mt-1`} />
 
@@ -393,7 +396,7 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
         <textarea rows={3} value={form.theme.guidelines} onChange={(e) => setTheme("guidelines", e.target.value)} className={`${cls.input(dark)} mt-1`} />
       </Group>
 
-      <Group title="Prizes">
+      <Group dark={dark} title="Prizes">
         <label className={cls.label(dark)}>Winner</label>
         <div className="mt-2"><StringRows dark={dark} values={form.prizes.winner} onChange={(v) => setPrize("winner", v)} placeholder="e.g. Gold Subscription (30 days)" /></div>
 
@@ -411,7 +414,7 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
         </div>
       </Group>
 
-      <Group title="Referral rewards">
+      <Group dark={dark} title="Referral rewards">
         <p className={`mb-3 text-xs ${cls.body(dark)}`}>
           Writers who bring other writers in earn these. Leave empty to use the platform defaults
           (3 → Challenge Advocate, 5 → +15 days Silver, 10 → +30 days Silver). The ID becomes the
@@ -430,31 +433,31 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
         />
       </Group>
 
-      <Group title="Rules">
+      <Group dark={dark} title="Rules">
         <StringRows dark={dark} values={form.rules} onChange={(v) => set("rules", v)} placeholder="Rule text" />
       </Group>
 
-      <Group title="FAQ">
+      <Group dark={dark} title="FAQ">
         <ObjectRows dark={dark} values={form.faq} onChange={(v) => set("faq", v)}
           fields={[{ key: "q", placeholder: "Question" }, { key: "a", placeholder: "Answer", wide: true }]} />
       </Group>
 
-      <Group title="Judges">
+      <Group dark={dark} title="Judges">
         <ObjectRows dark={dark} values={form.judges} onChange={(v) => set("judges", v)}
           fields={[{ key: "name", placeholder: "Name" }, { key: "title", placeholder: "Title" }, { key: "photoUrl", placeholder: "Photo URL" }, { key: "bio", placeholder: "Short bio", wide: true }]} />
       </Group>
 
-      <Group title="Sponsors">
+      <Group dark={dark} title="Sponsors">
         <ObjectRows dark={dark} values={form.sponsors} onChange={(v) => set("sponsors", v)}
           fields={[{ key: "name", placeholder: "Name" }, { key: "logoUrl", placeholder: "Logo URL" }, { key: "url", placeholder: "Link" }, { key: "tier", placeholder: "Tier (e.g. Gold)" }]} />
       </Group>
 
-      <Group title="Community links">
+      <Group dark={dark} title="Community links">
         <ObjectRows dark={dark} values={form.communityLinks} onChange={(v) => set("communityLinks", v)}
           fields={[{ key: "label", placeholder: "Label" }, { key: "url", placeholder: "URL", wide: true }]} />
       </Group>
 
-      <Group title="Resources">
+      <Group dark={dark} title="Resources">
         <ObjectRows dark={dark} values={form.resources} onChange={(v) => set("resources", v)}
           fields={[{ key: "label", placeholder: "Label" }, { key: "url", placeholder: "URL", wide: true }]} />
       </Group>

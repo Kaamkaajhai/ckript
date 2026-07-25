@@ -935,6 +935,40 @@ const DiscountCodeFormModal = ({ initial, onClose, onSave, isDark }) => {
     );
 };
 
+// Reject Investor Modal.
+//
+// MUST stay at module scope. Declared inside AdminDashboard's body it was a new component type on
+// every parent render, and the 30s fetchAlertSummary poll guarantees those — so an admin part-way
+// through typing a rejection reason had the modal remounted under them, wiping `note` and the caret.
+const RejectInvestorModal = ({ investor, onClose, onConfirm, isDark }) => {
+    const [note, setNote] = useState("");
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+            <div className={`w-full max-w-md mx-4 rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
+                <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Reject Investor</h3>
+                <p className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    Rejecting <strong>{investor.name}</strong> ({investor.email}). They will not be able to log in.<br />
+                    Optionally add a reason (visible to the user on login attempt).
+                </p>
+                <textarea
+                    rows={3}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Rejection reason (optional)..."
+                    className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
+                />
+                <div className="flex items-center justify-end gap-3 mt-4">
+                    <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
+                    <button onClick={() => onConfirm(investor._id, note.trim())}
+                        className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all">
+                        Confirm Reject
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const AdminDashboard = () => {
     const isDark = true;
     const [activeTab, setActiveTab] = useState("overview");
@@ -4407,35 +4441,6 @@ const AdminDashboard = () => {
         }
     };
 
-    // ─── Reject Investor Modal ───
-    const RejectInvestorModal = ({ investor, onClose, onConfirm }) => {
-        const [note, setNote] = useState("");
-        return (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-                <div className={`w-full max-w-md mx-4 rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
-                    <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Reject Investor</h3>
-                    <p className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                        Rejecting <strong>{investor.name}</strong> ({investor.email}). They will not be able to log in.<br />
-                        Optionally add a reason (visible to the user on login attempt).
-                    </p>
-                    <textarea
-                        rows={3}
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="Rejection reason (optional)..."
-                        className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
-                    />
-                    <div className="flex items-center justify-end gap-3 mt-4">
-                        <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
-                        <button onClick={() => onConfirm(investor._id, note.trim())}
-                            className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all">
-                            Confirm Reject
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     const UserDetailsModal = ({ user, onClose }) => {
         const [openingAttachmentKey, setOpeningAttachmentKey] = useState("");
@@ -4962,7 +4967,7 @@ const AdminDashboard = () => {
             {scoreModal && <ScoreModal script={scoreModal} isDark={true} onClose={() => setScoreModal(null)} onSave={handleScore} />}
 
             {/* Reject Investor Modal */}
-            {rejectModal && <RejectInvestorModal investor={rejectModal} onClose={() => setRejectModal(null)} onConfirm={handleRejectInvestor} />}
+            {rejectModal && <RejectInvestorModal investor={rejectModal} onClose={() => setRejectModal(null)} onConfirm={handleRejectInvestor} isDark={isDark} />}
 
             {/* User Details Modal */}
             {selectedUserDetail && <UserDetailsModal user={selectedUserDetail} onClose={() => setSelectedUserDetail(null)} />}
