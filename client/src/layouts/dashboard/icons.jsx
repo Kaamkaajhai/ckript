@@ -37,6 +37,8 @@ export const SYMBOLS = {
   writers:      "groups",
   featured:     "star",
   top:          "leaderboard",
+  challenge:    "emoji_events",      // trophy — the live competition
+  competitions: "workspace_premium", // the writer's own competition record
 };
 
 /**
