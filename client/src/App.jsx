@@ -270,6 +270,46 @@ function ProtectedMainLayout() {
   );
 }
 
+// Public pages that a signed-in member should still see inside the app.
+//
+// /challenge and /hall-of-fame are genuinely public — a logged-out visitor has to be able to read
+// them, and they are indexed. But they were declared as bare top-level routes, so a signed-in writer
+// who clicked "Challenge" in the rail lost the entire shell: no sidebar, no topbar, no search, no
+// notifications, just a full-bleed page with no way back except the browser button.
+//
+// So: branch on auth rather than gate on it, the same shape as SharedProfileRoute. Never wrap these
+// in PrivateRoute — that redirects logged-out visitors to "/" and would make the pages unreachable
+// for exactly the audience they exist to convert.
+function PublicAppLayout() {
+  const { user, loading } = useContext(AuthContext);
+  const isCreator = user?.role === "writer" || user?.role === "creator";
+
+  const content = (
+    <Suspense
+      fallback={
+        <div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">
+          Loading...
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  );
+
+  // Wait the single tick it takes to restore the session. Rendering the page bare and then again
+  // inside the shell would remount it, and these pages fetch on mount — every request would fire
+  // twice. Prerendering is unaffected: prerender-seo.mjs injects meta into dist/index.html and never
+  // executes React, so this branch is not what search engines read.
+  if (loading) return <div className="min-h-screen" />;
+
+  // Logged-out visitor: the page owns the whole viewport, exactly as before.
+  if (!user) return content;
+
+  return isCreator
+    ? <DashboardLayout variant="page">{content}</DashboardLayout>
+    : <MainLayout>{content}</MainLayout>;
+}
+
 // Script detail owns a cinematic, full-bleed workspace. URLs and role-aware
 // chrome remain identical; only the content inset differs from generic pages.
 function ProtectedScriptDetailLayout() {
@@ -443,11 +483,14 @@ function App() {
               <Route path="/invite/:token" element={<AcceptInvite />} />
               <Route path="/share/profile/:id" element={<SharedProfileRoute />} />
               <Route path="/share/project/:id" element={<PublicScript />} />
-              {/* Public so a logged-out visitor can read the competition page before signing up. */}
-              <Route path="/challenge" element={<CompetitionLanding />} />
-              {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
-              <Route path="/hall-of-fame" element={<HallOfFame />} />
-              <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />
+              {/* Public so a logged-out visitor can read them before signing up, but wrapped so a
+                  signed-in member keeps the app chrome instead of being dropped into a bare page. */}
+              <Route element={<PublicAppLayout />}>
+                <Route path="/challenge" element={<CompetitionLanding />} />
+                {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
+                <Route path="/hall-of-fame" element={<HallOfFame />} />
+                <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />
+              </Route>
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
