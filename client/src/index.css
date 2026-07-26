@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/* Make `dark:` follow the app's own toggle instead of the operating system.
+ *
+ * Tailwind v4 defaults the `dark:` variant to @media (prefers-color-scheme: dark). This app does
+ * NOT follow the OS — DarkModeContext deliberately starts light on every device and only changes
+ * when the user flips the switch, writing `html.dark-mode`. Without this line the two disagree:
+ * someone whose laptop is in dark mode got Tailwind's dark colours painted over the app's light
+ * chrome, which is how the competition countdown ended up dark-grey-on-near-black (1.79:1).
+ *
+ * Anything styled through DarkModeContext/useDarkMode was always toggle-driven; this brings the
+ * Tailwind half onto the same signal.
+ */
+@custom-variant dark (&:where(html.dark-mode, html.dark-mode *));
+
+/* Brand accent, lightened for dark surfaces.
+ *
+ * #D14D37 is tuned for white backgrounds. On the dark cards it measures 3.37:1 — under the 4.5:1
+ * needed for body text, which is why labels like "Winner" and the theme title were hard to read.
+ * #F08B76 is the same hue lifted in luminance, and reaches ~6:1 on those cards.
+ *
+ * Done as one rule rather than a `dark:` variant on each of the 63 call sites: the accent is written
+ * as an arbitrary value (text-[#D14D37]) in 21 files, so a per-site edit is pure churn and the next
+ * person to type the hex would reintroduce the problem. Backgrounds (bg-[#D14D37]) are deliberately
+ * NOT touched — they carry white text and already pass.
+ */
+html.dark-mode .text-\[\#D14D37\] {
+  color: #f08b76;
+}
+
 /* ═══════════════════════════════════════════════════════════
    DESIGN SYSTEM — Premium Global Foundation
    ═══════════════════════════════════════════════════════════ */
