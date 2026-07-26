@@ -243,6 +243,10 @@ export const getCompletedCompetitions = async (req, res) => {
         resultsDeclaredAt: competition.resultsDeclaredAt,
         winner: results.winner,
         runnerUp: results.runnerUp,
+        // Category winners (Best Dialogue and the like). The Hall of Fame is about the PEOPLE, so
+        // it needs every award, not just the top two — omitting these silently erased a whole class
+        // of winner from the record.
+        special: results.special || [],
         ...stats,
       };
     }));

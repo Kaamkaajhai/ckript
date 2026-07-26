@@ -57,14 +57,17 @@ const countdownFor = (item) => {
 const fmt = (value) =>
   value ? new Date(value).toLocaleDateString(undefined, { dateStyle: "medium" }) : "";
 
-const CompetitionCard = ({ item, variant = "past", serverNow }) => {
+const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
   const isArchive = variant === "past";
-  const to = isArchive ? `/hall-of-fame/${item.slug}` : `/challenge/c/${item.slug}`;
+  // Destination is the caller's choice. The hub points every card — finished ones included — at the
+  // competition's own page, because the challenge page is meant to be the destination rather than a
+  // signpost. The standalone /hall-of-fame index still points at its own records.
+  const href = to || (isArchive ? `/hall-of-fame/${item.slug}` : `/challenge/c/${item.slug}`);
   const countdown = isArchive ? null : countdownFor(item);
 
   return (
     <Link
-      to={to}
+      to={href}
       className="block rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-[#D14D37] hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
     >
       {item.bannerUrl ? (

@@ -6,6 +6,7 @@ import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import CompetitionCard from "../../components/competition/CompetitionCard";
+import WinnerCard from "../../components/competition/WinnerCard";
 import EntryCard from "../../components/competition/EntryCard";
 import { Card } from "../../components/competition/ui";
 
@@ -120,6 +121,19 @@ const ChallengeHub = () => {
   const archiveById = new Map(archive.map((a) => [String(a._id), a]));
   const pastItems = (list.past || []).map((item) => ({ ...item, ...(archiveById.get(String(item._id)) || {}) }));
 
+  // The Hall of Fame is about WRITERS, not competitions. Flatten every declared result into one
+  // person per award — winner, runner-up and each category award — so the tab reads as a roll of
+  // honour rather than a second copy of the Previous list.
+  const laureates = archive.flatMap((c) => {
+    const from = (person, award) =>
+      person ? [{ person, award, competitionId: String(c._id), competitionName: c.name, year: c.year }] : [];
+    return [
+      ...from(c.winner, "winner"),
+      ...from(c.runnerUp, "runner_up"),
+      ...(c.special || []).flatMap((p) => from(p, "special")),
+    ];
+  });
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-900">
       <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6">
@@ -179,29 +193,45 @@ const ChallengeHub = () => {
 
           {!error && !loading && tab === "past" ? (
             pastItems.length ? (
-              <Grid>
-                {pastItems.map((item) => (
-                  <CompetitionCard key={item._id} item={item} variant="past" />
-                ))}
-              </Grid>
+              <>
+                <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">
+                  {pastItems.length} challenge{pastItems.length === 1 ? " has" : "s have"} run so far.
+                </p>
+                <Grid>
+                  {pastItems.map((item) => (
+                    <CompetitionCard
+                      key={item._id}
+                      item={item}
+                      variant="past"
+                      to={`/challenge/c/${item.slug}`}
+                    />
+                  ))}
+                </Grid>
+              </>
             ) : (
               <Empty>No challenge has finished yet.</Empty>
             )
           ) : null}
 
           {!error && !loading && tab === "hall-of-fame" ? (
-            archive.length ? (
+            laureates.length ? (
               <>
+                <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">
+                  {laureates.length === 1
+                    ? "1 writer has been honoured at a Ckript challenge."
+                    : `${laureates.length} writers have been honoured at Ckript challenges.`}
+                </p>
                 <Grid>
-                  {archive.map((item) => (
-                    <CompetitionCard key={item._id} item={item} variant="past" />
+                  {laureates.map((l) => (
+                    <WinnerCard
+                      key={`${l.competitionId}-${l.award}-${l.person.userId}`}
+                      person={l.person}
+                      award={l.award}
+                      competitionName={l.competitionName}
+                      year={l.year}
+                    />
                   ))}
                 </Grid>
-                <p className="mt-6 text-center">
-                  <Link to="/hall-of-fame" className="text-sm font-medium text-[#D14D37] hover:underline">
-                    Open the full Hall of Fame
-                  </Link>
-                </p>
               </>
             ) : (
               <Empty>No results have been declared yet. Winners will be recorded here permanently.</Empty>
