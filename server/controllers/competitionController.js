@@ -13,6 +13,7 @@ import {
   referralWindow,
 } from "../utils/competitionReferrals.js";
 import { countPages } from "../utils/paginate.js";
+import { isKnownCountry } from "../utils/countries.js";
 import { classifyText } from "../utils/classify.js";
 import {
   getCompetitionPhase,
@@ -336,7 +337,12 @@ export const registerForCompetition = async (req, res) => {
     const cleanExperience = String(experienceLevel || "").trim().toLowerCase();
     const cleanPortfolio = String(portfolioUrl || "").trim();
 
-    if (!cleanCountry) return res.status(400).json({ message: "Country is required." });
+    // Membership-checked, not just non-empty. The form is a fixed dropdown, so a value outside the
+    // list means a hand-crafted request — and one bad spelling permanently skews the "N countries
+    // represented" figure the Hall of Fame publishes.
+    if (!isKnownCountry(cleanCountry)) {
+      return res.status(400).json({ message: "Select a country from the list." });
+    }
     if (!cleanLanguage) return res.status(400).json({ message: "Preferred language is required." });
     if (cleanGenres.length < 1 || cleanGenres.length > 3) {
       return res.status(400).json({ message: "Choose between 1 and 3 preferred genres." });

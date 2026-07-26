@@ -2,6 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, Copy, Check } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
+import { useDarkMode } from "../../context/DarkModeContext";
 import api from "../../services/api";
 import useCompetition from "../../components/competition/useCompetition";
 import PhaseTimeline from "../../components/competition/PhaseTimeline";
@@ -23,6 +24,7 @@ const Field = ({ label, htmlFor, required, hint, error, children }) => (
 const CompetitionRegister = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
+  const { isDarkMode } = useDarkMode();
   const { competition, entry, phase, timeline, serverNow, loading } = useCompetition({ poll: false });
 
   const [form, setForm] = useState({ country: "", language: "", genres: [], experienceLevel: "", portfolioUrl: "" });
@@ -50,7 +52,9 @@ const CompetitionRegister = () => {
 
   const validate = () => {
     const next = {};
-    if (!form.country.trim()) next.country = "Country is required.";
+    // Membership, not just presence — the field is a <select> now, so anything else came from a
+    // hand-crafted request rather than the form.
+    if (!COUNTRIES.includes(form.country)) next.country = "Select your country.";
     if (!form.language) next.language = "Choose your preferred language.";
     if (!form.genres.length) next.genres = "Choose at least one genre.";
     if (form.genres.length > 3) next.genres = "Choose no more than three genres.";
@@ -156,18 +160,22 @@ const CompetitionRegister = () => {
 
         <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <Field label="Country" htmlFor="reg-country" required error={errors.country}>
-            <input
+            {/* A <select>, not the <input list> this used to be. A datalist only SUGGESTS — anything
+                typed was accepted, so "USA", "United States" and "usa" all counted as different
+                countries in the "N countries represented" figure the Hall of Fame publishes.
+                `colorScheme` makes the native option popup follow the app's theme; without it the
+                browser paints it from the OS setting and it appears white inside a dark page. */}
+            <select
               id="reg-country"
-              list="reg-country-options"
               value={form.country}
               onChange={(e) => set("country", e.target.value)}
               aria-invalid={Boolean(errors.country)}
-              placeholder="Start typing…"
+              style={{ colorScheme: isDarkMode ? "dark" : "light" }}
               className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-[#D14D37] dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
-            <datalist id="reg-country-options">
-              {COUNTRIES.map((c) => <option key={c} value={c} />)}
-            </datalist>
+            >
+              <option value="">Select your country…</option>
+              {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </Field>
 
           <Field label="Preferred language" htmlFor="reg-language" required error={errors.language}>
