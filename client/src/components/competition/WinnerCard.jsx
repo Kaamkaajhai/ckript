@@ -52,9 +52,17 @@ const WinnerCard = ({ person, award, competitionName, year }) => {
       ) : null}
 
       {person.logline ? (
-        <p className="line-clamp-3" style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
-          {person.logline}
-        </p>
+        <>
+          <p className="line-clamp-3" style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+            {person.logline}
+          </p>
+          {/* Provenance, not decoration. A logline here is either the writer's own pitch or the one
+              the AI read off their script, and a roll of honour must not let those pass as the same
+              thing. The slug-line voice keeps it a caption rather than a second claim. */}
+          {person.loglineByAi ? (
+            <p className="ckc-meta" style={{ marginTop: 7 }}>AI-generated logline</p>
+          ) : null}
+        </>
       ) : null}
 
       {/* Omitted when the card sits under a competition heading that already says this. */}

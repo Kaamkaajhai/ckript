@@ -69,11 +69,19 @@ export default function TagSelect({
             className={`${pad} rounded-full font-semibold transition-all ${
               blocked ? "cursor-not-allowed opacity-40" : "cursor-pointer"
             } ${
+              /* Active is the accent TINT, not an accent fill — same mark Sidebar uses for the
+                 current item. Solid coral would need white text and only reaches 4.35:1.
+                 Dark keeps a hue rather than Sidebar's plain raised grey because a tag group's
+                 rest state is itself a filled pill and the two would collapse into each other;
+                 #f08b76 is the accent lifted for dark surfaces (index.css), since #b8402d
+                 only manages ~3.4:1 there. */
               active
-                ? "bg-[#1e3a5f] text-white border border-[#1e3a5f] shadow-sm"
+                ? dark
+                  ? "bg-[#f08b76]/[0.14] text-[#f08b76] border border-[#f08b76]/40"
+                  : "bg-[#D14D37]/10 text-[#b8402d] border border-[#D14D37]/35 shadow-sm"
                 : dark
-                  ? "bg-white/[0.05] text-gray-300 border border-[#1d3350] hover:bg-white/[0.09] hover:border-[#2f4a6e]"
-                  : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200 hover:border-gray-300"
+                  ? "bg-white/[0.05] text-[#cfccc5] border border-[#242424] hover:bg-white/[0.09] hover:border-[#3a3a3a]"
+                  : "bg-[#f4efe6] text-[#57544f] border border-[#e7e5df] hover:bg-[#ede6d9] hover:border-[#d8d4cb]"
             }`}
           >
             {opt.label}

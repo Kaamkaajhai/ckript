@@ -154,7 +154,13 @@ const buildPublicResults = async (competitionId) => {
     username: entry.userId?.writerProfile?.username || entry.userId?.username || "",
     profileImage: entry.userId?.profileImage || "",
     scriptTitle: entry.snapshot?.title || "",
-    logline: entry.ai?.logline || "",
+    // The writer's own logline wins; the AI's is only a stand-in for entries that never had one
+    // (including everything submitted before snapshot.logline existed). `loglineByAi` travels with
+    // it so the client can label the stand-in as machine-written — quoting the platform's words
+    // under a winner's name is exactly what this preference exists to prevent.
+    logline: entry.snapshot?.logline || entry.ai?.logline || "",
+    loglineByAi: !entry.snapshot?.logline && Boolean(entry.ai?.logline),
+    synopsis: entry.snapshot?.synopsis || "",
     specialTitle: entry.result?.specialTitle || "",
     rewards: (entry.rewardsGranted || []).map((r) => r.type),
   });
@@ -678,6 +684,11 @@ export const submitCompetitionEntry = async (req, res) => {
             fountainContent: fountain,
             textContent: text,
             title: script.title || "",
+            // The writer's own story materials, frozen with everything else. They belong INSIDE this
+            // claim: written later they would no longer be part of the written-once snapshot, and a
+            // post-submit edit to the (locked) script could rewrite what the Hall of Fame quotes.
+            logline: script.logline || "",
+            synopsis: script.synopsis || "",
             wordCount: countWords(source),
             charCount: source.length,
             pageCount: countPages(source),

@@ -232,6 +232,7 @@ const CompetitionRegister = () => {
 
             <Field label="Preferred language" htmlFor="reg-language" required error={errors.language}>
               <TagSelect
+              dark={isDarkMode}
                 id="reg-language"
                 options={CP_FILM_LANGUAGE_OPTIONS}
                 value={form.language}
@@ -242,6 +243,7 @@ const CompetitionRegister = () => {
 
             <Field label="Preferred genres" htmlFor="reg-genres" required hint="Pick up to three." error={errors.genres}>
               <TagSelect
+              dark={isDarkMode}
                 id="reg-genres"
                 options={GENRE_OPTIONS}
                 value={form.genres}
@@ -254,6 +256,7 @@ const CompetitionRegister = () => {
 
             <Field label="Experience level" htmlFor="reg-experienceLevel" required error={errors.experienceLevel}>
               <TagSelect
+              dark={isDarkMode}
                 id="reg-experienceLevel"
                 options={EXPERIENCE_LEVELS}
                 value={form.experienceLevel}

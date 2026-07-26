@@ -49,6 +49,12 @@ const competitionEntrySchema = new mongoose.Schema({
     fountainContent: { type: String, default: "" },
     textContent: { type: String, default: "" },
     title: { type: String, default: "" },
+    // The writer's OWN logline and synopsis, as typed in the editor during the writing window.
+    // Deliberately separate from `ai.logline`/`ai.synopsis` below: the read side prefers these and
+    // only falls back to the AI's, so a writer is never credited with words the platform wrote.
+    // Empty on entries submitted before this field existed — those legitimately have only the AI's.
+    logline: { type: String, default: "" },
+    synopsis: { type: String, default: "" },
     wordCount: { type: Number, default: 0 },
     charCount: { type: Number, default: 0 },
     pageCount: { type: Number, default: 0 },

@@ -54,9 +54,16 @@ const WinnerBlock = ({ person, label, icon: Icon, accent, prominent = false }) =
             </p>
           ) : null}
           {person.logline ? (
-            <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
-              {person.logline}
-            </p>
+            <>
+              <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+                {person.logline}
+              </p>
+              {/* Same note the shared WinnerCard carries: a logline is either the writer's pitch or
+                  the AI's reading of their script, and the reader gets to tell which. */}
+              {person.loglineByAi ? (
+                <p className="ckc-meta" style={{ marginTop: 7 }}>AI-generated logline</p>
+              ) : null}
+            </>
           ) : null}
 
           {person.rewards?.length ? (

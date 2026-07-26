@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import CollaboratorsModal from "../../components/collab/CollaboratorsModal";
 import CompetitionBar from "../../components/competition/CompetitionBar";
+import CompetitionPitch from "./components/CompetitionPitch";
 import { useCreateProject } from "./CreateProjectContext";
 import { STEPS, CP_ACCENT } from "./constants";
 import { cpIconBtnStyle, cpMoreMenuStyle, cpMoreItemStyle, cpZoomBtnStyle } from "./editorStyles";
@@ -158,8 +159,11 @@ const CreateProjectShell = ({ children }) => {
         {/* Main column */}
         <div className="ckcp-main" style={{ flex: "1", minWidth: 0, display: "flex", flexDirection: "column", background: dark ? "#0f0f0f" : "#ffffff" }}>
 
-          {/* Competition mode replaces the whole step navigator with the deadline + submit bar. */}
+          {/* Competition mode replaces the whole step navigator with the deadline + submit bar.
+              Losing the navigator also loses Step 2, so the pitch fields the entry still carries
+              (logline / synopsis) come back here as a closed disclosure under the bar. */}
           {competitionMode && <CompetitionBar />}
+          {competitionMode && <CompetitionPitch />}
 
           {/* Compact horizontal stepper — phones only (rail is hidden there). */}
           {!competitionMode && (
