@@ -470,7 +470,10 @@ export const adminDeclareResults = async (req, res) => {
       if (String(entry._id) === String(winner._id) || (runnerUp && String(entry._id) === String(runnerUp._id))) {
         return res.status(400).json({ message: "An entry cannot hold both a placing and a special award." });
       }
-      specials.push({ entry, title: String(award?.title || "Special Award").trim() });
+      // Default AFTER trimming, not before. `" "` is truthy, so defaulting first skipped the
+      // fallback and then trimmed to "" — which was stored as the award's title and interpolated
+      // into the notification as: You received the "" award.
+      specials.push({ entry, title: String(award?.title || "").trim() || "Special Award" });
     }
 
     const now = new Date();
@@ -509,7 +512,12 @@ export const adminDeclareResults = async (req, res) => {
     for (const { entry, title } of specials) {
       entry.result.award = "special";
       entry.result.specialTitle = title;
-      await grantOnce(entry, "badge_special", () => awardBadge(entry.userId, BADGES.special, competition._id));
+      // The badge carries the award's real name — "Best Dialogue", not "Special Award". The badge
+      // ID stays `challenge_special` so the existing badge system, and awardBadge's
+      // (id, competitionId) dedupe key, are untouched; only the human-readable label changes.
+      // An older entry with no title falls back to the generic label.
+      await grantOnce(entry, "badge_special", () =>
+        awardBadge(entry.userId, { ...BADGES.special, label: title || BADGES.special.label }, competition._id));
       entry.status = "judged";
       await entry.save();
       counts.special += 1;

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Trophy, Award, Users, Globe } from "lucide-react";
+import { Trophy, Award, Users, Globe, Medal } from "lucide-react";
 import { Avatar } from "./ui";
 import { yearSuffix } from "./labels";
 import CountdownTimer from "./CountdownTimer";
@@ -116,7 +116,17 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
               person={item.runnerUp}
               icon={<Award className="h-3 w-3 text-gray-400" aria-hidden="true" />}
             />
-            {!item.winner && !item.runnerUp ? (
+            {/* Category winners belong on the record too — listing only the top two erased them
+                from the archive even though the API returns them. */}
+            {(item.special || []).map((p, i) => (
+              <PersonLine
+                key={p.userId || i}
+                label={p.specialTitle || "Special Award"}
+                person={p}
+                icon={<Medal className="h-3 w-3 text-[#D14D37]" aria-hidden="true" />}
+              />
+            ))}
+            {!item.winner && !item.runnerUp && !(item.special || []).length ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {item.resultsDeclaredAt ? "Results archived." : "Results not announced yet."}
               </p>

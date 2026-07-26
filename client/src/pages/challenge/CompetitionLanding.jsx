@@ -65,7 +65,10 @@ const WinnerCard = ({ label, person }) => {
       <p className="text-xs font-semibold uppercase tracking-wide text-[#D14D37]">{label}</p>
       <p className="mt-2 text-lg font-bold text-gray-900 dark:text-white">{person.name}</p>
       {person.scriptTitle ? <p className="text-sm text-gray-600 dark:text-gray-300">{person.scriptTitle}</p> : null}
-      {person.specialTitle ? <p className="mt-1 text-sm font-medium text-gray-700 dark:text-gray-200">{person.specialTitle}</p> : null}
+      {/* Only when it is not already the heading — otherwise the award name printed twice. */}
+      {person.specialTitle && person.specialTitle !== label ? (
+        <p className="mt-1 text-sm font-medium text-gray-700 dark:text-gray-200">{person.specialTitle}</p>
+      ) : null}
       {person.logline ? <p className="mt-3 text-sm italic text-gray-600 dark:text-gray-400">{person.logline}</p> : null}
     </Card>
   );
@@ -220,8 +223,11 @@ const CompetitionLanding = () => {
             <div className="grid gap-4 sm:grid-cols-2">
               <WinnerCard label="Winner" person={results.winner} />
               <WinnerCard label="Runner-Up" person={results.runnerUp} />
+              {/* The award's own name is the heading. It used to sit under a hardcoded
+                  "SPECIAL AWARD" eyebrow, so "Best Dialogue" read as a subtitle to a generic
+                  label — and appeared twice on the one card that showed both. */}
               {(results.special || []).map((p, i) => (
-                <WinnerCard key={i} label="Special Award" person={p} />
+                <WinnerCard key={i} label={p.specialTitle || "Special Award"} person={p} />
               ))}
             </div>
           </Section>

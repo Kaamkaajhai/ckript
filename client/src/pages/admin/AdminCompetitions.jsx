@@ -521,14 +521,25 @@ function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
   const declare = async () => {
     const winner = submitted.find((e) => e._id === winnerEntryId);
     const runnerUp = submitted.find((e) => e._id === runnerUpEntryId);
+    // ONE filtered list drives the confirmation, the participant arithmetic and the request. They
+    // used to disagree: a row with a recipient but no award name was listed in the confirm dialog as
+    // receiving an award, then dropped by the POST filter — so that writer silently got only a
+    // participant badge, and the quoted "everyone else" count was wrong.
+    const validSpecials = specialAwards.filter((a) => a.entryId && a.title.trim())
+      .map((a) => ({ ...a, title: a.title.trim() }));
+    const incomplete = specialAwards.filter((a) => (a.entryId && !a.title.trim()) || (!a.entryId && a.title.trim()));
+    if (incomplete.length) {
+      setError("Every special award needs both a recipient and an award name.");
+      return;
+    }
     const summary = [
       `Winner: ${winner?.userId?.name || "—"} — Gold subscription (30 days), winner badge, featured script, AI trailer`,
       runnerUp ? `Runner-Up: ${runnerUp.userId?.name} — Silver subscription (30 days), runner-up badge, featured script` : null,
-      ...specialAwards.map((a) => {
+      ...validSpecials.map((a) => {
         const entry = submitted.find((e) => e._id === a.entryId);
-        return `Special "${a.title}": ${entry?.userId?.name || "—"} — special badge`;
+        return `"${a.title}": ${entry?.userId?.name || "—"} — ${a.title} badge`;
       }),
-      `Everyone else who submitted (${Math.max(0, submitted.length - 1 - (runnerUp ? 1 : 0) - specialAwards.length)}) — participant badge`,
+      `Everyone else who submitted (${Math.max(0, submitted.length - 1 - (runnerUp ? 1 : 0) - validSpecials.length)}) — participant badge`,
     ].filter(Boolean).join("\n");
 
     if (!window.confirm(`Declare results?\n\n${summary}\n\nThis cannot be undone.`)) return;
@@ -539,7 +550,7 @@ function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
       const { data } = await adminApi.post(`/admin/competitions/${competitionId}/results`, {
         winnerEntryId,
         runnerUpEntryId: runnerUpEntryId || undefined,
-        specialAwards: specialAwards.filter((a) => a.entryId && a.title),
+        specialAwards: validSpecials,
       });
       onDeclared(`Results declared — ${data.counts.winners} winner, ${data.counts.runnerUp} runner-up, ${data.counts.special} special, ${data.counts.participants} participants.`);
       onBack();
@@ -591,6 +602,14 @@ function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
           </div>
 
           <label className={`${cls.label(dark)} mt-5`}>Special awards</label>
+          {/* The titles configured on the competition itself (Prizes → Special). adminListEntries
+              already returns the whole competition document, so this needs no extra request. */}
+          <datalist id="special-award-titles">
+            {(state.competition?.prizes?.special || [])
+              .map((p) => p?.title)
+              .filter(Boolean)
+              .map((title) => <option key={title} value={title} />)}
+          </datalist>
           <div className="mt-2 space-y-2">
             {specialAwards.map((award, i) => (
               <div key={i} className="flex flex-wrap gap-2">
@@ -602,9 +621,13 @@ function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
                   <option value="">Select an entry…</option>
                   {entryOptions}
                 </select>
+                {/* Free text, as required — award names are not a fixed vocabulary. The competition's
+                    own configured awards are offered as suggestions so the declared title matches
+                    what was advertised instead of being retyped from memory. */}
                 <input
                   value={award.title}
-                  placeholder="Award title"
+                  list="special-award-titles"
+                  placeholder="Award name, e.g. Best Dialogue"
                   onChange={(e) => setSpecialAwards(specialAwards.map((a, j) => (j === i ? { ...a, title: e.target.value } : a)))}
                   className={`${cls.input(dark)} flex-1 min-w-[160px]`}
                 />

@@ -17,7 +17,23 @@ export const REWARD_LABELS = {
   notified: null,   // internal bookkeeping — deliberately never shown
 };
 
-export const rewardLabel = (type) => {
+/**
+ * @param type          a key from the reward ledger
+ * @param specialTitle  the award's real name, when the reward is a special-award badge
+ *
+ * A category award is called what it is called. Given "Best Dialogue" the badge reads "Best Dialogue
+ * badge", not "Special award badge" — the whole point of naming an award is that the name survives.
+ * An older entry with no title falls back to the generic wording.
+ *
+ * Takes an options OBJECT rather than a positional title on purpose: `rewards.map(rewardLabel)` is
+ * the natural thing to write, and map passes (value, index, array) — a positional second parameter
+ * would receive the index and render "0 badge". Destructuring a number yields undefined instead.
+ */
+export const rewardLabel = (type, { specialTitle = "" } = {}) => {
+  if (type === "badge_special") {
+    const title = String(specialTitle || "").trim();
+    return title ? `${title} badge` : REWARD_LABELS.badge_special;
+  }
   if (type in REWARD_LABELS) return REWARD_LABELS[type];
   if (String(type || "").startsWith("referral_")) return "Referral reward";
   return String(type || "").replace(/_/g, " ");

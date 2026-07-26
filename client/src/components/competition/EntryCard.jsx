@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronDown, Award, Download } from "lucide-react";
 import api from "../../services/api";
 import PhaseTimeline from "./PhaseTimeline";
+import { rewardLabel } from "./labels";
 
 /**
  * One competition entry of your own — status, award, key numbers, timeline and certificate.
@@ -115,11 +116,15 @@ const EntryCard = ({ item, serverNow }) => {
 
       {entry.rewardsGranted?.length ? (
         <div className="mt-4 flex flex-wrap gap-2">
-          {entry.rewardsGranted.map((reward, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-              <Award className="h-3 w-3" aria-hidden="true" /> {reward.type.replace(/_/g, " ")}
-            </span>
-          ))}
+          {/* Named awards keep their name, and the internal `notified` key stays hidden. */}
+          {entry.rewardsGranted
+            .map((reward) => rewardLabel(reward.type, { specialTitle: entry.result?.specialTitle }))
+            .filter(Boolean)
+            .map((label, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                <Award className="h-3 w-3" aria-hidden="true" /> {label}
+              </span>
+            ))}
         </div>
       ) : null}
 

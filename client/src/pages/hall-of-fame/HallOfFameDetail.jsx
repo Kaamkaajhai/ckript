@@ -40,7 +40,9 @@ const WinnerBlock = ({ person, label, icon: Icon, accent, prominent = false }) =
 
           {person.rewards?.length ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
-              {person.rewards.map(rewardLabel).filter(Boolean).map((label_, i) => (
+              {person.rewards
+                .map((type) => rewardLabel(type, { specialTitle: person.specialTitle }))
+                .filter(Boolean).map((label_, i) => (
                 <span key={i} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:ring-gray-600">
                   {label_}
                 </span>

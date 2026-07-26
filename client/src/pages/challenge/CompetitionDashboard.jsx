@@ -12,6 +12,7 @@ import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import CompetitionJourney from "../../components/competition/CompetitionJourney";
 import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
 import ReferralDrive from "../../components/competition/ReferralDrive";
+import { rewardLabel } from "../../components/competition/labels";
 import {
   JUDGING_CRITERIA, WRITING_RESOURCES, STUDIO_LOCKED_MESSAGE, PARTICIPANT_COMPLETION_MESSAGE,
 } from "./constants";
@@ -271,12 +272,17 @@ const CompetitionDashboard = () => {
           ) : null}
           {entry.rewardsGranted?.length ? (
             <ul className="mt-4 space-y-1 text-sm text-gray-700 dark:text-gray-200">
-              {entry.rewardsGranted.map((reward, i) => (
-                <li key={i} className="flex gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" />
-                  <span>{reward.type.replace(/_/g, " ")}</span>
-                </li>
-              ))}
+              {/* Ledger keys are machine strings — raw, a category winner read "badge special".
+                  rewardLabel humanises them, names the award, and drops internal bookkeeping. */}
+              {entry.rewardsGranted
+                .map((reward) => rewardLabel(reward.type, { specialTitle: entry.result?.specialTitle }))
+                .filter(Boolean)
+                .map((label, i) => (
+                  <li key={i} className="flex gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" />
+                    <span>{label}</span>
+                  </li>
+                ))}
             </ul>
           ) : null}
           {results?.winner ? (
