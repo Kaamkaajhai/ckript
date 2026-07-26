@@ -9,6 +9,7 @@ import CompetitionCard from "../../components/competition/CompetitionCard";
 import WinnerCard from "../../components/competition/WinnerCard";
 import EntryCard from "../../components/competition/EntryCard";
 import { Card } from "../../components/competition/ui";
+import "./challenge.css";
 import { yearSuffix } from "../../components/competition/labels";
 
 /**
@@ -42,14 +43,12 @@ const TABS = [
 ];
 
 const Empty = ({ children }) => (
-  <Card>
-    <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{children}</p>
-  </Card>
+  <div className="ckc-card ckc-card-pad" style={{ textAlign: "center", padding: "52px 24px" }}>
+    <p className="ckc-lede" style={{ margin: "0 auto" }}>{children}</p>
+  </div>
 );
 
-const Grid = ({ children }) => (
-  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{children}</div>
-);
+const Grid = ({ children }) => <div className="ckc-grid">{children}</div>;
 
 const ChallengeHub = () => {
   const [params, setParams] = useSearchParams();
@@ -142,17 +141,17 @@ const ChallengeHub = () => {
   const laureateCount = honourRoll.reduce((n, g) => n + g.people.length, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-900">
-      <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6">
-        <header>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D14D37]">Ckript</p>
-          <h1 className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">Challenges</h1>
-          <p className="mt-2 max-w-2xl text-gray-600 dark:text-gray-300">
-            Timed screenwriting competitions. Register, write to the theme, and get your script read.
+    <div className="ckc" style={{ minHeight: "100vh", paddingBottom: 96 }}>
+      <div style={{ margin: "0 auto", maxWidth: 1120, padding: "48px 24px 0" }}>
+        <header className="ckc-masthead">
+          <p className="ckc-meta">Ckript · Screenwriting competitions</p>
+          <h1 className="ckc-title ckc-h1">Challenges</h1>
+          <p className="ckc-lede">
+            One theme. A fixed window. Write a complete script against the clock, and have it read.
           </p>
         </header>
 
-        <nav className="mt-8 flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700" aria-label="Challenge sections">
+        <nav className="ckc-tabs" style={{ marginTop: 40 }} aria-label="Challenge sections">
           {TABS.map(({ key, label, icon }) => {
             const active = tab === key;
             return (
@@ -161,11 +160,7 @@ const ChallengeHub = () => {
                 type="button"
                 onClick={() => select(key)}
                 aria-current={active ? "page" : undefined}
-                className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-semibold transition ${
-                  active
-                    ? "border-[#D14D37] text-[#D14D37]"
-                    : "border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-                }`}
+                className="ckc-tab"
               >
                 {icon}
                 {label}
@@ -174,11 +169,11 @@ const ChallengeHub = () => {
           })}
         </nav>
 
-        <div className="mt-8">
+        <div style={{ marginTop: 36 }}>
           {error ? <Empty>{error}</Empty> : null}
 
           {!error && loading ? (
-            <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+            <p className="ckc-meta" style={{ padding: "56px 0", textAlign: "center" }}>Loading…</p>
           ) : null}
 
           {!error && !loading && tab === "live" ? (
@@ -201,8 +196,8 @@ const ChallengeHub = () => {
           {!error && !loading && tab === "past" ? (
             pastItems.length ? (
               <>
-                <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">
-                  {pastItems.length} challenge{pastItems.length === 1 ? " has" : "s have"} run so far.
+                <p className="ckc-meta" style={{ marginBottom: 24 }}>
+                  {pastItems.length} challenge{pastItems.length === 1 ? " has" : "s have"} run so far
                 </p>
                 <Grid>
                   {pastItems.map((item) => (
@@ -223,34 +218,31 @@ const ChallengeHub = () => {
           {!error && !loading && tab === "hall-of-fame" ? (
             honourRoll.length ? (
               <>
-                <p className="mb-8 text-sm text-gray-600 dark:text-gray-300">
+                <p className="ckc-meta" style={{ marginBottom: 32 }}>
                   {laureateCount === 1
-                    ? "1 writer has been honoured at a Ckript challenge."
-                    : `${laureateCount} writers have been honoured across ${honourRoll.length} challenge${honourRoll.length === 1 ? "" : "s"}.`}
+                    ? "1 writer honoured"
+                    : `${laureateCount} writers honoured across ${honourRoll.length} challenge${honourRoll.length === 1 ? "" : "s"}`}
                 </p>
 
-                <div className="space-y-12">
+                <div className="ckc-stack-lg">
                   {honourRoll.map(({ competition: c, people }) => (
                     <section key={c._id} aria-label={c.name}>
-                      <div className="mb-5 border-b border-gray-200 pb-3 dark:border-gray-700">
+                      <div style={{ marginBottom: 22, paddingBottom: 14, borderBottom: "1px solid var(--ckc-rule)" }}>
                         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                          <h2 className="ckc-title ckc-h2">
                             {c.name}
                             {yearSuffix(c.name, c.year) ? (
-                              <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">{c.year}</span>
+                              <span style={{ marginLeft: 10, color: "var(--ckc-muted)" }}>{c.year}</span>
                             ) : null}
                           </h2>
-                          <Link
-                            to={`/challenge/c/${c.slug}`}
-                            className="text-sm font-medium text-[#D14D37] hover:underline"
-                          >
+                          <Link to={`/challenge/c/${c.slug}`} className="ckc-link" style={{ fontSize: 14 }}>
                             About this challenge
                           </Link>
                         </div>
                         {/* Just enough to say which event this was — the detail lives on the
                             competition's own page. */}
-                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                          {c.theme ? <span className="italic">{c.theme}</span> : null}
+                        <p style={{ marginTop: 6, fontSize: 14, color: "var(--ckc-muted)" }}>
+                          {c.theme ? <span style={{ fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: 16 }}>{c.theme}</span> : null}
                           {c.theme && c.totalParticipants ? " · " : ""}
                           {c.totalParticipants
                             ? `${c.totalParticipants} entrant${c.totalParticipants === 1 ? "" : "s"} from ${c.countriesRepresented} ${c.countriesRepresented === 1 ? "country" : "countries"}`
@@ -274,22 +266,21 @@ const ChallengeHub = () => {
 
           {!error && !loading && tab === "mine" ? (
             !user ? (
-              <Card>
-                <div className="py-8 text-center">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Sign in to see the challenges you have entered.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal({ redirect: "/challenge?tab=mine" })}
-                    className="mt-4 rounded-lg bg-[#D14D37] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#b8402d]"
-                  >
-                    Sign In
-                  </button>
-                </div>
-              </Card>
+              <div className="ckc-card ckc-card-pad" style={{ textAlign: "center", padding: "52px 24px" }}>
+                <p className="ckc-lede" style={{ margin: "0 auto" }}>
+                  Sign in to see the challenges you have entered.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal({ redirect: "/challenge?tab=mine" })}
+                  className="ckc-btn"
+                  style={{ marginTop: 20 }}
+                >
+                  Sign in
+                </button>
+              </div>
             ) : mine.length ? (
-              <div className="space-y-6">
+              <div className="ckc-stack">
                 {mine.map((item) => (
                   <EntryCard key={item.entry?._id || item.competition?._id} item={item} serverNow={mineServerNow} />
                 ))}

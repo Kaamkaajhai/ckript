@@ -9,17 +9,36 @@ import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import TagSelect from "../../components/TagSelect";
 import { genres as GENRE_OPTIONS, CP_FILM_LANGUAGE_OPTIONS } from "../CreateProject/constants";
 import { COUNTRIES, EXPERIENCE_LEVELS } from "./constants";
+import "./challenge.css";
 
+// A form field is labelled in the slug-line voice, like every other label on these pages.
 const Field = ({ label, htmlFor, required, hint, error, children }) => (
   <div>
-    <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-900 dark:text-white">
-      {label} {required ? <span className="text-[#D14D37]">*</span> : <span className="text-gray-400">(optional)</span>}
+    <label htmlFor={htmlFor} className="ckc-meta block">
+      {label} {required ? <span style={{ color: "var(--ckc-accent-text)" }}>*</span> : <span>(optional)</span>}
     </label>
-    {hint ? <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{hint}</p> : null}
-    <div className="mt-2">{children}</div>
-    {error ? <p className="mt-1.5 text-sm text-[#D14D37]">{error}</p> : null}
+    {hint ? <p style={{ marginTop: 5, fontSize: 13, color: "var(--ckc-muted)" }}>{hint}</p> : null}
+    <div className="mt-2.5">{children}</div>
+    {error ? <p style={{ marginTop: 7, fontSize: 13, color: "var(--ckc-accent-text)" }}>{error}</p> : null}
   </div>
 );
+
+// Native controls, drawn from the tokens instead of Tailwind's grey ramp. Focus is deliberately NOT
+// set here: `.ckc :focus-visible` already draws the accent ring, and the `outline-none` utility the
+// generic version carried was suppressing it. An invalid field takes the accent on its border so
+// aria-invalid is visible as well as announced.
+const CONTROL = {
+  width: "100%",
+  padding: "10px 12px",
+  border: "1px solid var(--ckc-rule)",
+  borderRadius: 3,
+  background: "var(--ckc-card)",
+  color: "var(--ckc-ink)",
+  fontFamily: "var(--ckc-sans)",
+  fontSize: "0.9375rem",
+};
+
+const control = (invalid) => ({ ...CONTROL, borderColor: invalid ? "var(--ckc-accent)" : "var(--ckc-rule)" });
 
 const CompetitionRegister = () => {
   const navigate = useNavigate();
@@ -90,181 +109,219 @@ const CompetitionRegister = () => {
   };
 
   if (loading || !competition) {
-    return <div className="mx-auto max-w-3xl px-4 py-20 text-center text-gray-500 dark:text-gray-400">Loading…</div>;
+    return (
+      <div className="ckc" style={{ minHeight: "100vh" }}>
+        <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+          <p className="ckc-meta">Loading…</p>
+        </div>
+      </div>
+    );
   }
 
   if (created) {
     const eventId = created.entry?.eventId || "";
     return (
-      <div className="mx-auto max-w-3xl px-4 py-12">
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" aria-hidden="true" />
-          <h1 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">You're registered</h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-300">
-            You're in for <strong>{competition.name}</strong>. Keep your Event ID — it identifies your entry.
-          </p>
+      <div className="ckc" style={{ minHeight: "100vh" }}>
+        <div className="mx-auto max-w-3xl px-4 py-12">
+          <div className="ckc-card ckc-card-pad text-center" style={{ padding: "40px 32px" }}>
+            {/* The one coral mark on this panel: you are now in a competition that is running. */}
+            <CheckCircle2 className="mx-auto h-12 w-12" style={{ color: "var(--ckc-accent)" }} aria-hidden="true" />
+            <h1 className="ckc-title ckc-h2" style={{ marginTop: 18 }}>You're registered</h1>
+            <p className="ckc-lede" style={{ margin: "10px auto 0" }}>
+              You're in for <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{competition.name}</strong>. Keep your Event ID — it identifies your entry.
+            </p>
 
-          <div className="mx-auto mt-6 inline-flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-600 dark:bg-gray-700">
-            <span className="font-mono text-xl font-bold tracking-wider text-gray-900 dark:text-white">{eventId}</span>
+            {/* The Event ID is an identifier, so it is set as one — mono, tracked, in a quiet inset. */}
+            <div
+              className="mx-auto mt-7 inline-flex items-center gap-3 px-5 py-3"
+              style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", borderRadius: 3 }}
+            >
+              <span style={{ fontFamily: "var(--ckc-mono)", fontSize: "1.25rem", letterSpacing: "0.14em", color: "var(--ckc-ink)" }}>
+                {eventId}
+              </span>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard?.writeText(eventId); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                style={{ color: copied ? "var(--ckc-accent-text)" : "var(--ckc-muted)" }}
+                aria-label="Copy Event ID"
+              >
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+
+            <p style={{ marginTop: 24, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+              The theme is revealed when the competition starts. You'll have 48 hours to write.
+            </p>
+
+            <div className="mx-auto mt-8 max-w-sm text-left">
+              <PhaseTimeline steps={created.timeline || timeline} serverNow={serverNow} compact />
+            </div>
+
             <button
               type="button"
-              onClick={() => { navigator.clipboard?.writeText(eventId); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-              className="text-gray-500 hover:text-[#D14D37]"
-              aria-label="Copy Event ID"
+              onClick={() => navigate("/challenge/dashboard")}
+              className="ckc-btn mt-8"
             >
-              {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+              Go to my dashboard
             </button>
           </div>
-
-          <p className="mt-6 text-sm text-gray-600 dark:text-gray-300">
-            The theme is revealed when the competition starts. You'll have 48 hours to write.
-          </p>
-
-          <div className="mx-auto mt-8 max-w-sm text-left">
-            <PhaseTimeline steps={created.timeline || timeline} serverNow={serverNow} compact />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => navigate("/challenge/dashboard")}
-            className="mt-8 rounded-lg bg-[#D14D37] px-6 py-3 font-semibold text-white hover:bg-[#b8402d]"
-          >
-            Go to my dashboard
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Register for {competition.name}</h1>
-      <p className="mt-2 text-gray-600 dark:text-gray-300">
-        A few details so we can group entries and tailor your experience. This takes a minute.
-      </p>
+    <div className="ckc" style={{ minHeight: "100vh" }}>
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        {/* The page only exists while registration is open — the effect above redirects otherwise —
+            so the live chip is the truth, not decoration. */}
+        <header className="ckc-masthead">
+          <span className="ckc-chip ckc-chip-live" style={{ alignSelf: "flex-start" }}>
+            <span className="ckc-dot" aria-hidden="true" /> Registration open
+          </span>
+          <h1 className="ckc-title ckc-h1">Register for {competition.name}</h1>
+          <p className="ckc-lede">
+            A few details so we can group entries and tailor your experience. This takes a minute.
+          </p>
+        </header>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Your account</h2>
-          <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Name</dt>
-              <dd className="mt-1 text-gray-900 dark:text-white">{user?.name || "—"}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</dt>
-              <dd className="mt-1 break-all text-gray-900 dark:text-white">{user?.email || "—"}</dd>
-            </div>
-          </dl>
-        </div>
+        <form onSubmit={handleSubmit} className="mt-9 space-y-6">
+          <div className="ckc-card ckc-card-pad">
+            <h2 className="ckc-title ckc-h3">Your account</h2>
+            <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <dt className="ckc-meta">Name</dt>
+                <dd style={{ marginTop: 5, color: "var(--ckc-ink)" }}>{user?.name || "—"}</dd>
+              </div>
+              <div>
+                <dt className="ckc-meta">Email</dt>
+                <dd className="break-all" style={{ marginTop: 5, color: "var(--ckc-ink)" }}>{user?.email || "—"}</dd>
+              </div>
+            </dl>
+          </div>
 
-        <div className="space-y-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <Field label="Country" htmlFor="reg-country" required error={errors.country}>
-            {/* A <select>, not the <input list> this used to be. A datalist only SUGGESTS — anything
-                typed was accepted, so "USA", "United States" and "usa" all counted as different
-                countries in the "N countries represented" figure the Hall of Fame publishes.
-                `colorScheme` makes the native option popup follow the app's theme; without it the
-                browser paints it from the OS setting and it appears white inside a dark page. */}
-            <select
-              id="reg-country"
-              value={form.country}
-              onChange={(e) => set("country", e.target.value)}
-              aria-invalid={Boolean(errors.country)}
-              style={{ colorScheme: isDarkMode ? "dark" : "light" }}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-[#D14D37] dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          <div className="ckc-card ckc-card-pad space-y-6">
+            <Field label="Country" htmlFor="reg-country" required error={errors.country}>
+              {/* A <select>, not the <input list> this used to be. A datalist only SUGGESTS — anything
+                  typed was accepted, so "USA", "United States" and "usa" all counted as different
+                  countries in the "N countries represented" figure the Hall of Fame publishes.
+                  `colorScheme` makes the native option popup follow the app's theme; without it the
+                  browser paints it from the OS setting and it appears white inside a dark page. */}
+              <select
+                id="reg-country"
+                value={form.country}
+                onChange={(e) => set("country", e.target.value)}
+                aria-invalid={Boolean(errors.country)}
+                style={{ ...control(Boolean(errors.country)), colorScheme: isDarkMode ? "dark" : "light" }}
+                className="w-full"
+              >
+                <option value="">Select your country…</option>
+                {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Preferred language" htmlFor="reg-language" required error={errors.language}>
+              <TagSelect
+                id="reg-language"
+                options={CP_FILM_LANGUAGE_OPTIONS}
+                value={form.language}
+                onChange={(v) => set("language", v)}
+                ariaLabel="Preferred language"
+              />
+            </Field>
+
+            <Field label="Preferred genres" htmlFor="reg-genres" required hint="Pick up to three." error={errors.genres}>
+              <TagSelect
+                id="reg-genres"
+                options={GENRE_OPTIONS}
+                value={form.genres}
+                onChange={(v) => set("genres", v)}
+                multiple
+                max={3}
+                ariaLabel="Preferred genres"
+              />
+            </Field>
+
+            <Field label="Experience level" htmlFor="reg-experienceLevel" required error={errors.experienceLevel}>
+              <TagSelect
+                id="reg-experienceLevel"
+                options={EXPERIENCE_LEVELS}
+                value={form.experienceLevel}
+                onChange={(v) => set("experienceLevel", v)}
+                ariaLabel="Experience level"
+              />
+            </Field>
+
+            <Field label="Portfolio link" htmlFor="reg-portfolioUrl" error={errors.portfolioUrl}>
+              <input
+                id="reg-portfolioUrl"
+                type="url"
+                value={form.portfolioUrl}
+                onChange={(e) => set("portfolioUrl", e.target.value)}
+                aria-invalid={Boolean(errors.portfolioUrl)}
+                placeholder="https://"
+                style={control(Boolean(errors.portfolioUrl))}
+                className="w-full"
+              />
+            </Field>
+          </div>
+
+          <div className="ckc-card ckc-card-pad space-y-4">
+            <label className="flex cursor-pointer gap-3">
+              <input
+                type="checkbox"
+                checked={acceptRules}
+                onChange={(e) => setAcceptRules(e.target.checked)}
+                style={{ accentColor: "var(--ckc-accent)" }}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <span style={{ fontSize: 14, lineHeight: 1.6, color: "var(--ckc-body)" }}>
+                I accept the <Link to={competition?.slug ? `/challenge/c/${competition.slug}#rules` : "/challenge"} className="ckc-link">competition rules</Link>.
+              </span>
+            </label>
+            <label className="flex cursor-pointer gap-3">
+              <input
+                type="checkbox"
+                checked={acceptCopyright}
+                onChange={(e) => setAcceptCopyright(e.target.checked)}
+                style={{ accentColor: "var(--ckc-accent)" }}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <span style={{ fontSize: 14, lineHeight: 1.6, color: "var(--ckc-body)" }}>
+                I accept the copyright policy — the work I submit will be my own original writing.
+              </span>
+            </label>
+          </div>
+
+          {serverError ? (
+            <div
+              className="px-4 py-3"
+              style={{
+                background: "var(--ckc-blush)",
+                border: "1px solid var(--ckc-accent)",
+                borderRadius: 3,
+                fontSize: 14,
+                color: "var(--ckc-accent-text)",
+              }}
             >
-              <option value="">Select your country…</option>
-              {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
+              {serverError}
+            </div>
+          ) : null}
 
-          <Field label="Preferred language" htmlFor="reg-language" required error={errors.language}>
-            <TagSelect
-              id="reg-language"
-              options={CP_FILM_LANGUAGE_OPTIONS}
-              value={form.language}
-              onChange={(v) => set("language", v)}
-              ariaLabel="Preferred language"
-            />
-          </Field>
-
-          <Field label="Preferred genres" htmlFor="reg-genres" required hint="Pick up to three." error={errors.genres}>
-            <TagSelect
-              id="reg-genres"
-              options={GENRE_OPTIONS}
-              value={form.genres}
-              onChange={(v) => set("genres", v)}
-              multiple
-              max={3}
-              ariaLabel="Preferred genres"
-            />
-          </Field>
-
-          <Field label="Experience level" htmlFor="reg-experienceLevel" required error={errors.experienceLevel}>
-            <TagSelect
-              id="reg-experienceLevel"
-              options={EXPERIENCE_LEVELS}
-              value={form.experienceLevel}
-              onChange={(v) => set("experienceLevel", v)}
-              ariaLabel="Experience level"
-            />
-          </Field>
-
-          <Field label="Portfolio link" htmlFor="reg-portfolioUrl" error={errors.portfolioUrl}>
-            <input
-              id="reg-portfolioUrl"
-              type="url"
-              value={form.portfolioUrl}
-              onChange={(e) => set("portfolioUrl", e.target.value)}
-              aria-invalid={Boolean(errors.portfolioUrl)}
-              placeholder="https://"
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-gray-900 outline-none focus:border-[#D14D37] dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-            />
-          </Field>
-        </div>
-
-        <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <label className="flex cursor-pointer gap-3">
-            <input
-              type="checkbox"
-              checked={acceptRules}
-              onChange={(e) => setAcceptRules(e.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0 accent-[#D14D37]"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">
-              I accept the <Link to={competition?.slug ? `/challenge/c/${competition.slug}#rules` : "/challenge"} className="font-medium text-[#D14D37] hover:underline">competition rules</Link>.
-            </span>
-          </label>
-          <label className="flex cursor-pointer gap-3">
-            <input
-              type="checkbox"
-              checked={acceptCopyright}
-              onChange={(e) => setAcceptCopyright(e.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0 accent-[#D14D37]"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">
-              I accept the copyright policy — the work I submit will be my own original writing.
-            </span>
-          </label>
-        </div>
-
-        {serverError ? (
-          <div className="rounded-lg border border-[#D14D37]/30 bg-[#D14D37]/5 px-4 py-3 text-sm text-[#D14D37]">{serverError}</div>
-        ) : null}
-
-        <div className="flex items-center gap-4">
-          <button
-            type="submit"
-            disabled={!acceptRules || !acceptCopyright || submitting}
-            className="rounded-lg bg-[#D14D37] px-6 py-3 font-semibold text-white transition hover:bg-[#b8402d] disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
-          >
-            {submitting ? "Registering…" : "Complete registration"}
-          </button>
-          <Link to={competition?.slug ? `/challenge/c/${competition.slug}` : "/challenge"} className="text-sm font-medium text-gray-600 hover:text-[#D14D37] dark:text-gray-300">
-            Back to the competition
-          </Link>
-        </div>
-      </form>
+          <div className="flex items-center gap-5">
+            <button
+              type="submit"
+              disabled={!acceptRules || !acceptCopyright || submitting}
+              className="ckc-btn"
+            >
+              {submitting ? "Registering…" : "Complete registration"}
+            </button>
+            <Link to={competition?.slug ? `/challenge/c/${competition.slug}` : "/challenge"} className="ckc-link" style={{ fontSize: 14 }}>
+              Back to the competition
+            </Link>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

@@ -13,41 +13,67 @@ import CompetitionJourney from "../../components/competition/CompetitionJourney"
 import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
 import ReferralDrive from "../../components/competition/ReferralDrive";
 import { rewardLabel } from "../../components/competition/labels";
+import "./challenge.css";
 import {
   JUDGING_CRITERIA, WRITING_RESOURCES, STUDIO_LOCKED_MESSAGE, PARTICIPANT_COMPLETION_MESSAGE,
 } from "./constants";
 
+/**
+ * The participant's home while the clock runs.
+ *
+ * This page is OPERATED rather than read, so it is laid out as an instrument: the phase and the time
+ * left sit above the section nav where they answer themselves from whichever tab you are standing
+ * in, and everything below is the detail you go looking for. Coral appears only on the running
+ * clock — the status chips, the journey and the results all read by weight instead.
+ */
+
+// Icons are stored as rendered elements, the way the hub stores its tab icons: a destructured param
+// renamed to PascalCase and used only inside JSX is not seen as used by no-unused-vars in this
+// config, which is why the previous `icon: Home` form failed lint.
+const ICON = "h-4 w-4";
 const SECTIONS = [
-  { key: "home", label: "Home", icon: Home },
-  { key: "event", label: "Event", icon: CalendarDays },
-  { key: "prizes", label: "Prizes", icon: Trophy },
-  { key: "community", label: "Community", icon: Users },
-  { key: "resources", label: "Resources", icon: BookOpen },
-  { key: "studio", label: "Script Studio", icon: PenLine },
+  { key: "home", label: "Home", icon: <Home className={ICON} aria-hidden="true" /> },
+  { key: "event", label: "Event", icon: <CalendarDays className={ICON} aria-hidden="true" /> },
+  { key: "prizes", label: "Prizes", icon: <Trophy className={ICON} aria-hidden="true" /> },
+  { key: "community", label: "Community", icon: <Users className={ICON} aria-hidden="true" /> },
+  { key: "resources", label: "Resources", icon: <BookOpen className={ICON} aria-hidden="true" /> },
+  { key: "studio", label: "Script Studio", icon: <PenLine className={ICON} aria-hidden="true" /> },
 ];
 
-const Card = ({ children, className = "" }) => (
-  <div className={`rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800 ${className}`}>
+// `style` is how a card takes a token value — the same inline idiom CompetitionCard and WinnerCard
+// use, since challenge.css deliberately ships surfaces rather than a utility set.
+const Card = ({ children, className = "", style }) => (
+  <div className={`ckc-card ckc-card-pad ${className}`} style={style}>
     {children}
   </div>
 );
 
-const Pill = ({ tone = "neutral", children }) => {
-  const tones = {
-    neutral: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
-    success: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    brand: "bg-[#D14D37]/10 text-[#D14D37]",
-  };
-  return <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${tones[tone]}`}>{children}</span>;
-};
+// Registration and submission are FACTS, not live states: both chips stay quiet and rank is carried
+// by weight. The accent on this page belongs to the running clock and nothing else.
+const PILL_INK = { brand: "var(--ckc-ink)" };
 
+const Pill = ({ tone = "neutral", children }) => (
+  <span className="ckc-chip" style={{ color: PILL_INK[tone] }}>{children}</span>
+);
+
+// A score is a measurement, so it is drawn as well as written: the criterion reads as prose, the
+// figure in the slug-line voice with tabular figures so a column of them lines up, and the bar is an
+// accent fill on a quiet cream track.
 const ScoreBar = ({ label, value }) => (
   <div>
-    <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300">
-      <span>{label}</span><span className="font-semibold">{value}</span>
+    <div className="flex items-baseline justify-between gap-3">
+      <span style={{ fontSize: 14, color: "var(--ckc-body)" }}>{label}</span>
+      <span className="ckc-meta" style={{ fontVariantNumeric: "tabular-nums" }}>{value}</span>
     </div>
-    <div className="mt-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700">
-      <div className="h-1.5 rounded-full bg-[#D14D37]" style={{ width: `${Math.max(0, Math.min(100, Number(value) || 0))}%` }} />
+    <div style={{ marginTop: 7, height: 4, borderRadius: 2, background: "var(--ckc-cream)" }}>
+      <div
+        style={{
+          height: 4,
+          borderRadius: 2,
+          background: "var(--ckc-accent)",
+          width: `${Math.max(0, Math.min(100, Number(value) || 0))}%`,
+        }}
+      />
     </div>
   </div>
 );
@@ -57,28 +83,31 @@ const AIResults = ({ ai }) => {
   const ev = ai.evaluation || null;
   return (
     <Card>
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Your AI story materials</h3>
+      <h3 className="ckc-title ckc-h3">Your AI story materials</h3>
       {ai.logline ? (
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Logline</p>
-          <p className="mt-1 italic text-gray-800 dark:text-gray-100">{ai.logline}</p>
+        <div className="mt-5">
+          <p className="ckc-meta">Logline</p>
+          {/* A logline is the pitch, so it is set the way every other pitch on these pages is. */}
+          <p style={{ marginTop: 7, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: "1.0625rem", lineHeight: 1.5, color: "var(--ckc-ink)" }}>
+            {ai.logline}
+          </p>
         </div>
       ) : null}
       {ai.synopsis ? (
-        <div className="mt-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Synopsis</p>
-          <p className="mt-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-200">{ai.synopsis}</p>
+        <div className="mt-5">
+          <p className="ckc-meta">Synopsis</p>
+          <p className="ckc-prose mt-2 whitespace-pre-line" style={{ fontSize: 14 }}>{ai.synopsis}</p>
         </div>
       ) : null}
       {ev ? (
-        <div className="mt-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Evaluation</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="mt-6 pt-5" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
+          <p className="ckc-meta">Evaluation</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {["plot", "characters", "dialogue", "pacing", "marketability", "overall"].map((key) => (
               ev[key] !== undefined ? <ScoreBar key={key} label={key[0].toUpperCase() + key.slice(1)} value={ev[key]} /> : null
             ))}
           </div>
-          {ev.feedback ? <p className="mt-4 text-sm text-gray-700 dark:text-gray-200">{ev.feedback}</p> : null}
+          {ev.feedback ? <p className="ckc-prose mt-5" style={{ fontSize: 14 }}>{ev.feedback}</p> : null}
         </div>
       ) : null}
     </Card>
@@ -101,11 +130,19 @@ const CompetitionDashboard = () => {
   }, [loading, competition, entry, navigate]);
 
   if (loading || !competition || !entry) {
-    return <div className="mx-auto max-w-5xl px-4 py-20 text-center text-gray-500 dark:text-gray-400">Loading…</div>;
+    return (
+      <div className="ckc" style={{ minHeight: "100vh" }}>
+        <p className="ckc-meta" style={{ padding: "96px 16px", textAlign: "center" }}>Loading…</p>
+      </div>
+    );
   }
 
   const hasSubmitted = ["submitted", "ai_processed", "judged"].includes(entry.status);
   const isLive = phase === "live";
+
+  // Where the competition stands, named by the SERVER — the same `timeline` payload PhaseTimeline and
+  // CompetitionJourney render, so the masthead can never disagree with the strip below it.
+  const currentStep = (timeline || []).find((step) => step.status === "current");
 
   const openEditor = async () => {
     setOpening(true);
@@ -127,21 +164,25 @@ const CompetitionDashboard = () => {
         type="button"
         onClick={openEditor}
         disabled={opening}
-        className="rounded-lg bg-[#D14D37] px-6 py-3 font-semibold text-white hover:bg-[#b8402d] disabled:bg-gray-400"
+        className="ckc-btn"
       >
         {opening ? "Opening…" : entry.scriptId ? "Continue writing" : "Open Script Editor"}
       </button>
-      {openError ? <p className="mt-2 text-sm text-[#D14D37]">{openError}</p> : null}
+      {openError ? (
+        <p style={{ marginTop: 10, fontSize: 14, color: "var(--ckc-accent-text)" }}>{openError}</p>
+      ) : null}
     </div>
   );
 
+  // Submitted is DONE, not live — so it reads as a settled inset in ink, the way a completed step
+  // reads in the journey strip. There is no green in this palette on purpose.
   const renderSubmittedCard = () => (
-    <Card className="border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/20">
+    <Card style={{ background: "var(--ckc-cream)" }}>
       <div className="flex items-start gap-3">
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden="true" />
+        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--ckc-ink)" }} aria-hidden="true" />
         <div>
-          <p className="font-semibold text-emerald-800 dark:text-emerald-200">Script submitted</p>
-          <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+          <p className="ckc-title ckc-h3">Script submitted</p>
+          <p style={{ marginTop: 5, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
             Submitted {new Date(entry.submittedAt).toLocaleString()}. Your script is locked and safe.
           </p>
         </div>
@@ -157,67 +198,36 @@ const CompetitionDashboard = () => {
   }[entry.result?.award];
 
   const renderHome = () => (
-    <div className="space-y-6">
-      <Card>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Welcome, {user?.name || "writer"}</h1>
-            <p className="mt-1 text-gray-600 dark:text-gray-300">{competition.name}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Pill tone="success">Registered</Pill>
-            {hasSubmitted ? <Pill tone="brand">Submitted</Pill> : null}
-          </div>
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Event ID</span>
-          <span className="font-mono font-bold tracking-wider text-gray-900 dark:text-white">{entry.eventId}</span>
-          <button
-            type="button"
-            onClick={() => { navigator.clipboard?.writeText(entry.eventId); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-            className="text-gray-400 hover:text-[#D14D37]"
-            aria-label="Copy Event ID"
-          >
-            {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
-          </button>
-        </div>
-      </Card>
-
+    <div className="ckc-stack">
       <Card>
         <CompetitionJourney steps={timeline} />
       </Card>
 
-      {phase === "announced" || phase === "registration_open" || phase === "registration_closed" ? (
-        <Card>
-          <CountdownTimer target={competition.dates?.startsAt} serverNow={serverNow} label="Competition starts in" onExpire={refresh} />
-          <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
-            The theme is revealed the moment the clock hits zero. Then you have 48 hours.
-          </p>
-        </Card>
-      ) : null}
-
       {isLive ? (
         <>
-          <Card className="border-[#D14D37]/30">
-            <CountdownTimer target={competition.dates?.endsAt} serverNow={serverNow} label="Time remaining" onExpire={refresh} />
-          </Card>
-
           {competition.theme?.title ? (
-            <Card>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#D14D37]">Your theme</p>
-              <h2 className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{competition.theme.title}</h2>
+            // The brief. Once released this is the single most important thing a writer reads on the
+            // page, so it gets the display serif, italic, and room to breathe.
+            <Card style={{ padding: "30px 32px" }}>
+              <p className="ckc-meta" style={{ color: "var(--ckc-accent-text)" }}>Your theme</p>
+              <h2 className="ckc-title ckc-h2" style={{ marginTop: 12, fontStyle: "italic" }}>{competition.theme.title}</h2>
               {competition.theme.brief ? (
-                <p className="mt-3 whitespace-pre-line text-gray-700 dark:text-gray-200">{competition.theme.brief}</p>
+                <p className="ckc-prose whitespace-pre-line" style={{ marginTop: 16 }}>{competition.theme.brief}</p>
               ) : null}
               {competition.theme.allowedGenres?.length ? (
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2">
                   {competition.theme.allowedGenres.map((g) => (
-                    <span key={g} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">{g}</span>
+                    <span key={g} className="ckc-chip">{g}</span>
                   ))}
                 </div>
               ) : null}
               {competition.theme.guidelines ? (
-                <p className="mt-4 whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">{competition.theme.guidelines}</p>
+                <p
+                  className="ckc-prose whitespace-pre-line"
+                  style={{ marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--ckc-rule)", fontSize: 14, color: "var(--ckc-muted)" }}
+                >
+                  {competition.theme.guidelines}
+                </p>
               ) : null}
             </Card>
           ) : null}
@@ -229,10 +239,10 @@ const CompetitionDashboard = () => {
       {phase === "judging" ? (
         <Card>
           <div className="flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#D14D37]" aria-hidden="true" />
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--ckc-muted)" }} aria-hidden="true" />
             <div>
-              <p className="font-semibold text-gray-900 dark:text-white">Submissions closed</p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+              <p className="ckc-title ckc-h3">Submissions closed</p>
+              <p className="ckc-prose" style={{ marginTop: 6, fontSize: 14 }}>
                 AI processing and judging are underway. We'll email you the moment results are announced.
               </p>
             </div>
@@ -242,52 +252,55 @@ const CompetitionDashboard = () => {
 
       {phase === "results" ? (
         <Card className={entry.result?.award && entry.result.award !== "participant" && entry.result.award !== "none"
-          ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20" : ""}>
+          ? "ckc-live" : ""}>
           <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-amber-500" aria-hidden="true" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Results are in</h2>
+            <Trophy className="h-5 w-5" style={{ color: "var(--ckc-muted)" }} aria-hidden="true" />
+            <h2 className="ckc-title ckc-h2">Results are in</h2>
           </div>
           {awardLabel && entry.result.award !== "none" ? (
-            <p className="mt-3 text-lg font-semibold text-gray-900 dark:text-white">{awardLabel}</p>
+            <p className="ckc-title ckc-h3" style={{ marginTop: 14 }}>{awardLabel}</p>
           ) : null}
           {["winner", "runner_up", "special"].includes(entry.result?.award) ? (
-            <p className="mt-2 text-gray-700 dark:text-gray-200">
+            <p className="ckc-prose" style={{ marginTop: 8 }}>
               Congratulations — your rewards have been added to your account.
             </p>
           ) : (
-            <p className="mt-2 text-gray-700 dark:text-gray-200">{PARTICIPANT_COMPLETION_MESSAGE(competition.name)}</p>
+            <p className="ckc-prose" style={{ marginTop: 8 }}>{PARTICIPANT_COMPLETION_MESSAGE(competition.name)}</p>
           )}
 
           {/* The competition released the script when results were declared. Say so — otherwise a
               winner has a "featured placement" prize with no idea that publishing is what claims it,
               and everyone else does not know their script is theirs to work on again. */}
           {entry.status === "judged" ? (
-            <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-700/40 dark:text-gray-200">
+            <p
+              className="ckc-prose"
+              style={{ marginTop: 16, padding: "12px 14px", borderRadius: 3, background: "var(--ckc-cream)", fontSize: 14 }}
+            >
               Your script is unlocked — you'll find it in{" "}
-              <Link to="/dashboard" className="font-medium text-[#D14D37] hover:underline">your drafts</Link>.
+              <Link to="/dashboard" className="ckc-link">your drafts</Link>.
               {["winner", "runner_up"].includes(entry.result?.award)
                 ? " Publish it to claim your featured placement."
                 : " It's yours to edit, publish or co-write as you like."}
             </p>
           ) : null}
           {entry.rewardsGranted?.length ? (
-            <ul className="mt-4 space-y-1 text-sm text-gray-700 dark:text-gray-200">
+            <ul className="mt-5 flex flex-wrap gap-2">
               {/* Ledger keys are machine strings — raw, a category winner read "badge special".
                   rewardLabel humanises them, names the award, and drops internal bookkeeping. */}
               {entry.rewardsGranted
                 .map((reward) => rewardLabel(reward.type, { specialTitle: entry.result?.specialTitle }))
                 .filter(Boolean)
                 .map((label, i) => (
-                  <li key={i} className="flex gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" />
+                  <li key={i} className="ckc-chip">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
                     <span>{label}</span>
                   </li>
                 ))}
             </ul>
           ) : null}
           {results?.winner ? (
-            <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-              Winner: <strong>{results.winner.name}</strong>{results.winner.scriptTitle ? ` — ${results.winner.scriptTitle}` : ""}
+            <p style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid var(--ckc-rule)", fontSize: 14, color: "var(--ckc-muted)" }}>
+              Winner: <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{results.winner.name}</strong>{results.winner.scriptTitle ? ` — ${results.winner.scriptTitle}` : ""}
             </p>
           ) : null}
         </Card>
@@ -295,60 +308,66 @@ const CompetitionDashboard = () => {
 
       <AIResults ai={entry.ai} />
 
-      <Link
-        to="/my-competitions"
-        className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-[#D14D37] dark:border-gray-700 dark:bg-gray-800"
-      >
-        <div>
-          <p className="font-semibold text-gray-900 dark:text-white">My Competitions</p>
-          <p className="text-sm text-gray-600 dark:text-gray-300">Every challenge you've entered, and what you won.</p>
+      <Link to="/my-competitions" className="ckc-card ckc-card-pad">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="ckc-title ckc-h3">My Competitions</p>
+            <p style={{ marginTop: 4, fontSize: 14, color: "var(--ckc-muted)" }}>
+              Every challenge you've entered, and what you won.
+            </p>
+          </div>
+          <ExternalLink className="h-4 w-4 shrink-0" style={{ color: "var(--ckc-muted)" }} aria-hidden="true" />
         </div>
-        <ExternalLink className="h-4 w-4 text-gray-400" aria-hidden="true" />
       </Link>
     </div>
   );
 
   const renderEvent = () => (
-    <div className="space-y-6">
+    <div className="ckc-stack">
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Rules</h2>
-        <ol className="mt-4 list-decimal space-y-2 pl-5 text-gray-700 dark:text-gray-200">
+        <h2 className="ckc-title ckc-h3">Rules</h2>
+        <ol className="ckc-prose mt-4 list-decimal space-y-2 pl-5">
           {(competition.rules || []).map((rule, i) => <li key={i}>{rule}</li>)}
         </ol>
       </Card>
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Judging criteria</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <h2 className="ckc-title ckc-h3">Judging criteria</h2>
+        <div className="mt-4 flex flex-wrap gap-2">
           {JUDGING_CRITERIA.map((c) => (
-            <span key={c} className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-200">{c}</span>
+            <span key={c} className="ckc-chip">{c}</span>
           ))}
         </div>
       </Card>
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Eligibility & format</h2>
-        <p className="mt-3 text-gray-700 dark:text-gray-200">{competition.eligibility || "Open to all writers."}</p>
-        <p className="mt-2 text-gray-700 dark:text-gray-200">{competition.format}</p>
+        <h2 className="ckc-title ckc-h3">Eligibility & format</h2>
+        <p className="ckc-prose mt-3">{competition.eligibility || "Open to all writers."}</p>
+        <p className="ckc-prose mt-2">{competition.format}</p>
       </Card>
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Timeline</h2>
+        <h2 className="ckc-title ckc-h3">Timeline</h2>
         <div className="mt-4"><PhaseTimeline steps={timeline} serverNow={serverNow} /></div>
       </Card>
     </div>
   );
 
   const renderPrizes = () => (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="ckc-grid">
       {[
         { title: "Winner", items: competition.prizes?.winner || [] },
         { title: "Runner-Up", items: competition.prizes?.runnerUp || [] },
         { title: "Special Awards", items: (competition.prizes?.special || []).map((s) => (s.description ? `${s.title} — ${s.description}` : s.title)) },
       ].map((group) => (
         <Card key={group.title}>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{group.title}</h3>
+          <h3 className="ckc-title ckc-h3">{group.title}</h3>
           <ul className="mt-4 space-y-2">
+            {/* Rank reads by weight, not by a hue per prize — none of these is the thing that is
+                live, so the bullet is decorative and stays out of the way. */}
             {group.items.length ? group.items.map((item, i) => (
-              <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300"><span className="text-[#D14D37]">•</span>{item}</li>
-            )) : <li className="text-sm text-gray-500 dark:text-gray-400">To be announced.</li>}
+              <li key={i} className="flex gap-2" style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ckc-body)" }}>
+                <span style={{ color: "var(--ckc-muted)" }} aria-hidden="true">•</span>
+                <span>{item}</span>
+              </li>
+            )) : <li style={{ fontSize: 14, color: "var(--ckc-muted)" }}>To be announced.</li>}
           </ul>
         </Card>
       ))}
@@ -356,17 +375,16 @@ const CompetitionDashboard = () => {
   );
 
   const renderCommunity = () => (
-    <div className="space-y-6">
+    <div className="ckc-stack">
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Community</h2>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Talk to the other writers taking part.</p>
+        <h2 className="ckc-title ckc-h3">Community</h2>
+        <p className="ckc-prose mt-2" style={{ fontSize: 14 }}>Talk to the other writers taking part.</p>
         <div className="mt-4 flex flex-wrap gap-3">
           {(competition.communityLinks || []).length ? competition.communityLinks.map((link, i) => (
-            <a key={i} href={link.url} target="_blank" rel="noreferrer noopener"
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:border-[#D14D37] hover:text-[#D14D37] dark:border-gray-600 dark:text-gray-200">
+            <a key={i} href={link.url} target="_blank" rel="noreferrer noopener" className="ckc-btn ckc-btn-quiet">
               {link.label} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </a>
-          )) : <p className="text-sm text-gray-500 dark:text-gray-400">Community links will appear here soon.</p>}
+          )) : <p style={{ fontSize: 14, color: "var(--ckc-muted)" }}>Community links will appear here soon.</p>}
         </div>
       </Card>
 
@@ -378,8 +396,8 @@ const CompetitionDashboard = () => {
       />
 
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Who else is writing</h2>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <h2 className="ckc-title ckc-h3">Who else is writing</h2>
+        <p className="ckc-prose mt-2" style={{ fontSize: 14 }}>
           Everyone entered in this challenge. Follow the writers whose work you want to keep up with.
         </p>
         <div className="mt-5">
@@ -390,20 +408,19 @@ const CompetitionDashboard = () => {
   );
 
   const renderResources = () => (
-    <div className="space-y-4">
+    <div className="ckc-stack">
       {WRITING_RESOURCES.map((resource) => (
         <Card key={resource.title}>
-          <h3 className="font-semibold text-gray-900 dark:text-white">{resource.title}</h3>
-          <p className="mt-2 text-sm text-gray-700 dark:text-gray-200">{resource.body}</p>
+          <h3 className="ckc-title ckc-h3">{resource.title}</h3>
+          <p className="ckc-prose mt-2" style={{ fontSize: 14 }}>{resource.body}</p>
         </Card>
       ))}
       {(competition.resources || []).length ? (
         <Card>
-          <h3 className="font-semibold text-gray-900 dark:text-white">More from Ckript</h3>
-          <div className="mt-3 flex flex-wrap gap-3">
+          <h3 className="ckc-title ckc-h3">More from Ckript</h3>
+          <div className="mt-4 flex flex-wrap gap-3">
             {competition.resources.map((resource, i) => (
-              <a key={i} href={resource.url} target="_blank" rel="noreferrer noopener"
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:border-[#D14D37] hover:text-[#D14D37] dark:border-gray-600 dark:text-gray-200">
+              <a key={i} href={resource.url} target="_blank" rel="noreferrer noopener" className="ckc-btn ckc-btn-quiet">
                 {resource.label} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
               </a>
             ))}
@@ -416,25 +433,40 @@ const CompetitionDashboard = () => {
   const renderStudio = () => {
     if (hasSubmitted) {
       return (
-        <div className="space-y-6">
+        <div className="ckc-stack">
           {renderSubmittedCard()}
           <Card>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Your submission</h2>
-            <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <h2 className="ckc-title ckc-h3">Your submission</h2>
+            {/* A count is a figure, so it is set like one: the numeral leads in the display serif with
+                tabular figures and the label reads beneath it. `dt` still precedes `dd` in the DOM
+                because a description list is only valid that way — column-reverse does the flipping. */}
+            <dl className="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-4">
               {[
                 ["Words", entry.snapshot?.wordCount],
                 ["Pages", entry.snapshot?.pageCount],
                 ["Scenes", entry.snapshot?.sceneCount],
                 ["Characters", entry.snapshot?.charCount],
               ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</dt>
-                  <dd className="mt-1 text-xl font-bold text-gray-900 dark:text-white">{value ?? 0}</dd>
+                <div key={label} className="flex flex-col-reverse">
+                  <dt className="ckc-meta mt-1.5">{label}</dt>
+                  <dd
+                    style={{
+                      fontFamily: "var(--ckc-display)",
+                      fontSize: "2rem",
+                      lineHeight: 1.05,
+                      fontVariantNumeric: "tabular-nums",
+                      color: "var(--ckc-ink)",
+                    }}
+                  >
+                    {value ?? 0}
+                  </dd>
                 </div>
               ))}
             </dl>
             {entry.snapshot?.title ? (
-              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">Title: <strong>{entry.snapshot.title}</strong></p>
+              <p style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--ckc-rule)", fontSize: 14, color: "var(--ckc-muted)" }}>
+                Title: <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{entry.snapshot.title}</strong>
+              </p>
             ) : null}
           </Card>
         </div>
@@ -444,10 +476,11 @@ const CompetitionDashboard = () => {
     if (!isLive) {
       return (
         <Card className="text-center">
-          <Lock className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" aria-hidden="true" />
-          <p className="mt-4 font-semibold text-gray-900 dark:text-white">{STUDIO_LOCKED_MESSAGE}</p>
+          {/* Decorative, never read — the one place the faint tone belongs. */}
+          <Lock className="mx-auto h-10 w-10" style={{ color: "var(--ckc-faint)" }} aria-hidden="true" />
+          <p className="ckc-lede" style={{ margin: "18px auto 0" }}>{STUDIO_LOCKED_MESSAGE}</p>
           {competition.dates?.startsAt && phase !== "judging" && phase !== "results" ? (
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+            <p className="ckc-meta" style={{ marginTop: 14 }}>
               Opens in <CountdownTimer target={competition.dates.startsAt} serverNow={serverNow} size="sm" />
             </p>
           ) : null}
@@ -457,8 +490,8 @@ const CompetitionDashboard = () => {
 
     return (
       <Card>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Script Studio</h2>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+        <h2 className="ckc-title ckc-h3">Script Studio</h2>
+        <p className="ckc-prose mt-2" style={{ fontSize: 14 }}>
           Write in the Ckript editor. Your work saves automatically — submit when you're ready.
         </p>
         <div className="mt-5">{renderOpenEditorButton()}</div>
@@ -472,40 +505,70 @@ const CompetitionDashboard = () => {
   }[section]();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="mx-auto flex max-w-6xl gap-6 px-4 py-8">
-        <nav className="sticky top-24 hidden h-fit w-56 shrink-0 space-y-1 lg:block">
-          {SECTIONS.map(({ key, label, icon: Icon }) => (
+    <div className="ckc" style={{ minHeight: "100vh", paddingBottom: 96 }}>
+      <div style={{ margin: "0 auto", maxWidth: 1120, padding: "48px 24px 0" }}>
+        <header className="ckc-masthead">
+          <p className="ckc-meta">{competition.name}</p>
+          <h1 className="ckc-title ckc-h1">Welcome, {user?.name || "writer"}</h1>
+
+          {/* One status line: where the competition stands, where the writer stands, and the ID they
+              quote when something goes wrong. Only the genuinely running phase earns the accent. */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {currentStep ? (
+              <span className={`ckc-chip ${isLive ? "ckc-chip-live" : ""}`}>
+                {isLive ? <span className="ckc-dot" aria-hidden="true" /> : null}
+                {currentStep.label}
+              </span>
+            ) : null}
+            <Pill tone="success">Registered</Pill>
+            {hasSubmitted ? <Pill tone="brand">Submitted</Pill> : null}
+            <span className="ckc-meta">Event ID</span>
+            <span style={{ fontFamily: "var(--ckc-mono)", fontSize: 13, fontWeight: 500, letterSpacing: "0.1em", color: "var(--ckc-ink)" }}>
+              {entry.eventId}
+            </span>
+            <button
+              type="button"
+              onClick={() => { navigator.clipboard?.writeText(entry.eventId); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+              style={{ color: copied ? "var(--ckc-accent-text)" : "var(--ckc-muted)" }}
+              aria-label="Copy Event ID"
+            >
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </button>
+          </div>
+        </header>
+
+        {/* The clock leads. A 48-hour challenge IS its clock, and it has to answer from whichever
+            section you are standing in — so it sits above the nav rather than three cards into Home. */}
+        {phase === "announced" || phase === "registration_open" || phase === "registration_closed" ? (
+          <Card style={{ marginTop: 34, padding: "28px 32px" }}>
+            <CountdownTimer target={competition.dates?.startsAt} serverNow={serverNow} label="Competition starts in" onExpire={refresh} />
+            <p className="ckc-prose" style={{ marginTop: 18, fontSize: 14 }}>
+              The theme is revealed the moment the clock hits zero. Then you have 48 hours.
+            </p>
+          </Card>
+        ) : null}
+
+        {isLive ? (
+          <Card className="ckc-live" style={{ marginTop: 34, padding: "28px 32px" }}>
+            <CountdownTimer target={competition.dates?.endsAt} serverNow={serverNow} label="Time remaining" onExpire={refresh} />
+          </Card>
+        ) : null}
+
+        <nav className="ckc-tabs" style={{ marginTop: 36 }} aria-label="Dashboard sections">
+          {SECTIONS.map(({ key, label, icon }) => (
             <button
               key={key}
               type="button"
               onClick={() => setSection(key)}
-              className={`flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-left text-sm font-medium transition ${
-                section === key
-                  ? "bg-[#D14D37] text-white"
-                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
-              }`}
+              aria-current={section === key ? "page" : undefined}
+              className="ckc-tab inline-flex items-center gap-2"
             >
-              <Icon className="h-4 w-4" aria-hidden="true" /> {label}
+              {icon} {label}
             </button>
           ))}
         </nav>
 
-        <div className="min-w-0 flex-1">
-          <div className="mb-6 flex gap-2 overflow-x-auto lg:hidden">
-            {SECTIONS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSection(key)}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium ${
-                  section === key ? "bg-[#D14D37] text-white" : "bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        <div className="min-w-0" style={{ marginTop: 36 }}>
           {content}
         </div>
       </div>

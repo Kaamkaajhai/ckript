@@ -4,6 +4,7 @@ import { Trophy } from "lucide-react";
 import publicApi from "../../services/publicApi";
 import { Card } from "../../components/competition/ui";
 import CompetitionCard from "../../components/competition/CompetitionCard";
+import "../challenge/challenge.css";
 
 /**
  * The permanent archive of every completed competition.
@@ -12,6 +13,18 @@ import CompetitionCard from "../../components/competition/CompetitionCard";
  * without an account. It is derived entirely from declared results: there is no separate Hall of
  * Fame record to keep in sync.
  */
+
+// The filters are controls, so they are set like controls rather than like content: a quiet ruled
+// box on the card surface, in the interface voice, with the slug line naming what it filters.
+const CONTROL = {
+  fontFamily: "var(--ckc-sans)",
+  fontSize: 14,
+  color: "var(--ckc-ink)",
+  background: "var(--ckc-card)",
+  border: "1px solid var(--ckc-rule)",
+  borderRadius: 3,
+  padding: "9px 12px",
+};
 
 const HallOfFame = () => {
   const [items, setItems] = useState([]);
@@ -46,72 +59,81 @@ const HallOfFame = () => {
     && (competition === "all" || i.name === competition));
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="mx-auto max-w-6xl px-4 py-12">
-        <header className="text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#D14D37]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#D14D37]">
+    <div className="ckc" style={{ minHeight: "100vh", paddingBottom: 96 }}>
+      <div style={{ margin: "0 auto", maxWidth: 1120, padding: "48px 24px 0" }}>
+        <header className="ckc-masthead">
+          {/* The archive is finished business, so the eyebrow stays in the slug-line voice — the
+              coral belongs to whatever is running right now, and nothing here is. */}
+          <p className="ckc-meta inline-flex items-center gap-1.5">
             <Trophy className="h-3.5 w-3.5" aria-hidden="true" /> Hall of Fame
-          </span>
-          <h1 className="mt-4 text-3xl font-extrabold text-gray-900 dark:text-white sm:text-5xl">
-            Every competition, every winner
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600 dark:text-gray-300">
+          </p>
+          <h1 className="ckc-title ckc-h1">Every competition, every winner</h1>
+          <p className="ckc-lede">
             Celebrating the best writers and scripts from every Ckript competition.
           </p>
         </header>
 
         {loading ? (
-          <p className="mt-16 text-center text-gray-500 dark:text-gray-400">Loading…</p>
+          <p className="ckc-meta" style={{ padding: "56px 0", textAlign: "center" }}>Loading…</p>
         ) : error ? (
           <Card className="mx-auto mt-16 max-w-lg text-center">
-            <p className="text-gray-700 dark:text-gray-200">{error}</p>
+            <p className="ckc-lede" style={{ margin: "0 auto" }}>{error}</p>
           </Card>
         ) : items.length === 0 ? (
           <Card className="mx-auto mt-16 max-w-lg text-center">
-            <Trophy className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" aria-hidden="true" />
-            <p className="mt-4 font-semibold text-gray-900 dark:text-white">No competitions have finished yet</p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            <Trophy className="mx-auto h-10 w-10" style={{ color: "var(--ckc-faint)" }} aria-hidden="true" />
+            <p className="ckc-title ckc-h3" style={{ marginTop: 16 }}>No competitions have finished yet</p>
+            <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
               The first winners will appear here as soon as results are announced.
             </p>
-            <Link to="/challenge" className="mt-6 inline-block rounded-lg bg-[#D14D37] px-5 py-2.5 font-medium text-white hover:bg-[#b8402d]">
+            <Link to="/challenge" className="ckc-btn mt-6">
               See the current challenge
             </Link>
           </Card>
         ) : (
           <>
             {(names.length > 1 || years.length > 1) ? (
-              <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+              <div
+                className="mt-10 flex flex-wrap items-end gap-4"
+                style={{ paddingBottom: 24, borderBottom: "1px solid var(--ckc-rule)" }}
+              >
                 {names.length > 1 ? (
-                  <select
-                    value={competition}
-                    onChange={(e) => setCompetition(e.target.value)}
-                    aria-label="Filter by competition"
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#D14D37] dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  >
-                    <option value="all">All competitions</option>
-                    {names.map((n) => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="ckc-meta">Competition</span>
+                    <select
+                      value={competition}
+                      onChange={(e) => setCompetition(e.target.value)}
+                      aria-label="Filter by competition"
+                      style={CONTROL}
+                    >
+                      <option value="all">All competitions</option>
+                      {names.map((n) => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                  </label>
                 ) : null}
                 {years.length > 1 ? (
-                  <select
-                    value={year}
-                    onChange={(e) => setYear(e.target.value)}
-                    aria-label="Filter by year"
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-[#D14D37] dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                  >
-                    <option value="all">All years</option>
-                    {years.map((y) => <option key={y} value={y}>{y}</option>)}
-                  </select>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="ckc-meta">Year</span>
+                    <select
+                      value={year}
+                      onChange={(e) => setYear(e.target.value)}
+                      aria-label="Filter by year"
+                      style={CONTROL}
+                    >
+                      <option value="all">All years</option>
+                      {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </label>
                 ) : null}
               </div>
             ) : null}
 
             {shown.length === 0 ? (
-              <p className="mt-12 text-center text-gray-500 dark:text-gray-400">
+              <p className="ckc-meta" style={{ padding: "56px 0", textAlign: "center" }}>
                 No competitions match that filter.
               </p>
             ) : (
-              <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="ckc-grid mt-10">
                 {shown.map((item) => <CompetitionCard key={item._id} item={item} />)}
               </div>
             )}

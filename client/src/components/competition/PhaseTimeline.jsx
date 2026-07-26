@@ -4,6 +4,9 @@ import CountdownTimer from "./CountdownTimer";
 // Renders the timeline exactly as the server described it. There is no client-side phase logic here
 // on purpose: the same `steps` payload drives the landing page, the dashboard, the submit modal and
 // My Competitions, so all four can never disagree about where the competition stands.
+//
+// Reading order is carried by weight, not by hue: the CURRENT step is the only one that earns the
+// accent, what is done reads in ink, and what has not happened yet stays muted.
 
 const formatDate = (value) => {
   if (!value) return "";
@@ -33,36 +36,45 @@ const PhaseTimeline = ({ steps = [], serverNow, compact = false }) => {
           <li key={step.key} className="flex gap-3">
             <div className="flex flex-col items-center">
               {isDone ? (
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" aria-hidden="true" />
+                <CheckCircle2 className="h-5 w-5 shrink-0" style={{ color: "var(--ckc-ink)" }} aria-hidden="true" />
               ) : isCurrent ? (
                 <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-                  <span className="absolute h-3 w-3 animate-ping rounded-full bg-[#D14D37] opacity-60" />
-                  <span className="relative h-2.5 w-2.5 rounded-full bg-[#D14D37]" />
+                  <span
+                    className="absolute h-3 w-3 animate-ping rounded-full opacity-60"
+                    style={{ background: "var(--ckc-accent)" }}
+                  />
+                  <span className="relative h-2.5 w-2.5 rounded-full" style={{ background: "var(--ckc-accent)" }} />
                 </span>
               ) : (
-                <Circle className="h-5 w-5 shrink-0 text-gray-300 dark:text-gray-600" aria-hidden="true" />
+                // Decorative, never read — so this is the one place the faint tone belongs.
+                <Circle className="h-5 w-5 shrink-0" style={{ color: "var(--ckc-faint)" }} aria-hidden="true" />
               )}
               {index < steps.length - 1 ? (
                 <span
-                  className={`mt-1 w-px flex-1 ${isDone ? "bg-emerald-200 dark:bg-emerald-800" : "bg-gray-200 dark:bg-gray-700"}`}
+                  className="mt-1 w-px flex-1"
+                  style={{ background: isDone ? "var(--ckc-faint)" : "var(--ckc-rule)" }}
                 />
               ) : null}
             </div>
 
             <div className={compact ? "pb-1" : "pb-3"}>
               <p
-                className={`text-sm font-medium ${
-                  isCurrent
-                    ? "text-[#D14D37]"
+                style={{
+                  fontSize: 14,
+                  fontWeight: isCurrent ? 500 : 400,
+                  color: isCurrent
+                    ? "var(--ckc-accent-text)"
                     : isDone
-                      ? "text-gray-800 dark:text-gray-100"
-                      : "text-gray-500 dark:text-gray-400"
-                }`}
+                      ? "var(--ckc-ink)"
+                      : "var(--ckc-muted)",
+                }}
               >
                 {step.label}
               </p>
               {step.date ? (
-                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{formatDate(step.date)}</p>
+                // A full date-time is long for the slug-line voice, so the tracking is eased the way
+                // the competition cards ease theirs.
+                <p className="ckc-meta mt-1" style={{ letterSpacing: "0.06em" }}>{formatDate(step.date)}</p>
               ) : null}
               {isCurrent && isFuture ? (
                 <div className="mt-1">

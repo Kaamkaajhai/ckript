@@ -11,10 +11,12 @@ import { Avatar } from "./ui";
  * is deliberately no path from here to a script — the server does not even return a scriptId.
  */
 
-const AWARD_STYLE = {
-  winner: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  runner_up: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
-  special: "bg-[#D14D37]/10 text-[#D14D37]",
+// Placing reads by WEIGHT, not by a different hue each time: the winner's rule is the accent, the
+// others are quiet. A card per award colour would turn the roll of honour into a paint chart.
+const AWARD_ACCENT = {
+  winner: "var(--ckc-accent-text)",
+  runner_up: "var(--ckc-faint)",
+  special: "var(--ckc-faint)",
 };
 
 const AWARD_LABEL = { winner: "Winner", runner_up: "Runner-Up", special: "Special Award" };
@@ -23,36 +25,41 @@ const WinnerCard = ({ person, award, competitionName, year }) => {
   if (!person) return null;
 
   return (
-    <Link
-      to={`/share/profile/${person.userId}`}
-      className="block rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:border-[#D14D37] hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-    >
-      <div className="flex items-start gap-4">
-        <Avatar src={person.profileImage} name={person.name} size={56} />
+    <Link to={`/share/profile/${person.userId}`} className="ckc-card ckc-card-pad">
+      {/* The award is the first thing read, on its own rule — this is a roll of honour, so what
+          they won leads and the person follows. */}
+      <p
+        className="ckc-meta"
+        style={{ color: AWARD_ACCENT[award] || AWARD_ACCENT.special, paddingBottom: 12, borderBottom: "1px solid var(--ckc-rule)" }}
+      >
+        {person.specialTitle || AWARD_LABEL[award] || "Award"}
+      </p>
+
+      <div className="flex items-center gap-3" style={{ marginTop: 16 }}>
+        <Avatar src={person.profileImage} name={person.name} size={44} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="truncate text-lg font-bold text-gray-900 dark:text-white">{person.name}</h3>
-            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${AWARD_STYLE[award] || AWARD_STYLE.special}`}>
-              {person.specialTitle || AWARD_LABEL[award] || "Award"}
-            </span>
-          </div>
+          <h3 className="ckc-title truncate" style={{ fontSize: "1.1875rem" }}>{person.name}</h3>
           {person.username ? (
-            <p className="truncate text-sm text-gray-500 dark:text-gray-400">@{person.username}</p>
+            <p className="ckc-meta truncate" style={{ marginTop: 3 }}>@{person.username}</p>
           ) : null}
         </div>
       </div>
 
       {person.scriptTitle ? (
-        <p className="mt-4 text-sm font-semibold text-gray-900 dark:text-white">{person.scriptTitle}</p>
+        <p style={{ marginTop: 18, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: "1.0625rem", color: "var(--ckc-ink)" }}>
+          {person.scriptTitle}
+        </p>
       ) : null}
 
       {person.logline ? (
-        <p className="mt-1.5 line-clamp-3 text-sm text-gray-600 dark:text-gray-300">{person.logline}</p>
+        <p className="line-clamp-3" style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+          {person.logline}
+        </p>
       ) : null}
 
       {/* Omitted when the card sits under a competition heading that already says this. */}
       {competitionName ? (
-        <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+        <p className="ckc-meta" style={{ marginTop: 18, paddingTop: 12, borderTop: "1px solid var(--ckc-rule)" }}>
           {competitionName}{year ? ` · ${year}` : ""}
         </p>
       ) : null}

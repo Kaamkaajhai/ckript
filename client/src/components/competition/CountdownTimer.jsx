@@ -56,14 +56,18 @@ const CountdownTimer = ({ target, serverNow, onExpire, size = "lg", label = "" }
   if (targetMs === null) return null;
   const { days, hours, minutes, seconds } = breakdown(left);
 
+  // Inline: a running clock for bars, rows and cards. Monospace so the width never shifts.
   if (size === "sm") {
     return (
-      <span className="font-mono text-sm tabular-nums text-gray-700 dark:text-gray-200">
+      <span className="ckc-clock-inline">
         {days > 0 ? `${days}d ` : ""}{pad(hours)}:{pad(minutes)}:{pad(seconds)}
       </span>
     );
   }
 
+  // Full: the masthead numeral display. A 48-hour challenge IS its clock, so this is set like a
+  // title page — large tabular serif figures, the unit named beneath in the slug-line voice. Four
+  // bordered boxes made the most characteristic thing on the page look like a cookie banner.
   const cells = [
     { value: days, unit: "Days" },
     { value: hours, unit: "Hours" },
@@ -73,21 +77,12 @@ const CountdownTimer = ({ target, serverNow, onExpire, size = "lg", label = "" }
 
   return (
     <div>
-      {label ? (
-        <p className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-300">{label}</p>
-      ) : null}
-      <div className="grid max-w-md grid-cols-4 gap-2 sm:gap-3">
+      {label ? <p className="ckc-meta" style={{ marginBottom: 10 }}>{label}</p> : null}
+      <div className="ckc-clock">
         {cells.map((cell) => (
-          <div
-            key={cell.unit}
-            className="rounded-xl border border-gray-200 bg-white px-2 py-3 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800"
-          >
-            <div className="font-mono text-2xl font-bold tabular-nums text-[#D14D37] sm:text-3xl">
-              {pad(cell.value)}
-            </div>
-            <div className="mt-1 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              {cell.unit}
-            </div>
+          <div key={cell.unit} className="ckc-clock-cell">
+            <span className="ckc-clock-num">{pad(cell.value)}</span>
+            <span className="ckc-clock-unit">{cell.unit}</span>
           </div>
         ))}
       </div>

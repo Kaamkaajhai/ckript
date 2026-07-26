@@ -29,6 +29,24 @@ const STATUS_LABELS = {
   judged: "Complete",
 };
 
+// The awards that are an honour rather than a record of attendance. Only these get the accent, and
+// only as text — a placing is not a live thing, so it earns emphasis, not a coral fill.
+const HONOURS = ["winner", "runner_up", "special"];
+
+// The controls under the card are inline actions in a row, not a toolbar of buttons, so the
+// <button>s are reset to read as text and colour alone carries the emphasis.
+//
+// No `border: 0` here on purpose: Tailwind's preflight already zeroes it, and setting it inline
+// would outrank .ckc-link's transparent bottom border and kill the hover underline.
+const textAction = {
+  background: "none",
+  padding: 0,
+  cursor: "pointer",
+  fontFamily: "var(--ckc-sans)",
+  fontSize: 14,
+  fontWeight: 500,
+};
+
 const EntryCard = ({ item, serverNow }) => {
   const [open, setOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -68,26 +86,22 @@ const EntryCard = ({ item, serverNow }) => {
   const year = new Date(competition?.dates?.startsAt || entry.createdAt).getFullYear();
   const declared = Boolean(competition?.resultsDeclaredAt);
   const award = entry.result?.award || "none";
+  const isHonour = HONOURS.includes(award);
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="ckc-card ckc-card-pad">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-            {competition?.name} <span className="font-normal text-gray-500 dark:text-gray-400">{year}</span>
+          <h2 className="ckc-title ckc-h3">
+            {competition?.name} <span style={{ color: "var(--ckc-muted)" }}>{year}</span>
           </h2>
-          <p className="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">{entry.eventId}</p>
+          {/* The event ID is a reference number. It reads as one. */}
+          <p className="ckc-meta mt-1.5">{entry.eventId}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-            {STATUS_LABELS[entry.status] || entry.status}
-          </span>
+          <span className="ckc-chip">{STATUS_LABELS[entry.status] || entry.status}</span>
           {declared && award !== "none" ? (
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              ["winner", "runner_up", "special"].includes(award)
-                ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
-                : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
-            }`}>
+            <span className="ckc-chip" style={isHonour ? { color: "var(--ckc-accent-text)" } : undefined}>
               {entry.result?.specialTitle || AWARD_LABELS[award]}
             </span>
           ) : null}
@@ -102,15 +116,32 @@ const EntryCard = ({ item, serverNow }) => {
           ["Words", entry.snapshot?.wordCount || "—"],
         ].map(([label, value]) => (
           <div key={label}>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</dt>
-            <dd className="mt-1 text-sm font-medium text-gray-900 dark:text-white">{value}</dd>
+            <dt className="ckc-meta">{label}</dt>
+            <dd
+              className="mt-1"
+              style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)", fontVariantNumeric: "tabular-nums" }}
+            >
+              {value}
+            </dd>
           </div>
         ))}
       </dl>
 
       {entry.snapshot?.title ? (
-        <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
-          Script: <strong className="text-gray-900 dark:text-white">{entry.snapshot.title}</strong>
+        <p className="mt-4" style={{ fontSize: 14, color: "var(--ckc-muted)" }}>
+          Script:{" "}
+          {/* A script title is set in the display italic everywhere else on this surface. */}
+          <strong
+            style={{
+              fontFamily: "var(--ckc-display)",
+              fontStyle: "italic",
+              fontWeight: 500,
+              fontSize: 16,
+              color: "var(--ckc-ink)",
+            }}
+          >
+            {entry.snapshot.title}
+          </strong>
         </p>
       ) : null}
 
@@ -121,25 +152,26 @@ const EntryCard = ({ item, serverNow }) => {
             .map((reward) => rewardLabel(reward.type, { specialTitle: entry.result?.specialTitle }))
             .filter(Boolean)
             .map((label, i) => (
-              <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              <span key={i} className="ckc-chip">
                 <Award className="h-3 w-3" aria-hidden="true" /> {label}
               </span>
             ))}
         </div>
       ) : null}
 
-      <div className="mt-5 flex items-center gap-4">
+      <div className="mt-5 flex items-center gap-4 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-600 hover:text-[#D14D37] dark:text-gray-300"
+          className="inline-flex items-center gap-1.5 hover:opacity-70"
+          style={{ ...textAction, color: "var(--ckc-ink)" }}
         >
           {open ? "Hide" : "Show"} timeline
           <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
         {phase !== "results" ? (
-          <Link to="/challenge/dashboard" className="text-sm font-medium text-[#D14D37] hover:underline">
+          <Link to="/challenge/dashboard" className="ckc-link" style={{ fontSize: 14 }}>
             Open competition dashboard
           </Link>
         ) : null}
@@ -149,17 +181,20 @@ const EntryCard = ({ item, serverNow }) => {
             type="button"
             onClick={downloadCertificate}
             disabled={downloading}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-[#D14D37] hover:underline disabled:opacity-50"
+            className="ckc-link inline-flex items-center gap-1.5 disabled:opacity-50"
+            style={textAction}
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             {downloading ? "Preparing…" : "Download certificate"}
           </button>
         ) : null}
       </div>
-      {downloadError ? <p className="mt-2 text-sm text-[#D14D37]">{downloadError}</p> : null}
+      {downloadError ? (
+        <p className="mt-2" style={{ fontSize: 14, color: "var(--ckc-accent-text)" }}>{downloadError}</p>
+      ) : null}
 
       {open ? (
-        <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-700">
+        <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
           <PhaseTimeline steps={item.timeline || []} serverNow={serverNow} compact />
         </div>
       ) : null}

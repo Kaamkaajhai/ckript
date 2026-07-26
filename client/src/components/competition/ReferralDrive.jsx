@@ -17,9 +17,11 @@ import SocialShareButton from "../SocialShareButton";
  *     presenting a credit balance here would be presenting a number that does not exist.
  */
 
+// A referral that qualified is DONE, so it reads in ink; one still awaiting verification is simply
+// not there yet and stays in the chip's own muted voice. Neither is live, so neither takes the accent.
 const STATUS_STYLES = {
-  qualified: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-  registered: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  qualified: { color: "var(--ckc-ink)" },
+  registered: undefined,
 };
 
 const STATUS_LABELS = {
@@ -74,34 +76,46 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="ckc-card ckc-card-pad">
       <div className="flex items-center gap-2">
-        <Gift className="h-5 w-5 text-[#D14D37]" aria-hidden="true" />
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Bring other writers in</h2>
+        {/* The icon is ornament, not state — the accent is spent on the tier being worked toward. */}
+        <Gift className="h-5 w-5" style={{ color: "var(--ckc-muted)" }} aria-hidden="true" />
+        <h2 className="ckc-title ckc-h3">Bring other writers in</h2>
       </div>
-      <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      <p className="mt-2" style={{ fontSize: 14, color: "var(--ckc-muted)" }}>
         Share your link. Writers who join and verify their email during this challenge count toward
         your rewards.
       </p>
 
       {link ? (
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 dark:border-gray-600 dark:bg-gray-700">
-            <span className="min-w-0 flex-1 truncate font-mono text-sm text-gray-800 dark:text-gray-100">{link}</span>
+          <div
+            className="flex min-w-[240px] flex-1 items-center gap-2 px-4 py-2.5"
+            style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", borderRadius: 3 }}
+          >
+            {/* A referral link is a reference string, so it keeps the monospace voice. */}
+            <span
+              className="min-w-0 flex-1 truncate"
+              style={{ fontFamily: "var(--ckc-mono)", fontSize: 13, color: "var(--ckc-ink)" }}
+            >
+              {link}
+            </span>
             <button
               type="button"
               onClick={() => { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-              className="shrink-0 text-gray-500 hover:text-[#D14D37]"
+              className="shrink-0 hover:opacity-70"
+              style={{ color: "var(--ckc-muted)" }}
               aria-label="Copy referral link"
             >
-              {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+              {/* Copied is a thing DONE, so the tick reads in ink like every other completed marker. */}
+              {copied ? <Check className="h-4 w-4" style={{ color: "var(--ckc-ink)" }} /> : <Copy className="h-4 w-4" />}
             </button>
           </div>
           {/* Reuses the app-wide share control — WhatsApp / LinkedIn / X / Facebook / Email already. */}
           <SocialShareButton
             share={share}
             buttonLabel="Share"
-            className="shrink-0 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-[#D14D37] hover:text-[#D14D37] dark:border-gray-600 dark:text-gray-200"
+            className="ckc-btn ckc-btn-quiet shrink-0"
           />
         </div>
       ) : null}
@@ -109,23 +123,38 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
       {/* Progress */}
       <div className="mt-6">
         <div className="flex items-baseline justify-between">
-          <p className="text-sm text-gray-700 dark:text-gray-200">
-            <strong className="text-2xl font-bold text-gray-900 dark:text-white">{count}</strong>
-            <span className="ml-1.5">{count === 1 ? "writer qualified" : "writers qualified"}</span>
+          <p>
+            {/* A count is a figure, set like the Stat numerals: display serif, tabular, in ink. */}
+            <strong
+              style={{
+                fontFamily: "var(--ckc-display)",
+                fontWeight: 400,
+                fontSize: "2rem",
+                lineHeight: 1,
+                fontVariantNumeric: "tabular-nums",
+                color: "var(--ckc-ink)",
+              }}
+            >
+              {count}
+            </strong>
+            <span className="ckc-meta ml-1.5">{count === 1 ? "writer qualified" : "writers qualified"}</span>
           </p>
           {next ? (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {next.needed} more for <strong className="text-gray-700 dark:text-gray-200">{next.label}</strong>
+            // The tier being worked toward is the current one, and it is the only thing here that
+            // earns the accent.
+            <p className="ckc-meta">
+              {next.needed} more for <strong style={{ fontWeight: 500, color: "var(--ckc-accent-text)" }}>{next.label}</strong>
             </p>
           ) : (
-            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Top tier reached</p>
+            <p className="ckc-meta" style={{ color: "var(--ckc-ink)" }}>Top tier reached</p>
           )}
         </div>
-        <div className="mt-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700">
-          <div className="h-2 rounded-full bg-[#D14D37] transition-all" style={{ width: `${pct}%` }} />
+        {/* Ground and fill follow the journey strip: what is already done reads in ink on the hairline. */}
+        <div className="mt-2 h-2" style={{ background: "var(--ckc-rule)", borderRadius: 2 }}>
+          <div className="h-2 transition-all" style={{ width: `${pct}%`, background: "var(--ckc-ink)", borderRadius: 2 }} />
         </div>
         {awaitingVerification > 0 ? (
-          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-2" style={{ fontSize: 13, color: "var(--ckc-muted)" }}>
             {awaitingVerification} more {awaitingVerification === 1 ? "writer has" : "writers have"} signed up but
             {" "}{awaitingVerification === 1 ? "hasn't" : "haven't"} verified their email yet.
           </p>
@@ -134,16 +163,30 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
 
       {/* Rewards */}
       <div className="mt-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Rewards</h3>
+        <h3 className="ckc-meta">Rewards</h3>
         <ul className="mt-2 space-y-2">
           {tiers.map((tier) => {
             const reached = count >= tier.at;
+            // Three states, one hue each: reached is done and reads in ink, the tier you are working
+            // toward is current and takes the accent, everything past that stays muted.
+            const current = !reached && next?.at === tier.at;
             return (
               <li key={tier.id} className="flex items-center gap-2 text-sm">
                 {reached
-                  ? <Check className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden="true" />
-                  : <span className="h-4 w-4 shrink-0 rounded-full border border-gray-300 dark:border-gray-600" />}
-                <span className={reached ? "font-medium text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"}>
+                  ? <Check className="h-4 w-4 shrink-0" style={{ color: "var(--ckc-ink)" }} aria-hidden="true" />
+                  : <span
+                      className="h-4 w-4 shrink-0 rounded-full"
+                      style={{ border: `1px solid ${current ? "var(--ckc-accent)" : "var(--ckc-faint)"}` }}
+                    />}
+                <span
+                  style={
+                    reached
+                      ? { fontWeight: 500, color: "var(--ckc-ink)" }
+                      : current
+                        ? { fontWeight: 500, color: "var(--ckc-accent-text)" }
+                        : { color: "var(--ckc-muted)" }
+                  }
+                >
                   {tier.at} writers — {tier.label}
                   {tier.days > 0 ? ` · +${tier.days} days Silver` : ""}
                 </span>
@@ -152,8 +195,17 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
           })}
         </ul>
         {earned ? (
-          <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-            You've earned <strong>{earned.label}</strong>. It's granted when results are announced.
+          <p
+            className="mt-3 px-3 py-2"
+            style={{
+              background: "var(--ckc-cream)",
+              border: "1px solid var(--ckc-rule)",
+              borderRadius: 3,
+              fontSize: 14,
+              color: "var(--ckc-body)",
+            }}
+          >
+            You've earned <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{earned.label}</strong>. It's granted when results are announced.
           </p>
         ) : null}
       </div>
@@ -161,30 +213,39 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
       {/* History */}
       {history.length ? (
         <div className="mt-6">
-          <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <h3 className="ckc-meta flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" aria-hidden="true" /> Who you've brought in
           </h3>
-          <div className="mt-2 overflow-x-auto">
+          {/* The table is wider than a phone, so it scrolls in its own container, never the page. */}
+          <div className="mt-2 ckc-scroll-x">
             <table className="w-full min-w-[380px] text-left text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  <th className="py-2 pr-3 font-semibold">Writer</th>
-                  <th className="py-2 pr-3 font-semibold">Joined</th>
-                  <th className="py-2 font-semibold">Status</th>
+                <tr>
+                  <th className="ckc-meta py-2 pr-3">Writer</th>
+                  <th className="ckc-meta py-2 pr-3">Joined</th>
+                  <th className="ckc-meta py-2">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((row, i) => (
-                  <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
-                    <td className="py-2.5 pr-3 text-gray-900 dark:text-white">
+                  <tr key={i} style={{ borderTop: "1px solid var(--ckc-rule)" }}>
+                    <td className="py-2.5 pr-3" style={{ color: "var(--ckc-ink)" }}>
                       {row.name}
-                      {row.username ? <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">@{row.username}</span> : null}
+                      {/* A handle keeps the monospace voice but not the uppercasing — @Ada is not @ADA. */}
+                      {row.username ? (
+                        <span
+                          className="ml-1"
+                          style={{ fontFamily: "var(--ckc-mono)", fontSize: 11, color: "var(--ckc-muted)" }}
+                        >
+                          @{row.username}
+                        </span>
+                      ) : null}
                     </td>
-                    <td className="py-2.5 pr-3 text-gray-600 dark:text-gray-300">
+                    <td className="ckc-meta py-2.5 pr-3" style={{ letterSpacing: "0.06em" }}>
                       {row.registeredAt ? new Date(row.registeredAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—"}
                     </td>
                     <td className="py-2.5">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[row.status]}`}>
+                      <span className="ckc-chip" style={STATUS_STYLES[row.status]}>
                         {STATUS_LABELS[row.status]}
                       </span>
                     </td>
@@ -195,20 +256,24 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
           </div>
         </div>
       ) : loaded ? (
-        <p className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-6" style={{ fontSize: 14, color: "var(--ckc-muted)" }}>
           Nobody has joined through your link yet.
         </p>
       ) : null}
 
       {/* Rules */}
-      <div className="mt-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-700/40">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+      <div
+        className="mt-6 p-4"
+        style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", borderRadius: 3 }}
+      >
+        <h3 className="ckc-meta flex items-center gap-1.5">
           <Info className="h-3.5 w-3.5" aria-hidden="true" /> How it works
         </h3>
         <ul className="mt-2 space-y-1">
           {RULES.map((rule, i) => (
-            <li key={i} className="flex gap-2 text-xs text-gray-600 dark:text-gray-300">
-              <span className="text-gray-400">•</span>{rule}
+            <li key={i} className="flex gap-2" style={{ fontSize: 13, color: "var(--ckc-body)" }}>
+              {/* Decorative, never read — the one place the faint tone belongs. */}
+              <span style={{ color: "var(--ckc-faint)" }}>•</span>{rule}
             </li>
           ))}
         </ul>

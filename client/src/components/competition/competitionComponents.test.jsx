@@ -179,8 +179,11 @@ describe("CompetitionJourney", () => {
 
   it("marks the current step distinctly from done and upcoming", () => {
     const el = render(<CompetitionJourney steps={journey} />);
-    const current = [...el.querySelectorAll("span")].filter((n) => n.className.includes("text-[#D14D37]"));
-    expect(current.length).toBeGreaterThan(0);
+    // The current marker is the only one that pulses, and there is exactly one current step — so it
+    // appears once per layout. Colour now comes from a design token in an inline style, which is
+    // not worth asserting on in a DOM that loads no CSS; the pulse is the structural tell.
+    const pulsing = [...el.querySelectorAll("span")].filter((n) => n.className.includes("animate-ping"));
+    expect(pulsing.length).toBe(2);
     // A done step gets a check mark; upcoming steps get neither.
     expect(el.querySelectorAll("svg").length).toBeGreaterThan(0);
   });

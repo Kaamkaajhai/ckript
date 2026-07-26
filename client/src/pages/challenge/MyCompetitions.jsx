@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { Trophy } from "lucide-react";
 import api from "../../services/api";
 import EntryCard from "../../components/competition/EntryCard";
+import { Card } from "../../components/competition/ui";
+import "./challenge.css";
 
 const MyCompetitions = () => {
   const [items, setItems] = useState([]);
@@ -28,30 +30,41 @@ const MyCompetitions = () => {
   }, []);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Competitions</h1>
-      <p className="mt-2 text-gray-600 dark:text-gray-300">Every challenge you've entered, and how it went.</p>
-
-      {loading ? (
-        <p className="mt-10 text-gray-500 dark:text-gray-400">Loading…</p>
-      ) : error ? (
-        <p className="mt-10 text-[#D14D37]">{error}</p>
-      ) : items.length === 0 ? (
-        <div className="mt-10 rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          <Trophy className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" aria-hidden="true" />
-          <p className="mt-4 font-semibold text-gray-900 dark:text-white">You haven't entered a competition yet</p>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Ckript runs 48-hour scriptwriting challenges with real prizes.
+    <div className="ckc" style={{ minHeight: "100vh" }}>
+      <div className="mx-auto max-w-4xl px-4 py-10">
+        {/* Your own record is finished business, so the eyebrow stays in the slug-line voice — the
+            coral on this page belongs to whichever entry is still running, and EntryCard owns that. */}
+        <header className="ckc-masthead">
+          <p className="ckc-meta inline-flex items-center gap-1.5">
+            <Trophy className="h-3.5 w-3.5" aria-hidden="true" /> Your entries
           </p>
-          <Link to="/challenge" className="mt-6 inline-block rounded-lg bg-[#D14D37] px-5 py-2.5 font-medium text-white hover:bg-[#b8402d]">
-            See the current challenge
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-8 space-y-5">
-          {items.map((item) => <EntryCard key={item.entry._id} item={item} serverNow={serverNow} />)}
-        </div>
-      )}
+          <h1 className="ckc-title ckc-h1">My competitions</h1>
+          <p className="ckc-lede">Every challenge you've entered, and how it went.</p>
+        </header>
+
+        {loading ? (
+          <p className="ckc-meta" style={{ padding: "56px 0", textAlign: "center" }}>Loading…</p>
+        ) : error ? (
+          <Card className="mt-10 text-center">
+            <p className="ckc-lede" style={{ margin: "0 auto", color: "var(--ckc-accent-text)" }}>{error}</p>
+          </Card>
+        ) : items.length === 0 ? (
+          <Card className="mt-10 text-center">
+            <Trophy className="mx-auto h-10 w-10" style={{ color: "var(--ckc-faint)" }} aria-hidden="true" />
+            <p className="ckc-title ckc-h3" style={{ marginTop: 16 }}>You haven't entered a competition yet</p>
+            <p style={{ marginTop: 8, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+              Ckript runs 48-hour scriptwriting challenges with real prizes.
+            </p>
+            <Link to="/challenge" className="ckc-btn mt-6">
+              See the current challenge
+            </Link>
+          </Card>
+        ) : (
+          <div className="mt-8 space-y-5">
+            {items.map((item) => <EntryCard key={item.entry._id} item={item} serverNow={serverNow} />)}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

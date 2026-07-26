@@ -33,12 +33,12 @@ const PersonLine = ({ label, person, icon }) => {
   if (!person) return null;
   return (
     <div className="flex items-center gap-2.5">
-      <Avatar src={person.profileImage} name={person.name} size={32} />
+      <Avatar src={person.profileImage} name={person.name} size={30} />
       <div className="min-w-0">
-        <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          {icon} {label}
+        <p className="ckc-meta flex items-center gap-1.5">{icon} {label}</p>
+        <p className="truncate" style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)", marginTop: 1 }}>
+          {person.name}
         </p>
-        <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{person.name}</p>
       </div>
     </div>
   );
@@ -64,48 +64,46 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
   // signpost. The standalone /hall-of-fame index still points at its own records.
   const href = to || (isArchive ? `/hall-of-fame/${item.slug}` : `/challenge/c/${item.slug}`);
   const countdown = isArchive ? null : countdownFor(item);
+  // Only a competition you can act on right now gets the accent band and the pulsing dot.
+  const isRunning = item.phase === "live" || item.phase === "registration_open";
 
   return (
-    <Link
-      to={href}
-      className="block rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-[#D14D37] hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-    >
+    <Link to={href} className={`ckc-card ${isRunning ? "ckc-live" : ""}`}>
+      {/* Only a real banner earns image height. The placeholder gradient was decoration that
+          pushed every actual detail below the fold. */}
       {item.bannerUrl ? (
-        <img src={item.bannerUrl} alt="" className="h-32 w-full rounded-t-2xl object-cover" />
-      ) : (
-        <div className="h-32 w-full rounded-t-2xl bg-gradient-to-br from-[#D14D37]/15 to-[#D14D37]/5" />
-      )}
+        <img src={item.bannerUrl} alt="" style={{ height: 128, width: "100%", objectFit: "cover", borderRadius: "3px 3px 0 0" }} />
+      ) : null}
 
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{item.name}</h3>
-          {yearSuffix(item.name, item.year) ? (
-            <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-              {item.year}
-            </span>
-          ) : null}
+      <div className="ckc-card-pad">
+        <div className="flex items-center justify-between gap-3">
+          <span className="ckc-meta">
+            {isArchive ? (item.resultsDeclaredAt ? "Concluded" : "Awaiting results") : (PHASE_LABELS[item.phase] || item.phase)}
+          </span>
+          {isRunning ? <span className="ckc-dot" aria-hidden="true" /> : null}
+          {yearSuffix(item.name, item.year) ? <span className="ckc-meta">{item.year}</span> : null}
         </div>
 
-        {/* Only ever set once the reveal has happened — the server withholds it before that. */}
-        {item.theme ? <p className="mt-1 text-sm italic text-[#D14D37]">{item.theme}</p> : null}
+        <h3 className="ckc-title ckc-h3" style={{ marginTop: 10 }}>{item.name}</h3>
 
-        {!isArchive && item.phase ? (
-          <span className="mt-3 inline-block rounded-full bg-[#D14D37]/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#D14D37]">
-            {PHASE_LABELS[item.phase] || item.phase}
-          </span>
+        {/* Only ever set once the reveal has happened — the server withholds it before that. */}
+        {item.theme ? (
+          <p style={{ marginTop: 6, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: 16, color: "var(--ckc-accent-text)" }}>
+            {item.theme}
+          </p>
         ) : null}
 
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+        <p className="ckc-meta" style={{ marginTop: 12, letterSpacing: "0.06em" }}>
           {fmt(item.dates?.startsAt)}
           {item.dates?.endsAt ? ` – ${fmt(item.dates.endsAt)}` : ""}
         </p>
 
         {item.prizePool ? (
-          <p className="mt-3 text-sm font-medium text-gray-800 dark:text-gray-100">{item.prizePool}</p>
+          <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}>{item.prizePool}</p>
         ) : null}
 
         {isArchive ? (
-          <div className="mt-4 space-y-2.5 border-t border-gray-100 pt-4 dark:border-gray-700">
+          <div className="mt-5 space-y-3 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
             <PersonLine
               label="Winner"
               person={item.winner}
@@ -127,25 +125,25 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
               />
             ))}
             {!item.winner && !item.runnerUp && !(item.special || []).length ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p style={{ fontSize: 14, color: "var(--ckc-muted)" }}>
                 {item.resultsDeclaredAt ? "Results archived." : "Results not announced yet."}
               </p>
             ) : null}
           </div>
         ) : countdown?.at ? (
-          <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{countdown.label}</span>
+          <div className="mt-5 flex items-center justify-between gap-3 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
+            <span className="ckc-meta">{countdown.label}</span>
             <CountdownTimer target={countdown.at} serverNow={serverNow} size="sm" />
           </div>
         ) : null}
 
         {isArchive ? (
-          <div className="mt-4 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
-            <span className="inline-flex items-center gap-1">
-              <Users className="h-3.5 w-3.5" aria-hidden="true" /> {item.totalParticipants} participants
+          <div className="mt-4 flex gap-5">
+            <span className="ckc-meta inline-flex items-center gap-1.5">
+              <Users className="h-3 w-3" aria-hidden="true" /> {item.totalParticipants} entrants
             </span>
-            <span className="inline-flex items-center gap-1">
-              <Globe className="h-3.5 w-3.5" aria-hidden="true" /> {item.countriesRepresented} countries
+            <span className="ckc-meta inline-flex items-center gap-1.5">
+              <Globe className="h-3 w-3" aria-hidden="true" /> {item.countriesRepresented} countries
             </span>
           </div>
         ) : null}

@@ -54,12 +54,24 @@ const ParticipantCard = ({ participant, viewer, onFollowChange }) => {
   const profilePath = getProfileCanonicalPath(participant, { viewerId: viewer?._id, viewerRole: viewer?.role });
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div className="ckc-card ckc-card-pad">
       <div className="flex items-start gap-3">
         {participant.profileImage ? (
           <img src={resolveImage(participant.profileImage)} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
         ) : (
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#D14D37]/10 font-bold text-[#D14D37]">
+          // The same fallback the shared Avatar uses: a quiet inset, not a coral badge. A missing
+          // photo is not a live competition, and the accent has to keep meaning something.
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
+            style={{
+              background: "var(--ckc-cream)",
+              border: "1px solid var(--ckc-rule)",
+              color: "var(--ckc-muted)",
+              fontFamily: "var(--ckc-display)",
+              fontSize: 20,
+              lineHeight: 1,
+            }}
+          >
             {(participant.name || "?").charAt(0).toUpperCase()}
           </div>
         )}
@@ -67,35 +79,43 @@ const ParticipantCard = ({ participant, viewer, onFollowChange }) => {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {profilePath ? (
-              <Link to={profilePath} className="truncate font-semibold text-gray-900 hover:text-[#D14D37] dark:text-white">
+              <Link
+                to={profilePath}
+                className="truncate hover:opacity-70"
+                style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}
+              >
                 {participant.name}
               </Link>
             ) : (
-              <span className="truncate font-semibold text-gray-900 dark:text-white">{participant.name}</span>
+              <span className="truncate" style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}>
+                {participant.name}
+              </span>
             )}
             {participant.isPrivate ? (
-              <Lock className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-label="Private account" />
+              <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--ckc-muted)" }} aria-label="Private account" />
             ) : null}
           </div>
           {participant.username ? (
-            <p className="truncate text-xs text-gray-500 dark:text-gray-400">@{participant.username}</p>
+            // A handle keeps the monospace voice but not the uppercasing — @Ada is not @ADA.
+            <p className="truncate" style={{ fontFamily: "var(--ckc-mono)", fontSize: 11, color: "var(--ckc-muted)" }}>
+              @{participant.username}
+            </p>
           ) : null}
         </div>
 
         {participant.isSelf ? (
-          <span className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+          <span className="ckc-chip shrink-0">
             You
           </span>
         ) : (
+          // A row action, so the button keeps the .ckc-btn shape at a compact size: following or
+          // already asked is the quiet variant, and only the action still open to you reads primary.
           <button
             type="button"
             onClick={act}
             disabled={busy}
-            className={`shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
-              state === "none"
-                ? "bg-[#D14D37] text-white hover:bg-[#b8402d]"
-                : "border border-gray-300 text-gray-600 hover:border-[#D14D37] hover:text-[#D14D37] dark:border-gray-600 dark:text-gray-300"
-            }`}
+            className={`ckc-btn shrink-0 transition disabled:opacity-50 ${state === "none" ? "" : "ckc-btn-quiet"}`}
+            style={{ padding: "6px 14px", fontSize: 13 }}
           >
             {busy ? "…" : label}
           </button>
@@ -103,20 +123,20 @@ const ParticipantCard = ({ participant, viewer, onFollowChange }) => {
       </div>
 
       {participant.bio ? (
-        <p className="mt-3 line-clamp-2 text-sm text-gray-600 dark:text-gray-300">{participant.bio}</p>
+        <p className="mt-3 line-clamp-2" style={{ fontSize: 14, color: "var(--ckc-body)" }}>{participant.bio}</p>
       ) : null}
 
       {participant.genres?.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {participant.genres.map((g) => (
-            <span key={g} className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+            <span key={g} className="ckc-chip">
               {g}
             </span>
           ))}
         </div>
       ) : null}
 
-      {error ? <p className="mt-2 text-xs text-[#D14D37]">{error}</p> : null}
+      {error ? <p className="mt-2" style={{ fontSize: 12, color: "var(--ckc-accent-text)" }}>{error}</p> : null}
     </div>
   );
 };
@@ -159,12 +179,12 @@ const ParticipantsGrid = ({ competitionId, viewer }) => {
       || (p.genres || []).some((g) => g.toLowerCase().includes(needle)))
     : participants;
 
-  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading the room…</p>;
+  if (loading) return <p className="ckc-meta">Loading the room…</p>;
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <p className="text-gray-700 dark:text-gray-200">{error}</p>
+      <div className="ckc-card ckc-card-pad text-center">
+        <p style={{ color: "var(--ckc-body)" }}>{error}</p>
       </div>
     );
   }
@@ -172,26 +192,40 @@ const ParticipantsGrid = ({ competitionId, viewer }) => {
   return (
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+        <p className="ckc-meta flex items-center gap-2">
           <Users className="h-4 w-4" aria-hidden="true" />
-          <strong className="text-gray-900 dark:text-white">{total}</strong>
+          <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{total}</strong>
           {total === 1 ? "writer competing" : "writers competing"}
         </p>
         <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+          {/* Decorative, never read — the one place the faint tone belongs. */}
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
+            style={{ color: "var(--ckc-faint)" }}
+            aria-hidden="true"
+          />
+          {/* No focus ring of its own: .ckc's :focus-visible outline already speaks for the surface. */}
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name or genre"
             aria-label="Search participants"
-            className="w-56 rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 outline-none focus:border-[#D14D37] dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            className="w-56 py-2 pl-9 pr-3 outline-none"
+            style={{
+              background: "var(--ckc-card)",
+              border: "1px solid var(--ckc-rule)",
+              borderRadius: 3,
+              fontFamily: "var(--ckc-sans)",
+              fontSize: 14,
+              color: "var(--ckc-ink)",
+            }}
           />
         </div>
       </div>
 
       {shown.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">No writers match “{query}”.</p>
+        <p style={{ fontSize: 14, color: "var(--ckc-muted)" }}>No writers match “{query}”.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {shown.map((p) => (
