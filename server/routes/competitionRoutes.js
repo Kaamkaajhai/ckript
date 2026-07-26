@@ -2,6 +2,7 @@ import express from "express";
 import protect from "../middleware/authMiddleware.js";
 import {
   getActiveCompetition,
+  listCompetitions,
   registerForCompetition,
   getMyEntry,
   openCompetitionEditor,
@@ -19,6 +20,7 @@ const router = express.Router();
 
 // Public. These sit above the `/:id/...` block so they are never captured as an id.
 router.get("/active", getActiveCompetition);
+router.get("/list", listCompetitions);
 router.get("/completed", getCompletedCompetitions);
 router.get("/hall-of-fame/:slug", getHallOfFameEntry);
 router.get("/history/:userId", getCompetitionHistory);

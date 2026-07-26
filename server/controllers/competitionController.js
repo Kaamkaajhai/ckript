@@ -161,6 +161,64 @@ const HALL_OF_FAME_FILTER = {
   resultsDeclaredAt: { $ne: null },
 };
 
+/**
+ * GET /api/competitions/list  (public) — everything discoverable, bucketed for the Challenge hub.
+ *
+ * The hub needs to show "live", "upcoming" and "previous" side by side; `/active` deliberately
+ * returns exactly ONE competition and cannot answer that.
+ *
+ * Two things this must not get wrong:
+ *  - The THEME is the reveal, so it is only ever included for phases that have earned it. This
+ *    reuses publicCompetition rather than spreading the raw document, so a competition that has not
+ *    started cannot leak its theme through the list even though it leaks nothing through /active.
+ *  - "Previous" is NOT the same as the Hall of Fame. A competition whose deadline has passed but
+ *    whose results are not declared yet is finished from a writer's point of view, but has no
+ *    winners to show. It belongs in `past` here and in neither list otherwise — without this bucket
+ *    those competitions are invisible between the deadline and the announcement.
+ */
+export const listCompetitions = async (req, res) => {
+  try {
+    const now = new Date();
+    const competitions = await Competition.find({
+      lifecycle: "published",
+      visibility: { $ne: "hidden" },
+    }).sort({ "dates.startsAt": -1 }).lean();
+
+    const buckets = { live: [], upcoming: [], past: [] };
+
+    for (const competition of competitions) {
+      const phase = getCompetitionPhase(competition, now);
+      const safe = publicCompetition(competition, phase);
+      const item = {
+        _id: safe._id,
+        name: safe.name,
+        slug: safe.slug,
+        phase,
+        overview: safe.overview || "",
+        bannerUrl: safe.bannerUrl || "",
+        prizePool: safe.prizePool || "",
+        dates: safe.dates,
+        resultsDeclaredAt: safe.resultsDeclaredAt || null,
+        // Present only once the theme has been released; withheld phases have no `theme` at all.
+        theme: safe.theme?.title || "",
+        year: new Date(safe.dates?.startsAt || safe.createdAt).getUTCFullYear(),
+      };
+
+      // `live` means a writer can still DO something — register, or write against the clock.
+      // `judging` looks live by the dates but the deadline has passed and nothing can be entered or
+      // submitted, so it sits with the finished ones, awaiting its result.
+      if (phase === "announced") buckets.upcoming.push(item);
+      else if (phase === "results" || phase === "judging") buckets.past.push(item);
+      else buckets.live.push(item);   // registration_open | registration_closed | live
+    }
+
+    return res.json({ ...buckets, serverNow: now.toISOString() });
+  } catch (error) {
+    console.error("[competition] list failed:", error?.message || error);
+    return res.status(500).json({ message: "Failed to load competitions." });
+  }
+};
+
 // GET /api/competitions/completed  (public) — the Hall of Fame index
 export const getCompletedCompetitions = async (req, res) => {
   try {
