@@ -9,7 +9,6 @@ import {
     freezeUserAccount,
     unfreezeUserAccount,
     deleteUserAccountAsAdmin,
-    grantCreditsToUser,
     grantPremiumModelToUser,
     removePremiumModelFromUser,
     removeWriterPlanFromUser,
@@ -89,7 +88,6 @@ router.get("/users/deleted-requests", getDeletedAccountRequests);
 router.put("/users/:id/freeze", freezeUserAccount);
 router.put("/users/:id/unfreeze", unfreezeUserAccount);
 router.delete("/users/:id", deleteUserAccountAsAdmin);
-router.post("/users/:id/credits", grantCreditsToUser);
 router.post("/users/:id/grant-premium", grantPremiumModelToUser);
 router.post("/users/:id/remove-premium", removePremiumModelFromUser);
 // Writer Plan Management

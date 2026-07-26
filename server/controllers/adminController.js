@@ -21,7 +21,6 @@ import {
     sendInvestorApprovalEmail,
     sendInvestorRejectionEmail,
     sendWriterMembershipDecisionEmail,
-    sendAdminCreditsGrantedEmail,
     sendAdminPremiumGrantedEmail,
     sendAdminPremiumRemovedEmail,
     sendAdminBroadcastEmail,
@@ -634,7 +633,6 @@ const buildAdminManagedUserSummary = (user) => ({
     frozenReason: user.frozenReason || "",
     isDeactivated: Boolean(user.isDeactivated),
     deactivatedAt: user.deactivatedAt,
-    creditsBalance: Number(user?.credits?.balance || 0),
     accountDeletionReason: String(user?.accountDeletion?.reason || ""),
     accountDeletionSource: String(user?.accountDeletion?.source || ""),
     accountDeletionRequestedAt: user?.accountDeletion?.requestedAt,
@@ -665,7 +663,6 @@ const buildDeletedUserProfileSnapshotForAdmin = (user) => {
     snapshot.deactivatedBy = snapshot.deactivatedBy || user?.deactivatedBy;
     snapshot.createdAt = snapshot.createdAt || user?.createdAt;
     snapshot.updatedAt = snapshot.updatedAt || user?.updatedAt;
-    snapshot.credits = snapshot.credits || user?.credits;
     snapshot.writerProfile = snapshot.writerProfile || user?.writerProfile;
     snapshot.industryProfile = snapshot.industryProfile || user?.industryProfile;
     snapshot.preferences = snapshot.preferences || user?.preferences;
@@ -724,7 +721,7 @@ export const getDeletedAccountRequests = async (req, res) => {
 
         const total = await User.countDocuments(filter);
         const users = await User.find(filter)
-            .select("sid name email phone role deactivatedAt deactivatedBy accountDeletion isFrozen frozenAt frozenReason createdAt updatedAt credits writerProfile industryProfile preferences address approvalStatus approvalNote emailVerified favoriteScripts scriptsRead")
+            .select("sid name email phone role deactivatedAt deactivatedBy accountDeletion isFrozen frozenAt frozenReason createdAt updatedAt writerProfile industryProfile preferences address approvalStatus approvalNote emailVerified favoriteScripts scriptsRead")
             .sort({ deactivatedAt: -1, updatedAt: -1 })
             .skip((pageNumber - 1) * pageLimit)
             .limit(pageLimit)
@@ -763,7 +760,7 @@ export const freezeUserAccount = async (req, res) => {
         if (!targetUser) return res.status(404).json({ message: "User not found" });
 
         if (!String(targetUser.email || "").trim()) {
-            return res.status(400).json({ message: "User email is missing. Cannot send credit notification email." });
+            return res.status(400).json({ message: "User email is missing. Cannot send the account notification email." });
         }
 
         if (targetUser.role === "admin") {
@@ -820,105 +817,6 @@ export const unfreezeUserAccount = async (req, res) => {
 
         res.json({
             message: "Account unfrozen successfully",
-            user: buildAdminManagedUserSummary(targetUser),
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-export const grantCreditsToUser = async (req, res) => {
-    try {
-        const amount = Number(req.body?.amount);
-        const reason = String(req.body?.reason || "Admin credit grant").trim();
-        if (!Number.isFinite(amount) || amount <= 0) {
-            return res.status(400).json({ message: "Amount must be a positive number" });
-        }
-
-        const targetUser = await User.findById(req.params.id);
-        if (!targetUser) return res.status(404).json({ message: "User not found" });
-
-        if (targetUser.role === "admin") {
-            return res.status(403).json({ message: "Credits cannot be granted to admin accounts" });
-        }
-
-        if (targetUser.isDeactivated) {
-            return res.status(400).json({ message: "Cannot grant credits to a deleted account" });
-        }
-
-        if (!targetUser.credits) {
-            targetUser.credits = {
-                balance: 0,
-                totalPurchased: 0,
-                totalSpent: 0,
-                transactions: [],
-            };
-        }
-
-        const balanceBefore = Number(targetUser.credits.balance || 0);
-        targetUser.credits.balance = balanceBefore + amount;
-        const balanceAfter = targetUser.credits.balance;
-        const reference = Transaction.generateReference("bonus");
-
-        targetUser.credits.transactions.push({
-            type: "bonus",
-            amount,
-            description: reason,
-            reference,
-            createdAt: new Date(),
-        });
-
-        await targetUser.save();
-
-        await Transaction.create({
-            user: targetUser._id,
-            type: "bonus",
-            amount,
-            currency: "INR",
-            status: "completed",
-            description: reason,
-            reference,
-            balanceBefore,
-            balanceAfter,
-            processedBy: req.user._id,
-            processedAt: new Date(),
-        });
-
-        await Notification.create({
-            user: targetUser._id,
-            type: "admin_alert",
-            from: req.user._id,
-            message: `Admin added ${amount} credits to your account.`,
-        }).catch(() => null);
-
-        let emailResult = await sendAdminCreditsGrantedEmail(targetUser.email, targetUser.name, {
-            amount,
-            reason,
-            balanceAfter,
-            adminName: req.user?.name || "Admin",
-            clientBaseUrl: resolveClientOriginFromRequest(req),
-        });
-
-        if (!emailResult?.success) {
-            // One lightweight retry can recover from transient SMTP transport hiccups.
-            emailResult = await sendAdminCreditsGrantedEmail(targetUser.email, targetUser.name, {
-                amount,
-                reason,
-                balanceAfter,
-                adminName: req.user?.name || "Admin",
-                clientBaseUrl: resolveClientOriginFromRequest(req),
-            });
-        }
-
-        res.json({
-            message: emailResult?.success
-                ? "Credits granted successfully and email notification sent"
-                : "Credits granted successfully, but email notification could not be sent",
-            granted: amount,
-            balanceBefore,
-            balanceAfter,
-            emailSent: Boolean(emailResult?.success),
-            emailError: emailResult?.success ? undefined : (emailResult?.error || "Email send failed"),
             user: buildAdminManagedUserSummary(targetUser),
         });
     } catch (error) {
@@ -1468,8 +1366,6 @@ export const getInvoices = async (req, res) => {
                                 writerEarnsPerSale: 1,
                                 services: 1,
                                 totalCreditsRequired: 1,
-                                creditsBalanceBefore: 1,
-                                creditsBalanceAfter: 1,
                                 creatorSid: 1,
                                 scriptSid: 1,
                                 rows: 1,
@@ -2540,7 +2436,7 @@ export const approveBankDetailReview = async (req, res) => {
                 from: req.user?._id,
                 message: note
                     ? `Your bank details were approved. Admin note: ${String(note).trim()}`
-                    : "Your bank details were approved. You can now purchase credits.",
+                    : "Your bank details were approved. You can now receive payouts.",
             });
         } catch (notificationError) {
             console.error("Bank approval notification failed:", notificationError.message);

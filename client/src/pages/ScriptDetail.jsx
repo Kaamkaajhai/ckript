@@ -969,23 +969,6 @@ const ScriptDetail = () => {
 
       await fetchScript();
 
-      if (data?.credits?.balance !== undefined) {
-        setUser((prev) => {
-          if (!prev) return prev;
-          const updated = {
-            ...prev,
-            credits: {
-              ...(prev.credits || {}),
-              balance: data.credits.balance,
-            },
-          };
-          localStorage.setItem("user", JSON.stringify(updated));
-          return updated;
-        });
-      }
-
-      const refunded = Number(data?.package?.creditsRefunded || 0);
-      const refundNote = refunded > 0 ? ` Refunded ${refunded} AI trailer credits based on spotlight policy.` : "";
       const isExtension = Boolean(data?.package?.isExtension);
       const spotlightScript = data?.script || {};
       const spotlightHasAnyTrailer = Boolean(spotlightScript.trailerUrl || spotlightScript.uploadedTrailerUrl);
@@ -993,8 +976,8 @@ const ScriptDetail = () => {
         ["requested", "generating"].includes(spotlightScript.trailerStatus) && !spotlightHasAnyTrailer;
       showNotice(
         isExtension
-          ? `Project Spotlight extended: featured top placement is extended for 1 month.${refundNote}`
-          : `Project Spotlight activated: verified badge is now permanent, free evaluation started${spotlightQueuedAiTrailer ? ", AI trailer queued (2-3 business days)" : ""}, and featured top placement is live for 1 month.${refundNote}`,
+          ? "Project Spotlight extended: featured top placement is extended for 1 month."
+          : `Project Spotlight activated: verified badge is now permanent, free evaluation started${spotlightQueuedAiTrailer ? ", AI trailer queued (2-3 business days)" : ""}, and featured top placement is live for 1 month.`,
         "success"
       );
     } catch (err) {

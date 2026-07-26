@@ -27,12 +27,6 @@ export const formatCurrency = (amount, currencyCode = "INR", options = {}) => {
 export const formatSubunits = (minor, currencyCode = "INR", options = {}) =>
   formatCurrency((Number(minor) || 0) / 100, currencyCode, options);
 
-// Platform-internal "credits" unit — unchanged, not a real currency.
-export const formatCredits = (amount) => {
-  const numericAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
-  return `${numericAmount.toLocaleString("en-IN")} cr`;
-};
-
 // Suggest a checkout currency from the caller's IP (server reuses its IP→country lookup). Falls back to
 // INR on any failure. The caller decides precedence (saved preference usually wins over detection).
 export const detectUserCurrency = async () => {

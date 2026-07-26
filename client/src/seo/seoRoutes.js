@@ -167,7 +167,6 @@ export const noIndexPrefixes = [
   "/trending",
   "/profile",
   "/dashboard",
-  "/credits",
   "/purchase-requests",
   "/new-project",
   "/ai-tools",

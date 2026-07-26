@@ -3,8 +3,8 @@
   "short_name": "Ckript",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#0f172a",
+  "background_color": "#FBFAF7",
+  "theme_color": "#0B0A06",
   "icons": [
     {
       "src": "/ckript-feather.png",

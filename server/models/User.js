@@ -273,24 +273,16 @@ const userSchema = new mongoose.Schema({
     script: { type: mongoose.Schema.Types.ObjectId, ref: "Script" },
     viewedAt: { type: Date, default: Date.now },
   }],
-  // Credit ledger. Fully written by authController (referral bonuses) and adminController
-  // (manual grants), but the schema path was missing — so under Mongoose's default strict mode
-  // every one of those writes was silently discarded and no referral bonus was ever actually paid.
-  // `transactions` is the audit trail; `balance` is the only figure anything reads.
-  credits: {
-    balance: { type: Number, default: 0 },
-    totalPurchased: { type: Number, default: 0 },
-    totalSpent: { type: Number, default: 0 },
-    transactions: [{
-      type: { type: String, enum: ["purchase", "bonus", "spend", "refund"], default: "bonus" },
-      amount: { type: Number, default: 0 },
-      description: { type: String, default: "" },
-      reference: { type: String, index: true },   // rollback + idempotency key
-      createdAt: { type: Date, default: Date.now },
-    }],
-  },
+  // The `credits` currency ledger (balance / totalPurchased / totalSpent / transactions) used to live
+  // here. It was removed because nothing in the product ever spent it: no page was routed to it, and
+  // the AI features gate on the subscription plan, not a balance. Only a referral signup bonus and an
+  // admin grant button ever wrote to it, so it was a promise the product could not keep.
+  //
+  // Deliberately NOT $unset from existing documents: dropping the schema path is enough for Mongoose
+  // to ignore whatever is stored, which keeps the removal reversible if the currency ever comes back.
+  // Note `subscription.scriptScoreCredits` below is a SEPARATE counter and is unrelated.
 
-  // Subscription & credits
+  // Subscription
   subscription: {
     plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
     expiresAt: { type: Date },
@@ -458,7 +450,6 @@ const userSchema = new mongoose.Schema({
 
   referralStats: {
     successfulReferrals: { type: Number, default: 0 },
-    totalBonusCredits: { type: Number, default: 0 },
   },
 
   // Earned achievement badges (competitions). Server-persisted and public — unlike the localStorage

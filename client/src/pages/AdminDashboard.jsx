@@ -2625,14 +2625,7 @@ const AdminDashboard = () => {
             if (data?.user?._id) {
                 setSelectedUserDetail((prev) => {
                     if (!prev || String(prev._id) !== String(data.user._id)) return prev;
-                    return {
-                        ...prev,
-                        ...data.user,
-                        credits: {
-                            ...(prev.credits || {}),
-                            balance: data.user.creditsBalance,
-                        },
-                    };
+                    return { ...prev, ...data.user };
                 });
             }
 
@@ -2810,61 +2803,6 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleGrantCreditsToUser = async (user) => {
-        if (!user?._id || userActionLoading) return;
-        if (user.isDeactivated) {
-            showToast("Cannot grant credits to a deleted account", "error");
-            return;
-        }
-
-        const amountStr = window.prompt(`Enter amount of credits to grant to ${user.name || user.email}:`);
-        if (!amountStr) return;
-        
-        const amount = parseInt(amountStr, 10);
-        if (isNaN(amount) || amount <= 0) {
-            showToast("Please enter a valid positive number", "error");
-            return;
-        }
-
-        const confirmed = await openAdminDialog({
-            type: "confirm",
-            title: "Grant Credits",
-            message: `Are you sure you want to grant ${amount} credits to ${user.name || user.email}?`,
-            confirmText: "Grant",
-            cancelText: "Cancel",
-        });
-
-        if (!confirmed) return;
-
-        const loadingKey = `grant-credits-${user._id}`;
-        try {
-            setUserActionLoading(loadingKey);
-            const { data } = await adminApi.post(`/admin/users/${user._id}/credits`, { amount });
-            showToast(data?.message || `Granted ${amount} credits successfully`);
-
-            if (data?.user?._id) {
-                setSelectedUserDetail((prev) => {
-                    if (!prev || String(prev._id) !== String(data.user._id)) return prev;
-                    return {
-                        ...prev,
-                        ...data.user,
-                        credits: {
-                            ...(prev.credits || {}),
-                            balance: data.user.creditsBalance,
-                        },
-                    };
-                });
-            }
-
-            fetchData(search);
-        } catch (err) {
-            console.error(err);
-            showToast(err?.response?.data?.message || "Failed to grant credits", "error");
-        } finally {
-            setUserActionLoading("");
-        }
-    };
-
     const handleDeleteUserAccount = async (user) => {
         if (!user?._id || userActionLoading) return;
         if (user.isDeactivated) {
@@ -2890,14 +2828,7 @@ const AdminDashboard = () => {
             if (data?.user?._id) {
                 setSelectedUserDetail((prev) => {
                     if (!prev || String(prev._id) !== String(data.user._id)) return prev;
-                    return {
-                        ...prev,
-                        ...data.user,
-                        credits: {
-                            ...(prev.credits || {}),
-                            balance: data.user.creditsBalance,
-                        },
-                    };
+                    return { ...prev, ...data.user };
                 });
             }
 
@@ -3390,7 +3321,6 @@ const AdminDashboard = () => {
                             onViewUser={setSelectedUserDetail}
                             onFreezeUser={(user) => handleFreezeToggleUser(user, true)}
                             onUnfreezeUser={(user) => handleFreezeToggleUser(user, false)}
-                            onGrantCredits={handleGrantCreditsToUser}
                             onGrantPremium={handleGrantPremiumToUser}
                             onRemovePremium={handleRemovePremiumFromUser}
                             onDeleteUser={handleDeleteUserAccount}
@@ -4616,13 +4546,6 @@ const AdminDashboard = () => {
                         <div className={sectionClass}>
                             <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Admin Actions</p>
                             <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                    onClick={() => handleGrantCreditsToUser(user)}
-                                    disabled={isUserDeleted || userActionLoading === `grant-credits-${user._id}`}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-500 hover:text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
-                                >
-                                    {userActionLoading === `grant-credits-${user._id}` ? "Granting..." : "Grant Credits"}
-                                </button>
                                 {isWriterRole && !isUserDeleted && (
                                     <>
                                         <button

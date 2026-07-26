@@ -12,9 +12,8 @@ import SocialShareButton from "../SocialShareButton";
  *     email — this is what counts toward a tier) or `registered` (signed up, not yet verified). A
  *     click that never became a signup leaves no trace anywhere in the system, so a "pending" count
  *     would always read zero; it is not invented here.
- *  2. Rewards shown are badges and subscription days — the grants that actually persist. The legacy
- *     credit bonus writes to a field that is not on the User schema and is silently discarded, so
- *     presenting a credit balance here would be presenting a number that does not exist.
+ *  2. Rewards shown are badges and subscription days — the grants that actually persist. There is no
+ *     credit balance to show: the credit currency was removed because nothing ever spent it.
  */
 
 // A referral that qualified is DONE, so it reads in ink; one still awaiting verification is simply

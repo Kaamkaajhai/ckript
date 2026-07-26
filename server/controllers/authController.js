@@ -111,7 +111,6 @@ const USERNAME_REQUIRED_ROLES = new Set([]);
 const INDIA_COUNTRY_NAME = "India";
 const INDIA_ZIP_REGEX = /^\d{6}$/;
 const INTERNATIONAL_POSTAL_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9\s-]{2,11}$/;
-const REFERRAL_BONUS_CREDITS = 15;
 const REFERRAL_INPUT_MAX_LENGTH = 40;
 const DEFAULT_CLIENT_ORIGIN = "https://ckript.com";
 
@@ -136,17 +135,6 @@ const buildReferralLink = (referralCode = "") => {
   const safeCode = encodeURIComponent(String(referralCode || "").trim());
   return `${base}/${safeCode}`;
 };
-
-const buildReferralTransactionReference = () =>
-  `REF-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-const buildReferralCreditTransaction = ({ amount, description, reference }) => ({
-  type: "bonus",
-  amount,
-  description,
-  reference,
-  createdAt: new Date(),
-});
 
 const findReferrerByInput = async (rawReferralInput = "") => {
   const normalizedRaw = normalizeReferralInput(rawReferralInput);
@@ -205,6 +193,18 @@ const hasReferralBeenUsedByEmail = async (rawEmail = "", options = {}) => {
   return Boolean(existing);
 };
 
+/**
+ * Marks a referral as QUALIFIED: the referred account exists, is verified, and was not self-referred.
+ *
+ * There is no longer a payout attached. This used to also mint credit currency for both sides, but
+ * nothing in the product ever spent credits, so the currency was removed and only the marker remains.
+ * `hasReceivedReferralBonus` is what everything downstream actually reads — it is the "qualified
+ * referral" flag for the competition referral drive (see utils/competitionReferrals.js), which pays in
+ * badges and subscription days.
+ *
+ * The name is kept because it is referenced from several signup/verification paths; only the payout
+ * is gone.
+ */
 const awardReferralBonusForUser = async (userId) => {
   if (!userId) return { awarded: false };
 
@@ -241,10 +241,8 @@ const awardReferralBonusForUser = async (userId) => {
     return { awarded: false, reason: "self_referral_blocked" };
   }
 
-  const reference = buildReferralTransactionReference();
-  const now = new Date();
-
-  const referredCreditUpdate = await User.updateOne(
+  // Conditional on the flag still being false, so two concurrent verifications can't both qualify it.
+  const qualified = await User.updateOne(
     {
       _id: referredUser._id,
       referredBy: referrer._id,
@@ -253,74 +251,27 @@ const awardReferralBonusForUser = async (userId) => {
     {
       $set: {
         hasReceivedReferralBonus: true,
-        referralBonusAwardedAt: now,
-      },
-      $inc: {
-        "credits.balance": REFERRAL_BONUS_CREDITS,
-        "credits.totalPurchased": REFERRAL_BONUS_CREDITS,
-      },
-      $push: {
-        "credits.transactions": buildReferralCreditTransaction({
-          amount: REFERRAL_BONUS_CREDITS,
-          description: `Referral bonus for joining via ${referrer.referralCode || "referral link"}`,
-          reference,
-        }),
+        referralBonusAwardedAt: new Date(),
       },
     }
   );
 
-  if (!referredCreditUpdate.modifiedCount) {
+  if (!qualified.modifiedCount) {
     return { awarded: false, reason: "already_awarded" };
   }
 
-  try {
-    await User.updateOne(
-      { _id: referrer._id },
-      {
-        $inc: {
-          "credits.balance": REFERRAL_BONUS_CREDITS,
-          "credits.totalPurchased": REFERRAL_BONUS_CREDITS,
-          "referralStats.successfulReferrals": 1,
-          "referralStats.totalBonusCredits": REFERRAL_BONUS_CREDITS,
-        },
-        $push: {
-          "credits.transactions": buildReferralCreditTransaction({
-            amount: REFERRAL_BONUS_CREDITS,
-            description: `Referral bonus: ${referredUser.name || "A user"} joined successfully`,
-            reference,
-          }),
-        },
-      }
-    );
-  } catch (referrerCreditError) {
-    // Best-effort rollback if referrer credit update fails after awarding referee credits.
-    await User.updateOne(
-      {
-        _id: referredUser._id,
-        "credits.transactions.reference": reference,
-      },
-      {
-        $set: {
-          hasReceivedReferralBonus: false,
-          referralBonusAwardedAt: null,
-        },
-        $inc: {
-          "credits.balance": -REFERRAL_BONUS_CREDITS,
-          "credits.totalPurchased": -REFERRAL_BONUS_CREDITS,
-        },
-        $pull: {
-          "credits.transactions": { reference },
-        },
-      }
-    );
-
-    throw referrerCreditError;
-  }
+  // Denormalized tally only. Every reader of "how many referrals?" counts documents live, so if this
+  // bump fails the referral is still correctly qualified — it must not fail the caller's signup or
+  // email-verification response.
+  await User.updateOne(
+    { _id: referrer._id },
+    { $inc: { "referralStats.successfulReferrals": 1 } }
+  ).catch((error) => {
+    console.error("Referral stat increment failed:", error?.message || error);
+  });
 
   return {
     awarded: true,
-    reference,
-    bonusCredits: REFERRAL_BONUS_CREDITS,
     referrerName: referrer.name || "",
     referrerCode: referrer.referralCode || "",
   };
@@ -781,7 +732,6 @@ export const join = async (req, res) => {
             language: normalizeLanguagePreference(userExists.language),
             timezone: userExists.timezone || DEFAULT_TIMEZONE,
             referralBonusAwarded: referralBonusResult.awarded,
-            referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
             token,
             expiresAt,
             message: "Account verified successfully (email verification skipped in dev mode)"
@@ -849,7 +799,6 @@ export const join = async (req, res) => {
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         referralBonusAwarded: referralBonusResult.awarded,
-        referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
         token,
         expiresAt,
         message: "Account created successfully (email verification skipped in dev mode)"
@@ -1224,7 +1173,6 @@ export const verifyOTP = async (req, res) => {
         approvalNote: user.approvalNote,
         profileCompletion: getProfileCompletion(user),
         referralBonusAwarded: referralBonusResult.awarded,
-        referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
         token,
         expiresAt,
       });
@@ -1247,7 +1195,6 @@ export const verifyOTP = async (req, res) => {
       timezone: user.timezone || DEFAULT_TIMEZONE,
       profileCompletion: getProfileCompletion(user),
       referralBonusAwarded: referralBonusResult.awarded,
-      referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
       token,
       expiresAt,
     });
@@ -1407,7 +1354,6 @@ export const applyReferralCode = async (req, res) => {
         referralCode: referrer.referralCode,
       },
       referralBonusAwarded: referralBonusResult.awarded,
-      referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Unable to apply referral" });
@@ -1418,7 +1364,7 @@ export const applyReferralCode = async (req, res) => {
 export const getReferralSummary = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select(
-      "_id sid referralCode referralStats writerProfile.username"
+      "_id sid referralCode writerProfile.username"
     );
 
     if (!user) {
@@ -1440,12 +1386,9 @@ export const getReferralSummary = async (req, res) => {
       referralCode: user.referralCode,
       referralLink,
       referralProfileLink: referralLink,
-      bonusPerReferral: REFERRAL_BONUS_CREDITS,
       totalReferrals,
+      // Referrals that reached a verified account. This is what the competition referral tiers count.
       successfulReferrals,
-      totalBonusCredits:
-        Number(user?.referralStats?.totalBonusCredits) ||
-        successfulReferrals * REFERRAL_BONUS_CREDITS,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Unable to fetch referral summary" });

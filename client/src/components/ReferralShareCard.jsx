@@ -124,7 +124,9 @@ const ReferralShareCard = ({ dark = false, compact = false, className = "" }) =>
             Writer Referral
           </h2>
           <p className={`mt-1 text-sm leading-relaxed ${dark ? "text-slate-400" : "text-slate-500"}`}>
-            Share your referral link. If a writer signs up and verifies their account, both writers get 15 credits.
+            Share your referral link. A writer counts once they sign up and verify their email. Referrals
+            made during a challenge count toward that challenge&apos;s referral tiers, which are granted as
+            badges and subscription time when results are announced.
           </p>
         </div>
         {!compact && (
@@ -146,8 +148,10 @@ const ReferralShareCard = ({ dark = false, compact = false, className = "" }) =>
         <div className={`inline-flex items-center rounded-2xl px-4 py-2 text-sm font-black tracking-[0.14em] ${dark ? "bg-white/[0.06] text-white" : "bg-slate-100 text-slate-900"}`}>
           {referralCode || "--"}
         </div>
+        {/* The qualified count, not a payout figure — the reward itself is per-challenge and lives on
+            the challenge dashboard's referral drive. */}
         <div className={`inline-flex items-center rounded-2xl px-4 py-2 text-sm font-semibold ${dark ? "bg-emerald-500/12 text-emerald-300" : "bg-emerald-50 text-emerald-700"}`}>
-          Bonus: {formatNumber(referralSummary?.totalBonusCredits || 0)} credits
+          {formatNumber(referralSummary?.successfulReferrals || 0)} verified
         </div>
         {compact && (
           <button

@@ -849,7 +849,7 @@ export const aiWritingAssist = async (req, res) => {
       return res.status(400).json({ message: "An action or custom instruction is required." });
     }
 
-    const user = await User.findById(req.user._id).select("language credits");
+    const user = await User.findById(req.user._id).select("language");
     if (!user) return res.status(404).json({ message: "User not found." });
     const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
 
