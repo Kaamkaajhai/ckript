@@ -9,6 +9,7 @@ import CompetitionCard from "../../components/competition/CompetitionCard";
 import WinnerCard from "../../components/competition/WinnerCard";
 import EntryCard from "../../components/competition/EntryCard";
 import { Card } from "../../components/competition/ui";
+import { yearSuffix } from "../../components/competition/labels";
 
 /**
  * The Challenge hub — everything competition-related in one place.
@@ -121,18 +122,24 @@ const ChallengeHub = () => {
   const archiveById = new Map(archive.map((a) => [String(a._id), a]));
   const pastItems = (list.past || []).map((item) => ({ ...item, ...(archiveById.get(String(item._id)) || {}) }));
 
-  // The Hall of Fame is about WRITERS, not competitions. Flatten every declared result into one
-  // person per award — winner, runner-up and each category award — so the tab reads as a roll of
-  // honour rather than a second copy of the Previous list.
-  const laureates = archive.flatMap((c) => {
-    const from = (person, award) =>
-      person ? [{ person, award, competitionId: String(c._id), competitionName: c.name, year: c.year }] : [];
-    return [
-      ...from(c.winner, "winner"),
-      ...from(c.runnerUp, "runner_up"),
-      ...(c.special || []).flatMap((p) => from(p, "special")),
-    ];
-  });
+  // The Hall of Fame is organised BY CHALLENGE, and within each challenge it is about the writers.
+  // Each competition contributes a section — just enough of its own detail to say which event this
+  // was — under which every award sits: winner, runner-up, and each category award.
+  const honourRoll = archive
+    .map((c) => {
+      const from = (person, award) => (person ? [{ person, award }] : []);
+      return {
+        competition: c,
+        people: [
+          ...from(c.winner, "winner"),
+          ...from(c.runnerUp, "runner_up"),
+          ...(c.special || []).flatMap((p) => from(p, "special")),
+        ],
+      };
+    })
+    .filter((group) => group.people.length);
+
+  const laureateCount = honourRoll.reduce((n, g) => n + g.people.length, 0);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 dark:bg-gray-900">
@@ -214,24 +221,51 @@ const ChallengeHub = () => {
           ) : null}
 
           {!error && !loading && tab === "hall-of-fame" ? (
-            laureates.length ? (
+            honourRoll.length ? (
               <>
-                <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">
-                  {laureates.length === 1
+                <p className="mb-8 text-sm text-gray-600 dark:text-gray-300">
+                  {laureateCount === 1
                     ? "1 writer has been honoured at a Ckript challenge."
-                    : `${laureates.length} writers have been honoured at Ckript challenges.`}
+                    : `${laureateCount} writers have been honoured across ${honourRoll.length} challenge${honourRoll.length === 1 ? "" : "s"}.`}
                 </p>
-                <Grid>
-                  {laureates.map((l) => (
-                    <WinnerCard
-                      key={`${l.competitionId}-${l.award}-${l.person.userId}`}
-                      person={l.person}
-                      award={l.award}
-                      competitionName={l.competitionName}
-                      year={l.year}
-                    />
+
+                <div className="space-y-12">
+                  {honourRoll.map(({ competition: c, people }) => (
+                    <section key={c._id} aria-label={c.name}>
+                      <div className="mb-5 border-b border-gray-200 pb-3 dark:border-gray-700">
+                        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                            {c.name}
+                            {yearSuffix(c.name, c.year) ? (
+                              <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">{c.year}</span>
+                            ) : null}
+                          </h2>
+                          <Link
+                            to={`/challenge/c/${c.slug}`}
+                            className="text-sm font-medium text-[#D14D37] hover:underline"
+                          >
+                            About this challenge
+                          </Link>
+                        </div>
+                        {/* Just enough to say which event this was — the detail lives on the
+                            competition's own page. */}
+                        <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                          {c.theme ? <span className="italic">{c.theme}</span> : null}
+                          {c.theme && c.totalParticipants ? " · " : ""}
+                          {c.totalParticipants
+                            ? `${c.totalParticipants} entrant${c.totalParticipants === 1 ? "" : "s"} from ${c.countriesRepresented} ${c.countriesRepresented === 1 ? "country" : "countries"}`
+                            : null}
+                        </p>
+                      </div>
+
+                      <Grid>
+                        {people.map(({ person, award }) => (
+                          <WinnerCard key={`${award}-${person.userId}`} person={person} award={award} />
+                        ))}
+                      </Grid>
+                    </section>
                   ))}
-                </Grid>
+                </div>
               </>
             ) : (
               <Empty>No results have been declared yet. Winners will be recorded here permanently.</Empty>

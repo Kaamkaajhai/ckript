@@ -50,9 +50,12 @@ const WinnerCard = ({ person, award, competitionName, year }) => {
         <p className="mt-1.5 line-clamp-3 text-sm text-gray-600 dark:text-gray-300">{person.logline}</p>
       ) : null}
 
-      <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
-        {competitionName}{year ? ` · ${year}` : ""}
-      </p>
+      {/* Omitted when the card sits under a competition heading that already says this. */}
+      {competitionName ? (
+        <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+          {competitionName}{year ? ` · ${year}` : ""}
+        </p>
+      ) : null}
     </Link>
   );
 };
