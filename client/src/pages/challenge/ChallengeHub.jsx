@@ -6,6 +6,7 @@ import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import CompetitionCard from "../../components/competition/CompetitionCard";
+import EntryCard from "../../components/competition/EntryCard";
 import { Card } from "../../components/competition/ui";
 
 /**
@@ -59,6 +60,7 @@ const ChallengeHub = () => {
   const [list, setList] = useState({ live: [], upcoming: [], past: [], serverNow: null });
   const [archive, setArchive] = useState([]);
   const [mine, setMine] = useState([]);
+  const [mineServerNow, setMineServerNow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -92,7 +94,11 @@ const ChallengeHub = () => {
     if (!user) { setMine([]); return undefined; }
     let cancelled = false;
     api.get("/competitions/mine")
-      .then(({ data }) => { if (!cancelled) setMine(data?.items || data?.competitions || []); })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setMine(data?.items || []);
+        setMineServerNow(data?.serverNow || null);
+      })
       .catch(() => { if (!cancelled) setMine([]); });
     return () => { cancelled = true; };
   }, [user]);
@@ -219,16 +225,11 @@ const ChallengeHub = () => {
                 </div>
               </Card>
             ) : mine.length ? (
-              <>
-                <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-                  You have entered {mine.length} challenge{mine.length === 1 ? "" : "s"}.
-                </p>
-                <p>
-                  <Link to="/my-competitions" className="text-sm font-medium text-[#D14D37] hover:underline">
-                    Open My Competitions for your timeline and certificates
-                  </Link>
-                </p>
-              </>
+              <div className="space-y-6">
+                {mine.map((item) => (
+                  <EntryCard key={item.entry?._id || item.competition?._id} item={item} serverNow={mineServerNow} />
+                ))}
+              </div>
             ) : (
               <Empty>You have not entered a challenge yet. Pick one from Live to get started.</Empty>
             )
