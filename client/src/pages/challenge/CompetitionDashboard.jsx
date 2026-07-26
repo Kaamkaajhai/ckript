@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Home, CalendarDays, Trophy, Users, BookOpen, PenLine,
   Lock, Copy, Check, CheckCircle2, AlertCircle, ExternalLink,
@@ -117,7 +117,12 @@ const AIResults = ({ ai }) => {
 const CompetitionDashboard = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
-  const { competition, entry, phase, timeline, results, referrals, referralCode, serverNow, loading, refresh } = useCompetition();
+  // One route serves every competition, so the one being looked at travels in `?c=` from whichever
+  // page linked here. Resolving "the active competition" instead would show a writer the wrong
+  // event's clock, theme and entry — and their own is the one with a deadline.
+  const [searchParams] = useSearchParams();
+  const slug = searchParams.get("c") || "";
+  const { competition, entry, phase, timeline, results, referrals, referralCode, serverNow, loading, refresh } = useCompetition({ slug });
   const [section, setSection] = useState("home");
   const [copied, setCopied] = useState(false);
   const [opening, setOpening] = useState(false);

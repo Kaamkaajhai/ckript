@@ -170,8 +170,15 @@ const EntryCard = ({ item, serverNow }) => {
           {open ? "Hide" : "Show"} timeline
           <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
+        {/* Name the competition. This card lists entries across several challenges, so a bare
+            /challenge/dashboard would resolve "the active one" — which is rarely the one whose card
+            was just clicked. /mine already populates the slug. */}
         {phase !== "results" ? (
-          <Link to="/challenge/dashboard" className="ckc-link" style={{ fontSize: 14 }}>
+          <Link
+            to={competition?.slug ? `/challenge/dashboard?c=${competition.slug}` : "/challenge/dashboard"}
+            className="ckc-link"
+            style={{ fontSize: 14 }}
+          >
             Open competition dashboard
           </Link>
         ) : null}

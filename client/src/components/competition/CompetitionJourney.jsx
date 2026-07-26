@@ -17,7 +17,12 @@ const CompetitionJourney = ({ steps = [] }) => {
   if (!steps.length) return null;
 
   const doneCount = steps.filter((s) => s.status === "done").length;
-  const pct = Math.round((doneCount / steps.length) * 100);
+  // The fill has to stop AT the last completed marker, and the markers are not evenly spaced from
+  // the left edge — each sits at the centre of its own equal column, at (i + 0.5) / n. Measuring the
+  // bar as doneCount / n instead meant it never lined up with the step it was reporting (4 of 9 drew
+  // to 44.4% while that marker sits at 38.9%) and at full completion it ran clean past the last one.
+  // Clamped so an untouched journey draws no bar at all rather than a negative width.
+  const pct = Math.max(0, ((doneCount - 0.5) / steps.length) * 100);
 
   return (
     <div>

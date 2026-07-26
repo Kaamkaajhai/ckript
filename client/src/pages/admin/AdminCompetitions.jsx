@@ -479,6 +479,18 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
 
 // ── Entries + declare results ───────────────────────────────────────────────
 
+// An AI run claims an entry by stamping ai.startedAt, and hands the claim back (startedAt → null)
+// whenever it records an error — so a run that died mid-flight, in a deploy or a crash, leaves
+// startedAt set with no error, no logline and no processedAt. That looks exactly like an entry
+// nothing has touched yet, which is why the AI cell used to show it as "—" and offer no way out:
+// the entry then reached declare-results with an empty logline. The server will retake a claim only
+// once it is older than its own stale window, so a run younger than that is reported as still in
+// flight rather than offered a retry that would silently do nothing.
+const AI_STALE_RUN_MS = 15 * 60_000; // keep in step with STALE_RUN_MS in server/controllers/competitionAI.js
+const aiRunStalled = (ai) =>
+  Boolean(ai?.startedAt) && !ai?.processedAt && Date.now() - new Date(ai.startedAt).getTime() >= AI_STALE_RUN_MS;
+const aiRunInFlight = (ai) => Boolean(ai?.startedAt) && !ai?.processedAt && !aiRunStalled(ai);
+
 function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
   const [state, setState] = useState({ entries: [], phase: null, competition: null, loading: true });
   const [error, setError] = useState("");
@@ -679,9 +691,12 @@ function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
                     {entry.snapshot?.pageCount || 0} / {entry.snapshot?.wordCount || 0}
                   </td>
                   <td className="px-3 py-3 max-w-[280px]">
-                    {entry.ai?.error ? (
+                    {entry.ai?.error || aiRunStalled(entry.ai) ? (
                       <div>
-                        <p className="text-xs text-red-500">{entry.ai.error}</p>
+                        <p className="text-xs text-red-500">
+                          {entry.ai?.error
+                            || `Stalled — started ${new Date(entry.ai.startedAt).toLocaleString()} and never finished.`}
+                        </p>
                         <button
                           type="button"
                           onClick={() => retryAI(entry._id)}
@@ -691,6 +706,10 @@ function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
                           {retrying === entry._id ? "Retrying…" : "Retry AI"}
                         </button>
                       </div>
+                    ) : aiRunInFlight(entry.ai) ? (
+                      <span className={`text-xs ${cls.body(dark)}`}>
+                        Running since {new Date(entry.ai.startedAt).toLocaleTimeString()}…
+                      </span>
                     ) : entry.ai?.logline ? (
                       <div>
                         <p className={`text-xs ${cls.body(dark)} ${expanded[entry._id] ? "" : "line-clamp-2"}`}>{entry.ai.logline}</p>

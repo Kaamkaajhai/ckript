@@ -66,6 +66,13 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
   const countdown = isArchive ? null : countdownFor(item);
   // Only a competition you can act on right now gets the accent band and the pulsing dot.
   const isRunning = item.phase === "live" || item.phase === "registration_open";
+  // The counts are NOT guaranteed on an archive card. The hub's "past" bucket also holds
+  // competitions still being judged, and those have no record in /competitions/completed to merge
+  // stats in from — so the footer printed a bare " entrants" / " countries" with the number missing.
+  // Tested for presence rather than truthiness: a competition that genuinely had no entrants should
+  // still be able to say "0 entrants".
+  const hasEntrantCount = Number.isFinite(item.totalParticipants);
+  const hasCountryCount = Number.isFinite(item.countriesRepresented);
 
   return (
     <Link to={href} className={`ckc-card ${isRunning ? "ckc-live" : ""}`}>
@@ -137,14 +144,18 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
           </div>
         ) : null}
 
-        {isArchive ? (
+        {isArchive && (hasEntrantCount || hasCountryCount) ? (
           <div className="mt-4 flex gap-5">
-            <span className="ckc-meta inline-flex items-center gap-1.5">
-              <Users className="h-3 w-3" aria-hidden="true" /> {item.totalParticipants} entrants
-            </span>
-            <span className="ckc-meta inline-flex items-center gap-1.5">
-              <Globe className="h-3 w-3" aria-hidden="true" /> {item.countriesRepresented} countries
-            </span>
+            {hasEntrantCount ? (
+              <span className="ckc-meta inline-flex items-center gap-1.5">
+                <Users className="h-3 w-3" aria-hidden="true" /> {item.totalParticipants} entrants
+              </span>
+            ) : null}
+            {hasCountryCount ? (
+              <span className="ckc-meta inline-flex items-center gap-1.5">
+                <Globe className="h-3 w-3" aria-hidden="true" /> {item.countriesRepresented} countries
+              </span>
+            ) : null}
           </div>
         ) : null}
       </div>

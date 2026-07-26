@@ -67,10 +67,16 @@ const CreateProject = () => {
   // Competition mode: the same editor, but with the publish wizard replaced by a deadline and a
   // one-way Submit. Signalled by the ?ctx=competition the challenge dashboard navigates with.
   const competitionMode = new URLSearchParams(location.search).get("ctx") === "competition";
+  // Which competition this script belongs to, read off the script itself when it loads. The editor
+  // must NOT fall back to "the active competition" here: if another edition is the active one, the
+  // bar names it, the countdown runs to its deadline, and Submit posts to it — so the writer is
+  // racing the wrong clock and then cannot submit at all, because that is not the competition they
+  // are registered and writing in.
+  const [scriptCompetitionId, setScriptCompetitionId] = useState("");
   const {
     competition, entry: competitionEntry, phase: competitionPhase,
     serverNow: competitionServerNow, refresh: refreshCompetition,
-  } = useCompetition({ enabled: competitionMode });
+  } = useCompetition({ enabled: competitionMode, id: scriptCompetitionId });
   const agreementRef = useRef(null);
   const reviewRedirectTimerRef = useRef(null);
 
@@ -539,6 +545,9 @@ const CreateProject = () => {
         setCanComment(isOwnerOfScript || ["editor", "full_admin", "merger", "commenter"].includes(role));
       }
       setLoadedScriptStatus(data.status || "draft");
+      // Persisted when the entry's editor was opened, so it survives a reload and a fresh session —
+      // this is what tells competition mode which competition it is in.
+      setScriptCompetitionId(String(data.competitionId?._id || data.competitionId || ""));
       setEditApprovalLocked(Boolean(isEditApprovalPending));
       setPurchasedServiceCredits(purchasedFromHistory);
       if (isEditApprovalPending) {
@@ -741,28 +750,36 @@ const CreateProject = () => {
     return true;
   }, [buildDraftPayload, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
 
-  // Save draft
+  // Save draft.
+  //
+  // Answers one question for the caller: is the server now holding what is in the editor? Every path
+  // used to return undefined — including the handful of early exits that skip the save outright and
+  // the catch that swallows a failed request — so anyone awaiting this could not tell a completed
+  // save from one that never happened. The competition submit modal awaits it to push the writer's
+  // last keystrokes before the server freezes its judging snapshot and locks the script, and its
+  // failure guard was therefore dead code. Note that "there was nothing worth saving" answers true:
+  // an empty draft must never block a submit. Callers that ignore the value are unaffected.
   const handleSave = useCallback(async (auto = false) => {
-    if (!editor) return;
-    if (discardingRef.current) return; // user chose to discard on exit — don't resurrect the draft
+    if (!editor) return false;
+    if (discardingRef.current) return false; // user chose to discard on exit — don't resurrect the draft
     // At the plan limit on a NEW script: don't even attempt the save — it would 402 and surface a
     // second (red) limit banner on top of the upfront amber gate.
-    if (creationBlockedRef.current) return;
-    if (auto && autoSaveInFlightRef.current) return;
+    if (creationBlockedRef.current) return false;
+    if (auto && autoSaveInFlightRef.current) return false;
     // A hard server rejection (plan limit / not authorized) latched the save off — don't keep the
     // autosave loop firing the same doomed request every few seconds. A manual click still retries
     // (clears the latch first), and any real edit clears it via handleScreenplayChange/TipTap onChange.
-    if (auto && saveBlockedRef.current) return;
+    if (auto && saveBlockedRef.current) return false;
     if (!auto) saveBlockedRef.current = false;
     if (scriptId && loadedScriptStatus !== "draft") {
       if (editApprovalLocked && !auto) {
         setError("This script edit is already in admin review. You can edit again after approval or rejection.");
       }
-      return;
+      return false;
     }
 
     const payload = buildDraftPayload();
-    if (!hasMeaningfulDraft(payload)) return;
+    if (!hasMeaningfulDraft(payload)) return true;
     // Attach the latest known draft id from the ref (beats a stale closure) so this save UPDATES the
     // existing draft instead of creating a duplicate.
     if (scriptIdRef.current && !payload.scriptId) payload.scriptId = scriptIdRef.current;
@@ -770,7 +787,7 @@ const CreateProject = () => {
     const signature = getDraftSignature(payload);
     if (auto && signature === lastDraftSignatureRef.current) {
       setSaved(true);
-      return;
+      return true;
     }
 
     if (auto) {
@@ -793,6 +810,7 @@ const CreateProject = () => {
       lastDraftSignatureRef.current = signature;
       saveBlockedRef.current = false;
       if (!auto) fetchDrafts();
+      return true;
     } catch (err) {
       console.error("Save failed:", err);
       const status = err?.response?.status;
@@ -804,6 +822,7 @@ const CreateProject = () => {
       } else if (!auto) {
         setError(err?.response?.data?.message || "Couldn't save your project. Please try again.");
       }
+      return false;
     } finally {
       if (auto) {
         autoSaveInFlightRef.current = false;

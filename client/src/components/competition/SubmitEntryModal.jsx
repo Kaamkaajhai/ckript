@@ -11,9 +11,14 @@ import { SUBMIT_CHECKLIST } from "../../pages/challenge/constants";
  * makes the writer tick both statements before the button turns on — and then shows what happens
  * next rather than dumping them back into an editor they can no longer use.
  */
-export default function SubmitEntryModal({ competitionId, competitionName, onClose, onSubmitted, serverNow, flushDraft }) {
+export default function SubmitEntryModal({ competitionId, competitionName, competitionSlug, onClose, onSubmitted, serverNow, flushDraft }) {
   const { isDarkMode: dark } = useDarkMode();
   const navigate = useNavigate();
+
+  // The dashboard is one route for every competition and resolves the active one when nothing names
+  // it — so a writer who has just submitted to a competition that is no longer the active one would
+  // be walked away from the entry they were looking at. Send them back to THIS one.
+  const dashboardPath = competitionSlug ? `/challenge/dashboard?c=${competitionSlug}` : "/challenge/dashboard";
 
   const [checks, setChecks] = useState({ confirmOriginal: false, confirmFinal: false });
   const [loading, setLoading] = useState(false);
@@ -34,10 +39,19 @@ export default function SubmitEntryModal({ competitionId, competitionName, onClo
       // Flush any unsaved keystrokes FIRST. Autosave is throttled, so a writer typing right up to
       // the buzzer can have seconds of work still only in the editor — and the server snapshots
       // whatever is stored, then locks the script. Without this, their last lines are lost for good.
+      // The guard below used to watch only for a throw, and the save never throws — it catches its
+      // own errors and returns early without saving in several cases besides — so awaiting it proved
+      // nothing and a failed flush submitted whatever the throttled autosave happened to have stored.
+      // The save now reports whether the server is holding the current draft. Only an explicit false
+      // stops the submit: a flushDraft that reports nothing at all still gets the writer through.
       if (flushDraft) {
+        let flushed;
         try {
-          await flushDraft();
+          flushed = await flushDraft();
         } catch {
+          flushed = false;
+        }
+        if (flushed === false) {
           setError("Could not save your latest changes. Check your connection and try again.");
           setLoading(false);
           return;
@@ -128,7 +142,7 @@ export default function SubmitEntryModal({ competitionId, competitionName, onClo
           {result ? (
             <button
               type="button"
-              onClick={() => navigate("/challenge/dashboard")}
+              onClick={() => navigate(dashboardPath)}
               className="rounded-lg bg-[#D14D37] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#b8402d]"
             >
               Back to Dashboard

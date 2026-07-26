@@ -162,7 +162,15 @@ const CompetitionLanding = () => {
   // once the results are out. So a concluded competition shows its highlights instead: the theme,
   // who won, and the numbers. Same URL, because the hub links here and the challenge page should be
   // the destination rather than a signpost to another section.
-  if (phase === "results") {
+  //
+  // A HIDDEN competition is the exception, and handing it to the record was how it broke. Hidden
+  // means "never discovered, reachable only by its direct link" — which is the one link its entrants
+  // have — but the Hall of Fame endpoint the record loads from excludes hidden by design. So the
+  // moment such a competition's results were declared, its own page 404'd and told the people who
+  // had just written for it that it does not exist. Nothing needs fetching to avoid that: the
+  // /active payload this page is already holding carries both the competition and its results, and
+  // the Results section further down renders them.
+  if (phase === "results" && competition?.visibility !== "hidden") {
     return <CompetitionRecord />;
   }
 
@@ -188,10 +196,17 @@ const CompetitionLanding = () => {
   const { target, label } = countdownTargetFor(phase, competition.dates);
   const oneLiner = String(competition.overview || "").split(/(?<=[.!?])\s/)[0] || "";
 
+  // Register and the dashboard are single routes shared by every competition, so they only know
+  // which one you came from if we tell them. A bare /challenge/register sends the visitor to
+  // whatever competition is active — not necessarily the one whose page they are standing on.
+  const here = competition.slug || slug || "";
+  const registerPath = here ? `/challenge/register?c=${here}` : "/challenge/register";
+  const dashboardPath = here ? `/challenge/dashboard?c=${here}` : "/challenge/dashboard";
+
   // The CTA is the same in the hero and the sticky bar, so registration state can never look
   // different in two places on one screen.
   const cta = (() => {
-    if (entry) return { label: "Open Dashboard", onClick: () => navigate("/challenge/dashboard"), disabled: false };
+    if (entry) return { label: "Open Dashboard", onClick: () => navigate(dashboardPath), disabled: false };
     if (phase === "registration_open") {
       return {
         label: "Register Now",
@@ -199,8 +214,8 @@ const CompetitionLanding = () => {
         // route is a <Navigate to="/"> that drops its query string, so a ?next= link would strand
         // them on the homepage having forgotten why they came.
         onClick: () => (user
-          ? navigate("/challenge/register")
-          : openAuthModal({ redirect: "/challenge/register" })),
+          ? navigate(registerPath)
+          : openAuthModal({ redirect: registerPath })),
         disabled: false,
       };
     }

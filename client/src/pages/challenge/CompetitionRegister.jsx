@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Copy, Check } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useDarkMode } from "../../context/DarkModeContext";
@@ -44,7 +44,17 @@ const CompetitionRegister = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
   const { isDarkMode } = useDarkMode();
-  const { competition, entry, phase, timeline, serverNow, loading } = useCompetition({ poll: false });
+  // This page has no slug of its own — it is one route for every competition — so the competition
+  // it belongs to travels in `?c=`, put there by whichever page sent us here. Without it we resolve
+  // "the active one", which is how you end up registering for a competition you never opened.
+  const [searchParams] = useSearchParams();
+  const slug = searchParams.get("c") || "";
+  const { competition, entry, phase, timeline, serverNow, loading } = useCompetition({ poll: false, slug });
+
+  // Every hop onward carries the competition with it, for the same reason.
+  const dashboardPath = competition?.slug
+    ? `/challenge/dashboard?c=${competition.slug}`
+    : (slug ? `/challenge/dashboard?c=${slug}` : "/challenge/dashboard");
 
   const [form, setForm] = useState({ country: "", language: "", genres: [], experienceLevel: "", portfolioUrl: "" });
   const [acceptRules, setAcceptRules] = useState(false);
@@ -60,9 +70,9 @@ const CompetitionRegister = () => {
   useEffect(() => {
     if (loading || created) return;
     if (!competition) navigate("/challenge", { replace: true });
-    else if (entry) navigate("/challenge/dashboard", { replace: true });
+    else if (entry) navigate(dashboardPath, { replace: true });
     else if (phase !== "registration_open") navigate("/challenge", { replace: true });
-  }, [loading, competition, entry, phase, created, navigate]);
+  }, [loading, competition, entry, phase, created, navigate, dashboardPath]);
 
   const set = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -159,7 +169,7 @@ const CompetitionRegister = () => {
 
             <button
               type="button"
-              onClick={() => navigate("/challenge/dashboard")}
+              onClick={() => navigate(dashboardPath)}
               className="ckc-btn mt-8"
             >
               Go to my dashboard

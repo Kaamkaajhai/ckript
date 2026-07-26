@@ -41,11 +41,24 @@ export const runEntryAIProcessing = async (entryId) => {
   );
   if (!claim) return entry;   // another run holds it
 
+  // Write ONLY the ai fields, and never touch `status` if the entry has moved on. This function holds
+  // an in-memory document loaded minutes ago; a model call can outlive a declare, and `entry.save()`
+  // would then write the whole stale document back — reverting a `judged` entry to `ai_processed` and
+  // silently dropping it out of the public competition history.
+  const persist = async (fields) => {
+    await CompetitionEntry.updateOne({ _id: entry._id }, { $set: fields });
+    return CompetitionEntry.findById(entry._id);
+  };
+
   const source = entry.snapshot?.fountainContent || entry.snapshot?.textContent || "";
   if (!source.trim()) {
-    entry.ai.error = "No submitted content to analyse.";
-    await entry.save();
-    return entry;
+    // This exit used to `entry.save()` the copy loaded BEFORE the claim, which is precisely the
+    // whole-document write the helper above exists to prevent — it could carry status, result and
+    // rewardsGranted back to their pre-claim values and drop a judged entry out of the public
+    // history. It also walked away still holding the claim, so the admin's Retry did nothing for the
+    // next fifteen minutes. Record the error and hand the claim back the way the error path below
+    // does, through a targeted update.
+    return persist({ "ai.error": "No submitted content to analyse.", "ai.startedAt": null });
   }
 
   // Each half is attempted independently: a model hiccup on the evaluation should not cost the
@@ -99,15 +112,6 @@ export const runEntryAIProcessing = async (entryId) => {
       errors.push(`Evaluation: ${error.message}`);
     }
   }
-
-  // Write ONLY the ai fields, and never touch `status` if the entry has moved on. This function holds
-  // an in-memory document loaded minutes ago; a model call can outlive a declare, and `entry.save()`
-  // would then write the whole stale document back — reverting a `judged` entry to `ai_processed` and
-  // silently dropping it out of the public competition history.
-  const persist = async (fields) => {
-    await CompetitionEntry.updateOne({ _id: entry._id }, { $set: fields });
-    return CompetitionEntry.findById(entry._id);
-  };
 
   if (errors.length) {
     // Partial success still counts as processed only if BOTH halves landed; otherwise the admin gets

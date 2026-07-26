@@ -114,6 +114,7 @@ export default function CompetitionBar() {
         <SubmitEntryModal
           competitionId={competition._id}
           competitionName={competition.name}
+          competitionSlug={competition.slug}
           serverNow={competitionServerNow}
           // A manual save, awaited, so the snapshot the server freezes includes the writer's very
           // last keystrokes rather than whatever the throttled autosave happened to have sent.

@@ -7,6 +7,7 @@ import { createNotification, sendEmailNotification } from "../utils/notify.js";
 import { getCompetitionPhase } from "../utils/competitionPhase.js";
 import { runEntryAIProcessing } from "./competitionAI.js";
 import { getReferralProgress, tiersFor, referralWindow } from "../utils/competitionReferrals.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 
 // Reward definitions. Mirrors WRITER_GOLD_MODEL / WRITER_SILVER_MODEL in paymentController.js — a
 // prize subscription must land the account in exactly the state a paid one would, or entitlement
@@ -109,6 +110,19 @@ const validateDates = (dates = {}) => {
   return null;
 };
 
+// Normalise a date down to a comparable instant. Missing, blank and unreadable all collapse to the
+// same null, so "no results date" reads identically whether the editor dropped the key or sent "".
+const instant = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? null : ms;
+};
+
+// Whether an incoming `dates` patch actually moves the schedule. Only the keys the patch carries are
+// compared: an omitted key keeps its stored value under the merge below, so it can never be a change.
+const scheduleMoved = (stored = {}, incoming = {}) =>
+  Object.keys(incoming).some((key) => instant(incoming[key]) !== instant(stored[key]));
+
 // Whitelist of admin-editable fields. Anything missing here is SILENTLY dropped from an update —
 // add new editable fields to this list or the admin will save and see no error and no change.
 const CONTENT_FIELDS = [
@@ -177,14 +191,21 @@ export const adminUpdateCompetition = async (req, res) => {
 
     const { dates, ...rest } = req.body || {};
     if (dates !== undefined) {
+      const storedDates = competition.dates.toObject();
       // Dates stay editable right up until results are declared — the phase is derived, so a
       // correction propagates to every screen at once. After declaration the record is history.
-      if (competition.resultsDeclaredAt) {
+      //
+      // But carrying a `dates` key is not the same as changing the schedule. The admin editor
+      // rebuilds its entire payload from the populated form on every save, so `dates` is always
+      // present; testing for the key alone locked a declared competition down completely, rejecting
+      // banner, judge, sponsor, prize-pool, overview and FAQ edits with a 409 that talked about the
+      // schedule. Compare the instants and only refuse when one of them has genuinely moved.
+      if (competition.resultsDeclaredAt && scheduleMoved(storedDates, dates)) {
         return res.status(409).json({ message: "Results are declared — the schedule can no longer be changed." });
       }
-      const dateError = validateDates({ ...competition.dates.toObject(), ...dates });
+      const dateError = validateDates({ ...storedDates, ...dates });
       if (dateError) return res.status(400).json({ message: dateError });
-      competition.dates = { ...competition.dates.toObject(), ...dates };
+      competition.dates = { ...storedDates, ...dates };
     }
 
     const incoming = normalizeContent({ ...rest });
@@ -410,7 +431,10 @@ const notifyEntry = async (entry, competitionName, message, subject) => {
   await sendEmailNotification({
     to: user.email,
     subject,
-    html: `<p>Hi ${user.name || "there"},</p><p>${message}</p>`,
+    // Both halves are free text somebody typed — the writer's display name, and a message carrying
+    // the competition name and the admin's special-award title — so neither can go into HTML raw.
+    // Subject and text are not HTML; escaping those would just show the entities to the reader.
+    html: `<p>Hi ${escapeHtml(user.name || "there")},</p><p>${escapeHtml(message)}</p>`,
     text: message,
   }).catch(() => { /* email is best-effort */ });
 };
@@ -558,7 +582,11 @@ export const adminDeclareResults = async (req, res) => {
 
       const tier = referralTiers.find((t) => t.id === progress.earned.id);
       if (!tier) continue;   // tier was renamed or removed after this entry qualified
-      await grantOnce(entry, `referral_${tier.id}`, async () => {
+      // grantOnce answers whether it actually granted; that answer was being thrown away and the
+      // counter bumped regardless. A retried declare re-walks every entry and finds each reward
+      // already in the ledger, so it granted nothing and still reported a full set of referral
+      // rewards to the admin. Count the grants, not the entries that qualify.
+      const grantedReferral = await grantOnce(entry, `referral_${tier.id}`, async () => {
         await awardBadge(entry.userId, { id: tier.id, label: tier.label }, competition._id);
         if (tier.days > 0) {
           const user = await User.findById(entry.userId).select("subscription");
@@ -571,7 +599,7 @@ export const adminDeclareResults = async (req, res) => {
           await User.updateOne({ _id: entry.userId }, { $set: grant });
         }
       });
-      counts.referralRewards = (counts.referralRewards || 0) + 1;
+      if (grantedReferral) counts.referralRewards = (counts.referralRewards || 0) + 1;
       await entry.save();
     }
 

@@ -13,6 +13,7 @@ import {
   referralWindow,
 } from "../utils/competitionReferrals.js";
 import { countPages } from "../utils/paginate.js";
+import { escapeHtml } from "../utils/escapeHtml.js";
 import { isKnownCountry } from "../utils/countries.js";
 import { classifyText } from "../utils/classify.js";
 import {
@@ -37,13 +38,21 @@ const publicCompetition = (competition, phase) => {
   return obj;
 };
 
+// Which of the competitions already under way the public page belongs to, lowest tier first. A
+// writing window in progress owns the page outright — that is the one moment the whole event is
+// about. Then the ones still open, which is where a visitor can actually do something. A competition
+// past its deadline but not yet declared (`judging`) is last: nothing can be entered or submitted in
+// it, but it is still in flight, so it beats an edition that has not opened at all.
+const ACTIVE_TIER = { live: 0, registration_open: 1, registration_closed: 1, judging: 2 };
+
 /**
  * The one competition the public page shows.
  *
  * "Latest startsAt" alone was wrong: announcing next year's edition while this weekend's is still
  * running would hijack /active, hiding the live theme and the countdown from everyone mid-competition.
- * So prefer a competition whose window has actually opened and not yet been declared — newest first —
- * and only fall back to the soonest upcoming one when nothing is currently in flight.
+ * So prefer a competition whose window has actually opened and not yet been declared — the most
+ * urgent one by phase, see ACTIVE_TIER — and only fall back to the soonest upcoming one when nothing
+ * is currently in flight.
  */
 const findActiveCompetition = async () => {
   const now = new Date();
@@ -51,12 +60,33 @@ const findActiveCompetition = async () => {
   // over the public landing page. It stays fully usable for anyone holding its direct link.
   const discoverable = { lifecycle: "published", visibility: { $ne: "hidden" } };
 
-  const current = await Competition.findOne({
+  // Everything already under way: registration has opened and results are not declared yet.
+  //
+  // Sorting this set by startsAt was the very hijack the comment above says it prevents. Announcing
+  // next year's edition opens ITS registration, and its later startsAt then outranked the
+  // competition running right now — so mid-event /active swapped to the next edition and took the
+  // live theme and countdown off the page with it. Rank by the real phase instead: derived here from
+  // getCompetitionPhase rather than re-expressed as date comparisons, so this ordering cannot drift
+  // away from the phase definitions everything else renders from.
+  const openNow = await Competition.find({
     ...discoverable,
     resultsDeclaredAt: null,
     "dates.regOpensAt": { $lte: now },
-  }).sort({ "dates.startsAt": -1 });
-  if (current) return current;
+  });
+  if (openNow.length) {
+    const ranked = openNow.map((competition) => ({
+      competition,
+      tier: ACTIVE_TIER[getCompetitionPhase(competition, now)] ?? ACTIVE_TIER.registration_open,
+      endsAt: new Date(competition.dates?.endsAt || 0).getTime(),
+    }));
+    ranked.sort((a, b) => (
+      a.tier - b.tier
+      // Within a tier, whichever is closest to its own deadline: the soonest still ahead, or for a
+      // finished edition the one that ended most recently.
+      || (a.tier === ACTIVE_TIER.judging ? b.endsAt - a.endsAt : a.endsAt - b.endsAt)
+    ));
+    return ranked[0].competition;
+  }
 
   // Nothing open yet — show the next one due to open.
   const upcoming = await Competition.findOne({
@@ -70,9 +100,28 @@ const findActiveCompetition = async () => {
   return Competition.findOne(discoverable).sort({ "dates.startsAt": -1 });
 };
 
-const loadPublishedById = async (id) => {
+/**
+ * Load a competition for a READ path — its record page, an entrant's dashboard, a certificate.
+ *
+ * Archiving retires a competition from the live surface; it does not erase it. The Hall of Fame
+ * already says so (HALL_OF_FAME_FILTER admits everything that is not a draft), but this loader
+ * excluded archived, so archiving a finished competition 404'd its own page and every entrant's
+ * certificate download — records that are supposed to be permanent. Draft is the one lifecycle
+ * nothing public may reach.
+ */
+const loadCompetitionById = async (id) => {
   if (!mongoose.isValidObjectId(id)) return null;
-  return Competition.findOne({ _id: id, lifecycle: { $ne: "archived" } });
+  return Competition.findOne({ _id: id, lifecycle: { $ne: "draft" } });
+};
+
+/**
+ * Load a competition for a path that means "this competition is open for business" — registering,
+ * writing, submitting. These require `published`: an archived edition is a record, not a venue, and
+ * its dates may still read as live.
+ */
+const loadOpenCompetitionById = async (id) => {
+  if (!mongoose.isValidObjectId(id)) return null;
+  return Competition.findOne({ _id: id, lifecycle: "published" });
 };
 
 const countWords = (text = "") => String(text).trim().split(/\s+/).filter(Boolean).length;
@@ -331,9 +380,12 @@ export const getActiveCompetition = async (req, res) => {
     // `?c=<slug>` targets one competition explicitly. This is how a hidden (internal / university /
     // sponsor-exclusive) competition is reached: it is excluded from discovery, so without this its
     // own entrants could never load it. Draft competitions stay unreachable either way.
+    // Archived is admitted here for the same reason it is admitted by id: `?c=<slug>` is how a
+    // FINISHED competition's own page is opened, and retiring it from discovery must not turn its
+    // permanent record into a 404.
     const requestedSlug = String(req.query.c || "").trim().toLowerCase();
     const competition = requestedSlug
-      ? await Competition.findOne({ slug: requestedSlug, lifecycle: "published" })
+      ? await Competition.findOne({ slug: requestedSlug, lifecycle: { $ne: "draft" } })
       : await findActiveCompetition();
     if (!competition) return res.status(404).json({ message: "No active competition" });
 
@@ -357,10 +409,8 @@ export const getActiveCompetition = async (req, res) => {
 // POST /api/competitions/:id/register  (protect)
 export const registerForCompetition = async (req, res) => {
   try {
-    const competition = await loadPublishedById(req.params.id);
-    if (!competition || competition.lifecycle !== "published") {
-      return res.status(404).json({ message: "Competition not found." });
-    }
+    const competition = await loadOpenCompetitionById(req.params.id);
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     // Entering means writing a script, so the same rule that governs authoring applies here. Caught
     // at registration rather than at the first keystroke: letting a reader or investor register and
@@ -451,11 +501,15 @@ export const registerForCompetition = async (req, res) => {
     });
     sendEmailNotification({
       to: req.user.email,
+      // Every value in the HTML body goes through escapeHtml. A display name or a competition name is
+      // free text, and this template concatenates strings — nothing else escapes for us, so a name
+      // containing a tag was being mailed as live markup. The plain-text body and the subject are not
+      // HTML and are deliberately left alone.
       subject: `You're in — ${competition.name}`,
-      html: `<p>Hi ${req.user.name || "there"},</p>
-        <p>You're registered for <strong>${competition.name}</strong>.</p>
-        <p>Your Event ID is <strong>${entry.eventId}</strong>.</p>
-        <p>The competition starts ${new Date(competition.dates.startsAt).toUTCString()} — the theme is revealed then, and you'll have 48 hours to write.</p>`,
+      html: `<p>Hi ${escapeHtml(req.user.name || "there")},</p>
+        <p>You're registered for <strong>${escapeHtml(competition.name)}</strong>.</p>
+        <p>Your Event ID is <strong>${escapeHtml(entry.eventId)}</strong>.</p>
+        <p>The competition starts ${escapeHtml(new Date(competition.dates.startsAt).toUTCString())} — the theme is revealed then, and you'll have 48 hours to write.</p>`,
       text: `You're registered for ${competition.name}. Event ID ${entry.eventId}. Starts ${new Date(competition.dates.startsAt).toUTCString()}.`,
     }).catch(() => { /* email is best-effort; registration already succeeded */ });
 
@@ -469,7 +523,7 @@ export const registerForCompetition = async (req, res) => {
 // GET /api/competitions/:id/me  (protect) — the single payload the dashboard renders from
 export const getMyEntry = async (req, res) => {
   try {
-    const competition = await loadPublishedById(req.params.id);
+    const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     const entry = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
@@ -497,7 +551,7 @@ export const getMyEntry = async (req, res) => {
 // POST /api/competitions/:id/open-editor  (protect)
 export const openCompetitionEditor = async (req, res) => {
   try {
-    const competition = await loadPublishedById(req.params.id);
+    const competition = await loadOpenCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     // Belt-and-braces: this endpoint creates a Script directly, so it must not be a way around the
@@ -536,17 +590,35 @@ export const openCompetitionEditor = async (req, res) => {
     // the loser's script stays orphaned, but its id was already returned to that tab, so the writer
     // could spend the whole window writing into a script the entry no longer points at — and then be
     // told their submission is empty. The filter makes exactly one caller the winner.
-    const claimed = await CompetitionEntry.findOneAndUpdate(
-      { _id: entry._id, $or: [{ scriptId: null }, { scriptId: { $exists: false } }] },
-      { $set: { scriptId: script._id, status: "writing" } },
-      { new: true },
-    );
+    const claimFilter = { _id: entry._id, $or: [{ scriptId: null }, { scriptId: { $exists: false } }] };
+    const claimUpdate = { $set: { scriptId: script._id, status: "writing" } };
+    let claimed = await CompetitionEntry.findOneAndUpdate(claimFilter, claimUpdate, { new: true });
+
+    // A missed claim is not automatically "someone else won" — the filter also misses if the entry
+    // has gone. The obvious handling (bin the script we just made, then read `.scriptId` off the
+    // re-read entry) assumes the race every time, and throws a TypeError on a null entry that
+    // surfaces as a 500, with the writer's only script already destroyed in the middle of the live
+    // window. Work out which case this actually is, and never bin ours unless a real one replaces it.
+    for (let attempt = 0; !claimed && attempt < 2; attempt += 1) {
+      const current = await CompetitionEntry.findById(entry._id).select("scriptId");
+      if (!current) {
+        // The entry itself is gone, so nothing will ever point at the script we made.
+        await Script.deleteOne({ _id: script._id });
+        return res.status(404).json({ message: "You are not registered for this competition." });
+      }
+      if (current.scriptId) {
+        // The race the atomic claim exists for: hand back the winner's script and bin ours.
+        await Script.deleteOne({ _id: script._id });
+        return res.json({ scriptId: String(current.scriptId) });
+      }
+      // Still unclaimed, so nobody beat us to it. Try again with the script we already have rather
+      // than leaving the writer with nothing to write in.
+      claimed = await CompetitionEntry.findOneAndUpdate(claimFilter, claimUpdate, { new: true });
+    }
 
     if (!claimed) {
-      // Someone else claimed it first — bin the script we just made and hand back the real one.
       await Script.deleteOne({ _id: script._id });
-      const current = await CompetitionEntry.findById(entry._id).select("scriptId");
-      return res.json({ scriptId: String(current.scriptId) });
+      return res.status(500).json({ message: "Failed to open the competition editor." });
     }
 
     return res.json({ scriptId: String(script._id) });
@@ -559,7 +631,7 @@ export const openCompetitionEditor = async (req, res) => {
 // POST /api/competitions/:id/submit  (protect)
 export const submitCompetitionEntry = async (req, res) => {
   try {
-    const competition = await loadPublishedById(req.params.id);
+    const competition = await loadOpenCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     const entry = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
@@ -629,9 +701,11 @@ export const submitCompetitionEntry = async (req, res) => {
     sendEmailNotification({
       to: req.user.email,
       subject: `Submission received — ${competition.name}`,
-      html: `<p>Hi ${req.user.name || "there"},</p>
-        <p>Your script <strong>${script.title || "Untitled"}</strong> was submitted to <strong>${competition.name}</strong>.</p>
-        <p>Submitted at ${now.toUTCString()}. Your script is now locked. We'll email you when results are announced.</p>`,
+      // As above: the script title is whatever the writer typed, so it is escaped like everything
+      // else that reaches the HTML body.
+      html: `<p>Hi ${escapeHtml(req.user.name || "there")},</p>
+        <p>Your script <strong>${escapeHtml(script.title || "Untitled")}</strong> was submitted to <strong>${escapeHtml(competition.name)}</strong>.</p>
+        <p>Submitted at ${escapeHtml(now.toUTCString())}. Your script is now locked. We'll email you when results are announced.</p>`,
       text: `Your script was submitted to ${competition.name} at ${now.toUTCString()}.`,
     }).catch(() => { /* best effort */ });
 
@@ -658,7 +732,7 @@ export const submitCompetitionEntry = async (req, res) => {
 // work was rated.
 export const getCompetitionParticipants = async (req, res) => {
   try {
-    const competition = await loadPublishedById(req.params.id);
+    const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     const mine = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id }).lean();
@@ -714,7 +788,7 @@ const sanitizePdfFileName = (value = "certificate") => {
 // certificate issued before results would be a claim about an outcome that does not exist yet.
 export const getCompetitionCertificate = async (req, res) => {
   try {
-    const competition = await loadPublishedById(req.params.id);
+    const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     const entry = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
@@ -752,7 +826,7 @@ export const getCompetitionCertificate = async (req, res) => {
 // GET /api/competitions/:id/referrals  (protect) — the signed-in user's own referral history
 export const getMyCompetitionReferrals = async (req, res) => {
   try {
-    const competition = await loadPublishedById(req.params.id);
+    const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     const [progress, referrals] = await Promise.all([
