@@ -1,5 +1,5 @@
 import { useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
@@ -99,7 +99,10 @@ const CompetitionLanding = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
   const { openAuthModal } = useAuthModal();
-  const { competition, entry, phase, timeline, results, serverNow, loading, error, refresh } = useCompetition();
+  // /challenge/c/:slug names its competition; the hook falls back to "the active one" when it is
+  // absent, which is how every pre-hub entry point still works.
+  const { slug } = useParams();
+  const { competition, entry, phase, timeline, results, serverNow, loading, error, refresh } = useCompetition({ slug });
 
   if (loading) {
     return (

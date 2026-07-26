@@ -31,12 +31,14 @@ const staticSeoRoutes = [
     kind: "homepage",
   },
   {
-    // The live competition. Public marketing surface — it was never registered here, so it was
-    // absent from the sitemap and never prerendered.
+    // The challenge hub — live, previous, Hall of Fame and your own entries. This used to be a
+    // single competition's landing page; that now lives at /challenge/c/:slug and sets its own
+    // metadata at runtime, so the wording here describes the index rather than one event.
+    // (verify-prerender.mjs only checks that a title EXISTS, so a stale one ships silently.)
     path: "/challenge",
-    title: "Ckript Global Script Challenge | 48-Hour Screenwriting Competition",
+    title: "Screenwriting Challenges | Ckript",
     description:
-      "Write a complete script in 48 hours. One theme, one weekend, one shot. Ckript's global screenwriting challenge is open to writers everywhere.",
+      "Timed screenwriting competitions from Ckript. See what is running now, browse past challenges and the Hall of Fame, and enter the next one.",
     changefreq: "daily",
     priority: "0.9",
   },

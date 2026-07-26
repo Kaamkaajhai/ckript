@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Trophy, Award, Users, Globe } from "lucide-react";
+import { Trophy } from "lucide-react";
 import publicApi from "../../services/publicApi";
-import { Card, Avatar } from "../../components/competition/ui";
-import { yearSuffix } from "../../components/competition/labels";
+import { Card } from "../../components/competition/ui";
+import CompetitionCard from "../../components/competition/CompetitionCard";
 
 /**
  * The permanent archive of every completed competition.
@@ -12,75 +12,6 @@ import { yearSuffix } from "../../components/competition/labels";
  * without an account. It is derived entirely from declared results: there is no separate Hall of
  * Fame record to keep in sync.
  */
-
-const PersonLine = ({ label, person, icon: Icon, accent }) => {
-  if (!person) return null;
-  return (
-    <div className="flex items-center gap-2.5">
-      <Avatar src={person.profileImage} name={person.name} size={32} />
-      <div className="min-w-0">
-        <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          <Icon className={`h-3 w-3 ${accent}`} aria-hidden="true" /> {label}
-        </p>
-        <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{person.name}</p>
-      </div>
-    </div>
-  );
-};
-
-const CompetitionCard = ({ item }) => (
-  <Link
-    to={`/hall-of-fame/${item.slug}`}
-    className="block rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:border-[#D14D37] hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
-  >
-    {item.bannerUrl ? (
-      <img src={item.bannerUrl} alt="" className="h-32 w-full rounded-t-2xl object-cover" />
-    ) : (
-      <div className="h-32 w-full rounded-t-2xl bg-gradient-to-br from-[#D14D37]/15 to-[#D14D37]/5" />
-    )}
-
-    <div className="p-6">
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">{item.name}</h3>
-        {yearSuffix(item.name, item.year) ? (
-          <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-700 dark:text-gray-200">
-            {item.year}
-          </span>
-        ) : null}
-      </div>
-
-      {item.theme ? (
-        <p className="mt-1 text-sm italic text-[#D14D37]">{item.theme}</p>
-      ) : null}
-
-      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-        {item.dates?.startsAt ? new Date(item.dates.startsAt).toLocaleDateString(undefined, { dateStyle: "medium" }) : ""}
-        {item.dates?.endsAt ? ` – ${new Date(item.dates.endsAt).toLocaleDateString(undefined, { dateStyle: "medium" })}` : ""}
-      </p>
-
-      {item.prizePool ? (
-        <p className="mt-3 text-sm font-medium text-gray-800 dark:text-gray-100">{item.prizePool}</p>
-      ) : null}
-
-      <div className="mt-4 space-y-2.5 border-t border-gray-100 pt-4 dark:border-gray-700">
-        <PersonLine label="Winner" person={item.winner} icon={Trophy} accent="text-amber-500" />
-        <PersonLine label="Runner-Up" person={item.runnerUp} icon={Award} accent="text-slate-400" />
-        {!item.winner && !item.runnerUp ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Results archived.</p>
-        ) : null}
-      </div>
-
-      <div className="mt-4 flex gap-4 text-xs text-gray-500 dark:text-gray-400">
-        <span className="inline-flex items-center gap-1">
-          <Users className="h-3.5 w-3.5" aria-hidden="true" /> {item.totalParticipants} participants
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Globe className="h-3.5 w-3.5" aria-hidden="true" /> {item.countriesRepresented} countries
-        </span>
-      </div>
-    </div>
-  </Link>
-);
 
 const HallOfFame = () => {
   const [items, setItems] = useState([]);

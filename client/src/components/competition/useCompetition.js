@@ -10,7 +10,7 @@ import { AuthContext } from "../../context/AuthContext";
  * page flip from "starts in 00:00:01" to the live theme without anyone pressing reload. A socket
  * would be overkill: the competition changes state a handful of times over 48 hours.
  */
-const useCompetition = ({ poll = true, enabled = true } = {}) => {
+const useCompetition = ({ poll = true, enabled = true, slug = "" } = {}) => {
   const { user } = useContext(AuthContext) || {};
   const [state, setState] = useState({
     competition: null,
@@ -44,7 +44,10 @@ const useCompetition = ({ poll = true, enabled = true } = {}) => {
     requestRef.current = requestId;
 
     try {
-      const { data } = await api.get("/competitions/active");
+      // Without a slug this resolves "the" active competition, as every screen did before the hub
+      // existed. With one, it targets that specific competition — the same `?c=` the server already
+      // accepts for reaching a hidden competition by direct link.
+      const { data } = await api.get("/competitions/active", slug ? { params: { c: slug } } : undefined);
       let entry = null;
       let timeline = data.timeline || [];
       let referrals = null;
@@ -86,7 +89,10 @@ const useCompetition = ({ poll = true, enabled = true } = {}) => {
         error: notFound ? "" : (err?.response?.data?.message || "Failed to load the competition."),
       }));
     }
-  }, [user, enabled]);
+    // `slug` MUST be a dependency. This same callback is the 60s poll and the countdown's onExpire
+    // handler, so without it, navigating from one competition to another keeps refreshing the old
+    // one forever with no error to show for it.
+  }, [user, enabled, slug]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

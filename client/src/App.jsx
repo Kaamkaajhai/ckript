@@ -39,6 +39,7 @@ const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
 const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const CompetitionLanding = lazy(() => import("./pages/challenge/CompetitionLanding"));
+const ChallengeHub = lazy(() => import("./pages/challenge/ChallengeHub"));
 const HallOfFame = lazy(() => import("./pages/hall-of-fame/HallOfFame"));
 const HallOfFameDetail = lazy(() => import("./pages/hall-of-fame/HallOfFameDetail"));
 const CompetitionRegister = lazy(() => import("./pages/challenge/CompetitionRegister"));
@@ -486,7 +487,10 @@ function App() {
               {/* Public so a logged-out visitor can read them before signing up, but wrapped so a
                   signed-in member keeps the app chrome instead of being dropped into a bare page. */}
               <Route element={<PublicAppLayout />}>
-                <Route path="/challenge" element={<CompetitionLanding />} />
+                {/* The hub lists every challenge; an individual one lives under /c/ so its slug can
+                    never collide with /challenge/register or /challenge/dashboard. */}
+                <Route path="/challenge" element={<ChallengeHub />} />
+                <Route path="/challenge/c/:slug" element={<CompetitionLanding />} />
                 {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
                 <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />

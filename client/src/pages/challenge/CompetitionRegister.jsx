@@ -232,7 +232,7 @@ const CompetitionRegister = () => {
               className="mt-1 h-4 w-4 shrink-0 accent-[#D14D37]"
             />
             <span className="text-sm text-gray-700 dark:text-gray-200">
-              I accept the <Link to="/challenge#rules" className="font-medium text-[#D14D37] hover:underline">competition rules</Link>.
+              I accept the <Link to={competition?.slug ? `/challenge/c/${competition.slug}#rules` : "/challenge"} className="font-medium text-[#D14D37] hover:underline">competition rules</Link>.
             </span>
           </label>
           <label className="flex cursor-pointer gap-3">
@@ -260,7 +260,7 @@ const CompetitionRegister = () => {
           >
             {submitting ? "Registering…" : "Complete registration"}
           </button>
-          <Link to="/challenge" className="text-sm font-medium text-gray-600 hover:text-[#D14D37] dark:text-gray-300">
+          <Link to={competition?.slug ? `/challenge/c/${competition.slug}` : "/challenge"} className="text-sm font-medium text-gray-600 hover:text-[#D14D37] dark:text-gray-300">
             Back to the competition
           </Link>
         </div>
