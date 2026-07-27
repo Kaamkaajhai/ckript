@@ -162,7 +162,7 @@ export function ProfileWorkspaceIdentity({
         )}
 
         <div className={`profile-workspace-actions__row${isOwnProfile ? " profile-workspace-actions__row--single" : ""}`}>
-          {!isOwnProfile && (
+          {!isOwnProfile && onMessage && (
             <button type="button" className="profile-workspace-btn profile-workspace-btn--primary" onClick={onMessage} disabled={isBlockedByCurrent || blockedByProfile}>
               Message
             </button>

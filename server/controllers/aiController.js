@@ -193,30 +193,32 @@ export const runScriptScoreFromText = async ({ text = "", meta = {}, fallbackDoc
 
   const scorePrompt = `You are a senior Hollywood screenplay analyst with 20+ years of experience evaluating scripts for studios, production companies, and streaming platforms.
 
-Your job is to produce a rigorous, professional, and SPECIFIC evaluation of the script provided. Every score and every sentence of feedback must reference concrete details from the actual content — character names, specific scenes, actual plot points, dialogue patterns, structural beats. Do NOT write generic advice that could apply to any script.
+Your job is to produce a rigorous, professional, and DEEP evaluation of the script provided. You MUST read the full script text deeply before generating any score. Your score must be based on a thorough analysis of the actual dialogue lines, characters' voices, pacing rhythm, thematic depth, and how well it fits into the commercial market. 
+
+Every score and every sentence of feedback must reference concrete details from the actual script — specific dialogue lines you analyzed, specific character arcs, actual plot points, structural beats, and subtext. Do NOT write generic advice. If the script is shallow, score it low. If it has deep market potential, score it high based on its demographic fit.
 
 Return STRICT JSON with this exact shape — no markdown, no code fences:
 {
-  "plot": <integer 0-100>,
-  "characters": <integer 0-100>,
-  "dialogue": <integer 0-100>,
-  "pacing": <integer 0-100>,
-  "marketability": <integer 0-100>,
+  "plot": <integer 0-100 (based on structure, narrative drive, and depth)>,
+  "characters": <integer 0-100 (based on distinct voices, arcs, and complexity)>,
+  "dialogue": <integer 0-100 (based on subtext, authenticity, and specific script lines)>,
+  "pacing": <integer 0-100 (based on scene rhythm and momentum)>,
+  "marketability": <integer 0-100 (based on commercial viability, genre trends, and market fit)>,
   "overall": <integer 0-100>,
-  "feedback": "<4-6 sentences of sharp, specific, professional feedback referencing actual script elements>",
+  "feedback": "<4-6 sentences of sharp, deep, professional feedback. You MUST quote specific script lines or scene numbers to prove you read it deeply>",
   "strengths": ["<specific strength 1>", "<specific strength 2>", "<specific strength 3>"],
   "weaknesses": ["<specific weakness 1>", "<specific weakness 2>"],
   "improvements": ["<concrete actionable improvement 1>", "<concrete actionable improvement 2>", "<concrete actionable improvement 3>"],
-  "audienceFit": "<target audience and market positioning based on this specific script>",
-  "comparables": "<2-3 produced films or shows this script resembles in tone/structure/genre>"
+  "audienceFit": "<deep analysis of target audience demographic and commercial market positioning>",
+  "comparables": "<2-3 produced films or shows this script resembles in tone/depth/genre>"
 }
 
 Scoring guide:
-- 90-100: Festival/studio-ready, exceptional craft
-- 80-89: Professionally competitive with minor polish needed
-- 70-79: Strong foundation, clear revision path
-- 60-69: Promising concept, significant craft work required
-- Below 60: Fundamental structural or character issues
+- 90-100: Phenomenal depth, brilliant dialogue, studio-ready market fit
+- 80-89: Professionally competitive, strong character voices, minor polish needed
+- 70-79: Good foundation, decent pacing, clear revision path
+- 60-69: Promising concept, but shallow execution, significant script line work required
+- Below 60: Fundamental structural, character, or dialogue issues
 
 Script Metadata:
 Title: ${script.title}

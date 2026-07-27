@@ -6,7 +6,7 @@
 // INR amounts mirror the historical *_MODEL.amount constants. USD amounts are set per-plan (FIP = $24
 // per product spec). CONFIRM the USD silver/gold amounts before going live.
 export const PLAN_PRICES = {
-  film_industry_professional: { INR: 199900, USD: 2400 }, // ₹1999 / $24
+  film_industry_professional: { INR: 199900, USD: 2500 }, // ₹1999 / $25
   writer_silver: { INR: 39900, USD: 500 },                // ₹399  / $5  (confirm)
   writer_gold: { INR: 69900, USD: 900 },                  // ₹699  / $9  (confirm)
 };

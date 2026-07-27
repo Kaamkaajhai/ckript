@@ -197,6 +197,9 @@ export const validateUploadScreen = (screen, context = {}) => {
     if (!legal.agreedToTerms || !rightsLicensing.legalAcknowledgement?.platformTermsAccepted) {
       issues.push(issue("publish", "su-legal-terms", "Accept the Script Upload Terms & Conditions.", "platform-terms-required"));
     }
+    if (!rightsLicensing.legalAcknowledgement?.ownershipConfirmed) {
+      issues.push(issue("publish", "su-legal-ownership", "You must confirm you are the sole creator or own the IP outright.", "ownership-required"));
+    }
   }
 
   return issues;

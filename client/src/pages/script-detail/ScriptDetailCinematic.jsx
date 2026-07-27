@@ -358,6 +358,10 @@ function DealDrawer({ vm }) {
         <dl>
           <div><dt>Rights</dt><dd>{RIGHTS_LABELS[rights?.rightsType] || "Not specified"}</dd></div>
           <div><dt>Modification</dt><dd>{MODIFICATION_LABELS[rights?.modificationRights] || "Not specified"}</dd></div>
+          <div><dt>Payment</dt><dd>{PAYMENT_LABELS[rights?.paymentStructure] || "Not specified"}</dd></div>
+          <div><dt>Royalty</dt><dd>{rights?.royaltySettings?.percentage ? `${rights.royaltySettings.percentage}% (${rights.royaltySettings.durationType === "years" ? `${rights.royaltySettings.durationYears} years` : rights.royaltySettings.durationType === "project_lifetime" ? "Project Lifetime" : rights.royaltySettings.durationType})` : "None"}</dd></div>
+          <div><dt>License Duration</dt><dd>{rights?.timeBound?.licenseDurationMonths ? `${rights.timeBound.licenseDurationMonths} months` : "Perpetual"}</dd></div>
+          <div><dt>Negotiation</dt><dd>{NEGOTIATION_LABELS[rights?.negotiationMode] || "Not specified"}</dd></div>
         </dl>
       </section>
       {vm.capabilities.owner ? (
@@ -423,9 +427,9 @@ function ContactDrawer({ vm }) {
           )}
           {vm.revealError && <p className="sd3-field-error" role="alert">{vm.revealError}</p>}
           <div className="sd3-contact-actions"><button type="button" onClick={vm.handleMessageWriter} disabled={vm.messageWriterBlocked}><MessageCircle size={15} />Message · {vm.messageWritersUsed}/{vm.messageWritersLimit}</button><button type="button" onClick={vm.openMeeting} disabled={vm.meetingsBlocked}><Users size={15} />Meeting · {vm.meetingsUsed}/{vm.meetingsLimit}</button></div>
+          {vm.contactAlreadyRevealed && links.length > 0 && <section className="sd3-drawer-section"><h3>Professional links</h3><div className="sd3-professional-links">{links.map((link) => <a key={link.key} href={link.href} target="_blank" rel="noopener noreferrer">{link.label}<ExternalLink size={13} /></a>)}</div></section>}
         </>
       )}
-      {links.length > 0 && <section className="sd3-drawer-section"><h3>Professional links</h3><div className="sd3-professional-links">{links.map((link) => <a key={link.key} href={link.href} target="_blank" rel="noopener noreferrer">{link.label}<ExternalLink size={13} /></a>)}</div></section>}
     </>
   );
 }

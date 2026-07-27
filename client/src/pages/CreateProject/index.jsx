@@ -1323,7 +1323,10 @@ const CreateProject = () => {
         setError(rightsError);
         return false;
       }
-      if (!legal.agreedToTerms) { setError("Please accept the Submission Agreement."); return false; }
+      if (!legal.agreedToTerms || !rightsLicensing?.legalAcknowledgement?.ownershipConfirmed) { 
+        setError("Please accept all legal agreements and confirm your IP ownership to continue."); 
+        return false; 
+      }
       return true;
     }
     return true;

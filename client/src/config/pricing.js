@@ -3,7 +3,7 @@
 // WRITER_PLANS/FIP (PricingModal) hardcodes. The server is still authoritative at order time; this is
 // display only and must be kept in sync with the server matrix.
 export const PLAN_PRICES = {
-  film_industry_professional: { INR: 199900, USD: 2400 },
+  film_industry_professional: { INR: 199900, USD: 2500 },
   writer_silver: { INR: 39900, USD: 500 },
   writer_gold: { INR: 69900, USD: 900 },
 };

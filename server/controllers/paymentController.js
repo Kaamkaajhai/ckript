@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import User from "../models/User.js";
 import {
   hasActiveFilmIndustryProfessionalAccess,
+  hasAnyFipAccess,
   isFilmIndustryProfessionalRole,
   hasRevealedContact,
   hasReachedContactLimit,
@@ -168,11 +169,21 @@ export const createRazorpayOrder = async (req, res) => {
 
     // Amount is server-authoritative from the price matrix; only the currency comes from the client.
     const currency = resolveCurrency(req.body?.currency, currentUser.preferredCurrency);
+    const { cycle } = req.body;
+    
     const prices = PLAN_PRICES.film_industry_professional;
+    let inrAmount = prices.INR;
+    let finalAmount = prices[currency];
+
+    if (cycle === "annual") {
+      inrAmount = Math.round((inrAmount / 100) * 12 * 0.85) * 100;
+      finalAmount = Math.round((finalAmount / 100) * 12 * 0.85) * 100;
+    }
+
     const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
-      amount: prices[currency],
+      amount: finalAmount,
       currency,
-      inrAmount: prices.INR,
+      inrAmount,
       receipt: `rcpt_${currentUser._id.toString().substring(18)}_${Date.now()}`,
     });
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
@@ -238,7 +249,7 @@ export const activateTestWriterSubscription = async (req, res) => {
 
 export const verifyRazorpayPayment = async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, returnTo } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, returnTo, cycle } = req.body;
     
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ message: "Missing required payment details" });
@@ -257,7 +268,8 @@ export const verifyRazorpayPayment = async (req, res) => {
     }
 
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + FILM_INDUSTRY_PRO_MODEL.durationDays * 24 * 60 * 60 * 1000);
+    const durationDays = cycle === "annual" ? 365 : FILM_INDUSTRY_PRO_MODEL.durationDays;
+    const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
     const update = {
       $set: {
@@ -274,6 +286,7 @@ export const verifyRazorpayPayment = async (req, res) => {
         "subscription.sourcePath": normalizeReturnPath(returnTo) || "/home",
         "subscription.revealedContacts": [],
         "subscription.messagedWriters": [],
+        "subscription.scheduledMeetings": [],
         "subscription.contactsLimit": 10,
         "subscription.messageWritersLimit": 10,
         "subscription.meetingsLimit": 10,
@@ -310,9 +323,9 @@ export const revealWriterContact = async (req, res) => {
     const user = await User.findById(req.user._id).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (!hasActiveFilmIndustryProfessionalAccess(user)) {
+    if (!hasAnyFipAccess(user)) {
       return res.status(403).json({
-        message: "Film Industry Professional subscription required to reveal writer contacts.",
+        message: "Film Industry Professional subscription or a verified company email is required to reveal writer contacts.",
         requiresUpgrade: true,
       });
     }

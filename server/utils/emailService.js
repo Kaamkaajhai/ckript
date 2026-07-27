@@ -1481,3 +1481,69 @@ export const sendWriterPlanGrantedEmail = async (
     return { success: false, error: error.message };
   }
 };
+
+export const sendFipPlanGrantedEmail = async (
+  email,
+  {
+    userName,
+    clientBaseUrl = "",
+  }
+) => {
+  try {
+    validateEmailConfig();
+    const transporter = createTransporter();
+    
+    const loginUrl = buildClientUrl("/login", clientBaseUrl);
+
+    const mailOptions = {
+      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      to: email,
+      subject: `🎉 You've been upgraded to Diamond Film Industry Professional — ckript`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #0e7490 0%, #155e75 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+            .badge { display: inline-block; background: #e0f2fe; color: #0284c7; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+            .button { display: inline-block; background: #1e3a5f; color: white !important; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin:0">Account Upgraded</h1>
+            </div>
+            <div class="content">
+              <p>Hi <strong>${userName}</strong>,</p>
+              <div><span class="badge">💎 1-Year Diamond Plan Granted</span></div>
+              <p>Great news! An administrator on <strong>ckript</strong> has granted your account a 1-year <strong>Diamond Film Industry Professional</strong> subscription.</p>
+              <p>You can now enjoy all premium access features, including contact revelations, meeting bookings, and comprehensive script analytics.</p>
+              <div style="text-align:center">
+                <a href="${loginUrl}" class="button">Log In to ckript</a>
+              </div>
+              <p style="color:#666;font-size:13px">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${loginUrl}" style="color:#1e3a5f">${loginUrl}</a></p>
+              <p>Welcome to Diamond,<br/><strong>The ckript Team</strong></p>
+            </div>
+            <div class="footer">
+              <p>© 2026 ckript. All rights reserved.</p>
+              <p>This is an automated message, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${userName},\n\nGreat news! An administrator on ckript has granted your account a 1-year Diamond Film Industry Professional subscription.\n\nYou can now enjoy all the premium benefits. Log in to explore: ${loginUrl}\n\nThe ckript Team`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending FIP plan granted email:", error.message);
+    return { success: false, error: error.message };
+  }
+};

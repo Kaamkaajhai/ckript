@@ -35,12 +35,82 @@ const normalizeLanguagePreference = (value) => {
   return SUPPORTED_LANGUAGE_CODES.has(mapped) ? mapped : DEFAULT_LANGUAGE;
 };
 
-const generateToken = (id) => {
+const generateToken = (id, sessionId) => {
   const expiresIn = process.env.JWT_EXPIRES_IN || "30d";
-  const token = jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn });
+  const payload = sessionId ? { id, sessionId } : { id };
+  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
   // Decode to get the exact expiry timestamp
   const decoded = jwt.decode(token);
   return { token, expiresAt: decoded.exp * 1000 }; // ms epoch
+};
+
+import crypto from "crypto";
+import { UAParser } from "ua-parser-js";
+import geoip from "geoip-lite";
+import axios from "axios";
+
+const addSessionToUser = async (req, user) => {
+  const sessionId = crypto.randomUUID();
+  const rawDevice = req.headers["user-agent"] || "Unknown Device";
+  const ip = req.ip || req.connection?.remoteAddress || "Unknown IP";
+
+  const parser = new UAParser(rawDevice);
+  const browser = parser.getBrowser().name || "Unknown";
+  const os = parser.getOS().name || "Unknown";
+  
+  let location = "Unknown Location";
+  if (ip && ip !== "Unknown IP") {
+    // In local development req.ip is often ::1, 127.0.0.1, or ::ffff:127.0.0.1
+    if (ip === "::1" || ip === "127.0.0.1" || ip.includes("127.0.0.1")) {
+      location = "Localhost";
+    } else {
+      try {
+        const apiKey = process.env.IP_API_KEY;
+        if (apiKey) {
+          const response = await axios.get(`https://api.ipgeolocation.io/ipgeo?apiKey=${apiKey}&ip=${ip}`);
+          if (response.data) {
+            const cityRegion = response.data.city || response.data.state_prov || "Unknown City";
+            location = `${cityRegion}, ${response.data.country_code2 || response.data.country_name || "Unknown Country"}`;
+          }
+        } else {
+          const geo = geoip.lookup(ip);
+          if (geo) {
+            const cityRegion = geo.city || geo.region || "Unknown City";
+            location = `${cityRegion}, ${geo.country || "Unknown Country"}`;
+          }
+        }
+      } catch (err) {
+        console.error("IP Geolocation API failed:", err.message);
+        const geo = geoip.lookup(ip);
+        if (geo) {
+          const cityRegion = geo.city || geo.region || "Unknown City";
+          location = `${cityRegion}, ${geo.country || "Unknown Country"}`;
+        }
+      }
+    }
+  }
+
+  if (!user.activeSessions) {
+    user.activeSessions = [];
+  }
+  
+  user.activeSessions.push({ 
+    sessionId, 
+    device: rawDevice,
+    browser,
+    os,
+    location,
+    ip, 
+    loginTime: new Date(), 
+    lastSeen: new Date() 
+  });
+  
+  // Limit to 20 active sessions
+  if (user.activeSessions.length > 20) {
+    user.activeSessions.shift();
+  }
+  await user.save();
+  return sessionId;
 };
 
 // Comprehensive email validation
@@ -786,8 +856,8 @@ export const join = async (req, res) => {
     // If skipping email verification, return token directly
     if (skipEmailVerification) {
       const referralBonusResult = await awardReferralBonusForUser(user._id);
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      const sessionId = await addSessionToUser(req, user);
+      const { token, expiresAt } = generateToken(user._id, sessionId);
       return res.status(201).json({
         _id: user._id,
         sid: user.sid,
@@ -885,7 +955,8 @@ export const login = async (req, res) => {
         });
       }
 
-      const { token, expiresAt } = generateToken(user._id);
+      const sessionId = await addSessionToUser(req, user);
+      const { token, expiresAt } = generateToken(user._id, sessionId);
       res.json({
         _id: user._id,
         sid: user.sid,
@@ -1020,7 +1091,8 @@ export const googleAuth = async (req, res) => {
       });
     }
 
-    const { token: jwtToken, expiresAt } = generateToken(user._id);
+    const sessionId = await addSessionToUser(req, user);
+    const { token: jwtToken, expiresAt } = generateToken(user._id, sessionId);
     return res.json({
       _id: user._id,
       sid: user.sid,
@@ -1126,7 +1198,7 @@ export const verifyOTP = async (req, res) => {
       user.approvalStatus = "pending";
     }
 
-    if (isFilmIndustryProfessionalRole(user) && hasBusinessEmail(user.email)) {
+    if (isFilmIndustryProfessionalRole(user)) {
       if (!user.subscription) {
         user.subscription = {
           plan: "free",
@@ -1135,6 +1207,7 @@ export const verifyOTP = async (req, res) => {
           accessActivatedAt: new Date(),
         };
       } else if (user.subscription.accessTier !== "film_industry_professional" || user.subscription.accessStatus !== "active") {
+        user.subscription.plan = user.subscription.plan || "free";
         user.subscription.accessTier = "film_industry_professional";
         user.subscription.accessStatus = "active";
         user.subscription.accessActivatedAt = new Date();
@@ -1155,7 +1228,8 @@ export const verifyOTP = async (req, res) => {
     // Investors cannot sign in from login until approved, but they should
     // still receive a session here to complete onboarding steps.
     if (user.role === "investor") {
-      const { token, expiresAt } = generateToken(user._id);
+      const sessionId = await addSessionToUser(req, user);
+      const { token, expiresAt } = generateToken(user._id, sessionId);
       return res.json({
         message: "Email verified successfully! Complete your onboarding while your account is under admin review.",
         pendingApproval: true,
@@ -1179,7 +1253,8 @@ export const verifyOTP = async (req, res) => {
     }
 
     // Generate token and log user in
-    const { token, expiresAt } = generateToken(user._id);
+    const sessionId = await addSessionToUser(req, user);
+    const { token, expiresAt } = generateToken(user._id, sessionId);
     
     res.json({
       message: "Email verified successfully!",
@@ -1739,5 +1814,72 @@ export const resendPasswordResetOTP = async (req, res) => {
   } catch (error) {
     console.error("Resend password reset OTP error:", error);
     return res.status(500).json({ message: error.message });
+  }
+};
+
+// ==========================================
+// Session Management
+// ==========================================
+
+export const getSessions = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const currentSessionId = req.sessionId;
+    const sessions = (user.activeSessions || []).map(s => ({
+      _id: s._id,
+      sessionId: s.sessionId,
+      device: s.device,
+      browser: s.browser,
+      os: s.os,
+      location: s.location,
+      ip: s.ip,
+      loginTime: s.loginTime,
+      lastSeen: s.lastSeen,
+      isCurrent: s.sessionId === currentSessionId,
+    }));
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch sessions" });
+  }
+};
+
+export const removeSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.activeSessions = user.activeSessions.filter(s => s.sessionId !== sessionId);
+    await user.save();
+    res.json({ message: "Session removed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to remove session" });
+  }
+};
+
+export const removeAllOtherSessions = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const currentSessionId = req.sessionId;
+
+    user.activeSessions = user.activeSessions.filter(s => s.sessionId === currentSessionId);
+    await user.save();
+    res.json({ message: "All other sessions removed" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to remove other sessions" });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user && req.sessionId) {
+      user.activeSessions = user.activeSessions.filter(s => s.sessionId !== req.sessionId);
+      await user.save();
+    }
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to logout" });
   }
 };
