@@ -1281,7 +1281,7 @@ const AdminScriptView = () => {
               { label: "Rights Type", value: RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || script?.rightsLicensing?.rightsType || "-" },
               { label: "Modification Rights", value: MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || script?.rightsLicensing?.modificationRights || "-" },
               { label: "Payment Structure", value: PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || script?.rightsLicensing?.paymentStructure || "-" },
-              { label: "Royalty Settings", value: script?.rightsLicensing?.royaltySettings?.percentage ? `${script?.rightsLicensing?.royaltySettings?.percentage}% (${script?.rightsLicensing?.royaltySettings?.durationType})` : "-" },
+              { label: "Royalty Settings", value: script?.rightsLicensing?.royaltySettings?.percentage ? `${script.rightsLicensing.royaltySettings.percentage}% (${script.rightsLicensing.royaltySettings.durationType === "years" ? `${script.rightsLicensing.royaltySettings.durationYears} years` : script.rightsLicensing.royaltySettings.durationType === "project_lifetime" ? "Project Lifetime" : script.rightsLicensing.royaltySettings.durationType})` : "-" },
               { label: "License Duration", value: script?.rightsLicensing?.timeBound?.licenseDurationMonths ? `${script?.rightsLicensing?.timeBound?.licenseDurationMonths} months` : "Perpetual" },
               { label: "Negotiation Mode", value: NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || script?.rightsLicensing?.negotiationMode || "-" },
             ].map((item) => (

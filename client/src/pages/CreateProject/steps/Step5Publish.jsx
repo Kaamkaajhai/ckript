@@ -113,7 +113,7 @@ const Step5Publish = () => {
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>How much creative control are you willing to give up?</p>
                       <TagSelect
                         ariaLabel="modificationRights"
-                        options={[{ value: "buyer_can_freely_modify", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_approval_required", label: "Writer approval required" }]}
+                        options={[{ value: "buyer_can_modify_freely", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_retains_creative_approval_rights", label: "Writer approval required" }]}
                         value={rightsLicensing?.modificationRights || ""}
                         onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, modificationRights: v }))}
                         dark={dark}
@@ -165,7 +165,7 @@ const Step5Publish = () => {
                       <p className={`text-xs mb-3 ${dark ? "text-gray-400" : "text-gray-600"}`}>Are you open to counter-offers?</p>
                       <TagSelect
                         ariaLabel="negotiationMode"
-                        options={[{ value: "fixed_terms", label: "Fixed terms" }, { value: "open_to_negotiation", label: "Open to negotiation" }]}
+                        options={[{ value: "fixed_terms_non_negotiable", label: "Fixed terms" }, { value: "open_to_discussion_after_purchase", label: "Open to negotiation" }]}
                         value={rightsLicensing?.negotiationMode || ""}
                         onChange={(v) => setRightsLicensing(prev => normalizeRightsLicensingState({ ...prev, negotiationMode: v }))}
                         dark={dark}

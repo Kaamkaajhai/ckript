@@ -27,6 +27,28 @@ const protect = async (req, res, next) => {
           accountFrozen: true,
         });
       }
+
+      // Check session validity
+      if (decoded.sessionId) {
+        const session = req.user.activeSessions?.find(s => s.sessionId === decoded.sessionId);
+        if (!session) {
+          return res.status(401).json({ message: "Session revoked. Please log in again.", sessionRevoked: true });
+        }
+        
+        // Update lastSeen if it's older than 5 minutes (300,000 ms)
+        const FIVE_MINUTES = 5 * 60 * 1000;
+        if (Date.now() - new Date(session.lastSeen).getTime() > FIVE_MINUTES) {
+          session.lastSeen = new Date();
+          // Fire and forget save to avoid blocking the request
+          req.user.save().catch(err => console.error("Failed to update lastSeen:", err));
+        }
+        
+        req.sessionId = decoded.sessionId;
+      } else {
+        // Legacy token without sessionId: log them out to force creating a stateful session
+        return res.status(401).json({ message: "Session expired. Please log in again.", sessionRevoked: true });
+      }
+
       next();
     } catch (error) {
       if (error.name === "TokenExpiredError") {

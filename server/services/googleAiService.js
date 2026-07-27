@@ -1,11 +1,11 @@
 const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 const getApiKey = () => process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
-const getModel = () => process.env.GOOGLE_AI_MODEL || "gemini-2.5-flash";
+const getModel = () => process.env.GOOGLE_AI_MODEL || "gemini-2.5-pro";
 
 // Fallback model ladder used when the primary model hits quota / rate limits.
 // Each entry is tried in order until one succeeds.
-const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b"];
+const FALLBACK_MODELS = ["gemini-2.5-pro", "gemini-1.5-pro", "gemini-2.5-flash"];
 
 const extractText = (responseJson) => {
   const parts = responseJson?.candidates?.[0]?.content?.parts || [];

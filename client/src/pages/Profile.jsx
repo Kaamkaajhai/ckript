@@ -20,6 +20,7 @@ import { applyLanguagePreference, getBackendLanguageValue, getProfileLanguageVal
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
   hasActiveFilmIndustryProfessionalAccess,
+  hasAnyFipAccess,
   getRemainingContacts,
   getContactsLimit,
   getRevealedContactCount,
@@ -211,7 +212,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser, setUser, logout } = useContext(AuthContext);
-  const { openPricingModal } = useAuthModal();
+  const { openPricingModal, openProducerOnboarding } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
 
   const [profile, setProfile] = useState(null);
@@ -264,6 +265,10 @@ const Profile = () => {
   const [emailForm, setEmailForm] = useState({ password: "", newEmail: "" });
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [savingSettings, setSavingSettings] = useState(false);
+  
+  // Sessions state
+  const [sessions, setSessions] = useState([]);
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [emailVerificationCode, setEmailVerificationCode] = useState("");
   const [sendingVerificationCode, setSendingVerificationCode] = useState(false);
   const [verifyingEmailCode, setVerifyingEmailCode] = useState(false);
@@ -396,6 +401,7 @@ const Profile = () => {
       }
     };
   }, [id, currentUser?._id, currentUser?.writerProfile?.username, fetchProfile]);
+
 
   const handleDeleteScript = async (scriptId) => {
     try {
@@ -588,12 +594,48 @@ const Profile = () => {
   };
 
   const isOwnProfile = isSameProfile(currentUser, profile);
+
+  const fetchSessions = useCallback(async () => {
+    try {
+      setLoadingSessions(true);
+      const { data } = await api.get("/auth/sessions");
+      setSessions(data);
+    } catch (error) {
+      console.error("Failed to fetch sessions:", error);
+    } finally {
+      setLoadingSessions(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "settings" && isOwnProfile) {
+      fetchSessions();
+    }
+  }, [activeTab, isOwnProfile, fetchSessions]);
+
+  const handleRemoveSession = async (sessionId) => {
+    try {
+      await api.delete(`/auth/sessions/${sessionId}`);
+      fetchSessions();
+    } catch (error) {
+      console.error("Failed to remove session:", error);
+    }
+  };
+
+  const handleRemoveAllOtherSessions = async () => {
+    try {
+      await api.delete("/auth/sessions/all-others");
+      fetchSessions();
+    } catch (error) {
+      console.error("Failed to remove all other sessions:", error);
+    }
+  };
   const isWriterUser = isWriterProfileRole(profile?.role);
   const isInvestorProfile = String(profile?.role || "").toLowerCase() === "investor";
   const viewerIsIndustryRole = ["investor", "producer", "director", "industry", "professional"].includes(
     String(currentUser?.role || "").toLowerCase()
   );
-  const viewerHasProAccess = viewerIsIndustryRole && hasActiveFilmIndustryProfessionalAccess(currentUser);
+  const viewerHasProAccess = viewerIsIndustryRole && hasAnyFipAccess(currentUser);
   const canViewContactDetails = Boolean(
     !isOwnProfile &&
     currentUser?._id &&
@@ -790,7 +832,7 @@ const Profile = () => {
                 </p>
                 <button
                   type="button"
-                  onClick={() => navigate("/industry-onboarding")}
+                  onClick={() => openProducerOnboarding()}
                   className={`px-4 py-2 rounded-xl text-xs font-bold border transition ${dark ? "bg-white/[0.06] border-white/[0.08] text-white hover:bg-white/[0.1]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
                 >
                   Sign up as Film Industry Professional
@@ -975,7 +1017,7 @@ const Profile = () => {
       onFollow={handleFollow}
       onBlock={handleToggleBlock}
       onEdit={() => setShowEditModal(true)}
-      onMessage={() => setShowMessageRequestModal(true)}
+      onMessage={!isWriter(currentUser?.role) ? () => setShowMessageRequestModal(true) : null}
       onFollowers={() => openConnectionsModal("followers")}
       onFollowing={() => openConnectionsModal("following")}
       canViewContactDetails={canViewContactDetails}
@@ -2544,6 +2586,50 @@ const Profile = () => {
               ))}
             </div>
           </SectionCard>
+          </div>
+
+          {/* Devices & Sessions */}
+          <div className="profile-workspace-settings__section py-6 first:pt-0 last:pb-0">
+            <SectionCard dark={dark} noBox title="Devices & Sessions" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>}>
+            <div className="space-y-3">
+              {loadingSessions ? (
+                <p className={`text-[12px] italic ${dark ? "text-white/30" : "text-gray-400"}`}>Loading sessions...</p>
+              ) : sessions.length > 0 ? (
+                <div className="space-y-2">
+                  {sessions.map((s) => (
+                    <div key={s.sessionId} className={`flex items-center justify-between py-3 px-3.5 rounded-xl border ${s.isCurrent ? (dark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-100") : (dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-gray-50/60 border-gray-100")}`}>
+                      <div>
+                        <p className={`text-[13px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>
+                          {s.browser !== "Unknown" ? `${s.browser} on ${s.os}` : "Unknown Device"} 
+                          {s.isCurrent && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold bg-emerald-500/20 text-emerald-500">Active Now</span>}
+                        </p>
+                        <p className={`text-[11px] mt-0.5 ${dark ? "text-white/40" : "text-gray-500"}`}>
+                          {s.location} • IP: {s.ip}
+                        </p>
+                        {!s.isCurrent && s.lastSeen && (
+                          <p className={`text-[10px] mt-1 italic ${dark ? "text-white/30" : "text-gray-400"}`}>
+                            Last seen: {new Date(s.lastSeen).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                      {!s.isCurrent && (
+                        <button onClick={() => handleRemoveSession(s.sessionId)} className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {sessions.length > 1 && (
+                    <button onClick={handleRemoveAllOtherSessions} className={`mt-3 w-full py-2.5 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-white/[0.05] text-white hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                      Log out of all other devices
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p className={`text-[12px] italic ${dark ? "text-white/30" : "text-gray-400"}`}>No active sessions found.</p>
+              )}
+            </div>
+            </SectionCard>
           </div>
 
           {/* Localization */}

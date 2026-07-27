@@ -22,7 +22,6 @@ const SeoPage = lazy(() => import("./pages/SeoPage"));
 const PricingRoute = lazy(() => import("./pages/PricingRoute"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
-const RegistrationPrivacyPolicy = lazy(() => import("./pages/RegistrationPrivacyPolicy"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
 const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
@@ -471,7 +470,7 @@ function App() {
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
               <Route path="/t-and-c" element={<Navigate to="/terms-of-service" replace />} />
-              <Route path="/registration-privacy-policy" element={<RegistrationPrivacyPolicy />} />
+              <Route path="/registration-privacy-policy" element={<Navigate to="/privacy-policy" replace />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/terms-conditions" element={<TermsConditions />} />
               <Route path="/writer-terms" element={<Navigate to="/terms-conditions?tab=writer" replace />} />
