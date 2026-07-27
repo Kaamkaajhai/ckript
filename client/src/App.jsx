@@ -14,6 +14,7 @@ import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
 import useIsMobile from "./mobile/hooks/useIsMobile";
 import { getAuthenticatedProfileShell, getSharedProfileExperience } from "./features/profile-pc/profilePolicy";
+import RouteFallback from "./components/skeleton/RouteFallback";
 
 const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
@@ -51,7 +52,7 @@ const ScriptPaymentPage = lazy(() => import("./pages/ScriptPaymentPage"));
 const FeaturedProjects = lazy(() => import("./pages/FeaturedProjects"));
 const Mandates = lazy(() => import("./pages/Mandates"));
 const TopList = lazy(() => import("./pages/TopList"));
-const Messages = lazy(() => import("./pages/Messages"));
+const Messages = lazy(() => import("./features/messages-operator"));
 const Writers = lazy(() => import("./pages/Writers"));
 const InvestorHome = lazy(() => import("./pages/InvestorHome"));
 const ReaderHome = lazy(() => import("./pages/ReaderHome"));
@@ -198,13 +199,7 @@ function AuthenticatedProfileShell({ children }) {
 // their own profile, an id-based URL, or another member's canonical username.
 function ProtectedProfileLayout() {
   const content = (
-    <Suspense
-      fallback={
-        <div className="min-h-[60vh] flex items-center justify-center text-sm text-gray-500">
-          Loading profile…
-        </div>
-      }
-    >
+    <Suspense fallback={<RouteFallback label="Loading profile…" />}>
       <Outlet />
     </Suspense>
   );
@@ -247,16 +242,17 @@ function SharedProfileRoute() {
 // chrome and page designs tuned for it.
 function ProtectedMainLayout() {
   const { user } = useContext(AuthContext);
+  const location = useLocation();
   const isCreator = user?.role === "writer" || user?.role === "creator";
+  // Full-bleed routes render flush against the content area (no page
+  // padding/card inset). Messages does this in both shells; the creator's
+  // bespoke 2B Dashboard is also designed for the flush "fill" content area,
+  // while the investor dashboard keeps its padded page layout.
+  const isMessages = location.pathname.startsWith("/messages");
+  const isDashboard = location.pathname.startsWith("/dashboard");
 
   const content = (
-    <Suspense
-      fallback={
-        <div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<RouteFallback />}>
       <Outlet />
     </Suspense>
   );
@@ -264,8 +260,8 @@ function ProtectedMainLayout() {
   return (
     <PrivateRoute>
       {isCreator
-        ? <DashboardLayout variant="page">{content}</DashboardLayout>
-        : <MainLayout>{content}</MainLayout>}
+        ? <DashboardLayout variant={isMessages || isDashboard ? "fill" : "page"}>{content}</DashboardLayout>
+        : <MainLayout contentVariant={isMessages ? "full" : "page"}>{content}</MainLayout>}
     </PrivateRoute>
   );
 }
@@ -317,13 +313,7 @@ function ProtectedScriptDetailLayout() {
   const isCreator = user?.role === "writer" || user?.role === "creator";
 
   const content = (
-    <Suspense
-      fallback={
-        <div className="min-h-[60vh] flex items-center justify-center text-sm text-gray-500">
-          Loading project…
-        </div>
-      }
-    >
+    <Suspense fallback={<RouteFallback tone="cool" label="Loading project…" />}>
       <Outlet />
     </Suspense>
   );
@@ -355,7 +345,7 @@ function DashboardRoute() {
   if (isCreator) {
     return (
       <PrivateRoute>
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm" style={{ color: "#a39d92", background: "#fff" }}>Loading...</div>}>
+        <Suspense fallback={<RouteFallback />}>
           <DashboardLayout variant="fill">
             <Dashboard />
           </DashboardLayout>
@@ -368,7 +358,7 @@ function DashboardRoute() {
   return (
     <PrivateRoute>
       <MainLayout>
-        <Suspense fallback={<div className="min-h-[50vh] flex items-center justify-center text-sm text-gray-500">Loading...</div>}>
+        <Suspense fallback={<RouteFallback />}>
           <Dashboard />
         </Suspense>
       </MainLayout>
