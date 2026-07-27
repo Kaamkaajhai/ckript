@@ -5,10 +5,22 @@ const api = axios.create({
   baseURL: getApiBaseUrl(),
 });
 
+// Where to send someone whose session just died.
+//
+// This used to return `/login?reason=session-expired&next=...`, but /login is `<Navigate to="/">`
+// and nothing has ever read `next` — so the user was silently dumped on the homepage with no sign-in
+// prompt and no way back to what they were doing. This interceptor lives outside React, so it can't
+// call openAuthModal directly; instead it parks the intended destination in sessionStorage and
+// AuthModalProvider picks it up on mount (see PENDING_AUTH_REDIRECT_KEY there).
+export const PENDING_AUTH_REDIRECT_KEY = "ckript:pendingAuthRedirect";
+
 const buildLoginRedirectUrl = () => {
-  if (typeof window === "undefined") return "/login";
+  if (typeof window === "undefined") return "/";
   const currentPath = `${window.location.pathname || "/"}${window.location.search || ""}`;
-  return `/login?reason=session-expired&next=${encodeURIComponent(currentPath)}`;
+  try {
+    sessionStorage.setItem(PENDING_AUTH_REDIRECT_KEY, currentPath);
+  } catch { /* private mode / storage disabled — fall through to the homepage */ }
+  return "/?reason=session-expired";
 };
 
 // Endpoints that should never receive an Authorization header

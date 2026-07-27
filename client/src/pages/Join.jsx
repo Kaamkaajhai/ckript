@@ -402,7 +402,7 @@ const Join = () => {
   }
 
   return (
-    <div className="reader-signup-page min-h-screen relative overflow-hidden flex items-center justify-center !bg-[#080e18]">
+    <div className="reader-signup-page min-h-screen relative overflow-hidden flex items-center justify-center !bg-[#0b0b0b]">
       <div
         className="absolute inset-0 opacity-[0.035] pointer-events-none"
         style={{

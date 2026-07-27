@@ -7,9 +7,16 @@ import { uploadToCloudinary } from "../config/cloudinary.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Real filenames, checked against client/public. These previously pointed at "cklogo-nobg.png" and
+// "cklogo.png", neither of which exists, so pickLogoPath() always returned undefined and every
+// invoice silently rendered the plain-text fallback instead of the logo.
+//
+// The fallback is still load-bearing: this path reaches out of server/ into client/public, which
+// will not resolve on a server-only deploy.
 const logoCandidates = [
-  path.join(__dirname, "..", "..", "client", "public", "cklogo-nobg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "cklogo.png"),
+  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-official-nobg.png"),
+  path.join(__dirname, "..", "..", "client", "public", "ckript_logo_no_bg.png"),
+  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-landscape-nobg.png"),
 ];
 
 const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";

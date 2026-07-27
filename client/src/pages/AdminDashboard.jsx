@@ -16,13 +16,17 @@ import {
 } from "../utils/adminScriptAccess";
 import { Icon, StatCard } from "../components/AdminUI";
 import AdminAnalyticsPanel from "../components/AdminAnalyticsPanel";
+import AdminCompetitions from "./admin/AdminCompetitions";
+import AdminReferrals from "./admin/AdminReferrals";
 
 const API_ORIGIN = getApiOrigin();
 const API_BASE_URL = getApiBaseUrl();
 const MAX_ATTACHMENT_SIZE_BYTES = 250 * 1024 * 1024;
 
 // Admin-specific API — uses admin token from sessionStorage, separate from user session
-const adminApi = axios.create({ baseURL: API_BASE_URL });
+// Exported so admin panels split into their own files (AdminCompetitions) reuse the SAME configured
+// instance — the interceptors below carry the admin auth and script-access headers.
+export const adminApi = axios.create({ baseURL: API_BASE_URL });
 adminApi.interceptors.request.use((config) => {
     const adminSession = sessionStorage.getItem("admin-session");
     if (adminSession) {
@@ -49,6 +53,8 @@ const TABS = [
     { key: "meetings", label: "Meetings", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
     { key: "messages", label: "Messages", icon: "M7.5 8.25h9m-9 3h6m-9 9h12A2.25 2.25 0 0018.75 18V6A2.25 2.25 0 0016.5 3.75h-9A2.25 2.25 0 005.25 6v12A2.25 2.25 0 007.5 20.25z" },
     { key: "membership-reviews", label: "SWA/WGA Reviews", icon: "M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 0h1.5A2.25 2.25 0 0115 2.25v1.134a9 9 0 11-6 0V2.25z" },
+    { key: "competitions", label: "Competitions", icon: "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25s4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" },
+    { key: "referrals", label: "Referrals", icon: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.479m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" },
     { key: "queries", label: "Queries", icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
     { key: "bank-reviews", label: "Bank Reviews", icon: "M3.75 4.5h16.5A1.5 1.5 0 0121.75 6v12a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5zM6 9h12M6 13.5h5.25" },
     { key: "ai-usage", label: "AI Usage", icon: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" },
@@ -924,6 +930,40 @@ const DiscountCodeFormModal = ({ initial, onClose, onSave, isDark }) => {
                         <button type="submit" className="px-6 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/20">{isEdit ? "Update Code" : "Create Code"}</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    );
+};
+
+// Reject Investor Modal.
+//
+// MUST stay at module scope. Declared inside AdminDashboard's body it was a new component type on
+// every parent render, and the 30s fetchAlertSummary poll guarantees those — so an admin part-way
+// through typing a rejection reason had the modal remounted under them, wiping `note` and the caret.
+const RejectInvestorModal = ({ investor, onClose, onConfirm, isDark }) => {
+    const [note, setNote] = useState("");
+    return (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+            <div className={`w-full max-w-md mx-4 rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
+                <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Reject Investor</h3>
+                <p className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                    Rejecting <strong>{investor.name}</strong> ({investor.email}). They will not be able to log in.<br />
+                    Optionally add a reason (visible to the user on login attempt).
+                </p>
+                <textarea
+                    rows={3}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Rejection reason (optional)..."
+                    className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
+                />
+                <div className="flex items-center justify-end gap-3 mt-4">
+                    <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
+                    <button onClick={() => onConfirm(investor._id, note.trim())}
+                        className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all">
+                        Confirm Reject
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -2585,14 +2625,7 @@ const AdminDashboard = () => {
             if (data?.user?._id) {
                 setSelectedUserDetail((prev) => {
                     if (!prev || String(prev._id) !== String(data.user._id)) return prev;
-                    return {
-                        ...prev,
-                        ...data.user,
-                        credits: {
-                            ...(prev.credits || {}),
-                            balance: data.user.creditsBalance,
-                        },
-                    };
+                    return { ...prev, ...data.user };
                 });
             }
 
@@ -2809,61 +2842,6 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleGrantCreditsToUser = async (user) => {
-        if (!user?._id || userActionLoading) return;
-        if (user.isDeactivated) {
-            showToast("Cannot grant credits to a deleted account", "error");
-            return;
-        }
-
-        const amountStr = window.prompt(`Enter amount of credits to grant to ${user.name || user.email}:`);
-        if (!amountStr) return;
-        
-        const amount = parseInt(amountStr, 10);
-        if (isNaN(amount) || amount <= 0) {
-            showToast("Please enter a valid positive number", "error");
-            return;
-        }
-
-        const confirmed = await openAdminDialog({
-            type: "confirm",
-            title: "Grant Credits",
-            message: `Are you sure you want to grant ${amount} credits to ${user.name || user.email}?`,
-            confirmText: "Grant",
-            cancelText: "Cancel",
-        });
-
-        if (!confirmed) return;
-
-        const loadingKey = `grant-credits-${user._id}`;
-        try {
-            setUserActionLoading(loadingKey);
-            const { data } = await adminApi.post(`/admin/users/${user._id}/credits`, { amount });
-            showToast(data?.message || `Granted ${amount} credits successfully`);
-
-            if (data?.user?._id) {
-                setSelectedUserDetail((prev) => {
-                    if (!prev || String(prev._id) !== String(data.user._id)) return prev;
-                    return {
-                        ...prev,
-                        ...data.user,
-                        credits: {
-                            ...(prev.credits || {}),
-                            balance: data.user.creditsBalance,
-                        },
-                    };
-                });
-            }
-
-            fetchData(search);
-        } catch (err) {
-            console.error(err);
-            showToast(err?.response?.data?.message || "Failed to grant credits", "error");
-        } finally {
-            setUserActionLoading("");
-        }
-    };
-
     const handleDeleteUserAccount = async (user) => {
         if (!user?._id || userActionLoading) return;
         if (user.isDeactivated) {
@@ -2889,14 +2867,7 @@ const AdminDashboard = () => {
             if (data?.user?._id) {
                 setSelectedUserDetail((prev) => {
                     if (!prev || String(prev._id) !== String(data.user._id)) return prev;
-                    return {
-                        ...prev,
-                        ...data.user,
-                        credits: {
-                            ...(prev.credits || {}),
-                            balance: data.user.creditsBalance,
-                        },
-                    };
+                    return { ...prev, ...data.user };
                 });
             }
 
@@ -3389,7 +3360,6 @@ const AdminDashboard = () => {
                             onViewUser={setSelectedUserDetail}
                             onFreezeUser={(user) => handleFreezeToggleUser(user, true)}
                             onUnfreezeUser={(user) => handleFreezeToggleUser(user, false)}
-                            onGrantCredits={handleGrantCreditsToUser}
                             onGrantPremium={handleGrantPremiumToUser}
                             onRemovePremium={handleRemovePremiumFromUser}
                             onDeleteUser={handleDeleteUserAccount}
@@ -4213,6 +4183,13 @@ const AdminDashboard = () => {
                     </div>
                 );
 
+            // The whole competitions panel lives in its own file to keep this switch readable.
+            case "competitions":
+                return <AdminCompetitions isDark={isDark} />;
+
+            case "referrals":
+                return <AdminReferrals isDark={isDark} />;
+
             case "queries":
                 return (
                     <div>
@@ -4433,35 +4410,6 @@ const AdminDashboard = () => {
         }
     };
 
-    // ─── Reject Investor Modal ───
-    const RejectInvestorModal = ({ investor, onClose, onConfirm }) => {
-        const [note, setNote] = useState("");
-        return (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-                <div className={`w-full max-w-md mx-4 rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
-                    <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Reject Investor</h3>
-                    <p className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                        Rejecting <strong>{investor.name}</strong> ({investor.email}). They will not be able to log in.<br />
-                        Optionally add a reason (visible to the user on login attempt).
-                    </p>
-                    <textarea
-                        rows={3}
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="Rejection reason (optional)..."
-                        className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
-                    />
-                    <div className="flex items-center justify-end gap-3 mt-4">
-                        <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
-                        <button onClick={() => onConfirm(investor._id, note.trim())}
-                            className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all">
-                            Confirm Reject
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     const UserDetailsModal = ({ user, onClose }) => {
         const [openingAttachmentKey, setOpeningAttachmentKey] = useState("");
@@ -4637,13 +4585,6 @@ const AdminDashboard = () => {
                         <div className={sectionClass}>
                             <p className={`text-xs font-bold uppercase tracking-wider mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Admin Actions</p>
                             <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                    onClick={() => handleGrantCreditsToUser(user)}
-                                    disabled={isUserDeleted || userActionLoading === `grant-credits-${user._id}`}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-cyan-500 hover:text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
-                                >
-                                    {userActionLoading === `grant-credits-${user._id}` ? "Granting..." : "Grant Credits"}
-                                </button>
                                 {isWriterRole && !isUserDeleted && (
                                     <>
                                         <button
@@ -4997,7 +4938,7 @@ const AdminDashboard = () => {
             {scoreModal && <ScoreModal script={scoreModal} isDark={true} onClose={() => setScoreModal(null)} onSave={handleScore} />}
 
             {/* Reject Investor Modal */}
-            {rejectModal && <RejectInvestorModal investor={rejectModal} onClose={() => setRejectModal(null)} onConfirm={handleRejectInvestor} />}
+            {rejectModal && <RejectInvestorModal investor={rejectModal} onClose={() => setRejectModal(null)} onConfirm={handleRejectInvestor} isDark={isDark} />}
 
             {/* User Details Modal */}
             {selectedUserDetail && <UserDetailsModal user={selectedUserDetail} onClose={() => setSelectedUserDetail(null)} />}

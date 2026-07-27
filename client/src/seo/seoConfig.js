@@ -23,7 +23,7 @@ export const defaultSeo = {
     "screenwriters",
   ],
   image: `${SITE_URL}/ckript-logo-landscape-nobg.png`,
-  themeColor: "#0f172a",
+  themeColor: "#0B0A06",
   locale: "en_US",
 };
 

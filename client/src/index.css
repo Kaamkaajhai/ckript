@@ -1,32 +1,70 @@
 @import "tailwindcss";
 
+/* Make `dark:` follow the app's own toggle instead of the operating system.
+ *
+ * Tailwind v4 defaults the `dark:` variant to @media (prefers-color-scheme: dark). This app does
+ * NOT follow the OS — DarkModeContext deliberately starts light on every device and only changes
+ * when the user flips the switch, writing `html.dark-mode`. Without this line the two disagree:
+ * someone whose laptop is in dark mode got Tailwind's dark colours painted over the app's light
+ * chrome, which is how the competition countdown ended up dark-grey-on-near-black (1.79:1).
+ *
+ * Anything styled through DarkModeContext/useDarkMode was always toggle-driven; this brings the
+ * Tailwind half onto the same signal.
+ */
+@custom-variant dark (&:where(html.dark-mode, html.dark-mode *));
+
+/* Brand accent, lightened for dark surfaces.
+ *
+ * #D14D37 is tuned for white backgrounds. On the dark cards it measures 3.37:1 — under the 4.5:1
+ * needed for body text, which is why labels like "Winner" and the theme title were hard to read.
+ * #F08B76 is the same hue lifted in luminance, and reaches ~6:1 on those cards.
+ *
+ * Done as one rule rather than a `dark:` variant on each of the 63 call sites: the accent is written
+ * as an arbitrary value (text-[#D14D37]) in 21 files, so a per-site edit is pure churn and the next
+ * person to type the hex would reintroduce the problem. Backgrounds (bg-[#D14D37]) are deliberately
+ * NOT touched — they carry white text and already pass.
+ */
+html.dark-mode .text-\[\#D14D37\] {
+  color: #f08b76;
+}
+
 /* ═══════════════════════════════════════════════════════════
    DESIGN SYSTEM — Premium Global Foundation
    ═══════════════════════════════════════════════════════════ */
 
 :root {
   --app-font-family: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --brand-900: #0c1f37;
-  --brand-800: #122b4d;
-  --brand-700: #1a3a63;
-  --brand-600: #1e3a5f;
-  --brand-500: #2d5a8e;
-  --brand-400: #4a7db8;
-  --brand-300: #7baad6;
-  --brand-200: #b3d1ed;
-  --brand-100: #dbeaf8;
-  --brand-50: #f0f6fc;
+
+  /* Brand ramp = the landing palette's coral (--ck-red #D14D37), not the old
+     navy. The ramp is kept at the same ten stops so every existing var(--brand-N)
+     reference still resolves to the step it was tuned for; only the hue moved.
+     Note --brand-600 is the accent FILL/RULE colour, not a button colour: the
+     primary button is ink (#161513) — see .btn-primary below — because coral
+     only reaches 4.35:1 and can't carry small text. */
+  --brand-900: #4a1a12;
+  --brand-800: #6d2619;
+  --brand-700: #9c3626;
+  --brand-600: #D14D37;
+  --brand-500: #dc6a56;
+  --brand-400: #e58b7b;
+  --brand-300: #eeb0a4;
+  --brand-200: #f2cdc5;
+  --brand-100: #f8e6e1;
+  --brand-50: #fdf5f3;
   --surface: #ffffff;
-  --surface-raised: #fafbfc;
-  --surface-overlay: #eef0f3;
-  --surface-sunken: #f1f3f5;
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-tertiary: #9ca3af;
-  --text-muted: #d1d5db;
-  --border-default: #e5e7eb;
-  --border-subtle: #f3f4f6;
-  --border-strong: #d1d5db;
+  --surface-raised: #f4efe6;
+  /* Despite the name this is the app's PAGE ground — `body` is its only consumer.
+     It was #eef0f3, a blue-grey, which is what tinted every route cold behind the
+     white cards. #FBFAF7 is the landing's --ck-paper-alt. */
+  --surface-overlay: #FBFAF7;
+  --surface-sunken: #f0ece3;
+  --text-primary: #0B0A06;
+  --text-secondary: #57544f;
+  --text-tertiary: #9a978f;
+  --text-muted: #d8d5cd;
+  --border-default: #e7e5df;
+  --border-subtle: #f2efe9;
+  --border-strong: #d8d5cd;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -180,22 +218,26 @@ button {
 }
 
 /* ── Focus Ring System ── */
+/* --brand-600, not the --brand-400 this used to read. On the navy ramp the 400
+   step was still ~3.3:1 on white; the same step of a coral ramp is only ~2.2:1,
+   which would have quietly downgraded the focus indicator below the 3:1 a focus
+   ring needs. The 600 step (#D14D37) measures 4.35:1 — plenty for a 2px rule. */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand-400);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--brand-600);
   border-radius: var(--radius-sm);
 }
 
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.1);
+  box-shadow: 0 0 0 3px rgba(209, 77, 55, 0.12);
   border-color: var(--brand-600) !important;
 }
 
 /* ── Native Select Readability in Dark Mode ── */
 html.dark-mode select:not([class*="text-"]) {
-  color: #f3f4f6;
+  color: #f5f2eb;
 }
 
 /*
@@ -204,7 +246,7 @@ html.dark-mode select:not([class*="text-"]) {
 */
 html.dark-mode select option,
 html.dark-mode select optgroup {
-  color: #111827;
+  color: #0B0A06;
   background-color: #ffffff;
 }
 
@@ -239,21 +281,21 @@ html.dark-mode select optgroup {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #d8d5cd;
   border-radius: 100px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #9a978f;
 }
 
 html.dark-mode ::-webkit-scrollbar-thumb {
-  background: #1e3550;
+  background: #2f2d29;
   border-radius: 100px;
 }
 
 html.dark-mode ::-webkit-scrollbar-thumb:hover {
-  background: #2a4a6a;
+  background: #423f3a;
 }
 
 .sidebar-scroll::-webkit-scrollbar {
@@ -265,12 +307,12 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
+  background: #e7e5df;
   border-radius: 100px;
 }
 
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #9a978f;
 }
 
 /* ── Line Clamp Utilities ── */
@@ -505,7 +547,7 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #f1f3f5 25%, #e5e7eb 37%, #f1f3f5 63%);
+  background: linear-gradient(90deg, #f2efe9 25%, #e7e2d8 37%, #f2efe9 63%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: var(--radius-md);
@@ -561,24 +603,28 @@ html.dark-mode ::-webkit-scrollbar-thumb:hover {
 }
 
 /* ── Premium Button Base ── */
+/* Deliberately NOT var(--brand-600). The primary button carries small white
+   label text, and coral on white only measures 4.35:1 — fine for a rule or an
+   icon, under AA for 15px copy. The landing's own primary button is ink with a
+   warm-charcoal hover, and this matches it so the two never disagree. */
 .btn-primary {
-  background: var(--brand-600);
+  background: #161513;
   color: white;
   font-weight: 700;
   border-radius: var(--radius-md);
   transition: all 0.2s var(--ease-out-expo);
-  box-shadow: 0 1px 2px rgba(30, 58, 95, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 2px rgba(11, 10, 6, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .btn-primary:hover {
-  background: var(--brand-700);
-  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: #2c2a26;
+  box-shadow: 0 4px 12px rgba(11, 10, 6, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
 }
 
 .btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(30, 58, 95, 0.2);
+  box-shadow: 0 1px 2px rgba(11, 10, 6, 0.2);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -593,15 +639,15 @@ html.dark-mode {
 
 html.dark-mode body {
   background: #0b0b0b;
-  color: #e2e8f0;
+  color: #f5f2eb;
 }
 
 html.dark-mode .sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #1a3050;
+  background: #2f2d29;
 }
 
 html.dark-mode .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: #24466e;
+  background: #423f3a;
 }
 
 html.dark-mode *,
@@ -619,40 +665,42 @@ html.dark-mode [class*="animate-"] {
 
 /* ── Dark Mode Card & Surface Refinements ── */
 html.dark-mode .hover-lift:hover {
-  box-shadow: 0 8px 24px rgba(5, 20, 45, 0.5), 0 0 0 1px rgba(45, 90, 142, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(240, 139, 118, 0.15);
 }
 
 html.dark-mode .skeleton {
-  background: linear-gradient(90deg, #0e1c2e 25%, #1a3050 37%, #0e1c2e 63%);
+  background: linear-gradient(90deg, #141414 25%, #232323 37%, #141414 63%);
   background-size: 200% 100%;
 }
 
 html.dark-mode .glass {
-  background: rgba(14, 28, 46, 0.85);
+  background: rgba(20, 20, 20, 0.85);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
 html.dark-mode .glass-strong {
-  background: rgba(11, 20, 38, 0.92);
+  background: rgba(11, 11, 11, 0.92);
   backdrop-filter: blur(20px) saturate(200%);
   -webkit-backdrop-filter: blur(20px) saturate(200%);
 }
 
+/* Dark accent is #f08b76, not #D14D37 — same reason as the lift at the top of
+   this file: the base coral only reaches 3.37:1 on the near-black surfaces. */
 html.dark-mode ::selection {
-  background: rgba(30, 58, 95, 0.5);
-  color: #93c5fd;
+  background: rgba(240, 139, 118, 0.30);
+  color: #f5f2eb;
 }
 
 html.dark-mode *:focus-visible {
-  box-shadow: 0 0 0 2px #0e1c2e, 0 0 0 4px #2d5a8e;
+  box-shadow: 0 0 0 2px #0b0b0b, 0 0 0 4px #f08b76;
 }
 
 html.dark-mode input:focus-visible,
 html.dark-mode textarea:focus-visible,
 html.dark-mode select:focus-visible {
-  box-shadow: 0 0 0 3px rgba(45, 90, 142, 0.25);
-  border-color: #2d5a8e !important;
+  box-shadow: 0 0 0 3px rgba(240, 139, 118, 0.28);
+  border-color: #f08b76 !important;
 }
 
 html.dark-mode .editor-title:focus,
@@ -666,45 +714,45 @@ html.dark-mode .ProseMirror:focus-visible {
 
 /* ── Dark Mode Scrollbar ── */
 html.dark-mode ::-webkit-scrollbar-track {
-  background: #080e1a;
+  background: #0b0b0b;
 }
 
 /* ── Dark Mode Script Content viewer ── */
 html.dark-mode .script-content {
-  color: #cbd5e1;
+  color: #cfccc5;
 }
 
 html.dark-mode .script-content h1,
 html.dark-mode .script-content h2,
 html.dark-mode .script-content h3 {
-  color: #f1f5f9;
+  color: #f5f2eb;
 }
 
 html.dark-mode .script-content blockquote {
-  border-left-color: rgba(45, 90, 142, 0.4);
-  color: #64748b;
+  border-left-color: rgba(240, 139, 118, 0.4);
+  color: #8d8981;
 }
 
 html.dark-mode .script-content code {
-  background: rgba(45, 90, 142, 0.15);
+  background: rgba(240, 139, 118, 0.14);
 }
 
 html.dark-mode .script-content pre {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
+  color: #f5f2eb;
 }
 
 html.dark-mode .script-content a {
-  color: #93c5fd;
+  color: #f08b76;
 }
 
 html.dark-mode .script-content hr {
-  border-top-color: rgba(148, 163, 184, 0.28);
+  border-top-color: rgba(143, 139, 131, 0.28);
 }
 
 html.dark-mode .script-content img {
-  border-color: rgba(148, 163, 184, 0.22);
+  border-color: rgba(143, 139, 131, 0.22);
 }
 
 /* ── Script Content Viewer ───────────────────────────────── */
@@ -712,7 +760,7 @@ html.dark-mode .script-content img {
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   font-size: 14px;
   line-height: 1.8;
-  color: #111827;
+  color: #0B0A06;
 }
 
 .script-content p {
@@ -725,7 +773,7 @@ html.dark-mode .script-content img {
   text-transform: uppercase;
   text-align: center;
   margin: 1.6em 0 0.4em;
-  color: #0f172a;
+  color: #0B0A06;
 }
 
 .script-content h2 {
@@ -733,35 +781,35 @@ html.dark-mode .script-content img {
   font-weight: 700;
   text-transform: uppercase;
   margin: 1.4em 0 0.3em;
-  color: #111827;
+  color: #0B0A06;
 }
 
 .script-content h3 {
   font-size: 1em;
   font-weight: 700;
   margin: 1.2em 0 0.2em;
-  color: #1f2937;
+  color: #26241f;
 }
 
 .script-content strong {
-  color: #0f172a;
+  color: #0B0A06;
   font-weight: 700;
 }
 
 .script-content em {
   font-style: italic;
-  color: #334155;
+  color: #57544f;
 }
 
 .script-content s {
-  color: #64748b;
+  color: #6f6c66;
 }
 
 .script-content blockquote {
-  border-left: 3px solid rgba(15, 23, 42, 0.15);
+  border-left: 3px solid rgba(11, 10, 6, 0.15);
   padding-left: 1.2em;
   margin: 1em 0;
-  color: #475569;
+  color: #57544f;
   font-style: italic;
 }
 
@@ -776,21 +824,21 @@ html.dark-mode .script-content img {
 }
 
 .script-content code {
-  background: rgba(15, 23, 42, 0.08);
+  background: rgba(11, 10, 6, 0.07);
   border-radius: 4px;
   padding: 0.1em 0.4em;
   font-size: 0.9em;
-  color: #1f2937;
+  color: #26241f;
 }
 
 .script-content pre {
-  background: rgba(15, 23, 42, 0.05);
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(11, 10, 6, 0.05);
+  border: 1px solid rgba(11, 10, 6, 0.12);
   border-radius: 8px;
   padding: 1em 1.4em;
   overflow-x: auto;
   margin: 1em 0;
-  color: #111827;
+  color: #0B0A06;
 }
 
 .script-content mark {
@@ -801,7 +849,7 @@ html.dark-mode .script-content img {
 }
 
 .script-content a {
-  color: #1d4ed8;
+  color: #b8402d;
   text-decoration: underline;
   text-underline-offset: 2px;
   text-decoration-thickness: 1.5px;
@@ -815,7 +863,7 @@ html.dark-mode .script-content img {
 
 .script-content hr {
   border: 0;
-  border-top: 1px solid rgba(15, 23, 42, 0.18);
+  border-top: 1px solid rgba(11, 10, 6, 0.16);
   margin: 1.2em 0;
 }
 
@@ -995,19 +1043,19 @@ html.dark-mode .script-content img {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #9aa3ad;
+  color: #9a978f;
   cursor: pointer;
   opacity: 0.55;
   transition: opacity 0.12s, background 0.12s, color 0.12s;
 }
 .screenplay-editor .cm-sp-linecomment-btn:hover {
   opacity: 1;
-  background: rgba(30, 58, 95, 0.10);
-  color: #1e3a5f;
+  background: rgba(209, 77, 55, 0.10);
+  color: #b8402d;
 }
 .screenplay-editor--dark .cm-sp-linecomment-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #a3c5f2;
+  color: #f08b76;
 }
 
 /* Marker suppression: hide Fountain syntax characters (~ # ^) and forced-element markers (. @ >)
@@ -1043,21 +1091,21 @@ html.dark-mode .script-content img {
   font-weight: 600;
   padding: 3px 8px;
   margin: 6px 0 2px;
-  color: #6b6b6b;
+  color: #6f6c66;
 }
-.screenplay-editor--dark .cm-sp-lockbadge { color: #9aa3ad; }
+.screenplay-editor--dark .cm-sp-lockbadge { color: #8d8981; }
 .screenplay-editor .cm-sp-lockdot { width: 8px; height: 8px; border-radius: 9999px; display: inline-block; flex: none; }
 .screenplay-editor .cm-sp-lockbtn {
   font: inherit;
   font-size: 10px;
   padding: 2px 8px;
   border-radius: 6px;
-  border: 1px solid #d4d4d4;
+  border: 1px solid #e7e5df;
   background: #fff;
-  color: #1e3a5f;
+  color: #b8402d;
   cursor: pointer;
 }
-.screenplay-editor--dark .cm-sp-lockbtn { border-color: #2a4a6a; background: transparent; color: #9db8e0; }
+.screenplay-editor--dark .cm-sp-lockbtn { border-color: #242424; background: transparent; color: #f08b76; }
 
 /* Comment highlights (Phase 3 §5) — subtle underline; focused thread gets a soft fill */
 .screenplay-editor .cm-sp-comment {
@@ -1086,7 +1134,7 @@ html.dark-mode .script-content img {
   height: auto;
   margin: 1em auto;
   border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(11, 10, 6, 0.12);
 }
 
 .script-content figure {
@@ -1114,7 +1162,7 @@ html.dark-mode .script-content img {
   border-color: rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)),
-    #0c1527;
+    #141414;
 }
 
 .contract-licensing-panel::-webkit-scrollbar {
@@ -1127,13 +1175,13 @@ html.dark-mode .script-content img {
 }
 
 .contract-licensing-panel::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #36557c, #223854);
+  background: linear-gradient(180deg, #3a3833, #262421);
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .contract-licensing-panel::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #4a6d97, #294769);
+  background: linear-gradient(180deg, #4c4942, #322f2b);
 }
 
 @media (max-width: 640px) {
@@ -1152,8 +1200,8 @@ html.dark-mode .script-content img {
 .industry-onboarding-page {
   position: relative;
   overflow: hidden;
-  background: #080e18 !important;
-  color: #d2dde9;
+  background: #0b0b0b !important;
+  color: #cfccc5;
 }
 
 .writer-onboarding-page::before,
@@ -1191,7 +1239,7 @@ html.dark-mode .script-content img {
 .industry-onboarding-page .bg-white\/80,
 .industry-onboarding-page .bg-gray-50,
 .industry-onboarding-page .bg-gray-100 {
-  background-color: #0d1520 !important;
+  background-color: #141414 !important;
 }
 
 .industry-onboarding-page .text-gray-900,
@@ -1201,75 +1249,75 @@ html.dark-mode .script-content img {
 }
 
 .industry-onboarding-page .text-gray-800 {
-  color: #d2dde9 !important;
+  color: #cfccc5 !important;
 }
 
 .industry-onboarding-page .text-gray-700 {
-  color: #a8b8ca !important;
+  color: #b3afa7 !important;
 }
 
 .industry-onboarding-page .text-gray-600 {
-  color: #7f8ea2 !important;
+  color: #8d8981 !important;
 }
 
 .industry-onboarding-page .text-gray-500 {
-  color: #6a7b8f !important;
+  color: #807c74 !important;
 }
 
 .industry-onboarding-page .text-gray-400 {
-  color: #5a6b80 !important;
+  color: #76726a !important;
 }
 
 .industry-onboarding-page .border-gray-100 {
-  border-color: #1a2433 !important;
+  border-color: #1f1f1f !important;
 }
 
 .industry-onboarding-page .border-gray-200 {
-  border-color: #243447 !important;
+  border-color: #242424 !important;
 }
 
 .industry-onboarding-page .border-gray-300 {
-  border-color: #31465e !important;
+  border-color: #33312d !important;
 }
 
 .industry-onboarding-page .border-slate-300 {
-  border-color: #31465e !important;
+  border-color: #33312d !important;
 }
 
 .industry-onboarding-page input,
 .industry-onboarding-page textarea,
 .industry-onboarding-page select {
-  background-color: #0b121c !important;
-  border-color: #243447 !important;
+  background-color: #101010 !important;
+  border-color: #242424 !important;
   color: #ffffff !important;
 }
 
 .industry-onboarding-page input::placeholder,
 .industry-onboarding-page textarea::placeholder {
-  color: #5a6b80 !important;
+  color: #76726a !important;
 }
 
 .industry-onboarding-page input:focus,
 .industry-onboarding-page textarea:focus,
 .industry-onboarding-page select:focus {
-  border-color: #3f5d7a !important;
-  box-shadow: 0 0 0 2px rgba(63, 93, 122, 0.2) !important;
+  border-color: #f08b76 !important;
+  box-shadow: 0 0 0 2px rgba(240, 139, 118, 0.22) !important;
 }
 
 .industry-onboarding-page .bg-\[\#f0f4f8\] {
-  background-color: #132235 !important;
+  background-color: #1c1c1c !important;
 }
 
 .industry-onboarding-page .hover\:bg-gray-50:hover {
-  background-color: #111c2a !important;
+  background-color: #1a1a1a !important;
 }
 
 .industry-onboarding-page .hover\:bg-gray-100:hover {
-  background-color: #111c2a !important;
+  background-color: #1a1a1a !important;
 }
 
 .industry-onboarding-page .hover\:border-gray-300:hover {
-  border-color: #3a4f67 !important;
+  border-color: #3a3833 !important;
 }
 
 /* Keep writer onboarding outer canvas dark, but restore white interior surfaces. */
@@ -1283,83 +1331,91 @@ html.dark-mode .script-content img {
 .writer-onboarding-page .text-gray-900,
 .writer-onboarding-page .text-\[\#0a1628\],
 .writer-onboarding-page .text-black {
-  color: #0f172a !important;
+  color: #0B0A06 !important;
 }
 
 .writer-onboarding-page .text-gray-800 {
-  color: #1f2937 !important;
+  color: #26241f !important;
 }
 
 .writer-onboarding-page .text-gray-700 {
-  color: #374151 !important;
+  color: #403d38 !important;
 }
 
 .writer-onboarding-page .text-gray-600 {
-  color: #4b5563 !important;
+  color: #57544f !important;
 }
 
 .writer-onboarding-page .text-gray-500 {
-  color: #6b7280 !important;
+  color: #6f6c66 !important;
 }
 
 .writer-onboarding-page .text-gray-400 {
-  color: #9ca3af !important;
+  color: #9a978f !important;
 }
 
 .writer-onboarding-page .border-gray-100 {
-  border-color: #f3f4f6 !important;
+  border-color: #f2efe9 !important;
 }
 
 .writer-onboarding-page .border-gray-200 {
-  border-color: #e5e7eb !important;
+  border-color: #e7e5df !important;
 }
 
 .writer-onboarding-page .border-gray-300,
 .writer-onboarding-page .border-slate-300 {
-  border-color: #d1d5db !important;
+  border-color: #d8d5cd !important;
 }
 
 .writer-onboarding-page input,
 .writer-onboarding-page textarea,
 .writer-onboarding-page select {
   background-color: #ffffff !important;
-  border-color: #d7dee8 !important;
-  color: #111827 !important;
+  border-color: #ddd9d1 !important;
+  color: #0B0A06 !important;
 }
 
 .writer-onboarding-page input::placeholder,
 .writer-onboarding-page textarea::placeholder {
-  color: #9ca3af !important;
+  color: #9a978f !important;
 }
 
 .writer-onboarding-page input:focus,
 .writer-onboarding-page textarea:focus,
 .writer-onboarding-page select:focus {
-  border-color: #1e3a5f !important;
-  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.14) !important;
+  border-color: #D14D37 !important;
+  box-shadow: 0 0 0 2px rgba(209, 77, 55, 0.16) !important;
 }
 
 .writer-onboarding-page .bg-\[\#f0f4f8\] {
-  background-color: #f8fafc !important;
+  background-color: #FBFAF7 !important;
 }
 
 .writer-onboarding-page .hover\:bg-gray-50:hover {
-  background-color: #f9fafb !important;
+  background-color: #faf7f2 !important;
 }
 
 .writer-onboarding-page .hover\:bg-gray-100:hover {
-  background-color: #f3f4f6 !important;
+  background-color: #f2efe9 !important;
 }
 
 .writer-onboarding-page .hover\:border-gray-300:hover {
-  border-color: #cbd5e1 !important;
+  border-color: #d8d5cd !important;
 }
 
+/* Investor onboarding: dark outer canvas, WHITE interior panels.
+ *
+ * This section used to declare itself twice — a dark-interior block and then,
+ * ~80 lines later, a light-interior block repeating every one of the same
+ * selectors. Later-wins meant the dark half never painted a single pixel; it
+ * just sat there looking authoritative. Only the light half survives, so there
+ * is one answer per selector and recolouring can't silently diverge.
+ */
 .investor-onboarding-page {
   position: relative;
   overflow: hidden;
-  background: #080e18 !important;
-  color: #d2dde9;
+  background: #0b0b0b !important;
+  color: #cfccc5;
 }
 
 .investor-onboarding-page::before {
@@ -1394,241 +1450,166 @@ html.dark-mode .script-content img {
 .investor-onboarding-page .bg-white\/80,
 .investor-onboarding-page .bg-gray-50,
 .investor-onboarding-page .bg-gray-100 {
-  background-color: #0d1520 !important;
-}
-
-.investor-onboarding-page .text-gray-900,
-.investor-onboarding-page .text-\[\#0a1628\],
-.investor-onboarding-page .text-black {
-  color: #ffffff !important;
-}
-
-.investor-onboarding-page .text-gray-800 {
-  color: #d2dde9 !important;
-}
-
-.investor-onboarding-page .text-gray-700 {
-  color: #a8b8ca !important;
-}
-
-.investor-onboarding-page .text-gray-600 {
-  color: #7f8ea2 !important;
-}
-
-.investor-onboarding-page .text-gray-500 {
-  color: #6a7b8f !important;
-}
-
-.investor-onboarding-page .text-gray-400 {
-  color: #5a6b80 !important;
-}
-
-.investor-onboarding-page .border-gray-100 {
-  border-color: #1a2433 !important;
-}
-
-.investor-onboarding-page .border-gray-200 {
-  border-color: #243447 !important;
-}
-
-.investor-onboarding-page .border-gray-300,
-.investor-onboarding-page .border-slate-300 {
-  border-color: #31465e !important;
-}
-
-.investor-onboarding-page input,
-.investor-onboarding-page textarea,
-.investor-onboarding-page select {
-  background-color: #0b121c !important;
-  border-color: #243447 !important;
-  color: #ffffff !important;
-}
-
-.investor-onboarding-page input::placeholder,
-.investor-onboarding-page textarea::placeholder {
-  color: #5a6b80 !important;
-}
-
-.investor-onboarding-page input:focus,
-.investor-onboarding-page textarea:focus,
-.investor-onboarding-page select:focus {
-  border-color: #3f5d7a !important;
-  box-shadow: 0 0 0 2px rgba(63, 93, 122, 0.2) !important;
-}
-
-.investor-onboarding-page .bg-\[\#f0f4f8\],
-.investor-onboarding-page .bg-\[\#f8faff\] {
-  background-color: #132235 !important;
-}
-
-.investor-onboarding-page .hover\:bg-gray-50:hover,
-.investor-onboarding-page .hover\:bg-gray-100:hover {
-  background-color: #111c2a !important;
-}
-
-.investor-onboarding-page .hover\:border-gray-300:hover {
-  border-color: #3a4f67 !important;
-}
-
-/* Keep investor onboarding outer canvas dark, with white interior surfaces. */
-.investor-onboarding-page {
-  background: #080e18 !important;
-  color: #d2dde9;
-}
-
-.investor-onboarding-page::before {
-  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.6) 1px, transparent 0);
-  opacity: 0.035;
-}
-
-.investor-onboarding-page::after {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.investor-onboarding-page .bg-white,
-.investor-onboarding-page .bg-white\/80,
-.investor-onboarding-page .bg-gray-50,
-.investor-onboarding-page .bg-gray-100 {
   background-color: #ffffff !important;
 }
 
 .investor-onboarding-page .text-gray-900,
 .investor-onboarding-page .text-\[\#0a1628\],
 .investor-onboarding-page .text-black {
-  color: #0f172a !important;
+  color: #0B0A06 !important;
 }
 
 .investor-onboarding-page .text-gray-800 {
-  color: #1f2937 !important;
+  color: #26241f !important;
 }
 
 .investor-onboarding-page .text-gray-700 {
-  color: #374151 !important;
+  color: #403d38 !important;
 }
 
 .investor-onboarding-page .text-gray-600 {
-  color: #4b5563 !important;
+  color: #57544f !important;
 }
 
 .investor-onboarding-page .text-gray-500 {
-  color: #6b7280 !important;
+  color: #6f6c66 !important;
 }
 
 .investor-onboarding-page .text-gray-400 {
-  color: #9ca3af !important;
+  color: #9a978f !important;
 }
 
 .investor-onboarding-page .border-gray-100 {
-  border-color: #f3f4f6 !important;
+  border-color: #f2efe9 !important;
 }
 
 .investor-onboarding-page .border-gray-200,
 .investor-onboarding-page .border-slate-200 {
-  border-color: #e5e7eb !important;
+  border-color: #e7e5df !important;
 }
 
 .investor-onboarding-page .border-gray-300,
 .investor-onboarding-page .border-slate-300 {
-  border-color: #d1d5db !important;
+  border-color: #d8d5cd !important;
 }
 
 .investor-onboarding-page input,
 .investor-onboarding-page textarea,
 .investor-onboarding-page select {
   background-color: #ffffff !important;
-  border-color: #d7dee8 !important;
-  color: #111827 !important;
+  border-color: #ddd9d1 !important;
+  color: #0B0A06 !important;
 }
 
 .investor-onboarding-page input::placeholder,
 .investor-onboarding-page textarea::placeholder {
-  color: #9ca3af !important;
+  color: #9a978f !important;
 }
 
 .investor-onboarding-page input:focus,
 .investor-onboarding-page textarea:focus,
 .investor-onboarding-page select:focus {
-  border-color: #1e3a5f !important;
-  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.14) !important;
+  border-color: #D14D37 !important;
+  box-shadow: 0 0 0 2px rgba(209, 77, 55, 0.16) !important;
 }
 
 .investor-onboarding-page .bg-\[\#f0f4f8\],
 .investor-onboarding-page .bg-\[\#f8faff\] {
-  background-color: #f8fafc !important;
+  background-color: #FBFAF7 !important;
 }
 
 .investor-onboarding-page .hover\:bg-gray-50:hover {
-  background-color: #f9fafb !important;
+  background-color: #faf7f2 !important;
 }
 
 .investor-onboarding-page .hover\:bg-gray-100:hover {
-  background-color: #f3f4f6 !important;
+  background-color: #f2efe9 !important;
 }
 
 .investor-onboarding-page .hover\:border-gray-300:hover {
-  border-color: #cbd5e1 !important;
+  border-color: #d8d5cd !important;
 }
 
 /* Reader signup (Join) dark canvas with white panel consistency. */
 .reader-signup-page {
-  background: #080e18 !important;
-  color: #d2dde9;
+  background: #0b0b0b !important;
+  color: #cfccc5;
 }
 
 .reader-signup-page .reader-signup-panel {
   background-color: #ffffff !important;
-  border-color: #e5e7eb !important;
+  border-color: #e7e5df !important;
 }
 
 .reader-signup-page .reader-signup-panel label {
-  color: #475569 !important;
+  color: #57544f !important;
 }
 
 .reader-signup-page .reader-signup-panel input,
 .reader-signup-page .reader-signup-panel textarea,
 .reader-signup-page .reader-signup-panel select {
   background-color: #ffffff !important;
-  border-color: #d7dee8 !important;
-  color: #111827 !important;
+  border-color: #ddd9d1 !important;
+  color: #0B0A06 !important;
 }
 
 .reader-signup-page .reader-signup-panel input::placeholder,
 .reader-signup-page .reader-signup-panel textarea::placeholder {
-  color: #9ca3af !important;
+  color: #9a978f !important;
 }
 
 .reader-signup-page .reader-signup-panel input:focus,
 .reader-signup-page .reader-signup-panel textarea:focus,
 .reader-signup-page .reader-signup-panel select:focus {
-  border-color: #1e3a5f !important;
-  box-shadow: 0 0 0 2px rgba(30, 58, 95, 0.14) !important;
+  border-color: #D14D37 !important;
+  box-shadow: 0 0 0 2px rgba(209, 77, 55, 0.16) !important;
 }
 
 .reader-signup-page .reader-address-card,
 .reader-signup-page .reader-password-hint {
-  background-color: #f8fafc !important;
-  border-color: #e5e7eb !important;
+  background-color: #FBFAF7 !important;
+  border-color: #e7e5df !important;
 }
 
 .reader-signup-page .reader-muted {
-  color: #64748b !important;
+  color: #6f6c66 !important;
 }
 
+/* Accent TEXT uses the darkened coral (#b8402d) — the fill coral #D14D37 is
+   only 4.35:1 on white and this is a link, i.e. something read. */
 .reader-signup-page .reader-primary-link {
-  color: #1e3a5f !important;
+  color: #b8402d !important;
 }
 
 .reader-signup-page .reader-primary-link:hover {
-  color: #162d4a !important;
+  color: #9c3626 !important;
 }
 
-/* Accessibility: strengthen text contrast for critical actions and muted copy. */
+/* Accessibility: strengthen text contrast for critical actions and muted copy.
+ *
+ * These match on the literal CLASS-NAME STRING, not on a computed colour, so
+ * they are only ever as current as the hexes typed into the JSX. As buttons
+ * migrate off navy the old selectors stop matching and the white label would
+ * silently vanish against the new fill — a failure with no error, visible only
+ * by looking. The ink (#161513) and coral (#D14D37) fills are therefore listed
+ * ALONGSIDE the navy/blue ones rather than replacing them, so the rule holds
+ * whichever file lands first. Sweep the dead selectors once no `bg-[#1e3a5f]`
+ * or `bg-blue-*` button is left in the tree.
+ *
+ * The coral selector carries the `i` flag because Tailwind arbitrary values are
+ * written both `bg-[#D14D37]` and `bg-[#d14d37]` across the app, and attribute
+ * matching is case-sensitive by default.
+ */
+:where(button, a, [role="button"])[class*="bg-[#161513]"],
+:where(button, a, [role="button"])[class*="bg-[#d14d37]" i],
 :where(button, a, [role="button"])[class*="bg-[#1e3a5f]"],
 :where(button, a, [role="button"])[class*="bg-blue-700"],
 :where(button, a, [role="button"])[class*="bg-blue-600"] {
   color: #ffffff !important;
 }
 
+:where(button, a, [role="button"])[class*="bg-[#161513]"] :is(svg, span),
+:where(button, a, [role="button"])[class*="bg-[#d14d37]" i] :is(svg, span),
 :where(button, a, [role="button"])[class*="bg-[#1e3a5f]"] :is(svg, span),
 :where(button, a, [role="button"])[class*="bg-blue-700"] :is(svg, span),
 :where(button, a, [role="button"])[class*="bg-blue-600"] :is(svg, span) {
@@ -1636,21 +1617,21 @@ html.dark-mode .script-content img {
 }
 
 .login-page .text-slate-500 {
-  color: #475569 !important;
+  color: #57544f !important;
 }
 
 .investor-onboarding-page .text-gray-400,
 .writer-onboarding-page .text-gray-400,
 .reader-signup-page .reader-muted {
-  color: #64748b !important;
+  color: #6f6c66 !important;
 }
 
 .industry-onboarding-page .text-gray-500 {
-  color: #90a3b8 !important;
+  color: #a5a199 !important;
 }
 
 .industry-onboarding-page .text-gray-400 {
-  color: #a8b8ca !important;
+  color: #b3afa7 !important;
 }
 
 /* Search readability helpers used across dark surfaces. */
@@ -1665,7 +1646,7 @@ html.dark-mode .script-content img {
 }
 
 .app-search-input-dark::placeholder {
-  color: #9fb0c8 !important;
+  color: #a5a199 !important;
   opacity: 1;
 }
 
@@ -1678,8 +1659,8 @@ html.dark-mode .script-content img {
 html.dark-mode input:not([type="checkbox"]):not([type="radio"]),
 html.dark-mode textarea,
 html.dark-mode select {
-  color: #e5edf7 !important;
-  caret-color: #e5edf7 !important;
+  color: #f5f2eb !important;
+  caret-color: #f5f2eb !important;
 }
 
 html.dark-mode input::placeholder,
@@ -1773,7 +1754,7 @@ body {
   top: 50%;
   left: 50%;
   width: 150%;
-  color: rgba(15, 23, 42, 0.08);
+  color: rgba(11, 10, 6, 0.07);
   font-family: Inter, Arial, sans-serif;
   font-size: clamp(34px, 7vw, 68px);
   font-weight: 900;

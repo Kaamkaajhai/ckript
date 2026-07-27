@@ -71,14 +71,21 @@ export function buildNav({ user, profilePath, msgCount = 0 }) {
   }
 
   // Default: creator / writer — matches the "Ckript Dashboard" reference.
+  //
+  // NOTE: the competition entries below must be kept in step with components/Sidebar.jsx, which is a
+  // SECOND, independent nav used by MainLayout. A writer on /dashboard sees THIS one, so a
+  // destination added only there is invisible to them — which is exactly how the Challenge shipped
+  // unreachable for every writer.
   const primary = [
     { key: "dashboard", path: "/dashboard",      label: "Dashboard", icon: "dashboard", exact: true, fresh: false },
     { key: "create",    path: "/create-project", label: "Create",    icon: "create",    fresh: true  },
     { key: "upload",    path: "/upload",         label: "Upload",    icon: "upload"     },
+    { key: "challenge", path: "/challenge",      label: "Challenge", icon: "challenge"  },
     { key: "messages",  path: "/messages",       label: "Messages",  icon: "messages",  badge: msgCount },
     { key: "profile",   path: profilePath,       label: "Writer Profile",  icon: "profile"   },
   ];
-  // Drawer mirrors the reference grouping: Dashboard · Search | Create · Upload | Messages.
+  // Drawer mirrors the reference grouping: Dashboard · Search | Create · Upload | Challenge ·
+  // My Competitions | Messages.
   const drawer = [
     { key: "dashboard", path: "/dashboard",      label: "Dashboard",      icon: "home",   exact: true },
     { key: "search",    path: "/search",         label: "Search Projects", icon: "search" },
@@ -86,16 +93,23 @@ export function buildNav({ user, profilePath, msgCount = 0 }) {
     { key: "create",    path: "/create-project", label: "Create Project", icon: "ideas",  fresh: true },
     { key: "upload",    path: "/upload",         label: "Upload Project", icon: "upload" },
     { divider: true },
+    { key: "challenge",    path: "/challenge",       label: "Challenge",       icon: "challenge" },
+    { key: "competitions", path: "/my-competitions", label: "My Competitions", icon: "competitions" },
+    { divider: true },
     { key: "messages",  path: "/messages",       label: "Messages",       icon: "messages", badge: msgCount },
   ];
+  // Bottom nav is capped at 4 and was selected by POSITION (primary[0], [1], [3]), so inserting
+  // anything into `primary` silently swapped a destination out of it. Select by key instead — the
+  // rail can now grow without quietly rewriting the mobile nav.
+  const pick = (key) => primary.find((item) => item.key === key);
   return {
     primary,
     drawer,
     mobile: [
-      primary[0],
-      primary[1],
-      primary[3],
+      pick("dashboard"),
+      pick("create"),
+      pick("messages"),
       { key: "profile", path: profilePath, label: "Profile", icon: "profile" },
-    ],
+    ].filter(Boolean),
   };
 }

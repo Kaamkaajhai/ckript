@@ -12,6 +12,7 @@ import BankDetails from "../components/BankDetails";
 import Transactions from "../components/Transactions";
 import GoogleCalendarCard from "../components/GoogleCalendarCard";
 import CurrencyToggle from "../components/CurrencyToggle";
+import CompetitionAchievements from "../components/competition/CompetitionAchievements";
 import SocialShareButton from "../components/SocialShareButton";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import PasswordInput from "../components/PasswordInput";
@@ -1692,6 +1693,14 @@ const Profile = () => {
               />
             )}
           />
+          {/* Competition badges + history. Writers get their own Overview branch, so this has to be
+              rendered here too — the copy further down lives in the non-writer About tab, which a
+              writer profile never reaches. Self-hides when there is nothing to show. */}
+          <CompetitionAchievements
+            userId={profile._id}
+            badges={profile.badges}
+            className="mt-6"
+          />
         </Motion.div>
       )}
 
@@ -1992,6 +2001,13 @@ const Profile = () => {
               </SectionCard>
             </div>
           )}
+
+          {/* Competition badges + history — self-hiding when there are none. */}
+          <CompetitionAchievements
+            userId={profile._id}
+            badges={profile.badges}
+            className="py-6 first:pt-0 last:pb-0"
+          />
 
           {/* INVESTOR-SPECIFIC SECTIONS */}
           {profile.role === "investor" && (

@@ -6,6 +6,7 @@ import publicApi from "../services/publicApi";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import PremiumModelBadge from "../components/PremiumModelBadge";
+import CompetitionAchievements from "../components/competition/CompetitionAchievements";
 
 const formatIndustrySubRole = (value = "", otherValue = "") => {
   const normalized = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
@@ -248,6 +249,13 @@ const PublicProfile = () => {
                   </div>
                 </div>
               )}
+
+              {/* Competition badges + history. Renders nothing when the writer has neither. */}
+              <CompetitionAchievements
+                userId={profile._id}
+                badges={profile.badges}
+                className="pt-6 first:pt-0"
+              />
 
               {writerProfilePublic && profile.writerProfile && (
                 <>

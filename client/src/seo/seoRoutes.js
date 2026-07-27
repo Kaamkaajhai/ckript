@@ -31,6 +31,28 @@ const staticSeoRoutes = [
     kind: "homepage",
   },
   {
+    // The challenge hub — live, previous, Hall of Fame and your own entries. This used to be a
+    // single competition's landing page; that now lives at /challenge/c/:slug and sets its own
+    // metadata at runtime, so the wording here describes the index rather than one event.
+    // (verify-prerender.mjs only checks that a title EXISTS, so a stale one ships silently.)
+    path: "/challenge",
+    title: "Screenwriting Challenges | Ckript",
+    description:
+      "Timed screenwriting competitions from Ckript. See what is running now, browse past challenges and the Hall of Fame, and enter the next one.",
+    changefreq: "daily",
+    priority: "0.9",
+  },
+  {
+    // The permanent archive of past competitions — the platform's credibility page, so it should be
+    // indexed. Individual /hall-of-fame/:slug pages set their own metadata at runtime.
+    path: "/hall-of-fame",
+    title: "Hall of Fame | Ckript Competition Winners",
+    description:
+      "Celebrating the best writers and scripts from every Ckript competition — winners, runners-up and featured writers from past challenges.",
+    changefreq: "weekly",
+    priority: "0.8",
+  },
+  {
     path: "/contact",
     title: "Contact Ckript",
     description:
@@ -145,7 +167,6 @@ export const noIndexPrefixes = [
   "/trending",
   "/profile",
   "/dashboard",
-  "/credits",
   "/purchase-requests",
   "/new-project",
   "/ai-tools",

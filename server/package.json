@@ -5,7 +5,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test utils/*.test.js",
     "test:url-policy": "node --test utils/remoteAssetPolicy.test.js",
     "test:security-boundaries": "node --test utils/remoteAssetPolicy.test.js utils/mongoId.test.js",
     "security:audit-remote-assets": "node scripts/auditRemoteAssetUrls.js",

@@ -646,7 +646,7 @@ export const getPublicUserProfile = async (req, res) => {
     }
 
     const user = await User.findOne(profileLookupQuery)
-      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated subscription")
+      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated subscription badges")
       .lean();
 
     if (!user || user.isDeactivated) {
@@ -685,6 +685,8 @@ export const getPublicUserProfile = async (req, res) => {
       skills: Array.isArray(user.skills) ? user.skills.filter(Boolean).slice(0, 12) : [],
       profileImage: user.profileImage || "",
       coverImage: user.coverImage || "",
+      // Competition badges are public achievements — that's the point of earning one.
+      badges: Array.isArray(user.badges) ? user.badges : [],
       followerCount: Array.isArray(user.followers) ? user.followers.length : 0,
       followingCount: Array.isArray(user.following) ? user.following.length : 0,
       writerProfile: user.writerProfile
