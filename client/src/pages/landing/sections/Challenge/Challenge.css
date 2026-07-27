@@ -1,0 +1,178 @@
+/* ═══════════════════════ CHALLENGE ═══════════════════════
+   Frame values are the landing's, not new ones: the vertical rhythm
+   `clamp(80px, 9vw, 140px)`, the horizontal `clamp(20px, 5vw, 80px)`,
+   the 1320px inner and the `clamp(44px, 5vw, 68px)` head→body gap all
+   repeat verbatim across Features, Formats and Problem. Reusing them —
+   along with .ckl-kicker / .ckl-h2 / .ckl-lead — is what makes this
+   section native rather than merely adjacent. */
+
+.ckl .ckl-chal {
+  position: relative;
+  width: 100%;
+  background: var(--ck-paper);
+  padding: clamp(80px, 9vw, 140px) clamp(20px, 5vw, 80px);
+}
+
+.ckl .ckl-chal-inner { max-width: 1320px; margin: 0 auto; }
+.ckl .ckl-chal-head  { max-width: 760px; }
+.ckl .ckl-chal-lead  { max-width: 540px; }
+
+.ckl .ckl-chal-body {
+  margin-top: clamp(44px, 5vw, 68px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 34px;
+}
+
+/* ── What you get ──────────────────────────────────────────────────
+   A left rule rather than a card: this is an aside to the headline, not
+   a competing object. Card chrome here would start the section's slide
+   into looking like a pricing table. */
+.ckl .ckl-chal-get {
+  max-width: 640px;
+  padding-left: 22px;
+  border-left: 2px solid var(--ck-red);
+}
+.ckl .ckl-chal-promise {
+  font-family: var(--ck-serif);
+  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+  line-height: 1.2;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chal-prizes {
+  margin-top: 10px;
+  font-family: var(--ck-body);
+  font-size: 18px;
+  line-height: 27px;
+  color: var(--ck-body-ink);
+}
+
+/* ── Three beats ───────────────────────────────────────────────────
+   Numbered because the order carries information — it is a sequence, not
+   a list of features. */
+.ckl .ckl-chal-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 44px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ckl .ckl-chal-step { display: flex; align-items: baseline; gap: 12px; }
+.ckl .ckl-chal-step-n {
+  font-family: var(--ck-serif);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ck-red);
+  font-variant-numeric: tabular-nums;
+}
+.ckl .ckl-chal-step-label {
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 17px;
+  color: var(--ck-ink);
+}
+
+.ckl .ckl-chal-open {
+  font-family: var(--ck-body);
+  font-size: 18px;
+  line-height: 27px;
+  color: var(--ck-body-ink);
+  max-width: 620px;
+}
+
+/* ── One laureate ──────────────────────────────────────────────────
+   16px radius and the card tokens, matching Problem and Features. */
+.ckl .ckl-chal-winner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 24px 28px;
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  background: var(--ck-card);
+  text-decoration: none;
+  min-width: 280px;
+}
+/* --ck-heading-italic, not --ck-muted. The page's shared .ckl-kicker uses muted at 14px and measures
+   ~2.9:1; this label is 12px, so it would read worse still. Matching the page verbatim is right for
+   the shared primitive but not for a new one — a class invented today should not ship below the
+   line. (The page-wide kicker treatment is a separate, deliberate decision.) */
+.ckl .ckl-chal-winner-eyebrow {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ck-heading-italic);
+}
+.ckl .ckl-chal-winner-name {
+  font-family: var(--ck-serif);
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chal-winner-meta {
+  font-family: var(--ck-body);
+  font-size: 16px;
+  color: var(--ck-body-ink);
+}
+.ckl .ckl-chal-winner-cta {
+  margin-top: 10px;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ck-red);
+}
+
+/* ── Actions ───────────────────────────────────────────────────────
+   Copied from FinalCta: #161513 fill (not --ck-ink), white, radius 0. */
+.ckl .ckl-chal-cta {
+  margin-top: clamp(38px, 4vw, 56px);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.ckl .ckl-chal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 244px;
+  height: 70px;
+  background: #161513;
+  color: #fff;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.2px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background .25s ease, transform .25s cubic-bezier(.2, .7, .2, 1);
+}
+.ckl .ckl-chal-link {
+  font-family: var(--ck-sans);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ck-ink);
+  text-decoration: none;
+  border-bottom: 2px solid #0B0A06;
+  padding-bottom: 7px;
+  transition: color .22s ease, border-color .22s ease;
+}
+
+@media (max-width: 900px) {
+  .ckl .ckl-chal-cta { flex-direction: column; align-items: flex-start; gap: 22px; }
+  .ckl .ckl-chal-btn { width: 100%; max-width: 340px; }
+  .ckl .ckl-chal-steps { gap: 14px 28px; }
+}
+
+/* The landing's reveal baseline is `opacity: 0`, so switching the animation off alone would leave
+   this section permanently invisible to anyone who prefers reduced motion. Opacity has to be
+   restored in the same breath. (The rest of the page has the same gap; fixing it globally is a
+   separate change.) */
+@media (prefers-reduced-motion: reduce) {
+  .ckl .ckl-chal [data-ra] { animation: none !important; opacity: 1 !important; }
+  .ckl .ckl-chal-winner { transition: none; }
+}

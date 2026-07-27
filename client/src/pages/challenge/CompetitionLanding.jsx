@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink } from "lucide-react";
+import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink, Check } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import useCompetition from "../../components/competition/useCompetition";
@@ -11,7 +11,7 @@ import CountdownTimer from "../../components/competition/CountdownTimer";
 import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import { COMPANY } from "../../constants/company";
 import "./challenge.css";
-import { JUDGING_CRITERIA } from "./constants";
+import { JUDGING_CRITERIA, HOW_IT_WORKS, WHAT_YOU_RECEIVE } from "./constants";
 
 const Section = ({ id, title, children, subtitle }) => (
   <section id={id} className="scroll-mt-24 py-10">
@@ -227,6 +227,26 @@ const CompetitionLanding = () => {
       };
     }
     if (phase === "announced") return { label: "Registration opens soon", disabled: true };
+    if (phase === "registration_closed") return { label: "Writing begins soon", disabled: true };
+    // The one phase a newcomer cannot act on — registration is shut and judging has not started. A
+    // disabled "Registration closed" made it a dead end during the single week the competition is
+    // most visible. The theme is public the moment the gun fires, and it is the most interesting
+    // thing on the site that week, so send them to it.
+    if (phase === "live") {
+      return {
+        label: "See this year's theme",
+        onClick: () => {
+          // Smooth by default, instant for anyone who has asked for less motion — a long animated
+          // jump is exactly what that preference exists to prevent.
+          const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+          document.getElementById("theme")?.scrollIntoView({
+            behavior: reduce ? "auto" : "smooth",
+            block: "start",
+          });
+        },
+        disabled: false,
+      };
+    }
     return { label: "Registration closed", disabled: true };
   })();
 
@@ -346,6 +366,57 @@ const CompetitionLanding = () => {
           </Card>
         </Section>
 
+        {/* Numbered on purpose: this is a sequence, and the order is the information. Uncertainty
+            is what stops someone committing a weekend — six concrete steps make it finite. */}
+        <Section id="how-it-works" title="How the Challenge works">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {HOW_IT_WORKS.map((step, i) => (
+              <Card key={step.title}>
+                <p className="ckc-meta">{String(i + 1).padStart(2, "0")}</p>
+                <h3 className="ckc-title ckc-h3" style={{ marginTop: 8 }}>{step.title}</h3>
+                <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.55, color: "var(--ckc-muted)" }}>
+                  {step.body}
+                </p>
+              </Card>
+            ))}
+          </div>
+        </Section>
+
+        {/* People rule themselves out long before anyone rules them out. The sentence carries the
+            rule; the chips are examples, never a gate — so nobody reads their own absence from the
+            list as an answer. The competition's own eligibility text stays the source of truth. */}
+        <Section id="eligibility" title="Who can enter">
+          <Card>
+            <p className="ckc-prose" style={{ fontSize: "1.0625rem", color: "var(--ckc-ink)" }}>
+              Anyone who writes. Wherever you are, whatever you have written before.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["First script", "Fiftieth script", "Students", "Professionals",
+                "Screen", "TV", "Anime", "Stage"].map((tag) => (
+                <span key={tag} className="ckc-chip">{tag}</span>
+              ))}
+            </div>
+            {competition.eligibility ? (
+              <p className="ckc-meta" style={{ marginTop: 18 }}>{competition.eligibility}</p>
+            ) : null}
+          </Card>
+        </Section>
+
+        {/* For the majority who assume they will not win — which is most of the reason people never
+            enter anything. The last line answers the fear that actually stops writers submitting. */}
+        <Section id="what-you-receive" title="What every entrant receives">
+          <Card>
+            <ul className="space-y-3">
+              {WHAT_YOU_RECEIVE.map((item) => (
+                <li key={item} className="flex gap-3" style={{ lineHeight: 1.55, color: "var(--ckc-body)" }}>
+                  <Check className="h-4 w-4 shrink-0" style={{ marginTop: 3, color: "var(--ckc-accent)" }} aria-hidden="true" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </Section>
+
         <Section id="timeline" title="Timeline">
           <Card><PhaseTimeline steps={timeline} serverNow={serverNow} /></Card>
         </Section>
@@ -399,27 +470,18 @@ const CompetitionLanding = () => {
           </Section>
         ) : null}
 
+        {/* Deliberately quiet. Sponsors and judges matter at this stage, but they are not who this
+            page is for — two full cards spent a writer's scroll on someone else's ask. One line
+            keeps the door open at a fraction of the cost. */}
         <Section id="partner" title="Partner with us">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Card>
-              <h3 className="ckc-title ckc-h3">Become a sponsor</h3>
-              <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
-                Put your brand in front of thousands of writers competing over one intense weekend.
-              </p>
-              <a href={mailto("Sponsorship enquiry")} className="ckc-link mt-4 inline-flex items-center gap-2" style={{ fontSize: 14 }}>
-                <Mail className="h-4 w-4" aria-hidden="true" /> {COMPANY.supportEmail}
-              </a>
-            </Card>
-            <Card>
-              <h3 className="ckc-title ckc-h3">Partner with us</h3>
-              <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
-                Film schools, festivals and production companies — let's build the next challenge together.
-              </p>
-              <a href={mailto("Partnership enquiry")} className="ckc-link mt-4 inline-flex items-center gap-2" style={{ fontSize: 14 }}>
-                <Mail className="h-4 w-4" aria-hidden="true" /> {COMPANY.supportEmail}
-              </a>
-            </Card>
-          </div>
+          <p className="ckc-lede">
+            Sponsor a challenge, join the judging panel, or bring your community.
+          </p>
+          <p style={{ marginTop: 12 }}>
+            <a href={mailto("Partnership enquiry")} className="ckc-link inline-flex items-center gap-2">
+              <Mail className="h-4 w-4" aria-hidden="true" /> Get in touch
+            </a>
+          </p>
         </Section>
 
         {competition.rules?.length ? (
