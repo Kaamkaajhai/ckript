@@ -39,6 +39,7 @@ import { useAiCover } from "./hooks/useAiCover";
 import { useScreenplayCollab } from "./hooks/useScreenplayCollab";
 import { usePayloads } from "./hooks/usePayloads";
 import ConfirmDialog from "../../components/ConfirmDialog";
+import { Skeleton } from "../../components/skeleton";
 import { buildPagePreviewTexts } from "./lib/preview";
 import { createDefaultRightsLicensing, normalizeRightsLicensingState, getRightsValidationMessage } from "./lib/rights";
 import TitlePageModal from "./components/TitlePageModal";
@@ -1797,7 +1798,7 @@ const CreateProject = () => {
                 <button onClick={() => { setScriptId(null); setLoadedScriptStatus("draft"); setEditApprovalLocked(false); setPurchasedServiceCredits({ evaluation: false, aiTrailer: false, spotlight: false }); setTitle(""); editor?.commands.clearContent(); clearLocalWorkingDraft(); setShowDrafts(false); setStep(1); }}
                   className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition ${dark ? "text-gray-400 hover:bg-white/[0.06]" : "text-gray-500 hover:bg-gray-100"}`}>+ New Draft</button>
               </div>
-              {loadingDrafts ? <div className="flex gap-3">{[1, 2, 3].map(i => <div key={i} className={`h-16 flex-1 rounded-xl animate-pulse ${dark ? "bg-[#182840]" : "bg-gray-100"}`} />)}</div>
+              {loadingDrafts ? <div className="ck-sk-tone-cool grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2" aria-busy="true">{[1, 2, 3].map(i => <Skeleton key={i} h={64} radius={12} style={{ width: "100%" }} />)}</div>
                 : drafts.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">{drafts.map(d => (
                   <DraftCard key={d._id} draft={d} dark={dark} isActive={scriptId === d._id} onClick={() => loadDraft(d._id)} onDelete={handleDeleteDraft} />
                 ))}</div>

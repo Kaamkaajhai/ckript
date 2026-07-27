@@ -5,6 +5,7 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import useCollabSocket from "../hooks/useCollabSocket";
 import InviteModal from "../components/collab/InviteModal";
+import CollaborationHubSkeleton from "../components/skeleton/CollaborationHubSkeleton";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
@@ -595,14 +596,7 @@ export default function CollaborationHub() {
   }
 
   if (loading || !isRoleResolved) {
-    return (
-      <div className="min-h-screen bg-[#eef0f3] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-[#1e3a5f] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500 font-medium">Loading collaboration access...</p>
-        </div>
-      </div>
-    );
+    return <CollaborationHubSkeleton dark={isDarkMode} />;
   }
 
   const shellCard = isDarkMode ? "bg-[#0d1520] border-[#1c2a3a]" : "bg-white border-gray-200";
