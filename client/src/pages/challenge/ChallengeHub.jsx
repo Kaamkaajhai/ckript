@@ -93,15 +93,6 @@ const Empty = ({ children }) => (
 
 const Grid = ({ children }) => <div className="ckc-grid">{children}</div>;
 
-/* Ruled rows, not a card grid. Six cards in a 1→2→3 grid is what every dashboard in this app looks
-   like, and it is the shape CompetitionLanding already uses for the same array — so a grid here
-   would duplicate that page's treatment inside a single journey. Rows read as a programme. */
-const RuledRow = ({ index, children }) => (
-  <div className="py-5" style={index ? { borderTop: "1px solid var(--ckc-rule)" } : undefined}>
-    {children}
-  </div>
-);
-
 const ChallengeHub = () => {
   const [params, setParams] = useSearchParams();
   const { user } = useContext(AuthContext) || {};
@@ -256,7 +247,7 @@ const ChallengeHub = () => {
           </p>
         </header>
 
-        <div style={{ marginTop: 34 }}>
+        <div style={{ marginTop: 30 }}>
           <ChallengeNow
             item={featured}
             latest={latest}
@@ -274,131 +265,139 @@ const ChallengeHub = () => {
           />
         </div>
 
-        <Section
-          id="how-it-works"
-          eyebrow="The event, start to finish"
-          title="How a challenge works"
-          subtitle="Six steps. None of them change from one challenge to the next."
-        >
-          {HOW_IT_WORKS.map((step, i) => (
-            <div
-              key={step.title}
-              className="flex flex-col gap-1 py-5 sm:flex-row sm:gap-7"
-              style={i ? { borderTop: "1px solid var(--ckc-rule)" } : undefined}
-            >
-              <span
-                style={{
-                  flex: "0 0 56px",
-                  fontFamily: "var(--ckc-display)",
-                  fontSize: "1.5rem",
-                  lineHeight: 1.2,
-                  fontVariantNumeric: "tabular-nums",
-                  color: "var(--ckc-muted)",
-                }}
-              >
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div>
-                <h3 className="ckc-title ckc-h3">{step.title}</h3>
-                <p className="ckc-prose" style={{ marginTop: 4, fontSize: "0.9375rem", color: "var(--ckc-muted)" }}>
-                  {step.body}
-                </p>
+        {/* ── The sill ──────────────────────────────────────────────────────────────────────────
+            "Is this for me" is the first question anyone asks, so it is answered first — and as a
+            caption on the band rather than a section of its own. No h2 at all: an 11px mono label in
+            a margin column is the strongest available signal that this block is not the same KIND of
+            thing as its neighbours, which is what teaches the reader on the first scroll that the
+            blocks here are not interchangeable. Every word is the copy it had as a full section. */}
+        <section id="eligibility" className="ckc-sill" aria-labelledby="sill-label">
+          <p id="sill-label" className="ckc-meta">Who can enter</p>
+          <div>
+            <p className="ckc-sill-lede">
+              Anyone who writes. Wherever you are, whatever you have written before.
+            </p>
+            {/* Examples, never a gate — nobody should self-exclude by absence from the list. */}
+            <div className="ckc-sill-chips">
+              {ELIGIBILITY_CHIPS.map((c) => <span key={c} className="ckc-chip">{c}</span>)}
+            </div>
+            <p className="ckc-sill-note">
+              Entering costs nothing, and you write in the browser — there is nothing to install and
+              nothing to buy.
+            </p>
+          </div>
+        </section>
+
+        <Section id="how-it-works" className="ckc-sec-tight">
+          <div className="ckc-prog-head">
+            <div>
+              <p className="ckc-meta mb-2.5">The event, start to finish</p>
+              <h2 className="ckc-title ckc-h2">How a challenge works</h2>
+              <p className="ckc-lede mt-2" style={{ fontSize: "0.9375rem" }}>
+                Six steps. None of them change from one challenge to the next.
+              </p>
+            </div>
+            {/* Rides in the header rather than trailing the section: this is the detail of step 05,
+                and as a tail block it ended the section the way the next one began. */}
+            <div>
+              <p className="ckc-meta">Judged on</p>
+              <p style={{ marginTop: 7, fontSize: "0.9375rem", color: "var(--ckc-body)", maxWidth: "46ch" }}>
+                Every entry is read against the same five things, whoever wrote it.
+              </p>
+              <div className="ckc-prog-crit">
+                {JUDGING_CRITERIA.map((c) => <span key={c} className="ckc-chip">{c}</span>)}
               </div>
             </div>
-          ))}
-
-          {/* Folded in here rather than given its own section: this is the detail of step 05, and a
-              criteria list floating alone reads as a rubric to be gamed. */}
-          <hr className="ckc-rule" style={{ margin: "26px 0 18px" }} />
-          <p className="ckc-meta">Judged on</p>
-          <p className="ckc-prose" style={{ marginTop: 8, fontSize: "0.9375rem" }}>
-            Every entry is read against the same five things, whoever wrote it.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {JUDGING_CRITERIA.map((c) => <span key={c} className="ckc-chip">{c}</span>)}
           </div>
-        </Section>
 
-        <Section
-          id="what-you-receive"
-          title="What you get, whether you place or not"
-          subtitle="Most people who enter a competition quietly assume they will not win. This is the part that is true for everyone."
-        >
-          {/* Ticks are ink, not coral: six coral checkmarks would be the loudest thing on a page
-              that is dormant three-quarters of the year, and the accent means "live". */}
-          <div className="grid gap-x-10 gap-y-3.5 sm:grid-cols-2">
-            {WHAT_YOU_RECEIVE.map((item) => (
-              <div key={item} className="flex items-start gap-2.5">
-                <Check className="h-4 w-4 shrink-0" style={{ color: "var(--ckc-ink)", marginTop: 3 }} aria-hidden="true" />
-                <span style={{ fontSize: 15, lineHeight: 1.6, color: "var(--ckc-body)" }}>{item}</span>
+          <div className="ckc-prog">
+            {HOW_IT_WORKS.map((step, i) => (
+              <div key={step.title} className="ckc-prog-step">
+                <span className="ckc-prog-n">{String(i + 1).padStart(2, "0")}</span>
+                <h3 className="ckc-prog-t">{step.title}</h3>
+                <p className="ckc-prog-b">{step.body}</p>
               </div>
             ))}
           </div>
         </Section>
 
-        <Section
-          id="your-script"
-          eyebrow="Ownership and privacy"
-          title="Your script stays yours"
-          subtitle="What stops most writers submitting anywhere is not the competition. It is not knowing what happens to the work afterwards."
-        >
-          {QUESTIONS.map(({ q, a }, i) => (
-            <RuledRow key={q} index={i}>
-              <h3 className="ckc-title ckc-h3">{q}</h3>
-              <p className="ckc-prose" style={{ marginTop: 6, fontSize: "0.9375rem", color: "var(--ckc-muted)" }}>{a}</p>
-            </RuledRow>
-          ))}
-        </Section>
-
-        <Section id="eligibility" title="Who can enter">
-          <p className="ckc-lede">Anyone who writes. Wherever you are, whatever you have written before.</p>
-          {/* Examples, never a gate — nobody should self-exclude by absence from the list. */}
-          <div className="mt-5 flex flex-wrap gap-2">
-            {ELIGIBILITY_CHIPS.map((c) => <span key={c} className="ckc-chip">{c}</span>)}
+        {/* Heading in the margin, list shifted right — the cheapest way to break the single left
+            edge every section used to share, and a print gesture rather than a doc-site one. */}
+        <Section id="what-you-receive" className="ckc-sec-tight">
+          <div className="ckc-marginal">
+            <div>
+              <h2 className="ckc-title ckc-h2-quiet">What you get, whether you place or not</h2>
+              <p className="ckc-lede mt-2.5" style={{ fontSize: "0.875rem" }}>
+                Most people who enter a competition quietly assume they will not win. This is the
+                part that is true for everyone.
+              </p>
+            </div>
+            {/* Ticks stay ink, not coral: six coral checkmarks would be the loudest thing on a page
+                that is dormant three-quarters of the year, and the accent means "live". */}
+            <div className="ckc-ledger">
+              {WHAT_YOU_RECEIVE.map((item) => (
+                <div key={item}>
+                  <Check className="h-4 w-4 shrink-0" style={{ color: "var(--ckc-ink)", marginTop: 3 }} aria-hidden="true" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="ckc-prose" style={{ marginTop: 22, fontSize: "0.9375rem", color: "var(--ckc-muted)" }}>
-            Entering costs nothing, and you write in the browser — there is nothing to install and
-            nothing to buy.
-          </p>
         </Section>
 
-        {/* ── The bridge ────────────────────────────────────────────────────────────────────────
-            Everything above was the event; everything below is the index. The landing uses the same
-            gesture between its own sections, so the seam reads as brand rather than as a stitch
-            between two designs. Ink, not coral: this is decoration by definition, and the accent is
-            reserved for a window actually being open. Not imported from landing/_shared — that
-            module could acquire a stylesheet import later and drag the landing's webfonts onto an
-            interior page. */}
-        <div
-          aria-hidden="true"
-          style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "56px 0 4px" }}
-        >
-          <span style={{ width: 1, height: 56, background: "linear-gradient(to bottom, transparent, var(--ckc-rule))" }} />
-          <span style={{ width: 8, height: 8, background: "var(--ckc-ink)", transform: "rotate(45deg)", boxShadow: "0 0 0 5px var(--ckc-paper)", margin: "-4px 0" }} />
-          <span style={{ width: 1, height: 56, background: "linear-gradient(to bottom, var(--ckc-rule), transparent)" }} />
-        </div>
+        {/* ── The centre ────────────────────────────────────────────────────────────────────────
+            THE one ground change and THE one width change on the page, spent together on the block
+            that actually decides whether someone submits. Deliberately NOT a <Section>: py-10 would
+            lose a specificity fight with .ckc-inset's own padding and leave a dead utility behind.
+            The negative margin cancels the wrapper's 24px gutter — coupled to `padding: 48px 24px 0`
+            below, so change one and change both. */}
+        <section id="your-script" className="ckc-inset scroll-mt-24">
+          <p className="ckc-meta">Ownership and privacy</p>
+          <h2 className="ckc-title ckc-h2-lead" style={{ marginTop: 12 }}>Your script stays yours</h2>
+          <p className="ckc-lede" style={{ marginTop: 12, maxWidth: "54ch" }}>
+            What stops most writers submitting anywhere is not the competition. It is not knowing
+            what happens to the work afterwards.
+          </p>
+          <div className="ckc-qa">
+            {QUESTIONS.map(({ q, a }) => (
+              <div key={q}>
+                <h3 className="ckc-qa-q">{q}</h3>
+                <p className="ckc-qa-a">{a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Everything above was the event; everything below is the index. A double rule is what a
+            printed programme puts at the end of a part, and it reuses the strong/hairline pairing
+            the sill and the step matrix already established — so it reads as system, not ornament. */}
+        <hr aria-hidden="true" className="ckc-part-break" />
 
         {/* ── The record ────────────────────────────────────────────────────────────────────── */}
 
-        <Section
-          id="record"
-          eyebrow="The record"
-          title="Every challenge, and everyone in it"
-          subtitle="Each edition Ckript has run, and the writers it has honoured."
-        >
-          {/* Only once there is a record — a cold start must never say "0 challenges run".
-              countriesRepresented is deliberately NOT summed: the same country appears in several
-              editions, so adding them double-counts. */}
-          {archive.length ? (
-            <dl className="ckc-grid" style={{ marginBottom: 36 }}>
-              <Stat label="Challenges run" value={archive.length} />
-              <Stat
-                label="Scripts finished"
-                value={archive.reduce((n, c) => n + (c.scriptsSubmitted || 0), 0).toLocaleString()}
-              />
-              <Stat label="Writers honoured" value={laureateCount} />
-            </dl>
-          ) : null}
+        <Section id="record">
+          <div className="ckc-record-head">
+            <div>
+              <p className="ckc-meta mb-2.5">The record</p>
+              <h2 className="ckc-title ckc-h2">Every challenge, and everyone in it</h2>
+              <p className="ckc-lede mt-2" style={{ maxWidth: "46ch" }}>
+                Each edition Ckript has run, and the writers it has honoured.
+              </p>
+            </div>
+            {/* Only once there is a record — a cold start must never say "0 challenges run".
+                countriesRepresented is deliberately NOT summed: the same country appears in several
+                editions, so adding them double-counts. */}
+            {archive.length ? (
+              <dl className="ckc-figures">
+                <Stat label="Challenges run" value={archive.length} />
+                <Stat
+                  label="Scripts finished"
+                  value={archive.reduce((n, c) => n + (c.scriptsSubmitted || 0), 0).toLocaleString()}
+                />
+                <Stat label="Writers honoured" value={laureateCount} />
+              </dl>
+            ) : null}
+          </div>
 
           <nav className="ckc-tabs" aria-label="All challenges">
             {strip.map(({ key, label, icon }) => {
@@ -550,18 +549,19 @@ const ChallengeHub = () => {
           </div>
         </Section>
 
-        {/* Addressed to roughly one visitor in a thousand, so it stays last and stays quiet — but it
-            ends the page on institutional weight rather than on a tab strip. */}
-        <hr className="ckc-rule" style={{ marginTop: 56 }} />
-        <div style={{ marginTop: 28 }}>
-          <p className="ckc-meta">Partner with us</p>
-          <p className="ckc-lede" style={{ marginTop: 10 }}>
-            Studios, festivals, schools and film bodies back awards, set themes and read finalists.
-            If that could be you, we would like to hear from you.
-          </p>
-          <a className="ckc-link" style={{ display: "inline-block", marginTop: 12 }} href={partnerMailto}>
-            Write to us
-          </a>
+        {/* Addressed to roughly one visitor in a thousand, so it stays last and stays quiet. Set in
+            the margin, reprising the sill's device: it brackets the page between two label-only
+            blocks and stops it ending on yet another left-aligned stack. */}
+        <hr className="ckc-rule" style={{ marginTop: 52 }} />
+        <div className="ckc-marginal" style={{ marginTop: 26 }}>
+          <p className="ckc-meta" style={{ paddingTop: 5 }}>Partner with us</p>
+          <div className="ckc-colophon-body">
+            <p className="ckc-lede" style={{ maxWidth: "52ch" }}>
+              Studios, festivals, schools and film bodies back awards, set themes and read finalists.
+              If that could be you, we would like to hear from you.
+            </p>
+            <a className="ckc-link" href={partnerMailto}>Write to us</a>
+          </div>
         </div>
       </div>
     </div>
