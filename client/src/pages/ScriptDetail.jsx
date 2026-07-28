@@ -1462,7 +1462,7 @@ const ScriptDetail = () => {
   const collaboratorRole = String(script?.collaboratorRole || currentCollaborator?.role || "").toLowerCase();
   const canViewFullScript = Boolean(isOwner || isAcceptedCollaborator || script?.isUnlocked || script?.isAdmin || script?.canViewFullScript);
   const canEditScript = Boolean(script?._id && (isOwner || script?.canEditScript || collaboratorRole === "editor"));
-  const canOpenCollaborationHub = Boolean(script?._id && (isOwner || isAcceptedCollaborator));
+
   const isReaderReviewer = String(user?.role || "").toLowerCase() === "reader";
   const isSoldScript = Boolean(script?.isSold || script?.holdStatus === "sold");
   const canBookmark = Boolean(user?._id && !isOwner && !isAcceptedCollaborator);
@@ -1632,7 +1632,7 @@ const ScriptDetail = () => {
     fmtBudget,
     scoreColor,
     scoreBg,
-    canOpenCollaborationHub,
+
     isPro,
     reviewUnavailableMessage,
     isApprovedOrPublished,
@@ -1718,8 +1718,7 @@ const ScriptDetail = () => {
           handleToggleBookmark,
           openProfile: openWriterProfile,
           openEdit: openProjectEditor,
-          canOpenCollaborationHub,
-          openCollaborationHub: () => navigate(`/script/${script._id}/collaborate`),
+
           openPayment: () => navigate(`/script/${script._id}/pay`),
           openPricing: () => openPricingModal(),
           recordPreviewOpen: () => setActiveTab("synopsis"),

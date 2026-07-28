@@ -473,6 +473,11 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
       return;
     }
 
+    if (type === "admin_alert") {
+      navigate("/profile");
+      return;
+    }
+
     if (scriptTarget && [
       "purchase_approved",
       "unlock",

@@ -36,7 +36,6 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ScriptUpload = lazy(() => import("./pages/ScriptUpload"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
-const CollaborationHub = lazy(() => import("./pages/CollaborationHub"));
 const CompetitionLanding = lazy(() => import("./pages/challenge/CompetitionLanding"));
 const ChallengeHub = lazy(() => import("./pages/challenge/ChallengeHub"));
 const HallOfFame = lazy(() => import("./pages/hall-of-fame/HallOfFame"));
@@ -512,8 +511,6 @@ function App() {
                 <Route path="/my-competitions" element={<MyCompetitions />} />
                 <Route path="/upload" element={<ScriptUpload />} />
                 <Route path="/search" element={<Search />} />
-                <Route path="/script/:scriptId/collaborate" element={<CollaborationHub />} />
-                <Route path="/script/:scriptId/collaborate/:section" element={<CollaborationHub />} />
                 <Route path="/script/:id/pay" element={<ScriptPaymentPage />} />
                 <Route path="/mandates" element={<Mandates />} />
                 <Route path="/writers" element={<Writers />} />

@@ -2595,32 +2595,34 @@ const Profile = () => {
               {loadingSessions ? (
                 <p className={`text-[12px] italic ${dark ? "text-white/30" : "text-gray-400"}`}>Loading sessions...</p>
               ) : sessions.length > 0 ? (
-                <div className="space-y-2">
-                  {sessions.map((s) => (
-                    <div key={s.sessionId} className={`flex items-center justify-between py-3 px-3.5 rounded-xl border ${s.isCurrent ? (dark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-100") : (dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-gray-50/60 border-gray-100")}`}>
-                      <div>
-                        <p className={`text-[13px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>
-                          {s.browser !== "Unknown" ? `${s.browser} on ${s.os}` : "Unknown Device"} 
-                          {s.isCurrent && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold bg-emerald-500/20 text-emerald-500">Active Now</span>}
-                        </p>
-                        <p className={`text-[11px] mt-0.5 ${dark ? "text-white/40" : "text-gray-500"}`}>
-                          {s.location} • IP: {s.ip}
-                        </p>
-                        {!s.isCurrent && s.lastSeen && (
-                          <p className={`text-[10px] mt-1 italic ${dark ? "text-white/30" : "text-gray-400"}`}>
-                            Last seen: {new Date(s.lastSeen).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                <div className="space-y-3">
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                    {sessions.map((s) => (
+                      <div key={s.sessionId} className={`flex items-center justify-between py-3 px-3.5 rounded-xl border ${s.isCurrent ? (dark ? "bg-emerald-500/10 border-emerald-500/20" : "bg-emerald-50 border-emerald-100") : (dark ? "bg-white/[0.02] border-white/[0.06]" : "bg-gray-50/60 border-gray-100")}`}>
+                        <div>
+                          <p className={`text-[13px] font-bold ${dark ? "text-white/80" : "text-gray-800"}`}>
+                            {s.browser !== "Unknown" ? `${s.browser} on ${s.os}` : "Unknown Device"} 
+                            {s.isCurrent && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-bold bg-emerald-500/20 text-emerald-500">Active Now</span>}
                           </p>
+                          <p className={`text-[11px] mt-0.5 ${dark ? "text-white/40" : "text-gray-500"}`}>
+                            {s.location} • IP: {s.ip}
+                          </p>
+                          {!s.isCurrent && s.lastSeen && (
+                            <p className={`text-[10px] mt-1 italic ${dark ? "text-white/30" : "text-gray-400"}`}>
+                              Last seen: {new Date(s.lastSeen).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
+                        </div>
+                        {!s.isCurrent && (
+                          <button onClick={() => handleRemoveSession(s.sessionId)} className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
+                            Remove
+                          </button>
                         )}
                       </div>
-                      {!s.isCurrent && (
-                        <button onClick={() => handleRemoveSession(s.sessionId)} className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}>
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                   {sessions.length > 1 && (
-                    <button onClick={handleRemoveAllOtherSessions} className={`mt-3 w-full py-2.5 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-white/[0.05] text-white hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
+                    <button onClick={handleRemoveAllOtherSessions} className={`w-full py-2.5 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-white/[0.05] text-white hover:bg-white/[0.08]" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}>
                       Log out of all other devices
                     </button>
                   )}

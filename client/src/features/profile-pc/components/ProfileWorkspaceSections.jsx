@@ -5,6 +5,19 @@ import SocialShareButton from "../../../components/SocialShareButton";
 import { hasActiveFilmIndustryProfessionalAccess } from "../../../utils/industryAccess";
 import { getScriptCanonicalPath } from "../../../utils/scriptPath";
 
+const getMembershipStatusDisplay = (status) => {
+  switch (status) {
+    case "approved":
+      return { text: "Verified", className: "text-emerald-600 font-semibold" };
+    case "pending":
+      return { text: "Verification pending", className: "text-amber-500 font-semibold" };
+    case "rejected":
+      return { text: "Verification rejected", className: "text-red-500 font-semibold" };
+    default:
+      return { text: "Not a member", className: "text-gray-400 italic" };
+  }
+};
+
 const projectGenre = (script) =>
   script?.primaryGenre ||
   script?.genre ||
@@ -239,17 +252,15 @@ function ProfileDetails({ profile }) {
   const membershipRows = [
     {
       key: "wga",
-      name: "Writers Guild of America",
-      requested: Boolean(writer.wgaMember || writer.membershipVerification?.wga?.requested),
-      verified: writer.membershipVerification?.wga?.status === "approved",
+      name: "Writers Guild of America (WGA)",
+      status: writer.membershipVerification?.wga?.status || "not_submitted",
     },
     {
       key: "swa",
-      name: "Screenwriters Association",
-      requested: Boolean(writer.sgaMember || writer.membershipVerification?.swa?.requested),
-      verified: writer.membershipVerification?.swa?.status === "approved",
+      name: "Screenwriters Association (SWA)",
+      status: writer.membershipVerification?.swa?.status || "not_submitted",
     },
-  ].filter((membership) => membership.requested);
+  ];
   const genres = Array.from(new Set([...(writer.genres || []), ...(writer.specializedTags || [])].filter(Boolean)));
   const skills = Array.from(new Set((profile.skills || []).filter(Boolean)));
 
@@ -267,17 +278,23 @@ function ProfileDetails({ profile }) {
 
       <section className="profile-workspace-card" aria-labelledby="guild-memberships-heading">
         <h2 id="guild-memberships-heading">Guild memberships</h2>
-        {membershipRows.length > 0 ? (
-          <div className="profile-workspace-memberships">
-            {membershipRows.map((membership) => (
+        <div className="profile-workspace-memberships">
+          {membershipRows.map((membership) => {
+            const statusDisplay = getMembershipStatusDisplay(membership.status);
+            return (
               <div key={membership.key}>
-                <span className="profile-workspace-memberships__icon" aria-hidden="true">{membership.key === "wga" ? "W" : "S"}</span>
-                <span><strong>{membership.name}</strong><small>{membership.verified ? "Verified" : "Verification pending"}</small></span>
-                <VerifiedMark active={membership.verified} label={membership.name} />
+                <span className={`profile-workspace-memberships__icon ${membership.status !== 'approved' ? 'opacity-50 grayscale' : ''}`} aria-hidden="true">{membership.key === "wga" ? "W" : "S"}</span>
+                <span>
+                  <strong className={membership.status !== 'approved' ? 'opacity-80' : ''}>{membership.name}</strong>
+                  <small className={statusDisplay.className}>{statusDisplay.text}</small>
+                </span>
+                {membership.status === "approved" && (
+                  <VerifiedMark active={true} label={membership.name} />
+                )}
               </div>
-            ))}
-          </div>
-        ) : <p className="profile-workspace-card__empty">No guild memberships listed.</p>}
+            );
+          })}
+        </div>
       </section>
 
       <section className="profile-workspace-card" aria-labelledby="genres-heading">
