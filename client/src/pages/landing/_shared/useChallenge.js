@@ -105,11 +105,6 @@ const useChallenge = () => {
           winner: withWinner
             ? {
               name: withWinner.winner.name,
-              // The script's TITLE only. `winner.logline` is deliberately not carried across:
-              // `loglineByAi` is true whenever Ckript generated it, and setting machine-written
-              // prose under a real writer's name on the homepage would attribute words to them
-              // that they did not write.
-              scriptTitle: withWinner.winner.scriptTitle || "",
               year: withWinner.year,
               competitionName: withWinner.name,
               slug: withWinner.slug,

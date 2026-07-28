@@ -319,241 +319,297 @@ html.dark-mode .ckc .ckc-btn:hover { background: #ffffff; border-color: #ffffff;
 .ckc .ckc-scroll-x { overflow-x: auto; }
 
 /* ═══════════════════════════════════════════════════════════════
-   Hub composition — density, ground and scale.
+   /challenge — the event, told the way the landing tells things.
 
-   /challenge read as a tutorial because five consecutive sections were
-   structurally identical: eyebrow → h2 → subtitle → a left-aligned,
-   full-width stacked list, on the same paper, at the same scale, five
-   times over. Nothing below adds a colour, a font, a radius or a
-   motion — it varies COLUMN STRUCTURE, TYPE SCALE and VERTICAL
-   DENSITY, and exactly once it varies GROUND and WIDTH, together, on
-   the one claim that decides whether a writer submits.
+   The hub used to open on its own tab strip and then explain itself
+   in five structurally identical sections. It read as documentation
+   because it WAS shaped like documentation: heading, subtitle, list,
+   five times, on one ground at one scale.
 
-   Everything resolves through --ckc-* tokens or a color-mix over them,
-   so the html.dark-mode block at the top of this file covers all of it
-   and not one rule here owes a dark-mode pair.
+   This borrows the landing's language without leaving the interior:
+   an oversized figure carrying the page, cards with presence, one
+   dark ground, one tinted ground, pills, and generous space instead
+   of borders. No block below repeats the layout, ground AND scale of
+   the block above it, and no block is a bare run of prose.
+
+   Everything resolves through --ckc-* tokens, so the html.dark-mode
+   block at the top of this file covers all of it.
    ═══════════════════════════════════════════════════════════════ */
 
-/* Two rule weights, and they are not interchangeable:
-     --ckc-rule-strong  "this begins"    — the top of a listed item,
-                        the top of the sill, the end of the event.
-     --ckc-rule         "this separates" — rows within a list.
-   Derived from --ckc-ink rather than written as a hex, so it inverts
-   with the theme for free. 30% is deliberate: raw --ckc-ink hairlines
-   read as near-black here and would invert to near-WHITE on #0f0e0c,
-   where a dozen of them would be the loudest thing on the page. */
-.ckc { --ckc-rule-strong: color-mix(in srgb, var(--ckc-ink) 30%, transparent); }
+/* ── The opening ─────────────────────────────────────────────────
+   The figure is the page's one strong visual, doing the job an image
+   does on the landing. It is aria-hidden — the unit beside it carries
+   the meaning for anyone not seeing the type. */
 
-/* Section's own py-10 (40px) is the middle setting; this is the quiet
-   one. Specificity 0,2,0 beats the utility's 0,1,0, so it composes
-   through Section's className prop. */
-.ckc .ckc-sec-tight { padding-top: 20px; padding-bottom: 20px; }
-
-/* ── The sill ─────────────────────────────────────────────────────
-   Eligibility, moved up under the band and demoted from a section to a
-   caption. There is no h2 at all: the heading is an 11px mono label in
-   a margin column, which is the strongest available signal that this
-   block is not the same KIND of thing as its neighbours. Every word is
-   the copy that was in #eligibility — only the setting moved. */
-.ckc .ckc-sill {
+.ckc .ckc-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  margin-top: 30px;
-  padding: 16px 0 18px;
-  border-top: 1px solid var(--ckc-rule-strong);
-  border-bottom: 1px solid var(--ckc-rule);
-  scroll-margin-top: 96px;
+  gap: clamp(22px, 3vw, 40px);
+  align-items: center;
+  /* The opening owns the first screen. Without this the figure, the phase band and all three cards
+     arrive at once, and three things competing on first paint is the opposite of minimal. */
+  padding: clamp(12px, 3vw, 44px) 0 clamp(40px, 6vw, 84px);
 }
-@media (min-width: 860px) {
-  .ckc .ckc-sill {
-    grid-template-columns: minmax(0, 17ch) minmax(0, 1fr);
-    gap: 0 44px;
-    align-items: baseline;
+@media (min-width: 900px) {
+  .ckc .ckc-hero {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: clamp(44px, 6vw, 88px);
   }
 }
-.ckc .ckc-sill-lede {
-  font-size: 0.9375rem;
-  line-height: 1.55;
+
+.ckc .ckc-hero-figure { display: flex; flex-direction: column; align-items: flex-start; }
+.ckc .ckc-hero-n {
+  font-family: var(--ckc-display);
+  font-size: clamp(6rem, 17vw, 13rem);
+  line-height: 0.76;
+  letter-spacing: -0.04em;
   color: var(--ckc-ink);
-  max-width: 58ch;
+  font-variant-numeric: lining-nums;
 }
-.ckc .ckc-sill-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.ckc .ckc-sill-note {
+.ckc .ckc-hero-u {
+  margin-top: clamp(8px, 1.2vw, 14px);
+  font-family: var(--ckc-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ckc-muted);
+}
+
+.ckc .ckc-hero-h1 {
+  margin-top: 14px;
+  font-size: clamp(1.9rem, 3.6vw, 2.75rem);
+}
+.ckc .ckc-hero-em { font-style: italic; color: var(--ckc-muted); }
+
+/* ── Three ideas ─────────────────────────────────────────────────
+   Cards with real presence, the way the landing's do — but at the
+   interior's 4px radius, so they belong to this page. */
+
+.ckc .ckc-trio {
+  margin-top: clamp(52px, 6vw, 88px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+@media (min-width: 900px) { .ckc .ckc-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ckc .ckc-trio-card {
+  background: var(--ckc-card);
+  border: 1px solid var(--ckc-rule);
+  border-radius: 4px;
+  padding: clamp(26px, 2.8vw, 36px) clamp(22px, 2.4vw, 30px);
+}
+.ckc .ckc-trio-t {
+  font-family: var(--ckc-display);
+  font-weight: 400;
+  font-size: clamp(1.35rem, 2vw, 1.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ckc-ink);
+}
+.ckc .ckc-trio-b {
   margin-top: 12px;
-  font-size: 0.8125rem;   /* smallest running text here; --ckc-muted on paper is ~5.2:1 */
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ckc-body);
+}
+
+/* ── The programme, on ink ───────────────────────────────────────
+   The page's one dark ground. Six steps as a run: the ordinal hangs
+   above its step, the ground does the emphasis, and nothing needs a
+   border. Ink is punctuation here exactly as it is on the landing,
+   where only two sections in ~8,000px are dark. */
+
+/* The band's ground is a TOKEN, not a literal.
+   In light mode it is near-black against warm paper. In dark mode the
+   literal #0f0e0c is EXACTLY --ckc-paper, so the panel would vanish into
+   the page and the one ground change on this surface would silently stop
+   existing. Dark mode therefore lifts it instead: still a distinct ground,
+   still carrying white text, just inverted in direction. */
+.ckc { --ckc-band: #0f0e0c; }
+html.dark-mode .ckc { --ckc-band: #221f1a; }
+
+.ckc .ckc-ink {
+  margin-top: clamp(52px, 6vw, 88px);
+  background: var(--ckc-band);
+  border-radius: 4px;
+  padding: clamp(38px, 4.5vw, 68px) clamp(26px, 3.4vw, 56px);
+}
+/* The panel keeps white text in BOTH themes, so its text colours are set
+   locally rather than inherited — nothing here follows --ckc-ink. */
+.ckc .ckc-ink-label {
+  font-family: var(--ckc-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+.ckc .ckc-ink-h2 {
+  margin-top: 12px;
+  font-size: clamp(1.6rem, 2.8vw, 2.25rem);
+  color: #fff;
+}
+
+.ckc .ckc-run {
+  margin: clamp(30px, 3.6vw, 52px) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px 40px;
+}
+@media (min-width: 660px)  { .ckc .ckc-run { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .ckc .ckc-run { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ckc .ckc-run-i { padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.16); }
+.ckc .ckc-run-n {
+  display: block;
+  font-family: var(--ckc-display);
+  font-size: 1.5rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.42);
+}
+.ckc .ckc-run-t {
+  margin-top: 10px;
+  font-family: var(--ckc-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #fff;
+}
+.ckc .ckc-run-b {
+  margin-top: 5px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.ckc .ckc-ink-foot {
+  margin-top: clamp(30px, 3.4vw, 46px);
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+.ckc .ckc-ink-chips { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.ckc .ckc-ink-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* ── What you get ────────────────────────────────────────────────
+   Space alone separates these — no card, no rule. That makes it read
+   differently from the trio above and the panel below without adding
+   a single new colour. */
+
+.ckc .ckc-h2-lead { font-size: clamp(1.7rem, 3vw, 2.375rem); }
+
+.ckc .ckc-gets {
+  margin-top: clamp(24px, 2.6vw, 36px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px 48px;
+}
+@media (min-width: 780px) { .ckc .ckc-gets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.ckc .ckc-get {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--ckc-body);
+}
+
+/* ── Ownership ───────────────────────────────────────────────────
+   The one tinted ground, and three objects rather than three
+   paragraphs. */
+
+.ckc .ckc-inset {
+  /* A hairline at --ckc-rule is invisible on cream. Redefining the TOKEN
+     here means every rule inside follows automatically, and because the
+     replacement is a color-mix over two existing tokens it inverts with
+     the theme without a single hardcoded value. */
+  --ckc-rule: color-mix(in srgb, var(--ckc-faint) 34%, var(--ckc-cream));
+  margin-top: clamp(52px, 6vw, 88px);
+  background: var(--ckc-cream);
+  border: 1px solid var(--ckc-rule);
+  border-radius: 4px;
+  padding: clamp(38px, 4.5vw, 68px) clamp(26px, 3.4vw, 56px);
+}
+.ckc .ckc-inset-h2 { color: var(--ckc-ink); }
+
+.ckc .ckc-own {
+  margin-top: clamp(28px, 3.2vw, 44px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px 44px;
+}
+@media (min-width: 820px) { .ckc .ckc-own { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ckc .ckc-own-t {
+  margin-top: 14px;
+  font-family: var(--ckc-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ckc-ink);
+}
+.ckc .ckc-own-b {
+  margin-top: 7px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ckc-body);
+}
+
+/* ── Who ─────────────────────────────────────────────────────────
+   Pills, borrowed straight from the landing's vocabulary. The lightest
+   block on the page, and the only one that is mostly white space. */
+
+.ckc .ckc-who { margin-top: clamp(52px, 6vw, 88px); }
+.ckc .ckc-who-h2 { font-size: clamp(1.7rem, 3vw, 2.375rem); }
+.ckc .ckc-pills {
+  margin-top: clamp(22px, 2.4vw, 32px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ckc .ckc-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--ckc-rule);
+  border-radius: 999px;
+  background: var(--ckc-card);
+  font-size: 0.9375rem;
+  color: var(--ckc-ink);
+}
+.ckc .ckc-who-note {
+  margin-top: 22px;
+  font-size: 0.875rem;
   line-height: 1.55;
   color: var(--ckc-muted);
   max-width: 62ch;
 }
 
-/* ── The programme ────────────────────────────────────────────────
-   Six steps as a ruled matrix, not six chapters. The old form gave
-   every step a 1.5rem serif ordinal over a serif h3 — the typographic
-   weight of a section heading, six times, at 968px tall, which was most
-   of why this page read as a manual. Here the sequence keeps its order
-   (the order IS the information) but loses its rank: the ordinal grows
-   into a hanging figure, the title drops to sans, the body to 14px.
-   No card, no radius, no shadow — a top rule per cell only, so
-   continuous rules run the full measure and it reads as a printed
-   timetable rather than the 1→2→3 card grid CompetitionLanding already
-   uses for this same array. */
-.ckc .ckc-prog-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
-@media (min-width: 940px) {
-  .ckc .ckc-prog-head {
-    grid-template-columns: minmax(0, 34ch) minmax(0, 1fr);
-    gap: 0 56px;
-    align-items: end;   /* the title and the criteria share a baseline */
-  }
-}
-.ckc .ckc-prog-crit { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-
-.ckc .ckc-prog {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  column-gap: 38px;
-  margin-top: 30px;
-}
-@media (min-width: 620px)  { .ckc .ckc-prog { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (min-width: 1040px) { .ckc .ckc-prog { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-
-.ckc .ckc-prog-step { border-top: 1px solid var(--ckc-rule-strong); padding: 10px 0 20px; }
-
-/* The ordinal is the design element: it is larger than the title it
-   introduces, which is what turns six steps into one sequence instead
-   of six sections. --ckc-muted, not --ckc-faint — this carries
-   information, so it is text. */
-.ckc .ckc-prog-n {
-  display: block;
-  font-family: var(--ckc-display);
-  font-size: 1.75rem;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: var(--ckc-muted);
-}
-.ckc .ckc-prog-t {
-  margin-top: 9px;
-  font-family: var(--ckc-sans);
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--ckc-ink);
-}
-.ckc .ckc-prog-b {
-  margin-top: 4px;
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--ckc-muted);
-}
-
-/* ── Marginal layout ──────────────────────────────────────────────
-   Heading in the margin, content shifted right. Used twice — the ledger
-   and the colophon — which is what makes it read as the page's device
-   rather than one section's ornament. It is the cheapest way to break
-   the single left edge all five sections used to share. */
-.ckc .ckc-marginal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-@media (min-width: 940px) {
-  .ckc .ckc-marginal {
-    grid-template-columns: minmax(0, 23ch) minmax(0, 1fr);
-    gap: 0 60px;
-    align-items: start;
-  }
-}
-
-/* The quiet and loud rungs of the heading ladder. Both pair WITH
-   .ckc-title and INSTEAD OF .ckc-h2 — never alongside it. */
-.ckc .ckc-h2-quiet { font-size: clamp(1.25rem, 1.9vw, 1.5rem);   }
-.ckc .ckc-h2-lead  { font-size: clamp(1.75rem, 3.2vw, 2.375rem); }
-
-.ckc .ckc-ledger { display: grid; grid-template-columns: minmax(0, 1fr); }
-.ckc .ckc-ledger > * {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 9px 0 10px;
-  border-top: 1px solid var(--ckc-rule);
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  color: var(--ckc-body);
-}
-.ckc .ckc-ledger > :first-child { border-top-color: var(--ckc-rule-strong); }
-.ckc .ckc-ledger > :last-child  { border-bottom: 1px solid var(--ckc-rule); }
-
-/* ── The inset ────────────────────────────────────────────────────
-   The one block on this page that is not on paper, and the one block
-   wider than the 1072px measure. --ckc-cream is documented as the quiet
-   inset ground and had never been used on this surface; here it makes
-   the ownership guarantee read as a boxed statement of terms.
-
-   The negative margin cancels the page container's 24px gutter so the
-   panel reaches the 1120px container edge. It is COUPLED to that
-   padding: if the wrapper's `padding: 48px 24px 0` ever changes this
-   changes with it — and if the gutter shrinks, this overflows. */
-.ckc .ckc-inset {
-  /* A hairline at --ckc-rule is invisible on cream. Redefining the
-     TOKEN on this element means every rule inside — the border, .ckc-qa,
-     anything added later — follows automatically, and because the
-     replacement is a color-mix over two existing tokens it inverts with
-     the theme without a single hardcoded value. */
-  --ckc-rule: color-mix(in srgb, var(--ckc-faint) 34%, var(--ckc-cream));
-  background: var(--ckc-cream);
-  border: 1px solid var(--ckc-rule);
-  border-left-width: 0;
-  border-right-width: 0;
-  border-radius: 0;
-  margin: 10px -24px;
-  padding: 38px 24px 34px;
-  scroll-margin-top: 96px;
-}
-@media (min-width: 720px) {
-  .ckc .ckc-inset {
-    border-left-width: 1px;
-    border-right-width: 1px;
-    border-radius: 4px;
-    padding: 52px 44px 46px;
-  }
-}
-
-/* Three questions as a colonnade, not three stacked ruled rows — three
-   stacked rows is the exact shape of the section two above it. */
-.ckc .ckc-qa { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: 30px; }
-.ckc .ckc-qa > * { border-top: 1px solid var(--ckc-rule); padding: 15px 0 17px; }
-@media (min-width: 880px) {
-  .ckc .ckc-qa {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    column-gap: 40px;
-    margin-top: 38px;
-  }
-  .ckc .ckc-qa > * { padding-bottom: 0; }
-}
-.ckc .ckc-qa-q {
-  font-family: var(--ckc-display);
-  font-size: 1.0625rem;
-  font-weight: 500;
-  line-height: 1.28;
-  letter-spacing: -0.01em;
-  color: var(--ckc-ink);
-}
-.ckc .ckc-qa-a { margin-top: 8px; font-size: 0.875rem; line-height: 1.6; color: var(--ckc-body); }
-
-/* ── End of the event ─────────────────────────────────────────────
-   A double rule is what a printed programme puts at the end of a part.
-   It replaces a 112px centred diamond — the page's one decorative
-   flourish, contradicting the discipline of everything around it — and
-   it reuses the strong/hairline pairing the sill and the step matrix
-   already established, so it reads as system, not ornament. */
+/* ── End of the event ────────────────────────────────────────────
+   A double rule is what a printed programme puts at the end of a part. */
 .ckc .ckc-part-break {
   height: 3px;
-  margin: 40px 0 6px;
+  margin: clamp(52px, 6vw, 88px) 0 6px;
   border: 0;
-  border-top: 1px solid var(--ckc-rule-strong);
+  border-top: 1px solid color-mix(in srgb, var(--ckc-ink) 30%, transparent);
   border-bottom: 1px solid var(--ckc-rule);
 }
 
-/* ── The record's own masthead ────────────────────────────────────
-   Title left, the three figures right on the same baseline, instead of
-   a title stack over a full-width three-column grid. The tabs and every
-   panel below are untouched. */
+/* ── The record's own masthead ───────────────────────────────────
+   Title left, the three figures right on one baseline. The tabs and
+   every panel below are untouched. */
 .ckc .ckc-record-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -570,8 +626,17 @@ html.dark-mode .ckc .ckc-btn:hover { background: #ffffff; border-color: #ffffff;
 .ckc .ckc-figures { display: flex; flex-wrap: wrap; gap: 24px 38px; margin: 0; }
 @media (min-width: 1000px) { .ckc .ckc-figures { flex-wrap: nowrap; } }
 
-/* ── Colophon ─────────────────────────────────────────────────────
-   Stops the page ending on a tenth consecutive left-aligned stack. */
+/* ── Colophon ────────────────────────────────────────────────────
+   Heading in the margin, so the page does not end on another
+   left-aligned stack. */
+.ckc .ckc-marginal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 940px) {
+  .ckc .ckc-marginal {
+    grid-template-columns: minmax(0, 23ch) minmax(0, 1fr);
+    gap: 0 60px;
+    align-items: start;
+  }
+}
 .ckc .ckc-colophon-body {
   display: flex;
   flex-direction: column;

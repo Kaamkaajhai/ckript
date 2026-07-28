@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Trophy, Clock, History, User, Check } from "lucide-react";
+import { Trophy, Clock, History, User, Check, Lock, Archive, PenLine } from "lucide-react";
 import publicApi from "../../services/publicApi";
 import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
@@ -58,22 +58,48 @@ const TABS = [
  *
  * Local, not in constants.js: a shared constant with one consumer is just a longer import path.
  */
+const GLYPH = { className: "h-5 w-5", style: { color: "var(--ckc-ink)" }, "aria-hidden": "true" };
+
 const QUESTIONS = [
   {
-    q: "Who can read it?",
-    a: "Nobody but you while you are writing. When you submit, a frozen copy goes for evaluation and "
-      + "nowhere else. Entries are never published — even in the Hall of Fame only a title and a "
-      + "logline appear, never the script.",
+    // Rendered elements, matching TABS above: a destructured param renamed to PascalCase and used
+    // only inside JSX is not seen as used by no-unused-vars in this config.
+    icon: <Lock {...GLYPH} />,
+    q: "Private",
+    a: "Nobody reads it while you write. Entries are never published — the Hall of Fame shows a "
+      + "title, never the script.",
   },
   {
-    q: "What exactly gets judged?",
-    a: "The copy frozen at the moment you submit. Whatever you do to the script afterwards — rewrite "
-      + "it, retitle it, take it apart — does not change what was read.",
+    icon: <Archive {...GLYPH} />,
+    q: "Frozen on submit",
+    a: "The copy taken at the deadline is what gets judged. Rewrite the script afterwards and that "
+      + "reading does not change.",
   },
   {
-    q: "What happens to it when the challenge ends?",
-    a: "It stays in your Ckript library, unlocked, yours to rewrite, export, or take somewhere else "
-      + "entirely.",
+    icon: <PenLine {...GLYPH} />,
+    q: "Always yours",
+    a: "It stays in your Ckript library, unlocked — yours to rewrite, export, or take somewhere "
+      + "else entirely.",
+  },
+];
+
+/* The three ideas the event rests on. One each, and none of them explain a mechanism — the timeline
+   below does that. */
+const TRIO = [
+  {
+    title: "One Theme",
+    body: "Nobody knows the prompt before the timer starts. Every participant begins with the same "
+      + "blank page.",
+  },
+  {
+    title: "48 Hours",
+    body: "Write inside the Ckript editor with autosave, live progress and a deadline that cannot "
+      + "move.",
+  },
+  {
+    title: "Every Story Matters",
+    body: "Every script receives an AI evaluation. The best stories earn awards and become part of "
+      + "Ckript history.",
   },
 ];
 
@@ -230,21 +256,23 @@ const ChallengeHub = () => {
 
         {/* ── The event ─────────────────────────────────────────────────────────────────────── */}
 
-        <header className="ckc-masthead">
-          <p className="ckc-meta">The Ckript Challenge</p>
-          {/* A sentence, not the landing's two noun fragments — the grammar itself signals
-              continuation rather than echo, and it states the one fact that distinguishes this
-              from any other contest: simultaneity. */}
-          <h1 className="ckc-title ckc-h1">
-            Everyone writes to the same theme,{" "}
-            <em style={{ fontStyle: "italic", color: "var(--ckc-muted)" }}>at the same time.</em>
-          </h1>
-          <p className="ckc-lede-editorial">
-            A challenge opens, the theme is unsealed, and every writer has forty-eight hours to turn
-            it into a script. Whatever you have at the deadline is what gets read — and every entry
-            gets read, not only the ones that place. It does not run all year; this is where the next
-            one opens.
-          </p>
+        {/* ── The opening ───────────────────────────────────────────────────────────────────────
+            The figure is the page's one strong visual, doing the job an image does on the landing.
+            Everything beside it stays quiet so it can be loud. */}
+        <header className="ckc-hero">
+          <div className="ckc-hero-figure">
+            <span className="ckc-hero-n" aria-hidden="true">48</span>
+            <span className="ckc-hero-u">Hours</span>
+          </div>
+          {/* Three lines and nothing else. A paragraph here is the moment the page starts
+              explaining itself, and everything below already answers what it would have said. */}
+          <div className="ckc-hero-text">
+            <p className="ckc-meta">The Ckript Challenge</p>
+            <h1 className="ckc-title ckc-hero-h1">
+              One theme.<br />
+              <em className="ckc-hero-em">Every writer starts together.</em>
+            </h1>
+          </div>
         </header>
 
         <div style={{ marginTop: 30 }}>
@@ -265,112 +293,90 @@ const ChallengeHub = () => {
           />
         </div>
 
-        {/* ── The sill ──────────────────────────────────────────────────────────────────────────
-            "Is this for me" is the first question anyone asks, so it is answered first — and as a
-            caption on the band rather than a section of its own. No h2 at all: an 11px mono label in
-            a margin column is the strongest available signal that this block is not the same KIND of
-            thing as its neighbours, which is what teaches the reader on the first scroll that the
-            blocks here are not interchangeable. Every word is the copy it had as a full section. */}
-        <section id="eligibility" className="ckc-sill" aria-labelledby="sill-label">
-          <p id="sill-label" className="ckc-meta">Who can enter</p>
-          <div>
-            <p className="ckc-sill-lede">
-              Anyone who writes. Wherever you are, whatever you have written before.
-            </p>
-            {/* Examples, never a gate — nobody should self-exclude by absence from the list. */}
-            <div className="ckc-sill-chips">
-              {ELIGIBILITY_CHIPS.map((c) => <span key={c} className="ckc-chip">{c}</span>)}
+        {/* ── Three ideas ───────────────────────────────────────────────────────────────────────
+            One idea each, and none of them explains a mechanism — the programme below does that. */}
+        <div className="ckc-trio">
+          {TRIO.map((card) => (
+            <div key={card.title} className="ckc-trio-card">
+              <h2 className="ckc-trio-t">{card.title}</h2>
+              <p className="ckc-trio-b">{card.body}</p>
             </div>
-            <p className="ckc-sill-note">
-              Entering costs nothing, and you write in the browser — there is nothing to install and
-              nothing to buy.
-            </p>
-          </div>
-        </section>
+          ))}
+        </div>
 
-        <Section id="how-it-works" className="ckc-sec-tight">
-          <div className="ckc-prog-head">
-            <div>
-              <p className="ckc-meta mb-2.5">The event, start to finish</p>
-              <h2 className="ckc-title ckc-h2">How a challenge works</h2>
-              <p className="ckc-lede mt-2" style={{ fontSize: "0.9375rem" }}>
-                Six steps. None of them change from one challenge to the next.
-              </p>
-            </div>
-            {/* Rides in the header rather than trailing the section: this is the detail of step 05,
-                and as a tail block it ended the section the way the next one began. */}
-            <div>
-              <p className="ckc-meta">Judged on</p>
-              <p style={{ marginTop: 7, fontSize: "0.9375rem", color: "var(--ckc-body)", maxWidth: "46ch" }}>
-                Every entry is read against the same five things, whoever wrote it.
-              </p>
-              <div className="ckc-prog-crit">
-                {JUDGING_CRITERIA.map((c) => <span key={c} className="ckc-chip">{c}</span>)}
-              </div>
-            </div>
-          </div>
+        {/* ── The programme, on ink ──────────────────────────────────────────────────────────────
+            The page's one dark ground. Six steps read as a run rather than a stack: the ordinal is
+            a hanging figure, the step is a heading, and the ground does the emphasis so nothing
+            needs a border. */}
+        <section id="how-it-works" className="ckc-ink scroll-mt-24">
+          <p className="ckc-ink-label">The event, start to finish</p>
+          <h2 className="ckc-title ckc-ink-h2">Six steps. Every challenge.</h2>
 
-          <div className="ckc-prog">
+          <ol className="ckc-run">
             {HOW_IT_WORKS.map((step, i) => (
-              <div key={step.title} className="ckc-prog-step">
-                <span className="ckc-prog-n">{String(i + 1).padStart(2, "0")}</span>
-                <h3 className="ckc-prog-t">{step.title}</h3>
-                <p className="ckc-prog-b">{step.body}</p>
+              <li key={step.title} className="ckc-run-i">
+                <span className="ckc-run-n" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+                <h3 className="ckc-run-t">{step.title}</h3>
+                <p className="ckc-run-b">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="ckc-ink-foot">
+            <p className="ckc-ink-label">Judged on</p>
+            <div className="ckc-ink-chips">
+              {JUDGING_CRITERIA.map((c) => <span key={c} className="ckc-ink-chip">{c}</span>)}
+            </div>
+          </div>
+        </section>
+
+        {/* ── What you get ──────────────────────────────────────────────────────────────────────
+            Six lines, no card and no rule — space alone separates them, so this reads differently
+            from both the trio above and the panel below. */}
+        <Section id="what-you-receive" className="ckc-sec-tight">
+          <h2 className="ckc-title ckc-h2-lead">What you get, whether you place or not.</h2>
+          <div className="ckc-gets">
+            {WHAT_YOU_RECEIVE.map((item) => (
+              <div key={item} className="ckc-get">
+                <Check className="h-4 w-4 shrink-0" style={{ color: "var(--ckc-ink)", marginTop: 5 }} aria-hidden="true" />
+                <span>{item}</span>
               </div>
             ))}
           </div>
         </Section>
 
-        {/* Heading in the margin, list shifted right — the cheapest way to break the single left
-            edge every section used to share, and a print gesture rather than a doc-site one. */}
-        <Section id="what-you-receive" className="ckc-sec-tight">
-          <div className="ckc-marginal">
-            <div>
-              <h2 className="ckc-title ckc-h2-quiet">What you get, whether you place or not</h2>
-              <p className="ckc-lede mt-2.5" style={{ fontSize: "0.875rem" }}>
-                Most people who enter a competition quietly assume they will not win. This is the
-                part that is true for everyone.
-              </p>
-            </div>
-            {/* Ticks stay ink, not coral: six coral checkmarks would be the loudest thing on a page
-                that is dormant three-quarters of the year, and the accent means "live". */}
-            <div className="ckc-ledger">
-              {WHAT_YOU_RECEIVE.map((item) => (
-                <div key={item}>
-                  <Check className="h-4 w-4 shrink-0" style={{ color: "var(--ckc-ink)", marginTop: 3 }} aria-hidden="true" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Section>
+        {/* ── Ownership ─────────────────────────────────────────────────────────────────────────
+            The one tinted ground, and three objects rather than three paragraphs. What stops writers
+            submitting is not the contest — it is not knowing what happens to the work afterwards.
 
-        {/* ── The centre ────────────────────────────────────────────────────────────────────────
-            THE one ground change and THE one width change on the page, spent together on the block
-            that actually decides whether someone submits. Deliberately NOT a <Section>: py-10 would
-            lose a specificity fight with .ckc-inset's own padding and leave a dead utility behind.
-            The negative margin cancels the wrapper's 24px gutter — coupled to `padding: 48px 24px 0`
-            below, so change one and change both. */}
+            Every claim here describes behaviour the code already has. There is deliberately no
+            rights or licensing statement: that is a legal claim, it belongs to whoever owns the
+            terms, and it is the worst sentence on the site to get wrong. */}
         <section id="your-script" className="ckc-inset scroll-mt-24">
-          <p className="ckc-meta">Ownership and privacy</p>
-          <h2 className="ckc-title ckc-h2-lead" style={{ marginTop: 12 }}>Your script stays yours</h2>
-          <p className="ckc-lede" style={{ marginTop: 12, maxWidth: "54ch" }}>
-            What stops most writers submitting anywhere is not the competition. It is not knowing
-            what happens to the work afterwards.
-          </p>
-          <div className="ckc-qa">
-            {QUESTIONS.map(({ q, a }) => (
-              <div key={q}>
-                <h3 className="ckc-qa-q">{q}</h3>
-                <p className="ckc-qa-a">{a}</p>
+          <h2 className="ckc-title ckc-h2-lead ckc-inset-h2">Your script stays yours.</h2>
+          <div className="ckc-own">
+            {QUESTIONS.map(({ icon, q, a }) => (
+              <div key={q} className="ckc-own-i">
+                {icon}
+                <h3 className="ckc-own-t">{q}</h3>
+                <p className="ckc-own-b">{a}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Everything above was the event; everything below is the index. A double rule is what a
-            printed programme puts at the end of a part, and it reuses the strong/hairline pairing
-            the sill and the step matrix already established — so it reads as system, not ornament. */}
+        {/* ── Who ───────────────────────────────────────────────────────────────────────────────
+            Examples, never a gate — nobody should self-exclude by absence from the list. */}
+        <section id="eligibility" className="ckc-who scroll-mt-24">
+          <h2 className="ckc-title ckc-who-h2">Anyone who writes.</h2>
+          <div className="ckc-pills">
+            {ELIGIBILITY_CHIPS.map((c) => <span key={c} className="ckc-pill">{c}</span>)}
+          </div>
+          <p className="ckc-who-note">
+            Entering costs nothing, and you write in the browser — nothing to install, nothing to buy.
+          </p>
+        </section>
+
         <hr aria-hidden="true" className="ckc-part-break" />
 
         {/* ── The record ────────────────────────────────────────────────────────────────────── */}
