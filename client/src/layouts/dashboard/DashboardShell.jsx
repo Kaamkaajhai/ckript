@@ -229,10 +229,33 @@ const DashboardShell = ({ children, variant = "page" }) => {
     setNotifications((prev) => prev.map((n) => n._id === notif._id ? { ...n, read: true } : n));
     if (!notif.read) setUnreadCount((c) => Math.max(0, c - 1));
     dismissPopup(notif._id);
+    const type = String(notif.type || "");
+
+    if (["purchase_request", "purchase_rejected"].includes(type)) { navigate("/purchase-requests"); return; }
+    if (type === "message_request") { navigate("/messages"); return; }
+    if (type === "follow_request") { navigate("/follow-requests"); return; }
+
     const scriptPath = notif?.script ? getScriptCanonicalPath(notif.script) : null;
-    if (scriptPath) { navigate(scriptPath); return; }
+    if (scriptPath && [
+      "purchase_approved", "unlock", "smart_match", "script_score", "trailer_ready", 
+      "audition", "hold", "hold_expiring", "script_approved", "script_rejected", 
+      "collab_invite", "collab_request", "collab_update", "revision_update", "script_pitch", "purchase"
+    ].includes(type)) { 
+      navigate(scriptPath); 
+      return; 
+    }
+
+    if (type === "admin_alert") {
+      navigate("/profile");
+      return;
+    }
+
     const profileTarget = notif?.from ? getProfileCanonicalPath(notif.from, { viewerId: user?._id, viewerRole: user?.role }) : null;
-    if (profileTarget) { navigate(profileTarget); return; }
+    if (profileTarget && ["follow", "follow_request_accepted", "profile_view", "like", "comment"].includes(type)) { 
+      navigate(profileTarget); 
+      return; 
+    }
+
     setNotifOpen(true);
   };
 

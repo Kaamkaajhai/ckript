@@ -205,7 +205,13 @@ export default function ScreenplayPdfViewer({
           if (requestUrl.includes("/api/")) {
             try {
               const stored = typeof window !== "undefined" ? window.localStorage.getItem("user") : "";
-              const token = stored ? JSON.parse(stored)?.token : "";
+              let token = stored ? JSON.parse(stored)?.token : "";
+              
+              if (!token) {
+                const adminStored = typeof window !== "undefined" ? window.sessionStorage.getItem("admin-session") : "";
+                token = adminStored ? JSON.parse(adminStored)?.token : "";
+              }
+
               if (token) headers.Authorization = `Bearer ${token}`;
             } catch {
               // Ignore token parsing issues and fall back to unauthenticated fetch.

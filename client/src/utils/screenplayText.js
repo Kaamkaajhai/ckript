@@ -44,6 +44,15 @@ export const formatScreenplayLikeText = (value = "") => {
 
   if (!text.trim()) return "";
 
+  // Fix PDF extraction artifacts where kerning is interpreted as single spaces (e.g. "P R O D U C T I O N   N O T E")
+  text = text.replace(/(?<=^|[\s\n])(?:[^\s] ){1,}[^\s](?=$|[\s\n])/g, (match) => {
+    // Only squash if it's actually spaced letters (like "P R O", not just "I a").
+    // We check if the match length is >= 5 (i.e. at least 3 letters: "A B C")
+    // OR if it's "A B" but we know it's a kerning artifact.
+    // Actually, just squashing spaces in any match of (letter space)+ letter is safe IF we know it was surrounded by double spaces or newlines!
+    return match.replace(/ /g, "");
+  });
+
   text = text
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")

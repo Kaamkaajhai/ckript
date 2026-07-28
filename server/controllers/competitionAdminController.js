@@ -261,6 +261,28 @@ export const adminArchiveCompetition = async (req, res) => {
   }
 };
 
+export const adminDeleteCompetition = async (req, res) => {
+  try {
+    const competitionId = asId(req.params.id);
+    const competition = await Competition.findByIdAndDelete(competitionId);
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    // Delete all entries for this competition
+    await CompetitionEntry.deleteMany({ competitionId });
+
+    // Unlink scripts
+    await Script.updateMany(
+      { competitionId },
+      { $set: { competitionId: null, competitionLocked: false, competitionReleasedAt: null } }
+    );
+
+    return res.json({ message: "Competition deleted successfully." });
+  } catch (error) {
+    console.error("[competition admin] delete failed:", error?.message || error);
+    return res.status(500).json({ message: "Failed to delete the competition." });
+  }
+};
+
 // ── Entries ─────────────────────────────────────────────────────────────────
 
 export const adminListEntries = async (req, res) => {

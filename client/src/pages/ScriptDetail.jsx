@@ -64,7 +64,8 @@ import {
   getScriptCompletionStatusLabel,
 } from "../utils/scriptCompletion";
 import { getApiBaseUrl, isSocketSupported } from "../utils/apiOrigin";
-import ScriptDetailCinematic from "./script-detail/ScriptDetailCinematic";
+import ScriptWorkbenchPage from "../features/script-workbench";
+import ScriptWorkbenchSkeleton from "../components/skeleton/ScriptWorkbenchSkeleton";
 import {
   deriveScriptJourney,
   getRecommendedAction,
@@ -1372,12 +1373,7 @@ const ScriptDetail = () => {
 
   /* ── Loading / Error ──────────────────────────────────── */
 
-  if (loading)
-    return (
-      <div className={`flex justify-center items-center h-[60vh] ${t.page}`}>
-        <div className={`w-10 h-10 border-2 rounded-full animate-spin ${isDarkMode ? "border-white/10 border-t-white/60" : "border-gray-200 border-t-gray-500"}`} />
-      </div>
-    );
+  if (loading) return <ScriptWorkbenchSkeleton dark={isDarkMode} />;
 
   if (accessMessage)
     return (
@@ -1462,7 +1458,7 @@ const ScriptDetail = () => {
   const collaboratorRole = String(script?.collaboratorRole || currentCollaborator?.role || "").toLowerCase();
   const canViewFullScript = Boolean(isOwner || isAcceptedCollaborator || script?.isUnlocked || script?.isAdmin || script?.canViewFullScript);
   const canEditScript = Boolean(script?._id && (isOwner || script?.canEditScript || collaboratorRole === "editor"));
-  const canOpenCollaborationHub = Boolean(script?._id && (isOwner || isAcceptedCollaborator));
+
   const isReaderReviewer = String(user?.role || "").toLowerCase() === "reader";
   const isSoldScript = Boolean(script?.isSold || script?.holdStatus === "sold");
   const canBookmark = Boolean(user?._id && !isOwner && !isAcceptedCollaborator);
@@ -1632,7 +1628,7 @@ const ScriptDetail = () => {
     fmtBudget,
     scoreColor,
     scoreBg,
-    canOpenCollaborationHub,
+
     isPro,
     reviewUnavailableMessage,
     isApprovedOrPublished,
@@ -1688,7 +1684,7 @@ const ScriptDetail = () => {
   // Keep the mature controller and endpoint wiring centralized while the
   // cinematic component owns the route's single production presentation.
   return (
-    <ScriptDetailCinematic
+    <ScriptWorkbenchPage
         vm={{
           script,
           user,
@@ -1718,8 +1714,7 @@ const ScriptDetail = () => {
           handleToggleBookmark,
           openProfile: openWriterProfile,
           openEdit: openProjectEditor,
-          canOpenCollaborationHub,
-          openCollaborationHub: () => navigate(`/script/${script._id}/collaborate`),
+
           openPayment: () => navigate(`/script/${script._id}/pay`),
           openPricing: () => openPricingModal(),
           recordPreviewOpen: () => setActiveTab("synopsis"),

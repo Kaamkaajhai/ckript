@@ -309,14 +309,20 @@ const PublicProfile = () => {
                           <span className={`text-[15px] font-semibold ${dark ? "text-gray-200" : "text-gray-700"}`}>{profile.writerProfile.agencyName}</span>
                         </div>
                       ) : null}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${profile.writerProfile.wgaMember ? (dark ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/20" : "bg-emerald-100 text-emerald-700 border-emerald-200") : (dark ? "bg-white/10 text-gray-200 border-white/10" : "bg-gray-100 text-gray-700 border-gray-200")}`}>
-                          WGA: {profile.writerProfile.wgaMember ? "Verified" : "No"}
-                        </span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${profile.writerProfile.sgaMember ? (dark ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/20" : "bg-emerald-100 text-emerald-700 border-emerald-200") : (dark ? "bg-white/10 text-gray-200 border-white/10" : "bg-gray-100 text-gray-700 border-gray-200")}`}>
-                          SWA: {profile.writerProfile.sgaMember ? "Verified" : "No"}
-                        </span>
-                      </div>
+                      {(profile.writerProfile.wgaMember || profile.writerProfile.sgaMember) && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {profile.writerProfile.wgaMember && (
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${dark ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/20" : "bg-emerald-100 text-emerald-700 border-emerald-200"}`}>
+                              WGA: Verified
+                            </span>
+                          )}
+                          {profile.writerProfile.sgaMember && (
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold border ${dark ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/20" : "bg-emerald-100 text-emerald-700 border-emerald-200"}`}>
+                              SWA: Verified
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
