@@ -10,6 +10,7 @@ import CompetitionRecord from "../hall-of-fame/HallOfFameDetail";
 import CountdownTimer from "../../components/competition/CountdownTimer";
 import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import { COMPANY } from "../../constants/company";
+import externalUrl from "../../utils/externalUrl";
 import "./challenge.css";
 import { JUDGING_CRITERIA, HOW_IT_WORKS, WHAT_YOU_RECEIVE } from "./constants";
 
@@ -459,13 +460,19 @@ const CompetitionLanding = () => {
         {competition.sponsors?.length ? (
           <Section id="sponsors" title="Sponsors">
             <div className="flex flex-wrap items-center gap-6">
-              {competition.sponsors.map((sponsor, i) => (
-                <a key={i} href={sponsor.url || "#"} target="_blank" rel="noreferrer noopener" className="opacity-80 transition hover:opacity-100">
-                  {sponsor.logoUrl
-                    ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-10 object-contain" />
-                    : <span style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>}
-                </a>
-              ))}
+              {competition.sponsors.map((sponsor, i) => {
+                const href = externalUrl(sponsor.url);
+                const mark = sponsor.logoUrl
+                  ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-10 object-contain" />
+                  : <span style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>;
+                // A sponsor with no usable link is still a sponsor — show the mark, but not as a
+                // focusable anchor that goes nowhere.
+                return href ? (
+                  <a key={i} href={href} target="_blank" rel="noreferrer noopener" className="opacity-80 transition hover:opacity-100">
+                    {mark}
+                  </a>
+                ) : <span key={i} className="opacity-80">{mark}</span>;
+              })}
             </div>
           </Section>
         ) : null}
