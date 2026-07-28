@@ -65,6 +65,7 @@ import {
 } from "../utils/scriptCompletion";
 import { getApiBaseUrl, isSocketSupported } from "../utils/apiOrigin";
 import ScriptWorkbenchPage from "../features/script-workbench";
+import ScriptWorkbenchSkeleton from "../components/skeleton/ScriptWorkbenchSkeleton";
 import {
   deriveScriptJourney,
   getRecommendedAction,
@@ -1372,12 +1373,7 @@ const ScriptDetail = () => {
 
   /* ── Loading / Error ──────────────────────────────────── */
 
-  if (loading)
-    return (
-      <div className={`flex justify-center items-center h-[60vh] ${t.page}`}>
-        <div className={`w-10 h-10 border-2 rounded-full animate-spin ${isDarkMode ? "border-white/10 border-t-white/60" : "border-gray-200 border-t-gray-500"}`} />
-      </div>
-    );
+  if (loading) return <ScriptWorkbenchSkeleton dark={isDarkMode} />;
 
   if (accessMessage)
     return (

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useDarkMode } from "../context/DarkModeContext";
 import api from "../services/api";
 import ProjectCard from "../components/ProjectCard";
+import SearchSkeleton from "../components/skeleton/SearchSkeleton";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 
 /* ── Filter Constants ───────────────────────────────── */
@@ -578,10 +579,8 @@ const Search = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center py-28 gap-3"
           >
-            <div className={`w-8 h-8 border-[2.5px] rounded-full animate-spin ${t.spinnerTrack} ${t.spinnerColor}`} />
-            <p className={`text-[13px] font-medium ${t.spinnerText}`}>Searching...</p>
+            <SearchSkeleton />
           </motion.div>
         )}
       </AnimatePresence>
