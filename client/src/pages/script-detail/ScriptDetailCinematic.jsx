@@ -562,7 +562,7 @@ export default function ScriptDetailCinematic({ vm }) {
           </div>
           <div className="sd3-hero__dock">
             {capabilities.canEdit && <button type="button" className="sd3-hero-action" onClick={vm.openEdit}><Pencil size={15} />{capabilities.owner ? "Edit project" : "Co-write"}</button>}
-            {vm.canOpenCollaborationHub && <button type="button" className="sd3-hero-action" onClick={vm.openCollaborationHub}><Users size={15} />Collaborate</button>}
+
             {vm.canPlayTrailer && <button type="button" className="sd3-hero-action" onClick={() => setMediaOpen(true)}><Play size={15} />Play trailer</button>}
             {capabilities.canBookmark && <button type="button" className="sd3-hero-action" aria-pressed={vm.isBookmarked} onClick={vm.handleToggleBookmark}><Bookmark size={15} fill={vm.isBookmarked ? "currentColor" : "none"} />{vm.isBookmarked ? "Saved" : "Save"}</button>}
             <SocialShareButton share={vm.scriptShare} className="sd3-hero-action" buttonLabel="Share" />
@@ -621,7 +621,7 @@ export default function ScriptDetailCinematic({ vm }) {
       <Overlay open={panel === "tools"} onClose={() => setPanel("")} title="Project tools and permissions" eyebrow="Supported actions">
         <div className="sd3-tool-list">
           {capabilities.canEdit && <button type="button" onClick={vm.openEdit}><Pencil size={17} /><span><b>{capabilities.owner ? "Edit project" : "Co-write this script"}</b><small>{capabilities.owner ? "Open the editor with current permissions." : "Write live alongside the other writers, one scene each."}</small></span><ChevronRight size={15} /></button>}
-          {vm.canOpenCollaborationHub && <button type="button" onClick={vm.openCollaborationHub}><Users size={17} /><span><b>Collaboration hub</b><small>Invite co-writers, manage access and see who is working on this script.</small></span><ChevronRight size={15} /></button>}
+
           <button type="button" onClick={() => openPanel("read")}><FileText size={17} /><span><b>Script access</b><small>Preview, copy, print and download according to access.</small></span><ChevronRight size={15} /></button>
           {capabilities.buyer && vm.script?.myPendingRequest?.invoice && <button type="button" onClick={() => vm.handleInvoicePdfAction(vm.script.myPendingRequest.invoice, "open")}><Download size={17} /><span><b>Open invoice</b><small>View the verified purchase invoice.</small></span><ChevronRight size={15} /></button>}
           <button type="button" onClick={() => setPanel("story")}><Film size={17} /><span><b>Metadata and publication</b><small>View SID, completion, classifications and roles.</small></span><ChevronRight size={15} /></button>

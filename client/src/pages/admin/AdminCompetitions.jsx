@@ -306,6 +306,11 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
     run(() => adminApi.post(`/admin/competitions/${competitionId}/archive`), "Competition archived.");
   };
 
+  const remove = () => {
+    if (!window.confirm("Delete this competition? This will remove all entries and it will no longer be visible anywhere. This cannot be undone.")) return;
+    run(() => adminApi.delete(`/admin/competitions/${competitionId}`), "Competition deleted.");
+  };
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -471,6 +476,9 @@ function CompetitionEditor({ dark, competitionId, competitions, onBack, onSaved 
         ) : null}
         {competitionId && existing?.lifecycle !== "archived" ? (
           <button type="button" onClick={archive} disabled={saving} className={cls.ghost(dark)}>Archive</button>
+        ) : null}
+        {competitionId ? (
+          <button type="button" onClick={remove} disabled={saving} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-400">Delete</button>
         ) : null}
       </div>
     </div>
