@@ -10,26 +10,19 @@
  *   they can win — which is not who needs convincing.
  */
 
-export const THE_PROMISE = "Every entry gets an AI evaluation.";
-
-/** The three beats of the event, for the landing. The competition page carries all six. */
-export const STEPS = [
-  { n: "01", label: "Register" },
-  { n: "02", label: "Write for 48 hours" },
-  { n: "03", label: "Get evaluated" },
-];
-
-export const OPEN_TO = "Open to anyone who writes — first script or fiftieth.";
-
-/* `lead` may be a function of the live competition where the copy needs a real date or name. */
+/* `lead` may be a function of the live competition where the copy needs a real date or name.
+ *
+ * Leads carry the whole argument, because the section is a head and one proof card — the steps, the
+ * rewards and the eligibility rules belong on /challenge, and repeating them here would leave nothing
+ * worth clicking for. Two sentences: what it is, and the one promise that applies to everybody. */
 export const COPY = {
   dormant: {
     kicker: "The Ckript Challenge",
     line1: "One theme.",
     line2: "48 hours.",
     lead: () =>
-      "A finished script in a single weekend. No outline, no second draft — just what you can write "
-      + "with the clock running.",
+      "A finished script in a single weekend — no outline, no second draft, just what you can write "
+      + "with the clock running. Every entry gets an AI evaluation.",
     primary: { label: "Explore Challenge", to: "/challenge" },
     secondary: { label: "See past winners", to: "/challenge?tab=hall-of-fame" },
   },

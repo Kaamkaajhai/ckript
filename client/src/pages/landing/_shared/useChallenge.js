@@ -19,11 +19,13 @@ import publicApi from "../../../services/publicApi";
  * time. It is the primary case, not a fallback.
  */
 
+/* How long "Results are in" stays true on the homepage. */
+const RESULTS_FRESH_DAYS = 30;
+
 const EMPTY = {
   phase: "dormant",   // dormant | announced | registration_open | registration_closed | live | judging | results
-  competition: null,  // { name, slug, dates, prizePool, theme, hasJudges }
-  winner: null,       // { name, award, year, slug } — one past laureate, for proof
-  pastEntrants: 0,    // cumulative across completed competitions
+  competition: null,  // { name, slug, dates, prizePool, theme }
+  winner: null,       // { name, year, competitionName, slug } — one past laureate, for proof
   serverNow: null,
 };
 
@@ -44,19 +46,45 @@ const useChallenge = () => {
 
     (async () => {
       try {
-        // `/list` answers "what is on"; `/completed` carries the winners and the participant counts
-        // that `/list` deliberately omits (it would need a per-row aggregation on a public endpoint).
-        const [listed, completed] = await Promise.all([
+        // `/list` answers "what is on"; `/completed` carries the winners that `/list` deliberately
+        // omits (they need a per-row aggregation).
+        //
+        // allSettled, NOT all. These two are independent and unequal: `/list` decides whether the
+        // section says "registration open" or nothing at all, while `/completed` only supplies the
+        // laureate card. Under Promise.all a single 500 on the aggregation-heavy endpoint would
+        // reject the pair and drop the homepage back to dormant copy mid-competition — the one week
+        // it must not. Observed in testing, so this is a real path, not a hypothetical one.
+        const [listed, completed] = await Promise.allSettled([
           publicApi.get("/competitions/list"),
           publicApi.get("/competitions/completed"),
         ]);
         if (cancelled) return;
 
-        const list = listed.data || {};
-        const items = completed.data?.items || [];
+        // Nothing to say without `/list`; keep the dormant copy already on screen.
+        if (listed.status !== "fulfilled") return;
 
-        // A competition you can still act on wins over one that has merely been announced.
-        const current = (list.live || [])[0] || (list.upcoming || [])[0] || null;
+        const list = listed.value.data || {};
+        const items = completed.status === "fulfilled" ? (completed.value.data?.items || []) : [];
+
+        // `/list` files judging and results under `past` — correctly, since nobody can enter them.
+        // But those are the two moments the challenge is most worth talking about: the scripts are
+        // in, or the winners are out. Without this the landing shows evergreen dormant copy during
+        // its own headline week, and the judging/results states below could never render at all.
+        //
+        // Judging always counts — it lasts days and the result is imminent. Results ages out, because
+        // "Meet this year's winners" is a lie eight months later; the laureate card carries the proof
+        // from then on.
+        const now = list.serverNow ? new Date(list.serverNow) : new Date();
+        const fresh = (declaredAt) => declaredAt
+          && (now - new Date(declaredAt)) / 86400000 <= RESULTS_FRESH_DAYS;
+
+        const concluded = (list.past || []).find((c) => (
+          c.phase === "judging" || (c.phase === "results" && fresh(c.resultsDeclaredAt))
+        ));
+
+        // A competition you can still act on wins over one that has merely been announced, and both
+        // win over one that is over.
+        const current = (list.live || [])[0] || (list.upcoming || [])[0] || concluded || null;
 
         // The most recent laureate, for the one proof card. Winners only — a runner-up card with no
         // winner above it reads as a missing person.
@@ -82,7 +110,6 @@ const useChallenge = () => {
               slug: withWinner.slug,
             }
             : null,
-          pastEntrants: items.reduce((n, c) => n + (Number(c.totalParticipants) || 0), 0),
           serverNow: list.serverNow || null,
         });
       } catch {

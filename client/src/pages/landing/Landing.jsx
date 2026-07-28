@@ -57,7 +57,6 @@ export default function Landing() {
         phase={challenge.phase}
         competition={challenge.competition}
         winner={challenge.winner}
-        pastEntrants={challenge.pastEntrants}
       />
       <Partners />
       <FinalCta />
