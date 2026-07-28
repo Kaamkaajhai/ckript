@@ -94,10 +94,26 @@ html.dark-mode .ckc {
 
 .ckc .ckc-prose { line-height: 1.65; color: var(--ckc-body); max-width: 68ch; }
 
+/* The masthead lede on /challenge, and nowhere else.
+   /challenge is the seam between the landing (Baskervville/PT Serif, prose set in a
+   serif) and the interior (IBM Plex Sans). A serif opening paragraph is the cheapest
+   possible signal that the visitor is still in the same world — but it is an OPENING
+   GESTURE, not a fourth type voice. Every other run of text on these pages stays
+   .ckc-lede or .ckc-prose in the sans. Do not reuse this below a masthead. */
+.ckc .ckc-lede-editorial {
+  font-family: var(--ckc-display);
+  font-size: 1.1875rem;
+  line-height: 1.55;
+  color: var(--ckc-body);
+  max-width: 58ch;
+}
+
 /* ── Masthead ─────────────────────────────────────────────────── */
 
 .ckc .ckc-masthead { display: flex; flex-direction: column; gap: 14px; }
 .ckc .ckc-masthead .ckc-lede { margin-top: -4px; }
+/* The tightening above is selector-matched, so the editorial lede needs its own. */
+.ckc .ckc-masthead .ckc-lede-editorial { margin-top: -4px; }
 
 /* ── Bands and cards ──────────────────────────────────────────── */
 

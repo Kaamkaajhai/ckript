@@ -188,12 +188,16 @@ const CompetitionLanding = () => {
         <div className="mx-auto max-w-3xl px-4 py-20">
           <Card className="text-center">
             <Trophy className="mx-auto h-10 w-10" style={{ color: "var(--ckc-faint)" }} aria-hidden="true" />
-            <h1 className="ckc-title ckc-h2" style={{ marginTop: 18 }}>No active competition</h1>
+            <h1 className="ckc-title ckc-h2" style={{ marginTop: 18 }}>No challenge is open right now</h1>
+            {/* This route is public and reachable from search and shared links, so the old
+                "back to dashboard" pointed a logged-out visitor straight at an auth wall. Send
+                everyone to the page that explains the thing instead. */}
             <p className="ckc-lede" style={{ margin: "10px auto 0" }}>
-              There is no challenge running right now — check back soon.
+              The Challenge runs in windows, not continuously. How it works, what you receive and
+              who can enter are all on the Challenge page.
             </p>
-            <Link to="/dashboard" className="ckc-btn" style={{ marginTop: 24 }}>
-              Back to dashboard
+            <Link to="/challenge" className="ckc-btn" style={{ marginTop: 24 }}>
+              Go to the Challenge
             </Link>
           </Card>
         </div>

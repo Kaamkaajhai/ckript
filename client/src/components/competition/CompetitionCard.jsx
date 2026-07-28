@@ -148,12 +148,14 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
           <div className="mt-4 flex gap-5">
             {hasEntrantCount ? (
               <span className="ckc-meta inline-flex items-center gap-1.5">
-                <Users className="h-3 w-3" aria-hidden="true" /> {item.totalParticipants} entrants
+                <Users className="h-3 w-3" aria-hidden="true" /> {item.totalParticipants}
+                {item.totalParticipants === 1 ? " entrant" : " entrants"}
               </span>
             ) : null}
             {hasCountryCount ? (
               <span className="ckc-meta inline-flex items-center gap-1.5">
-                <Globe className="h-3 w-3" aria-hidden="true" /> {item.countriesRepresented} countries
+                <Globe className="h-3 w-3" aria-hidden="true" /> {item.countriesRepresented}
+                {item.countriesRepresented === 1 ? " country" : " countries"}
               </span>
             ) : null}
           </div>
