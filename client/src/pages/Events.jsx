@@ -28,7 +28,7 @@ export default function Events() {
     const fetchActive = async () => {
       try {
         setLoading(true);
-        const res = await api.get('/api/competitions/active');
+        const res = await api.get('/competitions/active');
         if (res.data && res.data.competition) {
           setActiveEvent(res.data.competition);
         }

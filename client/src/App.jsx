@@ -58,6 +58,7 @@ const ReaderHome = lazy(() => import("./pages/ReaderHome"));
 const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminCompetitionsEditor = lazy(() => import("./pages/admin/competitions/AdminCompetitionsEditor"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
@@ -529,6 +530,10 @@ function App() {
               <Route
                 path="/admin"
                 element={<AdminDashboard />}
+              />
+              <Route
+                path="/admin/competitions/:id"
+                element={<AdminCompetitionsEditor />}
               />
               <Route
                 path="/admin/scripts/:id"

@@ -40,8 +40,7 @@ export default function EventDetails() {
     const fetchEvent = async () => {
       try {
         setLoading(true);
-        // If id is present, pass it as ?c=slug, otherwise fetch the active one
-        const url = id ? `/api/competitions/active?c=${id}` : `/api/competitions/active`;
+        const url = id ? `/competitions/active?c=${id}` : `/competitions/active`;
         const res = await api.get(url);
         
         if (res.data && res.data.competition) {

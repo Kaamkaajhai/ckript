@@ -21,41 +21,76 @@ const slugify = (value = "") =>
 
 const competitionSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 120 },
+  shortName: { type: String, trim: true, maxlength: 60, default: "" },
   slug: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
+  tagline: { type: String, trim: true, maxlength: 120, default: "" },
+  shortDescription: { type: String, maxlength: 300, default: "" },
+  host: { type: String, trim: true, maxlength: 120, default: "" },
+  language: { type: String, trim: true, default: "English" },
+  timezone: { type: String, trim: true, default: "UTC" },
+  eventType: { type: String, trim: true, default: "Global Challenge" },
+  competitionCategory: { type: String, trim: true, default: "Screenwriting" },
+  difficulty: { type: String, trim: true, default: "All Levels" },
+  expectedParticipants: { type: Number, default: 0 },
+  estimatedReadingTime: { type: String, trim: true, default: "" },
+  
+  featuredBadge: { type: Boolean, default: false },
+  trendingBadge: { type: Boolean, default: false },
+  newBadge: { type: Boolean, default: false },
+
   lifecycle: { type: String, enum: ["draft", "published", "archived"], default: "draft", index: true },
-  // Orthogonal to lifecycle. A `hidden` competition runs completely normally for the people who have
-  // its link, but is never DISCOVERED: it is excluded from the Hall of Fame and never chosen as the
-  // public "active" competition. That is what makes internal beta / university-only /
-  // sponsor-exclusive events possible on the same infrastructure.
-  visibility: { type: String, enum: ["public", "hidden"], default: "public", index: true },
+  visibility: { type: String, enum: ["public", "hidden", "private"], default: "public", index: true },
 
   dates: {
     regOpensAt: { type: Date, required: true },
     regClosesAt: { type: Date, required: true },
     startsAt: { type: Date, required: true },
     endsAt: { type: Date, required: true },
-    resultsAt: { type: Date },            // planned/announced results date — informational only
+    resultsAt: { type: Date },
   },
-  // Set when an admin declares results. Its presence (not a date comparison) is what puts the
-  // competition into the `results` phase, so results can be declared early or late.
   resultsDeclaredAt: { type: Date, default: null },
 
-  // Withheld by the API until the competition is live — the reveal is the point of the event.
   theme: {
     title: { type: String, trim: true, maxlength: 200, default: "" },
     brief: { type: String, maxlength: 5000, default: "" },
     allowedGenres: [{ type: String }],
     guidelines: { type: String, maxlength: 5000, default: "" },
+    writingPrompt: { type: String, default: "" },
+    moodBoardImages: [{ type: String }],
+    referenceVideos: [{ type: String }],
+    inspirationalQuotes: [{ type: String }],
+    restrictedTopics: [{ type: String }],
+    allowedLanguages: [{ type: String }],
+    requiredLength: { type: String, default: "" },
+    wordLimit: { type: Number },
+    timeLimit: { type: Number },
   },
 
   overview: { type: String, maxlength: 5000, default: "" },
+  highlights: [{ type: String }],
   eligibility: { type: String, maxlength: 2000, default: "" },
   format: { type: String, maxlength: 1000, default: "Any format written in the Ckript editor" },
 
-  // Hero image for the Hall of Fame record.
+  // Branding & Media
   bannerUrl: { type: String, default: "" },
-  // Free text rather than a number+currency: prizes here mix cash with subscriptions, trailers and
-  // features, and the cash element is settled off-platform in whatever currency suits the edition.
+  mobileBannerUrl: { type: String, default: "" },
+  cardThumbnailUrl: { type: String, default: "" },
+  ogImageUrl: { type: String, default: "" },
+  logoUrl: { type: String, default: "" },
+  backgroundImageUrl: { type: String, default: "" },
+  gallery: [{ type: String }],
+
+  // Card Config
+  cardConfig: {
+    title: { type: String, default: "" },
+    subtitle: { type: String, default: "" },
+    badge: { type: String, default: "" },
+    buttonText: { type: String, default: "Reserve Your Spot" },
+    cardTheme: { type: String, default: "light" },
+    cardAccent: { type: String, default: "#c94b3a" },
+    featuredRibbon: { type: Boolean, default: false }
+  },
+
   prizePool: { type: String, trim: true, maxlength: 200, default: "" },
 
   prizes: {
@@ -63,13 +98,57 @@ const competitionSchema = new mongoose.Schema({
     runnerUp: [{ type: String }],
     special: [{ title: String, description: String }],
   },
+  
+  // Advanced Dynamic Prizes 
+  detailedPrizes: [{
+    title: String,
+    description: String,
+    cash: Number,
+    currency: String,
+    type: String, // e.g., 'Membership', 'Cash', 'Feature'
+    visibility: { type: String, default: "public" },
+    order: { type: Number, default: 0 }
+  }],
 
   rules: [{ type: String, maxlength: 1000 }],
   faq: [{ q: { type: String, maxlength: 300 }, a: { type: String, maxlength: 2000 } }],
-  judges: [{ name: String, title: String, photoUrl: String, bio: { type: String, maxlength: 600, default: "" } }],
-  sponsors: [{ name: String, logoUrl: String, url: String, tier: { type: String, trim: true, maxlength: 40, default: "" } }],
-  communityLinks: [{ label: String, url: String }],
-  resources: [{ label: String, url: String }],
+  
+  judges: [{ 
+    name: String, 
+    title: String, 
+    photoUrl: String, 
+    bio: { type: String, maxlength: 600, default: "" },
+    company: String,
+    imdb: String,
+    linkedin: String,
+    order: { type: Number, default: 0 },
+    featured: { type: Boolean, default: false }
+  }],
+  
+  sponsors: [{ 
+    name: String, 
+    logoUrl: String, 
+    url: String, 
+    tier: { type: String, trim: true, maxlength: 40, default: "" },
+    description: String,
+    visibility: { type: String, default: "public" }
+  }],
+  
+  communityLinks: [{ label: String, url: String, icon: String }],
+  resources: [{ label: String, url: String, type: String }],
+
+  // SEO & Automation
+  seo: {
+    metaTitle: String,
+    metaDescription: String,
+    keywords: [String],
+    canonicalUrl: String
+  },
+  automation: {
+    autoPublishResults: { type: Boolean, default: false },
+    autoGenerateCertificates: { type: Boolean, default: false },
+    autoSendReminders: { type: Boolean, default: false }
+  },
 
   // Referral reward tiers for THIS competition. Left empty, utils/competitionReferrals.js falls back
   // to its module defaults, so every existing competition keeps working untouched.
