@@ -102,7 +102,7 @@ export default function Events() {
               </div>
               <div>
                 <h3 className="text-3xl font-serif text-[#111] leading-tight mb-3">
-                  The Final Draft
+                  event 1
                 </h3>
                 <p className="text-sm text-[#666] leading-relaxed">
                   Write a feature-length screenplay in 48 hours. Compete worldwide, get evaluated by pros, and launch your career.
@@ -118,7 +118,7 @@ export default function Events() {
                 </div>
                 <div>
                   <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Prize Pool</p>
-                  <p className="text-xs font-semibold text-[#111]">₹50,000 + Gold</p>
+                  <p className="text-xs font-semibold text-[#111]">50k + gold</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
@@ -127,7 +127,7 @@ export default function Events() {
                 </div>
                 <div>
                   <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Starts On</p>
-                  <p className="text-xs font-semibold text-[#111]">Aug 24, 2026</p>
+                  <p className="text-xs font-semibold text-[#111]">Jul 30, 2026 – Jul 30, 2026</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
