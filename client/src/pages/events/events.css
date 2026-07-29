@@ -1,0 +1,121 @@
+.ckl-event-page {
+  --event-bg: #f9f8f6;
+  --event-surface: #ffffff;
+  --event-surface-hover: #faf9f8;
+  --event-text: #111111;
+  --event-text-muted: #555555;
+  --event-text-faint: #888888;
+  --event-accent: #c94b3a;
+  --event-accent-light: #fff0ed;
+  --event-border: #eaeaea;
+  --event-radius-sm: 12px;
+  --event-radius-md: 16px;
+  --event-radius-lg: 24px;
+  --event-radius-xl: 32px;
+  --event-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+  --event-shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.08);
+  --event-transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--event-bg);
+  color: var(--event-text);
+  font-family: var(--ck-sans);
+}
+
+.ckl-event-container {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.ckl-event-section {
+  padding: 80px 0;
+  border-top: 1px solid var(--event-border);
+}
+
+.ckl-event-section-title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-family: var(--ck-serif);
+  line-height: 1.1;
+  margin-bottom: 48px;
+  color: var(--event-text);
+}
+
+.ckl-event-card {
+  background: var(--event-surface);
+  border-radius: var(--event-radius-lg);
+  border: 1px solid var(--event-border);
+  box-shadow: var(--event-shadow);
+  transition: var(--event-transition);
+  overflow: hidden;
+}
+
+.ckl-event-card:hover {
+  box-shadow: var(--event-shadow-hover);
+  transform: translateY(-4px);
+}
+
+.ckl-event-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.ckl-event-badge--primary {
+  background: var(--event-accent-light);
+  color: var(--event-accent);
+}
+
+.ckl-event-badge--neutral {
+  background: #f4f2f0;
+  color: #444;
+}
+
+.ckl-event-glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ckl-event-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.ckl-event-modal-content {
+  background: var(--event-surface);
+  border-radius: var(--event-radius-xl);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.2);
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
