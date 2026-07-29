@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Link } from "react-router-dom";
-import { Trophy, CalendarDays, Clock, Users, ArrowRight, Menu, X } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Trophy, CalendarDays, Clock, Users, ArrowRight, Menu, X, Loader2 } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { ROUTES, LOGO_SRC } from "./landing/_shared/theme";
 import Footer from "./landing/sections/Footer/Footer";
+import api from "../services/api";
 import "./landing/landing.css";
 import "./landing/sections/Hero/Hero.css";
 
@@ -13,21 +14,37 @@ export default function Events() {
   const { openAuthModal, openProducerOnboarding, openWriterOnboarding, openPricingModal } = useAuthModal();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPricingDropdownOpen, setIsPricingDropdownOpen] = useState(false);
+  const navigate = useNavigate();
 
   const primaryPath = user?.role === "reader" ? "/reader" : "/dashboard";
   const signInLabel = user ? (user.role === "reader" ? "Reader" : "Dashboard") : "Sign in";
 
-  const [timeLeft, setTimeLeft] = useState({
-    days: "00",
-    hours: "00",
-    mins: "00",
-    secs: "00"
-  });
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const [timeLeft, setTimeLeft] = useState({ days: "00", hours: "00", mins: "00", secs: "00" });
 
   useEffect(() => {
-    const targetDate = new Date();
-    targetDate.setDate(targetDate.getDate() + 3); // Example: 3 days from now
-    targetDate.setHours(targetDate.getHours() + 14);
+    const fetchActive = async () => {
+      try {
+        setLoading(true);
+        const res = await api.get('/api/competitions/active');
+        if (res.data && res.data.competition) {
+          setActiveEvent(res.data.competition);
+        }
+      } catch (err) {
+        console.error("Failed to fetch active competition", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchActive();
+  }, []);
+
+  useEffect(() => {
+    if (!activeEvent?.dates?.regClosesAt) return;
+    
+    const targetDate = new Date(activeEvent.dates.regClosesAt);
     
     const timer = setInterval(() => {
       const now = new Date();
@@ -45,7 +62,7 @@ export default function Events() {
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [activeEvent]);
 
   return (
     <div className="ckl" style={{ width: '100%', minHeight: '100vh', background: '#f9f8f6' }}>
@@ -166,145 +183,169 @@ export default function Events() {
         <div className="flex items-center gap-6 text-sm font-medium border-t border-[#e0dfdd] pt-8">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#c94b3a] opacity-60"></span>
-            <span className="tracking-widest uppercase">Challenge 04 is live</span>
+            <span className="tracking-widest uppercase">
+              {activeEvent ? "A challenge is live" : "Upcoming Challenge"}
+            </span>
           </div>
           <div className="w-px h-4 bg-[#ccc]"></div>
-          <span className="italic text-[#777] font-serif text-lg">Registration closes Friday</span>
+          <span className="italic text-[#777] font-serif text-lg">
+            {activeEvent?.dates?.regClosesAt 
+              ? `Registration closes ${new Date(activeEvent.dates.regClosesAt).toLocaleDateString()}` 
+              : "Stay tuned for dates"}
+          </span>
         </div>
       </section>
 
-      {/* EVENT CARD - REDESIGNED & COMPACT */}
-      <section className="max-w-[540px] mx-auto px-4 pb-24">
-        <div className="group relative bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#eaeaea] overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 mx-auto">
-          
-          {/* Banner Section */}
-          <div className="relative h-48 bg-[#111] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] via-[#111] to-[#222]"></div>
-            <div className="absolute top-0 right-0 w-[120%] h-[120%] bg-white/[0.02] transform -rotate-12 translate-x-1/3 -translate-y-1/4 rounded-[100%] blur-3xl pointer-events-none"></div>
-            <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/80 to-transparent"></div>
-            
-            <div className="relative z-10 p-6 h-full flex flex-col justify-between">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="text-[9px] font-bold tracking-[0.25em] text-white/60 uppercase mb-1.5 block">The Next</span>
-                  <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight">GREAT STORY</h2>
-                  <h2 className="text-2xl font-bold text-[#c94b3a] tracking-tight">STARTS HERE.</h2>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-sm">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#10b981]"></span>
-                    </span>
-                    <span className="text-[9px] font-bold text-white tracking-widest uppercase">Live</span>
-                  </div>
-                  <div className="bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/5 text-[9px] font-bold text-white/80 tracking-widest uppercase shadow-sm">
-                    2026
-                  </div>
-                </div>
-              </div>
-              <p className="text-[9px] font-bold tracking-[0.2em] text-white/70 uppercase">Write. Compete. Get Discovered.</p>
-            </div>
-          </div>
-          
-          {/* Main Content Area */}
-          <div className="p-6 md:p-8">
-            
-            {/* Header: Title & Quick Badges */}
-            <div className="flex flex-col gap-4 mb-8">
-              <div className="flex items-center gap-2">
-                <span className="bg-[#f4f2f0] text-[#444] px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">🌍 Global</span>
-                <span className="bg-[#fff0ed] text-[#c94b3a] px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">🔥 Trending</span>
-              </div>
-              <div>
-                <h3 className="text-3xl font-serif text-[#111] leading-tight mb-3">
-                  event 1
-                </h3>
-                <p className="text-sm text-[#666] leading-relaxed">
-                  Write a feature-length screenplay in 48 hours. Compete worldwide, get evaluated by pros, and launch your career.
-                </p>
-              </div>
-            </div>
-
-            {/* Grid Details */}
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#c94b3a]">
-                  <Trophy size={16} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Prize Pool</p>
-                  <p className="text-xs font-semibold text-[#111]">50k + gold</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
-                  <CalendarDays size={16} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Starts On</p>
-                  <p className="text-xs font-semibold text-[#111]">Jul 30, 2026 – Jul 30, 2026</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
-                  <Clock size={16} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Duration</p>
-                  <p className="text-xs font-semibold text-[#111]">48 Hours</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
-                  <Users size={16} strokeWidth={2.5} />
-                </div>
-                <div>
-                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Participants</p>
-                  <p className="text-xs font-semibold text-[#111]">1,240+ Reg.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Section: Hero Countdown & CTA */}
-            <div className="flex flex-col p-6 rounded-2xl bg-[#111] text-white shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-[#c94b3a] opacity-20 blur-[60px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
-              
-              <div className="text-center relative z-10 mb-6">
-                <p className="text-[9px] font-bold text-white/50 uppercase tracking-[0.25em] mb-4">Registration Closes In</p>
-                <div className="flex items-center gap-3 justify-center">
-                  <div className="flex flex-col items-center w-10">
-                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.days}</span>
-                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Days</span>
-                  </div>
-                  <span className="text-xl text-white/20 font-light mb-3">:</span>
-                  <div className="flex flex-col items-center w-10">
-                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.hours}</span>
-                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Hrs</span>
-                  </div>
-                  <span className="text-xl text-white/20 font-light mb-3">:</span>
-                  <div className="flex flex-col items-center w-10">
-                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.mins}</span>
-                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Mins</span>
-                  </div>
-                  <span className="text-xl text-white/20 font-light mb-3">:</span>
-                  <div className="flex flex-col items-center w-10">
-                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter text-[#e15b49]">{timeLeft.secs}</span>
-                    <span className="text-[8px] text-[#e15b49]/60 font-bold uppercase tracking-widest mt-1">Secs</span>
-                  </div>
-                </div>
-              </div>
-              
-              <button className="group relative flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-[#111] font-bold text-sm rounded-xl overflow-hidden transition-transform active:scale-95 w-full shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] z-10">
-                <span className="relative z-10">Reserve Your Spot</span>
-                <ArrowRight size={16} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2.5} />
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-50 to-[#f0f0f0] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              </button>
-            </div>
-            
-          </div>
+      {/* EVENT CARD - DYNAMIC */}
+      {loading ? (
+        <div className="max-w-[540px] mx-auto flex justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-[#c94b3a]" />
         </div>
-      </section>
+      ) : activeEvent ? (
+        <section className="max-w-[540px] mx-auto px-4 pb-24">
+          <div 
+            onClick={() => navigate(`/events/${activeEvent.slug}`)}
+            className="group cursor-pointer relative bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#eaeaea] overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 mx-auto"
+          >
+            
+            {/* Banner Section */}
+            <div 
+              className="relative h-48 bg-[#111] overflow-hidden" 
+              style={activeEvent.bannerUrl ? { backgroundImage: `url(${activeEvent.bannerUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a]/80 via-[#111]/80 to-[#222]/80"></div>
+              <div className="absolute top-0 right-0 w-[120%] h-[120%] bg-white/[0.02] transform -rotate-12 translate-x-1/3 -translate-y-1/4 rounded-[100%] blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/90 to-transparent"></div>
+              
+              <div className="relative z-10 p-6 h-full flex flex-col justify-between">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[9px] font-bold tracking-[0.25em] text-white/60 uppercase mb-1.5 block">The Next</span>
+                    <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight">GREAT STORY</h2>
+                    <h2 className="text-2xl font-bold text-[#c94b3a] tracking-tight">STARTS HERE.</h2>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-sm">
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#10b981]"></span>
+                      </span>
+                      <span className="text-[9px] font-bold text-white tracking-widest uppercase">Live</span>
+                    </div>
+                    <div className="bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/5 text-[9px] font-bold text-white/80 tracking-widest uppercase shadow-sm">
+                      {new Date(activeEvent.dates.startsAt).getFullYear()}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[9px] font-bold tracking-[0.2em] text-white/70 uppercase">Write. Compete. Get Discovered.</p>
+              </div>
+            </div>
+            
+            {/* Main Content Area */}
+            <div className="p-6 md:p-8">
+              
+              {/* Header: Title & Quick Badges */}
+              <div className="flex flex-col gap-4 mb-8">
+                <div className="flex items-center gap-2">
+                  <span className="bg-[#f4f2f0] text-[#444] px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">🌍 Global</span>
+                  <span className="bg-[#fff0ed] text-[#c94b3a] px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">🔥 Trending</span>
+                </div>
+                <div>
+                  <h3 className="text-3xl font-serif text-[#111] leading-tight mb-3">
+                    {activeEvent.name}
+                  </h3>
+                  <p className="text-sm text-[#666] leading-relaxed">
+                    {activeEvent.overview || "Write a feature-length screenplay in 48 hours. Compete worldwide, get evaluated by pros, and launch your career."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Grid Details */}
+              <div className="grid grid-cols-2 gap-3 mb-8">
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] group-hover:bg-white group-hover:shadow-sm transition-colors">
+                  <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#c94b3a]">
+                    <Trophy size={16} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Prize Pool</p>
+                    <p className="text-xs font-semibold text-[#111]">{activeEvent.prizePool || "TBA"}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] group-hover:bg-white group-hover:shadow-sm transition-colors">
+                  <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
+                    <CalendarDays size={16} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Starts On</p>
+                    <p className="text-xs font-semibold text-[#111]">
+                      {new Date(activeEvent.dates.startsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] group-hover:bg-white group-hover:shadow-sm transition-colors">
+                  <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
+                    <Clock size={16} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Duration</p>
+                    <p className="text-xs font-semibold text-[#111]">{activeEvent.format?.includes("48") ? "48 Hours" : "Limited Window"}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] group-hover:bg-white group-hover:shadow-sm transition-colors">
+                  <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
+                    <Users size={16} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Eligibility</p>
+                    <p className="text-xs font-semibold text-[#111] truncate">{activeEvent.eligibility || "Global"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Section: Hero Countdown & CTA */}
+              <div className="flex flex-col p-6 rounded-2xl bg-[#111] text-white shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-[#c94b3a] opacity-20 blur-[60px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
+                
+                <div className="text-center relative z-10 mb-6">
+                  <p className="text-[9px] font-bold text-white/50 uppercase tracking-[0.25em] mb-4">Registration Closes In</p>
+                  <div className="flex items-center gap-3 justify-center">
+                    <div className="flex flex-col items-center w-10">
+                      <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.days}</span>
+                      <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Days</span>
+                    </div>
+                    <span className="text-xl text-white/20 font-light mb-3">:</span>
+                    <div className="flex flex-col items-center w-10">
+                      <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.hours}</span>
+                      <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Hrs</span>
+                    </div>
+                    <span className="text-xl text-white/20 font-light mb-3">:</span>
+                    <div className="flex flex-col items-center w-10">
+                      <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.mins}</span>
+                      <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Mins</span>
+                    </div>
+                    <span className="text-xl text-white/20 font-light mb-3">:</span>
+                    <div className="flex flex-col items-center w-10">
+                      <span className="text-2xl font-light font-mono tabular-nums tracking-tighter text-[#e15b49]">{timeLeft.secs}</span>
+                      <span className="text-[8px] text-[#e15b49]/60 font-bold uppercase tracking-widest mt-1">Secs</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <button className="relative flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-[#111] font-bold text-sm rounded-xl overflow-hidden transition-transform active:scale-95 w-full shadow-[0_0_15px_rgba(255,255,255,0.1)] group-hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] z-10">
+                  <span className="relative z-10">View Event Details</span>
+                  <ArrowRight size={16} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2.5} />
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-50 to-[#f0f0f0] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </button>
+              </div>
+              
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="max-w-[540px] mx-auto px-4 pb-24 text-center">
+          <p className="text-lg text-[#666]">No active events right now. Check back soon!</p>
+        </section>
+      )}
 
       {/* THE JOURNEY */}
       <section className="bg-white py-24 border-t border-[#e0dfdd]">
@@ -316,7 +357,11 @@ export default function Events() {
             </h2>
             <div className="flex items-center gap-3 text-[#555] font-medium tracking-wide pb-2">
               <div className="w-2.5 h-2.5 bg-[#c94b3a] rotate-45"></div>
-              <span className="uppercase text-sm">24th of August at 8:00 PM London time</span>
+              <span className="uppercase text-sm">
+                {activeEvent?.dates?.startsAt 
+                  ? new Date(activeEvent.dates.startsAt).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) 
+                  : "Next Event TBA"}
+              </span>
             </div>
           </div>
 
