@@ -18,6 +18,7 @@ import EventPrizes from "./components/EventPrizes";
 import EventJudges from "./components/EventJudges";
 import EventSponsors from "./components/EventSponsors";
 import EventRules from "./components/EventRules";
+import EventResources from "./components/EventResources";
 
 export default function EventDetails() {
   const { id } = useParams(); // id is the slug
@@ -186,6 +187,7 @@ export default function EventDetails() {
         <EventPrizes prizes={competition.prizes} prizePool={competition.prizePool} />
         <EventJudges judges={competition.judges} />
         <EventSponsors sponsors={competition.sponsors} />
+        <EventResources resources={competition.resources} communityLinks={competition.communityLinks} />
         <EventRules rules={competition.rules} faq={competition.faq} />
       </div>
 

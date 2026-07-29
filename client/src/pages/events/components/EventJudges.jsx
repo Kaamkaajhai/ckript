@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, ExternalLink } from "lucide-react";
+import Modal from "./Modal";
 
 export default function EventJudges({ judges }) {
   const [selectedJudge, setSelectedJudge] = useState(null);
@@ -43,9 +43,12 @@ export default function EventJudges({ judges }) {
       </div>
 
       {/* Judge Modal */}
-      {selectedJudge && (
-        <div className="ckl-event-modal-overlay" onClick={() => setSelectedJudge(null)}>
-          <div className="ckl-event-modal-content max-w-3xl flex flex-col md:flex-row overflow-hidden" onClick={e => e.stopPropagation()}>
+      <Modal 
+        isOpen={!!selectedJudge} 
+        onClose={() => setSelectedJudge(null)}
+      >
+        {selectedJudge && (
+          <div className="flex flex-col md:flex-row w-full max-w-4xl mx-auto rounded-3xl overflow-hidden shadow-2xl">
             <div className="w-full md:w-2/5 aspect-square md:aspect-auto bg-[#eaeaea]">
                {selectedJudge.photoUrl ? (
                   <img src={selectedJudge.photoUrl} alt={selectedJudge.name} className="w-full h-full object-cover" />
@@ -55,14 +58,7 @@ export default function EventJudges({ judges }) {
                   </div>
                )}
             </div>
-            <div className="p-8 md:p-12 w-full md:w-3/5 flex flex-col">
-              <button 
-                onClick={() => setSelectedJudge(null)}
-                className="absolute top-6 right-6 p-2 rounded-full hover:bg-[#f4f2f0] transition-colors text-[#888]"
-              >
-                <X size={20} />
-              </button>
-              
+            <div className="p-8 md:p-12 w-full md:w-3/5 flex flex-col bg-white">
               <h3 className="text-3xl font-serif font-bold text-[#111] mb-2">{selectedJudge.name}</h3>
               <p className="text-lg text-[var(--event-accent)] font-medium mb-8">{selectedJudge.title}</p>
               
@@ -71,8 +67,8 @@ export default function EventJudges({ judges }) {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </section>
   );
 }
