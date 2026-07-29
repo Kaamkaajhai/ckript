@@ -96,6 +96,7 @@ const competitionSchema = new mongoose.Schema({
   prizes: {
     winner: [{ type: String }],
     runnerUp: [{ type: String }],
+    secondRunnerUp: [{ type: String }],
     special: [{ title: String, description: String }],
   },
   
@@ -169,6 +170,7 @@ export const DEFAULT_PRIZES = {
   // declared, and the featured flag it already carries takes effect if they choose to publish.
   winner: ["Cash Prize", "Featured placement when you publish your script", "Gold Subscription (30 days)", "AI Trailer", "Winner Badge"],
   runnerUp: ["Silver Subscription (30 days)", "Featured placement when you publish your script", "Runner-Up Badge"],
+  secondRunnerUp: ["Bronze Subscription (14 days)", "Honorable Mention Badge"],
 };
 
 competitionSchema.pre("validate", async function ensureSlug() {
