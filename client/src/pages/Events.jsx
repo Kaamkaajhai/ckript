@@ -1,7 +1,22 @@
-import React, { useState, useEffect } from "react";
-import { Trophy, CalendarDays, Clock, Users, ArrowRight } from "lucide-react";
+import React, { useState, useEffect, useContext } from "react";
+import { Link } from "react-router-dom";
+import { Trophy, CalendarDays, Clock, Users, ArrowRight, Menu, X } from "lucide-react";
+import { AuthContext } from "../context/AuthContext";
+import { useAuthModal } from "../context/AuthModalContext";
+import { ROUTES, LOGO_SRC } from "./landing/_shared/theme";
+import Footer from "./landing/sections/Footer/Footer";
+import "./landing/landing.css";
+import "./landing/sections/Hero/Hero.css";
 
 export default function Events() {
+  const { user } = useContext(AuthContext);
+  const { openAuthModal, openProducerOnboarding, openWriterOnboarding, openPricingModal } = useAuthModal();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPricingDropdownOpen, setIsPricingDropdownOpen] = useState(false);
+
+  const primaryPath = user?.role === "reader" ? "/reader" : "/dashboard";
+  const signInLabel = user ? (user.role === "reader" ? "Reader" : "Dashboard") : "Sign in";
+
   const [timeLeft, setTimeLeft] = useState({
     days: "00",
     hours: "00",
@@ -33,8 +48,109 @@ export default function Events() {
   }, []);
 
   return (
-    <div className="w-full bg-[#f9f8f6] min-h-screen text-[#222]">
-      {/* HERO SECTION */}
+    <div className="ckl" style={{ width: '100%', minHeight: '100vh', background: '#f9f8f6' }}>
+      
+      {/* HEADER (Same as Landing) */}
+      <div className="ckl-hero-nav" style={{ position: 'relative', opacity: 1, animation: 'none', height: '104px', maxWidth: '1586px', margin: '0 auto' }}>
+          <Link to={ROUTES.home} className="ckl-hero-brand">
+            <img src={LOGO_SRC} alt="Ckript" />
+          </Link>
+          <span className="ckl-hero-nav-divider desktop-only" />
+          <nav className="ckl-hero-nav-links desktop-only">
+            <button type="button" onClick={() => openWriterOnboarding()} className="ckl-hero-navlink hov-red">
+              Scripts
+            </button>
+            <button type="button" onClick={() => openProducerOnboarding()} className="ckl-hero-navlink hov-red">
+              For Producers
+            </button>
+            <Link to="/events" className="ckl-hero-navlink hov-red">
+              Events
+            </Link>
+
+            <div
+              className="ckl-hero-pricing"
+              onMouseEnter={() => setIsPricingDropdownOpen(true)}
+              onMouseLeave={() => setIsPricingDropdownOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setIsPricingDropdownOpen((prev) => !prev)}
+                className="ckl-hero-navlink ckl-hero-navlink--pricing hov-red"
+              >
+                Pricing
+                <span className="msi" style={{ fontSize: 20 }}>expand_more</span>
+              </button>
+              {isPricingDropdownOpen && (
+                <div className="ckl-hero-pricing-menu">
+                  <button
+                    type="button"
+                    className="ckl-hero-pricing-item"
+                    onClick={() => {
+                      setIsPricingDropdownOpen(false);
+                      openPricingModal("writer");
+                    }}
+                  >
+                    Writer Plans
+                  </button>
+                  <button
+                    type="button"
+                    className="ckl-hero-pricing-item"
+                    onClick={() => {
+                      setIsPricingDropdownOpen(false);
+                      openPricingModal("industry");
+                    }}
+                  >
+                    Film Industry Plan
+                  </button>
+                </div>
+              )}
+            </div>
+          </nav>
+          
+          <div className="ckl-hero-nav-actions desktop-only">
+            {user ? (
+              <Link to={primaryPath} className="ckl-hero-nav-login hov-red">
+                {signInLabel}
+              </Link>
+            ) : (
+              <button type="button" onClick={openAuthModal} className="ckl-hero-nav-login hov-red">
+                Sign in
+              </button>
+            )}
+          </div>
+
+          <button className="ckl-hero-iconbtn mobile-only" onClick={() => setIsMobileMenuOpen(true)}>
+            <Menu size={24} />
+          </button>
+      </div>
+
+      {isMobileMenuOpen && (
+        <div className="ckl-hero-mmenu">
+          <div className="ckl-hero-mmenu-head">
+            <Link to={ROUTES.home} onClick={() => setIsMobileMenuOpen(false)}>
+              <img src={LOGO_SRC} alt="Ckript" />
+            </Link>
+            <button className="ckl-hero-iconbtn" onClick={() => setIsMobileMenuOpen(false)}>
+              <X size={24} />
+            </button>
+          </div>
+          <div className="ckl-hero-mmenu-links">
+            <button type="button" onClick={() => { setIsMobileMenuOpen(false); openWriterOnboarding(); }} className="ckl-hero-mmenu-item">Scripts</button>
+            <button type="button" onClick={() => { setIsMobileMenuOpen(false); openProducerOnboarding(); }} className="ckl-hero-mmenu-item">For Producers</button>
+            <Link to="/events" onClick={() => setIsMobileMenuOpen(false)} className="ckl-hero-mmenu-item">Events</Link>
+            <button type="button" onClick={() => { setIsMobileMenuOpen(false); openPricingModal("writer"); }} className="ckl-hero-mmenu-item">Pricing</button>
+            {user ? (
+              <Link to={primaryPath} onClick={() => setIsMobileMenuOpen(false)} className="ckl-hero-mmenu-login ckl-hero-mmenu-item">{signInLabel}</Link>
+            ) : (
+              <button type="button" onClick={() => { setIsMobileMenuOpen(false); openAuthModal(); }} className="ckl-hero-mmenu-login ckl-hero-mmenu-item">Sign in</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main Events Content */}
+      <div className="w-full text-[#222]">
+        {/* HERO SECTION */}
       <section className="max-w-6xl mx-auto px-6 pt-24 pb-16">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-3 h-3 bg-[#c94b3a] rotate-45"></div>
@@ -260,6 +376,9 @@ export default function Events() {
           </div>
         </div>
       </section>
+        </div>
+      </div>
+      <Footer />
     </div>
   );
 }
