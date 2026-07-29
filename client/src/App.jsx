@@ -64,6 +64,7 @@ const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
 const MobileApp = lazy(() => import("./mobile/MobileApp"));
+const Events = lazy(() => import("./pages/Events"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
@@ -482,6 +483,7 @@ function App() {
                 {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
                 <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />
+                <Route path="/events" element={<Events />} />
               </Route>
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
