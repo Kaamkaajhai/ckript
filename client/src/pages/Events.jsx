@@ -1,24 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Calendar, Award } from "lucide-react";
+import { Trophy, CalendarDays, Clock, Users, ArrowRight } from "lucide-react";
 
 export default function Events() {
-  const [timeLeft, setTimeLeft] = useState("");
+  const [timeLeft, setTimeLeft] = useState({
+    days: "00",
+    hours: "00",
+    mins: "00",
+    secs: "00"
+  });
 
   useEffect(() => {
-    // Simple countdown timer for demonstration
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + 3); // Example: 3 days from now
+    targetDate.setHours(targetDate.getHours() + 14);
+    
     const timer = setInterval(() => {
       const now = new Date();
-      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-      const diff = endOfDay - now;
+      const diff = targetDate - now;
       
       if (diff > 0) {
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24)).toString().padStart(2, '0');
         const h = Math.floor((diff / (1000 * 60 * 60)) % 24).toString().padStart(2, '0');
         const m = Math.floor((diff / 1000 / 60) % 60).toString().padStart(2, '0');
         const s = Math.floor((diff / 1000) % 60).toString().padStart(2, '0');
-        setTimeLeft(`${h}:${m}:${s}`);
+        setTimeLeft({ days: d, hours: h, mins: m, secs: s });
       } else {
-        setTimeLeft("00:00:00");
+        setTimeLeft({ days: "00", hours: "00", mins: "00", secs: "00" });
+        clearInterval(timer);
       }
     }, 1000);
     return () => clearInterval(timer);
@@ -49,46 +57,135 @@ export default function Events() {
         </div>
       </section>
 
-      {/* EVENT CARD */}
-      <section className="max-w-6xl mx-auto px-6 pb-24">
-        <div className="max-w-3xl border border-[#e0dfdd] rounded-3xl overflow-hidden bg-white shadow-sm">
-          {/* Card Image Area Placeholder */}
-          <div className="h-64 bg-gradient-to-br from-[#1a1a1a] to-[#333] relative flex flex-col justify-center px-10 text-white border-b border-[#e0dfdd]">
-             <div className="absolute top-0 right-0 w-1/2 h-full bg-black/20" style={{ clipPath: 'polygon(20% 0, 100% 0, 100% 100%, 0% 100%)' }}></div>
-             <div className="relative z-10">
-               <span className="text-sm tracking-[0.3em] uppercase mb-2 block">The Next</span>
-               <h2 className="text-5xl font-bold mb-2">GREAT STORY</h2>
-               <h2 className="text-5xl font-bold text-[#c94b3a] mb-6">STARTS HERE.</h2>
-               <p className="text-xs tracking-widest uppercase opacity-70">Write. Compete. Get Discovered.</p>
-             </div>
-             <div className="absolute bottom-6 left-10 flex gap-4">
-                <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-xs font-semibold tracking-wider flex items-center gap-2">
-                  REGISTRATION OPEN <span className="w-2 h-2 rounded-full bg-[#ff5a43]"></span>
+      {/* EVENT CARD - REDESIGNED */}
+      <section className="max-w-5xl mx-auto px-6 pb-32">
+        <div className="group relative bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#eaeaea] overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1">
+          
+          {/* Banner Section */}
+          <div className="relative h-72 bg-[#111] overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] via-[#111] to-[#222]"></div>
+            <div className="absolute top-0 right-0 w-[120%] h-[120%] bg-white/[0.02] transform -rotate-12 translate-x-1/3 -translate-y-1/4 rounded-[100%] blur-3xl pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/80 to-transparent"></div>
+            
+            <div className="relative z-10 p-10 h-full flex flex-col justify-between">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[10px] font-bold tracking-[0.25em] text-white/60 uppercase mb-2 block">The Next</span>
+                  <h2 className="text-4xl font-bold text-white mb-1 tracking-tight">GREAT STORY</h2>
+                  <h2 className="text-4xl font-bold text-[#c94b3a] tracking-tight">STARTS HERE.</h2>
                 </div>
-                <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-xs font-semibold tracking-wider">
-                  2026
+                <div className="flex flex-col items-end gap-3">
+                  <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-sm">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+                    </span>
+                    <span className="text-[11px] font-bold text-white tracking-widest uppercase">Registration Open</span>
+                  </div>
+                  <div className="bg-black/40 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/5 text-[11px] font-bold text-white/80 tracking-widest uppercase shadow-sm">
+                    2026 Edition
+                  </div>
                 </div>
-             </div>
+              </div>
+              <p className="text-[11px] font-bold tracking-[0.2em] text-white/70 uppercase">Write. Compete. Get Discovered.</p>
+            </div>
           </div>
           
-          <div className="p-10">
-            <h3 className="text-3xl font-serif mb-8">event 1</h3>
+          {/* Main Content Area */}
+          <div className="p-10 md:p-12">
             
-            <div className="space-y-4 mb-12">
-              <div className="flex items-center gap-4 text-[#555] text-lg">
-                <Calendar className="w-6 h-6" />
-                <span>Jul 30, 2026 – Jul 30, 2026</span>
-              </div>
-              <div className="flex items-center gap-4 text-[#555] text-lg">
-                <Award className="w-6 h-6 text-[#c94b3a]" />
-                <span>50k + gold</span>
+            {/* Header: Title & Quick Badges */}
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-12">
+              <div>
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="bg-[#f4f2f0] text-[#444] px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest">🌍 Global Event</span>
+                  <span className="bg-[#fff0ed] text-[#c94b3a] px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest">🔥 Trending</span>
+                </div>
+                <h3 className="text-4xl md:text-5xl font-serif text-[#111] leading-tight mb-5">
+                  The Global Story Challenge
+                </h3>
+                <p className="text-lg text-[#666] max-w-2xl leading-relaxed">
+                  Write a feature-length screenplay in 48 hours. Compete against writers worldwide, get evaluated by industry pros, and launch your career.
+                </p>
               </div>
             </div>
 
-            <div className="bg-[#fcf8f7] border border-[#f0deda] rounded-3xl p-6 flex justify-between items-center text-[#c94b3a]">
-              <span className="uppercase tracking-widest text-sm font-semibold">Registration closes in</span>
-              <span className="font-mono text-xl text-[#333]">{timeLeft}</span>
+            {/* Grid Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-14">
+              <div className="flex items-start gap-4 p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-2.5 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#c94b3a]">
+                  <Trophy size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Prize Pool</p>
+                  <p className="text-sm font-semibold text-[#111]">₹50,000 + Gold</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4 p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-2.5 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#555]">
+                  <CalendarDays size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Starts On</p>
+                  <p className="text-sm font-semibold text-[#111]">Aug 24, 2026</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4 p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-2.5 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#555]">
+                  <Clock size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Duration</p>
+                  <p className="text-sm font-semibold text-[#111]">48 Hours</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4 p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-2.5 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#555]">
+                  <Users size={20} strokeWidth={2.5} />
+                </div>
+                <div>
+                  <p className="text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Participants</p>
+                  <p className="text-sm font-semibold text-[#111]">1,240+ Registered</p>
+                </div>
+              </div>
             </div>
+
+            {/* Bottom Section: Hero Countdown & CTA */}
+            <div className="flex flex-col lg:flex-row items-center justify-between p-8 md:p-10 rounded-[24px] bg-[#111] text-white shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#c94b3a] opacity-20 blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
+              
+              <div className="mb-10 lg:mb-0 text-center lg:text-left relative z-10 w-full lg:w-auto">
+                <p className="text-[11px] font-bold text-white/50 uppercase tracking-[0.25em] mb-6">Registration Closes In</p>
+                <div className="flex items-center gap-4 md:gap-8 justify-center lg:justify-start">
+                  <div className="flex flex-col items-center w-16">
+                    <span className="text-4xl md:text-5xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.days}</span>
+                    <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-2">Days</span>
+                  </div>
+                  <span className="text-3xl text-white/20 font-light mb-5">:</span>
+                  <div className="flex flex-col items-center w-16">
+                    <span className="text-4xl md:text-5xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.hours}</span>
+                    <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-2">Hours</span>
+                  </div>
+                  <span className="text-3xl text-white/20 font-light mb-5">:</span>
+                  <div className="flex flex-col items-center w-16">
+                    <span className="text-4xl md:text-5xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.mins}</span>
+                    <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest mt-2">Mins</span>
+                  </div>
+                  <span className="text-3xl text-white/20 font-light mb-5">:</span>
+                  <div className="flex flex-col items-center w-16">
+                    <span className="text-4xl md:text-5xl font-light font-mono tabular-nums tracking-tighter text-[#e15b49]">{timeLeft.secs}</span>
+                    <span className="text-[10px] text-[#e15b49]/60 font-bold uppercase tracking-widest mt-2">Secs</span>
+                  </div>
+                </div>
+              </div>
+              
+              <button className="group relative inline-flex items-center justify-center gap-3 px-10 py-5 bg-white text-[#111] font-bold text-[15px] rounded-2xl overflow-hidden transition-transform active:scale-95 w-full lg:w-auto shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] z-10">
+                <span className="relative z-10">Reserve Your Spot</span>
+                <ArrowRight size={18} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1.5" strokeWidth={2.5} />
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-50 to-[#f0f0f0] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              </button>
+            </div>
+            
           </div>
         </div>
       </section>
