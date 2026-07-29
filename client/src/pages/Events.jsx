@@ -377,8 +377,8 @@ export default function Events() {
         </div>
       </section>
       
-      </div> {/* Closes w-full main content */}
+      </div>
       <Footer />
-    </div> {/* Closes ckl root */}
+    </div>
   );
 }
