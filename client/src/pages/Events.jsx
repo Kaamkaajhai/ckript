@@ -57,131 +57,131 @@ export default function Events() {
         </div>
       </section>
 
-      {/* EVENT CARD - REDESIGNED */}
-      <section className="max-w-[1000px] mx-auto px-6 pb-32">
-        <div className="group relative bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#eaeaea] overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 mx-auto">
+      {/* EVENT CARD - REDESIGNED & COMPACT */}
+      <section className="max-w-[540px] mx-auto px-4 pb-24">
+        <div className="group relative bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#eaeaea] overflow-hidden transition-all duration-500 hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 mx-auto">
           
           {/* Banner Section */}
-          <div className="relative h-56 md:h-64 bg-[#111] overflow-hidden">
+          <div className="relative h-48 bg-[#111] overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] via-[#111] to-[#222]"></div>
             <div className="absolute top-0 right-0 w-[120%] h-[120%] bg-white/[0.02] transform -rotate-12 translate-x-1/3 -translate-y-1/4 rounded-[100%] blur-3xl pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/80 to-transparent"></div>
             
-            <div className="relative z-10 p-8 h-full flex flex-col justify-between">
+            <div className="relative z-10 p-6 h-full flex flex-col justify-between">
               <div className="flex justify-between items-start">
                 <div>
-                  <span className="text-[10px] font-bold tracking-[0.25em] text-white/60 uppercase mb-2 block">The Next</span>
-                  <h2 className="text-3xl md:text-4xl font-bold text-white mb-1 tracking-tight">GREAT STORY</h2>
-                  <h2 className="text-3xl md:text-4xl font-bold text-[#c94b3a] tracking-tight">STARTS HERE.</h2>
+                  <span className="text-[9px] font-bold tracking-[0.25em] text-white/60 uppercase mb-1.5 block">The Next</span>
+                  <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight">GREAT STORY</h2>
+                  <h2 className="text-2xl font-bold text-[#c94b3a] tracking-tight">STARTS HERE.</h2>
                 </div>
-                <div className="flex flex-col items-end gap-3">
-                  <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-sm">
-                    <span className="relative flex h-2 w-2">
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-sm">
+                    <span className="relative flex h-1.5 w-1.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#10b981] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#10b981]"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#10b981]"></span>
                     </span>
-                    <span className="text-[10px] md:text-[11px] font-bold text-white tracking-widest uppercase">Registration Open</span>
+                    <span className="text-[9px] font-bold text-white tracking-widest uppercase">Live</span>
                   </div>
-                  <div className="bg-black/40 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/5 text-[10px] md:text-[11px] font-bold text-white/80 tracking-widest uppercase shadow-sm">
-                    2026 Edition
+                  <div className="bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/5 text-[9px] font-bold text-white/80 tracking-widest uppercase shadow-sm">
+                    2026
                   </div>
                 </div>
               </div>
-              <p className="text-[10px] md:text-[11px] font-bold tracking-[0.2em] text-white/70 uppercase">Write. Compete. Get Discovered.</p>
+              <p className="text-[9px] font-bold tracking-[0.2em] text-white/70 uppercase">Write. Compete. Get Discovered.</p>
             </div>
           </div>
           
           {/* Main Content Area */}
-          <div className="p-8 md:p-10">
+          <div className="p-6 md:p-8">
             
             {/* Header: Title & Quick Badges */}
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-10">
+            <div className="flex flex-col gap-4 mb-8">
+              <div className="flex items-center gap-2">
+                <span className="bg-[#f4f2f0] text-[#444] px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">🌍 Global</span>
+                <span className="bg-[#fff0ed] text-[#c94b3a] px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest">🔥 Trending</span>
+              </div>
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="bg-[#f4f2f0] text-[#444] px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest">🌍 Global Event</span>
-                  <span className="bg-[#fff0ed] text-[#c94b3a] px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-widest">🔥 Trending</span>
-                </div>
-                <h3 className="text-3xl md:text-5xl font-serif text-[#111] leading-tight mb-4">
+                <h3 className="text-3xl font-serif text-[#111] leading-tight mb-3">
                   The Final Draft
                 </h3>
-                <p className="text-base md:text-lg text-[#666] max-w-2xl leading-relaxed">
-                  Write a feature-length screenplay in 48 hours. Compete against writers worldwide, get evaluated by industry pros, and launch your career.
+                <p className="text-sm text-[#666] leading-relaxed">
+                  Write a feature-length screenplay in 48 hours. Compete worldwide, get evaluated by pros, and launch your career.
                 </p>
               </div>
             </div>
 
             {/* Grid Details */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-              <div className="flex items-start gap-3 md:gap-4 p-4 md:p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-2 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#c94b3a] hidden sm:block">
-                  <Trophy size={18} strokeWidth={2.5} />
+            <div className="grid grid-cols-2 gap-3 mb-8">
+              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#c94b3a]">
+                  <Trophy size={16} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className="text-[10px] md:text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Prize Pool</p>
-                  <p className="text-xs md:text-sm font-semibold text-[#111]">₹50,000 + Gold</p>
+                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Prize Pool</p>
+                  <p className="text-xs font-semibold text-[#111]">₹50,000 + Gold</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 md:gap-4 p-4 md:p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-2 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#555] hidden sm:block">
-                  <CalendarDays size={18} strokeWidth={2.5} />
+              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
+                  <CalendarDays size={16} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className="text-[10px] md:text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Starts On</p>
-                  <p className="text-xs md:text-sm font-semibold text-[#111]">Aug 24, 2026</p>
+                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Starts On</p>
+                  <p className="text-xs font-semibold text-[#111]">Aug 24, 2026</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 md:gap-4 p-4 md:p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-2 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#555] hidden sm:block">
-                  <Clock size={18} strokeWidth={2.5} />
+              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
+                  <Clock size={16} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className="text-[10px] md:text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Duration</p>
-                  <p className="text-xs md:text-sm font-semibold text-[#111]">48 Hours</p>
+                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Duration</p>
+                  <p className="text-xs font-semibold text-[#111]">48 Hours</p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 md:gap-4 p-4 md:p-5 rounded-2xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
-                <div className="p-2 bg-white rounded-xl shadow-sm border border-[#eaeaea] text-[#555] hidden sm:block">
-                  <Users size={18} strokeWidth={2.5} />
+              <div className="flex items-start gap-3 p-3.5 rounded-xl bg-[#faf9f8] border border-[#f0ece9] hover:bg-white hover:shadow-sm transition-colors">
+                <div className="p-1.5 bg-white rounded-lg shadow-sm border border-[#eaeaea] text-[#555]">
+                  <Users size={16} strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className="text-[10px] md:text-[11px] text-[#888] font-bold uppercase tracking-widest mb-1.5">Participants</p>
-                  <p className="text-xs md:text-sm font-semibold text-[#111]">1,240+ Reg.</p>
+                  <p className="text-[9px] text-[#888] font-bold uppercase tracking-widest mb-1">Participants</p>
+                  <p className="text-xs font-semibold text-[#111]">1,240+ Reg.</p>
                 </div>
               </div>
             </div>
 
             {/* Bottom Section: Hero Countdown & CTA */}
-            <div className="flex flex-col lg:flex-row items-center justify-between p-6 md:p-8 rounded-[24px] bg-[#111] text-white shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-[#c94b3a] opacity-20 blur-[80px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
+            <div className="flex flex-col p-6 rounded-2xl bg-[#111] text-white shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-[#c94b3a] opacity-20 blur-[60px] rounded-full pointer-events-none -translate-y-1/2 translate-x-1/3"></div>
               
-              <div className="mb-8 lg:mb-0 text-center lg:text-left relative z-10 w-full lg:w-auto">
-                <p className="text-[10px] md:text-[11px] font-bold text-white/50 uppercase tracking-[0.25em] mb-4 md:mb-5">Registration Closes In</p>
-                <div className="flex items-center gap-3 md:gap-6 justify-center lg:justify-start">
-                  <div className="flex flex-col items-center w-12 md:w-14">
-                    <span className="text-3xl md:text-4xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.days}</span>
-                    <span className="text-[9px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1.5">Days</span>
+              <div className="text-center relative z-10 mb-6">
+                <p className="text-[9px] font-bold text-white/50 uppercase tracking-[0.25em] mb-4">Registration Closes In</p>
+                <div className="flex items-center gap-3 justify-center">
+                  <div className="flex flex-col items-center w-10">
+                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.days}</span>
+                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Days</span>
                   </div>
-                  <span className="text-2xl md:text-3xl text-white/20 font-light mb-4 md:mb-5">:</span>
-                  <div className="flex flex-col items-center w-12 md:w-14">
-                    <span className="text-3xl md:text-4xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.hours}</span>
-                    <span className="text-[9px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1.5">Hours</span>
+                  <span className="text-xl text-white/20 font-light mb-3">:</span>
+                  <div className="flex flex-col items-center w-10">
+                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.hours}</span>
+                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Hrs</span>
                   </div>
-                  <span className="text-2xl md:text-3xl text-white/20 font-light mb-4 md:mb-5">:</span>
-                  <div className="flex flex-col items-center w-12 md:w-14">
-                    <span className="text-3xl md:text-4xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.mins}</span>
-                    <span className="text-[9px] md:text-[10px] text-white/40 font-bold uppercase tracking-widest mt-1.5">Mins</span>
+                  <span className="text-xl text-white/20 font-light mb-3">:</span>
+                  <div className="flex flex-col items-center w-10">
+                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter">{timeLeft.mins}</span>
+                    <span className="text-[8px] text-white/40 font-bold uppercase tracking-widest mt-1">Mins</span>
                   </div>
-                  <span className="text-2xl md:text-3xl text-white/20 font-light mb-4 md:mb-5">:</span>
-                  <div className="flex flex-col items-center w-12 md:w-14">
-                    <span className="text-3xl md:text-4xl font-light font-mono tabular-nums tracking-tighter text-[#e15b49]">{timeLeft.secs}</span>
-                    <span className="text-[9px] md:text-[10px] text-[#e15b49]/60 font-bold uppercase tracking-widest mt-1.5">Secs</span>
+                  <span className="text-xl text-white/20 font-light mb-3">:</span>
+                  <div className="flex flex-col items-center w-10">
+                    <span className="text-2xl font-light font-mono tabular-nums tracking-tighter text-[#e15b49]">{timeLeft.secs}</span>
+                    <span className="text-[8px] text-[#e15b49]/60 font-bold uppercase tracking-widest mt-1">Secs</span>
                   </div>
                 </div>
               </div>
               
-              <button className="group relative inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-[#111] font-bold text-[14px] md:text-[15px] rounded-2xl overflow-hidden transition-transform active:scale-95 w-full lg:w-auto shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] z-10">
+              <button className="group relative flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-[#111] font-bold text-sm rounded-xl overflow-hidden transition-transform active:scale-95 w-full shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] z-10">
                 <span className="relative z-10">Reserve Your Spot</span>
-                <ArrowRight size={18} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1.5" strokeWidth={2.5} />
+                <ArrowRight size={16} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2.5} />
                 <div className="absolute inset-0 bg-gradient-to-r from-gray-50 to-[#f0f0f0] opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </button>
             </div>
