@@ -96,35 +96,39 @@ export default function Events() {
       {/* THE JOURNEY */}
       <section className="bg-white py-24 border-t border-[#e0dfdd]">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="flex justify-between items-end mb-20">
-            <h2 className="text-5xl md:text-7xl font-serif leading-tight">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-24 gap-8">
+            <h2 className="text-5xl md:text-7xl font-serif leading-tight text-[#111]">
               Six steps.<br />
-              <span className="text-[#888]">One weekend.</span>
+              <span className="text-[#999]">One weekend.</span>
             </h2>
-            <div className="flex items-center gap-2 text-[#777] text-sm">
-              <div className="w-2 h-2 bg-[#c94b3a] rotate-45"></div>
-              <span>24th of August at 8:00 PM London time</span>
+            <div className="flex items-center gap-3 text-[#555] font-medium tracking-wide pb-2">
+              <div className="w-2.5 h-2.5 bg-[#c94b3a] rotate-45"></div>
+              <span className="uppercase text-sm">24th of August at 8:00 PM London time</span>
             </div>
           </div>
 
-          <div className="flex justify-between relative">
+          <div className="relative">
              {/* Dotted line */}
-             <div className="absolute top-1/2 left-0 w-full h-px border-t-2 border-dashed border-[#e0dfdd] -z-10 transform -translate-y-1/2"></div>
+             <div className="absolute bottom-[6px] left-[5%] right-[5%] h-px border-t-2 border-dashed border-[#e0dfdd] z-0"></div>
              
-             {[
-               { title: "Register", desc: "Claim your spot in the competition." },
-               { title: "Theme reveals", desc: "The prompt is shared with everyone." },
-               { title: "Write", desc: "48 hours to complete your script." },
-               { title: "Submit", desc: "Upload before the timer runs out." },
-               { title: "Evaluation", desc: "Industry pros read every script." },
-               { title: "Results", desc: "Winners are announced publicly." }
-             ].map((step, idx) => (
-               <div key={idx} className="flex flex-col items-center text-center max-w-[140px] bg-white px-2">
-                 <h4 className="font-serif text-xl mb-2">{step.title}</h4>
-                 <p className="text-xs text-[#666] mb-6">{step.desc}</p>
-                 <div className={`w-3 h-3 rotate-45 ${idx === 5 ? 'bg-black' : (idx > 0 && idx < 4 ? 'bg-[#7a2e23]' : 'bg-[#e0dfdd]')}`}></div>
-               </div>
-             ))}
+             <div className="grid grid-cols-2 md:grid-cols-6 gap-6 relative z-10">
+               {[
+                 { title: "Register", desc: "Claim your spot in the competition." },
+                 { title: "Theme reveals", desc: "The prompt is shared with everyone." },
+                 { title: "Write", desc: "48 hours to complete your script." },
+                 { title: "Submit", desc: "Upload before the timer runs out." },
+                 { title: "Evaluation", desc: "Industry pros read every script." },
+                 { title: "Results", desc: "Winners are announced publicly." }
+               ].map((step, idx) => (
+                 <div key={idx} className="flex flex-col items-center h-full">
+                   <div className="flex-1 flex flex-col justify-end items-center text-center mb-8 px-2">
+                     <h4 className="font-serif text-2xl text-[#222] mb-3 leading-snug">{step.title}</h4>
+                     <p className="text-[13px] text-[#777] leading-relaxed max-w-[150px]">{step.desc}</p>
+                   </div>
+                   <div className={`w-3.5 h-3.5 rotate-45 ring-8 ring-white flex-shrink-0 ${idx === 5 ? 'bg-[#111]' : (idx > 0 && idx < 4 ? 'bg-[#8c3123]' : 'bg-[#d5d5d5]')}`}></div>
+                 </div>
+               ))}
+             </div>
           </div>
         </div>
       </section>
