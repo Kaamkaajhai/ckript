@@ -883,12 +883,19 @@ export const getMyCompetitions = async (req, res) => {
     const now = new Date();
     const items = entries
       .filter((entry) => entry.competitionId)
-      .map((entry) => ({
-        entry,
-        competition: entry.competitionId,
-        phase: getCompetitionPhase(entry.competitionId, now),
-        timeline: buildTimeline(entry.competitionId, entry, now),
-      }));
+      .map((entry) => {
+        const phase = getCompetitionPhase(entry.competitionId, now);
+        return {
+          entry,
+          // Through publicCompetition like every other read path. `theme.title` is populated for the
+          // record card, and returning the competition raw would have handed a registrant the theme
+          // the moment they signed up — the seal has to hold on THIS door too, not just the
+          // unauthenticated ones. Entrants are exactly who it protects: everyone gets it at once.
+          competition: publicCompetition(entry.competitionId, phase),
+          phase,
+          timeline: buildTimeline(entry.competitionId, entry, now),
+        };
+      });
 
     return res.json({ items, serverNow: now.toISOString() });
   } catch (error) {
