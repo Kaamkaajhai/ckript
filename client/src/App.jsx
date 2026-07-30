@@ -58,12 +58,15 @@ const ReaderHome = lazy(() => import("./pages/ReaderHome"));
 const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const AdminCompetitionsEditor = lazy(() => import("./pages/admin/competitions/AdminCompetitionsEditor"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
 const MobileApp = lazy(() => import("./mobile/MobileApp"));
+const Events = lazy(() => import("./pages/Events"));
+const EventDetails = lazy(() => import("./pages/events/EventDetails"));
 
 const preloadRouteChunks = [
   () => import("./layouts/MainLayout"),
@@ -481,8 +484,9 @@ function App() {
                 <Route path="/challenge/c/:slug" element={<CompetitionLanding />} />
                 {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
-                <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />
               </Route>
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:id" element={<EventDetails />} />
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
@@ -526,6 +530,10 @@ function App() {
               <Route
                 path="/admin"
                 element={<AdminDashboard />}
+              />
+              <Route
+                path="/admin/competitions/:id"
+                element={<AdminCompetitionsEditor />}
               />
               <Route
                 path="/admin/scripts/:id"
