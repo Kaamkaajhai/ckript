@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
@@ -23,8 +23,17 @@ import EventResources from "./components/EventResources";
 export default function EventDetails() {
   const { id } = useParams(); // id is the slug
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const { openAuthModal, openProducerOnboarding, openWriterOnboarding, openPricingModal } = useAuthModal();
   
+  const handleRegisterClick = () => {
+    if (!user) {
+      openAuthModal();
+    } else {
+      navigate(`/challenge/register?c=${id}`);
+    }
+  };
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isPricingDropdownOpen, setIsPricingDropdownOpen] = useState(false);
   
@@ -180,7 +189,7 @@ export default function EventDetails() {
       )}
 
       <div className="w-full relative">
-        <EventHero competition={competition} phase={phase} serverNow={serverNow} />
+        <EventHero competition={competition} phase={phase} serverNow={serverNow} onRegisterClick={handleRegisterClick} />
         <EventAbout competition={competition} />
         <EventTimeline timeline={timeline} />
         <EventPrizes prizes={competition.prizes} prizePool={competition.prizePool} detailedPrizes={competition.detailedPrizes} />
