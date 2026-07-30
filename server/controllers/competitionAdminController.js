@@ -8,6 +8,7 @@ import { getCompetitionPhase } from "../utils/competitionPhase.js";
 import { runEntryAIProcessing } from "./competitionAI.js";
 import { getReferralProgress, tiersFor, referralWindow } from "../utils/competitionReferrals.js";
 import { escapeHtml } from "../utils/escapeHtml.js";
+import { uploadToCloudinary } from "../config/cloudinary.js";
 
 // Reward definitions. Mirrors WRITER_GOLD_MODEL / WRITER_SILVER_MODEL in paymentController.js — a
 // prize subscription must land the account in exactly the state a paid one would, or entitlement
@@ -72,6 +73,27 @@ const asId = (value) => (mongoose.isValidObjectId(value) ? String(value) : null)
 
 // ── Competitions CRUD ───────────────────────────────────────────────────────
 
+export const adminUploadImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    const cloudUpload = await uploadToCloudinary(req.file.buffer, {
+      folder: "scriptbridge/admin/competitions",
+      resource_type: "image",
+      public_id: `admin-${Date.now()}`,
+      originalFilename: req.file.originalname,
+      mimeType: req.file.mimetype,
+    });
+
+    res.json({ url: cloudUpload.secure_url });
+  } catch (error) {
+    console.error("[admin upload] failed:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const adminListCompetitions = async (req, res) => {
   try {
     const competitions = await Competition.find({}).sort({ "dates.startsAt": -1 }).lean();
@@ -126,9 +148,13 @@ const scheduleMoved = (stored = {}, incoming = {}) =>
 // Whitelist of admin-editable fields. Anything missing here is SILENTLY dropped from an update —
 // add new editable fields to this list or the admin will save and see no error and no change.
 const CONTENT_FIELDS = [
-  "name", "theme", "overview", "eligibility", "format", "prizes", "rules",
+  "name", "shortName", "tagline", "shortDescription", "host", "language", "timezone", 
+  "eventType", "competitionCategory", "difficulty", "expectedParticipants", "estimatedReadingTime",
+  "featuredBadge", "trendingBadge", "newBadge", "highlights", "seo", "automation",
+  "theme", "overview", "eligibility", "format", "prizes", "detailedPrizes", "rules",
   "faq", "judges", "sponsors", "communityLinks", "resources",
-  "bannerUrl", "prizePool", "visibility", "referralTiers",
+  "bannerUrl", "mobileBannerUrl", "cardThumbnailUrl", "ogImageUrl", "logoUrl", "backgroundImageUrl", "gallery",
+  "cardConfig", "prizePool", "visibility", "referralTiers",
 ];
 
 /**
@@ -217,7 +243,7 @@ export const adminUpdateCompetition = async (req, res) => {
     return res.json({ competition, phase: getCompetitionPhase(competition) });
   } catch (error) {
     console.error("[competition admin] update failed:", error?.message || error);
-    return res.status(500).json({ message: "Failed to update the competition." });
+    return res.status(500).json({ message: "Failed to update the competition: " + (error?.message || error) });
   }
 };
 

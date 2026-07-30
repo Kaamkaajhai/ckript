@@ -34,7 +34,8 @@ const PHASES_WITH_THEME = new Set(["live", "judging", "results"]);
  */
 const publicCompetition = (competition, phase) => {
   const obj = typeof competition.toObject === "function" ? competition.toObject() : { ...competition };
-  if (!PHASES_WITH_THEME.has(phase)) delete obj.theme;
+  // Serve the entire competition object exactly as set in the admin dashboard,
+  // allowing the user to see the theme and guidelines immediately.
   return obj;
 };
 

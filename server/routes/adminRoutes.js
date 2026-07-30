@@ -56,6 +56,7 @@ import {
     createAdminPurchaseTermsVersion,
     sendAudienceBroadcast,
 } from "../controllers/adminController.js";
+import { upload } from "../controllers/userController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
 import {
     adminListCompetitions,
@@ -68,6 +69,7 @@ import {
     adminDeclareResults,
     adminReferralAnalytics,
     adminDeleteCompetition,
+    adminUploadImage,
 } from "../controllers/competitionAdminController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
 
@@ -163,6 +165,7 @@ router.delete("/competitions/:id", adminDeleteCompetition);
 router.get("/competitions/:id/entries", adminListEntries);
 router.post("/competitions/:id/entries/:entryId/retry-ai", adminRetryEntryAI);
 router.post("/competitions/:id/results", adminDeclareResults);
+router.post("/competitions/upload", upload.single("image"), adminUploadImage);
 
 // Referral analytics (?competitionId= scopes it, ?format=csv exports)
 router.get("/referrals/analytics", adminReferralAnalytics);

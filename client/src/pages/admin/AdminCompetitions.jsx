@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { adminApi } from "../AdminDashboard";
 import ScreenplayReadOnly from "../../components/ScreenplayReadOnly";
 import TagSelect from "../../components/TagSelect";
@@ -127,6 +128,7 @@ const PhasePill = ({ phase, lifecycle }) => (
 );
 
 export default function AdminCompetitions({ isDark: dark = false }) {
+  const navigate = useNavigate();
   const [view, setView] = useState({ mode: "list", id: null });
   const [competitions, setCompetitions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,7 +158,7 @@ export default function AdminCompetitions({ isDark: dark = false }) {
       <div>
         <div className="mb-5 flex items-center justify-between">
           <h2 className={cls.heading(dark)}>Competitions</h2>
-          <button type="button" onClick={() => setView({ mode: "edit", id: null })} className={cls.primary}>
+          <button type="button" onClick={() => navigate("/admin/competitions/new")} className={cls.primary}>
             New Competition
           </button>
         </div>
@@ -183,7 +185,7 @@ export default function AdminCompetitions({ isDark: dark = false }) {
                   <div className="mt-2"><PhasePill phase={competition.phase} lifecycle={competition.lifecycle} /></div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setView({ mode: "edit", id: competition._id })} className={cls.ghost(dark)}>Edit</button>
+                  <button type="button" onClick={() => navigate(`/admin/competitions/${competition._id}`)} className={cls.ghost(dark)}>Edit</button>
                   <button type="button" onClick={() => setView({ mode: "entries", id: competition._id })} className={cls.ghost(dark)}>Entries</button>
                 </div>
               </div>
@@ -195,15 +197,9 @@ export default function AdminCompetitions({ isDark: dark = false }) {
   }
 
   if (view.mode === "edit") {
-    return (
-      <CompetitionEditor
-        dark={dark}
-        competitionId={view.id}
-        competitions={competitions}
-        onBack={() => { setView({ mode: "list" }); loadCompetitions(); }}
-        onSaved={flash}
-      />
-    );
+    // Left for backwards compatibility if state somehow gets here
+    navigate(`/admin/competitions/${view.id}`);
+    return null;
   }
 
   return (
