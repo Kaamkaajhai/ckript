@@ -59,6 +59,17 @@ html.dark-mode .ckc {
 
 .ckc * { box-sizing: border-box; }
 
+/* Restore normal font inheritance inside the scope.
+   The app shell ships a global `* { font-family: var(--app-font-family) }`. A universal selector
+   re-targets EVERY element, so the family set on `.ckc` above never reaches its descendants — only
+   classes that declare a family of their own survived. Everything else silently fell back to the
+   app's Inter: 46 elements on /challenge alone, including .ckc-prose running text and the <em>
+   inside the h1, which left the headline set in two different typefaces at the same size.
+   `inherit` rather than a fixed family, so a serif heading still passes Spectral down to its own
+   children. 0,1,0 beats the global `*`, while .ckc .ckc-title / .ckc-meta / .ckc-lede (0,2,0) keep
+   winning — so the three voices are untouched. */
+.ckc * { font-family: inherit; }
+
 /* ── The three voices ─────────────────────────────────────────── */
 
 /* Slug line. Metadata speaks in the register the domain writes labels in. */
@@ -94,10 +105,26 @@ html.dark-mode .ckc {
 
 .ckc .ckc-prose { line-height: 1.65; color: var(--ckc-body); max-width: 68ch; }
 
+/* The masthead lede on /challenge, and nowhere else.
+   /challenge is the seam between the landing (Baskervville/PT Serif, prose set in a
+   serif) and the interior (IBM Plex Sans). A serif opening paragraph is the cheapest
+   possible signal that the visitor is still in the same world — but it is an OPENING
+   GESTURE, not a fourth type voice. Every other run of text on these pages stays
+   .ckc-lede or .ckc-prose in the sans. Do not reuse this below a masthead. */
+.ckc .ckc-lede-editorial {
+  font-family: var(--ckc-display);
+  font-size: 1.1875rem;
+  line-height: 1.55;
+  color: var(--ckc-body);
+  max-width: 58ch;
+}
+
 /* ── Masthead ─────────────────────────────────────────────────── */
 
 .ckc .ckc-masthead { display: flex; flex-direction: column; gap: 14px; }
 .ckc .ckc-masthead .ckc-lede { margin-top: -4px; }
+/* The tightening above is selector-matched, so the editorial lede needs its own. */
+.ckc .ckc-masthead .ckc-lede-editorial { margin-top: -4px; }
 
 /* ── Bands and cards ──────────────────────────────────────────── */
 
@@ -290,3 +317,338 @@ html.dark-mode .ckc .ckc-btn:hover { background: #ffffff; border-color: #ffffff;
 
 /* Wide content must scroll in its own container, never the page body. */
 .ckc .ckc-scroll-x { overflow-x: auto; }
+
+/* ═══════════════════════════════════════════════════════════════
+   /challenge — the event, told the way the landing tells things.
+
+   The hub used to open on its own tab strip and then explain itself
+   in five structurally identical sections. It read as documentation
+   because it WAS shaped like documentation: heading, subtitle, list,
+   five times, on one ground at one scale.
+
+   This borrows the landing's language without leaving the interior:
+   an oversized figure carrying the page, cards with presence, one
+   dark ground, one tinted ground, pills, and generous space instead
+   of borders. No block below repeats the layout, ground AND scale of
+   the block above it, and no block is a bare run of prose.
+
+   Everything resolves through --ckc-* tokens, so the html.dark-mode
+   block at the top of this file covers all of it.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── The opening ─────────────────────────────────────────────────
+   The figure is the page's one strong visual, doing the job an image
+   does on the landing. It is aria-hidden — the unit beside it carries
+   the meaning for anyone not seeing the type. */
+
+.ckc .ckc-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(22px, 3vw, 40px);
+  align-items: center;
+  /* The opening owns the first screen. Without this the figure, the phase band and all three cards
+     arrive at once, and three things competing on first paint is the opposite of minimal. */
+  padding: clamp(12px, 3vw, 44px) 0 clamp(40px, 6vw, 84px);
+}
+@media (min-width: 900px) {
+  .ckc .ckc-hero {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: clamp(44px, 6vw, 88px);
+  }
+}
+
+.ckc .ckc-hero-figure { display: flex; flex-direction: column; align-items: flex-start; }
+.ckc .ckc-hero-n {
+  font-family: var(--ckc-display);
+  font-size: clamp(6rem, 17vw, 13rem);
+  line-height: 0.76;
+  letter-spacing: -0.04em;
+  color: var(--ckc-ink);
+  font-variant-numeric: lining-nums;
+}
+.ckc .ckc-hero-u {
+  margin-top: clamp(8px, 1.2vw, 14px);
+  font-family: var(--ckc-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ckc-muted);
+}
+
+.ckc .ckc-hero-h1 {
+  margin-top: 14px;
+  font-size: clamp(1.9rem, 3.6vw, 2.75rem);
+}
+.ckc .ckc-hero-em { font-style: italic; color: var(--ckc-muted); }
+
+/* ── Three ideas ─────────────────────────────────────────────────
+   Cards with real presence, the way the landing's do — but at the
+   interior's 4px radius, so they belong to this page. */
+
+.ckc .ckc-trio {
+  margin-top: clamp(52px, 6vw, 88px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+@media (min-width: 900px) { .ckc .ckc-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ckc .ckc-trio-card {
+  background: var(--ckc-card);
+  border: 1px solid var(--ckc-rule);
+  border-radius: 4px;
+  padding: clamp(26px, 2.8vw, 36px) clamp(22px, 2.4vw, 30px);
+}
+.ckc .ckc-trio-t {
+  font-family: var(--ckc-display);
+  font-weight: 400;
+  font-size: clamp(1.35rem, 2vw, 1.6rem);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ckc-ink);
+}
+.ckc .ckc-trio-b {
+  margin-top: 12px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ckc-body);
+}
+
+/* ── The programme, on ink ───────────────────────────────────────
+   The page's one dark ground. Six steps as a run: the ordinal hangs
+   above its step, the ground does the emphasis, and nothing needs a
+   border. Ink is punctuation here exactly as it is on the landing,
+   where only two sections in ~8,000px are dark. */
+
+/* The band's ground is a TOKEN, not a literal.
+   In light mode it is near-black against warm paper. In dark mode the
+   literal #0f0e0c is EXACTLY --ckc-paper, so the panel would vanish into
+   the page and the one ground change on this surface would silently stop
+   existing. Dark mode therefore lifts it instead: still a distinct ground,
+   still carrying white text, just inverted in direction. */
+.ckc { --ckc-band: #0f0e0c; }
+html.dark-mode .ckc { --ckc-band: #221f1a; }
+
+.ckc .ckc-ink {
+  margin-top: clamp(52px, 6vw, 88px);
+  background: var(--ckc-band);
+  border-radius: 4px;
+  padding: clamp(38px, 4.5vw, 68px) clamp(26px, 3.4vw, 56px);
+}
+/* The panel keeps white text in BOTH themes, so its text colours are set
+   locally rather than inherited — nothing here follows --ckc-ink. */
+.ckc .ckc-ink-label {
+  font-family: var(--ckc-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+.ckc .ckc-ink-h2 {
+  margin-top: 12px;
+  font-size: clamp(1.6rem, 2.8vw, 2.25rem);
+  color: #fff;
+}
+
+.ckc .ckc-run {
+  margin: clamp(30px, 3.6vw, 52px) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px 40px;
+}
+@media (min-width: 660px)  { .ckc .ckc-run { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1000px) { .ckc .ckc-run { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ckc .ckc-run-i { padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.16); }
+.ckc .ckc-run-n {
+  display: block;
+  font-family: var(--ckc-display);
+  font-size: 1.5rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.42);
+}
+.ckc .ckc-run-t {
+  margin-top: 10px;
+  font-family: var(--ckc-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #fff;
+}
+.ckc .ckc-run-b {
+  margin-top: 5px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.ckc .ckc-ink-foot {
+  margin-top: clamp(30px, 3.4vw, 46px);
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+.ckc .ckc-ink-chips { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.ckc .ckc-ink-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* ── What you get ────────────────────────────────────────────────
+   Space alone separates these — no card, no rule. That makes it read
+   differently from the trio above and the panel below without adding
+   a single new colour. */
+
+.ckc .ckc-h2-lead { font-size: clamp(1.7rem, 3vw, 2.375rem); }
+
+.ckc .ckc-gets {
+  margin-top: clamp(24px, 2.6vw, 36px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px 48px;
+}
+@media (min-width: 780px) { .ckc .ckc-gets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.ckc .ckc-get {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--ckc-body);
+}
+
+/* ── Ownership ───────────────────────────────────────────────────
+   The one tinted ground, and three objects rather than three
+   paragraphs. */
+
+.ckc .ckc-inset {
+  /* A hairline at --ckc-rule is invisible on cream. Redefining the TOKEN
+     here means every rule inside follows automatically, and because the
+     replacement is a color-mix over two existing tokens it inverts with
+     the theme without a single hardcoded value. */
+  --ckc-rule: color-mix(in srgb, var(--ckc-faint) 34%, var(--ckc-cream));
+  margin-top: clamp(52px, 6vw, 88px);
+  background: var(--ckc-cream);
+  border: 1px solid var(--ckc-rule);
+  border-radius: 4px;
+  padding: clamp(38px, 4.5vw, 68px) clamp(26px, 3.4vw, 56px);
+}
+.ckc .ckc-inset-h2 { color: var(--ckc-ink); }
+
+.ckc .ckc-own {
+  margin-top: clamp(28px, 3.2vw, 44px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px 44px;
+}
+@media (min-width: 820px) { .ckc .ckc-own { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+.ckc .ckc-own-t {
+  margin-top: 14px;
+  font-family: var(--ckc-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--ckc-ink);
+}
+.ckc .ckc-own-b {
+  margin-top: 7px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ckc-body);
+}
+
+/* ── Who ─────────────────────────────────────────────────────────
+   Pills, borrowed straight from the landing's vocabulary. The lightest
+   block on the page, and the only one that is mostly white space. */
+
+.ckc .ckc-who { margin-top: clamp(52px, 6vw, 88px); }
+.ckc .ckc-who-h2 { font-size: clamp(1.7rem, 3vw, 2.375rem); }
+.ckc .ckc-pills {
+  margin-top: clamp(22px, 2.4vw, 32px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ckc .ckc-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--ckc-rule);
+  border-radius: 999px;
+  background: var(--ckc-card);
+  font-size: 0.9375rem;
+  color: var(--ckc-ink);
+}
+.ckc .ckc-who-note {
+  margin-top: 22px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--ckc-muted);
+  max-width: 62ch;
+}
+
+/* ── End of the event ────────────────────────────────────────────
+   A double rule is what a printed programme puts at the end of a part. */
+.ckc .ckc-part-break {
+  height: 3px;
+  margin: clamp(52px, 6vw, 88px) 0 6px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--ckc-ink) 30%, transparent);
+  border-bottom: 1px solid var(--ckc-rule);
+}
+
+/* ── The record's own masthead ───────────────────────────────────
+   Title left, the three figures right on one baseline. The tabs and
+   every panel below are untouched. */
+.ckc .ckc-record-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+  padding-bottom: 26px;
+}
+@media (min-width: 1000px) {
+  .ckc .ckc-record-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 56px;
+    align-items: end;
+  }
+}
+.ckc .ckc-figures { display: flex; flex-wrap: wrap; gap: 24px 38px; margin: 0; }
+@media (min-width: 1000px) { .ckc .ckc-figures { flex-wrap: nowrap; } }
+
+/* ── Colophon ────────────────────────────────────────────────────
+   Heading in the margin, so the page does not end on another
+   left-aligned stack. */
+.ckc .ckc-marginal { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 940px) {
+  .ckc .ckc-marginal {
+    grid-template-columns: minmax(0, 23ch) minmax(0, 1fr);
+    gap: 0 60px;
+    align-items: start;
+  }
+}
+.ckc .ckc-colophon-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+@media (min-width: 760px) {
+  .ckc .ckc-colophon-body {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0 40px;
+  }
+  .ckc .ckc-colophon-body > :last-child { flex: none; white-space: nowrap; }
+}

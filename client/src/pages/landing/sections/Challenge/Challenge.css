@@ -1,0 +1,124 @@
+/* ═══════════════════════ CHALLENGE ═══════════════════════
+   Frame values are the landing's, not new ones: the vertical rhythm
+   `clamp(80px, 9vw, 140px)`, the horizontal `clamp(20px, 5vw, 80px)` and
+   the 1320px inner repeat verbatim across Features, Formats and Problem.
+   Reusing them — along with .ckl-kicker / .ckl-h2 / .ckl-lead — is what
+   makes this section native rather than merely adjacent. */
+
+.ckl .ckl-chal {
+  position: relative;
+  width: 100%;
+  background: var(--ck-paper);
+  padding: clamp(80px, 9vw, 140px) clamp(20px, 5vw, 80px);
+}
+
+/* Head and proof sit side by side, baselines aligned at the bottom, so the section reads as one
+   composition rather than a stack of things. A stack is what made this feel like a summary. */
+.ckl .ckl-chal-inner {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: clamp(40px, 6vw, 90px);
+}
+
+.ckl .ckl-chal-head { max-width: 760px; }
+.ckl .ckl-chal-lead { max-width: 540px; }
+
+/* ── Actions ───────────────────────────────────────────────────────
+   Copied from FinalCta: #161513 fill (not --ck-ink), white, radius 0. */
+.ckl .ckl-chal-cta {
+  margin-top: clamp(38px, 4vw, 56px);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.ckl .ckl-chal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 244px;
+  height: 70px;
+  background: #161513;
+  color: #fff;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.2px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background .25s ease, transform .25s cubic-bezier(.2, .7, .2, 1);
+}
+.ckl .ckl-chal-link {
+  font-family: var(--ck-sans);
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ck-ink);
+  text-decoration: none;
+  border-bottom: 2px solid #0B0A06;
+  padding-bottom: 7px;
+  transition: color .22s ease, border-color .22s ease;
+}
+
+/* ── The laureate ──────────────────────────────────────────────────
+   16px radius and the card tokens, matching Problem and Features. */
+.ckl .ckl-chal-proof {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 26px 30px;
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  background: var(--ck-card);
+  text-decoration: none;
+  width: 300px;
+}
+/* --ck-heading-italic, not --ck-muted. The page's shared .ckl-kicker uses muted at 14px and measures
+   ~2.9:1; this label is 12px, so it would read worse still. Matching the page verbatim is right for
+   the shared primitive but not for a new one — a class invented today should not ship below the
+   line. (The page-wide kicker treatment is a separate, deliberate decision.) */
+.ckl .ckl-chal-proof-eyebrow {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ck-heading-italic);
+}
+.ckl .ckl-chal-proof-name {
+  font-family: var(--ck-serif);
+  font-size: 30px;
+  line-height: 1.1;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chal-proof-meta {
+  font-family: var(--ck-body);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--ck-body-ink);
+}
+.ckl .ckl-chal-proof-cta {
+  margin-top: 12px;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ck-red);
+}
+
+@media (max-width: 900px) {
+  .ckl .ckl-chal-inner { grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .ckl .ckl-chal-cta { flex-direction: column; align-items: flex-start; gap: 22px; }
+  .ckl .ckl-chal-btn { width: 100%; max-width: 340px; }
+  .ckl .ckl-chal-proof { width: 100%; max-width: 340px; }
+}
+
+/* The landing's reveal baseline is `opacity: 0`, so switching the animation off alone would leave
+   this section permanently invisible to anyone who prefers reduced motion. Opacity has to be
+   restored in the same breath. (The rest of the page has the same gap; fixing it globally is a
+   separate change.) */
+@media (prefers-reduced-motion: reduce) {
+  .ckl .ckl-chal [data-ra] { animation: none !important; opacity: 1 !important; }
+  .ckl .ckl-chal-proof { transition: none; }
+}

@@ -24,6 +24,55 @@ export const PARTICIPANT_COMPLETION_MESSAGE = (name) =>
 
 export const STUDIO_LOCKED_MESSAGE = "The Script Studio unlocks when the competition begins.";
 
+/**
+ * The event, start to finish.
+ *
+ * Numbered because it is a genuine sequence — the order is the information. Uncertainty is what
+ * stops people committing a weekend, and six concrete steps make the unknown finite.
+ */
+export const HOW_IT_WORKS = [
+  {
+    title: "Register",
+    body: "A minute of details. You get an Event ID that identifies your entry from here on.",
+  },
+  {
+    title: "Receive the theme",
+    body: "Sealed until the start. Nobody sees it early — every writer gets it at the same moment.",
+  },
+  {
+    title: "Write for 48 hours",
+    body: "In the Ckript editor, autosaved as you go, with the clock on screen the whole time.",
+  },
+  {
+    title: "Submit",
+    body: "Your script is frozen exactly as it stands. That copy is what gets judged, whatever you do to the script afterwards.",
+  },
+  {
+    title: "Get evaluated",
+    body: "An AI reading of structure, character and dialogue — for every entry, not only the winners.",
+  },
+  {
+    title: "Results",
+    body: "Winners, named awards, and a certificate for everyone who finished.",
+  },
+];
+
+/**
+ * What an entrant walks away with regardless of placing.
+ *
+ * Most people who consider a competition quietly assume they won't win, and a page that only talks
+ * about prizes is only talking to the people who think they will. This is the block for everyone
+ * else — and the last line answers the fear that actually stops writers submitting anywhere.
+ */
+export const WHAT_YOU_RECEIVE = [
+  "An AI evaluation of your script — structure, character, dialogue",
+  "A certificate of completion",
+  "A competition badge on your public profile",
+  "Your entry recorded in your writer profile",
+  "Eligibility for the Hall of Fame",
+  "Your script stays yours — private throughout, and released back to you afterwards",
+];
+
 export const WRITING_RESOURCES = [
   {
     title: "Writing under time pressure",

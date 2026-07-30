@@ -1,0 +1,95 @@
+/* ═══════════════════ CHALLENGE STRIP ═══════════════════
+   The deadline band under the hero. Mirrors Marquee — the page's other
+   full-bleed band — so a dark bar in this position already reads as part
+   of the page's vocabulary rather than as an ad.
+
+   It only exists while registration is open or the clock is running; the
+   component returns null otherwise. */
+
+.ckl .ckl-cstrip {
+  position: relative;
+  width: 100%;
+  background: var(--ck-ink);
+  padding: 26px 0;
+  border-top: 1px solid #211f1a;
+  border-bottom: 1px solid #211f1a;
+}
+
+.ckl .ckl-cstrip-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 0 clamp(20px, 5vw, 80px);
+}
+
+.ckl .ckl-cstrip-name {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.ckl .ckl-cstrip-label {
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* CountdownTimer's `sm` variant carries `.ckc-clock-inline`, which is scoped `.ckc .ckc-clock-inline`
+   — no `.ckc` ancestor exists on the landing, so that rule cannot match here and this is the only
+   styling the element gets. The component is reused rather than reimplemented because it measures the
+   server/device clock offset once on mount; a hand-rolled clock on this page would drift against the
+   deadline the server actually enforces. */
+.ckl .ckl-cstrip-clock .ckc-clock-inline {
+  font-family: var(--ck-serif);
+  font-size: 28px;
+  line-height: 1;
+  /* Digits must not reflow the row every second. */
+  font-variant-numeric: tabular-nums;
+  color: #ffffff;
+}
+
+/* White on ink, never coral: #D14D37 on #0B0A06 falls under 4.5:1, so the accent here is carried by
+   the diamond alone — decoration, not information. */
+.ckl .ckl-cstrip-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;              /* touch target */
+  padding: 0 22px;
+  background: #ffffff;
+  color: #161513;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  border-radius: 0;          /* the landing's primary buttons are hard rectangles */
+  transition: background .25s ease;
+}
+.ckl .ckl-cstrip-btn:hover { background: #ede9e0; }
+
+/* The countdown is not announced tick by tick; this says the same thing once. */
+.ckl .ckl-cstrip-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Below the layout breakpoint the competition name is the first thing to go — the deadline and the
+   action are what the band is for. */
+@media (max-width: 900px) {
+  .ckl .ckl-cstrip { padding: 20px 0; }
+  .ckl .ckl-cstrip-name { display: none; }
+  .ckl .ckl-cstrip-inner { gap: 12px; }
+  .ckl .ckl-cstrip-clock .ckc-clock-inline { font-size: 24px; }
+}

@@ -5,6 +5,7 @@ import publicApi from "../../services/publicApi";
 import { Section, Card, Stat, Avatar } from "../../components/competition/ui";
 import { rewardLabel, yearSuffix } from "../../components/competition/labels";
 import useDynamicSeo from "../../components/competition/useDynamicSeo";
+import externalUrl from "../../utils/externalUrl";
 import "../challenge/challenge.css";
 
 /**
@@ -18,7 +19,13 @@ import "../challenge/challenge.css";
  * separately chosen to publish, so it is empty (and hidden) until that happens.
  */
 
-const profilePath = (person) => (person?.username ? `/${person.username}` : `/share/profile/${person?._id}`);
+// `userId` first: buildPublicResults shapes laureates with userId (the shared WinnerCard reads the
+// same field), and only the featured-script writers below carry `_id`. Reading `_id` alone sent every
+// winner without a username to /share/profile/undefined — a dead link on the one page that exists to
+// point at the people.
+const profilePath = (person) => (person?.username
+  ? `/${person.username}`
+  : `/share/profile/${person?.userId || person?._id}`);
 
 const WinnerBlock = ({ person, label, icon: Icon, accent, prominent = false }) => {
   if (!person) return null;
@@ -276,23 +283,33 @@ const HallOfFameDetail = () => {
             <hr className="ckc-rule" />
             <Section title="Sponsors">
               <div className="flex flex-wrap items-center gap-5">
-                {competition.sponsors.map((sponsor, i) => (
-                  <a
-                    key={i}
-                    href={sponsor.url || "#"}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="ckc-card"
-                    style={{ padding: "12px 16px" }}
-                  >
+                {competition.sponsors.map((sponsor, i) => {
+                  const href = externalUrl(sponsor.url);
+                  const mark = (
                     <span className="flex items-center gap-3">
                       {sponsor.logoUrl
                         ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-8 object-contain" />
                         : <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>}
                       {sponsor.tier ? <span className="ckc-chip">{sponsor.tier}</span> : null}
                     </span>
-                  </a>
-                ))}
+                  );
+                  // A sponsor with no usable link still belongs on the record — as a card, not as a
+                  // focusable anchor that goes nowhere.
+                  return href ? (
+                    <a
+                      key={i}
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="ckc-card"
+                      style={{ padding: "12px 16px" }}
+                    >
+                      {mark}
+                    </a>
+                  ) : (
+                    <span key={i} className="ckc-card" style={{ padding: "12px 16px" }}>{mark}</span>
+                  );
+                })}
               </div>
             </Section>
           </>

@@ -53,6 +53,11 @@ export default function Hero() {
             <button type="button" onClick={() => openWriterOnboarding()} className="ckl-hero-navlink hov-red">
               Scripts
             </button>
+            {/* A real route, unlike its siblings which open modals. `.ckl-hero-navlink` already
+                styles both <button> and <a>, so the shape matches without a variant. */}
+            <Link to={ROUTES.challenge} className="ckl-hero-navlink hov-red">
+              Challenge
+            </Link>
             <button type="button" onClick={() => openProducerOnboarding()} className="ckl-hero-navlink hov-red">
               For Producers
             </button>
@@ -151,6 +156,15 @@ export default function Hero() {
               >
                 Scripts
               </button>
+              {/* Closes the overlay like every sibling — a route change alone would leave the
+                  fixed, full-screen menu covering the page it navigated to. */}
+              <Link
+                to={ROUTES.challenge}
+                className="ckl-hero-mmenu-item"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Challenge
+              </Link>
               <button
                 type="button"
                 className="ckl-hero-mmenu-item"
