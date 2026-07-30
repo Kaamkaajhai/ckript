@@ -13,8 +13,20 @@ import CookieConsentBanner from "./components/CookieConsentBanner";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
 import useIsMobile from "./mobile/hooks/useIsMobile";
-import { getAuthenticatedProfileShell, getSharedProfileExperience } from "./features/profile-pc/profilePolicy";
+import { getSharedProfileExperience } from "./features/profile-pc/profilePolicy";
 import RouteFallback from "./components/skeleton/RouteFallback";
+/*
+ * Imported from the policy module directly, NOT from the app-shell barrel.
+ * The barrel re-exports AppShell, so importing these through it would pull the
+ * whole shell into the entry bundle and undo its code-splitting. These are pure
+ * functions and constants — a few hundred bytes.
+ */
+import {
+  resolveShell,
+  isWriterAudience,
+  SHELL,
+  CONTENT_VARIANT,
+} from "./layouts/app-shell/shellPolicy";
 
 const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
@@ -49,10 +61,12 @@ const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
 const ScriptPaymentPage = lazy(() => import("./pages/ScriptPaymentPage"));
 const FeaturedProjects = lazy(() => import("./pages/FeaturedProjects"));
-const Mandates = lazy(() => import("./pages/Mandates"));
 const TopList = lazy(() => import("./pages/TopList"));
 const Messages = lazy(() => import("./features/messages-operator"));
-const Writers = lazy(() => import("./pages/Writers"));
+// The industry section — see features/producer-workspace for what lives there
+// and, just as importantly, what deliberately does not.
+const Mandates = lazy(() => import("./features/producer-workspace/MandatesPage"));
+const Writers = lazy(() => import("./features/producer-workspace/WriterDirectoryPage"));
 const InvestorHome = lazy(() => import("./pages/InvestorHome"));
 const ReaderHome = lazy(() => import("./pages/ReaderHome"));
 const ScriptReader = lazy(() => import("./pages/ScriptReader"));
@@ -63,12 +77,18 @@ const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
-const DashboardLayout = lazy(() => import("./layouts/DashboardLayout"));
+const AppShell = lazy(() => import("./layouts/app-shell/AppShell"));
 const MobileApp = lazy(() => import("./mobile/MobileApp"));
 const Events = lazy(() => import("./pages/Events"));
 const EventDetails = lazy(() => import("./pages/events/EventDetails"));
 
+/*
+ * Warmed on idle, in likelihood order. The app shell leads because it is now the
+ * chrome for writers AND the whole industry audience — the large majority of
+ * signed-in sessions. MainLayout stays on the list for readers and admins.
+ */
 const preloadRouteChunks = [
+  () => import("./layouts/app-shell/AppShell"),
   () => import("./layouts/MainLayout"),
   () => import("./pages/AcceptInvite"),
   () => import("./pages/Dashboard"),
@@ -188,13 +208,38 @@ function SingleSegmentProfileOrReferralRoute() {
   );
 }
 
-function AuthenticatedProfileShell({ children }) {
+/*
+ * AppChrome — the one place that decides which shell wraps a page.
+ *
+ * There used to be five copies of this decision (AuthenticatedProfileShell,
+ * ProtectedMainLayout, PublicAppLayout, ProtectedScriptDetailLayout and
+ * DashboardRoute), each re-deriving `role === "writer" || role === "creator"`
+ * and each with its own idea of when a route is full-bleed. They disagreed:
+ * /messages was flush in one and padded in another, and every role outside that
+ * two-name check silently got the non-writer branch.
+ *
+ * Now the answer comes from layouts/app-shell/shellPolicy, which maps every role
+ * in the User model exhaustively. Producers, directors, investors and other
+ * industry professionals resolve to the app shell here — that is the switch that
+ * moves the producer section onto the writer section's chrome.
+ */
+function AppChrome({ children, variant }) {
   const { user } = useContext(AuthContext);
-  const shell = getAuthenticatedProfileShell(user?.role);
+  const location = useLocation();
+  const resolved = resolveShell({ role: user?.role, pathname: location.pathname });
 
-  return shell.layout === "dashboard"
-    ? <DashboardLayout variant={shell.contentVariant}>{children}</DashboardLayout>
-    : <MainLayout contentVariant={shell.contentVariant}>{children}</MainLayout>;
+  // An explicit `variant` wins: a few routes know their own mounting needs
+  // better than a path prefix can express.
+  const contentVariant = variant ?? resolved.contentVariant;
+
+  return resolved.shell === SHELL.APP
+    ? <AppShell variant={contentVariant === CONTENT_VARIANT.PAGE ? "page" : "fill"}>{children}</AppShell>
+    : <MainLayout contentVariant={contentVariant === CONTENT_VARIANT.PAGE ? "page" : "full"}>{children}</MainLayout>;
+}
+
+function AuthenticatedProfileShell({ children }) {
+  // Profiles always mount edge-to-edge, whichever shell surrounds them.
+  return <AppChrome variant={CONTENT_VARIANT.FILL}>{children}</AppChrome>;
 }
 
 // Profiles have one mounting contract regardless of whether the viewer opens
@@ -238,32 +283,16 @@ function SharedProfileRoute() {
   return <PublicProfile />;
 }
 
-// Shared layout for authenticated app routes. Creators/writers get the unified
-// 2B dashboard shell (dark rail + light top bar) on every page; investors and
-// readers keep their existing MainLayout, which already carries role-appropriate
-// chrome and page designs tuned for it.
+// Shared layout for authenticated app routes. Which shell and which content
+// inset each audience gets is AppChrome's decision, driven by shellPolicy.
 function ProtectedMainLayout() {
-  const { user } = useContext(AuthContext);
-  const location = useLocation();
-  const isCreator = user?.role === "writer" || user?.role === "creator";
-  // Full-bleed routes render flush against the content area (no page
-  // padding/card inset). Messages does this in both shells; the creator's
-  // bespoke 2B Dashboard is also designed for the flush "fill" content area,
-  // while the investor dashboard keeps its padded page layout.
-  const isMessages = location.pathname.startsWith("/messages");
-  const isDashboard = location.pathname.startsWith("/dashboard");
-
-  const content = (
-    <Suspense fallback={<RouteFallback />}>
-      <Outlet />
-    </Suspense>
-  );
-
   return (
     <PrivateRoute>
-      {isCreator
-        ? <DashboardLayout variant={isMessages || isDashboard ? "fill" : "page"}>{content}</DashboardLayout>
-        : <MainLayout contentVariant={isMessages ? "full" : "page"}>{content}</MainLayout>}
+      <AppChrome>
+        <Suspense fallback={<RouteFallback />}>
+          <Outlet />
+        </Suspense>
+      </AppChrome>
     </PrivateRoute>
   );
 }
@@ -280,7 +309,6 @@ function ProtectedMainLayout() {
 // for exactly the audience they exist to convert.
 function PublicAppLayout() {
   const { user, loading } = useContext(AuthContext);
-  const isCreator = user?.role === "writer" || user?.role === "creator";
 
   const content = (
     <Suspense
@@ -303,36 +331,37 @@ function PublicAppLayout() {
   // Logged-out visitor: the page owns the whole viewport, exactly as before.
   if (!user) return content;
 
-  return isCreator
-    ? <DashboardLayout variant="page">{content}</DashboardLayout>
-    : <MainLayout>{content}</MainLayout>;
+  // These pages are ordinary padded content inside whichever shell the viewer has.
+  return <AppChrome variant={CONTENT_VARIANT.PAGE}>{content}</AppChrome>;
 }
 
 // Script detail owns a cinematic, full-bleed workspace. URLs and role-aware
 // chrome remain identical; only the content inset differs from generic pages.
 function ProtectedScriptDetailLayout() {
-  const { user } = useContext(AuthContext);
-  const isCreator = user?.role === "writer" || user?.role === "creator";
-
-  const content = (
-    <Suspense fallback={<RouteFallback tone="cool" label="Loading project…" />}>
-      <Outlet />
-    </Suspense>
-  );
-
   return (
     <PrivateRoute>
-      {isCreator
-        ? <DashboardLayout variant="fill">{content}</DashboardLayout>
-        : <MainLayout contentVariant="full">{content}</MainLayout>}
+      <AppChrome variant={CONTENT_VARIANT.FILL}>
+        <Suspense fallback={<RouteFallback tone="cool" label="Loading project…" />}>
+          <Outlet />
+        </Suspense>
+      </AppChrome>
     </PrivateRoute>
   );
 }
 
-// Creator/writer dashboard uses the independent 2B DashboardLayout.
-// Investors fall back to MainLayout (their dashboard has a different design).
+/*
+ * /dashboard, /ai-tools and /offer-holds.
+ *
+ * `Dashboard` is a router as well as a page: it renders the writer's dashboard
+ * or the producer's depending on the viewer's audience. The chrome around it —
+ * and crucially whether the content area is flush or padded, which differs
+ * because the two dashboards have different layouts — comes from shellPolicy.
+ *
+ * Waiting for `loading` matters here: rendering with no user would resolve to
+ * the fallback audience for a frame and then re-mount under different chrome.
+ */
 function DashboardRoute() {
-  const { user, loading } = useContext(AuthContext);
+  const { loading } = useContext(AuthContext);
 
   if (loading) {
     return (
@@ -342,28 +371,13 @@ function DashboardRoute() {
     );
   }
 
-  const isCreator = user?.role === "writer" || user?.role === "creator";
-
-  if (isCreator) {
-    return (
-      <PrivateRoute>
-        <Suspense fallback={<RouteFallback />}>
-          <DashboardLayout variant="fill">
-            <Dashboard />
-          </DashboardLayout>
-        </Suspense>
-      </PrivateRoute>
-    );
-  }
-
-  // Investor/other roles use the standard layout
   return (
     <PrivateRoute>
-      <MainLayout>
+      <AppChrome>
         <Suspense fallback={<RouteFallback />}>
           <Dashboard />
         </Suspense>
-      </MainLayout>
+      </AppChrome>
     </PrivateRoute>
   );
 }
@@ -378,9 +392,14 @@ function DashboardRoute() {
 function RootExperience({ children }) {
   const isMobile = useIsMobile();
   const { user, loading } = useContext(AuthContext);
-  const isCreator = user?.role === "writer" || user?.role === "creator";
 
-  if (!loading && isMobile && user && isCreator) {
+  /*
+   * The mobile app is a writer experience — it has no producer surfaces — so the
+   * gate is deliberately writer-only. Asking the policy rather than re-deriving
+   * the role check keeps this in step with the rest of the app: if `writer` or
+   * `creator` is ever renamed, this stops being a place it can be forgotten.
+   */
+  if (!loading && isMobile && user && isWriterAudience(user.role)) {
     return <MobileApp />;
   }
 
@@ -543,7 +562,7 @@ function App() {
                 path="/admin/agreements"
                 element={<AdminAgreements />}
               />
-              {/* Dashboard: creator/writer → DashboardLayout (2B); investor → MainLayout */}
+              {/* Chrome comes from shellPolicy; `Dashboard` itself picks writer vs producer content. */}
               <Route path="/dashboard" element={<DashboardRoute />} />
               <Route path="/ai-tools"  element={<DashboardRoute />} />
               <Route path="/offer-holds" element={<DashboardRoute />} />

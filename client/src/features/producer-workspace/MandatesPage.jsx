@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api from "../../services/api";
 import { FileText, CheckCircle, Save, RefreshCw, RotateCcw } from "lucide-react";
-import { useDarkMode } from "../context/DarkModeContext";
+import { useDarkMode } from "../../context/DarkModeContext";
 
 const getDefaultMandates = () => ({
   formats: [],
@@ -60,7 +60,7 @@ const normalizeMandateFormat = (value = "") => {
   return raw.replace(/[\s-]+/g, "_");
 };
 
-const Mandates = () => {
+const MandatesPage = () => {
   const navigate = useNavigate();
   const { isDarkMode: dark } = useDarkMode();
   const [loading, setLoading] = useState(true);
@@ -338,4 +338,4 @@ const Mandates = () => {
   );
 };
 
-export default Mandates;
+export default MandatesPage;
