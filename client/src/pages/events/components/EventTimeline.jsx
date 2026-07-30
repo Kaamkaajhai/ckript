@@ -14,10 +14,9 @@ import {
   Award,
   UserPlus,
   Lock,
-  ChevronDown,
 } from "lucide-react";
 
-/* ── Icon map ────────────────────────────────────────────────────────────── */
+/* ── Icon map ── */
 const STEP_ICONS = {
   registration_opens: UserPlus,
   registration_closes: Lock,
@@ -31,179 +30,140 @@ const STEP_ICONS = {
   rewards: Gift,
   certificate: Award,
 };
-
 const getStepIcon = (key) => STEP_ICONS[key] || Clock;
 
-/* ── Date formatter ──────────────────────────────────────────────────────── */
+/* ── Date formatter ── */
 const fmtDate = (iso) => {
   if (!iso) return null;
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-const fmtDateFull = (iso) => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-/* ── Intersection Observer hook ──────────────────────────────────────────── */
-function useInView(ref, options = {}) {
+/* ── Intersection Observer hook ── */
+function useInView(ref, opts = {}) {
   const [inView, setInView] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setInView(true); },
-      { threshold: 0.2, ...options }
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setInView(true); },
+      { threshold: 0.15, ...opts }
     );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
+    obs.observe(ref.current);
+    return () => obs.disconnect();
   }, [ref]);
   return inView;
 }
 
-/* ── Individual timeline step ────────────────────────────────────────────── */
-function TimelineStep({ step, index, total, isExpanded, onToggle }) {
+/* ── Single timeline step ── */
+function TimelineStep({ step, index, total, isLeft }) {
   const ref = useRef(null);
   const inView = useInView(ref);
-
   const isDone = step.status === "done";
   const isCurrent = step.status === "current";
-  const isUpcoming = step.status === "upcoming";
   const Icon = getStepIcon(step.key);
+
+  const slideDir = isLeft ? -40 : 40;
 
   return (
     <div
       ref={ref}
-      className="ckl-tl-step"
-      data-status={step.status}
+      className={`ckl-zz-step ${isLeft ? "ckl-zz-left" : "ckl-zz-right"}`}
       style={{
         opacity: inView ? 1 : 0,
-        transform: inView ? "translateY(0)" : "translateY(24px)",
-        transition: `opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${index * 80}ms, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${index * 80}ms`,
+        transform: inView ? "translateX(0) translateY(0)" : `translateX(${slideDir}px) translateY(12px)`,
+        transition: `all 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${index * 100}ms`,
       }}
     >
-      {/* ── Node on the track ── */}
-      <div className={`ckl-tl-node ${isDone ? "done" : isCurrent ? "active" : "upcoming"}`}>
+      {/* ── Center node ── */}
+      <div className={`ckl-zz-node ${isDone ? "done" : isCurrent ? "active" : "upcoming"}`}>
         {isDone ? (
-          <CheckCircle2 size={18} strokeWidth={2.5} />
+          <CheckCircle2 size={16} strokeWidth={2.5} />
         ) : isCurrent ? (
           <>
-            <span className="ckl-tl-node-ping" />
-            <Icon size={16} strokeWidth={2.5} />
+            <span className="ckl-zz-ping" />
+            <Icon size={14} strokeWidth={2.5} />
           </>
         ) : (
-          <Circle size={16} strokeWidth={1.5} />
+          <Circle size={14} strokeWidth={1.5} />
         )}
       </div>
 
       {/* ── Card ── */}
-      <button
-        className={`ckl-tl-card ${isDone ? "done" : isCurrent ? "active" : "upcoming"}`}
-        onClick={step.description ? onToggle : undefined}
-        aria-expanded={isExpanded}
-        tabIndex={0}
-      >
-        <div className="ckl-tl-card-header">
-          <div className="ckl-tl-card-icon-wrap">
-            <Icon size={18} strokeWidth={2} />
+      <div className={`ckl-zz-card ${isDone ? "done" : isCurrent ? "active" : "upcoming"}`}>
+        <div className="ckl-zz-card-top">
+          <div className={`ckl-zz-icon-box ${isDone ? "done" : isCurrent ? "active" : "upcoming"}`}>
+            <Icon size={16} strokeWidth={2} />
           </div>
-          <div className="ckl-tl-card-info">
-            <span className="ckl-tl-card-label">{step.label}</span>
+          <div className="ckl-zz-card-text">
+            <span className="ckl-zz-card-label">{step.label}</span>
             {step.date && (
-              <span className="ckl-tl-card-date">
-                <CalendarDays size={12} strokeWidth={2} />
+              <span className="ckl-zz-card-date">
+                <CalendarDays size={11} strokeWidth={2} />
                 {fmtDate(step.date)}
               </span>
             )}
           </div>
-          <div className="ckl-tl-card-status">
-            {isDone && <span className="ckl-tl-badge done">Done</span>}
-            {isCurrent && <span className="ckl-tl-badge active">Now</span>}
-            {isUpcoming && <span className="ckl-tl-badge upcoming">Upcoming</span>}
-          </div>
+          <span className={`ckl-zz-badge ${isDone ? "done" : isCurrent ? "active" : "upcoming"}`}>
+            {isDone ? "Done" : isCurrent ? "Now" : "Upcoming"}
+          </span>
         </div>
+      </div>
 
-        {step.description && (
-          <div
-            className="ckl-tl-card-body"
-            style={{
-              maxHeight: isExpanded ? "200px" : "0",
-              opacity: isExpanded ? 1 : 0,
-              marginTop: isExpanded ? "12px" : "0",
-            }}
-          >
-            <p>{step.description}</p>
-          </div>
-        )}
-      </button>
-
-      {/* ── Connector line (not on last item) ── */}
-      {index < total - 1 && (
-        <div className={`ckl-tl-connector ${isDone ? "done" : ""}`} />
-      )}
+      {/* ── Connector arm to center ── */}
+      <div className={`ckl-zz-arm ${isDone ? "done" : ""}`} />
     </div>
   );
 }
 
-/* ── Main Timeline ───────────────────────────────────────────────────────── */
+/* ── Main Timeline ── */
 export default function EventTimeline({ timeline }) {
   if (!timeline || timeline.length === 0) return null;
 
-  const [expandedIdx, setExpandedIdx] = useState(null);
   const sectionRef = useRef(null);
   const sectionInView = useInView(sectionRef);
 
-  /* Progress percentage for the animated track */
   const progressPct = useMemo(() => {
     const doneCount = timeline.filter((s) => s.status === "done").length;
     const currentIdx = timeline.findIndex((s) => s.status === "current");
-    const activeSteps = currentIdx >= 0 ? currentIdx + 0.5 : doneCount;
-    return Math.min(100, (activeSteps / (timeline.length - 1)) * 100);
+    const active = currentIdx >= 0 ? currentIdx + 0.5 : doneCount;
+    return Math.min(100, (active / (timeline.length - 1)) * 100);
   }, [timeline]);
 
   return (
     <section
       ref={sectionRef}
       className="ckl-event-section ckl-event-section--divider"
-      style={{ background: "var(--event-bg)" }}
+      style={{ background: "var(--event-bg, #F8F6F2)" }}
     >
       <div className="ckl-event-container">
-        {/* ── Section header ── */}
+        {/* Section header */}
         <div
-          className="ckl-tl-header"
+          className="ckl-zz-header"
           style={{
             opacity: sectionInView ? 1 : 0,
             transform: sectionInView ? "translateY(0)" : "translateY(20px)",
             transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          <div className="ckl-tl-header-label">
+          <div className="ckl-zz-header-label">
             <Clock size={14} strokeWidth={2.5} />
             <span>Schedule</span>
           </div>
           <h2 className="ckl-event-title-section" style={{ marginBottom: 0 }}>
             Event Timeline
           </h2>
-          <p className="ckl-tl-header-sub">
+          <p className="ckl-zz-header-sub">
             Follow every milestone from announcement to rewards.
           </p>
         </div>
 
-        {/* ── Timeline track ── */}
-        <div className="ckl-tl-track">
-          {/* Progress bar (vertical line) */}
-          <div className="ckl-tl-rail">
+        {/* Timeline */}
+        <div className="ckl-zz-track">
+          {/* Central rail */}
+          <div className="ckl-zz-rail">
             <div
-              className="ckl-tl-rail-fill"
-              style={{
-                height: sectionInView ? `${progressPct}%` : "0%",
-              }}
+              className="ckl-zz-rail-fill"
+              style={{ height: sectionInView ? `${progressPct}%` : "0%" }}
             />
           </div>
 
@@ -214,323 +174,359 @@ export default function EventTimeline({ timeline }) {
               step={step}
               index={i}
               total={timeline.length}
-              isExpanded={expandedIdx === i}
-              onToggle={() => setExpandedIdx(expandedIdx === i ? null : i)}
+              isLeft={i % 2 === 0}
             />
           ))}
         </div>
       </div>
 
-      {/* ── Scoped Styles ── */}
       <style>{`
         /* ── Header ── */
-        .ckl-tl-header {
+        .ckl-zz-header {
           text-align: center;
           max-width: 640px;
           margin: 0 auto clamp(40px, 6vw, 72px);
         }
-        .ckl-tl-header-label {
+        .ckl-zz-header-label {
           display: inline-flex;
           align-items: center;
           gap: 8px;
           font-family: var(--ck-sans);
-          font-size: var(--event-text-xs, 0.75rem);
+          font-size: 0.7rem;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.2em;
           color: var(--event-accent, #8A3B2E);
           margin-bottom: 16px;
         }
-        .ckl-tl-header-sub {
+        .ckl-zz-header-sub {
           font-family: var(--ck-serif);
-          font-size: var(--event-text-lg, 1.2rem);
-          line-height: 1.5;
+          font-size: clamp(1rem, 1.2vw + 0.8rem, 1.25rem);
           color: var(--event-text-muted, #555);
           margin-top: 12px;
+          line-height: 1.5;
         }
 
-        /* ── Track wrapper ── */
-        .ckl-tl-track {
+        /* ── Track ── */
+        .ckl-zz-track {
           position: relative;
-          max-width: 680px;
+          max-width: 900px;
           margin: 0 auto;
-          padding-left: 48px;
+          padding: 20px 0;
         }
 
-        /* ── Rail (the vertical line) ── */
-        .ckl-tl-rail {
+        /* ── Central Rail ── */
+        .ckl-zz-rail {
           position: absolute;
-          left: 18px;
-          top: 8px;
-          bottom: 8px;
+          left: 28px;
+          top: 0;
+          bottom: 0;
           width: 3px;
           background: var(--event-border, #E8E5E1);
           border-radius: 4px;
           overflow: hidden;
+          z-index: 1;
         }
-        .ckl-tl-rail-fill {
+        .ckl-zz-rail-fill {
           width: 100%;
           background: linear-gradient(180deg, var(--event-accent, #8A3B2E), var(--ck-brand-copper, #c97a5f));
           border-radius: 4px;
-          transition: height 1.8s cubic-bezier(0.22, 1, 0.36, 1);
+          transition: height 2s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
-        /* ── Step wrapper ── */
-        .ckl-tl-step {
+        @media (min-width: 768px) {
+          .ckl-zz-rail {
+            left: 50%;
+            transform: translateX(-50%);
+          }
+        }
+
+        /* ── Step (zigzag row) ── */
+        .ckl-zz-step {
           position: relative;
-          padding-bottom: 0;
-          will-change: opacity, transform;
+          display: flex;
+          align-items: flex-start;
+          margin-bottom: 24px;
+          will-change: transform, opacity;
+          padding-left: 60px;
+        }
+        .ckl-zz-step:last-child {
+          margin-bottom: 0;
         }
 
-        /* ── Connector between cards ── */
-        .ckl-tl-connector {
-          height: 20px;
-          position: relative;
+        @media (min-width: 768px) {
+          .ckl-zz-step {
+            padding-left: 0;
+            width: 50%;
+          }
+          .ckl-zz-step.ckl-zz-left {
+            margin-left: 0;
+            margin-right: auto;
+            padding-right: 52px;
+            justify-content: flex-end;
+          }
+          .ckl-zz-step.ckl-zz-right {
+            margin-left: auto;
+            margin-right: 0;
+            padding-left: 52px;
+            justify-content: flex-start;
+          }
         }
 
-        /* ── Node (circle on rail) ── */
-        .ckl-tl-node {
+        /* ── Center node ── */
+        .ckl-zz-node {
           position: absolute;
-          left: -48px;
-          top: 18px;
-          width: 36px;
-          height: 36px;
+          left: 28px;
+          top: 16px;
+          width: 32px;
+          height: 32px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           z-index: 5;
           transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-          transform: translateX(50%);
+          transform: translateX(-50%);
         }
-        .ckl-tl-node.done {
+
+        @media (min-width: 768px) {
+          .ckl-zz-node {
+            left: auto;
+            right: auto;
+          }
+          .ckl-zz-left .ckl-zz-node {
+            right: -16px;
+            left: auto;
+            transform: translateX(50%);
+          }
+          .ckl-zz-right .ckl-zz-node {
+            left: -16px;
+            right: auto;
+            transform: translateX(-50%);
+          }
+        }
+
+        .ckl-zz-node.done {
           background: var(--event-accent-light, #F4EAE8);
           color: var(--event-accent, #8A3B2E);
           border: 2px solid var(--event-accent, #8A3B2E);
         }
-        .ckl-tl-node.active {
+        .ckl-zz-node.active {
           background: var(--event-accent, #8A3B2E);
           color: white;
           border: 2px solid var(--event-accent, #8A3B2E);
-          box-shadow: 0 0 0 6px rgba(138, 59, 46, 0.12), 0 0 24px rgba(138, 59, 46, 0.25);
+          box-shadow: 0 0 0 5px rgba(138, 59, 46, 0.12), 0 0 20px rgba(138, 59, 46, 0.3);
         }
-        .ckl-tl-node.upcoming {
-          background: var(--event-surface, #FFF);
-          color: var(--event-text-faint, #888);
+        .ckl-zz-node.upcoming {
+          background: var(--event-bg, #F8F6F2);
+          color: var(--event-text-faint, #aaa);
           border: 2px solid var(--event-border, #E8E5E1);
         }
 
-        .ckl-tl-node-ping {
+        .ckl-zz-ping {
           position: absolute;
-          inset: -4px;
+          inset: -5px;
           border-radius: 50%;
           border: 2px solid var(--event-accent, #8A3B2E);
-          animation: tlPing 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          animation: zzPing 2.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        @keyframes zzPing {
+          0% { transform: scale(1); opacity: 0.5; }
+          75%, 100% { transform: scale(1.8); opacity: 0; }
         }
 
-        @keyframes tlPing {
-          0% { transform: scale(1); opacity: 0.6; }
-          75%, 100% { transform: scale(1.6); opacity: 0; }
+        /* ── Arm (horizontal connector from card to center) ── */
+        .ckl-zz-arm {
+          display: none;
+        }
+        @media (min-width: 768px) {
+          .ckl-zz-arm {
+            display: block;
+            position: absolute;
+            top: 30px;
+            height: 2px;
+            background: var(--event-border, #E8E5E1);
+            z-index: 2;
+          }
+          .ckl-zz-arm.done {
+            background: var(--event-accent, #8A3B2E);
+            opacity: 0.4;
+          }
+          .ckl-zz-left .ckl-zz-arm {
+            right: 0;
+            width: 52px;
+          }
+          .ckl-zz-right .ckl-zz-arm {
+            left: 0;
+            width: 52px;
+          }
         }
 
         /* ── Card ── */
-        .ckl-tl-card {
+        .ckl-zz-card {
           width: 100%;
-          text-align: left;
           background: var(--event-surface, #FFF);
           border: 1px solid var(--event-border, #E8E5E1);
-          border-radius: var(--event-radius-md, 16px);
+          border-radius: 16px;
           padding: 16px 20px;
-          cursor: default;
           transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
           position: relative;
-          overflow: hidden;
-          display: block;
-          font-family: inherit;
-          font-size: inherit;
-          line-height: inherit;
+          z-index: 3;
         }
-        .ckl-tl-card::before {
+        .ckl-zz-card::after {
           content: '';
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, rgba(138, 59, 46, 0.03), transparent);
+          border-radius: 16px;
+          background: linear-gradient(135deg, rgba(138, 59, 46, 0.04), transparent 60%);
           opacity: 0;
-          transition: opacity 0.35s ease;
+          transition: opacity 0.3s ease;
           pointer-events: none;
         }
-        .ckl-tl-card:hover {
+        .ckl-zz-card:hover {
           border-color: var(--event-border-hover, #D8D4CE);
-          box-shadow: var(--event-shadow-md, 0 8px 24px rgba(0,0,0,0.06));
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
           transform: translateY(-2px);
         }
-        .ckl-tl-card:hover::before {
+        .ckl-zz-card:hover::after {
           opacity: 1;
         }
-        .ckl-tl-card.active {
+
+        .ckl-zz-card.active {
           border-color: var(--event-accent, #8A3B2E);
-          box-shadow: 0 4px 20px rgba(138, 59, 46, 0.1), var(--event-shadow-sm, 0 2px 8px rgba(0,0,0,0.04));
+          box-shadow: 0 4px 24px rgba(138, 59, 46, 0.1);
         }
-        .ckl-tl-card.active::before {
+        .ckl-zz-card.active::after {
           opacity: 1;
         }
-        .ckl-tl-card.upcoming {
-          opacity: 0.55;
-        }
-        .ckl-tl-card.upcoming:hover {
-          opacity: 0.75;
-        }
-        .ckl-tl-card.done {
+        .ckl-zz-card.done {
           background: var(--event-surface-alt, #F4F2EE);
           border-color: transparent;
         }
+        .ckl-zz-card.upcoming {
+          opacity: 0.5;
+        }
+        .ckl-zz-card.upcoming:hover {
+          opacity: 0.7;
+        }
 
         /* ── Card internals ── */
-        .ckl-tl-card-header {
+        .ckl-zz-card-top {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 12px;
         }
-        .ckl-tl-card-icon-wrap {
-          width: 36px;
-          height: 36px;
+        .ckl-zz-icon-box {
+          width: 34px;
+          height: 34px;
           border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          transition: all 0.3s ease;
         }
-        .ckl-tl-card.done .ckl-tl-card-icon-wrap {
+        .ckl-zz-icon-box.done {
           background: var(--event-accent-light, #F4EAE8);
           color: var(--event-accent, #8A3B2E);
         }
-        .ckl-tl-card.active .ckl-tl-card-icon-wrap {
+        .ckl-zz-icon-box.active {
           background: var(--event-accent, #8A3B2E);
           color: white;
         }
-        .ckl-tl-card.upcoming .ckl-tl-card-icon-wrap {
+        .ckl-zz-icon-box.upcoming {
           background: var(--event-surface-alt, #F4F2EE);
           color: var(--event-text-faint, #888);
         }
 
-        .ckl-tl-card-info {
+        .ckl-zz-card-text {
           flex: 1;
           min-width: 0;
         }
-        .ckl-tl-card-label {
+        .ckl-zz-card-label {
           display: block;
           font-family: var(--ck-sans);
-          font-size: 0.95rem;
+          font-size: 0.9rem;
           font-weight: 650;
           color: var(--event-text, #111);
           line-height: 1.3;
         }
-        .ckl-tl-card.done .ckl-tl-card-label {
+        .ckl-zz-card.done .ckl-zz-card-label {
           color: var(--event-text-muted, #555);
         }
-        .ckl-tl-card.upcoming .ckl-tl-card-label {
+        .ckl-zz-card.upcoming .ckl-zz-card-label {
           color: var(--event-text-faint, #888);
         }
-        .ckl-tl-card-date {
+        .ckl-zz-card-date {
           display: inline-flex;
           align-items: center;
           gap: 4px;
           font-family: var(--ck-sans);
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           font-weight: 500;
           color: var(--event-text-faint, #888);
           margin-top: 2px;
         }
 
         /* ── Badge ── */
-        .ckl-tl-card-status {
+        .ckl-zz-badge {
           flex-shrink: 0;
-        }
-        .ckl-tl-badge {
-          display: inline-flex;
-          align-items: center;
           padding: 4px 10px;
           border-radius: 999px;
           font-family: var(--ck-sans);
-          font-size: 0.65rem;
+          font-size: 0.6rem;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.12em;
         }
-        .ckl-tl-badge.done {
+        .ckl-zz-badge.done {
           background: var(--event-accent-light, #F4EAE8);
           color: var(--event-accent, #8A3B2E);
         }
-        .ckl-tl-badge.active {
+        .ckl-zz-badge.active {
           background: var(--event-accent, #8A3B2E);
           color: white;
-          animation: tlBadgePulse 2.5s ease-in-out infinite;
+          animation: zzBadgePulse 2.5s ease-in-out infinite;
         }
-        .ckl-tl-badge.upcoming {
+        .ckl-zz-badge.upcoming {
           background: var(--event-surface-alt, #F4F2EE);
           color: var(--event-text-faint, #888);
           border: 1px solid var(--event-border, #E8E5E1);
         }
-
-        @keyframes tlBadgePulse {
+        @keyframes zzBadgePulse {
           0%, 100% { box-shadow: 0 0 0 0 rgba(138, 59, 46, 0.3); }
           50% { box-shadow: 0 0 0 6px rgba(138, 59, 46, 0); }
         }
 
-        /* ── Expandable body ── */
-        .ckl-tl-card-body {
-          overflow: hidden;
-          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-          padding-left: 50px;
-        }
-        .ckl-tl-card-body p {
-          font-family: var(--ck-sans);
-          font-size: 0.85rem;
-          line-height: 1.6;
-          color: var(--event-text-muted, #555);
-          margin: 0;
-        }
-
-        /* ── Responsive ── */
-        @media (max-width: 640px) {
-          .ckl-tl-track {
-            padding-left: 40px;
+        /* ── Mobile adjustments ── */
+        @media (max-width: 767px) {
+          .ckl-zz-track {
+            padding-left: 0;
           }
-          .ckl-tl-rail {
-            left: 14px;
+          .ckl-zz-step {
+            padding-left: 56px;
           }
-          .ckl-tl-node {
-            left: -40px;
+          .ckl-zz-node {
+            left: 28px;
+            transform: translateX(-50%);
+          }
+          .ckl-zz-card {
+            padding: 14px 16px;
+          }
+          .ckl-zz-icon-box {
             width: 30px;
             height: 30px;
           }
-          .ckl-tl-card {
-            padding: 14px 16px;
-          }
-          .ckl-tl-card-icon-wrap {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-          }
-          .ckl-tl-card-header {
+          .ckl-zz-card-top {
             gap: 10px;
-          }
-          .ckl-tl-card-body {
-            padding-left: 42px;
           }
         }
 
         /* ── Reduced motion ── */
         @media (prefers-reduced-motion: reduce) {
-          .ckl-tl-node-ping,
-          .ckl-tl-badge.active {
-            animation: none !important;
-          }
-          .ckl-tl-rail-fill {
-            transition: none !important;
-          }
-          .ckl-tl-step {
+          .ckl-zz-ping { animation: none !important; }
+          .ckl-zz-badge.active { animation: none !important; }
+          .ckl-zz-rail-fill { transition: none !important; }
+          .ckl-zz-step {
             opacity: 1 !important;
             transform: none !important;
             transition: none !important;
