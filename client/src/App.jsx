@@ -55,7 +55,7 @@ const HallOfFame = lazy(() => import("./pages/hall-of-fame/HallOfFame"));
 const HallOfFameDetail = lazy(() => import("./pages/hall-of-fame/HallOfFameDetail"));
 const CompetitionRegister = lazy(() => import("./pages/challenge/CompetitionRegister"));
 const CompetitionDashboard = lazy(() => import("./pages/challenge/CompetitionDashboard"));
-const MyCompetitions = lazy(() => import("./pages/challenge/MyCompetitions"));
+const MyCompetitions = lazy(() => import("./features/competitions-record"));
 const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
