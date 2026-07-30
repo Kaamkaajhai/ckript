@@ -20,7 +20,7 @@ const EventSponsors = ({ sponsors = [] }) => {
   }, []);
 
   const renderComingSoon = () => (
-    <section className={`sponsors-section ${isVisible ? 'fade-in' : 'hidden'}`} ref={sectionRef}>
+    <section className={`sponsors-section ${isVisible ? 'ckl-fade-visible' : 'ckl-fade-hidden'}`} ref={sectionRef}>
       <div className="section-container">
         <div className="section-header">
           <div className="section-label">
@@ -39,8 +39,8 @@ const EventSponsors = ({ sponsors = [] }) => {
       </div>
       <style>{`
         .sponsors-section { padding: 6rem 2rem; background-color: #F8F6F2; color: #111111; font-family: var(--ck-sans, sans-serif); transition: opacity 0.8s ease, transform 0.8s ease; }
-        .hidden { opacity: 0; transform: translateY(20px); }
-        .fade-in { opacity: 1; transform: translateY(0); }
+        .ckl-fade-hidden { opacity: 0; transform: translateY(20px); }
+        .ckl-fade-visible { opacity: 1; transform: translateY(0); }
         .section-container { max-width: 1200px; margin: 0 auto; }
         .section-header { text-align: center; margin-bottom: 4rem; }
         .section-label { display: inline-flex; align-items: center; gap: 0.5rem; color: #8A3B2E; font-weight: 600; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
@@ -75,7 +75,7 @@ const EventSponsors = ({ sponsors = [] }) => {
   });
 
   return (
-    <section className={`sponsors-section ${isVisible ? 'fade-in' : 'hidden'}`} ref={sectionRef}>
+    <section className={`sponsors-section ${isVisible ? 'ckl-fade-visible' : 'ckl-fade-hidden'}`} ref={sectionRef}>
       <div className="section-container">
         <div className="section-header">
           <div className="section-label">
@@ -121,8 +121,8 @@ const EventSponsors = ({ sponsors = [] }) => {
 
       <style>{`
         .sponsors-section { padding: 6rem 2rem; background-color: #F8F6F2; color: #111111; font-family: var(--ck-sans, sans-serif); transition: opacity 0.8s ease, transform 0.8s ease; }
-        .hidden { opacity: 0; transform: translateY(20px); }
-        .fade-in { opacity: 1; transform: translateY(0); }
+        .ckl-fade-hidden { opacity: 0; transform: translateY(20px); }
+        .ckl-fade-visible { opacity: 1; transform: translateY(0); }
         .section-container { max-width: 1200px; margin: 0 auto; }
         .section-header { text-align: center; margin-bottom: 5rem; }
         .section-label { display: inline-flex; align-items: center; gap: 0.5rem; color: #8A3B2E; font-weight: 600; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
