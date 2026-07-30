@@ -1,14 +1,18 @@
 import React from "react";
 import { ArrowRight, Trophy, Users, Clock, MapPin } from "lucide-react";
 
-const getSafeUrl = (url) => {
-  if (!url) return "";
-  const trimmed = url.trim();
-  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("/")) {
-    return trimmed;
+const getSafeUrl = (urlStr) => {
+  if (!urlStr || typeof urlStr !== 'string') return "";
+  const trimmed = urlStr.trim();
+  if (trimmed.startsWith("/")) return trimmed; // allow relative paths
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "data:") {
+      return parsed.href;
+    }
+  } catch {
+    // ignore invalid URLs
   }
-  // Fallback for relative paths or data URIs if needed, but best to stick to http/https/absolute
-  if (trimmed.startsWith("data:image/")) return trimmed;
   return "";
 };
 
