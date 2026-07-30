@@ -1,6 +1,17 @@
 import React from "react";
 import { ArrowRight, Trophy, Users, Clock, MapPin } from "lucide-react";
 
+const getSafeUrl = (url) => {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("/")) {
+    return trimmed;
+  }
+  // Fallback for relative paths or data URIs if needed, but best to stick to http/https/absolute
+  if (trimmed.startsWith("data:image/")) return trimmed;
+  return "";
+};
+
 export default function PreviewPane({ data, isVisible, onClose }) {
   if (!isVisible) return null;
 
@@ -31,7 +42,7 @@ export default function PreviewPane({ data, isVisible, onClose }) {
             <div className="h-48 relative overflow-hidden bg-[#111]">
               {(data.cardThumbnailUrl || data.bannerUrl) ? (
                 <img 
-                  src={data.cardThumbnailUrl || data.bannerUrl} 
+                  src={getSafeUrl(data.cardThumbnailUrl || data.bannerUrl)} 
                   alt={data.name}
                   className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" 
                 />
