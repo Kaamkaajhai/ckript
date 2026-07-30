@@ -25,7 +25,7 @@ const CreateProjectShell = ({ children }) => {
     scriptLimit, setError, setDetailsStep, setExportMenuOpen, setFocusMode, setScreenplayEnabled, setShowDrafts,
     setShowVersionHistory, setSaved, setStep, setTitle, step, title, toggleDarkMode,
     useScreenplayEditor, currentElement, wordCount, scriptId, collabMyUserId,
-    competitionMode, hasFullAccess
+    competitionMode, hasFullAccess, hasPublishAccess
   } = useCreateProject();
 
   const activeStep = STEPS[step - 1];
@@ -305,9 +305,9 @@ const CreateProjectShell = ({ children }) => {
                     Next<span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
                   </button>
                 ) : (
-                  <button type="button" onClick={handlePublish} disabled={loading || !legal.agreedToTerms || creationBlocked} className="ckcp-solid"
-                    title={!legal.agreedToTerms ? "Accept the Submission Agreement to submit" : undefined}
-                    style={{ display: "flex", alignItems: "center", gap: "8px", height: "38px", padding: "0 20px", border: "none", borderRadius: "9px", background: dark ? "#f2f2f2" : "#111111", color: dark ? "#111" : "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: (loading || !legal.agreedToTerms || creationBlocked) ? "not-allowed" : "pointer", opacity: (loading || !legal.agreedToTerms || creationBlocked) ? 0.4 : 1 }}>
+                  <button type="button" onClick={handlePublish} disabled={loading || !legal.agreedToTerms || creationBlocked || !hasPublishAccess} className="ckcp-solid"
+                    title={!hasPublishAccess ? "You only have Content access, so you cannot publish." : (!legal.agreedToTerms ? "Accept the Submission Agreement to submit" : undefined)}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", height: "38px", padding: "0 20px", border: "none", borderRadius: "9px", background: dark ? "#f2f2f2" : "#111111", color: dark ? "#111" : "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: (loading || !legal.agreedToTerms || creationBlocked || !hasPublishAccess) ? "not-allowed" : "pointer", opacity: (loading || !legal.agreedToTerms || creationBlocked || !hasPublishAccess) ? 0.4 : 1 }}>
                     {loading ? "Submitting…" : "Submit for Approval"}
                     {!loading && <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>check</span>}
                   </button>
