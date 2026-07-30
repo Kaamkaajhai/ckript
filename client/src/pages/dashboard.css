@@ -718,10 +718,96 @@
 
 /* ── Scrollable main column ────────────────────────────────────────────────── */
 .ck-scroll-main {
-  flex: 1;
-  min-width: 0;
-  overflow-y: auto;
+  width: 100%;
+  height: 100%;
   padding: 16px 22px 36px;
+}
+
+/* ── Figma-style overlay scrollbar ────────────────────────────────────────── */
+.ck-overlay-scroll {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.ck-overlay-scroll__viewport {
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.ck-overlay-scroll__viewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.ck-overlay-scroll__content {
+  min-width: 100%;
+}
+
+.ck-overlay-scroll__viewport:focus {
+  outline: none;
+}
+
+.ck-overlay-scroll__viewport:focus-visible {
+  outline: 2px solid var(--ck-base);
+  outline-offset: -2px;
+}
+
+.ck-overlay-scroll__bar {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  bottom: 2px;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  width: 10px;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  user-select: none;
+}
+
+.ck-overlay-scroll__bar.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ck-overlay-scroll__thumb {
+  position: relative;
+  width: 4px;
+  min-height: 28px;
+  border-radius: 999px;
+  background: #000;
+  cursor: grab;
+  touch-action: none;
+  will-change: height, transform;
+}
+
+.ck-overlay-scroll__thumb:active {
+  cursor: grabbing;
+}
+
+.ck-right-rail-scroll,
+.ck-right-rail-viewport {
+  width: 100%;
+  height: 100%;
+}
+
+.ck-right-rail-content {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 18px;
 }
 
 /*
@@ -743,25 +829,6 @@
 .ck-page-scroll::-webkit-scrollbar-track { background: transparent; }
 .ck-page-scroll::-webkit-scrollbar-thumb { background: #e4ddd2; border-radius: 9px; }
 .ck-page-scroll::-webkit-scrollbar-thumb:hover { background: #cec7bc; }
-
-/* Thin scrollbar */
-.ck-scroll-main::-webkit-scrollbar,
-.ck-content-area aside::-webkit-scrollbar {
-  width: 5px;
-}
-.ck-scroll-main::-webkit-scrollbar-track,
-.ck-content-area aside::-webkit-scrollbar-track {
-  background: transparent;
-}
-.ck-scroll-main::-webkit-scrollbar-thumb,
-.ck-content-area aside::-webkit-scrollbar-thumb {
-  background: #e4ddd2;
-  border-radius: 9px;
-}
-.ck-scroll-main::-webkit-scrollbar-thumb:hover,
-.ck-content-area aside::-webkit-scrollbar-thumb:hover {
-  background: #cec7bc;
-}
 
 /* ── Mobile sidebar overlay ────────────────────────────────────────────────── */
 .ck-sidebar-overlay {

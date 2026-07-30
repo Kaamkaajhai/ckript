@@ -12,6 +12,7 @@ import { getProfileCanonicalPath } from "../utils/profilePath";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { readCache, writeCache } from "../utils/localCache";
 import { MatIcon } from "../layouts/dashboard/icons.jsx";
+import OverlayScrollArea from "../components/OverlayScrollArea";
 
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 
@@ -215,7 +216,11 @@ const CreatorDashboard = ({ user }) => {
         Plain block flow lets every child take its natural height and scroll,
         so no section can be silently collapsed. Spacing stays via each
         section's mb-* margin. */}
-      <div className="flex-1 min-w-0 ck-scroll-main">
+      <OverlayScrollArea
+        className="flex-1 min-w-0"
+        viewportClassName="ck-scroll-main"
+        ariaLabel="Writer dashboard"
+      >
 
         {/* Profile completion */}
         <ProfileCompletionBanner
@@ -634,21 +639,24 @@ const CreatorDashboard = ({ user }) => {
           )}
         </section>
 
-      </div>
+      </OverlayScrollArea>
 
       {/* ══════════════ RIGHT RAIL ══════════════ */}
       <aside
-        className="hidden lg:flex flex-col flex-none border-l"
+        className="hidden lg:block flex-none border-l"
         style={{
           width: 272,
           borderColor: BORDER,
-          padding: "20px 18px",
-          overflowY: "auto",
           background: "#fff",
-          gap: 12,
           height: "100%",
         }}
       >
+        <OverlayScrollArea
+          className="ck-right-rail-scroll"
+          viewportClassName="ck-right-rail-viewport"
+          ariaLabel="Writer dashboard summary"
+        >
+          <div className="ck-right-rail-content">
         {/* At a Glance header */}
         <div
           className="font-bold uppercase px-0.5"
@@ -797,6 +805,8 @@ const CreatorDashboard = ({ user }) => {
           <MatIcon name="analytics" size={18} />
           Full Analytics
         </Link>
+          </div>
+        </OverlayScrollArea>
       </aside>
 
       {/* ══════════════ AI "VIEW MORE" DETAIL MODAL ══════════════ */}
@@ -875,7 +885,11 @@ const DashboardSkeleton = () => (
   <div className="flex flex-1 min-h-0 min-w-0" aria-busy="true" aria-live="polite">
     <span className="sr-only">Loading your dashboard…</span>
 
-    <div className="flex-1 min-w-0 ck-scroll-main">
+    <OverlayScrollArea
+      className="flex-1 min-w-0"
+      viewportClassName="ck-scroll-main"
+      ariaLabel="Loading writer dashboard"
+    >
       {/* Hero */}
       <Skel h={150} r={16} className="mb-8" style={{ width: "100%" }} />
 
@@ -918,21 +932,29 @@ const DashboardSkeleton = () => (
           {[0, 1, 2, 3, 4, 5].map(i => <Skel key={i} h={280} r={16} />)}
         </div>
       </div>
-    </div>
+    </OverlayScrollArea>
 
     {/* Right rail */}
     <aside
-      className="hidden lg:flex flex-col flex-none border-l"
-      style={{ width: 272, borderColor: BORDER, padding: "20px 18px", background: "#fff", gap: 12 }}
+      className="hidden lg:block flex-none border-l"
+      style={{ width: 272, borderColor: BORDER, background: "#fff", height: "100%" }}
     >
-      <Skel w={90} h={10} r={5} />
-      <Skel h={148} r={12} style={{ width: "100%" }} />
-      <Skel h={116} r={12} style={{ width: "100%" }} />
-      <Skel h={72} r={11} style={{ width: "100%" }} />
-      <div className="flex flex-col gap-2.5 mt-1">
-        {[0, 1, 2, 3].map(i => <Skel key={i} h={15} r={5} />)}
-      </div>
-      <Skel h={44} r={11} className="mt-auto" style={{ width: "100%" }} />
+      <OverlayScrollArea
+        className="ck-right-rail-scroll"
+        viewportClassName="ck-right-rail-viewport"
+        ariaLabel="Loading writer dashboard summary"
+      >
+        <div className="ck-right-rail-content">
+          <Skel w={90} h={10} r={5} />
+          <Skel h={148} r={12} style={{ width: "100%" }} />
+          <Skel h={116} r={12} style={{ width: "100%" }} />
+          <Skel h={72} r={11} style={{ width: "100%" }} />
+          <div className="flex flex-col gap-2.5 mt-1">
+            {[0, 1, 2, 3].map(i => <Skel key={i} h={15} r={5} />)}
+          </div>
+          <Skel h={44} r={11} className="mt-auto" style={{ width: "100%" }} />
+        </div>
+      </OverlayScrollArea>
     </aside>
   </div>
 );
