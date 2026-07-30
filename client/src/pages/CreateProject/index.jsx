@@ -556,7 +556,8 @@ const CreateProject = () => {
         setCanEditContent(!competitionFrozen && (isOwnerOfScript || ["editor", "full_admin"].includes(role)));
         // Commenters can comment (not edit); viewers can do neither. Owners always can.
         setCanComment(isOwnerOfScript || ["editor", "full_admin", "merger", "commenter"].includes(role));
-        setHasFullAccess(isOwnerOfScript || role === "full_admin");
+        const accessLevel = isOwnerOfScript ? "full_access" : String(myCollab?.accessLevel || "full_access");
+        setHasFullAccess(isOwnerOfScript || (role === "full_admin" && accessLevel === "full_access"));
       }
       setLoadedScriptStatus(data.status || "draft");
       // Persisted when the entry's editor was opened, so it survives a reload and a fresh session —
