@@ -72,7 +72,7 @@ export default function EventHero({ competition, phase, serverNow }) {
           </p>
 
           <div className="flex flex-wrap items-center gap-4">
-            <button className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-white text-[#111] font-bold text-sm rounded-xl overflow-hidden transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+            <button className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-white text-[#8A3B2E] font-bold text-sm rounded-xl overflow-hidden transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
               <span className="relative z-10">Register Now</span>
               <ArrowRight size={18} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2.5} />
             </button>
