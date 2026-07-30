@@ -6,9 +6,9 @@ import {
   Star,
   Sparkles,
   Crown,
-  ChevronDown,
   Flame,
   Gift,
+  ArrowRight,
 } from "lucide-react";
 
 /* ── Intersection Observer hook ── */
@@ -37,14 +37,15 @@ function PrizeTierCard({ tier, items, index }) {
       label: "Grand Prize",
       subtitle: "The ultimate reward for the best script.",
       rank: "1st",
-      bg: "linear-gradient(145deg, #111 0%, #1a1511 50%, #222 100%)",
-      text: "#fff",
-      textMuted: "rgba(255,255,255,0.65)",
-      accentColor: "#D4A853",
-      accentBg: "rgba(212, 168, 83, 0.12)",
-      dotColor: "#D4A853",
-      borderColor: "rgba(212, 168, 83, 0.3)",
-      glowColor: "rgba(212, 168, 83, 0.15)",
+      bg: "#111111",
+      text: "#FFFFFF",
+      textMuted: "rgba(255, 255, 255, 0.6)",
+      accentColor: "#8A3B2E",
+      accentBg: "rgba(138, 59, 46, 0.15)",
+      dotColor: "#8A3B2E",
+      borderColor: "rgba(138, 59, 46, 0.4)",
+      dividerColor: "rgba(255, 255, 255, 0.08)",
+      glow: true,
     },
     runnerUp: {
       icon: Medal,
@@ -52,51 +53,52 @@ function PrizeTierCard({ tier, items, index }) {
       subtitle: "Exceptional recognition for top contenders.",
       rank: "2nd",
       bg: "#FFFFFF",
-      text: "#111",
-      textMuted: "#666",
-      accentColor: "#8A8A8A",
+      text: "#111111",
+      textMuted: "#666666",
+      accentColor: "#111111",
       accentBg: "#F4F2EE",
-      dotColor: "#A0A0A0",
-      borderColor: "var(--event-border, #E8E5E1)",
-      glowColor: "rgba(0,0,0,0.04)",
+      dotColor: "#111111",
+      borderColor: "#E8E5E1",
+      dividerColor: "#F0ECE9",
+      glow: false,
     },
     secondRunnerUp: {
       icon: Award,
       label: "2nd Runner-Up",
       subtitle: "Outstanding effort deserving of recognition.",
       rank: "3rd",
-      bg: "#FFFFFF",
-      text: "#111",
-      textMuted: "#666",
-      accentColor: "#B47946",
-      accentBg: "#FBF5EF",
-      dotColor: "#B47946",
-      borderColor: "var(--event-border, #E8E5E1)",
-      glowColor: "rgba(180, 121, 70, 0.06)",
+      bg: "#FAFAFA",
+      text: "#111111",
+      textMuted: "#666666",
+      accentColor: "#555555",
+      accentBg: "#F0ECE9",
+      dotColor: "#555555",
+      borderColor: "#E8E5E1",
+      dividerColor: "#F0ECE9",
+      glow: false,
     },
   };
 
   const t = TIERS[tier] || TIERS.runnerUp;
   const Icon = t.icon;
-  const isWinner = tier === "winner";
 
   return (
     <div
       ref={ref}
-      className="ckl-prize-card"
+      className={`ckl-prize-card ${t.glow ? "ckl-prize-card--glow" : ""}`}
       style={{
         background: t.bg,
-        border: `1px solid ${t.borderColor}`,
+        borderColor: t.borderColor,
         opacity: inView ? 1 : 0,
-        transform: inView ? "translateY(0) scale(1)" : "translateY(24px) scale(0.98)",
-        transition: `all 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${index * 120}ms`,
+        transform: inView ? "translateY(0)" : "translateY(30px)",
+        transition: `all 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${index * 150}ms`,
       }}
     >
-      {/* Decorative glow */}
-      {isWinner && (
+      {/* Decorative Glow Elements */}
+      {t.glow && (
         <>
-          <div className="ckl-prize-glow-1" />
-          <div className="ckl-prize-glow-2" />
+          <div className="ckl-prize-glow-top"></div>
+          <div className="ckl-prize-glow-bottom"></div>
         </>
       )}
 
@@ -106,7 +108,7 @@ function PrizeTierCard({ tier, items, index }) {
           {t.rank}
         </div>
         <div className="ckl-prize-icon" style={{ background: t.accentBg }}>
-          <Icon size={22} strokeWidth={2} style={{ color: t.accentColor }} />
+          <Icon size={24} strokeWidth={2} style={{ color: t.accentColor }} />
         </div>
         <div className="ckl-prize-titles">
           <h3 className="ckl-prize-name" style={{ color: t.text }}>
@@ -119,17 +121,14 @@ function PrizeTierCard({ tier, items, index }) {
       </div>
 
       {/* Divider */}
-      <div
-        className="ckl-prize-divider"
-        style={{ borderColor: isWinner ? "rgba(255,255,255,0.08)" : "var(--event-border, #E8E5E1)" }}
-      />
+      <div className="ckl-prize-divider" style={{ borderColor: t.dividerColor }} />
 
       {/* Benefits list */}
       <ul className="ckl-prize-list">
         {items.map((item, idx) => (
           <li key={idx} className="ckl-prize-item">
             <span className="ckl-prize-dot" style={{ background: t.dotColor }} />
-            <span style={{ color: isWinner ? "rgba(255,255,255,0.9)" : "#444" }}>{item}</span>
+            <span style={{ color: t.glow ? "rgba(255,255,255,0.9)" : "#333" }}>{item}</span>
           </li>
         ))}
       </ul>
@@ -145,21 +144,24 @@ function SpecialAwardCard({ award, index }) {
   return (
     <div
       ref={ref}
-      className="ckl-prize-special"
+      className="ckl-prize-special group"
       style={{
         opacity: inView ? 1 : 0,
-        transform: inView ? "translateY(0)" : "translateY(16px)",
-        transition: `all 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${index * 100}ms`,
+        transform: inView ? "translateY(0)" : "translateY(20px)",
+        transition: `all 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${index * 100}ms`,
       }}
     >
       <div className="ckl-prize-special-icon">
-        <Sparkles size={16} strokeWidth={2} />
+        <Sparkles size={18} strokeWidth={2.5} />
       </div>
-      <div>
+      <div className="ckl-prize-special-content">
         <h4 className="ckl-prize-special-title">{award.title}</h4>
         {award.description && (
           <p className="ckl-prize-special-desc">{award.description}</p>
         )}
+      </div>
+      <div className="ckl-prize-special-arrow">
+        <ArrowRight size={16} />
       </div>
     </div>
   );
@@ -172,12 +174,10 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
   const hasSecondRunnerUp = prizes?.secondRunnerUp?.length > 0;
   const hasSpecial = prizes?.special?.length > 0;
   const hasDetailed = detailedPrizes?.length > 0;
-  const hasAnyPrize = hasWinner || hasRunnerUp || hasSecondRunnerUp || hasSpecial || hasDetailed || prizePool;
 
   const sectionRef = useRef(null);
   const sectionInView = useInView(sectionRef);
 
-  /* Count how many tier cards we have for grid sizing */
   const tierCount = [hasWinner, hasRunnerUp, hasSecondRunnerUp].filter(Boolean).length;
 
   return (
@@ -187,7 +187,8 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
       style={{ background: "var(--event-surface, #FFF)" }}
     >
       <div className="ckl-event-container">
-        {/* Section header */}
+        
+        {/* Section Header */}
         <div
           className="ckl-prize-section-header"
           style={{
@@ -204,15 +205,15 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
             Prizes & Awards
           </h2>
           <p className="ckl-prize-section-sub">
-            Win exclusive perks, industry exposure, and massive rewards.
+            Compete for exclusive industry exposure and massive rewards.
           </p>
 
           {prizePool && (
             <div className="ckl-prize-pool">
               <div className="ckl-prize-pool-icon">
-                <Flame size={20} strokeWidth={2} />
+                <Flame size={20} strokeWidth={2.5} />
               </div>
-              <div>
+              <div className="ckl-prize-pool-content">
                 <span className="ckl-prize-pool-label">Total Prize Pool</span>
                 <span className="ckl-prize-pool-value">{prizePool}</span>
               </div>
@@ -220,30 +221,27 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
           )}
         </div>
 
-        {/* Tier cards grid */}
-        <div
-          className="ckl-prize-grid"
-          data-cols={tierCount}
-        >
+        {/* Tier Cards Grid */}
+        <div className="ckl-prize-grid" data-cols={tierCount}>
           {hasWinner && <PrizeTierCard tier="winner" items={prizes.winner} index={0} />}
           {hasRunnerUp && <PrizeTierCard tier="runnerUp" items={prizes.runnerUp} index={1} />}
           {hasSecondRunnerUp && <PrizeTierCard tier="secondRunnerUp" items={prizes.secondRunnerUp} index={2} />}
         </div>
 
-        {/* No tier prizes at all — Coming Soon */}
+        {/* Empty State (Coming Soon) */}
         {!hasWinner && !hasRunnerUp && !hasSecondRunnerUp && !hasDetailed && (
-          <div style={{ textAlign: 'center', padding: '48px 24px', background: 'var(--event-surface-alt, #F4F2EE)', borderRadius: 'var(--event-radius-lg, 24px)', border: '1px dashed var(--event-border, #E8E5E1)', maxWidth: '600px', margin: '0 auto' }}>
-            <Gift size={32} style={{ color: 'var(--event-text-faint, #888)', margin: '0 auto 16px' }} />
-            <p style={{ fontFamily: 'var(--ck-serif)', fontSize: '1.2rem', fontWeight: 600, color: 'var(--event-text-muted, #555)', margin: '0 0 4px' }}>Prize details coming soon</p>
-            <p style={{ fontFamily: 'var(--ck-sans)', fontSize: '0.85rem', color: 'var(--event-text-faint, #888)', margin: 0 }}>Check back for the full rewards breakdown.</p>
+          <div className="ckl-prize-empty">
+            <Gift size={36} className="ckl-prize-empty-icon" strokeWidth={1.5} />
+            <p className="ckl-prize-empty-title">Prize details coming soon</p>
+            <p className="ckl-prize-empty-sub">Check back for the full rewards breakdown when the event launches.</p>
           </div>
         )}
 
-        {/* Detailed Prizes (from admin dynamic builder) */}
+        {/* Detailed Prizes (from admin builder) */}
         {hasDetailed && (
           <div className="ckl-prize-specials-wrap" style={hasWinner || hasRunnerUp || hasSecondRunnerUp ? {} : { marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
             <h3 className="ckl-prize-specials-heading">
-              <Gift size={16} strokeWidth={2} />
+              <Gift size={16} strokeWidth={2.5} />
               Additional Prizes
             </h3>
             <div className="ckl-prize-specials-grid">
@@ -251,7 +249,14 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
                 .filter(p => p.visibility !== 'private')
                 .sort((a, b) => (a.order || 0) - (b.order || 0))
                 .map((prize, idx) => (
-                  <SpecialAwardCard key={idx} award={{ title: prize.title, description: [prize.description, prize.cash ? `${prize.currency || '$'}${prize.cash}` : ''].filter(Boolean).join(' — ') }} index={idx} />
+                  <SpecialAwardCard
+                    key={idx}
+                    award={{
+                      title: prize.title,
+                      description: [prize.description, prize.cash ? `${prize.currency || '$'}${prize.cash}` : ''].filter(Boolean).join(' — ')
+                    }}
+                    index={idx}
+                  />
                 ))}
             </div>
           </div>
@@ -261,7 +266,7 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
         {hasSpecial && (
           <div className="ckl-prize-specials-wrap">
             <h3 className="ckl-prize-specials-heading">
-              <Star size={16} strokeWidth={2} />
+              <Star size={16} strokeWidth={2.5} />
               Special Awards
             </h3>
             <div className="ckl-prize-specials-grid">
@@ -275,72 +280,82 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
 
       {/* Scoped Styles */}
       <style>{`
-        /* ── Section Header ── */
+        /* ── Header Area ── */
         .ckl-prize-section-header {
           text-align: center;
-          max-width: 640px;
-          margin: 0 auto clamp(40px, 6vw, 72px);
+          max-width: 680px;
+          margin: 0 auto clamp(48px, 8vw, 80px);
         }
         .ckl-prize-section-label {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           font-family: var(--ck-sans);
-          font-size: var(--event-text-xs, 0.75rem);
-          font-weight: 700;
+          font-size: 0.72rem;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.2em;
+          letter-spacing: 0.25em;
           color: var(--event-accent, #8A3B2E);
-          margin-bottom: 16px;
+          margin-bottom: 20px;
         }
         .ckl-prize-section-sub {
           font-family: var(--ck-serif);
-          font-size: var(--event-text-lg, 1.2rem);
-          line-height: 1.5;
+          font-size: clamp(1.1rem, 2vw, 1.3rem);
+          line-height: 1.6;
           color: var(--event-text-muted, #555);
-          margin-top: 12px;
+          margin-top: 16px;
         }
 
-        /* ── Prize Pool badge ── */
+        /* ── Prize Pool Badge ── */
         .ckl-prize-pool {
           display: inline-flex;
           align-items: center;
-          gap: 14px;
-          margin-top: 24px;
-          padding: 12px 24px 12px 16px;
-          background: var(--event-surface-alt, #F4F2EE);
-          border: 1px solid var(--event-border, #E8E5E1);
-          border-radius: var(--event-radius-full, 9999px);
+          gap: 16px;
+          margin-top: 32px;
+          padding: 12px 32px 12px 12px;
+          background: #FFFFFF;
+          border: 1px solid #E8E5E1;
+          border-radius: 99px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.03);
+          transition: all 0.3s ease;
+        }
+        .ckl-prize-pool:hover {
+          border-color: #8A3B2E;
+          box-shadow: 0 12px 32px rgba(138, 59, 46, 0.1);
         }
         .ckl-prize-pool-icon {
-          width: 40px;
-          height: 40px;
+          width: 48px;
+          height: 48px;
           border-radius: 50%;
-          background: var(--event-accent-light, #F4EAE8);
-          color: var(--event-accent, #8A3B2E);
+          background: #111111;
+          color: #FFFFFF;
           display: flex;
           align-items: center;
           justify-content: center;
+        }
+        .ckl-prize-pool-content {
+          text-align: left;
         }
         .ckl-prize-pool-label {
           display: block;
           font-family: var(--ck-sans);
           font-size: 0.65rem;
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.15em;
-          color: var(--event-text-faint, #888);
+          color: #888888;
+          margin-bottom: 2px;
         }
         .ckl-prize-pool-value {
           display: block;
           font-family: var(--ck-serif);
-          font-size: 1.3rem;
+          font-size: 1.4rem;
           font-weight: 700;
-          color: var(--event-text, #111);
-          line-height: 1.2;
+          color: #111111;
+          line-height: 1;
         }
 
-        /* ── Grid ── */
+        /* ── Main Tier Grid ── */
         .ckl-prize-grid {
           display: grid;
           gap: 24px;
@@ -349,60 +364,72 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
           margin: 0 auto;
         }
         @media (min-width: 768px) {
-          .ckl-prize-grid[data-cols="2"] {
-            grid-template-columns: repeat(2, 1fr);
-          }
-          .ckl-prize-grid[data-cols="3"] {
-            grid-template-columns: repeat(3, 1fr);
-          }
+          .ckl-prize-grid[data-cols="2"] { grid-template-columns: repeat(2, 1fr); }
+          .ckl-prize-grid[data-cols="3"] { grid-template-columns: repeat(3, 1fr); }
         }
 
-        /* ── Tier Card ── */
+        /* ── Tier Cards ── */
         .ckl-prize-card {
-          border-radius: var(--event-radius-lg, 24px);
-          padding: clamp(24px, 4vw, 36px);
+          border-radius: 24px;
+          border-width: 1px;
+          border-style: solid;
+          padding: clamp(28px, 4vw, 40px);
           position: relative;
           overflow: hidden;
-          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           will-change: transform, opacity;
+          display: flex;
+          flex-direction: column;
         }
+        
+        .ckl-prize-card--glow {
+          box-shadow: 0 12px 40px rgba(138, 59, 46, 0.15);
+        }
+        
+        /* Interactive Hover */
         .ckl-prize-card:hover {
-          transform: translateY(-4px) !important;
-          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.1);
+          transform: translateY(-8px) !important;
+        }
+        .ckl-prize-card--glow:hover {
+          box-shadow: 0 20px 60px rgba(138, 59, 46, 0.25);
+          border-color: rgba(138, 59, 46, 0.6) !important;
+        }
+        .ckl-prize-card:not(.ckl-prize-card--glow):hover {
+          border-color: #D8D4CE !important;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.06);
         }
 
-        /* Glows for winner */
-        .ckl-prize-glow-1 {
+        /* Premium Glows for Grand Prize */
+        .ckl-prize-glow-top {
           position: absolute;
-          top: -40px;
-          right: -40px;
-          width: 160px;
-          height: 160px;
-          background: radial-gradient(circle, rgba(212, 168, 83, 0.2), transparent 70%);
+          top: -60px;
+          right: -60px;
+          width: 250px;
+          height: 250px;
+          background: radial-gradient(circle, rgba(138, 59, 46, 0.25), transparent 70%);
           pointer-events: none;
         }
-        .ckl-prize-glow-2 {
+        .ckl-prize-glow-bottom {
           position: absolute;
           bottom: -40px;
-          left: -20px;
-          width: 120px;
-          height: 120px;
-          background: radial-gradient(circle, rgba(138, 59, 46, 0.15), transparent 70%);
+          left: -40px;
+          width: 200px;
+          height: 200px;
+          background: radial-gradient(circle, rgba(255, 255, 255, 0.05), transparent 70%);
           pointer-events: none;
         }
 
-        /* Header row */
+        /* Header Layout */
         .ckl-prize-header {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 16px;
           position: relative;
           z-index: 2;
         }
         .ckl-prize-rank {
           width: 36px;
           height: 36px;
-          border-radius: 10px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -413,9 +440,9 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
           flex-shrink: 0;
         }
         .ckl-prize-icon {
-          width: 44px;
-          height: 44px;
-          border-radius: 14px;
+          width: 48px;
+          height: 48px;
+          border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -427,43 +454,44 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
         }
         .ckl-prize-name {
           font-family: var(--ck-serif);
-          font-size: clamp(1.2rem, 2vw, 1.5rem);
+          font-size: clamp(1.4rem, 2vw, 1.8rem);
           font-weight: 700;
-          line-height: 1.2;
-          margin: 0 0 2px;
+          line-height: 1.1;
+          margin: 0 0 6px;
         }
         .ckl-prize-sub {
           font-family: var(--ck-sans);
-          font-size: 0.8rem;
+          font-size: 0.85rem;
           line-height: 1.4;
           margin: 0;
         }
 
-        /* Divider */
+        /* Card Divider */
         .ckl-prize-divider {
           border-top: 1px solid;
-          margin: 20px 0;
+          margin: 28px 0;
           position: relative;
           z-index: 2;
         }
 
-        /* Benefits list */
+        /* Card List */
         .ckl-prize-list {
           list-style: none;
           margin: 0;
           padding: 0;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 14px;
           position: relative;
           z-index: 2;
+          flex: 1;
         }
         .ckl-prize-item {
           display: flex;
           align-items: flex-start;
-          gap: 10px;
+          gap: 12px;
           font-family: var(--ck-sans);
-          font-size: 0.875rem;
+          font-size: 0.95rem;
           line-height: 1.5;
         }
         .ckl-prize-dot {
@@ -471,85 +499,130 @@ export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
           height: 6px;
           border-radius: 50%;
           flex-shrink: 0;
-          margin-top: 7px;
+          margin-top: 9px;
         }
 
-        /* ── Special Awards ── */
+        /* ── Special/Additional Awards Section ── */
         .ckl-prize-specials-wrap {
           max-width: 1100px;
-          margin: 48px auto 0;
-          padding-top: 48px;
-          border-top: 1px solid var(--event-border, #E8E5E1);
+          margin: 64px auto 0;
+          padding-top: 56px;
+          border-top: 1px solid #E8E5E1;
         }
         .ckl-prize-specials-heading {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           font-family: var(--ck-sans);
-          font-size: 0.85rem;
-          font-weight: 700;
+          font-size: 0.8rem;
+          font-weight: 800;
           text-transform: uppercase;
-          letter-spacing: 0.15em;
-          color: var(--event-accent, #8A3B2E);
-          margin-bottom: 20px;
+          letter-spacing: 0.2em;
+          color: #8A3B2E;
+          margin-bottom: 24px;
         }
         .ckl-prize-specials-grid {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 12px;
+          gap: 16px;
         }
-        @media (min-width: 640px) {
-          .ckl-prize-specials-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
+        @media (min-width: 768px) {
+          .ckl-prize-specials-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         .ckl-prize-special {
           display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          padding: 16px 20px;
-          background: var(--event-surface-alt, #F4F2EE);
-          border: 1px solid var(--event-border, #E8E5E1);
-          border-radius: var(--event-radius-md, 16px);
-          transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-          will-change: transform, opacity;
+          align-items: center;
+          gap: 20px;
+          padding: 24px;
+          background: #FFFFFF;
+          border: 1px solid #E8E5E1;
+          border-radius: 20px;
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          will-change: transform, box-shadow;
+          cursor: default;
         }
         .ckl-prize-special:hover {
-          border-color: var(--event-border-hover, #D8D4CE);
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-          transform: translateY(-2px) !important;
+          border-color: #111111;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.05);
+          transform: translateY(-4px) !important;
         }
         .ckl-prize-special-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          background: var(--event-accent-light, #F4EAE8);
-          color: var(--event-accent, #8A3B2E);
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          background: #F8F6F2;
+          color: #8A3B2E;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          transition: all 0.3s ease;
+        }
+        .ckl-prize-special:hover .ckl-prize-special-icon {
+          background: #111111;
+          color: #FFFFFF;
+        }
+        .ckl-prize-special-content {
+          flex: 1;
         }
         .ckl-prize-special-title {
-          font-family: var(--ck-sans);
-          font-size: 0.9rem;
-          font-weight: 650;
-          color: var(--event-text, #111);
+          font-family: var(--ck-serif);
+          font-size: 1.15rem;
+          font-weight: 700;
+          color: #111111;
           margin: 0 0 4px;
         }
         .ckl-prize-special-desc {
           font-family: var(--ck-sans);
-          font-size: 0.8rem;
-          color: var(--event-text-muted, #555);
+          font-size: 0.85rem;
+          color: #666666;
           line-height: 1.5;
+          margin: 0;
+        }
+        .ckl-prize-special-arrow {
+          color: #CCCCCC;
+          transition: all 0.3s ease;
+          transform: translateX(-4px);
+          opacity: 0;
+        }
+        .ckl-prize-special:hover .ckl-prize-special-arrow {
+          color: #8A3B2E;
+          transform: translateX(0);
+          opacity: 1;
+        }
+
+        /* ── Empty State ── */
+        .ckl-prize-empty {
+          text-align: center;
+          padding: 64px 24px;
+          background: #F8F6F2;
+          border-radius: 24px;
+          border: 1px dashed #D8D4CE;
+          max-width: 600px;
+          margin: 0 auto;
+        }
+        .ckl-prize-empty-icon {
+          color: #AAAAAA;
+          margin: 0 auto 20px;
+        }
+        .ckl-prize-empty-title {
+          font-family: var(--ck-serif);
+          font-size: 1.4rem;
+          font-weight: 600;
+          color: #444444;
+          margin: 0 0 8px;
+        }
+        .ckl-prize-empty-sub {
+          font-family: var(--ck-sans);
+          font-size: 0.9rem;
+          color: #888888;
           margin: 0;
         }
 
         /* ── Reduced motion ── */
         @media (prefers-reduced-motion: reduce) {
-          .ckl-prize-card,
-          .ckl-prize-special {
+          .ckl-prize-card, .ckl-prize-special {
             opacity: 1 !important;
             transform: none !important;
             transition: none !important;
