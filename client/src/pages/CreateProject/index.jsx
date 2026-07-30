@@ -92,6 +92,7 @@ const CreateProject = () => {
   const [lastSaved, setLastSaved] = useState(null);
   const [scriptId, setScriptId] = useState(draftId || null);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [invitePending, setInvitePending] = useState(false);
   // Editor Refs-current mirror of scriptId. setScriptId is async, so back-to-back autosaves would each
   // fire with a stale (null) scriptId in their closure and CREATE a new draft every time. The ref
   // is updated synchronously on create, so every save after the first carries the id → it UPDATES
@@ -537,6 +538,15 @@ const CreateProject = () => {
         const isOwnerOfScript = String(data?.creator?._id || data?.creator || "") === me;
         const myCollab = (data?.collaborators || []).find((c) =>
           String(c?.userId?._id || c?.userId || "") === me && c?.status === "accepted" && c?.isActive !== false);
+
+        const pendingCollab = (data?.collaborators || []).find((c) =>
+          String(c?.userId?._id || c?.userId || "") === me && c?.status === "pending" && c?.isActive !== false);
+
+        if (!isOwnerOfScript && !myCollab && pendingCollab) {
+          setInvitePending(true);
+          return;
+        }
+
         const role = isOwnerOfScript ? "full_admin" : String(myCollab?.role || "");
         // A competition submission is final and the server rejects every write to it. Without this,
         // reopening a submitted entry hands the writer a normal-looking editor whose autosaves all
@@ -862,6 +872,7 @@ const CreateProject = () => {
     setLastSaved(null);
     setShowDrafts(false);
     setError("");
+    setScreenplayValue("");
     setTagsInput("");
     setRoles([]);
     setClassification({ tones: [], themes: [], settings: [] });
@@ -914,6 +925,10 @@ const CreateProject = () => {
         editor.commands.setContent(data.textContent);
       }
 
+      if (typeof data.fountainContent === "string" && data.fountainContent.trim()) {
+        setScreenplayValue(data.fountainContent);
+      }
+
       if (typeof data.step === "number" && data.step >= 1 && data.step <= 5) {
         setStep(data.step);
       }
@@ -936,8 +951,9 @@ const CreateProject = () => {
 
     const html = editor.getHTML();
     const plainText = String(html).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const screenplayLength = screenplayValue.trim().length;
     const trimmedTitle = title.trim();
-    const hasContent = Boolean(trimmedTitle || plainText.length >= 10);
+    const hasContent = Boolean(trimmedTitle || plainText.length >= 10 || screenplayLength >= 10);
 
     if (!hasContent) {
       clearLocalWorkingDraft();
@@ -953,6 +969,7 @@ const CreateProject = () => {
             scriptId: scriptId || null,
             title,
             textContent: html,
+            fountainContent: screenplayValue,
             step,
             updatedAt: Date.now(),
           })
@@ -963,7 +980,7 @@ const CreateProject = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [charCount, clearLocalWorkingDraft, draftId, editor, scriptId, step, title, user?._id, wordCount]);
+  }, [charCount, clearLocalWorkingDraft, draftId, editor, scriptId, step, title, user?._id, wordCount, screenplayValue]);
 
   // Debounced autosave while typing title/content.
   useEffect(() => {
@@ -1801,6 +1818,30 @@ const CreateProject = () => {
           <h2 className="text-2xl font-bold mb-3" style={{ color: dark ? "#f3f4f6" : "#111827", fontFamily: "var(--ckcp-font-display, serif)" }}>Access Removed</h2>
           <p className="text-base leading-relaxed mb-8" style={{ color: dark ? "#9ca3af" : "#4b5563" }}>
             You no longer have access to this script. The project owner has removed your collaboration permissions.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm"
+            style={{ background: dark ? "#ffffff" : "#111827", color: dark ? "#000000" : "#ffffff" }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (invitePending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: dark ? "#0a0a0a" : "#fcfcfc" }}>
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center" style={{ background: dark ? "rgba(209, 77, 55, 0.1)" : "#ffeae5" }}>
+            <svg className="w-8 h-8" style={{ color: "#D14D37" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: dark ? "#f3f4f6" : "#111827", fontFamily: "var(--ckcp-font-display, serif)" }}>Invitation Pending</h2>
+          <p className="text-base leading-relaxed mb-8" style={{ color: dark ? "#9ca3af" : "#4b5563" }}>
+            You've been invited to collaborate on this script! Please accept the invitation link sent to your email to gain access.
           </p>
           <button
             onClick={() => navigate("/dashboard")}
