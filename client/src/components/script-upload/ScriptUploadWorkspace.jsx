@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import ScreenplayPdfViewer from "../ScreenplayPdfViewer";
-import { MatIcon } from "../../layouts/dashboard/icons";
+import { MatIcon } from "../../layouts/app-shell/navigation/icons";
 import "./ScriptUploadWorkspace.css";
 import TagSelect from "../TagSelect";
 

@@ -93,9 +93,12 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
 
         <h3 className="ckc-title ckc-h3" style={{ marginTop: 10 }}>{item.name}</h3>
 
-        {/* Only ever set once the reveal has happened — the server withholds it before that. */}
+        {/* Only ever set once the reveal has happened — the server withholds it before that.
+            Coral only while the competition is actually running: the accent is reserved for live
+            state, and an archive card's theme is decoration. Spending it on every past card is what
+            makes the accent stop meaning anything. */}
         {item.theme ? (
-          <p style={{ marginTop: 6, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: 16, color: "var(--ckc-accent-text)" }}>
+          <p style={{ marginTop: 6, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: 16, color: isRunning ? "var(--ckc-accent-text)" : "var(--ckc-ink)" }}>
             {item.theme}
           </p>
         ) : null}
@@ -148,12 +151,14 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
           <div className="mt-4 flex gap-5">
             {hasEntrantCount ? (
               <span className="ckc-meta inline-flex items-center gap-1.5">
-                <Users className="h-3 w-3" aria-hidden="true" /> {item.totalParticipants} entrants
+                <Users className="h-3 w-3" aria-hidden="true" /> {item.totalParticipants}
+                {item.totalParticipants === 1 ? " entrant" : " entrants"}
               </span>
             ) : null}
             {hasCountryCount ? (
               <span className="ckc-meta inline-flex items-center gap-1.5">
-                <Globe className="h-3 w-3" aria-hidden="true" /> {item.countriesRepresented} countries
+                <Globe className="h-3 w-3" aria-hidden="true" /> {item.countriesRepresented}
+                {item.countriesRepresented === 1 ? " country" : " countries"}
               </span>
             ) : null}
           </div>

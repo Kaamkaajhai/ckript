@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { MatIcon } from "../../layouts/dashboard/icons";
+import { MatIcon } from "../../layouts/app-shell/navigation/icons";
 import "./ScriptUploadSuccess.css";
 
 export default function ScriptUploadSuccess({ projectTitle, reviewPath }) {

@@ -1,0 +1,958 @@
+/*
+ * app-shell.css — the application chrome: rail, drawer, header, content area,
+ * mobile bar, notification panel and toasts.
+ *
+ * Split out of pages/dashboard.css, which was one 1100-line file mixing the
+ * shell with the writer Dashboard's own modals, pager and skeletons. A producer
+ * section could not use the shell without also inheriting a writer page's
+ * styles, and neither half could be changed without reading the other.
+ *
+ * Self-contained: it does NOT inherit from index.css design tokens, and every
+ * rule is scoped under .ck-dash-root so nothing leaks onto pages outside.
+ *
+ * ON THE CLASS NAMES
+ * ------------------
+ * `.ck-dash-root` is the historical scoping root. Several pages (the writer
+ * Dashboard, the messages console, the script workbench, challenge.css) declare
+ * rules under it, so it stays as the contract. `.ck-app-shell` is applied
+ * alongside it as the name that actually describes the thing; prefer it in new
+ * CSS, and once nothing depends on the old name it can be retired in one pass.
+ */
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+.ck-dash-root {
+  --ck-accent:        #d14d37;
+  --ck-base:          #1c1a17;
+  --ck-muted:         #6f695f;
+  --ck-faint:         #a39d92;
+  --ck-border:        #ece8e0;
+  --ck-cream:         #f4efe6;
+  --ck-soft:          #faf7f2;
+  --ck-blush:         #fdf5f4;
+
+  /* Dark chrome (rail + drawer). Three deliberate steps so a border never
+     disappears under a hover fill. */
+  --ck-dark:          #0f0f0f;
+  --ck-dark-raised:   #1a1a1a;
+  --ck-dark-active:   #1c1c1c;
+  --ck-dark-line:     #242424;
+  --ck-dark-text:     #d7d7d7;
+  --ck-dark-dim:      #9a9590;
+
+  --ck-sidebar-bg:    var(--ck-dark);
+  --ck-sidebar-w:     94px;
+  --ck-header-h:      74px;
+  --ck-drawer-w:      274px;
+
+  /* Typography = the reference "Broadsheet" system. Single source of truth: the
+     JS in the pages reads these via var(--ck-display) rather than re-declaring
+     family names, so the whole shell changes face here. */
+  --ck-display:       'Spectral', Georgia, 'Times New Roman', serif;
+  --ck-body:          'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Root shell ────────────────────────────────────────────────────────────── */
+.ck-dash-root {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: #fff;
+  font-family: var(--ck-body);
+  font-size: 14px;
+  color: var(--ck-base);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Override the global `* { font-family: var(--app-font-family) }` from index.css.
+ * The `*` selector sets font-family directly on every element, bypassing cascade
+ * inheritance from .ck-dash-root. Using `.ck-dash-root *` restores --ck-body
+ * (IBM Plex Sans) inside the shell without touching any other page.
+ */
+.ck-dash-root *,
+.ck-dash-root input,
+.ck-dash-root button,
+.ck-dash-root select,
+.ck-dash-root textarea {
+  font-family: var(--ck-body);
+}
+
+/*
+ * Material Symbols icons must keep their own font — the `.ck-dash-root *` rule
+ * above would otherwise reassign --ck-body and render the ligature as text
+ * ("dashboard", "menu", …) instead of a glyph. This rule wins by specificity.
+ */
+.ck-dash-root .material-symbols-outlined {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal;
+  font-style: normal;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* ── Icon rail ─────────────────────────────────────────────────────────────── */
+.ck-sidebar {
+  flex: 0 0 var(--ck-sidebar-w);
+  width: var(--ck-sidebar-w);
+  background: var(--ck-sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 7px 20px;
+  height: 100vh;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.ck-sidebar__menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #f1f1f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.15s;
+}
+.ck-sidebar__menu-btn:hover { background: var(--ck-dark-line); }
+
+.ck-sidebar__nav {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ck-nav-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 13px 0;
+  border-radius: 12px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  border: none;
+  background: transparent;
+  color: inherit;
+}
+
+.ck-nav-item__icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ck-nav-item .material-symbols-outlined {
+  color: #f1f1f1;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.ck-nav-item__label {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: #cfcfcf;
+  text-align: center;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.ck-nav-item:hover { background: var(--ck-dark-raised); }
+
+/* The active row is the one place in the chrome that earns the accent — it IS
+   the "you are here" state. */
+.ck-nav-item.active { background: var(--ck-dark-active); }
+.ck-nav-item.active .material-symbols-outlined { color: var(--ck-accent); }
+.ck-nav-item.active .ck-nav-item__label { color: var(--ck-accent); }
+
+.ck-nav-item__badge {
+  position: absolute;
+  top: -3px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--ck-accent);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--ck-sidebar-bg);
+  font-family: var(--ck-body);
+}
+
+/* ── Overlay drawer ───────────────────────────────────────────────────────── */
+.ck-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.26s ease;
+}
+.ck-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ck-drawer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 70;
+  width: var(--ck-drawer-w);
+  height: 100vh;
+  background: var(--ck-dark);
+  display: flex;
+  flex-direction: column;
+  padding: 22px 16px 16px;
+  overflow-y: auto;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.55);
+  transform: translateX(-100%);
+  transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ck-drawer.open { transform: translateX(0); }
+
+.ck-drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+}
+.ck-drawer__logo { display: inline-flex; align-items: center; }
+/* Landscape logo is dark-on-light — invert it onto the dark drawer. */
+.ck-drawer__logo img { filter: invert(1) hue-rotate(180deg); }
+.ck-drawer__collapse {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ck-dark-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ck-drawer__collapse:hover { background: var(--ck-dark-active); color: #fff; }
+
+/* Identity card */
+.ck-drawer__profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 11px 12px;
+  border-radius: 14px;
+  background: #191919;
+  border: 1px solid var(--ck-dark-line);
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+.ck-drawer__profile:hover { border-color: #333; }
+.ck-drawer__avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d14d37, #9a3522);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ck-display);
+  font-size: 16px;
+  color: #ffe2da;
+  overflow: hidden;
+}
+.ck-drawer__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ck-drawer__id { flex: 1; min-width: 0; }
+.ck-drawer__name {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ck-drawer__role { display: block; font-size: 11.5px; color: var(--ck-dark-dim); margin-top: 2px; }
+.ck-drawer__id-chev { color: #6a6560; flex: none; }
+
+/* Drawer nav */
+.ck-drawer__nav {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ck-drawer__divider { height: 1px; background: #222; margin: 9px 8px; }
+.ck-drawer__link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  text-decoration: none;
+  color: var(--ck-dark-text);
+  transition: background 0.15s, color 0.15s;
+}
+.ck-drawer__link:hover { background: var(--ck-dark-raised); color: #fff; }
+.ck-drawer__link .material-symbols-outlined { color: inherit; flex: none; }
+.ck-drawer__link-label { flex: 1; font-size: 14.5px; font-weight: 500; }
+.ck-drawer__link.active { color: var(--ck-accent); }
+.ck-drawer__link.active .material-symbols-outlined { color: var(--ck-accent); }
+.ck-drawer__link.active .ck-drawer__link-label { font-weight: 600; }
+.ck-drawer__link-badge {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--ck-accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ck-body);
+}
+
+/* Contextual collection — "My Projects" / "Watchlist" */
+.ck-drawer__section {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  color: #6a6560;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+.ck-drawer__section .material-symbols-outlined { color: inherit; }
+.ck-drawer__recents {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ck-drawer__recent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.ck-drawer__recent:hover { background: var(--ck-dark-raised); }
+.ck-drawer__recent-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ck-accent);
+}
+.ck-drawer__recent-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #cfcfcf;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Logout — pinned bottom */
+.ck-drawer__logout {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 11px;
+  border: none;
+  border-top: 1px solid #222;
+  background: transparent;
+  color: var(--ck-accent);
+  font-weight: 600;
+  font-size: 14.5px;
+  font-family: var(--ck-body);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ck-drawer__logout .material-symbols-outlined { color: inherit; }
+.ck-drawer__logout:hover { background: #1a1010; }
+
+/* Drawer scrollbar */
+.ck-dscroll::-webkit-scrollbar { width: 5px; }
+.ck-dscroll::-webkit-scrollbar-track { background: transparent; }
+.ck-dscroll::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 9px; }
+.ck-dscroll::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+
+/* ── Main column ───────────────────────────────────────────────────────────── */
+.ck-main-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.ck-header {
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 30px;
+  height: var(--ck-header-h);
+  background: #ffffff;
+  border-bottom: 1px solid var(--ck-border);
+}
+
+/* Anchor for the header's two dropdown panels. Was an inline
+   style={{position:"relative"}} on two sibling divs. */
+.ck-header__slot { position: relative; }
+
+.ck-header__logo {
+  height: 60px;
+  width: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+.ck-header__logo img {
+  height: 60px;
+  width: auto;
+  object-fit: contain;
+}
+
+.ck-header__search {
+  width: 280px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1.5px solid #d8d2c8;
+  transition: border-color 0.2s;
+  flex-shrink: 0;
+}
+.ck-header__search:focus-within { border-color: var(--ck-accent); }
+.ck-header__search svg,
+.ck-header__search .material-symbols-outlined {
+  color: var(--ck-faint);
+  flex-shrink: 0;
+}
+.ck-header__search input {
+  width: 100%;
+  height: 36px;
+  border: none;
+  background: transparent;
+  color: var(--ck-base);
+  font-size: 13.5px;
+  font-family: var(--ck-body);
+  padding: 0 6px;
+  outline: none;
+}
+/* Kill the UA's search-input decorations so type="search" looks identical to
+   the text input it replaced. */
+.ck-header__search input::-webkit-search-decoration,
+.ck-header__search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+/*
+ * index.css sets a global focus ring (box-shadow + border-radius) on every
+ * input:focus-visible. The search is an underline field, so that ring draws a
+ * stray rounded box over it — kill it here. The accent underline is handled by
+ * `.ck-header__search:focus-within` above.
+ */
+.ck-dash-root .ck-header__search input:focus,
+.ck-dash-root .ck-header__search input:focus-visible {
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+}
+.ck-header__search input::placeholder { color: var(--ck-faint); }
+
+.ck-header__spacer { flex: 1; }
+
+.ck-header__pricing {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  text-decoration: none;
+  color: #3a352e;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+.ck-header__pricing:hover { color: var(--ck-base); }
+.ck-header__pricing svg,
+.ck-header__pricing .material-symbols-outlined { color: inherit; }
+
+.ck-header__bell {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: #3a352e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.ck-header__bell:hover { background: #f0ece4; }
+.ck-header__bell svg { width: 22px; height: 22px; }
+.ck-header__bell-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--ck-accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #ffffff;
+  font-family: var(--ck-body);
+}
+
+.ck-header__user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  transition: background 0.15s;
+}
+.ck-header__user:hover { background: var(--ck-cream); }
+
+.ck-header__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #cfc8bc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--ck-display);
+  font-size: 15px;
+  color: var(--ck-base);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.ck-header__avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.ck-header__username {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ck-base);
+  white-space: nowrap;
+}
+
+.ck-header__user svg,
+.ck-header__user > .material-symbols-outlined {
+  color: #8a8477;
+  transition: transform 0.2s;
+}
+.ck-header__user.open svg,
+.ck-header__user.open > .material-symbols-outlined { transform: rotate(180deg); }
+
+/* ── Shared chrome buttons ─────────────────────────────────────────────────── */
+/*
+ * These replace ~15 inline style objects that were repeated across the
+ * notification panel and the toast, each with its own copy of the same hex
+ * values. One definition means the panel and the toast cannot drift apart.
+ */
+.ck-dash-root .ck-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-family: var(--ck-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ck-dash-root .ck-btn--sm { padding: 6px 14px; font-size: 11px; }
+.ck-dash-root .ck-btn--solid {
+  background: var(--ck-base);
+  color: #fff;
+}
+.ck-dash-root .ck-btn--solid:hover { background: #322e28; }
+.ck-dash-root .ck-btn--ghost {
+  background: transparent;
+  border-color: var(--ck-border);
+  color: var(--ck-muted);
+}
+.ck-dash-root .ck-btn--ghost:hover {
+  background: var(--ck-soft);
+  color: var(--ck-base);
+}
+
+/* A text-only affordance ("Mark all read"). */
+.ck-dash-root .ck-link-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: var(--ck-body);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ck-faint);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ck-dash-root .ck-link-btn:hover { color: var(--ck-base); }
+
+/* ── Notification panel ───────────────────────────────────────────────────── */
+.ck-notif-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(94vw, 360px);
+  max-height: min(70vh, 520px);
+  background: #fff;
+  border: 1px solid var(--ck-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 4px 24px rgba(28, 26, 23, 0.10);
+}
+.ck-notif-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ck-border);
+  flex-shrink: 0;
+}
+.ck-notif-panel__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ck-base);
+  font-family: var(--ck-body);
+}
+.ck-notif-panel__count {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ck-faint);
+}
+.ck-notif-panel__body { flex: 1; overflow-y: auto; }
+.ck-notif-panel__empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--ck-faint);
+  font-size: 13px;
+}
+
+.ck-notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid #f5f0e8;
+  transition: background 0.12s;
+  cursor: pointer;
+}
+.ck-notif-item:hover { background: var(--ck-soft); }
+.ck-notif-item:last-child { border-bottom: none; }
+/* Unread wash. Was an inline `background: !n.read ? "#fdf5f4" : undefined`. */
+.ck-notif-item.is-unread { background: var(--ck-blush); }
+.ck-notif-item:focus-visible {
+  outline: 2px solid var(--ck-base);
+  outline-offset: -2px;
+}
+.ck-notif-item__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--ck-cream);
+}
+.ck-notif-item__icon svg,
+.ck-notif-item__icon .material-symbols-outlined { color: var(--ck-accent); }
+.ck-notif-item__main { flex: 1; min-width: 0; }
+.ck-notif-item__text {
+  font-size: 12.5px;
+  color: var(--ck-muted);
+  line-height: 1.45;
+}
+.ck-notif-item__actor {
+  color: var(--ck-base);
+  font-weight: 600;
+}
+.ck-notif-item__time {
+  font-size: 10.5px;
+  color: var(--ck-faint);
+  margin-top: 2px;
+}
+.ck-notif-item__dismiss {
+  flex-shrink: 0;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: #cec7bc;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ck-notif-item__dismiss:hover { color: var(--ck-base); }
+
+/* Inline Approve / Reject / Open row, shared by the panel and the toast. */
+.ck-notif-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Badge anchor for the mobile bar. Declared outside the responsive block so the
+   class is never orphaned if the breakpoint moves. */
+.ck-mobile-nav-item__icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── User dropdown ─────────────────────────────────────────────────────────── */
+.ck-user-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 200px;
+  background: #fff;
+  border: 1px solid var(--ck-border);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 200;
+  box-shadow: 0 4px 20px rgba(28, 26, 23, 0.09);
+}
+.ck-user-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ck-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+  font-family: var(--ck-body);
+  text-decoration: none;
+}
+.ck-user-dropdown__item:hover {
+  background: var(--ck-soft);
+  color: var(--ck-base);
+}
+.ck-user-dropdown__item svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.ck-user-dropdown__divider {
+  height: 1px;
+  background: var(--ck-border);
+  margin: 2px 0;
+}
+.ck-user-dropdown__item--danger { color: #dc2626; }
+.ck-user-dropdown__item--danger:hover { background: #fff5f5; color: #b91c1c; }
+
+/* ── Content area ──────────────────────────────────────────────────────────── */
+.ck-content-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/*
+ * Generic page container (variant="page"): any route mounted in the shell that
+ * does not own its own scroll gets a padded, independently-scrolling column so
+ * existing page markup drops in without layout surgery.
+ */
+.ck-page-scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px 28px 80px;
+}
+/* Workspace routes manage their own overflow (see shellPolicy). */
+.ck-page-scroll--workspace {
+  overflow: hidden;
+  padding: 0;
+}
+.ck-page-scroll::-webkit-scrollbar { width: 5px; }
+.ck-page-scroll::-webkit-scrollbar-track { background: transparent; }
+.ck-page-scroll::-webkit-scrollbar-thumb { background: #e4ddd2; border-radius: 9px; }
+.ck-page-scroll::-webkit-scrollbar-thumb:hover { background: #cec7bc; }
+
+/* ── Notification toasts ───────────────────────────────────────────────────── */
+.ck-notif-popup {
+  position: fixed;
+  top: 70px;
+  right: 16px;
+  z-index: 120;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(calc(100vw - 2rem), 380px);
+}
+.ck-notif-popup__card {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(236, 232, 224, 0.85);
+  border-radius: 20px;
+  padding: 14px 16px;
+  backdrop-filter: blur(16px);
+}
+.ck-notif-popup__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.ck-notif-popup__main { flex: 1; min-width: 0; }
+.ck-notif-popup__text {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ck-base);
+  line-height: 1.4;
+}
+.ck-notif-popup__time {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--ck-faint);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .ck-dash-root { flex-direction: column; }
+
+  /* Replaced by the mobile bottom bar. */
+  .ck-sidebar { display: none; }
+
+  .ck-header {
+    gap: 16px;
+    padding: 0 16px;
+  }
+  .ck-header__search {
+    width: auto;
+    flex: 1;
+  }
+  .ck-header__username { display: none; }
+
+  .ck-page-scroll { padding: 16px 16px 90px; }
+  .ck-page-scroll--workspace {
+    overflow: hidden;
+    padding: 0 0 60px;
+  }
+
+  .ck-mobile-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--ck-sidebar-bg);
+    border-top: 1px solid var(--ck-dark-active);
+    z-index: 50;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 4px;
+  }
+  .ck-mobile-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 10px;
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  .ck-mobile-nav-item svg,
+  .ck-mobile-nav-item .material-symbols-outlined { color: #8a8477; }
+  .ck-mobile-nav-item.active svg,
+  .ck-mobile-nav-item.active .material-symbols-outlined { color: var(--ck-accent); }
+  .ck-mobile-nav-item span {
+    font-size: 9px;
+    font-weight: 600;
+    color: #8a8477;
+    letter-spacing: 0.1px;
+    font-family: var(--ck-body);
+  }
+  .ck-mobile-nav-item.active span { color: var(--ck-accent); }
+}
+
+@media (min-width: 768px) {
+  .ck-mobile-nav { display: none; }
+}
+
+/* Honour a reduced-motion preference for the drawer and backdrop. */
+@media (prefers-reduced-motion: reduce) {
+  .ck-drawer,
+  .ck-backdrop { transition: none; }
+}

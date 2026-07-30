@@ -28,6 +28,9 @@ export const ROUTES = {
   home: "/",
   writer: "/writer-onboarding",
   pro: "/producer-director-onboarding",
+  // The competition hub. Public, and until now unreachable from anywhere on the marketing site —
+  // the only nav that linked to it was the signed-in dashboard rail.
+  challenge: "/challenge",
   pricing: "/pricing",
   login: "/login",
   about: "/about",
