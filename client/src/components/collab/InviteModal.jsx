@@ -10,7 +10,7 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark: darkPr
   // Follow the in-app dark toggle by default; allow an explicit override from callers that manage their own theme.
   const dark = typeof darkProp === "boolean" ? darkProp : isDarkMode;
 
-  const [form, setForm] = useState({ email: "", role: "editor", accessLevel: "full_access", message: "" });
+  const [form, setForm] = useState({ email: "", role: "editor", accessLevel: "content_only", message: "" });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -82,7 +82,7 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark: darkPr
               {ROLES.map((r) => {
                 const active = form.role === r.value;
                 return (
-                  <button key={r.value} type="button" onClick={() => setForm((p) => ({ ...p, role: r.value }))}
+                  <button key={r.value} type="button" onClick={() => setForm((p) => ({ ...p, role: r.value, accessLevel: r.value === "full_admin" ? p.accessLevel : "content_only" }))}
                     className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition ${active
                       ? "border-[#D14D37] bg-[#D14D37]/10"
                       : (dark ? "border-[#2C2A26] hover:bg-white/[0.03]" : "border-[#e4e2dc] hover:bg-gray-50")}`}>
@@ -106,7 +106,9 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark: darkPr
               onChange={(e) => setForm((p) => ({ ...p, accessLevel: e.target.value }))}
               className={`w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none transition focus:ring-2 focus:border-transparent ${field} ${dark ? "[color-scheme:dark]" : ""}`}
             >
-              <option value="full_access">Full access — metadata + content</option>
+              {form.role === "full_admin" && (
+                <option value="full_access">Full access — metadata + content</option>
+              )}
               <option value="content_only">Content only — script text only</option>
             </select>
           </div>

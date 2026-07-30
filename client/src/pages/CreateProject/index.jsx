@@ -91,7 +91,9 @@ const CreateProject = () => {
   const [saved, setSaved] = useState(false);
   const [lastSaved, setLastSaved] = useState(null);
   const [scriptId, setScriptId] = useState(draftId || null);
-  // Always-current mirror of scriptId. setScriptId is async, so back-to-back autosaves would each
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [invitePending, setInvitePending] = useState(false);
+  // Editor Refs-current mirror of scriptId. setScriptId is async, so back-to-back autosaves would each
   // fire with a stale (null) scriptId in their closure and CREATE a new draft every time. The ref
   // is updated synchronously on create, so every save after the first carries the id → it UPDATES
   // the one draft instead of spawning 15-20 duplicates.
@@ -118,6 +120,8 @@ const CreateProject = () => {
   const [charCount, setCharCount] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [hasFullAccess, setHasFullAccess] = useState(true);
+  const [hasPublishAccess, setHasPublishAccess] = useState(true);
   const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
   const lastDraftSignatureRef = useRef("");
   // Server content this client last synced with — the base for the duet three-way merge on save.
@@ -536,6 +540,15 @@ const CreateProject = () => {
         const isOwnerOfScript = String(data?.creator?._id || data?.creator || "") === me;
         const myCollab = (data?.collaborators || []).find((c) =>
           String(c?.userId?._id || c?.userId || "") === me && c?.status === "accepted" && c?.isActive !== false);
+
+        const pendingCollab = (data?.collaborators || []).find((c) =>
+          String(c?.userId?._id || c?.userId || "") === me && c?.status === "pending" && c?.isActive !== false);
+
+        if (!isOwnerOfScript && !myCollab && pendingCollab) {
+          setInvitePending(true);
+          return;
+        }
+
         const role = isOwnerOfScript ? "full_admin" : String(myCollab?.role || "");
         // A competition submission is final and the server rejects every write to it. Without this,
         // reopening a submitted entry hands the writer a normal-looking editor whose autosaves all
@@ -544,6 +557,9 @@ const CreateProject = () => {
         setCanEditContent(!competitionFrozen && (isOwnerOfScript || ["editor", "full_admin"].includes(role)));
         // Commenters can comment (not edit); viewers can do neither. Owners always can.
         setCanComment(isOwnerOfScript || ["editor", "full_admin", "merger", "commenter"].includes(role));
+        const accessLevel = isOwnerOfScript ? "full_access" : String(myCollab?.accessLevel || "full_access");
+        setHasFullAccess(isOwnerOfScript || role === "full_admin");
+        setHasPublishAccess(isOwnerOfScript || (role === "full_admin" && accessLevel === "full_access"));
       }
       setLoadedScriptStatus(data.status || "draft");
       // Persisted when the entry's editor was opened, so it survives a reload and a fresh session —
@@ -660,7 +676,13 @@ const CreateProject = () => {
       savedBaseContentRef.current = String(data.fountainContent || data.textContent || "");
       setSaved(true);
       setShowDrafts(false);
-    } catch { }
+    } catch (err) {
+      if (err?.response?.data?.reason === "pending_invite") {
+        setInvitePending(true);
+      } else if (err?.response?.status === 403 || err?.response?.status === 404) {
+        setAccessDenied(true);
+      }
+    }
   }, [editor]);
   useEffect(() => { if (draftId && editor) loadDraft(draftId); }, [draftId, editor, loadDraft]);
 
@@ -853,10 +875,13 @@ const CreateProject = () => {
     setEditApprovalLocked(false);
     setPurchasedServiceCredits({ evaluation: false, aiTrailer: false, spotlight: false });
     setTitle("");
+    setHasFullAccess(true);
+    setHasPublishAccess(true);
     setSaved(false);
     setLastSaved(null);
     setShowDrafts(false);
     setError("");
+    setScreenplayValue("");
     setTagsInput("");
     setRoles([]);
     setClassification({ tones: [], themes: [], settings: [] });
@@ -909,6 +934,10 @@ const CreateProject = () => {
         editor.commands.setContent(data.textContent);
       }
 
+      if (typeof data.fountainContent === "string" && data.fountainContent.trim()) {
+        setScreenplayValue(data.fountainContent);
+      }
+
       if (typeof data.step === "number" && data.step >= 1 && data.step <= 5) {
         setStep(data.step);
       }
@@ -931,8 +960,9 @@ const CreateProject = () => {
 
     const html = editor.getHTML();
     const plainText = String(html).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const screenplayLength = screenplayValue.trim().length;
     const trimmedTitle = title.trim();
-    const hasContent = Boolean(trimmedTitle || plainText.length >= 10);
+    const hasContent = Boolean(trimmedTitle || plainText.length >= 10 || screenplayLength >= 10);
 
     if (!hasContent) {
       clearLocalWorkingDraft();
@@ -948,6 +978,7 @@ const CreateProject = () => {
             scriptId: scriptId || null,
             title,
             textContent: html,
+            fountainContent: screenplayValue,
             step,
             updatedAt: Date.now(),
           })
@@ -958,7 +989,7 @@ const CreateProject = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [charCount, clearLocalWorkingDraft, draftId, editor, scriptId, step, title, user?._id, wordCount]);
+  }, [charCount, clearLocalWorkingDraft, draftId, editor, scriptId, step, title, user?._id, wordCount, screenplayValue]);
 
   // Debounced autosave while typing title/content.
   useEffect(() => {
@@ -1782,9 +1813,58 @@ const CreateProject = () => {
     : dark ? "bg-white/[0.05] text-gray-400 hover:bg-white/[0.1] border border-[#333]" : "bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200"}`;
 
   const ctx = {
+    hasFullAccess, hasPublishAccess,
     competitionMode, competition, competitionEntry, competitionPhase, competitionServerNow, refreshCompetition,
     BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
+
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: dark ? "#0a0a0a" : "#fcfcfc" }}>
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center" style={{ background: dark ? "rgba(220, 38, 38, 0.1)" : "#fee2e2" }}>
+            <svg className="w-8 h-8" style={{ color: dark ? "#f87171" : "#dc2626" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: dark ? "#f3f4f6" : "#111827", fontFamily: "var(--ckcp-font-display, serif)" }}>Access Removed</h2>
+          <p className="text-base leading-relaxed mb-8" style={{ color: dark ? "#9ca3af" : "#4b5563" }}>
+            You no longer have access to this script. The project owner has removed your collaboration permissions.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm"
+            style={{ background: dark ? "#ffffff" : "#111827", color: dark ? "#000000" : "#ffffff" }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (invitePending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: dark ? "#0a0a0a" : "#fcfcfc" }}>
+        <div className="max-w-md w-full text-center">
+          <div className="w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center" style={{ background: dark ? "rgba(209, 77, 55, 0.1)" : "#ffeae5" }}>
+            <svg className="w-8 h-8" style={{ color: "#D14D37" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-3" style={{ color: dark ? "#f3f4f6" : "#111827", fontFamily: "var(--ckcp-font-display, serif)" }}>Invitation Pending</h2>
+          <p className="text-base leading-relaxed mb-8" style={{ color: dark ? "#9ca3af" : "#4b5563" }}>
+            You've been invited to collaborate on this script! Please accept the invitation link sent to your email to gain access.
+          </p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm"
+            style={{ background: dark ? "#ffffff" : "#111827", color: dark ? "#000000" : "#ffffff" }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <CreateProjectContext.Provider value={ctx}>

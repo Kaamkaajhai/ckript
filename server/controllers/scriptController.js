@@ -3540,6 +3540,14 @@ export const getScriptById = async (req, res) => {
     }
 
     if (script.status === "draft" && !isOwner && !canCollaboratorRead && !isAdmin) {
+      const pendingCollab = script.collaborators?.find((c) =>
+        String(c.userId?._id || c.userId || "") === String(req.user._id) &&
+        c.status === "pending" &&
+        c.isActive !== false
+      );
+      if (pendingCollab) {
+        return res.status(403).json({ message: "Invitation pending", reason: "pending_invite" });
+      }
       return res.status(403).json({ message: "This draft is private" });
     }
 
