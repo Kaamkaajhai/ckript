@@ -862,7 +862,7 @@ export const getMyCompetitionReferrals = async (req, res) => {
 export const getMyCompetitions = async (req, res) => {
   try {
     const entries = await CompetitionEntry.find({ userId: req.user._id })
-      .populate("competitionId", "name slug dates resultsDeclaredAt lifecycle")
+      .populate("competitionId", "name slug theme.title dates resultsDeclaredAt lifecycle")
       .sort({ createdAt: -1 })
       .lean();
 
