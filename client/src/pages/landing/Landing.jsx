@@ -11,7 +11,6 @@ import Problem from "./sections/Problem/Problem";
 import Partners from "./sections/Partners/Partners";
 import FinalCta from "./sections/FinalCta/FinalCta";
 import Footer from "./sections/Footer/Footer";
-import EventPosterModal from "../../components/EventPosterModal";
 import "./landing.css";
 
 export default function Landing() {
@@ -40,7 +39,6 @@ export default function Landing() {
       <Partners />
       <FinalCta />
       <Footer />
-      <EventPosterModal />
     </div>
   );
 }
