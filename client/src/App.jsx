@@ -501,8 +501,14 @@ function App() {
                     never collide with /challenge/register or /challenge/dashboard. */}
                 <Route path="/challenge" element={<ChallengeHub />} />
                 <Route path="/challenge/c/:slug" element={<CompetitionLanding />} />
-                {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
+                {/* The permanent archive. Public and indexable — it is the platform's credibility page.
+                    The :slug record MUST stay declared. It was deleted as collateral in a commit about
+                    the Events hub, and because the two-segment catch-all below swallows the path, it
+                    did not 404 — it resolved to ScriptDetail behind PrivateRoute and bounced every
+                    logged-out visitor to "/". Four links point here, including the card the Hall of
+                    Fame tab renders and the "See who won" button on the phase band. */}
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
+                <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />
               </Route>
               <Route path="/events" element={<Events />} />
               <Route path="/events/:id" element={<EventDetails />} />

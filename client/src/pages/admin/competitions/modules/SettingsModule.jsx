@@ -90,7 +90,13 @@ export default function SettingsModule({ data, onChange, onArchive, onDelete }) 
           <div className="flex items-center justify-between p-4 bg-white border border-red-200 rounded-xl">
             <div>
               <div className="font-bold text-red-600 text-sm">Delete Competition</div>
-              <div className="text-xs text-red-500 mt-1">Permanently remove this event and all its configuration. Entries will be orphaned.</div>
+              {/* The old copy said entries would be "orphaned". They were deleted. The server now
+                  refuses the delete once anyone has entered or results are declared, so this states
+                  what actually happens. */}
+              <div className="text-xs text-red-500 mt-1">
+                Permanently remove this event and its configuration. Only possible while no one has
+                entered and no results are declared — otherwise archive it.
+              </div>
             </div>
             <button type="button" onClick={onDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
               Delete Forever

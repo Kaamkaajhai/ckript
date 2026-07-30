@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Save, ArrowLeft, Eye, MoreVertical, LayoutDashboard, Palette, Clock, CheckSquare, Trophy, Users, Star, MessageSquare, Download, Link2, Bell, Award, Mail, Settings, Activity } from "lucide-react";
+import { Save, ArrowLeft, Eye, MoreVertical, UploadCloud, LayoutDashboard, Palette, Clock, CheckSquare, Trophy, Users, Star, MessageSquare, Download, Link2, Bell, Award, Mail, Settings, Activity } from "lucide-react";
 import { adminApi } from "../../AdminDashboard";
 import OverviewModule from "./modules/OverviewModule";
 import BrandingModule from "./modules/BrandingModule";
@@ -13,6 +13,7 @@ import CommunityModule from "./modules/CommunityModule";
 import ResourcesModule from "./modules/ResourcesModule";
 import SeoModule from "./modules/SeoModule";
 import SettingsModule from "./modules/SettingsModule";
+import RulesModule from "./modules/RulesModule";
 import PreviewPane from "./modules/PreviewPane";
 
 // The API speaks ISO UTC, but <input type="datetime-local"> speaks local wall-clock time
@@ -23,6 +24,7 @@ const SIDEBAR_NAV = [
   { id: "branding", label: "Branding & Media", icon: Palette },
   { id: "timeline", label: "Timeline", icon: Clock },
   { id: "theme", label: "Theme & Requirements", icon: CheckSquare },
+  { id: "rules", label: "Rules & Eligibility", icon: CheckSquare },
   { id: "prizes", label: "Prizes", icon: Trophy },
   { id: "judges", label: "Judging Panel", icon: Users },
   { id: "sponsors", label: "Sponsors", icon: Star },
@@ -36,9 +38,36 @@ const SIDEBAR_NAV = [
   { id: "settings", label: "Settings", icon: Settings, danger: true },
 ];
 
+// The competitions list is a TAB inside AdminDashboard, not a route of its own: App.jsx declares
+// /admin and /admin/competitions/:id, but never /admin/competitions. Navigating there fell through
+// the two-segment catch-all (/:projectHeading/:writerUsername) and dropped the admin on a public
+// ScriptDetail page for a script that does not exist.
+const ADMIN_LIST = "/admin";
+
+/**
+ * The admin session token adminApi signs its requests with. AdminDashboard gates /admin behind an
+ * access code and keeps the result here; this route had no gate at all, so a logged-out visitor
+ * loading /admin/competitions/new rendered the entire console — all fifteen modules and the Danger
+ * Zone — while every request it made 401'd. The data was never exposed, but the console should not
+ * draw itself for someone who cannot use it.
+ */
+const hasAdminSession = () => {
+  try {
+    return Boolean(JSON.parse(sessionStorage.getItem("admin-session") || "{}").token);
+  } catch {
+    return false;
+  }
+};
+
 export default function AdminCompetitionsEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const allowed = hasAdminSession();
+
+  // Send an unauthenticated visitor to the admin entrance rather than rendering the console.
+  useEffect(() => {
+    if (!allowed) navigate(ADMIN_LIST, { replace: true });
+  }, [allowed, navigate]);
   
   const [activeTab, setActiveTab] = useState("overview");
   const [competition, setCompetition] = useState(null);
@@ -46,6 +75,7 @@ export default function AdminCompetitionsEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     const loadCompetition = async () => {
@@ -114,21 +144,43 @@ export default function AdminCompetitionsEditor() {
       setSaving(false);
     }
   };
+  /**
+   * Save first, then publish. The server validates the STORED document, so publishing without
+   * flushing unsaved edits would reject on fields the admin can see filled in on screen.
+   */
+  const handlePublish = async () => {
+    if (!window.confirm("Publish this competition? It becomes visible to everyone and registration opens on its scheduled date.")) return;
+    setPublishing(true);
+    try {
+      await adminApi.put(`/admin/competitions/${id}`, competition);
+      await adminApi.post(`/admin/competitions/${id}/publish`);
+      setCompetition((prev) => ({ ...prev, lifecycle: "published" }));
+      alert("Competition published.");
+    } catch (err) {
+      // The server explains exactly what is missing ("Add at least one rule before publishing.").
+      alert(err?.response?.data?.message || err.message);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handleArchive = async () => {
     if (!window.confirm("Are you sure you want to archive this competition?")) return;
     try {
       await adminApi.post(`/admin/competitions/${id}/archive`);
-      navigate("/admin/competitions");
+      navigate(ADMIN_LIST);
     } catch (err) {
       alert("Failed to archive: " + (err?.response?.data?.message || err.message));
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("DANGER: Are you sure you want to PERMANENTLY delete this competition? This cannot be undone.")) return;
+    // The server refuses this once anyone has entered or results are declared, and says why — so
+    // the confirm only has to cover the case that is actually allowed to proceed.
+    if (!window.confirm("Permanently delete this competition? This cannot be undone.")) return;
     try {
       await adminApi.delete(`/admin/competitions/${id}`);
-      navigate("/admin/competitions");
+      navigate(ADMIN_LIST);
     } catch (err) {
       alert("Failed to delete: " + (err?.response?.data?.message || err.message));
     }
@@ -138,6 +190,9 @@ export default function AdminCompetitionsEditor() {
     setCompetition(prev => ({ ...prev, [key]: value }));
   };
 
+  // Render nothing at all without a session — the redirect above runs after the first paint, and
+  // one frame of the full console is still one frame too many.
+  if (!allowed) return null;
   if (loading) return <div className="p-8 text-[#888]">Loading editor...</div>;
   if (error) return <div className="p-8 text-red-500">{error}</div>;
 
@@ -147,7 +202,7 @@ export default function AdminCompetitionsEditor() {
       {/* Left Sidebar */}
       <div className="w-64 bg-[#f4f2f0] border-r border-[#eaeaea] flex flex-col">
         <div className="p-4 border-b border-[#eaeaea] flex items-center gap-2">
-          <button onClick={() => navigate("/admin/competitions")} className="p-1.5 hover:bg-[#e4e2e0] rounded-md transition-colors text-[#555]">
+          <button onClick={() => navigate(ADMIN_LIST)} className="p-1.5 hover:bg-[#e4e2e0] rounded-md transition-colors text-[#555]">
             <ArrowLeft size={16} />
           </button>
           <span className="font-semibold text-sm truncate">{competition.name || "Untitled Competition"}</span>
@@ -203,9 +258,19 @@ export default function AdminCompetitionsEditor() {
               <Save size={16} />
               {saving ? "Saving..." : "Save Draft"}
             </button>
-            <button className="p-2 text-[#555] hover:bg-[#faf9f8] border border-[#eaeaea] rounded-lg transition-colors">
-              <MoreVertical size={16} />
-            </button>
+            {/* Publishing is what makes a competition public — without this control nothing created
+                in this editor could ever appear on /challenge, the Hall of Fame or the landing page,
+                because every public query filters lifecycle: "published". */}
+            {competition.lifecycle !== "published" ? (
+              <button
+                onClick={handlePublish}
+                disabled={publishing}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-[#c94b3a] hover:bg-[#b03e2f] shadow-md rounded-lg transition-all disabled:opacity-50"
+              >
+                <UploadCloud size={16} />
+                {publishing ? "Publishing..." : "Publish"}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -217,6 +282,10 @@ export default function AdminCompetitionsEditor() {
               <OverviewModule data={competition} onChange={updateField} />
             )}
             
+            {activeTab === "rules" && (
+              <RulesModule data={competition} onChange={updateField} />
+            )}
+
             {activeTab === "branding" && (
               <BrandingModule data={competition} onChange={updateField} />
             )}

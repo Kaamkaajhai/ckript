@@ -46,6 +46,9 @@ const typeChar = (input, char) => {
 
 /** Mount the editor on its real route, in its "new competition" state. */
 const openEditor = async () => {
+  // The editor refuses to render without an admin session — it used to draw the whole console for
+  // anyone who typed the URL. These tests are about the fields, so grant the session first.
+  sessionStorage.setItem("admin-session", JSON.stringify({ token: "test-admin-token" }));
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
