@@ -484,9 +484,9 @@ function App() {
                 <Route path="/challenge/c/:slug" element={<CompetitionLanding />} />
                 {/* The permanent archive. Public and indexable — it is the platform's credibility page. */}
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
-                <Route path="/events" element={<Events />} />
-                <Route path="/events/:id" element={<EventDetails />} />
               </Route>
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:id" element={<EventDetails />} />
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
