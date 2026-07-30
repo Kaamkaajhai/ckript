@@ -672,7 +672,9 @@ const CreateProject = () => {
       setSaved(true);
       setShowDrafts(false);
     } catch (err) {
-      if (err?.response?.status === 403 || err?.response?.status === 404) {
+      if (err?.response?.data?.reason === "pending_invite") {
+        setInvitePending(true);
+      } else if (err?.response?.status === 403 || err?.response?.status === 404) {
         setAccessDenied(true);
       }
     }
