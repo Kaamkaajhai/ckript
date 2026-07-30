@@ -93,9 +93,12 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
 
         <h3 className="ckc-title ckc-h3" style={{ marginTop: 10 }}>{item.name}</h3>
 
-        {/* Only ever set once the reveal has happened — the server withholds it before that. */}
+        {/* Only ever set once the reveal has happened — the server withholds it before that.
+            Coral only while the competition is actually running: the accent is reserved for live
+            state, and an archive card's theme is decoration. Spending it on every past card is what
+            makes the accent stop meaning anything. */}
         {item.theme ? (
-          <p style={{ marginTop: 6, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: 16, color: "var(--ckc-accent-text)" }}>
+          <p style={{ marginTop: 6, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: 16, color: isRunning ? "var(--ckc-accent-text)" : "var(--ckc-ink)" }}>
             {item.theme}
           </p>
         ) : null}

@@ -37,8 +37,20 @@ const Name = ({ children }) => (
   <h2 className="ckc-title ckc-h2" style={{ marginTop: 8 }}>{children}</h2>
 );
 
-const Theme = ({ title }) => (title ? (
-  <p style={{ marginTop: 10, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: "1.25rem", color: "var(--ckc-accent-text)" }}>
+/* The theme is coral only while a window is actually open. challenge.css reserves the accent for
+   live state and calls it out as "never decoration" — and a concluded competition's theme is
+   decoration. Spending the accent on judging and results cards taught the eye that coral means
+   nothing, which is exactly what the rule exists to prevent. */
+const Theme = ({ title, live }) => (title ? (
+  <p
+    style={{
+      marginTop: 10,
+      fontFamily: "var(--ckc-display)",
+      fontStyle: "italic",
+      fontSize: "1.25rem",
+      color: live ? "var(--ckc-accent-text)" : "var(--ckc-ink)",
+    }}
+  >
     {title}
   </p>
 ) : null);
@@ -223,7 +235,7 @@ const ChallengeNow = ({
       </div>
 
       <Name>{item.name}</Name>
-      <Theme title={f.theme} />
+      <Theme title={f.theme} live={live} />
       {f.body ? <Body>{f.body}</Body> : null}
 
       {f.countdown?.target ? (
