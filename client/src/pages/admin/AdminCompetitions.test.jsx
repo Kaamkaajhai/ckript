@@ -7,6 +7,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
+import { MemoryRouter } from "react-router-dom";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -41,11 +42,13 @@ const ENTRIES = [
 ];
 
 let container, root;
+// AdminCompetitions calls useNavigate, which throws outside a Router. Mounting through
+// MemoryRouter keeps these tests about the panel's behaviour rather than about routing.
 const mount = async (el) => {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
-  await act(async () => { root.render(el); });
+  await act(async () => { root.render(<MemoryRouter>{el}</MemoryRouter>); });
   return container;
 };
 const flush = () => act(async () => { await Promise.resolve(); });

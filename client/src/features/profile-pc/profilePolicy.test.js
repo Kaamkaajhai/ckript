@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   createLatestProfileRequestCoordinator,
-  getAuthenticatedProfileShell,
   getSharedProfileExperience,
   isSameProfile,
   isWriterProfileRole,
@@ -24,20 +23,14 @@ describe("profile presentation policy", () => {
     expect(isSameProfile({ _id: "user-1" }, { _id: "user-2" })).toBe(false);
   });
 
-  it("mounts profiles edge-to-edge for creator and non-creator viewers", () => {
-    expect(getAuthenticatedProfileShell("writer")).toEqual({
-      layout: "dashboard",
-      contentVariant: "fill",
-    });
-    expect(getAuthenticatedProfileShell("producer")).toEqual({
-      layout: "main",
-      contentVariant: "full",
-    });
-    expect(getAuthenticatedProfileShell("reader")).toEqual({
-      layout: "main",
-      contentVariant: "full",
-    });
-  });
+  /*
+   * The "which chrome wraps a profile" test moved to
+   * layouts/app-shell/shellPolicy.test.js along with the function itself. It
+   * asserted that a producer gets MainLayout, which is no longer true — the
+   * industry audience renders in the app shell. The invariant it was really
+   * protecting (every profile mounts edge-to-edge, whichever shell surrounds it)
+   * is covered there now.
+   */
 
   it("upgrades copied share links to the real profile for signed-in viewers", () => {
     expect(getSharedProfileExperience({ _id: "viewer-1" })).toBe("authenticated");

@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useContext } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { AuthContext } from "../context/AuthContext";
-import api from "../services/api";
-import { useDarkMode } from "../context/DarkModeContext";
-import { getProfileCanonicalPath } from "../utils/profilePath";
-import { hasBusinessEmail } from "../utils/industryAccess";
+import { AuthContext } from "../../context/AuthContext";
+import api from "../../services/api";
+import { useDarkMode } from "../../context/DarkModeContext";
+import { getProfileCanonicalPath } from "../../utils/profilePath";
+import { hasBusinessEmail } from "../../utils/industryAccess";
 
 /* ─── Constants ─────────────────────────────────── */
 const GENRES = [
@@ -286,7 +286,7 @@ const WriterCard = ({ writer, rank, sortBy, dark, currentUser }) => {
 };
 
 /* ─── Page ───────────────────────────────────── */
-const Writers = () => {
+const WriterDirectoryPage = () => {
   const { isDarkMode: dark } = useDarkMode();
   const { user: currentUser } = useContext(AuthContext);
   const [writers, setWriters]         = useState([]);
@@ -538,4 +538,4 @@ const Writers = () => {
   );
 };
 
-export default Writers;
+export default WriterDirectoryPage;

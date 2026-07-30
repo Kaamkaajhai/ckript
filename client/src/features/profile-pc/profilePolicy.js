@@ -17,16 +17,21 @@ export const getSharedProfileExperience = (viewer) => (
   normalizeId(viewer?._id || viewer?.id) ? "authenticated" : "public"
 );
 
-/**
- * The viewer's role controls which existing application chrome surrounds a
- * profile, but every profile uses an edge-to-edge content mount. The viewed
- * user's role controls the profile presentation inside that mount.
+/*
+ * `getAuthenticatedProfileShell` used to live here. It has been removed rather
+ * than kept, because it decided which application chrome wraps a profile and
+ * that decision now belongs to layouts/app-shell/shellPolicy — the one place
+ * that maps every role in the User model.
+ *
+ * Keeping it would have been worse than deleting it: it answered "producer" with
+ * `{ layout: "main" }`, which stopped being true the moment the industry
+ * audience moved onto the app shell. Two sources of truth that disagree is the
+ * exact failure this refactor set out to remove.
+ *
+ * What stays here is genuinely about profiles: `isWriterProfileRole` decides how
+ * the profile CONTENT is presented (whose profile is being viewed), which is a
+ * different question from which chrome surrounds it (who is viewing).
  */
-export const getAuthenticatedProfileShell = (viewerRole) => (
-  isWriterProfileRole(viewerRole)
-    ? { layout: "dashboard", contentVariant: "fill" }
-    : { layout: "main", contentVariant: "full" }
-);
 
 export const createLatestProfileRequestCoordinator = () => {
   let sequence = 0;

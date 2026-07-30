@@ -1,20 +1,20 @@
 // @vitest-environment happy-dom
 //
-// Regression guard for a bug that made the competition editor unusable: every field accepted exactly
-// one character and then dropped the cursor.
+// The competition editor's text fields must accumulate what you type.
 //
-// The cause was a `Group` wrapper component declared INSIDE CompetitionEditor's body. Each keystroke
-// set state, which re-ran the body, which produced a brand-new function identity for `Group`. React
-// compares element types by identity, so it saw a different component at that position, unmounted
-// the whole group — including the focused <input> — and mounted a fresh one. The character reached
-// state, but the DOM node holding the caret was destroyed.
+// The original bug: an admin typing into any field got ONE character, then the caret jumped out.
+// The cause was a field component declared inside the editor's own body — every keystroke re-ran
+// the parent, which produced a brand-new component TYPE, so React unmounted the live input and
+// mounted a fresh one. The old value survived in state; the focus and the caret did not.
 //
-// Hence the two assertions below: the value must accumulate AND the same DOM node must survive with
-// focus. Testing only the value would still pass with the bug present, because state was never the
-// broken part.
+// That inline editor has since been replaced by a routed, modular one
+// (pages/admin/competitions/AdminCompetitionsEditor.jsx). This test follows the behaviour rather
+// than the file: the same class of bug is trivially easy to reintroduce when a module grows a
+// helper component, and it is invisible to a passing build.
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
+import { MemoryRouter, Routes, Route } from "react-router-dom";
 
 // The editor pulls its authenticated axios instance from AdminDashboard, which drags in the entire
 // admin bundle. Only the calls this test triggers need to exist.
@@ -26,18 +26,11 @@ vi.mock("../AdminDashboard", () => ({
   },
 }));
 
-const AdminCompetitions = (await import("./AdminCompetitions")).default;
+const AdminCompetitionsEditor = (await import("./competitions/AdminCompetitionsEditor")).default;
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container, root;
-const render = (el) => {
-  container = document.createElement("div");
-  document.body.appendChild(container);
-  root = createRoot(container);
-  act(() => root.render(el));
-  return container;
-};
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
@@ -51,48 +44,59 @@ const typeChar = (input, char) => {
   act(() => input.dispatchEvent(new Event("input", { bubbles: true })));
 };
 
+/** Mount the editor on its real route, in its "new competition" state. */
 const openEditor = async () => {
-  const el = render(<AdminCompetitions isDark={false} />);
-  await act(async () => {});                       // let loadCompetitions settle
-  const newBtn = [...el.querySelectorAll("button")].find((b) => b.textContent.includes("New Competition"));
-  expect(newBtn, "the New Competition button should exist").toBeTruthy();
-  act(() => newBtn.dispatchEvent(new Event("click", { bubbles: true })));
-  return el;
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => {
+    root.render(
+      <MemoryRouter initialEntries={["/admin/competitions/new"]}>
+        <Routes>
+          <Route path="/admin/competitions/:id" element={<AdminCompetitionsEditor />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  });
+  await act(async () => {});   // let the load effect settle
+  return container;
 };
 
 describe("CompetitionEditor — typing", () => {
   it("keeps focus on the same input across many keystrokes", async () => {
     const el = await openEditor();
 
-    const nameInput = el.querySelector("input");
-    expect(nameInput, "the editor should render its first field").toBeTruthy();
+    const nameInput = el.querySelector('input[type="text"], input:not([type])');
+    expect(nameInput, "the editor should render a text field").toBeTruthy();
     nameInput.focus();
     expect(document.activeElement).toBe(nameInput);
 
     const word = "Global Script Challenge";
     for (const char of word) {
-      typeChar(nameInput, char);
-      // The node must survive the re-render. With the bug, this input was detached after the first
-      // keystroke and `isConnected` went false.
-      expect(nameInput.isConnected, `input was remounted while typing "${char}"`).toBe(true);
-      expect(document.activeElement, `focus lost while typing "${char}"`).toBe(nameInput);
+      typeChar(document.activeElement === nameInput ? nameInput : el.querySelector('input[type="text"], input:not([type])'), char);
     }
 
+    // Both assertions matter. The value proves the keystrokes were not dropped; the identity proves
+    // React kept the SAME element, which is what the caret is attached to.
+    const after = el.querySelector('input[type="text"], input:not([type])');
+    expect(after).toBe(nameInput);
     expect(nameInput.value).toBe(word);
+    expect(document.activeElement).toBe(nameInput);
   });
 
-  it("accumulates text in a second field too, so the fix is not specific to one group", async () => {
+  it("accumulates text in a textarea too, so the fix is not specific to one control", async () => {
     const el = await openEditor();
 
-    // The overview <textarea> lives in the same "Basics" group.
-    const overview = el.querySelector("textarea");
-    expect(overview).toBeTruthy();
-    overview.focus();
+    // Asserted, not skipped: a test that quietly no-ops when the selector misses is not a guard.
+    const area = el.querySelector("textarea");
+    expect(area, "the overview module should render a textarea").toBeTruthy();
 
-    for (const char of "48 hours") typeChar(overview, char);
+    area.focus();
+    const phrase = "A weekend of writing.";
+    for (const char of phrase) typeChar(area, char);
 
-    expect(overview.value).toBe("48 hours");
-    expect(overview.isConnected).toBe(true);
-    expect(document.activeElement).toBe(overview);
+    expect(el.querySelector("textarea")).toBe(area);
+    expect(area.value).toBe(phrase);
+    expect(document.activeElement).toBe(area);
   });
 });

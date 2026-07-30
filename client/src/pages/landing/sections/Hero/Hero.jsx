@@ -61,6 +61,9 @@ export default function Hero() {
             <button type="button" onClick={() => openProducerOnboarding()} className="ckl-hero-navlink hov-red">
               For Producers
             </button>
+            <Link to="/events" className="ckl-hero-navlink hov-red">
+              Events
+            </Link>
 
             <div
               className="ckl-hero-pricing"
@@ -172,6 +175,13 @@ export default function Hero() {
               >
                 For Producers
               </button>
+              <Link
+                to="/events"
+                className="ckl-hero-mmenu-item"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Events
+              </Link>
               <button
                 type="button"
                 className="ckl-hero-mmenu-item"

@@ -2,17 +2,17 @@ import { useEffect, useState, useContext, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";
-import { AuthContext } from "../context/AuthContext";
-import { useDarkMode } from "../context/DarkModeContext";
-import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
-import { getScriptCanonicalPath } from "../utils/scriptPath";
-import { getProfileCanonicalPath } from "../utils/profilePath";
+import api from "../../services/api";
+import { AuthContext } from "../../context/AuthContext";
+import { useDarkMode } from "../../context/DarkModeContext";
+import ProfileCompletionBanner from "../../components/ProfileCompletionBanner";
+import { getScriptCanonicalPath } from "../../utils/scriptPath";
+import { getProfileCanonicalPath } from "../../utils/profilePath";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionProgressText,
   getScriptCompletionStatusLabel,
-} from "../utils/scriptCompletion";
+} from "../../utils/scriptCompletion";
 
 /* ── Fade wrapper ────────────────────────────────────────────── */
 const Fade = ({ children, delay = 0, className = "" }) => (
@@ -22,7 +22,7 @@ const Fade = ({ children, delay = 0, className = "" }) => (
   </motion.div>
 );
 
-const InvestorDashboard = () => {
+const ProducerDashboardPage = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode: dark } = useDarkMode();
   const navigate = useNavigate();
@@ -887,4 +887,4 @@ const ScriptSection = ({ dark, navigate, title, sub, iconBg, iconColor, iconD, s
   </Card>
 );
 
-export default InvestorDashboard;
+export default ProducerDashboardPage;
