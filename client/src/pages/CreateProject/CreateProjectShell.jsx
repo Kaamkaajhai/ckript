@@ -21,7 +21,7 @@ const CreateProjectShell = ({ children }) => {
     adjustZoom, charCount, creationBlocked, dark, detailsStep, detailsSubSteps, drafts, editorZoom, enforceGoldPlan,
     error, estimatedPages, exportMenuOpen, exportingScreenplay, handleBack, handleExitEditor,
     handleExportScreenplay, handleNext, handlePublish, isScreenplayFormat, lastSaved, legal,
-    loading, saved, saving, screenplayEnabled, screenplayFileInputRef,
+    loading, saved, saving, screenplayEnabled, screenplayFileInputRef, canEditContent,
     scriptLimit, setError, setDetailsStep, setExportMenuOpen, setFocusMode, setScreenplayEnabled, setShowDrafts,
     setShowVersionHistory, setSaved, setStep, setTitle, step, title, toggleDarkMode,
     useScreenplayEditor, currentElement, wordCount, scriptId, collabMyUserId,
@@ -87,10 +87,12 @@ const CreateProjectShell = ({ children }) => {
           {isWrite && (
             <>
               <div className="ckcp-vr" style={{ width: "1px", height: "20px", background: dark ? "#2a2a2a" : "#eeeeee", margin: "0 3px" }} />
-              <button type="button" aria-label="Import" title="Import a script — Fountain, Final Draft (.fdx), PDF, or Word (.docx)"
-                onClick={(e) => { if (enforceGoldPlan(e)) screenplayFileInputRef.current?.click(); }} className="ckcp-iconbtn" style={cpIconBtnStyle(dark)}>
-                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>file_upload</span>
-              </button>
+              {canEditContent && (
+                <button type="button" aria-label="Import" title="Import a script — Fountain, Final Draft (.fdx), PDF, or Word (.docx)"
+                  onClick={(e) => { if (enforceGoldPlan(e)) screenplayFileInputRef.current?.click(); }} className="ckcp-iconbtn" style={cpIconBtnStyle(dark)}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>file_upload</span>
+                </button>
+              )}
               <div style={{ position: "relative" }}>
                 <button type="button" aria-label="Export" title="Export — PDF, Watermarked PDF, Fountain, Final Draft"
                   onClick={() => setExportMenuOpen((o) => !o)} disabled={Boolean(exportingScreenplay)} className="ckcp-iconbtn" style={{ ...cpIconBtnStyle(dark), opacity: exportingScreenplay ? 0.5 : 1 }}>
