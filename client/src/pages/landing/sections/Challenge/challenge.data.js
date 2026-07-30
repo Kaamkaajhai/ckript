@@ -1,100 +1,79 @@
-/* Copy for the landing's challenge section, one entry per phase.
+/* Copy for the landing's Challenge sequence.
  *
- * Two rules encoded here, both deliberate:
+ * FIVE BEATS, and the division of labour is the whole point:
  *
- * • No cadence is ever claimed. "Three times a year" would be wrong the first time a fourth runs,
- *   and the homepage is the last place anyone remembers to correct.
+ *   Landing        inspire and convert — one feeling per beat, nothing to read
+ *   /challenge     inform and guide — six steps, judging criteria, ownership, eligibility
+ *   /challenge/c/  manage a specific event — register, theme, deadline, submit
  *
- * • The AI evaluation leads, prizes follow. Cash is true for roughly one entrant in a hundred;
- *   feedback is true for all of them. Leading with prizes only speaks to people who already believe
- *   they can win — which is not who needs convincing.
+ * So there are no numbered steps here, no judging criteria, no ownership paragraphs and no tab
+ * strip. Long-form content lives in exactly one place, which is what stops the two surfaces
+ * drifting apart. A visitor should think "interesting", not "I am reading documentation".
+ *
+ * Deliberately evergreen: competitions run three or four times a year, so copy that only makes
+ * sense while one is open would be wrong most of the time. Urgency belongs to ChallengeStrip,
+ * which only renders when there is something to be urgent about. No cadence is ever claimed —
+ * "three times a year" would be wrong the first time a fourth runs, and the homepage is the last
+ * place anyone remembers to correct.
  */
 
-/* `lead` may be a function of the live competition where the copy needs a real date or name.
- *
- * Leads carry the whole argument, because the section is a head and one proof card — the steps, the
- * rewards and the eligibility rules belong on /challenge, and repeating them here would leave nothing
- * worth clicking for. Two sentences: what it is, and the one promise that applies to everybody. */
-export const COPY = {
-  dormant: {
-    kicker: "The Ckript Challenge",
-    line1: "One theme.",
-    line2: "48 hours.",
-    lead: () =>
-      "A finished script in a single weekend — no outline, no second draft, just what you can write "
-      + "with the clock running. Every entry gets an AI evaluation.",
-    primary: { label: "Explore Challenge", to: "/challenge" },
-    secondary: { label: "See past winners", to: "/challenge?tab=hall-of-fame" },
-  },
+export const KICKER = "The Ckript Challenge";
 
-  announced: {
-    kicker: "Next challenge",
-    line1: "One theme.",
-    line2: "48 hours.",
-    lead: (c) => {
-      const opens = c?.dates?.regOpensAt
-        ? new Date(c.dates.regOpensAt).toLocaleDateString(undefined, { day: "numeric", month: "long" })
-        : null;
-      return opens
-        ? `Registration opens ${opens}. The theme stays sealed until the starting gun.`
-        : "Registration opens soon. The theme stays sealed until the starting gun.";
-    },
-    primary: { label: "Explore Challenge", to: "/challenge" },
-    secondary: { label: "See past winners", to: "/challenge?tab=hall-of-fame" },
-  },
+/* The number is the section's one strong visual. Set as an object rather than a string so the unit
+   can be tracked and coloured separately from the numeral. */
+export const HERO_FIGURE = { value: "48", unit: "Hours" };
 
-  registration_open: {
-    kicker: "Registration open",
-    line1: "One theme.",
-    line2: "48 hours.",
-    lead: () =>
-      "Enter now and the theme reaches you the moment the clock starts. Everyone gets it at once.",
-    primary: { label: "Register", to: (c) => `/challenge/register?c=${c.slug}` },
-    secondary: { label: "How it works", to: (c) => `/challenge/c/${c.slug}` },
-  },
+export const HERO_LINES = ["One Theme.", "Every Writer Starts Together."];
 
-  registration_closed: {
-    kicker: "Starting soon",
-    line1: "One theme.",
-    line2: "48 hours.",
-    lead: () => "Entries are in and the theme is sealed. Writing begins shortly.",
-    primary: { label: "Explore Challenge", to: "/challenge" },
-    secondary: { label: "See past winners", to: "/challenge?tab=hall-of-fame" },
-  },
+export const LEAD =
+  "A single theme is revealed. Every writer has forty-eight hours to turn it into a screenplay. "
+  + "Every submission receives an AI evaluation, while the strongest stories earn awards, "
+  + "recognition and a permanent place in Ckript's Hall of Fame.";
 
-  // Registration is shut, so this is the one phase a newcomer cannot act on. Rather than a dead end,
-  // give them the thing that is genuinely interesting this week — the theme is public once the gun
-  // fires — and a way to be ready next time.
-  live: {
-    kicker: "Writing now",
-    line1: "The theme is out.",
-    line2: "The clock is running.",
-    lead: (c) => (c?.theme
-      ? `This weekend's theme: "${c.theme}". Entries close when the 48 hours are up.`
-      : "Writers around the world are 48 hours into a single theme."),
-    primary: { label: "See this year's theme", to: (c) => `/challenge/c/${c.slug}` },
-    secondary: { label: "Get ready for the next one", to: "/challenge" },
+/* Three cards, one idea each. `icon` values are Material Symbols ligatures — `lock` is already
+   proven elsewhere on this landing; the other two are core glyphs. A ligature the font lacks
+   renders as its own literal name, so any new icon here must be checked in a browser, not just in
+   the build. */
+export const CARDS = [
+  {
+    icon: "lock",
+    title: "One Theme",
+    body: "Nobody knows the prompt before the timer starts. Every participant begins with the same "
+      + "blank page.",
   },
+  {
+    icon: "timer",
+    title: "48 Hours",
+    body: "Write inside the Ckript editor with autosave, live progress and a deadline that cannot "
+      + "move.",
+  },
+  {
+    icon: "trophy",
+    title: "Every Story Matters",
+    body: "Every script receives an AI evaluation. The best stories earn awards and become part of "
+      + "Ckript history.",
+  },
+];
 
-  judging: {
-    kicker: "Judging",
-    line1: "Every script.",
-    line2: "Every writer.",
-    lead: () => "Entries are being read and evaluated. Results within days.",
-    primary: { label: "See past winners", to: "/challenge?tab=hall-of-fame" },
-    secondary: { label: "Explore Challenge", to: "/challenge" },
-  },
+/* Two quiet facts set beside the laureate. Deliberately NOT a statistics band: the real figures are
+   still in single digits, and "1 script written" on a homepage advertises that nothing has happened
+   yet. These two are true from the very first entrant. */
+export const WINNER_FACTS = [
+  { label: "AI evaluation", value: "Every entry received feedback" },
+  { label: "Written in", value: "48 hours" },
+];
 
-  // Deliberately names nobody: a headline built around one writer dates the homepage the moment the
-  // next competition runs.
-  results: {
-    kicker: "Results are in",
-    line1: "Meet this year's",
-    line2: "winners.",
-    lead: () => "Read the record — who won, what they wrote, and how it was judged.",
-    primary: { label: "View the Hall of Fame", to: "/challenge?tab=hall-of-fame" },
-    secondary: { label: "Explore Challenge", to: "/challenge" },
-  },
+/* Examples, never a gate. Nobody should self-exclude because their own label is missing, so this
+   list stays short and obviously illustrative — the real eligibility rules live on /challenge. */
+export const ENTRY_CHIPS = ["Student", "First Script", "Professional", "Screen", "TV", "Anime"];
+
+/* Four beats, not the hub's six, and no ordinals: numbers are the documentation signal. This says
+   "there is a shape to this" and nothing more. */
+export const FLOW = ["Register", "Write", "Submit", "Results"];
+
+export const CTA = {
+  headline: "Think you have a story?",
+  line: "The next challenge could begin any time.",
+  label: "Explore Challenge",
+  to: "/challenge",
 };
-
-export default COPY;

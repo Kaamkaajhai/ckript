@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, GripVertical, Trash2, ImageIcon } from "lucide-react";
+import { Plus, Trash2, ImageIcon } from "lucide-react";
 
 export default function SponsorsModule({ data, onChange }) {
   const sponsors = data.sponsors || [];
@@ -49,9 +49,6 @@ export default function SponsorsModule({ data, onChange }) {
             sponsors.map((sponsor, idx) => (
               <div key={idx} className="flex gap-6 p-6 bg-[#fbfbfa] border border-[#eaeaea] rounded-2xl group hover:border-[#ccc] transition-colors relative">
                 
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 cursor-grab text-[#ccc] group-hover:text-[#888]">
-                  <GripVertical size={20} />
-                </div>
                 
                 {/* Logo Area */}
                 <div className="ml-6 w-32 shrink-0 space-y-3">

@@ -33,7 +33,7 @@ export const writerNav = ({ profilePath, msgCount }) => ({
     { key: "upload",       path: "/upload",          label: "Upload Project",  icon: "upload" },
     { divider: true },
     { key: "challenge",    path: "/challenge",       label: "Challenge",       icon: "challenge" },
-    { key: "competitions", path: "/my-competitions", label: "My Competitions", icon: "competitions" },
+    { key: "competitions", path: "/challenge?tab=mine", label: "My Competitions", icon: "competitions" },
     { divider: true },
     { key: "messages",     path: "/messages",        label: "Messages",        icon: "messages", badge: msgCount },
   ],

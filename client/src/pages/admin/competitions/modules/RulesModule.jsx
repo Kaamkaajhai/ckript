@@ -108,6 +108,22 @@ export default function RulesModule({ data, onChange }) {
           placeholder="Open to anyone who writes, anywhere in the world."
           className="w-full px-3 py-2 border border-[#eaeaea] rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-[#111]/10"
         />
+
+        {/* Sits with eligibility because it answers the same question — what may I submit. It is
+            rendered beside Eligibility in the About grid and on the entrant dashboard, and had no
+            editor at all, so every competition was stuck on the schema default. */}
+        <label className="block mt-6">
+          <span className="block text-sm font-semibold text-[#111]">Format</span>
+          <span className="block text-xs text-[#666] mt-0.5 mb-2">
+            What may be submitted. Shown beside Eligibility on the competition page.
+          </span>
+          <input
+            value={data.format || ""}
+            onChange={(e) => onChange("format", e.target.value)}
+            placeholder="e.g. Short film, 5-10 pages"
+            className="w-full px-3 py-2 border border-[#eaeaea] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#111]/10"
+          />
+        </label>
       </div>
 
       <div className="bg-white rounded-2xl p-8 border border-[#eaeaea] shadow-sm">

@@ -30,7 +30,8 @@ describe("buildNav — writer", () => {
   it("offers both Challenge and My Competitions in the drawer", () => {
     const drawer = paths(forWriter().drawer);
     expect(drawer).toContain("/challenge");
-    expect(drawer).toContain("/my-competitions");
+    // My Competitions is the hub's fourth tab now, not a route of its own.
+    expect(drawer).toContain("/challenge?tab=mine");
   });
 
   it("treats creators the same as writers", () => {
@@ -132,7 +133,7 @@ describe("buildNav — competitions stay writer-only", () => {
     (role) => {
       const nav = navFor(role);
       const every = paths(lists(nav).flat());
-      expect(every.some((p) => p.startsWith("/challenge") || p === "/my-competitions")).toBe(false);
+      expect(every.some((p) => p.startsWith("/challenge"))).toBe(false);
     },
   );
 

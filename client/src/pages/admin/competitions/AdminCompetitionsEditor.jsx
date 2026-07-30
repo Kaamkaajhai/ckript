@@ -11,14 +11,17 @@ import JudgesModule from "./modules/JudgesModule";
 import SponsorsModule from "./modules/SponsorsModule";
 import CommunityModule from "./modules/CommunityModule";
 import ResourcesModule from "./modules/ResourcesModule";
-import SeoModule from "./modules/SeoModule";
 import SettingsModule from "./modules/SettingsModule";
 import RulesModule from "./modules/RulesModule";
-import PreviewPane from "./modules/PreviewPane";
 
 // The API speaks ISO UTC, but <input type="datetime-local"> speaks local wall-clock time
 const fromLocalInput = (value) => (value ? new Date(value).toISOString() : null);
 
+/* Eleven destinations, all of which do something. Five were removed: SEO wrote fields no page reads,
+   and Notifications / Certificates / Emails / Analytics had no render branch at all — every one
+   fell through to a "currently being built" placeholder, so a quarter of the navigation advertised
+   features that did not exist. (Referral analytics already exists for real at its own admin
+   endpoint; the stub was hiding it rather than linking it.) */
 const SIDEBAR_NAV = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "branding", label: "Branding & Media", icon: Palette },
@@ -30,11 +33,6 @@ const SIDEBAR_NAV = [
   { id: "sponsors", label: "Sponsors", icon: Star },
   { id: "community", label: "Community", icon: MessageSquare },
   { id: "resources", label: "Resources", icon: Download },
-  { id: "seo", label: "SEO & Social", icon: Link2 },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "certificates", label: "Certificates", icon: Award },
-  { id: "emails", label: "Emails", icon: Mail },
-  { id: "analytics", label: "Analytics", icon: Activity },
   { id: "settings", label: "Settings", icon: Settings, danger: true },
 ];
 
@@ -74,7 +72,6 @@ export default function AdminCompetitionsEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
@@ -244,13 +241,6 @@ export default function AdminCompetitionsEditor() {
           
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => setPreviewOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#555] bg-white border border-[#eaeaea] hover:bg-[#faf9f8] rounded-lg transition-all"
-            >
-              <Eye size={16} />
-              Preview
-            </button>
-            <button 
               onClick={handleSave}
               disabled={saving}
               className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-[#111] hover:bg-[#333] shadow-md rounded-lg transition-all disabled:opacity-50"
@@ -318,9 +308,6 @@ export default function AdminCompetitionsEditor() {
               <ResourcesModule data={competition} onChange={updateField} />
             )}
 
-            {activeTab === "seo" && (
-              <SeoModule data={competition} onChange={updateField} />
-            )}
 
             {activeTab === "settings" && (
               <SettingsModule 
@@ -331,27 +318,12 @@ export default function AdminCompetitionsEditor() {
               />
             )}
             
-            {/* Fallback for unbuilt modules */}
-            {activeTab !== "overview" && activeTab !== "branding" && activeTab !== "timeline" && activeTab !== "theme" && activeTab !== "prizes" && activeTab !== "judges" && activeTab !== "sponsors" && activeTab !== "community" && activeTab !== "resources" && activeTab !== "seo" && activeTab !== "settings" && (
-              <div className="p-12 border-2 border-dashed border-[#eaeaea] rounded-2xl flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 bg-[#f4f2f0] rounded-2xl flex items-center justify-center text-[#888] mb-4">
-                  {React.createElement(SIDEBAR_NAV.find(n => n.id === activeTab)?.icon, { size: 32 })}
-                </div>
-                <h3 className="text-xl font-bold text-[#111] mb-2">{SIDEBAR_NAV.find(n => n.id === activeTab)?.label}</h3>
-                <p className="text-[#666] max-w-sm">This module is part of the new architecture and is currently being built.</p>
-              </div>
-            )}
 
           </div>
         </div>
       </div>
 
       {/* Slide-over Preview Pane */}
-      <PreviewPane 
-        data={competition} 
-        isVisible={previewOpen} 
-        onClose={() => setPreviewOpen(false)} 
-      />
 
     </div>
   );

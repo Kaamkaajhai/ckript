@@ -43,6 +43,16 @@ const staticSeoRoutes = [
     priority: "0.9",
   },
   {
+    // The marketing overview of the challenge — the page the landing nav points at. The hub above
+    // stays the application surface this page's CTAs land on.
+    path: "/challenges",
+    title: "The Ckript Challenge — One Theme, 48 Hours | Ckript",
+    description:
+      "One theme, revealed to every writer at the same moment. Forty-eight hours to turn it into a screenplay, an AI evaluation for every entry, and a place in the Hall of Fame for the best.",
+    changefreq: "weekly",
+    priority: "0.8",
+  },
+  {
     // The permanent archive of past competitions — the platform's credibility page, so it should be
     // indexed. Individual /hall-of-fame/:slug pages set their own metadata at runtime.
     path: "/hall-of-fame",

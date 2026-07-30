@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink, Check } from "lucide-react";
+import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import useCompetition from "../../components/competition/useCompetition";
@@ -12,7 +12,7 @@ import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import { COMPANY } from "../../constants/company";
 import externalUrl from "../../utils/externalUrl";
 import "./challenge.css";
-import { JUDGING_CRITERIA, HOW_IT_WORKS, WHAT_YOU_RECEIVE } from "./constants";
+import { JUDGING_CRITERIA, ELIGIBILITY_EXAMPLES } from "./constants";
 
 const Section = ({ id, title, children, subtitle }) => (
   <section id={id} className="scroll-mt-24 py-10">
@@ -371,22 +371,6 @@ const CompetitionLanding = () => {
           </Card>
         </Section>
 
-        {/* Numbered on purpose: this is a sequence, and the order is the information. Uncertainty
-            is what stops someone committing a weekend — six concrete steps make it finite. */}
-        <Section id="how-it-works" title="How the Challenge works">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {HOW_IT_WORKS.map((step, i) => (
-              <Card key={step.title}>
-                <p className="ckc-meta">{String(i + 1).padStart(2, "0")}</p>
-                <h3 className="ckc-title ckc-h3" style={{ marginTop: 8 }}>{step.title}</h3>
-                <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.55, color: "var(--ckc-muted)" }}>
-                  {step.body}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </Section>
-
         {/* People rule themselves out long before anyone rules them out. The sentence carries the
             rule; the chips are examples, never a gate — so nobody reads their own absence from the
             list as an answer. The competition's own eligibility text stays the source of truth. */}
@@ -396,29 +380,10 @@ const CompetitionLanding = () => {
               Anyone who writes. Wherever you are, whatever you have written before.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {["First script", "Fiftieth script", "Students", "Professionals",
-                "Screen", "TV", "Anime", "Stage"].map((tag) => (
+              {ELIGIBILITY_EXAMPLES.map((tag) => (
                 <span key={tag} className="ckc-chip">{tag}</span>
               ))}
             </div>
-            {competition.eligibility ? (
-              <p className="ckc-meta" style={{ marginTop: 18 }}>{competition.eligibility}</p>
-            ) : null}
-          </Card>
-        </Section>
-
-        {/* For the majority who assume they will not win — which is most of the reason people never
-            enter anything. The last line answers the fear that actually stops writers submitting. */}
-        <Section id="what-you-receive" title="What every entrant receives">
-          <Card>
-            <ul className="space-y-3">
-              {WHAT_YOU_RECEIVE.map((item) => (
-                <li key={item} className="flex gap-3" style={{ lineHeight: 1.55, color: "var(--ckc-body)" }}>
-                  <Check className="h-4 w-4 shrink-0" style={{ marginTop: 3, color: "var(--ckc-accent)" }} aria-hidden="true" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
           </Card>
         </Section>
 

@@ -51,11 +51,13 @@ const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
 const CompetitionLanding = lazy(() => import("./pages/challenge/CompetitionLanding"));
 const ChallengeHub = lazy(() => import("./pages/challenge/ChallengeHub"));
+// The landing-register overview of the challenge. Marketing surface, so it is bare like the
+// landing itself — the hub above is what renders inside the app shell.
+const ChallengesPage = lazy(() => import("./pages/landing/ChallengesPage"));
 const HallOfFame = lazy(() => import("./pages/hall-of-fame/HallOfFame"));
 const HallOfFameDetail = lazy(() => import("./pages/hall-of-fame/HallOfFameDetail"));
 const CompetitionRegister = lazy(() => import("./pages/challenge/CompetitionRegister"));
 const CompetitionDashboard = lazy(() => import("./pages/challenge/CompetitionDashboard"));
-const MyCompetitions = lazy(() => import("./features/competitions-record"));
 const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
@@ -79,8 +81,6 @@ const FollowRequests = lazy(() => import("./pages/FollowRequests"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 const AppShell = lazy(() => import("./layouts/app-shell/AppShell"));
 const MobileApp = lazy(() => import("./mobile/MobileApp"));
-const Events = lazy(() => import("./pages/Events"));
-const EventDetails = lazy(() => import("./pages/events/EventDetails"));
 
 /*
  * Warmed on idle, in likelihood order. The app shell leads because it is now the
@@ -510,8 +510,13 @@ function App() {
                 <Route path="/hall-of-fame" element={<HallOfFame />} />
                 <Route path="/hall-of-fame/:slug" element={<HallOfFameDetail />} />
               </Route>
-              <Route path="/events" element={<Events />} />
-              <Route path="/events/:id" element={<EventDetails />} />
+              <Route path="/challenges" element={<ChallengesPage />} />
+              {/* The hub's fourth tab IS this data, through the same EntryCard, and it is
+                  URL-addressable. A standalone page meant two surfaces over one dataset — which is
+                  what 5f77ee4 ("the hub is the destination") exists to prevent — and the second one
+                  had drifted on award labels and lost dark mode. Public: a redirect needs no
+                  session, and the hub asks for one in place on that tab. */}
+              <Route path="/my-competitions" element={<Navigate to="/challenge?tab=mine" replace />} />
               <Route path="/writer-onboarding" element={<WriterOnboardingRoute />} />
               <Route path="/producer-director-onboarding" element={<ProducerOnboardingRoute />} />
               <Route path="/investor-onboarding" element={<Navigate to="/producer-director-onboarding" replace />} />
@@ -527,7 +532,6 @@ function App() {
                 <Route path="/create-project/:draftId" element={<CreateProject />} />
                 <Route path="/challenge/register" element={<CompetitionRegister />} />
                 <Route path="/challenge/dashboard" element={<CompetitionDashboard />} />
-                <Route path="/my-competitions" element={<MyCompetitions />} />
                 <Route path="/upload" element={<ScriptUpload />} />
                 <Route path="/search" element={<Search />} />
                 <Route path="/script/:id/pay" element={<ScriptPaymentPage />} />

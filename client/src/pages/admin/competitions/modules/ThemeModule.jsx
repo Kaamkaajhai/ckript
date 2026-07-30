@@ -43,16 +43,20 @@ export default function ThemeModule({ data, onChange }) {
             />
           </div>
 
+          {/* theme.guidelines, not writingPrompt. The prompt field was rendered by nothing, while
+              guidelines renders on the competition page and on every entrant's dashboard and had no
+              editor at all — so that block could never appear for anything built here. */}
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#555] uppercase tracking-wide">The Core Prompt</label>
+            <label className="block text-xs font-bold text-[#555] uppercase tracking-wide">Guidelines</label>
             <textarea
-              name="writingPrompt"
-              value={theme.writingPrompt || ""}
+              name="guidelines"
+              value={theme.guidelines || ""}
               onChange={handleThemeChange}
-              placeholder="Your protagonist must discover a lie that..."
+              placeholder="What the theme asks for, and how literally to take it."
               rows={3}
               className="w-full px-4 py-3 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111] font-serif text-lg resize-y"
             />
+            <p className="text-xs text-[#888]">Shown on the competition page and on each entrant's dashboard.</p>
           </div>
 
           <div className="space-y-2">
@@ -72,7 +76,10 @@ export default function ThemeModule({ data, onChange }) {
       {/* Constraints */}
       <div className="bg-white rounded-2xl p-8 border border-[#eaeaea] shadow-sm">
         <div className="mb-6">
-          <h2 className="text-xl font-serif font-bold text-[#111]">Requirements & Constraints</h2>
+          <h2 className="text-xl font-serif font-bold text-[#111]">Requirements</h2>
+          {/* Allowed Genres only. Allowed Languages, Required Length and Restricted Topics were
+              published to writers as hard rules but rendered by nothing and enforced nowhere —
+              submitCompetitionEntry's only content check is a minimum length. Schema fields stay. */}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -83,39 +90,6 @@ export default function ThemeModule({ data, onChange }) {
               value={(theme.allowedGenres || []).join(", ")}
               onChange={(e) => handleArrayChange("allowedGenres", e.target.value)}
               placeholder="e.g. Sci-Fi, Thriller, Drama"
-              className="w-full px-4 py-2.5 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111]"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#555] uppercase tracking-wide">Allowed Languages</label>
-            <input
-              type="text"
-              value={(theme.allowedLanguages || []).join(", ")}
-              onChange={(e) => handleArrayChange("allowedLanguages", e.target.value)}
-              placeholder="e.g. English, Spanish"
-              className="w-full px-4 py-2.5 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111]"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#555] uppercase tracking-wide">Required Length / Page Count</label>
-            <input
-              type="text"
-              name="requiredLength"
-              value={theme.requiredLength || ""}
-              onChange={handleThemeChange}
-              placeholder="e.g. 5-10 Pages"
-              className="w-full px-4 py-2.5 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111]"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-[#555] uppercase tracking-wide">Restricted Topics</label>
-            <input
-              type="text"
-              value={(theme.restrictedTopics || []).join(", ")}
-              onChange={(e) => handleArrayChange("restrictedTopics", e.target.value)}
-              placeholder="e.g. No excessive violence, No fan-fiction"
               className="w-full px-4 py-2.5 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111]"
             />
           </div>
