@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from "react";
+import "./OverlayScrollArea.css";
 
 const MIN_THUMB_HEIGHT = 28;
 
