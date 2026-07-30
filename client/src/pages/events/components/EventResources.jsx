@@ -1,323 +1,143 @@
-import React, { useEffect, useRef } from 'react';
-import { FileText, Download, Video, ExternalLink, Users, Link as LinkIcon, MessageCircle, Twitter, Github } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BookOpen, Download, Link as LinkIcon, FileText, Layers } from 'lucide-react';
 
-const ResourceIcon = ({ type }) => {
-  switch (type?.toLowerCase()) {
-    case 'document':
-    case 'doc':
-      return <FileText size={20} />;
-    case 'video':
-      return <Video size={20} />;
-    case 'download':
-      return <Download size={20} />;
-    default:
-      return <ExternalLink size={20} />;
-  }
-};
-
-const CommunityIcon = ({ icon }) => {
-  switch (icon?.toLowerCase()) {
-    case 'discord':
-    case 'slack':
-    case 'chat':
-      return <MessageCircle size={20} />;
-    case 'twitter':
-      return <Twitter size={20} />;
-    case 'github':
-      return <Github size={20} />;
-    default:
-      return <LinkIcon size={20} />;
-  }
-};
-
-export default function EventResources({ resources = [], communityLinks = [] }) {
-  const containerRef = useRef(null);
+const EventResources = ({ resources = [] }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-          }
-        });
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
       },
       { threshold: 0.1 }
     );
-
-    const elements = containerRef.current?.querySelectorAll('.animate-on-scroll');
-    elements?.forEach((el) => observer.observe(el));
-
-    return () => {
-      elements?.forEach((el) => observer.unobserve(el));
-    };
+    if (sectionRef.current) observer.observe(sectionRef.current);
+    return () => observer.disconnect();
   }, []);
 
-  const hasResources = resources && resources.length > 0;
-  const hasCommunity = communityLinks && communityLinks.length > 0;
+  const renderComingSoon = () => (
+    <section className={`resources-section ${isVisible ? 'fade-in' : 'hidden'}`} ref={sectionRef}>
+      <div className="section-container">
+        <div className="section-header">
+          <div className="section-label">
+            <BookOpen size={16} />
+            <span>Materials</span>
+          </div>
+          <h2 className="section-title">Event Resources</h2>
+        </div>
+        <div className="coming-soon-card">
+          <div className="coming-soon-icon-wrapper">
+            <Layers size={40} className="coming-soon-icon" />
+          </div>
+          <h3>To Be Announced</h3>
+          <p>Check back soon for downloadable assets, guidelines, and other important event materials.</p>
+        </div>
+      </div>
+      <style>{`
+        .resources-section { padding: 6rem 2rem; background-color: #FFFFFF; color: #111111; font-family: var(--ck-sans, sans-serif); transition: opacity 0.8s ease, transform 0.8s ease; }
+        .hidden { opacity: 0; transform: translateY(20px); }
+        .fade-in { opacity: 1; transform: translateY(0); }
+        .section-container { max-width: 1200px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-label { display: inline-flex; align-items: center; gap: 0.5rem; color: #8A3B2E; font-weight: 600; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+        .section-title { font-size: 2.5rem; font-weight: 700; margin: 0; font-family: var(--ck-serif, serif); color: #111111; }
+        .coming-soon-card { background: #F8F6F2; border: 1px solid rgba(138, 59, 46, 0.1); border-radius: 12px; padding: 5rem 2rem; text-align: center; max-width: 800px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.02); transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .coming-soon-card:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.05); }
+        .coming-soon-icon-wrapper { width: 80px; height: 80px; background: #FFFFFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .coming-soon-icon { color: #c97a5f; }
+        .coming-soon-card h3 { font-family: var(--ck-serif, serif); font-size: 1.75rem; color: #111111; margin: 0 0 1rem 0; }
+        .coming-soon-card p { color: #555555; font-size: 1.125rem; margin: 0; max-width: 500px; margin: 0 auto; line-height: 1.6; }
+      `}</style>
+    </section>
+  );
 
-  if (!hasResources && !hasCommunity) return null;
+  if (!resources || resources.length === 0) {
+    return renderComingSoon();
+  }
+
+  const getIcon = (type) => {
+    switch (type?.toLowerCase()) {
+      case 'download':
+      case 'pdf':
+      case 'document':
+        return <Download size={24} />;
+      case 'link':
+      case 'website':
+        return <LinkIcon size={24} />;
+      default:
+        return <FileText size={24} />;
+    }
+  };
 
   return (
-    <section className="event-resources-section" ref={containerRef}>
-      <div className="resources-container">
-        
-        {/* Resources Section */}
-        <div className="resources-column animate-on-scroll">
-          <div className="section-header">
-            <div className="icon-wrapper">
-              <Download size={24} />
-            </div>
-            <h2>Resources & Downloads</h2>
+    <section className={`resources-section ${isVisible ? 'fade-in' : 'hidden'}`} ref={sectionRef}>
+      <div className="section-container">
+        <div className="section-header">
+          <div className="section-label">
+            <BookOpen size={16} />
+            <span>Materials</span>
           </div>
-          
-          <div className="links-list">
-            {hasResources ? (
-              resources.map((res, idx) => (
-                <a key={idx} href={res.url} target="_blank" rel="noopener noreferrer" className="resource-card">
-                  <div className="resource-icon">
-                    <ResourceIcon type={res.type} />
-                  </div>
-                  <span className="resource-label">{res.label}</span>
-                  <ExternalLink size={16} className="arrow-icon" />
-                </a>
-              ))
-            ) : (
-              <div className="empty-state">
-                <FileText size={32} className="empty-icon" />
-                <p>Resources coming soon</p>
-              </div>
-            )}
-          </div>
+          <h2 className="section-title">Event Resources</h2>
         </div>
 
-        {/* Community Section */}
-        <div className="resources-column animate-on-scroll">
-          <div className="section-header">
-            <div className="icon-wrapper">
-              <Users size={24} />
-            </div>
-            <h2>Community & Social</h2>
-          </div>
-          
-          <div className="links-list">
-            {hasCommunity ? (
-              communityLinks.map((link, idx) => (
-                <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="community-card">
-                  <div className="community-icon">
-                    <CommunityIcon icon={link.icon} />
-                  </div>
-                  <span className="community-label">{link.label}</span>
-                  <ExternalLink size={16} className="arrow-icon" />
-                </a>
-              ))
-            ) : (
-              <div className="empty-state">
-                <Users size={32} className="empty-icon" />
-                <p>Community links coming soon</p>
+        <div className="resources-grid">
+          {resources.map((resource, idx) => (
+            <a 
+              key={idx} 
+              href={resource.url || '#'} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="resource-card"
+              style={{ animationDelay: `${idx * 100}ms` }}
+            >
+              <div className="resource-icon-wrapper">
+                {getIcon(resource.type)}
               </div>
-            )}
-          </div>
+              <div className="resource-info">
+                <h3 className="resource-title">{resource.title}</h3>
+                {resource.description && <p className="resource-desc">{resource.description}</p>}
+              </div>
+              <div className="resource-action">
+                <span className="action-text">{resource.type === 'link' ? 'Visit' : 'Download'}</span>
+              </div>
+            </a>
+          ))}
         </div>
       </div>
 
       <style>{`
-        .event-resources-section {
-          padding: 4rem 2rem;
-          background-color: var(--event-surface-alt, #F8F6F2);
-          display: flex;
-          justify-content: center;
-        }
-
-        .resources-container {
-          width: 100%;
-          max-width: 900px;
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 3rem;
-        }
-
-        @media (min-width: 768px) {
-          .resources-container {
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-          }
-        }
-
-        .resources-column {
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-        }
-
-        .section-header {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-        }
-
-        .icon-wrapper {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 48px;
-          height: 48px;
-          border-radius: 12px;
-          background-color: var(--event-bg, #FFFFFF);
-          color: var(--event-accent, #8A3B2E);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-
-        .section-header h2 {
-          margin: 0;
-          font-family: var(--ck-sans, system-ui, sans-serif);
-          font-size: 1.5rem;
-          font-weight: 600;
-          color: var(--event-text, #111);
-        }
-
-        .links-list {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        /* Shared Card Styles */
-        .resource-card,
-        .community-card {
-          display: flex;
-          align-items: center;
-          padding: 1.25rem;
-          border-radius: 12px;
-          background-color: var(--event-bg, #FFFFFF);
-          text-decoration: none;
-          transition: all 0.2s ease;
-          border: 1px solid var(--event-border, rgba(0,0,0,0.05));
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-        }
-
-        /* Resource Card Hover */
-        .resource-card:hover {
-          transform: translateY(-2px);
-          border-color: var(--event-accent, #8A3B2E);
-          box-shadow: 0 8px 16px rgba(138, 59, 46, 0.1);
-        }
-
-        .resource-card:hover .resource-label {
-          color: var(--event-accent, #8A3B2E);
-        }
-
-        .resource-card:hover .arrow-icon {
-          opacity: 1;
-          transform: translateX(0);
-          color: var(--event-accent, #8A3B2E);
-        }
-
-        /* Community Card Hover */
-        .community-card:hover {
-          transform: translateY(-2px);
-          background-color: var(--event-text, #111);
-          color: #FFFFFF;
-          border-color: var(--event-text, #111);
-          box-shadow: 0 8px 16px rgba(17, 17, 17, 0.2);
-        }
-
-        .community-card:hover .community-label {
-          color: #FFFFFF;
-        }
+        .resources-section { padding: 6rem 2rem; background-color: #FFFFFF; color: #111111; font-family: var(--ck-sans, sans-serif); transition: opacity 0.8s ease, transform 0.8s ease; }
+        .hidden { opacity: 0; transform: translateY(20px); }
+        .fade-in { opacity: 1; transform: translateY(0); }
+        .section-container { max-width: 1200px; margin: 0 auto; }
+        .section-header { text-align: center; margin-bottom: 4rem; }
+        .section-label { display: inline-flex; align-items: center; gap: 0.5rem; color: #8A3B2E; font-weight: 600; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+        .section-title { font-size: 2.5rem; font-weight: 700; margin: 0; font-family: var(--ck-serif, serif); color: #111111; }
         
-        .community-card:hover .community-icon {
-          color: #FFFFFF;
-          background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .community-card:hover .arrow-icon {
-          opacity: 1;
-          transform: translateX(0);
-          color: #FFFFFF;
-        }
-
-        .resource-icon,
-        .community-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 40px;
-          height: 40px;
-          border-radius: 8px;
-          background-color: var(--event-surface-alt, #F8F6F2);
-          color: var(--event-text-muted, #555);
-          margin-right: 1rem;
-          transition: all 0.2s ease;
-        }
-
-        .resource-label,
-        .community-label {
-          flex: 1;
-          font-family: var(--ck-sans, system-ui, sans-serif);
-          font-size: 1.125rem;
-          font-weight: 500;
-          color: var(--event-text, #111);
-          transition: color 0.2s ease;
-        }
-
-        .arrow-icon {
-          opacity: 0;
-          transform: translateX(-10px);
-          transition: all 0.2s ease;
-          color: var(--event-text-muted, #555);
-        }
-
-        .empty-state {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 3rem 2rem;
-          background-color: var(--event-bg, #FFFFFF);
-          border-radius: 12px;
-          border: 1px dashed var(--event-border, rgba(0,0,0,0.1));
-          text-align: center;
-          color: var(--event-text-muted, #555);
-        }
-
-        .empty-icon {
-          margin-bottom: 1rem;
-          opacity: 0.5;
-        }
-
-        .empty-state p {
-          margin: 0;
-          font-family: var(--ck-sans, system-ui, sans-serif);
-          font-size: 1rem;
-          font-weight: 500;
-        }
-
-        /* Animations */
-        .animate-on-scroll {
-          opacity: 0;
-          transform: translateY(20px);
-          transition: opacity 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-
-        .animate-on-scroll.is-visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .animate-on-scroll {
-            opacity: 1;
-            transform: none;
-            transition: none;
-          }
-          .resource-card,
-          .community-card,
-          .arrow-icon {
-            transition: none;
-          }
-        }
+        .resources-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; max-width: 900px; margin: 0 auto; }
+        @media (min-width: 768px) { .resources-grid { grid-template-columns: repeat(2, 1fr); gap: 2rem; } }
+        
+        .resource-card { display: flex; align-items: center; gap: 1.5rem; background: #F8F6F2; padding: 2rem; border-radius: 12px; border: 1px solid transparent; text-decoration: none; color: inherit; transition: all 0.3s ease; }
+        .resource-card:hover { transform: translateY(-5px); background: #FFFFFF; border-color: rgba(138,59,46,0.2); box-shadow: 0 15px 35px rgba(0,0,0,0.06); }
+        
+        .resource-icon-wrapper { width: 60px; height: 60px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #FFFFFF; color: #c97a5f; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+        .resource-card:hover .resource-icon-wrapper { background: #8A3B2E; color: #FFFFFF; transform: scale(1.05); }
+        
+        .resource-info { flex-grow: 1; }
+        .resource-title { font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem 0; font-family: var(--ck-serif, serif); color: #111111; transition: color 0.3s ease; }
+        .resource-card:hover .resource-title { color: #8A3B2E; }
+        .resource-desc { font-size: 0.95rem; color: #555555; margin: 0; line-height: 1.5; }
+        
+        .resource-action { margin-left: auto; opacity: 0; transform: translateX(-10px); transition: all 0.3s ease; }
+        .resource-card:hover .resource-action { opacity: 1; transform: translateX(0); }
+        .action-text { font-size: 0.875rem; font-weight: 600; color: #8A3B2E; text-transform: uppercase; letter-spacing: 0.05em; }
       `}</style>
     </section>
   );
-}
+};
+
+export default EventResources;
