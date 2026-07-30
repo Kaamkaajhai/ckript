@@ -263,7 +263,7 @@ export default function ScriptWorkbenchPage({ vm }) {
     read.push({ id: "evaluation", label: "Evaluation", count: ai || undefined });
     read.push({ id: "ratings", label: "Ratings", count: producer ? producer.toFixed(1) : undefined });
     list.push({ group: "Read & assess", items: read });
-    const operate = [{ id: "deal", label: capabilities.owner ? "Purchase Requests" : "Deal", count: capabilities.owner ? (vm.pendingRequestBadgeCount || undefined) : undefined }];
+    const operate = [{ id: "deal", label: "Deal Terms" }];
     operate.push({ id: "contact", label: "Writer Contact" });
     if (capabilities.owner || capabilities.collaborator) operate.push({ id: "history", label: "Status & History" });
     list.push({ group: "Operate", items: operate });
@@ -292,6 +292,7 @@ export default function ScriptWorkbenchPage({ vm }) {
   const go = (id) => {
     if (id === "read") { setSection(capabilities.fullScript && journey.hasFullSource ? "full" : "preview"); vm.recordPreviewOpen?.(); }
     else setSection(id);
+    setInspectorOpen(false);
     if (canvasRef.current) canvasRef.current.scrollTop = 0;
   };
 
@@ -341,7 +342,7 @@ export default function ScriptWorkbenchPage({ vm }) {
             <button type="button" className="swb-btn swb-btn--ghost" aria-label="More tools" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}><MoreHorizontal size={16} /></button>
             {menuOpen && (
               <div className="swb-menu" role="menu" style={{ top: "calc(100% + 6px)", right: 0 }}>
-                {vm.canOpenCollaborationHub && <button type="button" onClick={() => { setMenuOpen(false); vm.openCollaborationHub(); }}><Users size={15} /><span>Collaboration hub<small>Invite co-writers and manage access.</small></span></button>}
+
                 <button type="button" onClick={() => { setMenuOpen(false); go("read"); }}><FileText size={15} /><span>Script access<small>Preview, copy, print and download.</small></span></button>
                 {capabilities.buyer && vm.script?.myPendingRequest?.invoice && <button type="button" onClick={() => { setMenuOpen(false); vm.handleInvoicePdfAction(vm.script.myPendingRequest.invoice, "open"); }}><Download size={15} /><span>Open invoice<small>View the verified purchase invoice.</small></span></button>}
                 <button type="button" onClick={() => { setMenuOpen(false); setSection("history"); }}><Film size={15} /><span>Metadata & publication<small>SID, completion, classification, roles.</small></span></button>
@@ -369,9 +370,9 @@ export default function ScriptWorkbenchPage({ vm }) {
 
         <div className="swb-canvas" ref={canvasRef}>
           <div className="swb-metrics">
-            <div className="swb-metric"><small>Price</small><strong>{money(script?.price)}</strong><span className="swb-metric__sub">{RIGHTS_LABELS[rights?.rightsType] || "Rights TBD"}</span></div>
-            <div className="swb-metric"><small>Pages</small><strong>{script?.pageCount || "—"}</strong><span className="swb-metric__sub">{script?.scriptPreviewAccess?.start ? `Preview ${script.scriptPreviewAccess.start}–${script.scriptPreviewAccess.end}` : "Preview TBD"}</span></div>
-            <div className="swb-metric"><small>Views</small><strong>{Number(script?.views || 0).toLocaleString("en-IN")}</strong><span className="swb-metric__sub">unique</span></div>
+            <div className="swb-metric"><small>Price</small><strong>{money(script?.price)}</strong></div>
+            <div className="swb-metric"><small>Pages</small><strong>{script?.pageCount || "—"}</strong></div>
+            <div className="swb-metric"><small>Views</small><strong>{Number(script?.views || 0).toLocaleString("en-IN")}</strong></div>
             <div className="swb-metric"><small>AI score</small><strong>{ai || "—"}</strong>{ai ? <span className="swb-status swb-status--live swb-status--sm" style={{ marginTop: 2 }}>{gradeFor(ai)}</span> : <span className="swb-metric__sub">No evaluation</span>}</div>
             <div className="swb-metric"><small>Producer</small><strong>★ {producer ? producer.toFixed(1) : "—"}</strong><span className="swb-metric__sub">{script?.producerRating?.count || 0} ratings</span></div>
           </div>
@@ -457,7 +458,7 @@ export default function ScriptWorkbenchPage({ vm }) {
             <p className="swb-muted" style={{ fontSize: 11.5, marginTop: -6, marginBottom: 12 }}>Read events are recorded for non-creators. Falls back to structured text if the PDF renderer fails.</p>
             {journey.hasPreviewSource ? (
               <ScreenplayPdfViewer
-                pdfUrl={capabilities.fullScript ? vm.uploadedScriptPdfUrl : ""}
+                pdfUrl={vm.uploadedScriptPdfUrl}
                 title={`${script?.title || "Script"} preview`}
                 startPage={vm.previewStart || 1}
                 endPage={vm.previewEnd || vm.previewStart || 1}
@@ -558,8 +559,7 @@ export default function ScriptWorkbenchPage({ vm }) {
           {/* DEAL / PURCHASE REQUESTS */}
           <section className={`swb-panel${section === "deal" ? " is-active" : ""}`} aria-hidden={section !== "deal"}>
             <div className="swb-panel-head">
-              <h3 className="swb-sect-title">{capabilities.owner ? "Purchase requests" : "Deal terms"}</h3>
-              {capabilities.owner && vm.pendingRequestBadgeCount ? <span className="swb-status swb-status--warn">{vm.pendingRequestBadgeCount} pending</span> : null}
+              <h3 className="swb-sect-title">Deal terms</h3>
             </div>
             <article className="swb-card swb-pad" style={{ marginBottom: 16 }}>
               <p className="swb-label">Deal summary</p>
@@ -577,36 +577,7 @@ export default function ScriptWorkbenchPage({ vm }) {
               </div>
             </article>
 
-            {capabilities.owner ? (
-              <>
-                <article className="swb-card" style={{ overflow: "hidden" }}>
-                  {vm.pendingReqLoading ? <p className="swb-muted" style={{ fontSize: 12, padding: 16 }}>Loading purchase requests…</p> : (vm.pendingRequests?.length ? (
-                    <table className="swb-table">
-                      <thead><tr><th>Buyer</th><th>Role</th><th>Offer</th><th>State</th><th style={{ textAlign: "right" }}>Actions</th></tr></thead>
-                      <tbody>
-                        {vm.pendingRequests.map((r) => (
-                          <tr key={r?._id}>
-                            <td><b>{text(r?.investor?.name, "Industry professional")}</b></td>
-                            <td>{text(r?.investor?.role, "Buyer")}</td>
-                            <td>{money(r?.amount)}</td>
-                            <td><span className={`swb-status swb-status--sm ${r?.status === "pending" ? "swb-status--warn" : r?.status === "approved" ? "swb-status--live" : ""}`}>{text(r?.status)}</span></td>
-                            <td style={{ textAlign: "right" }}>
-                              {r?.status === "pending" ? (
-                                <>
-                                  <button type="button" className="swb-btn swb-btn--sm swb-btn--sage" disabled={vm.pendingReqActionId === r?._id} onClick={() => vm.handleApproveRequest(r?._id)}>Approve</button>{" "}
-                                  <button type="button" className="swb-btn swb-btn--sm swb-btn--danger" onClick={() => { setDeclineRequest(r); setDeclineNote(""); }}>Decline</button>
-                                </>
-                              ) : <span className="swb-muted" style={{ fontSize: 11 }}>—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : <p className="swb-muted" style={{ fontSize: 12, padding: 16 }}>No purchase requests yet.</p>)}
-                </article>
-                <div className="swb-alert" style={{ marginTop: 12 }}>Approvals remain server-authoritative. Conflicting requests may be rejected or locked when the 72-hour payment window starts.</div>
-              </>
-            ) : vm.script?.myPendingRequest?.status === "approved" ? (
+            {vm.script?.myPendingRequest?.status === "approved" ? (
               <div className="swb-lock" style={{ background: "#edf6ef", borderColor: "#c4dcc8" }}><Check size={18} style={{ color: "#4f7e59" }} /><div><b>Your request was approved</b><p>Complete payment within the server-provided window to unlock the full script.</p></div><button type="button" className="swb-btn swb-btn--primary" onClick={vm.openPayment}>Continue to payment</button></div>
             ) : vm.script?.myPendingRequest ? (
               <div className="swb-lock"><FileText size={18} /><div><b>Request {vm.script.myPendingRequest.status}</b><p>The writer controls approval. Payment terms are accepted only on the secure payment page.</p></div></div>
@@ -669,11 +640,7 @@ export default function ScriptWorkbenchPage({ vm }) {
                   <div className="swb-spec"><span className="swb-spec__k">Transaction</span><span className="swb-spec__v"><span className={`swb-status swb-status--sm ${journey.transactionAvailable ? "swb-status--live" : "swb-status--warn"}`}>{journey.transactionAvailable ? "Available" : text(script?.transactionStatus, "Unavailable")}</span></span></div>
                   <div className="swb-spec"><span className="swb-spec__k">Published</span><span className="swb-spec__v">{vm.formatDate(script?.publishedAt || script?.createdAt)}</span></div>
                 </article>
-                <article className="swb-card swb-pad">
-                  <p className="swb-label">Collaboration</p>
-                  <p className="swb-muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>Accepted collaborator roles: editor, merger, viewer, full_admin, commenter. Real-time membership and role changes refresh the page; removal posts an error notice.</p>
-                  {vm.canOpenCollaborationHub && <button type="button" className="swb-btn swb-btn--sm" style={{ marginTop: 10 }} onClick={vm.openCollaborationHub}><Users size={13} />Open collaboration hub</button>}
-                </article>
+
               </div>
             </section>
           )}
@@ -690,29 +657,15 @@ export default function ScriptWorkbenchPage({ vm }) {
               {capabilities.canEdit && <button type="button" className="swb-btn swb-btn--primary" onClick={vm.openEdit}><Pencil size={14} />{capabilities.owner ? "Edit Project" : "Co-write"}</button>}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
                 <SocialShareButton share={vm.scriptShare} className="swb-btn swb-btn--sm" buttonLabel="Share" />
-                {vm.canOpenCollaborationHub && <button type="button" className="swb-btn swb-btn--sm" onClick={vm.openCollaborationHub}>Collaborate</button>}
+
               </div>
             </div>
           </div>
 
-          {capabilities.owner ? (
-            <div className="swb-insp__sect">
-              <div className="swb-insp__row"><p className="swb-label" style={{ margin: 0 }}>Purchase requests</p><span className="swb-status swb-status--warn swb-status--sm">{vm.pendingRequestBadgeCount || 0} pending</span></div>
-              {pending.length ? pending.slice(0, 4).map((r) => (
-                <div className="swb-queue" key={r?._id}>
-                  <span className="swb-avatar swb-avatar--sm">{initials(r?.investor?.name)}</span>
-                  <div><b>{text(r?.investor?.name, "Buyer")}</b><small>{text(r?.investor?.role, "Buyer")} · {money(r?.amount)}</small></div>
-                  <button type="button" className="swb-btn swb-btn--sm swb-btn--sage" disabled={vm.pendingReqActionId === r?._id} onClick={() => vm.handleApproveRequest(r?._id)}>Approve</button>
-                </div>
-              )) : <p className="swb-muted" style={{ fontSize: 11.5, marginTop: 8 }}>No pending requests.</p>}
-              <button type="button" className="swb-btn swb-btn--sm swb-btn--full" style={{ marginTop: 8 }} onClick={() => { setInspectorOpen(false); setSection("deal"); }}>Open deal desk</button>
-            </div>
-          ) : (
-            <div className="swb-insp__sect">
-              <div className="swb-insp__row"><p className="swb-label" style={{ margin: 0 }}>Deal</p></div>
-              <button type="button" className="swb-btn swb-btn--sm swb-btn--full" onClick={() => { setInspectorOpen(false); setSection("deal"); }}>View deal terms</button>
-            </div>
-          )}
+          <div className="swb-insp__sect">
+            <div className="swb-insp__row"><p className="swb-label" style={{ margin: 0 }}>Deal terms</p></div>
+            <button type="button" className="swb-btn swb-btn--sm swb-btn--full" onClick={() => { setInspectorOpen(false); setSection("deal"); }}>View deal terms</button>
+          </div>
 
           {capabilities.owner && (
             <div className="swb-insp__sect">

@@ -412,55 +412,6 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
   }
 };
 
-// Send writer signup bonus credits email
-export const sendWriterSignupCreditsEmail = async (
-  email,
-  name,
-  { amount = 180, balanceAfter = 180, clientBaseUrl = "" } = {}
-) => {
-  try {
-    validateEmailConfig();
-
-    const transporter = createTransporter();
-    const safeAmount = Number(amount) || 180;
-    const safeBalance = Number(balanceAfter) || 0;
-    const creditsUrl = buildClientUrl("/credits", clientBaseUrl);
-
-    const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
-      to: email,
-      subject: "Your 180 writer signup credits are ready",
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
-          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
-              <h2 style="margin:0; font-size:20px;">Writer Signup Credits Added</h2>
-            </div>
-            <div style="padding:20px; background:#ffffff;">
-              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
-              <p style="margin:0 0 12px;">Welcome to ckript. We have added <strong>${safeAmount} credits</strong> to your account as a writer signup bonus.</p>
-              <p style="margin:0 0 12px;">You can now use these credits for <strong>AI Trailer Generation</strong> and <strong>AI Script Evaluation</strong>.</p>
-              <p style="margin:0 0 16px;"><strong>Current balance:</strong> ${safeBalance} credits</p>
-              <a href="${creditsUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">View Credits</a>
-              <p style="margin:16px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-      text: `Hi ${name || "there"},\n\nWelcome to ckript. We have added ${safeAmount} credits to your account as a writer signup bonus.\nYou can use these credits for AI Trailer Generation and AI Script Evaluation.\n\nCurrent balance: ${safeBalance} credits\nView credits: ${creditsUrl}\n\n- ckript`,
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error("Error sending writer signup credits email:", error.message);
-    return { success: false, error: error.message };
-  }
-};
-
 // Send investor account approval email
 export const sendInvestorApprovalEmail = async (email, name, options = {}) => {
   try {
@@ -982,58 +933,6 @@ export const sendAdminWorkflowAlertEmail = async ({ title, section, message, met
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("Error sending admin workflow alert email:", error.message);
-    return { success: false, error: error.message };
-  }
-};
-
-// Send user email when admin grants credits
-export const sendAdminCreditsGrantedEmail = async (
-  email,
-  name,
-  { amount = 0, reason = "Admin credit grant", balanceAfter = 0, adminName = "Admin", clientBaseUrl = "" } = {}
-) => {
-  try {
-    validateEmailConfig();
-
-    const transporter = createTransporter();
-
-    const numericAmount = Number(amount) || 0;
-    const safeReason = String(reason || "Admin credit grant").trim() || "Admin credit grant";
-    const safeBalance = Number(balanceAfter) || 0;
-    const safeAdminName = String(adminName || "Admin").trim() || "Admin";
-    const creditsUrl = buildClientUrl("/credits", clientBaseUrl);
-
-    const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
-      to: email,
-      subject: "Credits added to your ckript account",
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
-          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
-              <h2 style="margin:0; font-size:20px;">Credits Added</h2>
-            </div>
-            <div style="padding:20px; background:#ffffff;">
-              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
-              <p style="margin:0 0 12px;">${safeAdminName} added <strong>${numericAmount} credits</strong> to your account.</p>
-              <p style="margin:0 0 8px;"><strong>Reason:</strong> ${safeReason}</p>
-              <p style="margin:0 0 16px;"><strong>Updated balance:</strong> ${safeBalance} credits</p>
-              <a href="${creditsUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">View Credits</a>
-              <p style="margin:16px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-      text: `Hi ${name || "there"},\n\n${safeAdminName} added ${numericAmount} credits to your account.\nReason: ${safeReason}\nUpdated balance: ${safeBalance} credits\n\nView credits: ${creditsUrl}\n\n- ckript`,
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error("Error sending admin credit grant email:", error.message);
     return { success: false, error: error.message };
   }
 };

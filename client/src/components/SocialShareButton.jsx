@@ -251,8 +251,10 @@ const SocialShareButton = ({
       onClick={() => setOpen(false)}
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      {/* App chrome only. The per-platform brand hexes in getPlatformBrand above are
+          trademarked marks and stay exactly as they are. */}
       <div
-        className={`relative w-full max-w-[34rem] rounded-2xl border shadow-2xl ${dark ? "bg-[#0d1520] border-white/[0.08]" : "bg-white border-gray-100"}`}
+        className={`relative w-full max-w-[34rem] rounded-2xl border shadow-2xl ${dark ? "bg-[#141414] border-white/[0.08]" : "bg-white border-gray-100"}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className={`flex items-center justify-between px-5 py-4 border-b ${dark ? "border-white/[0.08]" : "border-gray-100"}`}>
@@ -305,7 +307,7 @@ const SocialShareButton = ({
             Instagram on desktop does not support direct auto-post from websites. Use the copied text/link when prompted.
           </p>
 
-          <div className={`rounded-xl border p-3 ${dark ? "border-white/[0.08] bg-[#0a111a]" : "border-gray-200 bg-gray-50"}`}>
+          <div className={`rounded-xl border p-3 ${dark ? "border-white/[0.08] bg-[#1c1c1c]" : "border-gray-200 bg-gray-50"}`}>
             <p className={`text-[11px] font-semibold mb-2 ${dark ? "text-white/45" : "text-gray-500"}`}>Direct options</p>
             <div className="flex flex-wrap gap-2">
               <button

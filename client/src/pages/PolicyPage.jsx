@@ -33,7 +33,7 @@ export default function PrivacyPolicy() {
           <button
             type="button"
             onClick={handleBack}
-            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-cyan-600 transition"
+            className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-red-900 transition"
           >
             <ChevronRight className="w-4 h-4 rotate-180" />
             Back
@@ -50,14 +50,14 @@ export default function PrivacyPolicy() {
           className="mb-12"
         >
           <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-              <ShieldCheck className="w-6 h-6 text-cyan-400" />
+            <div className="p-3 rounded-xl bg-red-900/10 border border-red-900/20">
+              <ShieldCheck className="w-6 h-6 text-red-900" />
             </div>
-            <span className="text-xs font-semibold text-cyan-400 uppercase tracking-widest">
+            <span className="text-xs font-semibold text-red-900 uppercase tracking-widest">
               Legal
             </span>
           </div>
-          <h1 className="text-4xl font-bold text-slate-900 mb-4">Privacy Policy</h1>
+          <h1 className="text-4xl font-bold text-black mb-4">Privacy Policy</h1>
           <div className="flex flex-wrap gap-6 text-sm text-gray-600">
             <span>
               <span className="text-gray-500">Effective:</span>{" "}
@@ -68,7 +68,7 @@ export default function PrivacyPolicy() {
               <span className="text-gray-700">{LAST_UPDATED}</span>
             </span>
           </div>
-          <p className="mt-6 text-gray-700 text-base leading-relaxed border-l-2 border-cyan-200 pl-4">
+          <p className="mt-6 text-gray-700 text-base leading-relaxed border-l-2 border-red-900/40 pl-4">
             Ckript ("Ckript," "we," "our," or "us") is committed to handling personal
             information responsibly and transparently. This Privacy Policy describes what
             information we collect, why we collect it, how we use and disclose it, and the
@@ -91,9 +91,9 @@ export default function PrivacyPolicy() {
               <li key={s.id}>
                 <a
                   href={`#${s.id}`}
-                  className="text-sm text-gray-700 hover:text-cyan-600 transition flex items-center gap-1.5 truncate"
+                  className="text-sm text-gray-700 hover:text-red-900 transition flex items-center gap-1.5 truncate"
                 >
-                  <ChevronRight className="w-3 h-3 text-cyan-500/50 shrink-0" />
+                  <ChevronRight className="w-3 h-3 text-red-900/50 shrink-0" />
                   <span className="truncate">{s.title}</span>
                 </a>
               </li>
@@ -112,7 +112,7 @@ export default function PrivacyPolicy() {
               whileInView="visible"
               viewport={{ once: true, margin: "-60px" }}
             >
-              <h2 className="text-xl font-bold text-slate-900 mb-4 pb-2 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-black mb-4 pb-2 border-b border-gray-200">
                 {section.title}
               </h2>
 
@@ -126,7 +126,7 @@ export default function PrivacyPolicy() {
                       <ul key={bi} className="space-y-0.5 mb-4 pl-1">
                         {block.items.map((item, ii) => (
                           <li key={ii} className="flex items-start gap-2.5 text-sm text-gray-700">
-                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-cyan-500/60 shrink-0" />
+                            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-900/70 shrink-0" />
                             <span className="leading-relaxed">{item.replace(/^[\u200B\u200C\u200D\u200E\u200F\uFEFF]/, "").trim()}</span>
                           </li>
                         ))}
@@ -152,10 +152,10 @@ export default function PrivacyPolicy() {
         <div className="mt-8 pt-8 border-t border-gray-200 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-500">
           <span>{COPYRIGHT_LINE}</span>
           <div className="flex gap-6">
-            <Link to="/terms-of-service" className="hover:text-cyan-400 transition">
+            <Link to="/terms-of-service" className="hover:text-red-900 transition">
               Terms of Service
             </Link>
-            <Link to="/" className="hover:text-cyan-400 transition">
+            <Link to="/" className="hover:text-red-900 transition">
               Home
             </Link>
           </div>
@@ -164,3 +164,4 @@ export default function PrivacyPolicy() {
     </div>
   );
 }
+

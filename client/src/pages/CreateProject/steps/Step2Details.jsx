@@ -426,7 +426,7 @@ const PanelAccess = () => {
           <div className="ckcp-card ckcp-grow">
             <p className="ckcp-card-h">Preview</p>
             <p className="ckcp-card-p" style={{ marginBottom: "12px" }}>The exact page block buyers and admins will see.</p>
-            <div className="ckcp-growscroll ckcp-scroll" style={{ borderRadius: "10px", minHeight: "200px", display: "flex", flexDirection: "column" }}>
+            <div className="ckcp-growscroll ckcp-scroll" style={{ borderRadius: "10px", minHeight: "400px", display: "flex", flexDirection: "column" }}>
               {/* Render the preview with the SAME read-only editor every other surface uses, so the
                   buyer/admin preview is byte-for-byte identical to what the writer authored. */}
               {previewPageTexts.length > 0 && previewPageTexts.slice(Math.max(0, Number(formData.previewWindowStart || 1) - 1), Math.max(0, Number(formData.previewWindowEnd || 1))).join("\n\n").trim() ? (

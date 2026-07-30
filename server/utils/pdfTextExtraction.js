@@ -58,6 +58,11 @@ export const formatScreenplayLikeText = (value = "") => {
   let text = normalizeExtractedPdfText(value);
   if (!text.trim()) return "";
 
+  // Fix PDF extraction artifacts where kerning is interpreted as single spaces (e.g. "P R O D U C T I O N   N O T E")
+  text = text.replace(/(?<=^|[\s\n])(?:[^\s] ){1,}[^\s](?=$|[\s\n])/g, (match) => {
+    return match.replace(/ /g, "");
+  });
+
   text = text
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
@@ -189,7 +194,7 @@ export const extractTextFromPdfBuffer = async (buffer) => {
         try {
           const textContent = await pageData.getTextContent({
             normalizeWhitespace: false,
-            disableCombineTextItems: false
+            disableCombineTextItems: true
           });
           
           let lastY;
@@ -202,8 +207,14 @@ export const extractTextFromPdfBuffer = async (buffer) => {
                 const expectedNextX = lastX + lastWidth;
                 const actualX = item.transform[4];
                 // Insert space only if there's a significant gap
+                // Using 0.15 is the standard heuristic for pdf.js to detect word boundaries.
                 if (actualX - expectedNextX > (item.height || 12) * 0.15) {
-                  text += ' ';
+                  // If the gap is extremely large (e.g., > 50% of font height), it's a true double space (word boundary in kerning).
+                  if (actualX - expectedNextX > (item.height || 12) * 0.45) {
+                    text += '  '; // Double space for word boundaries in kerned text
+                  } else {
+                    text += ' '; // Single space for kerning gaps
+                  }
                 }
               }
               text += item.str;
@@ -215,8 +226,9 @@ export const extractTextFromPdfBuffer = async (buffer) => {
             lastWidth = item.width || 0;
           }
           
-          // Clean up multiple spaces but preserve newlines
-          const pageText = text.replace(/[ \t]+/g, " ").trim();
+          // Pass the raw text (which may have double spaces between words and single spaces from kerning)
+          // directly to formatScreenplayLikeText so the kerning fix can detect word boundaries.
+          const pageText = text;
 
           const previewSlice = pageText.slice(0, MAX_PAGE_PREVIEW_CHARACTERS + 200);
           const formattedPageText = formatScreenplayLikeText(previewSlice).slice(0, MAX_PAGE_PREVIEW_CHARACTERS);

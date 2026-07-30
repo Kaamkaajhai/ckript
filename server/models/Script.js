@@ -70,6 +70,18 @@ const scriptSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   writers: [writerCreditSchema],
+  // Competition linkage. `competitionLocked` is set at submission and makes the script read-only:
+  // enforced in saveDraft, updateScript and deleteScript so no write path can bypass it.
+  //
+  // The lock exists to make a submission FINAL while the competition is running. Once results are
+  // declared that job is done — the frozen `entry.snapshot` is what was judged and stays frozen
+  // forever — so the competition releases the script and the writer gets their own work back:
+  // publish it, edit it, invite co-writers. `competitionReleasedAt` records that hand-back, and is
+  // what distinguishes "a competition entry that is still in flight" from "a script that happens to
+  // have been entered in a past competition".
+  competitionId: { type: mongoose.Schema.Types.ObjectId, ref: "Competition", default: null, index: true },
+  competitionLocked: { type: Boolean, default: false },
+  competitionReleasedAt: { type: Date, default: null },
   collabVisibility: {
     type: String,
     enum: ["private", "open"],

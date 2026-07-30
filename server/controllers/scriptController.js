@@ -69,6 +69,7 @@ import { applyThreeWayMerge } from "../utils/contentMerge.js";
 import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.js";
 import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
 import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
+import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1153,13 +1154,6 @@ const getInvalidRoleAgeRangeMessage = (roles = []) => {
   return "";
 };
 
-const PROJECT_CREATOR_ROLES = new Set(["writer", "creator"]);
-
-const hasProjectCreatorAccess = (user) => {
-  const role = String(user?.role || "").trim().toLowerCase();
-  return PROJECT_CREATOR_ROLES.has(role);
-};
-
 const requireProjectCreatorAccess = (req, res) => {
   if (!hasProjectCreatorAccess(req.user)) {
     res.status(403).json({ message: "Only writer accounts can create or submit projects." });
@@ -1777,6 +1771,12 @@ export const saveDraft = async (req, res) => {
         return res.status(410).json({ message: "This project was deleted by creator and can no longer be edited." });
       }
 
+      // A competition submission is final. The entry also stores a frozen snapshot, so this guard is
+      // belt-and-braces — but it must exist on every write path or "submitted" would not mean final.
+      if (script.competitionLocked) {
+        return res.status(409).json({ message: "This script was submitted to a competition and is locked." });
+      }
+
       if (script.status !== "draft") {
         if (script.status === "pending_approval" && script.approvalRequestType === "edit_submission") {
           return res.status(409).json({ message: "Your edited project is already under admin review. You can edit again after approval or rejection." });
@@ -2176,6 +2176,12 @@ export const deleteScript = async (req, res) => {
       return res.json({ message: "Project already deleted", softDeleted: true });
     }
 
+    // A submitted competition entry is evidence in a judged event — deleting it would leave the entry
+    // pointing at a dead script and let a writer withdraw after the deadline.
+    if (script.competitionLocked) {
+      return res.status(409).json({ message: "This script was submitted to a competition and cannot be deleted." });
+    }
+
     const purchasedUserIds = await getPurchasedUserIdSet(script);
     if (purchasedUserIds.size > 0) {
       const mergedIds = Array.from(purchasedUserIds).map((id) => new mongoose.Types.ObjectId(id));
@@ -2232,6 +2238,11 @@ export const getMyDrafts = async (req, res) => {
     const drafts = await Script.find({
       status: "draft",
       isDeleted: { $ne: true },
+      // A competition entry is reached from the challenge dashboard while the event is running, so
+      // it stays out of the normal drafts list. Once the competition releases it (results declared)
+      // it becomes an ordinary draft again and belongs here — otherwise the writer could not find
+      // the script they have just been given back.
+      $nor: [{ competitionId: { $ne: null }, competitionReleasedAt: null }],
       $or: [
         { creator: req.user._id },
         {
@@ -2319,6 +2330,10 @@ export const updateScript = async (req, res) => {
     }
     const script = await Script.findById(scriptObjectId);
     if (!script) return res.status(404).json({ message: "Script not found" });
+
+    if (script.competitionLocked) {
+      return res.status(409).json({ message: "This script was submitted to a competition and is locked." });
+    }
 
     const isOwner = script.creator.toString() === req.user._id.toString();
     const canCollaboratorWrite = hasScriptPermission(script, req.user._id, "write");

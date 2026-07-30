@@ -367,7 +367,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
       profile_view:  isDarkMode ? "text-blue-400 bg-blue-500/10"       : "text-blue-600 bg-blue-50",
       script_view:   isDarkMode ? "text-sky-400 bg-sky-500/10"         : "text-sky-600 bg-sky-50",
     };
-    return map[type] || (isDarkMode ? "text-[#8896a7] bg-white/5" : "text-gray-500 bg-gray-100");
+    return map[type] || (isDarkMode ? "text-[#8d8981] bg-white/5" : "text-gray-500 bg-gray-100");
   };
 
   const timeAgo = (date) => {
@@ -473,6 +473,11 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
       return;
     }
 
+    if (type === "admin_alert") {
+      navigate("/profile");
+      return;
+    }
+
     if (scriptTarget && [
       "purchase_approved",
       "unlock",
@@ -537,6 +542,15 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
   const visibleNotificationPopups = notificationPopups.slice(0, POPUP_STACK_LIMIT);
   const hiddenPopupCount = Math.max(0, notificationPopups.length - POPUP_STACK_LIMIT);
 
+  // The top bar used to be one fixed navy slab in both themes, so every control inside
+  // it could hard-code white. Now that it follows the theme like the rest of the shell,
+  // those controls need the split too — and the icon buttons keep an inline colour
+  // because index.css has dark-mode rules that outrank a utility class on the svg.
+  const headerIconButtonClass = isDarkMode
+    ? "text-white hover:text-white hover:bg-[#1c1c1c]"
+    : "text-[#0B0A06] hover:text-[#0B0A06] hover:bg-[#f4efe6]";
+  const headerIconColor = isDarkMode ? "#ffffff" : "#0B0A06";
+
   return (
     <>
 
@@ -568,7 +582,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                 }}
                 className={`relative w-full overflow-hidden rounded-[24px] border px-4 py-4 shadow-2xl backdrop-blur-2xl ${
                   isDarkMode
-                    ? "bg-[#07111d]/94 border-white/10 text-white shadow-black/45"
+                    ? "bg-[#141414]/94 border-white/10 text-white shadow-black/45"
                     : "bg-white/92 border-white/70 text-gray-900 shadow-slate-300/70"
                 }`}
               >
@@ -585,14 +599,14 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                         <p className={`text-[13px] font-bold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                           {getNotifTitle(notification.type)}
                         </p>
-                        <p className={`mt-0.5 text-[11px] font-medium ${isDarkMode ? "text-[#7f97b4]" : "text-gray-500"}`}>
+                        <p className={`mt-0.5 text-[11px] font-medium ${isDarkMode ? "text-[#8d8981]" : "text-gray-500"}`}>
                           {timeAgo(notification.createdAt)}
                         </p>
                       </div>
                       <button
                         onClick={() => dismissNotificationPopup(notification._id)}
                         className={`w-7 h-7 shrink-0 rounded-xl flex items-center justify-center transition-colors ${
-                          isDarkMode ? "text-[#7f97b4] hover:bg-white/10 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                          isDarkMode ? "text-[#8d8981] hover:bg-white/10 hover:text-white" : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                         }`}
                         aria-label="Dismiss notification popup"
                       >
@@ -602,7 +616,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                       </button>
                     </div>
 
-                    <p className={`mt-2 text-[12.5px] leading-5 break-words ${isDarkMode ? "text-[#d4ddec]" : "text-gray-600"}`}>
+                    <p className={`mt-2 text-[12.5px] leading-5 break-words ${isDarkMode ? "text-[#cfccc5]" : "text-gray-600"}`}>
                       {notification.from?.name && (
                         <span className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
                           {notification.from.name}{" "}
@@ -610,7 +624,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                       )}
                       {notification.message}
                       {notification.script?.title && (
-                        <span className={`font-semibold ${isDarkMode ? "text-[#eef4ff]" : "text-gray-800"}`}>
+                        <span className={`font-semibold ${isDarkMode ? "text-[#f5f2eb]" : "text-gray-800"}`}>
                           {" "}"{notification.script.title}"
                         </span>
                       )}
@@ -621,7 +635,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                         <button
                           onClick={() => handleMarkOneRead(notification._id)}
                           className={`min-h-[38px] rounded-xl px-3.5 py-2 text-[11px] font-semibold transition-colors ${
-                            isDarkMode ? "text-[#b4c4da] hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
+                            isDarkMode ? "text-[#cfccc5] hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
                           }`}
                         >
                           Mark read
@@ -629,12 +643,14 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                       )}
                       {notification.type === "follow_request" ? (
                         <>
+                          {/* Primary is ink, and on a dark card ink has to invert or it
+                              disappears into the surface — the same trick challenge.css uses. */}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(notification, "accept"); }}
                             className={`min-h-[38px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
                               isDarkMode
-                                ? "bg-blue-500 !text-white hover:bg-blue-600"
-                                : "bg-[#1e3a5f] !text-white hover:bg-[#152a47]"
+                                ? "bg-[#f5f2eb] !text-[#12110f] hover:bg-white"
+                                : "bg-[#161513] !text-white hover:bg-[#2c2a26]"
                             }`}
                           >
                             Approve
@@ -643,7 +659,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                             onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(notification, "reject"); }}
                             className={`min-h-[38px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors border ${
                               isDarkMode
-                                ? "border-white/15 text-[#b0c0d0] hover:bg-white/[0.05]"
+                                ? "border-white/15 text-[#cfccc5] hover:bg-white/[0.05]"
                                 : "border-gray-300 text-gray-600 hover:bg-gray-50"
                             }`}
                           >
@@ -655,8 +671,8 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                           onClick={() => openNotificationTarget(notification)}
                           className={`min-h-[38px] min-w-[88px] rounded-xl px-4 py-2 text-[11px] font-semibold transition-colors ${
                             isDarkMode
-                              ? "bg-sky-500 !text-white hover:bg-sky-400"
-                              : "bg-[#0f1d31] !text-white hover:bg-[#19314f]"
+                              ? "bg-[#f5f2eb] !text-[#12110f] hover:bg-white"
+                              : "bg-[#161513] !text-white hover:bg-[#2c2a26]"
                           }`}
                         >
                           {getNotifActionLabel(notification)}
@@ -673,7 +689,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
         {hiddenPopupCount > 0 && (
           <div className="pointer-events-none mt-3 flex justify-end pr-2">
             <div className={`rounded-full px-3 py-1 text-[11px] font-semibold backdrop-blur-xl ${
-              isDarkMode ? "bg-[#07111d]/85 text-[#d7e5f9] border border-white/10" : "bg-white/90 text-gray-700 border border-white/70"
+              isDarkMode ? "bg-[#141414]/85 text-[#f5f2eb] border border-white/10" : "bg-white/90 text-gray-700 border border-white/70"
             }`}>
               +{hiddenPopupCount} more notification{hiddenPopupCount > 1 ? "s" : ""}
             </div>
@@ -681,7 +697,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
         )}
       </div>
       
-      <div className={`min-h-screen ${isDarkMode ? "bg-[#080e18]" : "bg-[#eef0f3]"}`}>
+      <div className={`min-h-screen ${isDarkMode ? "bg-[#0b0b0b]" : "bg-[#FBFAF7]"}`}>
       <Sidebar
         unreadMessageCount={unreadMessageCount}
         showFloatingToggle={false}
@@ -691,16 +707,18 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
       />
 
       {/* Top bar */}
-      <header className={`fixed top-0 right-0 left-0 md:left-[64px] ${sidebarCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"} border-b px-3 max-[378px]:px-2.5 max-[340px]:px-2 sm:px-6 lg:px-8 py-2 sm:py-0 z-[90] bg-[#060b14]/98 border-[#132033] backdrop-blur-xl`}>
+      <header className={`fixed top-0 right-0 left-0 md:left-[64px] ${sidebarCollapsed ? "lg:left-[64px]" : "lg:left-[270px]"} border-b px-3 max-[378px]:px-2.5 max-[340px]:px-2 sm:px-6 lg:px-8 py-2 sm:py-0 z-[90] backdrop-blur-xl ${
+        isDarkMode ? "bg-[#0b0b0b]/98 border-[#242424]" : "bg-white/98 border-[#e7e5df]"
+      }`}>
         <div className="flex flex-nowrap items-center gap-2 max-[378px]:gap-1.5 max-[340px]:gap-1 sm:gap-3 min-[640px]:max-[690px]:gap-2 min-h-14 sm:min-h-16">
           <button
             onClick={() => setSidebarToggleToken((v) => v + 1)}
-            className="md:hidden order-1 w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 shrink-0 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a]"
-            style={{ color: "#ffffff" }}
+            className={`md:hidden order-1 w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 shrink-0 flex items-center justify-center rounded-xl transition-all duration-200 ${headerIconButtonClass}`}
+            style={{ color: headerIconColor }}
             aria-label="Open sidebar"
             title="Open sidebar"
           >
-            <svg className="w-5 h-5 max-[378px]:w-[18px] max-[378px]:h-[18px] text-white opacity-100" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+            <svg className="w-5 h-5 max-[378px]:w-[18px] max-[378px]:h-[18px] opacity-100" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
@@ -711,17 +729,25 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
             aria-label={`Go to ${topBarHomeLabel.toLowerCase()}`}
             title={topBarHomeLabel}
           >
-            <BrandLogo className="h-8 sm:h-9 max-[378px]:h-7 max-[340px]:h-6 w-auto max-w-full" />
+            {/* The mark is black ink on transparent, so it needs the same invert the
+                sidebar uses — on the old always-navy bar it was black on near-black. */}
+            <BrandLogo className={`h-8 sm:h-9 max-[378px]:h-7 max-[340px]:h-6 w-auto max-w-full ${isDarkMode ? "brightness-0 invert" : ""}`} />
           </button>
 
           {/* Search */}
           <form onSubmit={handleSearch} className="hidden sm:flex min-[640px]:max-[690px]:hidden order-3 basis-full sm:order-2 sm:basis-auto sm:flex-1 sm:min-w-[200px] md:min-w-[260px] sm:max-w-[320px] md:max-w-lg items-center">
-          <div className="group flex items-center w-full rounded-xl overflow-hidden transition-all duration-300 border border-[#1d2d45] bg-[#0b1524] hover:border-[#2b4262] focus-within:border-[#355782] focus-within:ring-2 focus-within:ring-sky-400/10">
-            <div className="pl-4 transition-colors text-[#6f86a7] group-focus-within:text-[#b7c8df]">
+          <div className={`group flex items-center w-full rounded-xl overflow-hidden transition-all duration-300 border focus-within:border-[#D14D37] focus-within:ring-2 focus-within:ring-[#D14D37]/35 ${
+            isDarkMode
+              ? "border-[#242424] bg-[#141414] hover:border-[#76726a]"
+              : "border-[#e7e5df] bg-[#f4efe6] hover:border-[#9a978f]"
+          }`}>
+            <div className={`pl-4 transition-colors ${isDarkMode ? "text-[#8d8981] group-focus-within:text-[#cfccc5]" : "text-[#9a978f] group-focus-within:text-[#57544f]"}`}>
               <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
+            {/* app-search-input-dark forces white text with !important, so it can only
+                ride along in dark mode — on the light bar it would erase what you type. */}
             <input
               type="text"
               placeholder="Search projects, writers..."
@@ -730,11 +756,15 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
               spellCheck={false}
               autoCorrect="off"
               autoCapitalize="none"
-              className="app-search-input app-search-input-dark flex-1 px-2.5 md:px-3 py-2.5 text-[13px] md:text-[14px] font-medium outline-none bg-transparent text-white !text-white placeholder-[#6f86a7]"
+              className={`app-search-input flex-1 px-2.5 md:px-3 py-2.5 text-[13px] md:text-[14px] font-medium outline-none bg-transparent ${
+                isDarkMode
+                  ? "app-search-input-dark text-white !text-white placeholder-[#8d8981]"
+                  : "text-[#0B0A06] placeholder-[#9a978f]"
+              }`}
             />
             {searchQuery && (
               <button type="button" onClick={() => setSearchQuery("")}
-                className="pr-3 transition-colors text-[#6f86a7] hover:text-[#b7c8df]">
+                className={`pr-3 transition-colors ${isDarkMode ? "text-[#8d8981] hover:text-[#cfccc5]" : "text-[#9a978f] hover:text-[#57544f]"}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -747,12 +777,12 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
         <div className="order-2 sm:order-3 ml-auto flex items-center gap-1 max-[378px]:gap-0.5 sm:gap-1.5 md:gap-2 min-[640px]:max-[690px]:gap-1 relative z-[95] shrink-0">
           <button
             onClick={() => navigate("/search")}
-            className="order-1 sm:hidden min-[640px]:max-[690px]:flex max-[299px]:hidden w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a]"
-            style={{ color: "#ffffff" }}
+            className={`order-1 sm:hidden min-[640px]:max-[690px]:flex max-[299px]:hidden w-9 h-9 max-[378px]:w-8 max-[378px]:h-8 flex items-center justify-center rounded-xl transition-all duration-200 ${headerIconButtonClass}`}
+            style={{ color: headerIconColor }}
             aria-label="Open search"
             title="Search"
           >
-            <svg className="w-5 h-5 max-[378px]:w-[18px] max-[378px]:h-[18px] text-white opacity-100" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24">
+            <svg className="w-5 h-5 max-[378px]:w-[18px] max-[378px]:h-[18px] opacity-100" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </button>
@@ -760,7 +790,9 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
           {/* Pricing Link */}
           <button
             onClick={() => openPricingModal()}
-            className="order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all bg-transparent !text-white hover:!text-[#cf3335] mr-1 sm:mr-0"
+            className={`order-3 sm:order-2 flex items-center justify-center px-2.5 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-semibold transition-all bg-transparent mr-1 sm:mr-0 ${
+              isDarkMode ? "!text-white hover:!text-[#f08b76]" : "!text-[#0B0A06] hover:!text-[#b8402d]"
+            }`}
             title="View Pricing"
           >
             Pricing
@@ -769,13 +801,17 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
           {/* Notification bell */}
           <div className="order-2 sm:order-3 relative" ref={notifRef}>
             <button onClick={handleNotifToggle}
-              className="relative w-8 h-8 md:w-9 md:h-9 max-[378px]:w-[30px] max-[378px]:h-[30px] flex items-center justify-center rounded-xl transition-all duration-200 text-white hover:text-white hover:bg-[#0d1a2a] hover:scale-105"
-              style={{ color: "#ffffff" }}>
-              <svg className="w-5 h-5 max-[378px]:w-[18px] max-[378px]:h-[18px] text-white opacity-100" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              className={`relative w-8 h-8 md:w-9 md:h-9 max-[378px]:w-[30px] max-[378px]:h-[30px] flex items-center justify-center rounded-xl transition-all duration-200 hover:scale-105 ${headerIconButtonClass}`}
+              style={{ color: headerIconColor }}>
+              <svg className="w-5 h-5 max-[378px]:w-[18px] max-[378px]:h-[18px] opacity-100" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-[#1e3a5f] text-white text-[10px] font-bold rounded-full px-1 ring-2 ring-[#060b14] animate-pulse-soft">
+                // The ring punches the badge out of the bar, so it has to track the bar's
+                // own fill — not a fixed colour, now that the bar has two.
+                <span className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-[#D14D37] text-white text-[10px] font-bold rounded-full px-1 ring-2 animate-pulse-soft ${
+                  isDarkMode ? "ring-[#0b0b0b]" : "ring-white"
+                }`}>
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
@@ -785,12 +821,12 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
             {notifOpen && (
               <div className={`absolute right-0 mt-2 w-[min(94vw,380px)] sm:w-[360px] max-h-[min(70vh,560px)] max-[500px]:fixed max-[500px]:left-1/2 max-[500px]:right-auto max-[500px]:-translate-x-1/2 max-[500px]:top-[66px] max-[500px]:mt-0 max-[500px]:w-[min(96vw,360px)] max-[500px]:max-h-[72vh] rounded-xl z-[130] flex flex-col overflow-hidden origin-top-right animate-scaleIn ${
                 isDarkMode
-                  ? "bg-[#0b1622]/98 border border-[#1a2a3a] shadow-2xl shadow-black/50 backdrop-blur-xl"
+                  ? "bg-[#141414]/98 border border-[#242424] shadow-2xl shadow-black/50 backdrop-blur-xl"
                   : "bg-white/98 border border-gray-200 shadow-2xl shadow-gray-300/60 backdrop-blur-xl"
               }`}>
                 {/* Header */}
                 <div className={`flex items-center justify-between max-[500px]:items-start max-[500px]:flex-col max-[500px]:gap-2 px-4 max-[500px]:px-3 py-3 border-b ${
-                  isDarkMode ? "border-[#1a2a3a]" : "border-gray-100"
+                  isDarkMode ? "border-[#242424]" : "border-gray-100"
                 }`}>
                   <div className="flex items-center gap-2">
                     <span className={`text-[13px] font-bold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -798,7 +834,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                     </span>
                     {unreadCount > 0 && (
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                        isDarkMode ? "bg-white/8 text-[#8896a7]" : "bg-gray-100 text-gray-500"
+                        isDarkMode ? "bg-white/8 text-[#8d8981]" : "bg-gray-100 text-gray-500"
                       }`}>{unreadCount}</span>
                     )}
                   </div>
@@ -806,7 +842,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                     {unreadCount > 0 && (
                       <button onClick={handleMarkAllRead}
                         className={`text-[11px] max-[340px]:text-[10px] font-semibold transition-colors ${
-                          isDarkMode ? "text-[#4a6a8a] hover:text-white" : "text-gray-400 hover:text-gray-700"
+                          isDarkMode ? "text-[#8d8981] hover:text-white" : "text-gray-400 hover:text-gray-700"
                         }`}>
                         Mark all read
                       </button>
@@ -814,7 +850,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                     {notifications.length > 0 && (
                       <button onClick={handleClearAll}
                         className={`text-[11px] max-[340px]:text-[10px] font-semibold transition-colors ${
-                          isDarkMode ? "text-[#4a6a8a] hover:text-red-400" : "text-gray-400 hover:text-red-500"
+                          isDarkMode ? "text-[#8d8981] hover:text-red-400" : "text-gray-400 hover:text-red-500"
                         }`}>
                         Clear all
                       </button>
@@ -827,7 +863,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                   {notifLoading ? (
                     <div className="flex justify-center items-center py-12">
                       <div className={`w-5 h-5 border-2 rounded-full animate-spin ${
-                        isDarkMode ? "border-[#1a2a3a] border-t-[#8896a7]" : "border-gray-200 border-t-gray-400"
+                        isDarkMode ? "border-[#242424] border-t-[#8d8981]" : "border-gray-200 border-t-gray-400"
                       }`} />
                     </div>
                   ) : notifications.length > 0 ? (
@@ -855,7 +891,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                         {/* Content */}
                         <div className="flex-1 min-w-0 pr-1">
                           <p className={`text-[12.5px] max-[340px]:text-[12px] leading-[1.45] break-words ${
-                            isDarkMode ? "text-[#b0c0d0]" : "text-gray-600"
+                            isDarkMode ? "text-[#cfccc5]" : "text-gray-600"
                           }`}>
                             {n.from?.name && (
                               <span className={`font-semibold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
@@ -864,12 +900,12 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                             )}
                             {n.message}
                             {n.script?.title && (
-                              <span className={`font-semibold ${isDarkMode ? "text-[#b0c0d0]" : "text-gray-700"}`}>
+                              <span className={`font-semibold ${isDarkMode ? "text-[#cfccc5]" : "text-gray-700"}`}>
                                 {" "}"{n.script.title}"
                               </span>
                             )}
                           </p>
-                          <p className={`text-[11px] max-[340px]:text-[10px] mt-0.5 ${isDarkMode ? "text-[#3d5470]" : "text-gray-400"}`}>
+                          <p className={`text-[11px] max-[340px]:text-[10px] mt-0.5 ${isDarkMode ? "text-[#76726a]" : "text-gray-400"}`}>
                             {timeAgo(n.createdAt)}
                           </p>
                           {n.type === "follow_request" && (
@@ -878,8 +914,8 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                                   onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(n, "accept"); }}
                                   className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
                                     isDarkMode
-                                      ? "bg-blue-500 text-white hover:bg-blue-600"
-                                      : "bg-[#1e3a5f] text-white hover:bg-[#152a47]"
+                                      ? "bg-[#f5f2eb] text-[#12110f] hover:bg-white"
+                                      : "bg-[#161513] text-white hover:bg-[#2c2a26]"
                                   }`}
                                 >
                                   Approve
@@ -888,7 +924,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                                 onClick={(e) => { e.stopPropagation(); handleFollowRequestDecision(n, "reject"); }}
                                 className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors border ${
                                   isDarkMode
-                                    ? "border-white/15 text-[#b0c0d0] hover:bg-white/[0.05]"
+                                    ? "border-white/15 text-[#cfccc5] hover:bg-white/[0.05]"
                                     : "border-gray-300 text-gray-600 hover:bg-gray-50"
                                 }`}
                               >
@@ -903,7 +939,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                           {!n.read && (
                             <button onClick={() => handleMarkOneRead(n._id)} title="Mark as read"
                               className={`w-6 h-6 max-[340px]:w-5 max-[340px]:h-5 flex items-center justify-center rounded-md transition-colors ${
-                                isDarkMode ? "text-[#3d5470] hover:text-white hover:bg-white/8" : "text-gray-300 hover:text-gray-700 hover:bg-gray-100"
+                                isDarkMode ? "text-[#76726a] hover:text-white hover:bg-white/8" : "text-gray-300 hover:text-gray-700 hover:bg-gray-100"
                               }`}>
                               <svg className="w-3 h-3 max-[340px]:w-2.5 max-[340px]:h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -912,7 +948,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                           )}
                           <button onClick={() => handleDeleteNotif(n._id)} title="Delete"
                             className={`w-6 h-6 max-[340px]:w-5 max-[340px]:h-5 flex items-center justify-center rounded-md transition-colors ${
-                              isDarkMode ? "text-[#3d5470] hover:text-red-400 hover:bg-red-500/10" : "text-gray-300 hover:text-red-500 hover:bg-red-50"
+                              isDarkMode ? "text-[#76726a] hover:text-red-400 hover:bg-red-500/10" : "text-gray-300 hover:text-red-500 hover:bg-red-50"
                             }`}>
                             <svg className="w-3 h-3 max-[340px]:w-2.5 max-[340px]:h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -924,13 +960,13 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-12">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-2.5 ${
-                        isDarkMode ? "bg-[#0f1e2e]" : "bg-gray-100"
+                        isDarkMode ? "bg-[#1c1c1c]" : "bg-gray-100"
                       }`}>
-                        <svg className={`w-5 h-5 ${isDarkMode ? "text-[#2a3a4e]" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                        <svg className={`w-5 h-5 ${isDarkMode ? "text-[#76726a]" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                         </svg>
                       </div>
-                      <p className={`text-[13px] font-semibold ${isDarkMode ? "text-[#4a6a8a]" : "text-gray-500"}`}>
+                      <p className={`text-[13px] font-semibold ${isDarkMode ? "text-[#8d8981]" : "text-gray-500"}`}>
                         All caught up
                       </p>
                     </div>
@@ -945,29 +981,31 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
           {/* User menu */}
           <div className="order-5 hidden sm:block min-[640px]:max-[690px]:hidden relative" ref={dropdownRef}>
             <button onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all duration-200 hover:bg-[#0d1a2a]">
+              className={`flex items-center gap-2 px-2 py-1.5 rounded-xl transition-all duration-200 ${isDarkMode ? "hover:bg-[#1c1c1c]" : "hover:bg-[#f4efe6]"}`}>
               {resolvedProfileImage && !avatarLoadError ? (
                 <img
                   src={resolvedProfileImage}
                   alt={user?.name || "User"}
                   onError={() => setAvatarLoadError(true)}
-                  className="w-8 h-8 rounded-xl object-cover ring-2 transition-shadow ring-[#1c2a3a]"
+                  className={`w-8 h-8 rounded-xl object-cover ring-2 transition-shadow ${isDarkMode ? "ring-[#242424]" : "ring-[#e7e5df]"}`}
                 />
               ) : (
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold bg-[#0d1520] text-[#c3d2e6] ring-1 ring-[#1c2a3a]">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ring-1 ${
+                  isDarkMode ? "bg-[#1c1c1c] text-[#cfccc5] ring-[#242424]" : "bg-[#f4efe6] text-[#57544f] ring-[#e7e5df]"
+                }`}>
                   {initials}
                 </div>
               )}
-              <span className="hidden lg:block text-[14px] font-semibold text-white">{user?.name || "User"}</span>
-              <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""} text-[#7f93b0]`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <span className={`hidden lg:block text-[14px] font-semibold ${isDarkMode ? "text-white" : "text-[#0B0A06]"}`}>{user?.name || "User"}</span>
+              <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${dropdownOpen ? "rotate-180" : ""} ${isDarkMode ? "text-[#8d8981]" : "text-[#9a978f]"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
             {dropdownOpen && (
-              <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border py-1.5 z-[130] origin-top-right animate-scaleIn ${isDarkMode ? "bg-[#0d1520]/98 border-[#1c2a3a] backdrop-blur-xl" : "bg-white/98 border-gray-200/80 shadow-gray-300/50 backdrop-blur-xl"}`}>
+              <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border py-1.5 z-[130] origin-top-right animate-scaleIn ${isDarkMode ? "bg-[#141414]/98 border-[#242424] backdrop-blur-xl" : "bg-white/98 border-gray-200/80 shadow-gray-300/50 backdrop-blur-xl"}`}>
                 <button onClick={() => { navigate(topBarProfilePath); setDropdownOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8d8981] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
@@ -975,7 +1013,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                 </button>
 
                 <button onClick={() => { navigate("/contact"); setDropdownOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8d8981] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 8.25v7.5a2.25 2.25 0 01-2.25 2.25h-15A2.25 2.25 0 012.25 15.75v-7.5m19.5 0A2.25 2.25 0 0019.5 6h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-8.69 5.214a2.25 2.25 0 01-2.32 0L2.25 8.25" />
                   </svg>
@@ -984,7 +1022,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
 
 
                 <button onClick={() => { navigate("/terms-of-service"); setDropdownOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8d8981] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
@@ -992,16 +1030,16 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                 </button>
 
                 <button onClick={() => { navigate("/privacy-policy"); setDropdownOpen(false); }}
-                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8d8981] hover:bg-white/[0.05] hover:text-white" : "text-gray-600 hover:bg-gray-50"}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M20.25 12a8.25 8.25 0 11-16.5 0 8.25 8.25 0 0116.5 0z" />
                   </svg>
                   Privacy
                 </button>
 
-                <div className={`border-t my-1 ${isDarkMode ? "border-[#1c2a3a]" : "border-gray-100"}`}></div>
+                <div className={`border-t my-1 ${isDarkMode ? "border-[#242424]" : "border-gray-100"}`}></div>
                 <button onClick={handleLogout}
-                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8896a7] hover:bg-white/[0.05] hover:text-red-400" : "text-gray-500 hover:bg-gray-50"}`}>
+                  className={`w-full text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${isDarkMode ? "text-[#8d8981] hover:bg-white/[0.05] hover:text-red-400" : "text-gray-500 hover:bg-gray-50"}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>

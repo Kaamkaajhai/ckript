@@ -43,6 +43,7 @@ import analyticsRoutes from "./routes/analyticsRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
 import agreementRoutes from "./routes/agreementRoutes.js";
 import collabRoutes from "./routes/collab.routes.js";
+import competitionRoutes from "./routes/competitionRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import googleCalendarRoutes from "./routes/googleCalendarRoutes.js";
 import { registerCollabSocket } from "./socket/collab.socket.js";
@@ -368,6 +369,7 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
 app.use("/api/collab", collabRoutes);
+app.use("/api/competitions", competitionRoutes);
 app.use("/api/meetings", meetingRoutes);
 app.use("/api/google-calendar", googleCalendarRoutes);
 

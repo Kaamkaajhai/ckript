@@ -154,6 +154,9 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
   ] : [
     { path: "/dashboard", label: "Dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
     { path: "/search", label: "Search Projects", icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" },
+    // The live challenge and the writer's own competition record (trophy icon).
+    { path: "/challenge", label: "Challenge", icon: "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25s4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" },
+    { path: "/my-competitions", label: "My Competitions", icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
   ];
 
   const actionItems = isAdmin ? [] : isReader ? [
@@ -208,9 +211,13 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
   const NavItem = ({ item }) => {
     const active = isActive(item.path);
     const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
+    // The active row is the one place in the shell that earns the accent — it IS the
+    // "you are here" state. Light mode reads it as coral text on a coral wash; dark
+    // mode can't (coral text on a raised warm grey is muddy), so it falls back to the
+    // raised fill plus white, which is how the rest of the dark chrome marks current.
     const baseClass = `group flex items-center gap-3 px-4 py-2.5 min-h-[44px] mx-2 rounded-xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
-      ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
-      : isDarkMode ? "text-[#8896a7] hover:bg-[#0d1520] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
+      ? isDarkMode ? "bg-[#1c1c1c] text-white font-bold" : "bg-[#D14D37]/[0.07] text-[#b8402d] font-bold"
+      : isDarkMode ? "text-[#8d8981] hover:bg-[#1c1c1c] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
       }`;
 
     // Onboarding entries open the modal in-context instead of routing to the
@@ -234,8 +241,8 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
         state={item.path === "/create-project" ? { startFresh: true } : undefined}
         onClick={() => setMobileOpen(false)}
         className={`group flex items-center gap-3 px-4 py-2.5 min-h-[44px] mx-2 rounded-xl text-[14px] font-semibold leading-none transition-all duration-200 relative ${active
-          ? isDarkMode ? "bg-[#0d1520] text-white font-bold" : "bg-[#1e3a5f]/[0.07] text-[#1e3a5f] font-bold"
-          : isDarkMode ? "text-[#8896a7] hover:bg-[#0d1520] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
+          ? isDarkMode ? "bg-[#1c1c1c] text-white font-bold" : "bg-[#D14D37]/[0.07] text-[#b8402d] font-bold"
+          : isDarkMode ? "text-[#8d8981] hover:bg-[#1c1c1c] hover:text-white" : "text-gray-500 hover:bg-gray-50/80 hover:text-gray-700"
           }`}
       >
         <Icon d={item.icon} size="w-5 h-5 shrink-0" />
@@ -252,7 +259,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
 
   const SectionLabel = ({ label }) => (
     <div className={`px-5 pt-4 pb-1`}>
-      <span className={`text-[11px] font-bold tracking-widest uppercase ${isDarkMode ? "text-[#2a3a4e]" : "text-gray-300"}`}>{label}</span>
+      <span className={`text-[11px] font-bold tracking-widest uppercase ${isDarkMode ? "text-[#76726a]" : "text-gray-300"}`}>{label}</span>
     </div>
   );
 
@@ -276,7 +283,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
         )}
       </div>
 
-      <div className={`mx-3 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
+      <div className={`mx-3 border-t ${isDarkMode ? "border-[#242424]" : "border-gray-100"}`}></div>
 
       {isWriterRole && (
         <Link
@@ -284,7 +291,9 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
           onClick={() => setMobileOpen(false)}
           className={`mx-3 mt-3 mb-1 p-3 rounded-xl flex items-center gap-3 transition-all group ${
             isDarkMode
-              ? "bg-[#0d1520] hover:bg-[#111d2e] border border-[#1c2a3a]"
+              // Three distinct steps on purpose: surface -> raised on hover, with the
+              // border one step above both so it never vanishes under the hover fill.
+              ? "bg-[#141414] hover:bg-[#1c1c1c] border border-[#242424]"
               : "bg-gray-50 hover:bg-gray-100/80 border border-gray-100"
           }`}
         >
@@ -293,11 +302,11 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
               src={resolvedProfileImage}
               alt={user?.name}
               onError={() => setAvatarLoadError(true)}
-              className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-[#1e3a5f]/20"
+              className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-[#D14D37]/35"
             />
           ) : (
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-[15px] font-bold shrink-0 ${
-              isDarkMode ? "bg-[#1c2a3a] text-[#8896a7]" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
+              isDarkMode ? "bg-[#242424] text-[#8d8981]" : "bg-[#D14D37]/10 text-[#b8402d]"
             }`}>
               {user?.name?.charAt(0)?.toUpperCase() || "W"}
             </div>
@@ -306,12 +315,12 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
             <p className={`text-[13px] font-bold truncate leading-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
               {user?.name || "Writer"}
             </p>
-            <p className={`text-[11px] font-medium truncate leading-tight mt-0.5 ${isDarkMode ? "text-[#8896a7]" : "text-gray-500"}`}>
+            <p className={`text-[11px] font-medium truncate leading-tight mt-0.5 ${isDarkMode ? "text-[#8d8981]" : "text-gray-500"}`}>
               {user?.writerProfile?.username ? `@${user.writerProfile.username}` : user?.role === "creator" ? "Creator" : "Writer"}
             </p>
           </div>
           <svg
-            className={`w-4 h-4 shrink-0 transition-colors ${isDarkMode ? "text-[#2a3a4e] group-hover:text-[#8896a7]" : "text-gray-300 group-hover:text-gray-500"}`}
+            className={`w-4 h-4 shrink-0 transition-colors ${isDarkMode ? "text-[#76726a] group-hover:text-[#8d8981]" : "text-gray-300 group-hover:text-gray-500"}`}
             fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -323,7 +332,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
         {isInvestorRole && investorSections ? (
           investorSections.map((section, idx) => (
             <div key={section.label}>
-              {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>}
+              {idx > 0 && <div className={`mx-3 my-1.5 border-t ${isDarkMode ? "border-[#242424]" : "border-gray-100"}`}></div>}
               <SectionLabel label={section.label} />
               <div className="space-y-0.5">
                 {section.items.map((item) => (
@@ -343,11 +352,11 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
                 </Fragment>
               ))}
             </div>
-            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
+            <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#242424]" : "border-gray-100"}`}></div>
             {actionItems.map((item) => <NavItem key={item.label} item={item} />)}
             {bottomNavItems.length > 0 && (
               <>
-                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
+                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#242424]" : "border-gray-100"}`}></div>
                 {bottomNavItems.map((item) => (
                   <Fragment key={item.label}>
                     <NavItem item={item} />
@@ -357,17 +366,17 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
             )}
             {!isReader && !isAdmin && !isInvestorRole && (
               <>
-                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
+                <div className={`mx-3 my-2 border-t ${isDarkMode ? "border-[#242424]" : "border-gray-100"}`}></div>
 
                 <button
                   onClick={() => setProjectsOpen(!projectsOpen)}
-                  className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-[#2a3a4e] hover:text-[#8896a7]" : "text-gray-400 hover:text-gray-600"}`}
+                  className={`flex items-center gap-2.5 px-5 py-2.5 w-full text-left transition-colors ${isDarkMode ? "text-[#76726a] hover:text-[#8d8981]" : "text-gray-400 hover:text-gray-600"}`}
                 >
                   <svg className={`w-4 h-4 transition-transform duration-200 ${projectsOpen ? "rotate-90" : ""}`}
                     fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
-                  <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-[#2a3a4e]" : "text-gray-400"}`}>My Projects</span>
+                  <span className={`text-sm font-bold tracking-wider uppercase ${isDarkMode ? "text-[#76726a]" : "text-gray-400"}`}>My Projects</span>
                 </button>
 
                 {projectsOpen && (
@@ -375,13 +384,13 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
                     {myScripts.length > 0 ? (
                       myScripts.map((script) => (
                         <Link key={script._id} to={getScriptCanonicalPath(script)} onClick={() => setMobileOpen(false)}
-                          className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-[#8896a7] hover:text-white" : "text-gray-500 hover:text-gray-700"}`}>
-                          <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#1c2a3a]" : "bg-gray-300"}`}></div>
+                          className={`flex items-center gap-2.5 px-5 py-2 transition-colors ${isDarkMode ? "text-[#8d8981] hover:text-white" : "text-gray-500 hover:text-gray-700"}`}>
+                          <div className={`w-2 h-2 rounded-full shrink-0 ${isDarkMode ? "bg-[#242424]" : "bg-gray-300"}`}></div>
                           <span className="text-[15px] font-semibold truncate">{script.title}</span>
                         </Link>
                       ))
                     ) : (
-                      <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-[#3a4a5e]" : "text-gray-400"}`}>No projects yet</p>
+                      <p className={`px-5 py-2 text-sm italic font-medium ${isDarkMode ? "text-[#76726a]" : "text-gray-400"}`}>No projects yet</p>
                     )}
                   </div>
                 )}
@@ -395,14 +404,16 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
 
   return (
     <>
-      <aside className={`${collapsed ? "hidden" : "hidden lg:flex"} fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`${collapsed ? "hidden" : "hidden lg:flex"} fixed left-0 top-0 h-screen w-[270px] border-r flex-col z-30 ${isDarkMode ? "bg-[#0b0b0b] border-[#242424]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <SidebarContent />
       </aside>
 
-      <aside className={`${collapsed ? "hidden md:flex" : "hidden md:flex lg:hidden"} fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
+      <aside className={`${collapsed ? "hidden md:flex" : "hidden md:flex lg:hidden"} fixed left-0 top-0 h-screen w-[64px] border-r flex-col items-center z-30 ${isDarkMode ? "bg-[#0b0b0b] border-[#242424]" : "bg-white/80 backdrop-blur-xl border-gray-200/60"}`}>
         <div className="h-16 flex items-center justify-center">
           <Link to="/dashboard">
-            <svg className={`w-7 h-7 ${isDarkMode ? "text-[#8896a7]" : "text-[#1e3a5f]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+            {/* The rail's brand mark reads as ink, not as an accent — it isn't a
+                "current" state, so it doesn't earn the coral. */}
+            <svg className={`w-7 h-7 ${isDarkMode ? "text-[#8d8981]" : "text-[#0B0A06]"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           </Link>
@@ -412,7 +423,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
             onClick={onToggleCollapse}
             title="Expand sidebar"
             aria-label="Expand sidebar"
-            className={`hidden lg:inline-flex w-10 h-10 mb-1 items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-white/80 hover:text-white hover:bg-[#0d1520]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}
+            className={`hidden lg:inline-flex w-10 h-10 mb-1 items-center justify-center rounded-xl transition-colors ${isDarkMode ? "text-white/80 hover:text-white hover:bg-[#1c1c1c]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"}`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -426,8 +437,8 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
             return (
               <Link key={item.label} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined} title={item.label}
                 className={`relative w-11 h-11 flex items-center justify-center rounded-xl transition-colors ${active
-                  ? isDarkMode ? "bg-[#0d1520] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
-                  : isDarkMode ? "text-[#4a5a6e] hover:bg-[#0d1520] hover:text-[#8896a7]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  ? isDarkMode ? "bg-[#1c1c1c] text-white" : "bg-[#D14D37]/10 text-[#b8402d]"
+                  : isDarkMode ? "text-[#76726a] hover:bg-[#1c1c1c] hover:text-[#8d8981]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                   }`}>
                 <Icon d={item.icon} />
                 {showMessageBadge && (
@@ -438,14 +449,14 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
               </Link>
             );
           })}
-          <div className={`w-6 my-1 border-t ${isDarkMode ? "border-[#151f2e]" : "border-gray-100"}`}></div>
+          <div className={`w-6 my-1 border-t ${isDarkMode ? "border-[#242424]" : "border-gray-100"}`}></div>
           {actionItems.map((item) => {
             const active = isActive(item.path);
             return (
               <Link key={item.label} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined} title={item.label}
                 className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${active
-                  ? isDarkMode ? "bg-[#0d1520] text-white" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"
-                  : isDarkMode ? "text-[#4a5a6e] hover:bg-[#0d1520] hover:text-[#8896a7]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  ? isDarkMode ? "bg-[#1c1c1c] text-white" : "bg-[#D14D37]/10 text-[#b8402d]"
+                  : isDarkMode ? "text-[#76726a] hover:bg-[#1c1c1c] hover:text-[#8d8981]" : "text-gray-400 hover:bg-gray-50 hover:text-gray-600"
                   }`}>
                 <Icon d={item.icon} />
               </Link>
@@ -459,10 +470,10 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
                 src={resolvedProfileImage}
                 alt={user?.name || "User"}
                 onError={() => setAvatarLoadError(true)}
-                className={`w-9 h-9 rounded-full object-cover ring-1 ${isDarkMode ? "ring-[#1c2a3a]" : "ring-gray-200"}`}
+                className={`w-9 h-9 rounded-full object-cover ring-1 ${isDarkMode ? "ring-[#242424]" : "ring-gray-200"}`}
               />
             ) : (
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${isDarkMode ? "bg-[#0d1520] text-[#8896a7] ring-1 ring-[#1c2a3a]" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${isDarkMode ? "bg-[#1c1c1c] text-[#8d8981] ring-1 ring-[#242424]" : "bg-[#D14D37]/10 text-[#b8402d]"}`}>
                 {user?.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
             )}
@@ -472,7 +483,7 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
 
       {showFloatingToggle && (
         <button onClick={() => setMobileOpen(true)}
-          className={`md:hidden fixed top-4 left-4 z-50 w-9 h-9 border rounded-lg flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#080e18] border-[#151f2e] text-[#8896a7]" : "bg-white border-gray-200 text-gray-600"}`}>
+          className={`md:hidden fixed top-4 left-4 z-50 w-9 h-9 border rounded-lg flex items-center justify-center shadow-sm ${isDarkMode ? "bg-[#0b0b0b] border-[#242424] text-[#8d8981]" : "bg-white border-gray-200 text-gray-600"}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -482,8 +493,8 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
       {mobileOpen && (
         <div className="md:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)}></div>
-          <aside className={`absolute left-0 top-0 h-full w-[260px] shadow-lg ${isDarkMode ? "bg-[#080e18]" : "bg-white"}`}>
-            <button onClick={() => setMobileOpen(false)} className={`absolute top-4 right-3 ${isDarkMode ? "text-[#4a5a6e] hover:text-white" : "text-gray-400 hover:text-gray-600"}`}>
+          <aside className={`absolute left-0 top-0 h-full w-[260px] shadow-lg ${isDarkMode ? "bg-[#0b0b0b]" : "bg-white"}`}>
+            <button onClick={() => setMobileOpen(false)} className={`absolute top-4 right-3 ${isDarkMode ? "text-[#76726a] hover:text-white" : "text-gray-400 hover:text-gray-600"}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -493,15 +504,15 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
         </div>
       )}
 
-      <nav className={`hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#080e18] border-[#151f2e]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
+      <nav className={`hidden fixed bottom-0 left-0 right-0 h-16 border-t flex items-center justify-around px-1 z-40 ${isDarkMode ? "bg-[#0b0b0b] border-[#242424]" : "bg-white/90 backdrop-blur-xl border-gray-200/60"}`}>
         {mobileItems.map((item) => {
           const active = isActive(item.path);
           const showMessageBadge = isMessagesItem(item.path) && unreadMessageCount > 0;
           return (
             <Link key={item.path} to={item.path} state={item.path === "/create-project" ? { startFresh: true } : undefined}
               className={`relative flex flex-col items-center justify-center gap-0.5 w-14 h-12 transition-colors ${active
-                ? isDarkMode ? "text-white" : "text-[#1e3a5f]"
-                : isDarkMode ? "text-[#4a5a6e]" : "text-gray-400"
+                ? isDarkMode ? "text-white" : "text-[#b8402d]"
+                : isDarkMode ? "text-[#76726a]" : "text-gray-400"
                 }`}>
               <Icon d={item.icon} size={`w-[22px] h-[22px] ${active ? "stroke-[2.2]" : ""}`} />
               {showMessageBadge && (
@@ -510,8 +521,8 @@ const Sidebar = ({ unreadMessageCount = 0, showFloatingToggle = true, mobileTogg
                 </span>
               )}
               <span className={`text-xs ${active
-                ? isDarkMode ? "font-extrabold text-white" : "font-extrabold text-[#1e3a5f]"
-                : isDarkMode ? "font-bold text-[#4a5a6e]" : "font-bold text-gray-400"
+                ? isDarkMode ? "font-extrabold text-white" : "font-extrabold text-[#b8402d]"
+                : isDarkMode ? "font-bold text-[#76726a]" : "font-bold text-gray-400"
                 }`}>
                 {item.label}
               </span>

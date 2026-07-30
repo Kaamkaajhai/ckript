@@ -12,7 +12,8 @@
    Type colours map to the brand palette:
      error   → #b5121b (brand red)
      success → #1f7a4d
-     info    → #1e3a5f (brand navy)
+     info    → #161513 (brand ink — deliberately NOT the coral accent: a coral
+               rail would read as the error variant, which sits right beside it)
      warning → #b9772b
    ───────────────────────────────────────────────────────────── */
 
@@ -75,7 +76,7 @@
   position: absolute;
   inset: 0 0 auto 0;
   height: 3px;
-  background: var(--ckt-accent, #1e3a5f);
+  background: var(--ckt-accent, #161513);
 }
 
 /* ── Icon ─────────────────────────────────────────────────────── */
@@ -87,8 +88,8 @@
   place-items: center;
   border-radius: 8px;
   margin-top: 1px;
-  color: var(--ckt-accent, #1e3a5f);
-  background: var(--ckt-accent-soft, rgba(30, 58, 95, 0.1));
+  color: var(--ckt-accent, #161513);
+  background: var(--ckt-accent-soft, rgba(22, 21, 19, 0.08));
 }
 .ckt-icon .material-symbols-rounded {
   font-size: 19px;
@@ -150,7 +151,7 @@
 }
 .ckt-close:focus-visible {
   opacity: 1;
-  outline: 2px solid var(--ckt-accent, #1e3a5f);
+  outline: 2px solid var(--ckt-accent, #161513);
   outline-offset: 1px;
 }
 .ckt-close .material-symbols-rounded {
@@ -166,7 +167,7 @@
   height: 3px;
   width: 100%;
   transform-origin: left center;
-  background: var(--ckt-accent, #1e3a5f);
+  background: var(--ckt-accent, #161513);
   opacity: 0.5;
   animation-name: ckt-drain;
   animation-timing-function: linear;
@@ -191,9 +192,13 @@
   --ckt-accent: #1f7a4d;
   --ckt-accent-soft: rgba(31, 122, 77, 0.12);
 }
+/* Ink, not coral. Coral is the app accent, but an info toast tinted coral would be
+   mistaken for .ckt--error (#b5121b) at a glance — they can stack in the same viewport.
+   The soft ground is 0.08 rather than the others' 0.10–0.13 because near-black reads
+   heavier than a hue at the same alpha. */
 .ckt--info {
-  --ckt-accent: #1e3a5f;
-  --ckt-accent-soft: rgba(30, 58, 95, 0.1);
+  --ckt-accent: #161513;
+  --ckt-accent-soft: rgba(22, 21, 19, 0.08);
 }
 .ckt--warning {
   --ckt-accent: #b9772b;

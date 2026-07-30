@@ -1,0 +1,2382 @@
+ 
+CKRIPT TERMS & CONDITIONS  
+Version:  1.0 
+Effective Date:  [DD Month YYYY]  
+Last Updated:  [DD Month YYYY]  
+ 
+1. Introduction  
+Welcome to Ckript  ("Ckript ", "Company ", "we", "our", or " us"). 
+These Terms & Conditions (" Terms ") constitute a legally binding agreement between you and Ckript 
+Private Limited , together with its present and future subsidiaries, affiliates, successors, permitted 
+assigns, licensors, partners, service providers, and authorised representatives, governing your access 
+to and use of the Services.  
+Ckript is a technology company building AI -powered products, digital platforms, marketplaces, 
+software, applications, APIs, creative technology solutions, networking tools, educational initiatives, 
+commercial services, and other digital offerings that faci litate the discovery, management, 
+evaluation, collaboration, promotion, licensing, and commercialization of creative works and 
+intellectual property.  
+These Terms apply whenever you access, browse, register, purchase, upload content to, 
+communicate through, or otherwise use any Service operated by Ckript.  
+By accessing or using any Ckript Service, you acknowledge that you have read, understood, and agree 
+to be legally bound by these Terms and any policies incorporated by reference.  
+If you do not agree with these Terms, you must immediately discontinue using the Services.  
+ 
+2. About Ckript  
+Ckript is an AI -powered Creative Technology platform that connects creators with individuals, 
+organisations, businesses, institutions, publishers, studios, production houses, broadcasters, 
+entertainment companies, investors, agencies, brands, educational i nstitutions, technology partners, 
+and other participants in the global creative ecosystem.  
+Depending upon the Services offered at any given time, Ckript may provide, operate, support, 
+license, facilitate, or manage:  
+• Creative work hosting  
+• Script discovery  
+• Book discovery  
+• Story discovery  
+• Intellectual property showcasing  
+• Creator portfolios  
+• Marketplace services  
+• AI-powered analysis  
+• AI-generated creative tools  
+• AI-generated trailers  
+• AI-assisted recommendations  
+• Professional networking  
+• Business communication tools  
+• Meeting scheduling  
+• Messaging services  
+• Commercial opportunity discovery  
+• Industry verification  
+• Talent discovery  
+• Recruitment initiatives  
+• Educational resources  
+• Learning platforms  
+• Premium memberships  
+• Subscription services  
+• Advertising solutions  
+• Promotional campaigns  
+• Community programs  
+• Competitions  
+• Challenges  
+• Fellowships  
+• Accelerator programs  
+• Incubation programs  
+• Conferences  
+• Workshops  
+• Awards  
+• Pitch sessions  
+• Festivals  
+• Partner initiatives  
+• Sponsored programs  
+• Third -party collaborations  
+• APIs  
+• Mobile applications  
+• Desktop applications  
+• Enterprise software  
+• White -labelled solutions  
+• Any future products or services developed, acquired, licensed, or operated by Ckript.  
+The Services available at any particular time may vary and may be modified, expanded, suspended, 
+discontinued, renamed, replaced, or transferred at Ckript's sole discretion, subject to applicable law.  
+ 
+3. Purpose of these Terms  
+These Terms are intended to establish a clear legal framework governing the relationship between 
+Ckript and its users.  
+Among other things, these Terms explain:  
+• who may use the Services;  
+• how accounts are created and managed;  
+• the rights and responsibilities of users;  
+• ownership of creative works;  
+• intellectual property protections;  
+• use of artificial intelligence features;  
+• marketplace functionality;  
+• commercial transactions;  
+• payments and subscriptions;  
+• participation in events and programs;  
+• acceptable use of the Services;  
+• dispute resolution procedures;  
+• liability limitations;  
+• user responsibilities; and  
+• other legal rights and obligations applicable to the use of the Services.  
+These Terms should be read together with our:  
+• Privacy Policy  
+• Cookie Policy  
+• Refund Policy  
+• AI Usage Policy  
+• Copyright & Intellectual Property Policy  
+• Community Guidelines  
+• Marketplace Policy  
+• Event Rules  
+• Competition Rules  
+• Creator Agreements  
+• Producer Agreements  
+• Publisher Agreements  
+• any other policy, guideline, or legal document published by Ckript from time to time.  
+Where a Service -specific agreement conflicts with these Terms, the Service -specific agreement will 
+prevail only to the extent of that conflict.  
+ 
+4. Scope  
+These Terms apply to all Services provided by or on behalf of Ckript, including but not limited to:  
+• www.ckript.com  
+• any future domains  
+• mobile applications  
+• desktop applications  
+• APIs  
+• developer tools  
+• creator dashboards  
+• producer dashboards  
+• publisher dashboards  
+• investor dashboards  
+• marketplace services  
+• networking services  
+• communication tools  
+• AI-powered services  
+• subscription services  
+• premium memberships  
+• educational services  
+• events  
+• competitions  
+• challenges  
+• accelerator programs  
+• fellowships  
+• incubation programs  
+• sponsored initiatives  
+• third -party partner programs  
+• support services  
+• marketing campaigns  
+• community programs  
+• and any future products, software, websites, or digital services operated, licensed, acquired, 
+or controlled by Ckript.  
+These Terms apply regardless of whether access occurs through:  
+• a web browser;  
+• a mobile application;  
+• an API;  
+• third -party integrations;  
+• embedded widgets;  
+• enterprise software;  
+• partner platforms; or  
+• any other authorised access method.  
+ 
+5. Platform Evolution  
+Ckript is an evolving technology platform.  
+To support innovation and business growth, Ckript may, at any time and without creating any 
+obligation to continue existing offerings, subject to applicable law:  
+• introduce new products or services;  
+• discontinue existing features;  
+• rename products, programs, services, memberships, or events;  
+• modify business models;  
+• launch premium offerings;  
+• introduce new pricing structures;  
+• expand into additional industries or markets;  
+• collaborate with governments, universities, brands, studios, publishers, production houses, 
+technology providers, investors, accelerators, incubators, or other organisations;  
+• acquire or merge with other businesses;  
+• license or white -label technology;  
+• create subsidiaries or affiliates;  
+• restructure existing Services; or  
+• make any other commercial or operational changes reasonably necessary for the continued 
+development of the Company.  
+Nothing in these Terms shall be interpreted as guaranteeing that any current feature, event, 
+program, or Service will remain available indefinitely.  
+ 
+7. Definitions  
+Unless the context requires otherwise, the following definitions apply throughout these Terms.  
+Account  means a registered user account used to access the Services.  
+Affiliate  means any entity that directly or indirectly controls, is controlled by, or is under common 
+control with Ckript.  
+AI Services  means any artificial intelligence, machine learning, recommendation, automation, 
+content generation, analysis, or related technologies offered by Ckript.  
+Company  means Ckript Private Limited and its successors, affiliates, subsidiaries, assigns, and 
+authorised representatives.  
+Content  means any text, script, screenplay, manuscript, novel, book, pitch, synopsis, logline, 
+treatment, character, dialogue, artwork, image, audio, video, software, code, data, design, 
+document, presentation, AI -generated material, or any other information made available through the 
+Services.  
+Creator  means any writer, author, storyteller, screenwriter, playwright, novelist, editor, poet, comic 
+creator, or other individual or organisation creating or managing creative works.  
+Creative Work  means any original or derivative literary, artistic, dramatic, audiovisual, musical, or 
+other copyrightable work uploaded to or managed through the Services.  
+Industry Professional  means any producer, production house, publisher, literary agent, director, 
+studio, OTT platform, investor, recruiter, broadcaster, media organisation, or verified commercial 
+user.  
+Marketplace  means any digital environment operated by Ckript enabling users to discover, 
+showcase, evaluate, negotiate, license, purchase, sell, collaborate on, or otherwise interact regarding 
+creative works or related services.  
+Services  means all websites, applications, software, APIs, AI tools, events, competitions, programs, 
+marketplaces, communication tools, and future offerings operated by Ckript.  
+User  means any individual, organisation, institution, or legal entity accessing or using the Services.  
+Additional definitions appearing elsewhere in these Terms shall have the meanings assigned to them 
+in the relevant section.  
+ 
+8. Eligibility  
+To use the Services, you must:  
+• have the legal capacity to enter into binding contracts;  
+• comply with applicable laws;  
+• provide accurate information;  
+• not be prohibited from using the Services under applicable law;  
+• comply with all platform policies.  
+If you access the Services on behalf of an organisation, you represent that you have authority to bind 
+that organisation to these Terms.  
+Users below the age required to independently enter legally binding agreements under applicable 
+law may only use the Services with the involvement or consent of a parent or legal guardian where 
+required by law.  
+ 
+10. Electronic Acceptance  
+Where permitted by applicable law, your acceptance of these Terms through electronic means —
+including clicking "I Agree" , creating an account, completing registration, using the Services, or 
+otherwise indicating acceptance electronically —constitutes a legally binding agreement between you 
+and Ckript.  
+Electronic records, electronic communications, electronic signatures, digital acknowledgements, and 
+electronic consent shall have the same legal effect as physical documents and handwritten 
+signatures, subject to applicable law.  
+ 
+11. Changes to these Terms  
+Ckript may revise these Terms from time to time to reflect changes in:  
+• applicable laws;  
+• business operations;  
+• platform features;  
+• technology;  
+• AI capabilities;  
+• partnerships;  
+• commercial offerings;  
+• security practices; or  
+• other operational requirements.  
+Where required by applicable law, we will provide appropriate notice of material changes through 
+the platform, email, or other reasonable means.  
+The "Last Updated" date will indicate the latest revision.  
+Your continued use of the Services after revised Terms become effective constitutes acceptance of 
+those revisions unless applicable law requires additional consent.  
+12. User Accounts  
+Access to certain Services requires the creation of a registered Account.  
+An Account enables you to access platform features, manage your profile, communicate with other 
+users, participate in commercial opportunities, subscribe to paid Services, upload Creative Works, 
+use AI -powered features, participate in events and programs, and access other functionality made 
+available by Ckript.  
+Ckript reserves the right to determine which Services require registration and may modify, restrict, 
+expand, or discontinue Account -based functionality at any time, subject to applicable law.  
+No person has an inherent right to maintain an Account on the Platform.  
+ 
+13. Types of Accounts  
+To support the diverse needs of the creative ecosystem, Ckript may provide different categories of 
+Accounts.  
+Depending upon the Services available at any given time, these may include:  
+• Creator Accounts  
+• Writer Accounts  
+• Screenwriter Accounts  
+• Author Accounts  
+• Publisher Accounts  
+• Literary Agent Accounts  
+• Producer Accounts  
+• Production House Accounts  
+• Studio Accounts  
+• OTT Platform Accounts  
+• Investor Accounts  
+• Recruiter Accounts  
+• Educational Institution Accounts  
+• Organisation Accounts  
+• Enterprise Accounts  
+• Partner Accounts  
+• Administrator Accounts  
+• Moderator Accounts  
+• Community Accounts  
+• Premium Accounts  
+• Verified Accounts  
+• Trial Accounts  
+• API Accounts  
+• Developer Accounts  
+• Student Accounts  
+• Jury or Evaluator Accounts  
+• Event -Specific Accounts  
+• Any additional account category introduced by Ckript.  
+The availability, privileges, restrictions, eligibility criteria, pricing, and features associated with any 
+Account type may differ and may be modified by Ckript from time to time.  
+ 
+14. Account Registration  
+To register an Account, you must provide complete, accurate, and current information as requested 
+during the registration process.  
+Depending on the nature of the Services, registration may require:  
+• Full name  
+• Email address  
+• Mobile number  
+• Username  
+• Password  
+• Date of birth  
+• Country or region  
+• Professional information  
+• Company information  
+• Identification documents  
+• Tax information  
+• Payment information  
+• Portfolio details  
+• Social media profiles  
+• Government -issued identification  
+• Business verification documents  
+• Any additional information reasonably required by Ckript.  
+You represent and warrant that all information submitted during registration is truthful, accurate, 
+complete, and not misleading.  
+You agree to promptly update your Account information whenever it changes.  
+Providing false, incomplete, fraudulent, or misleading information may result in the suspension, 
+restriction, or termination of your Account.  
+ 
+15. Eligibility for Registration  
+By creating an Account, you represent and warrant that:  
+• you satisfy the eligibility requirements described in these Terms;  
+• you are legally competent to enter into binding agreements;  
+• you are not prohibited by applicable law from using the Services;  
+• you have not previously been permanently suspended from Ckript unless expressly 
+authorised in writing;  
+• the information you provide is accurate;  
+• you will comply with all applicable laws.  
+If you are registering on behalf of an organisation or legal entity, you further represent that you have 
+the legal authority to bind that organisation to these Terms.  
+ 
+16. Authentication  
+Ckript may support one or more authentication methods, including:  
+• Email and password  
+• One-Time Password (OTP)  
+• Passkeys  
+• OAuth authentication  
+• Google Sign -In 
+• Apple Sign -In 
+• Microsoft authentication  
+• Enterprise authentication  
+• Multi -factor authentication (MFA)  
+• Biometric authentication where supported  
+• Any future authentication technology adopted by Ckript.  
+The authentication methods available may vary by device, location, platform, regulatory 
+requirements, or Service.  
+Ckript reserves the right to require additional authentication or verification measures where 
+reasonably necessary to protect users, comply with applicable law, or maintain platform security.  
+ 
+17. Account Credentials  
+You are solely responsible for maintaining the confidentiality of your login credentials.  
+You agree to:  
+• choose strong passwords;  
+• protect authentication devices;  
+• maintain the security of passkeys and authentication applications;  
+• prevent unauthorized access to your Account;  
+• immediately notify Ckript if you suspect unauthorized access, compromise, or misuse.  
+You remain responsible for all activity occurring under your Account unless applicable law provides 
+otherwise.  
+ 
+18. One Account Policy  
+Unless expressly permitted by Ckript in writing or required for legitimate business purposes, each 
+individual may maintain only one personal Account.  
+Organisations may operate multiple Accounts where reasonably necessary for business operations, 
+provided such Accounts are authorised and comply with these Terms.  
+Ckript may merge, restrict, suspend, or remove duplicate, fraudulent, deceptive, or abusive 
+Accounts.  
+ 
+19. Verification  
+Ckript may, but is not obligated to, verify the identity, qualifications, affiliations, ownership, or 
+professional status of any User.  
+Verification may include requests for:  
+• Government -issued identification  
+• Company registration documents  
+• Professional licenses  
+• Tax registration  
+• Business information  
+• Domain ownership  
+• Employment verification  
+• Educational records  
+• Industry credentials  
+• Social media verification  
+• Video verification  
+• Biometric verification where legally permissible  
+• Any other documentation reasonably required.  
+Failure to complete verification may restrict access to certain Services.  
+ 
+20. Verified Status  
+Ckript may grant verification badges or other indicators to eligible users.  
+Verification signifies only that Ckript has completed certain verification procedures based on 
+information available at the time.  
+Verification does not constitute:  
+• endorsement;  
+• recommendation;  
+• certification;  
+• guarantee of legitimacy;  
+• guarantee of trustworthiness;  
+• guarantee of financial capacity;  
+• guarantee of professional competence;  
+• guarantee of future conduct.  
+Ckript may revoke, modify, suspend, or remove verification status at any time where appropriate.  
+ 
+21. Professional Profiles  
+Users may create professional profiles describing their experience, achievements, skills, portfolios, 
+companies, publications, productions, investments, projects, or other professional information.  
+Users remain solely responsible for ensuring that all profile information is truthful, accurate, and not 
+misleading.  
+Inflated credentials, fabricated achievements, impersonation, fake affiliations, or deceptive claims 
+are prohibited.  
+ 
+22. Account Security Monitoring  
+To protect the integrity of the Platform, Ckript may monitor login activity, authentication events, 
+unusual behaviour, suspected fraud, security threats, and technical indicators.  
+Such monitoring may include:  
+• login locations;  
+• device information;  
+• IP addresses;  
+• browser information;  
+• authentication logs;  
+• failed login attempts;  
+• suspicious behavioural patterns;  
+• automated abuse detection.  
+Monitoring will be conducted in accordance with applicable law and the Privacy Policy.  
+Ckript implements commercially reasonable administrative, technical, organisational, and physical 
+safeguards designed to protect the confidentiality, integrity, and availability of the Services and 
+personal information.  
+Such safeguards may include:  
+• encryption;  
+• access controls;  
+• authentication mechanisms;  
+• monitoring systems;  
+• logging;  
+• backup systems;  
+• disaster recovery procedures;  
+• security testing;  
+• vulnerability management;  
+• infrastructure security;  
+• fraud prevention systems.  
+However, no internet -based service, software, network, cloud infrastructure, or electronic storage 
+system can guarantee absolute security.  
+Accordingly, Ckript cannot guarantee that unauthorised access, cyberattacks, security incidents, or 
+data breaches will never occur.  
+Users are responsible for maintaining the security of their Accounts.  
+Users must:  
+• protect login credentials;  
+• use strong passwords;  
+• enable available security features;  
+• promptly report suspected unauthorised access;  
+• maintain secure devices;  
+• update software where appropriate;  
+• avoid sharing authentication credentials.  
+Users remain responsible for activities occurring through their Accounts except where applicable law 
+provides otherwise.  
+ 
+23. Inactive Accounts  
+Accounts that remain inactive for extended periods may be archived, restricted, anonymised, or 
+deleted, subject to applicable law, legal retention obligations, active subscriptions, ongoing 
+transactions, intellectual property considerations, or pending dis putes.  
+Ckript may notify Users before taking action where reasonably practicable.  
+ 
+24. Account Suspension  
+Ckript may suspend, restrict, temporarily disable, or limit access to an Account where it reasonably 
+believes that:  
+• these Terms have been violated;  
+• applicable law requires action;  
+• fraudulent activity is suspected;  
+• intellectual property rights have been infringed;  
+• security risks exist;  
+• payment obligations remain outstanding;  
+• false information has been provided;  
+• harmful conduct has occurred;  
+• technical abuse has been detected;  
+• unauthorized automation has been used;  
+• spam or malicious activity has occurred;  
+• the integrity or security of the Platform is at risk.  
+Suspension may be temporary or permanent depending upon the severity of the circumstances.  
+ 
+25. Permanent Termination  
+Ckript may permanently terminate an Account where:  
+• repeated or serious violations occur;  
+• unlawful conduct is identified;  
+• fraudulent behaviour is established;  
+• intellectual property theft is confirmed;  
+• impersonation occurs;  
+• the User poses an ongoing security or legal risk;  
+• continued access would expose Ckript or other users to material harm.  
+Termination of an Account does not automatically extinguish obligations that accrued before 
+termination, including payment obligations, confidentiality obligations, intellectual property licences 
+that survive termination, or dispute resolution provisions.  
+ 
+26. Termination by the User  
+Users may discontinue using the Services at any time.  
+Where account deletion functionality is available, Users may request deletion of their Account, 
+subject to:  
+• pending legal obligations;  
+• ongoing investigations;  
+• unresolved disputes;  
+• outstanding payments;  
+• active subscriptions;  
+• legal retention requirements;  
+• applicable law.  
+Deletion of an Account does not automatically entitle the User to refunds unless expressly provided 
+by law or the applicable Refund Policy.  
+ 
+27. Recovery of Accounts  
+Where an Account has been compromised, lost, or accessed without authorization, Ckript may 
+require reasonable evidence of ownership before restoring access.  
+Ckript reserves the right to refuse recovery requests where ownership cannot be adequately 
+established or where restoration would create security, legal, or operational risks.  
+29. Nature of the Services  
+Ckript is a technology platform that develops, operates, licenses, manages, and provides digital 
+products and services intended to facilitate the discovery, management, evaluation, promotion, 
+collaboration, commercialization, and lawful exchange of creativ e works, intellectual property, 
+professional opportunities, and related services.  
+Unless expressly stated otherwise in a separate written agreement, Ckript acts solely as a technology 
+platform and does not act as an employer, recruitment agency, literary agency, talent agency, 
+publisher, producer, production company, investment advisor,  legal advisor, financial advisor, broker, 
+escrow agent, fiduciary, or representative of any User.  
+The Services offered by Ckript are intended to facilitate interactions between Users but do not create 
+any partnership, joint venture, employment, agency, franchise, fiduciary, or similar legal relationship 
+between Ckript and any User.  
+ 
+30. Platform Services  
+Depending upon availability, Ckript may provide one or more of the following Services:  
+• creator portfolios;  
+• screenplay and script hosting;  
+• manuscript hosting;  
+• book and publication discovery;  
+• story discovery;  
+• AI-assisted creative analysis;  
+• AI-generated trailers;  
+• AI-assisted summaries;  
+• AI-assisted recommendations;  
+• marketplace services;  
+• professional networking;  
+• messaging services;  
+• video meetings;  
+• scheduling tools;  
+• collaboration workspaces;  
+• licensing workflows;  
+• portfolio verification;  
+• profile verification;  
+• creator discovery;  
+• talent discovery;  
+• recruitment tools;  
+• educational content;  
+• knowledge resources;  
+• subscription services;  
+• promotional services;  
+• analytics dashboards;  
+• APIs;  
+• software development tools;  
+• developer services;  
+• enterprise solutions;  
+• white -labelled products;  
+• mobile applications;  
+• desktop applications;  
+• browser extensions;  
+• cloud services;  
+• and any additional products or services introduced by Ckript.  
+The availability of any Service may vary by country, jurisdiction, subscription level, account type, 
+technical capability, regulatory requirements, or commercial considerations.  
+ 
+31. Marketplace Services  
+Ckript may provide digital marketplace functionality enabling Users to:  
+• discover Creative Works;  
+• publish Creative Works;  
+• showcase portfolios;  
+• browse opportunities;  
+• express commercial interest;  
+• request access to Creative Works;  
+• negotiate opportunities;  
+• initiate communications;  
+• submit proposals;  
+• purchase platform services;  
+• participate in commercial workflows;  
+• discover collaborators;  
+• identify talent;  
+• participate in licensing discussions;  
+• access premium listings;  
+• participate in future marketplace offerings.  
+The Marketplace is intended solely as a technology -enabled facilitation platform.  
+Unless expressly agreed otherwise in writing, Ckript does not: 
+• own User -submitted Creative Works;  
+• negotiate commercial transactions on behalf of Users;  
+• determine licensing terms;  
+• guarantee transactions;  
+• collect royalties for Users;  
+• guarantee payments between Users;  
+• act as an escrow provider;  
+• provide legal representation;  
+• guarantee enforceability of private agreements.  
+ 
+32. Independent Transactions  
+Any agreement entered into between Users, including but not limited to:  
+• option agreements;  
+• licensing agreements;  
+• assignment agreements;  
+• publishing agreements;  
+• production agreements;  
+• collaboration agreements;  
+• consulting agreements;  
+• employment agreements;  
+• investment agreements;  
+• distribution agreements;  
+• service agreements;  
+• confidentiality agreements;  
+• sponsorship agreements;  
+• partnership agreements;  
+shall exist exclusively between the participating parties.  
+Ckript shall not become a party to such agreements merely because communications or 
+introductions occurred through the Platform.  
+Users are solely responsible for:  
+• negotiating terms;  
+• obtaining legal advice;  
+• conducting due diligence;  
+• verifying ownership;  
+• documenting agreements;  
+• complying with applicable laws;  
+• managing taxes;  
+• protecting confidential information.  
+ 
+33. No Brokerage or Agency Relationship  
+Ckript is not a broker, intermediary, talent agent, literary agent, publisher, producer, manager, 
+employer, recruiter, investment advisor, financial institution, or legal representative.  
+Nothing contained within the Services shall be interpreted as creating:  
+• agency;  
+• partnership;  
+• employment;  
+• fiduciary relationship;  
+• brokerage relationship;  
+• representation;  
+• joint venture;  
+• franchise;  
+• or any similar legal relationship.  
+Any decision to negotiate, purchase, option, acquire, publish, produce, invest in, collaborate on, or 
+otherwise commercialize Creative Works remains solely the responsibility of the participating Users.  
+ 
+34. User Communications  
+The Platform may provide communication tools including:  
+• messaging;  
+• direct messaging;  
+• group conversations;  
+• email notifications;  
+• audio communication;  
+• video conferencing;  
+• meeting scheduling;  
+• calendar integrations;  
+• collaboration tools;  
+• discussion forums;  
+• community spaces;  
+• future communication technologies.  
+Users are solely responsible for the content of communications sent through the Platform.  
+Ckript reserves the right to monitor, restrict, moderate, archive, investigate, or remove 
+communications where reasonably necessary to:  
+• comply with applicable law;  
+• investigate abuse;  
+• protect Users;  
+• enforce these Terms;  
+• protect Platform security;  
+• comply with lawful governmental requests.  
+Nothing in these Terms obligates Ckript to monitor all communications.  
+ 
+35. Meetings and Introductions  
+The Platform may facilitate introductions between Users.  
+Such introductions may include:  
+• creators;  
+• producers;  
+• publishers;  
+• studios;  
+• investors;  
+• recruiters;  
+• literary agents;  
+• directors;  
+• educational institutions;  
+• service providers;  
+• technology partners;  
+• other verified participants.  
+Ckript does not guarantee:  
+• meetings;  
+• responses;  
+• negotiations;  
+• commercial success;  
+• investments;  
+• production opportunities;  
+• publication opportunities;  
+• employment;  
+• collaborations.  
+Users remain solely responsible for evaluating the suitability of any person or organisation with 
+whom they interact.  
+ 
+36. Artificial Intelligence Services  
+Ckript may provide artificial intelligence technologies including but not limited to:  
+• creative analysis;  
+• screenplay evaluation;  
+• manuscript evaluation;  
+• summaries;  
+• recommendations;  
+• search assistance;  
+• matching algorithms;  
+• ranking systems;  
+• content categorization;  
+• metadata generation;  
+• AI-generated trailers;  
+• AI-generated promotional material;  
+• language translation;  
+• grammar enhancement;  
+• formatting assistance;  
+• automation tools;  
+• workflow optimisation;  
+• future AI -powered capabilities.  
+AI Services may be developed internally or provided through third -party models, APIs, or technology 
+partners.  
+ 
+37. AI Limitations  
+Artificial Intelligence produces probabilistic outputs.  
+Accordingly:  
+• AI may generate inaccurate information;  
+• AI may produce incomplete analysis;  
+• AI may generate inconsistent recommendations;  
+• AI may fail to identify important issues;  
+• AI outputs may reflect limitations of training data;  
+• AI outputs may differ across time;  
+• AI outputs should not be treated as factual statements;  
+• AI outputs should not replace professional legal, financial, medical, investment, publishing, 
+production, or business advice.  
+• may be inaccurate;  
+• may contain errors;  
+• may be incomplete;  
+• may omit important information;  
+• may generate inconsistent responses;  
+• should not be treated as legal, financial, tax, medical, investment, publishing, production, or 
+professional advice;  
+• require independent human review before being relied upon.  
+Users remain solely responsible for independently reviewing AI -generated outputs before relying 
+upon them.  
+ 
+38. AI Training and Improvement  
+To the extent permitted by applicable law and subject to the Privacy Policy and any applicable user 
+controls, Ckript may use anonymized, aggregated, de -identified, or otherwise lawfully processed 
+operational data to improve, evaluate, maintain, secure, tes t, develop, and enhance its Services, 
+including AI systems.  
+Ckript will not use confidential Creative Works to train publicly available AI models in a manner 
+inconsistent with its published policies or applicable agreements.  
+Where Ckript introduces user controls regarding AI training or model improvement, such controls 
+shall govern the applicable processing.  
+ 
+39. Beta Features  
+From time to time, Ckript may release experimental, preview, beta, early access, pilot, or test 
+features.  
+Beta Features:  
+• may be incomplete;  
+• may contain errors;  
+• may be discontinued;  
+• may change substantially;  
+• may not be supported;  
+• may be subject to separate terms.  
+Users participate in Beta Features voluntarily and acknowledge that such features are provided "as 
+is." 
+ 
+40. Third -Party Integrations  
+The Services may integrate with third -party technologies including:  
+• payment providers;  
+• cloud providers;  
+• AI providers;  
+• authentication providers;  
+• communication providers;  
+• calendar services;  
+• mapping services;  
+• analytics providers;  
+• storage providers;  
+• video conferencing platforms;  
+• productivity software;  
+• developer platforms;  
+• social media services;  
+• or other external systems.  
+Ckript does not control third -party services and is not responsible for their:  
+• availability;  
+• performance;  
+• accuracy;  
+• security;  
+• privacy practices;  
+• policies;  
+• functionality.  
+Use of third -party services remains subject to the applicable third -party terms.  
+ 
+43. Ownership of Creative Works  
+Except as expressly provided in these Terms or in a separate written agreement, Users retain all 
+right, title, and interest  in and to the Creative Works they submit, upload, publish, store, share, or 
+otherwise make available through the Services.  
+Uploading or submitting a Creative Work to the Platform does not transfer ownership  of that 
+Creative Work to Ckript.  
+Ownership includes, where applicable:  
+• copyright;  
+• neighbouring rights;  
+• database rights;  
+• moral rights (to the extent waivable under applicable law);  
+• trademarks;  
+• trade dress;  
+• design rights;  
+• patents;  
+• confidential information;  
+• trade secrets;  
+• publicity rights;  
+• and all other intellectual property rights recognised under applicable law.  
+Nothing contained in these Terms shall be interpreted as assigning ownership of a User's Creative 
+Work to Ckript unless expressly agreed in writing.  
+ 
+44. Representations and Warranties Regarding User Content  
+By uploading, submitting, publishing, transmitting, storing, or otherwise making available any 
+Content through the Services, you represent and warrant that:  
+• you own the Content or possess all rights, licences, permissions, consents, and authority 
+necessary to upload and use it;  
+• your use of the Content does not infringe the intellectual property, privacy, publicity, 
+contractual, or other legal rights of any third party;  
+• you have obtained all required permissions from co -authors, collaborators, employers, 
+clients, publishers, producers, or any other person or entity having an interest in the 
+Content;  
+• the Content does not contain material that is unlawful, defamatory, fraudulent, misleading, 
+obscene, hateful, or otherwise prohibited under these Terms;  
+• the information associated with the Content is accurate and not intentionally misleading;  
+• you have the legal authority to grant the licences described in these Terms.  
+You remain solely responsible for the legality, authenticity, and ownership of your Content.  
+ 
+45. Chain of Title  
+Where applicable, you represent and warrant that you possess a valid chain of title  to any Creative 
+Work uploaded to the Platform.  
+This means that you have the legal right to exploit, licence, commercialise, publish, assign, or 
+otherwise deal with the Creative Work, free from undisclosed ownership disputes or restrictions.  
+If multiple persons hold rights in a Creative Work, you represent that you have obtained all necessary 
+authorisations before uploading or making the work available through the Services.  
+Ckript does not independently verify chain of title and may rely upon your representations unless 
+required by applicable law or a specific investigation.  
+ 
+46. Licence Granted to Ckript  
+To operate the Services, you grant Ckript a limited, non -exclusive, worldwide, royalty -free, 
+transferable (only as necessary to provide the Services), sublicensable (only to service providers 
+acting on Ckript's behalf), revocable (subject to this Section), licence  to: 
+• host;  
+• store;  
+• reproduce;  
+• cache;  
+• index;  
+• format;  
+• transcode;  
+• display;  
+• distribute;  
+• transmit;  
+• back up;  
+• process;  
+• analyse;  
+• secure;  
+• moderate;  
+• archive;  
+• create thumbnails or previews;  
+• generate metadata;  
+• enable search and discovery;  
+• facilitate authorised user access;  
+• and otherwise use your Content solely to the extent reasonably necessary to:  
+• provide the Services;  
+• maintain the Platform;  
+• improve functionality;  
+• prevent fraud;  
+• ensure security;  
+• comply with legal obligations;  
+• provide customer support;  
+• facilitate authorised transactions;  
+• perform research and analytics using aggregated or anonymised information;  
+• market the Platform using only the permissions granted by you or applicable law.  
+This licence does not transfer ownership  of your Content.  
+ 
+47. Duration of the Licence  
+The licence granted to Ckript remains in effect only for so long as reasonably necessary to:  
+• provide the Services;  
+• comply with legal obligations;  
+• complete active transactions;  
+• resolve disputes;  
+• maintain security;  
+• preserve backups for disaster recovery;  
+• comply with lawful retention requirements.  
+Upon deletion of your Content or Account, Ckript will cease ordinary use of the Content within a 
+commercially reasonable period, except where continued retention is required by:  
+• applicable law;  
+• court order;  
+• regulatory obligation;  
+• fraud prevention;  
+• dispute resolution;  
+• backup systems;  
+• or active contractual obligations.  
+ 
+48. Public and Private Content  
+The Platform may permit Users to designate Content as:  
+• Public;  
+• Private;  
+• Restricted;  
+• Invitation -only;  
+• Draft;  
+• Archived;  
+• Premium;  
+• Confidential;  
+• or any additional visibility category introduced by Ckript.  
+Users are responsible for selecting the appropriate visibility settings.  
+While Ckript implements reasonable technical safeguards, no internet -based system can guarantee 
+absolute confidentiality or security.  
+Users should exercise appropriate discretion before sharing unpublished or commercially sensitive 
+material.  
+ 
+49. Confidential Creative Works  
+Certain Creative Works uploaded to the Platform may be unpublished, confidential, proprietary, 
+commercially valuable, or otherwise sensitive.  
+Users who obtain authorised access to such Content agree not to:  
+• copy;  
+• reproduce;  
+• distribute;  
+• disclose;  
+• publicly display;  
+• commercially exploit;  
+• reverse engineer;  
+• create derivative works from;  
+• misuse;  
+• or otherwise use such Content beyond the permissions expressly granted by its owner.  
+Nothing in these Terms transfers confidential information or proprietary rights between Users.  
+ 
+50. Intellectual Property of Ckript  
+Except for User Content, all intellectual property associated with the Services is owned by or licensed 
+to Ckript.  
+This includes, without limitation:  
+• software;  
+• source code;  
+• object code;  
+• algorithms;  
+• artificial intelligence systems;  
+• machine learning models;  
+• prompts;  
+• workflows;  
+• APIs;  
+• databases;  
+• user interface designs;  
+• graphics;  
+• animations;  
+• documentation;  
+• trademarks;  
+• logos;  
+• brand names;  
+• trade dress;  
+• icons;  
+• audio;  
+• video;  
+• platform architecture;  
+• compilations;  
+• layouts;  
+• proprietary datasets;  
+• business methods;  
+• confidential information;  
+• and all other Platform materials.  
+No rights are granted except those expressly stated in these Terms.  
+ 
+51. Limited Licence to Use the Platform  
+Subject to your compliance with these Terms, Ckript grants you a limited, non -exclusive, non -
+transferable, non -sublicensable, revocable licence to access and use the Services solely for their 
+intended purpose.  
+This licence does not permit you to:  
+• reproduce the Platform;  
+• redistribute Platform materials;  
+• commercially exploit Platform software;  
+• create competing products using Platform assets;  
+• reverse engineer proprietary systems except where prohibited by law;  
+• bypass technical protections;  
+• interfere with Platform security.  
+ 
+52. Feedback  
+If you voluntarily provide suggestions, ideas, recommendations, feature requests, comments, bug 
+reports, or other feedback regarding the Services (" Feedback "), you grant Ckript a perpetual, 
+irrevocable, worldwide, royalty -free, transferable, sublicensable licence to use, modify, publish, 
+implement, commercialise, and incorporate such Feedback without restriction or compensation, 
+unless otherwise agreed in writing.  
+This Section does not transfer ownership of your Creative Works merely because they contain ideas 
+that inspire Feedback.  
+ 
+53. Copyright Complaints  
+Ckript respects intellectual property rights and expects Users to do the same.  
+If you believe that material available through the Services infringes your copyright or other 
+intellectual property rights, you may submit a written notice containing:  
+• identification of the copyrighted work or other protected material;  
+• identification of the allegedly infringing material;  
+• sufficient information to enable Ckript to locate the material;  
+• your contact details;  
+• a statement of good -faith belief that the disputed use is unauthorised;  
+• a statement that the information provided is accurate and that you are authorised to act on 
+behalf of the rights holder, where applicable;  
+• any additional information reasonably requested by Ckript.  
+Ckript may investigate complaints and take appropriate action, including temporary removal, 
+restriction, disabling access, requesting additional information, or rejecting incomplete or abusive 
+notices.  
+ 
+54. Repeat Infringer Policy  
+Ckript reserves the right to suspend or terminate Accounts belonging to Users who repeatedly or 
+materially infringe the intellectual property rights of others.  
+In determining whether a User qualifies as a repeat infringer, Ckript may consider:  
+• the number of complaints;  
+• the credibility of complaints;  
+• court orders;  
+• admissions;  
+• evidence provided;  
+• prior violations;  
+• abusive conduct;  
+• or other relevant circumstances.  
+ 
+55. No Monitoring Obligation  
+Ckript is not obligated to monitor all Content uploaded by Users.  
+However, Ckript may review, investigate, moderate, restrict, remove, disable access to, or preserve 
+Content where reasonably necessary to:  
+• comply with applicable law;  
+• enforce these Terms;  
+• respond to legal requests;  
+• protect intellectual property rights;  
+• investigate abuse;  
+• maintain Platform integrity;  
+• protect Users;  
+• ensure operational security.  
+ 
+56. Digital Watermarking and Content Protection  
+Ckript may implement technological measures intended to help protect Creative Works, including 
+but not limited to:  
+• digital watermarking;  
+• visible or invisible watermarks;  
+• access controls;  
+• encryption;  
+• download restrictions;  
+• screenshot protection (where technically feasible);  
+• audit logs;  
+• usage monitoring;  
+• document fingerprinting;  
+• AI-assisted detection of unauthorised distribution.  
+The implementation of such measures does not constitute a guarantee against infringement, 
+unauthorised copying, or misuse.  
+Users remain responsible for protecting their own intellectual property and obtaining appropriate 
+legal advice where necessary.  
+ 
+57. Reservation of Rights  
+Except for the limited licences expressly granted under these Terms:  
+• Users retain all rights in their Content; and  
+• Ckript retains all rights in the Services.  
+No rights, licences, assignments, or permissions shall be implied by law, estoppel, or otherwise.  
+All rights not expressly granted are reserved by their respective owners.  
+58. Paid Services  
+While many Services may be available without charge, certain features, products, programs, 
+memberships, subscriptions, events, tools, AI capabilities, promotional services, marketplace 
+functions, educational offerings, or other Services may require payment . 
+Paid Services may include, without limitation:  
+• subscription plans;  
+• premium memberships;  
+• AI-powered features;  
+• marketplace features;  
+• portfolio promotion;  
+• profile verification;  
+• premium visibility;  
+• analytics services;  
+• evaluation services;  
+• educational programs;  
+• workshops;  
+• conferences;  
+• networking events;  
+• competitions;  
+• application fees;  
+• listing fees;  
+• advertising services;  
+• enterprise offerings;  
+• API access;  
+• developer services;  
+• consulting services;  
+• custom solutions;  
+• white -label services;  
+• or any other paid product or service introduced by Ckript.  
+Ckript reserves the right to determine which Services are paid or free and may modify such 
+classifications from time to time in accordance with applicable law.  
+ 
+59. Pricing  
+The price of any Paid Service shall be the price displayed at the time of purchase unless otherwise 
+expressly agreed in writing.  
+Prices may:  
+• vary by jurisdiction;  
+• vary by currency;  
+• vary by account type;  
+• vary by subscription tier;  
+• vary by promotional offer;  
+• vary by event;  
+• vary by partner program;  
+• vary by tax obligations;  
+• vary by payment method.  
+Unless expressly stated otherwise, all prices are exclusive of applicable taxes, duties, levies, 
+governmental charges, processing fees, and similar assessments.  
+ 
+60. Subscriptions  
+Certain Services may be provided through recurring subscription plans.  
+Subscription plans may include different levels of access, usage limits, AI credits, storage limits, 
+collaboration features, support levels, marketplace functionality, promotional benefits, or additional 
+services.  
+Subscription features may change over time as the Platform evolves.  
+Ckript may introduce, modify, replace, merge, discontinue, or rename subscription plans without 
+affecting the validity of these Terms.  
+ 
+61. Automatic Renewal  
+Unless otherwise stated at the time of purchase, recurring subscriptions automatically renew at the 
+end of each billing cycle using the payment method associated with your Account.  
+You authorize Ckript and its payment processors to charge the applicable subscription fees, taxes, 
+and authorised recurring amounts until cancellation.  
+You may cancel renewal before the next billing cycle through the available account settings or by 
+contacting Customer Support where such functionality is provided.  
+Cancellation prevents future renewal but does not automatically entitle you to a refund for the 
+current billing period unless required by applicable law or expressly stated in the applicable Refund 
+Policy.  
+ 
+62. Free Trials and Promotional Offers  
+From time to time, Ckript may offer:  
+• free trials;  
+• introductory pricing;  
+• beta access;  
+• promotional subscriptions;  
+• discounted plans;  
+• referral benefits;  
+• coupons;  
+• vouchers;  
+• promotional credits;  
+• educational discounts;  
+• partner offers;  
+• event discounts;  
+• or similar promotional programs.  
+Unless otherwise stated:  
+• promotional offers have no cash value;  
+• promotional offers may not be transferred;  
+• promotional offers may not be redeemed for cash;  
+• promotional offers may expire;  
+• promotional offers may be withdrawn at any time before redemption, subject to applicable 
+law. 
+Ckript reserves the right to determine eligibility for promotional offers and to prevent misuse or 
+abuse.  
+ 
+63. Billing  
+You agree to provide accurate, complete, and current billing information.  
+You authorize Ckript and its authorised payment providers to:  
+• verify payment methods;  
+• charge applicable fees;  
+• process recurring payments where applicable;  
+• collect taxes;  
+• issue invoices or receipts;  
+• process refunds where applicable;  
+• perform fraud prevention measures;  
+• comply with applicable legal obligations.  
+Failure to maintain valid billing information may result in suspension or restriction of Paid Services.  
+ 
+64. Payment Methods  
+Payments may be processed through one or more authorised third -party payment providers.  
+Supported payment methods may include:  
+• credit cards;  
+• debit cards;  
+• net banking;  
+• UPI; 
+• digital wallets;  
+• bank transfers;  
+• payment gateways;  
+• enterprise invoicing;  
+• international payment providers;  
+• or any additional payment methods supported by Ckript.  
+Ckript does not store complete payment card information unless expressly stated and permitted by 
+applicable law.  
+Payment processing is subject to the terms and privacy policies of the applicable payment provider.  
+ 
+65. Taxes  
+Users are responsible for all applicable:  
+• Goods and Services Tax (GST);  
+• Value Added Tax (VAT);  
+• sales tax;  
+• withholding tax;  
+• customs duties;  
+• import duties;  
+• local taxes;  
+• governmental charges;  
+• regulatory fees;  
+• or similar obligations,  
+unless Ckript expressly states otherwise or applicable law requires Ckript to collect or remit such 
+amounts.  
+Where required by law, Ckript may collect, report, deduct, withhold, or remit taxes on behalf of 
+Users.  
+Users remain responsible for their own income tax, business tax, and accounting obligations arising 
+from transactions conducted through or in connection with the Services.  
+ 
+66. Invoices and Receipts  
+Where applicable, Ckript may issue invoices, receipts, tax invoices, credit notes, debit notes, or other 
+financial documents electronically.  
+Users consent to receiving such documents in electronic form unless applicable law requires 
+otherwise.  
+It is the User's responsibility to ensure that their billing information is accurate for tax and accounting 
+purposes.  
+ 
+67. Refunds  
+Refund eligibility, timelines, exclusions, cancellation procedures, goodwill refunds, exceptional 
+circumstances, payment disputes, and related matters are governed by the Ckript Refund Policy , 
+which is incorporated into these Terms by reference.  
+Unless required by applicable law or expressly stated in the Refund Policy:  
+• payments are non -refundable once the relevant Service has been substantially provided or 
+accessed;  
+• partially used subscriptions are not eligible for prorated refunds;  
+• promotional purchases may be subject to additional restrictions;  
+• event -specific refunds may be governed by separate event rules.  
+Nothing in this Section limits any statutory consumer rights available under applicable law.  
+ 
+68. Chargebacks and Payment Disputes  
+If you initiate a chargeback, payment reversal, payment dispute, or similar claim with your financial 
+institution without first attempting to resolve the matter through Ckript where reasonably possible, 
+Ckript may:  
+• suspend your Account;  
+• restrict Paid Services;  
+• investigate the dispute;  
+• recover outstanding amounts where legally permitted;  
+• require additional verification before restoring access.  
+Nothing in this Section limits your legal rights to dispute unauthorized or fraudulent transactions 
+under applicable law.  
+ 
+69. Promotional Credits and Wallet Balances  
+Ckript may issue promotional credits, reward credits, referral credits, event credits, educational 
+credits, loyalty benefits, or other non -cash incentives.  
+Unless expressly stated otherwise:  
+• such credits have no monetary value;  
+• are non -transferable;  
+• are not redeemable for cash;  
+• may expire;  
+• may be revoked where fraud or abuse is detected;  
+• may only be used in accordance with the applicable promotional terms.  
+Where Ckript introduces a wallet or stored -value functionality in the future, additional terms may 
+apply.  
+ 
+70. Payouts  
+Where Ckript facilitates payouts, revenue sharing, creator earnings, referral incentives, rewards, 
+grants, prize money, reimbursements, or similar financial distributions, such payments may be 
+subject to:  
+• identity verification;  
+• tax compliance;  
+• banking verification;  
+• sanctions screening;  
+• fraud prevention;  
+• minimum payout thresholds;  
+• applicable fees;  
+• separate program terms.  
+Ckript reserves the right to withhold or delay payouts where reasonably necessary to comply with 
+applicable law, investigate fraud, resolve disputes, or verify eligibility.  
+ 
+71. Pricing Changes  
+Ckript may revise pricing for Paid Services from time to time.  
+Changes may result from:  
+• operational costs;  
+• inflation;  
+• regulatory requirements;  
+• taxation;  
+• new features;  
+• service improvements;  
+• market conditions;  
+• exchange rate fluctuations;  
+• technological developments;  
+• commercial strategy.  
+Where required by applicable law or by the terms of a subscription plan, Ckript will provide 
+reasonable notice before pricing changes take effect.  
+Continued use of the affected Paid Service after the effective date of a pricing change constitutes 
+acceptance of the revised pricing, unless applicable law requires additional consent.  
+ 
+72. Payment Fraud  
+Users must not:  
+• use stolen payment instruments;  
+• provide fraudulent billing information;  
+• attempt unauthorized payment reversals;  
+• engage in money laundering;  
+• evade taxes;  
+• circumvent payment systems;  
+• manipulate promotional offers;  
+• abuse refund processes;  
+• use another person's financial information without authorization.  
+Ckript reserves the right to investigate suspected financial misconduct and cooperate with financial 
+institutions and law enforcement authorities where legally required.  
+ 
+73. Suspension for Non -Payment  
+Ckript may suspend, restrict, downgrade, or terminate access to Paid Services where:  
+• payment remains outstanding;  
+• recurring billing fails;  
+• payment methods become invalid;  
+• invoices remain unpaid;  
+• fraudulent payment activity is suspected;  
+• chargebacks occur;  
+• legal or regulatory restrictions prevent payment processing.  
+Suspension for non -payment does not relieve Users of any outstanding payment obligations accrued 
+prior to suspension.  
+ 
+74. Financial Records  
+Ckript may maintain records relating to purchases, invoices, refunds, credits, subscriptions, and 
+payment transactions for accounting, auditing, fraud prevention, legal compliance, dispute 
+resolution, and operational purposes in accordance with applicable law and the Privacy Policy.  
+Retention of financial records does not imply continued access to the underlying Paid Services after 
+expiration or termination.  
+75. General Event Framework  
+From time to time, Ckript may independently or jointly organise, sponsor, administer, facilitate, 
+support, promote, or participate in various initiatives intended to encourage creativity, collaboration, 
+education, networking, innovation, talent discovery, entrepreneurship, professional development, or 
+commercial opportunities.  
+Such initiatives may include, without limitation:  
+• competitions;  
+• script challenges;  
+• writing contests;  
+• storytelling competitions;  
+• pitch competitions;  
+• hackathons;  
+• innovation challenges;  
+• workshops;  
+• masterclasses;  
+• webinars;  
+• conferences;  
+• seminars;  
+• networking events;  
+• festivals;  
+• award ceremonies;  
+• accelerator programs;  
+• incubation programs;  
+• fellowships;  
+• grant programs;  
+• scholarship initiatives;  
+• educational campaigns;  
+• showcases;  
+• exhibitions;  
+• recruitment drives;  
+• mentorship programs;  
+• internship programs;  
+• community initiatives;  
+• promotional campaigns;  
+• marketing collaborations;  
+• sponsorship programs;  
+• partner initiatives; and  
+• any similar activity introduced by Ckript from time to time.  
+The names, branding, format, duration, eligibility, structure, prizes, and objectives of such initiatives 
+may change at any time.  
+ 
+76. Independent and Collaborative Programs  
+Any initiative may be organised:  
+• solely by Ckript;  
+• jointly with one or more strategic partners;  
+• on behalf of another organisation;  
+• under licence;  
+• through sponsorship;  
+• through franchise arrangements;  
+• through educational collaborations;  
+• through governmental collaborations;  
+• through industry partnerships;  
+• through media partnerships;  
+• through technology partnerships;  
+• through nonprofit collaborations;  
+• through international collaborations; or  
+• through any other lawful arrangement.  
+Nothing in these Terms shall be interpreted as limiting Ckript to organising only its own events.  
+ 
+77. Event -Specific Rules  
+Each event, competition, program, campaign, or initiative may be governed by additional rules, 
+eligibility criteria, judging criteria, participation requirements, codes of conduct, privacy notices, 
+prize terms, or other legal documentation.  
+Where event -specific rules exist, participants agree to comply with both:  
+• these Terms; and  
+• the applicable event -specific rules.  
+If a direct conflict exists between these Terms and event -specific rules, the event -specific rules shall 
+prevail only for that specific event and only to the extent of the conflict.  
+ 
+78. Eligibility for Participation  
+Participation in any event or program may require satisfaction of one or more eligibility criteria, 
+including but not limited to:  
+• minimum age;  
+• nationality;  
+• residency;  
+• educational status;  
+• professional experience;  
+• account verification;  
+• subscription status;  
+• payment of participation fees;  
+• compliance with applicable laws;  
+• completion of registration requirements;  
+• acceptance of event -specific rules.  
+Eligibility requirements may vary between different initiatives.  
+Ckript reserves the right to verify eligibility before, during, or after participation.  
+ 
+79. Registration  
+Participation may require advance registration.  
+During registration, participants may be required to provide:  
+• personal information;  
+• professional information;  
+• portfolio details;  
+• educational records;  
+• business information;  
+• identification documents;  
+• tax information;  
+• payment information;  
+• declarations;  
+• consent forms;  
+• supporting documents;  
+• or any additional information reasonably required for administration of the initiative.  
+Providing false or misleading information may result in disqualification.  
+ 
+80. Submission of Entries  
+Where an initiative involves submission of Creative Works, ideas, projects, presentations, prototypes, 
+business proposals, manuscripts, scripts, books, pitches, designs, videos, software, or any other 
+material ("Entries"), participants represent and warran t that:  
+• they own or are authorised to submit the Entry;  
+• the Entry does not infringe third -party rights;  
+• all required permissions have been obtained;  
+• the Entry complies with applicable laws;  
+• the Entry complies with these Terms and applicable event rules.  
+Submission of an Entry does not transfer ownership to Ckript except to the extent expressly provided 
+in these Terms or the applicable event rules.  
+ 
+81. Licence for Event Administration  
+To administer an initiative, participants grant Ckript a limited, non -exclusive, worldwide, royalty -free 
+licence to:  
+• receive;  
+• store;  
+• review;  
+• reproduce;  
+• evaluate;  
+• display internally;  
+• share with authorised judges, mentors, evaluators, partners, or organisers;  
+• archive;  
+• moderate;  
+• administer the initiative;  
+• announce results;  
+• and otherwise manage the initiative.  
+Unless expressly stated otherwise in the applicable event rules, this licence is limited to 
+administration of the relevant initiative and does not transfer ownership of the submitted Entry.  
+ 
+82. Judging and Evaluation  
+Where judging or evaluation forms part of an initiative:  
+• judging criteria may vary;  
+• judges may include internal or external experts;  
+• AI-assisted evaluation tools may be used where disclosed;  
+• scores may include subjective elements;  
+• judges' decisions shall generally be final unless otherwise stated in the applicable rules.  
+Ckript does not guarantee any minimum score, ranking, prize, funding, publication, production 
+opportunity, investment, employment, or commercial outcome.  
+ 
+83. Prizes, Rewards, and Recognition  
+Where prizes, rewards, grants, scholarships, recognition, certificates, internships, investments, 
+promotional opportunities, or other benefits are offered:  
+• eligibility may be verified before distribution;  
+• recipients may be required to complete additional documentation;  
+• taxes may be deducted where required by law;  
+• prizes may be substituted where circumstances reasonably require;  
+• non-cash prizes may not be exchanged for cash unless expressly permitted.  
+Unless otherwise stated, prizes are non -transferable.  
+ 
+84. Sponsorships and Third -Party Benefits  
+Certain initiatives may include sponsorships, grants, discounts, internships, employment 
+opportunities, mentorship, investments, publishing opportunities, production opportunities, 
+promotional opportunities, software licences, or other benefits offered by third parties.  
+Such benefits remain subject to the terms, conditions, policies, and decisions of the relevant third 
+party.  
+Ckript does not guarantee that any sponsor or partner will fulfil any opportunity beyond its stated 
+commitments.  
+ 
+85. Participant Conduct  
+Participants must:  
+• act honestly;  
+• comply with event rules;  
+• respect judges, organisers, mentors, sponsors, volunteers, and other participants;  
+• refrain from cheating;  
+• refrain from plagiarism;  
+• refrain from harassment;  
+• refrain from disruptive conduct;  
+• refrain from manipulating judging processes;  
+• refrain from submitting fraudulent information.  
+Violation of this Section may result in immediate disqualification.  
+ 
+86. Disqualification  
+Ckript may disqualify any participant who:  
+• violates these Terms;  
+• violates event rules;  
+• submits plagiarised material;  
+• provides false information;  
+• attempts to manipulate results;  
+• engages in abusive conduct;  
+• attempts bribery;  
+• interferes with organisers;  
+• threatens participants;  
+• commits fraud;  
+• breaches confidentiality;  
+• infringes intellectual property rights.  
+Disqualification may occur before, during, or after an initiative.  
+Where prizes have already been distributed, Ckript may require their return where legally 
+permissible.  
+ 
+87. Publicity  
+Unless prohibited by applicable law or expressly stated otherwise, participants grant Ckript 
+permission to use their:  
+• name;  
+• professional title;  
+• company name;  
+• city;  
+• country;  
+• photographs;  
+• profile image;  
+• publicly available biography;  
+• competition results;  
+• awards;  
+• certificates;  
+• interviews;  
+• testimonials;  
+• publicly presented portions of Entries;  
+for reasonable promotional, educational, archival, reporting, and marketing purposes relating to the 
+relevant initiative.  
+This Section does not grant Ckript ownership of Creative Works.  
+ 
+88. Event Modifications  
+Ckript reserves the right to:  
+• postpone;  
+• reschedule;  
+• modify;  
+• suspend;  
+• merge;  
+• divide;  
+• relocate;  
+• digitise;  
+• cancel;  
+• discontinue;  
+• rename;  
+• extend;  
+• shorten;  
+• or otherwise modify any initiative  
+where reasonably necessary due to operational, technical, commercial, legal, safety, regulatory, 
+environmental, or force majeure circumstances.  
+Where reasonably practicable, participants will be informed of material changes.  
+ 
+89. Cancellation  
+Ckript may cancel an initiative before completion where circumstances reasonably require, including:  
+• insufficient participation;  
+• legal restrictions;  
+• technical failures;  
+• security concerns;  
+• sponsor withdrawal;  
+• force majeure;  
+• governmental action;  
+• operational necessity.  
+Where participation fees have been collected, refunds shall be governed by the applicable Refund 
+Policy or event -specific rules.  
+ 
+90. Community Participation  
+Participation in community discussions, networking activities, mentorship programs, collaborative 
+spaces, educational initiatives, and similar community features must comply with:  
+• these Terms;  
+• Community Guidelines;  
+• applicable event rules;  
+• applicable laws.  
+Ckript may moderate community interactions to maintain a safe, respectful, and professional 
+environment.  
+ 
+91. Reservation of Rights  
+Except where prohibited by applicable law, Ckript reserves the right to determine:  
+• event structures;  
+• participation limits;  
+• judging methodologies;  
+• evaluation criteria;  
+• prizes;  
+• sponsorship arrangements;  
+• operational procedures;  
+• eligibility requirements;  
+• administrative decisions;  
+provided that such decisions are exercised reasonably and consistently with these Terms and 
+applicable law.  
+92. General Standards of Conduct  
+Users must access and use the Services lawfully, honestly, responsibly, and in a manner that respects 
+the rights, safety, privacy, intellectual property, and legitimate interests of Ckript and other Users.  
+By using the Services, you agree to conduct yourself professionally and refrain from any activity that 
+could reasonably be expected to damage the Platform, interfere with its operation, infringe the rights 
+of others, or undermine the integrity of the Ckrip t community.  
+ 
+93. Compliance with Applicable Laws  
+You are solely responsible for ensuring that your use of the Services complies with all applicable:  
+• laws;  
+• regulations;  
+• governmental orders;  
+• industry standards;  
+• sanctions;  
+• export controls;  
+• licensing requirements;  
+• court orders;  
+• and regulatory obligations  
+applicable in the jurisdictions where you access or use the Services.  
+Nothing in these Terms authorises any User to engage in unlawful activity.  
+ 
+94. Acceptable Use  
+You may use the Services only for legitimate and lawful purposes consistent with these Terms and 
+any applicable policies.  
+Examples of acceptable use include:  
+• publishing original Creative Works;  
+• discovering commercial opportunities;  
+• networking with industry professionals;  
+• participating in educational programs;  
+• using AI tools responsibly;  
+• collaborating with authorised Users;  
+• participating in competitions or events;  
+• accessing marketplace functionality in accordance with applicable rules;  
+• using APIs in accordance with applicable documentation;  
+• communicating respectfully with other Users.  
+ 
+95. Prohibited Activities  
+Without limiting any other provision of these Terms, you must not:  
+Identity and Misrepresentation  
+• impersonate another person or organisation;  
+• create fake profiles;  
+• use stolen identities;  
+• falsely claim professional affiliations;  
+• misrepresent credentials, awards, or experience;  
+• create misleading company profiles.  
+Intellectual Property  
+• upload material you do not own or have authority to use;  
+• infringe copyright, trademark, patent, design, publicity, privacy, database, or trade secret 
+rights;  
+• remove copyright notices;  
+• circumvent watermarking;  
+• falsely claim ownership of another person's work.  
+Fraud  
+• engage in fraud;  
+• deceive Users;  
+• solicit money under false pretences;  
+• manipulate marketplace transactions;  
+• provide false verification documents;  
+• evade payment obligations;  
+• abuse promotional offers;  
+• submit forged records.  
+Security  
+• attempt unauthorised access;  
+• bypass authentication;  
+• bypass access restrictions;  
+• exploit vulnerabilities;  
+• probe security systems;  
+• interfere with security controls;  
+• distribute malware;  
+• introduce viruses;  
+• launch denial -of-service attacks;  
+• interfere with network integrity.  
+Platform Abuse  
+• scrape Platform content;  
+• harvest user data;  
+• use automated bots without authorisation;  
+• overload Platform infrastructure;  
+• interfere with normal operation;  
+• manipulate search rankings;  
+• artificially inflate engagement;  
+• create duplicate Accounts to gain unfair advantages.  
+Harassment  
+• threaten others;  
+• intimidate others;  
+• stalk others;  
+• bully others;  
+• discriminate against others;  
+• publish hateful material;  
+• encourage violence;  
+• sexually harass other Users;  
+• publish unlawful abusive material.  
+Illegal Content  
+You must not upload or distribute material that:  
+• violates applicable law;  
+• promotes terrorism;  
+• promotes organised crime;  
+• promotes child exploitation;  
+• promotes human trafficking;  
+• facilitates money laundering;  
+• facilitates fraud;  
+• incites violence;  
+• promotes unlawful activity.  
+Spam  
+You must not:  
+• send unsolicited commercial messages;  
+• mass -message Users;  
+• distribute scams;  
+• distribute phishing messages;  
+• create fake engagement;  
+• manipulate reviews.  
+ 
+96. AI Misuse  
+Where AI -powered Services are available, you must not:  
+• attempt prompt injection attacks;  
+• manipulate AI safety mechanisms;  
+• attempt to extract confidential system prompts;  
+• reverse engineer proprietary AI systems except where permitted by law;  
+• use AI outputs to commit fraud;  
+• submit unlawful prompts;  
+• generate harmful or illegal content;  
+• use AI Services to infringe third -party rights;  
+• intentionally misuse AI -generated outputs;  
+• misrepresent AI -generated material as independently verified professional advice.  
+Ckript may impose additional AI usage policies from time to time.  
+ 
+97. Automated Access  
+Except where expressly authorised by Ckript in writing, you must not:  
+• use bots;  
+• deploy crawlers;  
+• operate scrapers;  
+• use automated harvesting tools;  
+• automate account creation;  
+• automate messaging;  
+• automate voting or rankings;  
+• automate submissions;  
+• automate purchases;  
+• circumvent API restrictions.  
+Where Ckript provides official APIs or developer tools, automated access must comply with the 
+applicable documentation and usage policies.  
+ 
+98. Marketplace Integrity  
+Users participating in marketplace activities must not:  
+• manipulate negotiations;  
+• artificially inflate prices;  
+• interfere with legitimate transactions;  
+• misrepresent ownership;  
+• impersonate buyers or sellers;  
+• engage in market manipulation;  
+• mislead other Users regarding commercial opportunities;  
+• intentionally disrupt negotiations.  
+ 
+99. Professional Conduct  
+Users representing organisations, studios, publishers, production houses, agencies, investors, 
+educational institutions, or businesses must conduct themselves professionally.  
+Professional Users must not:  
+• knowingly misuse confidential submissions;  
+• intentionally mislead creators;  
+• falsely advertise opportunities;  
+• abuse verification status;  
+• request unlawful payments;  
+• discriminate unlawfully;  
+• exploit Users through deceptive conduct.  
+ 
+100. Confidential Information  
+Where Users receive confidential information through the Services, they must:  
+• use it only for its authorised purpose;  
+• protect its confidentiality;  
+• not disclose it without permission;  
+• not exploit confidential information for unauthorised commercial purposes.  
+Nothing in this Section creates an independent non -disclosure agreement unless separately agreed 
+between the parties.  
+ 
+101. Export Controls and Sanctions  
+You represent that you are not prohibited from using the Services under applicable export control, 
+trade sanctions, or similar laws.  
+You agree not to use the Services in violation of applicable export control regulations or sanctions 
+laws.  
+Ckript may restrict access where necessary to comply with applicable legal obligations.  
+ 
+102. Anti -Bribery and Anti -Corruption  
+Users must not use the Services to:  
+• offer bribes;  
+• solicit unlawful payments;  
+• engage in corruption;  
+• facilitate money laundering;  
+• violate anti -corruption laws;  
+• improperly influence judges, evaluators, organisers, or commercial counterparties.  
+ 
+103. Reporting Violations  
+Users are encouraged to report suspected violations of:  
+• these Terms;  
+• Community Guidelines;  
+• applicable laws;  
+• intellectual property rights;  
+• Platform policies.  
+Reports should be made in good faith.  
+Knowingly submitting false or malicious reports may itself constitute a violation of these Terms.  
+ 
+104. Investigations  
+Ckript may investigate suspected violations of these Terms.  
+During an investigation, Ckript may:  
+• request additional information;  
+• preserve evidence;  
+• temporarily restrict access;  
+• suspend Accounts;  
+• remove Content;  
+• contact affected Users;  
+• cooperate with law enforcement authorities;  
+• cooperate with regulatory authorities;  
+• obtain professional advice;  
+• take any other reasonable action necessary to protect the Platform.  
+Nothing in this Section obligates Ckript to investigate every reported incident.  
+ 
+105. Enforcement Measures  
+Where Ckript reasonably determines that these Terms have been violated, it may take one or more 
+of the following actions:  
+• issue warnings;  
+• require corrective action;  
+• remove Content;  
+• restrict functionality;  
+• suspend Accounts;  
+• terminate Accounts;  
+• revoke verification;  
+• revoke promotional benefits;  
+• cancel event participation;  
+• withhold prizes where legally permissible;  
+• refuse future registration;  
+• pursue legal remedies;  
+• report unlawful conduct to competent authorities.  
+The enforcement action taken shall generally be proportionate to the nature and severity of the 
+violation.  
+ 
+106. Appeals  
+Where reasonably practicable, Users whose Accounts or Content have been subject to enforcement 
+action may submit an appeal through the procedures made available by Ckript.  
+Submission of an appeal does not guarantee reversal of any decision.  
+Ckript shall review appeals in good faith and may uphold, modify, or reverse its original decision 
+where appropriate.  
+ 
+107. Reservation of Enforcement Rights  
+The examples of prohibited conduct contained in these Terms are illustrative and not exhaustive.  
+Ckript reserves the right to determine, acting reasonably and in accordance with applicable law, 
+whether particular conduct threatens the safety, integrity, security, reputation, or lawful operation of 
+the Services.  
+Failure to specifically identify particular conduct within these Terms shall not prevent Ckript from 
+taking reasonable action where necessary to protect the Platform or comply with legal obligations.  
+108. Privacy  
+Your privacy is important to Ckript.  
+The collection, use, storage, processing, disclosure, transfer, retention, and protection of personal 
+information is governed by the Ckript Privacy Policy , which forms an integral part of these Terms and 
+is incorporated herein by reference.  
+By using the Services, you acknowledge that you have read and understood the Privacy Policy and 
+consent to the processing of your personal information in accordance with applicable law and the 
+Privacy Policy.  
+Nothing in these Terms shall limit any rights granted to Users under applicable data protection laws.  
+ 
+111. Service Availability  
+Ckript aims to provide reliable and continuous access to the Services.  
+However, uninterrupted availability cannot be guaranteed.  
+The Servic es may become temporarily unavailable due to:  
+• maintenance;  
+• infrastructure upgrades;  
+• security incidents;  
+• technical failures;  
+• software updates;  
+• internet outages;  
+• cloud provider interruptions;  
+• telecommunications failures;  
+• third -party failures;  
+• force majeure events;  
+• regulatory actions;  
+• or other operational circumstances.  
+Planned maintenance may be performed with reasonable notice where practicable.  
+ 
+112. Maintenance and Updates  
+To improve performance, reliability, functionality, and security, Ckript may:  
+• deploy updates;  
+• install patches;  
+• modify infrastructure;  
+• replace software components;  
+• migrate databases;  
+• improve AI systems;  
+• update APIs;  
+• retire legacy systems;  
+• introduce new technologies.  
+Some updates may temporarily affect Service availability.  
+ 
+113. Third -Party Services  
+The Services may integrate with or rely upon third -party products and services, including but not 
+limited to:  
+• payment processors;  
+• cloud infrastructure providers;  
+• authentication providers;  
+• artificial intelligence providers;  
+• mapping services;  
+• communication platforms;  
+• video conferencing platforms;  
+• email providers;  
+• analytics providers;  
+• storage providers;  
+• developer platforms;  
+• social media platforms;  
+• advertising networks;  
+• government services;  
+• verification providers;  
+• productivity tools.  
+Such third -party services operate independently of Ckript.  
+Ckript does not own or control such services and is not responsible for their:  
+• availability;  
+• reliability;  
+• security;  
+• functionality;  
+• accuracy;  
+• privacy practices;  
+• policies;  
+• content.  
+Your use of third -party services remains subject to their respective terms and privacy policies.  
+ 
+114. Third -Party Content  
+The Services may display, host, index, recommend, reference, link to, or otherwise make available 
+content supplied by third parties.  
+Third -party content remains the responsibility of its respective owner or publisher.  
+Unless expressly stated otherwise, Ckript does not endorse, verify, or guarantee:  
+• opinions;  
+• recommendations;  
+• advertisements;  
+• investment opportunities;  
+• employment opportunities;  
+• educational material;  
+• legal information;  
+• financial information;  
+• professional advice;  
+• user -generated content.  
+Users should independently evaluate such information before relying upon it.  
+ 
+116. Marketplace Disclaimer  
+Ckript provides technology that facilitates discovery and communication between Users.  
+Except where expressly agreed otherwise:  
+Ckript does not guarantee:  
+• successful negotiations;  
+• licensing agreements;  
+• publishing agreements;  
+• production agreements;  
+• investments;  
+• employment opportunities;  
+• collaborations;  
+• commercial success;  
+• creator earnings;  
+• royalties;  
+• project funding;  
+• acquisition of intellectual property.  
+Commercial decisions remain solely the responsibility of participating Users.  
+ 
+117. No Professional Advice  
+Information made available through the Services, including AI -generated material, educational 
+resources, community discussions, templates, webinars, documentation, articles, or other content, is 
+provided for general informational purposes only.  
+Nothing contained within the Services constitutes:  
+• legal advice;  
+• financial advice;  
+• tax advice;  
+• accounting advice;  
+• investment advice;  
+• publishing advice;  
+• production advice;  
+• medical advice;  
+• employment advice;  
+• professional consulting services.  
+Users should seek appropriate professional advice before making significant legal, financial, 
+commercial, or business decisions.  
+ 
+118. Beta Services Disclaimer  
+Experimental, preview, beta, pilot, or early -access Services may:  
+• contain bugs;  
+• change substantially;  
+• produce unexpected results;  
+• experience interruptions;  
+• be discontinued without notice;  
+• not receive technical support.  
+Users access Beta Services voluntarily and acknowledge that such Services may not perform as 
+expected.  
+ 
+119. Compatibility  
+Ckript does not guarantee that the Services will be compatible with:  
+• every device;  
+• every browser;  
+• every operating system;  
+• every internet connection;  
+• every mobile device;  
+• every third -party integration.  
+Users are responsible for ensuring that their hardware, software, and internet connectivity meet the 
+minimum technical requirements for accessing the Services.  
+ 
+120. Warranties Disclaimer  
+To the maximum extent permitted by applicable law, the Services are provided on an "AS IS" , "AS 
+AVAILABLE" , and "WITH ALL FAULTS"  basis.  
+Except where prohibited by law, Ckript expressly disclaims all warranties, representations, and 
+guarantees, whether express, implied, statutory, or otherwise, including but not limited to:  
+• merchantability;  
+• fitness for a particular purpose;  
+• non-infringement;  
+• uninterrupted availability;  
+• error -free operation;  
+• security;  
+• reliability;  
+• accuracy;  
+• completeness;  
+• compatibility;  
+• performance.  
+Nothing in this Section excludes warranties that cannot legally be excluded under applicable law.  
+ 
+121. Force Majeure  
+Ckript shall not be liable for any delay, interruption, failure, or inability to perform its obligations 
+where such delay or failure results from circumstances beyond its reasonable control, including but 
+not limited to:  
+• natural disasters;  
+• floods;  
+• earthquakes;  
+• fires;  
+• epidemics;  
+• pandemics;  
+• war;  
+• terrorism;  
+• civil unrest;  
+• governmental action;  
+• sanctions;  
+• labour disputes;  
+• internet outages;  
+• cloud service failures;  
+• cyberattacks;  
+• power failures;  
+• telecommunications failures;  
+• supply chain disruptions;  
+• acts of God;  
+• or other similar events beyond Ckript's reasonable control.  
+Performance shall be suspended only for the duration of the Force Majeure event and shall resume 
+as soon as reasonably practicable.  
+ 
+122. Reservation of Technical Rights  
+To ensure the continued operation, security, and improvement of the Services, Ckript reserves the 
+right to:  
+• suspend functionality;  
+• disable features;  
+• modify APIs;  
+• introduce security measures;  
+• replace technologies;  
+• update software;  
+• implement technical restrictions;  
+• migrate infrastructure;  
+• improve AI models;  
+• redesign user interfaces;  
+• optimise system performance.  
+Such actions shall be undertaken in accordance with applicable law and these Terms.  
+123. Limitation of Liability  
+To the fullest extent permitted by applicable law, Ckript, its parent companies, subsidiaries, affiliates, 
+directors, officers, employees, consultants, contractors, licensors, service providers, successors, 
+assigns, agents, and representatives shall not be  liable for any indirect, incidental, consequential, 
+exemplary, punitive, special, or similar damages arising out of or relating to:  
+• use of or inability to use the Services;  
+• loss of profits;  
+• loss of revenue;  
+• loss of business opportunities;  
+• loss of goodwill;  
+• loss of reputation;  
+• loss of anticipated savings;  
+• business interruption;  
+• data loss;  
+• corruption of data;  
+• unauthorised access;  
+• cyber incidents;  
+• marketplace transactions;  
+• failed negotiations;  
+• missed commercial opportunities;  
+• AI-generated outputs;  
+• third -party services;  
+• or any other commercial or economic loss.  
+This limitation applies regardless of the legal theory upon which liability is asserted, including 
+contract, tort (including negligence), strict liability, statutory liability, or otherwise.  
+ 
+124. Liability Cap  
+To the maximum extent permitted by applicable law, Ckript's aggregate liability arising out of or 
+relating to the Services shall not exceed the greater of:  
+• the total amount actually paid by the User to Ckript for the specific Service giving rise to the 
+claim during the twelve (12) months immediately preceding the event giving rise to the 
+claim; or  
+• INR ₹5,000 (or the equivalent amount in the applicable local currency).  
+This limitation shall not apply where prohibited by applicable law.  
+ 
+125. Exclusions from Limitation  
+Nothing in these Terms excludes or limits liability that cannot lawfully be excluded or limited under 
+applicable law.  
+Without limitation, nothing in these Terms excludes liability for:  
+• fraud or fraudulent misrepresentation;  
+• wilful misconduct where exclusion is prohibited by law;  
+• death or personal injury caused by negligence where such exclusion is prohibited;  
+• statutory consumer rights that cannot legally be waived;  
+• any other liability that applicable law does not permit to be excluded or limited.  
+ 
+126. User Responsibility  
+Users acknowledge that they are solely responsible for:  
+• their decisions;  
+• their commercial negotiations;  
+• their legal compliance;  
+• protecting their intellectual property;  
+• obtaining professional advice;  
+• evaluating opportunities;  
+• verifying counterparties;  
+• securing confidential information;  
+• complying with tax obligations;  
+• safeguarding their credentials.  
+Ckript provides technology to facilitate interactions and does not make decisions on behalf of Users.  
+ 
+127. Indemnification  
+You agree to defend, indemnify, and hold harmless Ckript, its parent companies, subsidiaries, 
+affiliates, directors, officers, employees, contractors, licensors, service providers, successors, assigns, 
+and representatives from and against any claims, actio ns, proceedings, liabilities, damages, losses, 
+judgments, settlements, penalties, fines, costs, and expenses (including reasonable legal fees) arising 
+out of or relating to:  
+• your breach of these Terms;  
+• your violation of applicable law;  
+• your infringement of intellectual property rights;  
+• your misuse of the Services;  
+• your Content;  
+• your commercial dealings with other Users;  
+• fraudulent conduct;  
+• negligent conduct;  
+• wilful misconduct;  
+• your violation of third -party rights.  
+Ckript reserves the right, at its own expense, to assume the exclusive defence and control of any 
+matter otherwise subject to indemnification, and you agree to cooperate reasonably with such 
+defence.  
+ 
+128. Claims Between Users  
+Disputes arising directly between Users, including disputes relating to:  
+• ownership;  
+• licensing;  
+• payments;  
+• royalties;  
+• collaborations;  
+• contracts;  
+• confidentiality;  
+• employment;  
+• investments;  
+• publishing;  
+• production;  
+• commercial negotiations;  
+shall remain the responsibility of the participating Users.  
+Except where required by applicable law or expressly agreed otherwise, Ckript shall not be 
+responsible for resolving private disputes between Users.  
+Ckript may, at its sole discretion, facilitate communication or provide procedural assistance, but shall 
+not be obligated to mediate or arbitrate such disputes.  
+ 
+129. Governing Law  
+These Terms, the Privacy Policy, the Refund Policy, and any dispute arising out of or relating to the 
+Services shall be governed by and construed in accordance with the laws of India , without regard to 
+its conflict of laws principles.  
+Where mandatory local consumer protection laws apply, those mandatory rights shall remain 
+unaffected.  
+ 
+130. Jurisdiction  
+Subject to the dispute resolution provisions contained in these Terms, the courts located in New 
+Delhi, India , shall have exclusive jurisdiction over any dispute arising out of or relating to these Terms 
+or the Services.  
+Nothing in this Section prevents Ckript from seeking interim, injunctive, or equitable relief before any 
+court of competent jurisdiction where necessary to protect its rights, intellectual property, 
+confidential information, or security.  
+ 
+131. Good Faith Resolution  
+Before commencing formal legal proceedings, the parties agree to make reasonable efforts to resolve 
+disputes through good -faith discussions.  
+A party raising a dispute should provide written notice describing:  
+• the nature of the dispute;  
+• the relevant facts;  
+• the relief sought; and  
+• supporting information reasonably necessary to understand the issue.  
+The parties shall use reasonable efforts to resolve the dispute within thirty (30) days from receipt of 
+such notice, unless a longer period is mutually agreed.  
+Nothing in this Section prevents a party from seeking urgent interim relief where delay would cause 
+irreparable harm.  
+ 
+132. Arbitration (Optional Where Enforceable)  
+Where permitted by applicable law and agreed by the parties or required under a separate written 
+agreement, disputes may be resolved through arbitration.  
+Unless otherwise agreed:  
+• the seat of arbitration shall be New Delhi, India;  
+• the arbitration shall be conducted in the English and Hindi language;  
+• the arbitration shall be conducted in accordance with the Arbitration and Conciliation Act, 
+1996 (as amended);  
+• the arbitral award shall be final and binding upon the parties.  
+Nothing in this Section limits the right of either party to seek interim or conservatory relief from a 
+court of competent jurisdiction.  
+ 
+133. Injunctive Relief  
+You acknowledge that unauthorised disclosure of confidential information, infringement of 
+intellectual property rights, misuse of trade secrets, or unlawful interference with the Services may 
+cause irreparable harm to Ckript for which monetary damages alon e may be inadequate.  
+Accordingly, Ckript may seek temporary, preliminary, permanent, or equitable injunctive relief, 
+specific performance, or other appropriate remedies, in addition to any other remedies available 
+under applicable law.  
+ 
+134. Assignment  
+Ckript may assign, transfer, delegate, novate, or otherwise dispose of its rights and obligations under 
+these Terms in connection with:  
+• a merger;  
+• acquisition;  
+• corporate restructuring;  
+• financing;  
+• sale of assets;  
+• business transfer;  
+• internal reorganisation; or  
+• operation of the Services,  
+provided that such assignment does not materially reduce Users' rights under these Terms.  
+Users may not assign, transfer, delegate, sublicense, or otherwise dispose of their rights or 
+obligations under these Terms without Ckript's prior written consent.  
+ 
+135. Waiver  
+Failure by Ckript to enforce any provision of these Terms shall not constitute a waiver of that 
+provision or of any other provision.  
+Any waiver shall be effective only if made expressly in writing by an authorised representative of 
+Ckript.  
+ 
+136. Severability  
+If any provision of these Terms is determined by a court or tribunal of competent jurisdiction to be 
+unlawful, invalid, or unenforceable, that provision shall be enforced to the maximum extent 
+permitted by applicable law.  
+The remaining provisions shall continue in full force and effect.  
+ 
+137. No Third -Party Beneficiaries  
+Except where expressly stated otherwise, these Terms are intended solely for the benefit of Ckript 
+and the User.  
+No third party shall have any right to enforce any provision of these Terms solely by virtue of these 
+Terms.  
+ 
+138. Survival  
+The following provisions shall survive suspension, expiration, or termination of these Terms to the 
+extent necessary to give them effect:  
+• Intellectual Property;  
+• User Content;  
+• Confidentiality;  
+• Payments;  
+• Taxes;  
+• Refunds;  
+• Indemnification;  
+• Limitation of Liability;  
+• Dispute Resolution;  
+• Governing Law;  
+• Jurisdiction;  
+• Arbitration;  
+• Records Retention;  
+• Compliance;  
+• and any other provisions that by their nature are intended to survive.  
+ 
+139. Interpretation  
+Unless the context otherwise requires:  
+• headings are provided for convenience only and do not affect interpretation;  
+• the words "including", "includes", and "such as" shall be interpreted as meaning "including 
+without limitation";  
+• references to the singular include the plural and vice versa;  
+• references to one gender include all genders;  
+• references to legislation include amendments, replacements, and subordinate legislation;  
+• references to writing include electronic communications where permitted by law.  
+140. Electronic Communications  
+By creating an Account, accessing the Services, or otherwise interacting with Ckript, you consent to 
+receive communications electronically.  
+Electronic communications may include:  
+• account notifications;  
+• security alerts;  
+• invoices and receipts;  
+• service announcements;  
+• legal notices;  
+• policy updates;  
+• transaction confirmations;  
+• event communications;  
+• support responses;  
+• newsletters (where you have consented);  
+• and other communications relating to the Services.  
+You agree that electronic communications satisfy any legal requirement that such communications 
+be provided in writing, except where applicable law requires a different form.  
+ 
+141. Notices  
+Unless otherwise required by applicable law, notices from Ckript may be provided through one or 
+more of the following methods:  
+• email;  
+• in-platform notifications;  
+• dashboard announcements;  
+• account messages;  
+• publication on the official website;  
+• other electronic means reasonably designed to bring the notice to your attention.  
+Users are responsible for keeping their contact information accurate and up to date.  
+A notice shall be deemed received:  
+• immediately if delivered through the Platform;  
+• when transmitted electronically to the registered email address, unless delivery failure is 
+notified;  
+• or at such other time as may be required under applicable law.  
+ 
+142. Entire Agreement  
+These Terms, together with the following documents (as applicable), constitute the entire agreement 
+between you and Ckript regarding your access to and use of the Services:  
+• Privacy Policy;  
+• Refund Policy;  
+• Community Guidelines;  
+• Cookie Policy (if adopted);  
+• AI Usage Policy (if adopted);  
+• API Terms (if adopted);  
+• Developer Terms (if adopted);  
+• Event -specific Rules;  
+• Enterprise Agreements;  
+• Subscription Terms;  
+• any additional policies or agreements expressly incorporated by reference.  
+These documents supersede all prior understandings, discussions, representations, proposals, or 
+agreements relating to the same subject matter.  
+ 
+143. Policy Hierarchy  
+In the event of any inconsistency between the documents governing the Services, the following 
+order of precedence shall apply, unless expressly stated otherwise:  
+1. A separately executed written agreement between Ckript and the User (if any);  
+2. Event -specific Rules or Enterprise Terms, but only for the relevant event or service;  
+3. These Terms & Conditions;  
+4. Refund Policy;  
+5. Privacy Policy;  
+6. Community Guidelines;  
+7. Other Platform Policies.  
+Where two documents can reasonably be interpreted consistently, they shall be read together.  
+ 
+144. Changes to Policies  
+Ckript may introduce, modify, replace, consolidate, or discontinue Platform policies from time to 
+time in accordance with applicable law.  
+Material changes that significantly affect Users' rights or obligations will be communicated through 
+reasonable means before taking effect, where required by law.  
+Continued use of the Services after the effective date of such changes constitutes acceptance of the 
+revised policies, except where applicable law requires additional consent.  
+ 
+145. Language  
+These Terms are drafted in the English language.  
+Translations may be provided solely for convenience.  
+In the event of any inconsistency between the English version and a translated version, the English 
+version shall prevail to the extent permitted by applicable law.  
+ 
+146. International Use  
+The Services may be accessible from multiple jurisdictions.  
+Users accessing the Services from outside India are responsible for ensuring that their use complies 
+with the laws applicable in their jurisdiction.  
+Ckript makes no representation that the Services are appropriate or lawful in every jurisdiction.  
+Access to the Services may be restricted where prohibited by law or regulatory requirements.  
+ 
+147. Relationship of the Parties  
+Nothing contained in these Terms shall be interpreted as creating:  
+• a partnership;  
+• joint venture;  
+• employment relationship;  
+• agency relationship;  
+• fiduciary relationship;  
+• franchise;  
+• representative capacity; or  
+• legal association  
+between Ckript and any User.  
+Each party acts as an independent contracting party.  
+ 
+148. No Waiver of Statutory Rights  
+Nothing in these Terms shall be interpreted as excluding, restricting, or limiting any statutory rights 
+that cannot lawfully be waived under applicable law.  
+Where applicable consumer protection legislation provides rights that are inconsistent with these 
+Terms, the mandatory provisions of such legislation shall prevail to the extent required by law.  
+ 
+149. Contact Information  
+Questions, legal notices, complaints, copyright notices, policy enquiries, or other communications 
+relating to these Terms may be directed to:  
+CKRIPT PRIVATE LIMITED  
+Registered Office:  
+Suite D, 400A, 4th Floor,  
+ 12 Ajeet Singh House,  
+ Green Park,  
+ New Delhi, South West Delhi – 110016,  
+ Delhi, India  
+Email:  legal@ckript.com (or another designated legal contact email)  
+General Support:  support@ckript.com (or another designated support email)  
+Ckript may update its contact information from time to time by publishing revised details through the 
+Services.  
+ 
+150. Effective Date  
+These Terms become effective on the date specified below and remain in effect until amended or 
+replaced by Ckript.  
+Version:  1.0 
+Effective Date:  ______________________  
+Last Updated:  ______________________  
+ 
+151. Acceptance of the Terms  
+By: 
+• creating an Account;  
+• clicking "I Agree" , "Accept" , "Continue" , or any similar confirmation;  
+• accessing or using any part of the Services;  
+• participating in any event, marketplace activity, or program;  
+• purchasing any Paid Service; or  
+• otherwise interacting with the Platform,  
+you acknowledge that:  
+• you have read these Terms;  
+• you understand these Terms;  
+• you agree to be legally bound by these Terms;  
+• you have had the opportunity to seek independent legal advice before accepting these Terms 
+if you considered it necessary.  
+If you do not agree to these Terms, you must immediately discontinue use of the Services.  
+ 
+152. Version History  
+Version  Effective Date  Summary of Changes  
+1.0 __________________  Initial public release of the Ckript Terms & Conditions.  
+Future revisions may include updated version numbers, effective dates, and summaries of material 
+changes for transparency.  
+ 
+ACKNOWLEDGEMENT  
+Thank you for being part of the Ckript community.  
+Ckript is committed to building a trusted platform that empowers writers, storytellers, authors, 
+publishers, producers, studios, investors, creators, and creative professionals to discover 
+opportunities, protect intellectual property, collaborate responsib ly, and bring exceptional ideas to 
+life. 
+Every Great Story Deserves to Be Discovered.  
+ 
+ 

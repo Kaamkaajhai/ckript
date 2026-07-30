@@ -1,4 +1,7 @@
-const palette = ["#1e3a5f", "#16a34a", "#dc2626", "#d97706", "#0891b2", "#7c3aed"];
+// Identity colours: each collaborator's status dot must stay telling-apart-able from the other
+// five, so only index 0's navy moves — to a warm grey that sits in the brand palette and still
+// reads as "not green / not red / not amber / not cyan / not violet".
+const palette = ["#6f6c66", "#16a34a", "#dc2626", "#d97706", "#0891b2", "#7c3aed"];
 
 export default function PresenceBar({ onlineUsers = [] }) {
   if (!onlineUsers.length) return null;
@@ -11,11 +14,13 @@ export default function PresenceBar({ onlineUsers = [] }) {
       <div className="flex items-center -space-x-2">
         {onlineUsers.map((user, index) => {
           const color = palette[index % palette.length];
+          // The avatar disc is chrome, not identity — it's the same ink fill for everyone;
+          // the per-user colour is the status dot below.
           return (
             <div
               key={user.userId}
               title={user.name}
-              className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#1e3a5f] text-xs font-bold text-white"
+              className="relative flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-[#161513] text-xs font-bold text-white"
             >
               {user.name?.charAt(0)?.toUpperCase() || "U"}
               <span
