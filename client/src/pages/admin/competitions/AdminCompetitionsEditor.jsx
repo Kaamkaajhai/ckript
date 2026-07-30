@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Save, ArrowLeft, Eye, MoreVertical, LayoutDashboard, Palette, Clock, CheckSquare, Trophy, Users, Star, MessageSquare, Download, Link2, Bell, Award, Mail, Settings, Activity } from "lucide-react";
 import { adminApi } from "../../AdminDashboard";
@@ -36,7 +36,7 @@ const SIDEBAR_NAV = [
   { id: "settings", label: "Settings", icon: Settings, danger: true },
 ];
 
-export default function AdminCompetitionsEditor({ isDark = false }) {
+export default function AdminCompetitionsEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   
@@ -48,6 +48,23 @@ export default function AdminCompetitionsEditor({ isDark = false }) {
   const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
+    const loadCompetition = async () => {
+      try {
+        setLoading(true);
+        const { data } = await adminApi.get("/admin/competitions");
+        const found = data.competitions.find(c => c._id === id);
+        if (found) {
+          setCompetition(found);
+        } else {
+          setError("Competition not found.");
+        }
+      } catch {
+        setError("Failed to load.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (id === "new") {
       // Mock new competition payload
       setCompetition({
@@ -67,23 +84,6 @@ export default function AdminCompetitionsEditor({ isDark = false }) {
       loadCompetition();
     }
   }, [id]);
-
-  const loadCompetition = async () => {
-    try {
-      setLoading(true);
-      const { data } = await adminApi.get("/admin/competitions");
-      const found = data.competitions.find(c => c._id === id);
-      if (found) {
-        setCompetition(found);
-      } else {
-        setError("Competition not found.");
-      }
-    } catch (err) {
-      setError("Failed to load.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -112,6 +112,25 @@ export default function AdminCompetitionsEditor({ isDark = false }) {
       alert("Failed to save: " + (err?.response?.data?.message || err.message));
     } finally {
       setSaving(false);
+    }
+  };
+  const handleArchive = async () => {
+    if (!window.confirm("Are you sure you want to archive this competition?")) return;
+    try {
+      await adminApi.post(`/admin/competitions/${id}/archive`);
+      navigate("/admin/competitions");
+    } catch (err) {
+      alert("Failed to archive: " + (err?.response?.data?.message || err.message));
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("DANGER: Are you sure you want to PERMANENTLY delete this competition? This cannot be undone.")) return;
+    try {
+      await adminApi.delete(`/admin/competitions/${id}`);
+      navigate("/admin/competitions");
+    } catch (err) {
+      alert("Failed to delete: " + (err?.response?.data?.message || err.message));
     }
   };
 
@@ -235,7 +254,12 @@ export default function AdminCompetitionsEditor({ isDark = false }) {
             )}
 
             {activeTab === "settings" && (
-              <SettingsModule data={competition} onChange={updateField} />
+              <SettingsModule 
+                data={competition} 
+                onChange={updateField} 
+                onArchive={handleArchive} 
+                onDelete={handleDelete} 
+              />
             )}
             
             {/* Fallback for unbuilt modules */}

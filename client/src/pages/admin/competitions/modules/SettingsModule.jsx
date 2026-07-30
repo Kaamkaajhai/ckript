@@ -1,7 +1,7 @@
 import React from "react";
 import { Settings, ShieldAlert, Zap } from "lucide-react";
 
-export default function SettingsModule({ data, onChange }) {
+export default function SettingsModule({ data, onChange, onArchive, onDelete }) {
   const automation = data.automation || {};
 
   const handleAutomationChange = (e) => {
@@ -82,7 +82,7 @@ export default function SettingsModule({ data, onChange }) {
               <div className="font-bold text-[#111] text-sm">Archive Competition</div>
               <div className="text-xs text-[#666] mt-1">Hide from active lists. Data is preserved.</div>
             </div>
-            <button className="px-4 py-2 bg-white border border-[#eaeaea] hover:bg-gray-50 text-[#111] text-sm font-semibold rounded-lg transition-colors">
+            <button type="button" onClick={onArchive} className="px-4 py-2 bg-white border border-[#eaeaea] hover:bg-gray-50 text-[#111] text-sm font-semibold rounded-lg transition-colors">
               Archive
             </button>
           </div>
@@ -92,7 +92,7 @@ export default function SettingsModule({ data, onChange }) {
               <div className="font-bold text-red-600 text-sm">Delete Competition</div>
               <div className="text-xs text-red-500 mt-1">Permanently remove this event and all its configuration. Entries will be orphaned.</div>
             </div>
-            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
+            <button type="button" onClick={onDelete} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors">
               Delete Forever
             </button>
           </div>

@@ -28,7 +28,7 @@ export default function EventDetails() {
   
   const handleRegisterClick = () => {
     if (!user) {
-      openAuthModal();
+      openAuthModal({ redirect: `/challenge/register?c=${id}` });
     } else {
       navigate(`/challenge/register?c=${id}`);
     }
