@@ -72,9 +72,9 @@ export default function EventHero({ competition, phase, serverNow }) {
           </p>
 
           <div className="flex flex-wrap items-center gap-4">
-            <button className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-white text-[#8A3B2E] font-bold text-sm rounded-xl overflow-hidden transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]">
-              <span className="relative z-10">Register Now</span>
-              <ArrowRight size={18} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2.5} />
+            <button className="group relative flex items-center justify-center gap-2 px-8 py-4 bg-white font-bold text-sm rounded-xl overflow-hidden transition-transform active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]" style={{ color: '#8A3B2E' }}>
+              <span className="relative z-10" style={{ color: '#8A3B2E' }}>Register Now</span>
+              <ArrowRight size={18} className="relative z-10 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2.5} style={{ color: '#8A3B2E' }} />
             </button>
             <button className="p-4 bg-white/10 hover:bg-white/20 rounded-xl backdrop-blur-md border border-white/10 transition-colors">
               <Bookmark size={20} className="text-white" />
