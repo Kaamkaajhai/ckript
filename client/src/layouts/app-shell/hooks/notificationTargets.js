@@ -32,10 +32,6 @@ const SCRIPT_TYPES = new Set([
   "hold_expiring",
   "script_approved",
   "script_rejected",
-  "collab_invite",
-  "collab_request",
-  "collab_update",
-  "revision_update",
   "script_pitch",
   // Purchase requests are reviewed on the script's detail page — see above.
   "purchase_request",
@@ -81,6 +77,10 @@ export const getNotificationTarget = (notification, viewer) => {
   const type = String(notification?.type || "");
 
   if (FIXED_TYPES[type]) return FIXED_TYPES[type];
+
+  if (["collab_invite", "collab_request", "collab_update", "revision_update"].includes(type)) {
+    if (notification?.script?._id) return `/create-project/${notification.script._id}`;
+  }
 
   if (SCRIPT_TYPES.has(type)) {
     const scriptPath = notification?.script

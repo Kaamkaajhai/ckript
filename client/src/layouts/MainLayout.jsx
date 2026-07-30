@@ -478,6 +478,13 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
       return;
     }
 
+    if (["collab_invite", "collab_request", "collab_update", "revision_update"].includes(type)) {
+      if (notification?.script?._id) {
+        navigate(`/create-project/${notification.script._id}`);
+        return;
+      }
+    }
+
     if (scriptTarget && [
       "purchase_approved",
       "unlock",
@@ -489,10 +496,6 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
       "hold_expiring",
       "script_approved",
       "script_rejected",
-      "collab_invite",
-      "collab_request",
-      "collab_update",
-      "revision_update",
       "script_pitch",
       "purchase",
     ].includes(type)) {

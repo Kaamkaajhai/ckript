@@ -242,7 +242,7 @@ export default function ScreenplayFocusMode({
           <button type="button" aria-label="Invite Writer" title="Invite Writer" onClick={() => setInviteOpen(true)} className={iconBtn}>
             <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>person_add</span>
           </button>
-          <button type="button" onClick={onImport} className={actionBtn}>Import</button>
+          {canEdit && <button type="button" onClick={onImport} className={actionBtn}>Import</button>}
           <div className="relative">
             <button type="button" onClick={() => setExportMenuOpen((o) => !o)} disabled={Boolean(exporting)}
               style={{ color: "#ffffff" }}
