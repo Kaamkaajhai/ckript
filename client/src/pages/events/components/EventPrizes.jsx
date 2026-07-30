@@ -166,13 +166,13 @@ function SpecialAwardCard({ award, index }) {
 }
 
 /* ── Main Component ── */
-export default function EventPrizes({ prizes, prizePool }) {
+export default function EventPrizes({ prizes, prizePool, detailedPrizes }) {
   const hasWinner = prizes?.winner?.length > 0;
   const hasRunnerUp = prizes?.runnerUp?.length > 0;
   const hasSecondRunnerUp = prizes?.secondRunnerUp?.length > 0;
   const hasSpecial = prizes?.special?.length > 0;
-
-  if (!hasWinner && !hasRunnerUp && !hasSecondRunnerUp && !hasSpecial && !prizePool) return null;
+  const hasDetailed = detailedPrizes?.length > 0;
+  const hasAnyPrize = hasWinner || hasRunnerUp || hasSecondRunnerUp || hasSpecial || hasDetailed || prizePool;
 
   const sectionRef = useRef(null);
   const sectionInView = useInView(sectionRef);
@@ -229,6 +229,33 @@ export default function EventPrizes({ prizes, prizePool }) {
           {hasRunnerUp && <PrizeTierCard tier="runnerUp" items={prizes.runnerUp} index={1} />}
           {hasSecondRunnerUp && <PrizeTierCard tier="secondRunnerUp" items={prizes.secondRunnerUp} index={2} />}
         </div>
+
+        {/* No tier prizes at all — Coming Soon */}
+        {!hasWinner && !hasRunnerUp && !hasSecondRunnerUp && !hasDetailed && (
+          <div style={{ textAlign: 'center', padding: '48px 24px', background: 'var(--event-surface-alt, #F4F2EE)', borderRadius: 'var(--event-radius-lg, 24px)', border: '1px dashed var(--event-border, #E8E5E1)', maxWidth: '600px', margin: '0 auto' }}>
+            <Gift size={32} style={{ color: 'var(--event-text-faint, #888)', margin: '0 auto 16px' }} />
+            <p style={{ fontFamily: 'var(--ck-serif)', fontSize: '1.2rem', fontWeight: 600, color: 'var(--event-text-muted, #555)', margin: '0 0 4px' }}>Prize details coming soon</p>
+            <p style={{ fontFamily: 'var(--ck-sans)', fontSize: '0.85rem', color: 'var(--event-text-faint, #888)', margin: 0 }}>Check back for the full rewards breakdown.</p>
+          </div>
+        )}
+
+        {/* Detailed Prizes (from admin dynamic builder) */}
+        {hasDetailed && (
+          <div className="ckl-prize-specials-wrap" style={hasWinner || hasRunnerUp || hasSecondRunnerUp ? {} : { marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
+            <h3 className="ckl-prize-specials-heading">
+              <Gift size={16} strokeWidth={2} />
+              Additional Prizes
+            </h3>
+            <div className="ckl-prize-specials-grid">
+              {detailedPrizes
+                .filter(p => p.visibility !== 'private')
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .map((prize, idx) => (
+                  <SpecialAwardCard key={idx} award={{ title: prize.title, description: [prize.description, prize.cash ? `${prize.currency || '$'}${prize.cash}` : ''].filter(Boolean).join(' — ') }} index={idx} />
+                ))}
+            </div>
+          </div>
+        )}
 
         {/* Special Awards */}
         {hasSpecial && (

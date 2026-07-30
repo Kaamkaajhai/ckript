@@ -183,7 +183,7 @@ export default function EventDetails() {
         <EventHero competition={competition} phase={phase} serverNow={serverNow} />
         <EventAbout competition={competition} />
         <EventTimeline timeline={timeline} />
-        <EventPrizes prizes={competition.prizes} prizePool={competition.prizePool} />
+        <EventPrizes prizes={competition.prizes} prizePool={competition.prizePool} detailedPrizes={competition.detailedPrizes} />
         <EventJudges judges={competition.judges} />
         <EventSponsors sponsors={competition.sponsors} />
         <EventResources resources={competition.resources} communityLinks={competition.communityLinks} />

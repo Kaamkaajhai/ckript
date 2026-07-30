@@ -57,18 +57,24 @@ export default function EventHero({ competition, phase, serverNow }) {
             </span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-serif font-bold leading-tight mb-6">
+          <h1 className="text-5xl md:text-7xl font-serif font-bold leading-tight mb-4" style={{ color: '#fff' }}>
             {competition.name}
           </h1>
 
+          {competition.tagline && (
+            <p className="text-xl md:text-2xl font-serif italic mb-4" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              {competition.tagline}
+            </p>
+          )}
+
           {competition.theme?.title && (
-            <h2 className="text-2xl md:text-3xl text-white/80 font-serif italic mb-6">
+            <h2 className="text-xl md:text-2xl font-serif italic mb-6" style={{ color: '#c97a5f' }}>
               "{competition.theme.title}"
             </h2>
           )}
 
-          <p className="text-lg md:text-xl text-white/70 max-w-2xl leading-relaxed mb-10">
-            {competition.overview || "Join the global screenwriting challenge."}
+          <p className="text-lg md:text-xl max-w-2xl leading-relaxed mb-10" style={{ color: 'rgba(255,255,255,0.65)' }}>
+            {competition.shortDescription || competition.overview || "Join the global screenwriting challenge."}
           </p>
 
           <div className="flex flex-wrap items-center gap-4">
@@ -116,33 +122,33 @@ export default function EventHero({ competition, phase, serverNow }) {
           {/* Highlights Grid */}
           <div className="grid grid-cols-2 gap-3">
             <div className="ckl-event-glass p-4 rounded-xl flex flex-col gap-2">
-              <Trophy size={18} className="text-[#eab308]" />
+              <Trophy size={18} style={{ color: '#D4A853' }} />
               <div>
                 <p className="text-[10px] text-white/50 font-bold uppercase tracking-wider">Prize Pool</p>
-                <p className="text-sm font-semibold">{competition.prizePool || "TBA"}</p>
+                <p className="text-sm font-semibold" style={{ color: '#fff' }}>{competition.prizePool || "TBA"}</p>
               </div>
             </div>
             <div className="ckl-event-glass p-4 rounded-xl flex flex-col gap-2">
-              <Clock size={18} className="text-[#60a5fa]" />
+              <Clock size={18} style={{ color: '#c97a5f' }} />
               <div>
                 <p className="text-[10px] text-white/50 font-bold uppercase tracking-wider">Duration</p>
-                <p className="text-sm font-semibold">{competition.format?.includes("48") ? "48 Hours" : "Fixed Window"}</p>
+                <p className="text-sm font-semibold" style={{ color: '#fff' }}>{competition.format?.includes("48") ? "48 Hours" : "Fixed Window"}</p>
               </div>
             </div>
             <div className="ckl-event-glass p-4 rounded-xl flex flex-col gap-2">
-              <CalendarDays size={18} className="text-[#a78bfa]" />
+              <CalendarDays size={18} style={{ color: '#c97a5f' }} />
               <div>
                 <p className="text-[10px] text-white/50 font-bold uppercase tracking-wider">Start Date</p>
-                <p className="text-sm font-semibold">
+                <p className="text-sm font-semibold" style={{ color: '#fff' }}>
                   {new Date(competition.dates?.startsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </p>
               </div>
             </div>
             <div className="ckl-event-glass p-4 rounded-xl flex flex-col gap-2">
-              <Users size={18} className="text-[#4ade80]" />
+              <Users size={18} style={{ color: '#D4A853' }} />
               <div>
                 <p className="text-[10px] text-white/50 font-bold uppercase tracking-wider">Eligibility</p>
-                <p className="text-sm font-semibold truncate">{competition.eligibility || "Global"}</p>
+                <p className="text-sm font-semibold truncate" style={{ color: '#fff' }}>{competition.eligibility || "Global"}</p>
               </div>
             </div>
           </div>
