@@ -124,11 +124,13 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
               {isOwner && String(entry.user?._id) !== currentUserId ? (
                 <div className="flex items-center gap-1.5 ml-auto">
                   <select
-                    value={entry.accessLevel || "full_access"}
+                    value={entry.role === "full_admin" ? (entry.accessLevel || "full_access") : "content_only"}
                     onChange={(event) => updateRole(entry.user?._id || entry.invitedEmail, entry.role, event.target.value)}
                     className={`rounded-xl border px-2 py-1 text-xs font-medium outline-none ${dark ? "border-[#2a4a6a] bg-[#0d1829] text-gray-300" : "border-gray-200 bg-gray-50 text-gray-700"}`}
                   >
-                    <option value="full_access">Full</option>
+                    {entry.role === "full_admin" && (
+                      <option value="full_access">Full</option>
+                    )}
                     <option value="content_only">Content</option>
                   </select>
                   <button

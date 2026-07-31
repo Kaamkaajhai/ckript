@@ -21,11 +21,11 @@ const CreateProjectShell = ({ children }) => {
     adjustZoom, charCount, creationBlocked, dark, detailsStep, detailsSubSteps, drafts, editorZoom, enforceGoldPlan,
     error, estimatedPages, exportMenuOpen, exportingScreenplay, handleBack, handleExitEditor,
     handleExportScreenplay, handleNext, handlePublish, isScreenplayFormat, lastSaved, legal,
-    loading, saved, saving, screenplayEnabled, screenplayFileInputRef,
+    loading, saved, saving, screenplayEnabled, screenplayFileInputRef, canEditContent,
     scriptLimit, setError, setDetailsStep, setExportMenuOpen, setFocusMode, setScreenplayEnabled, setShowDrafts,
     setShowVersionHistory, setSaved, setStep, setTitle, step, title, toggleDarkMode,
     useScreenplayEditor, currentElement, wordCount, scriptId, collabMyUserId,
-    competitionMode,
+    competitionMode, hasFullAccess, hasPublishAccess
   } = useCreateProject();
 
   const activeStep = STEPS[step - 1];
@@ -37,7 +37,10 @@ const CreateProjectShell = ({ children }) => {
   // Jump straight to an already-completed step from the rail / mobile stepper.
   // Mirrors handleBack by clearing any stale validation error on the way; landing
   // on Details always starts at its first sub-panel.
-  const goToStep = (num) => { setStep(num); setError(""); if (num === 2) setDetailsStep(0); };
+  const goToStep = (num) => { 
+    if (!hasFullAccess && num > 1) return;
+    setStep(num); setError(""); if (num === 2) setDetailsStep(0); 
+  };
 
   return (
     <div className="ckcp-shell" data-theme={dark ? "dark" : "light"} style={{ display: "flex", flexDirection: "column" }}>
@@ -87,10 +90,12 @@ const CreateProjectShell = ({ children }) => {
           {isWrite && (
             <>
               <div className="ckcp-vr" style={{ width: "1px", height: "20px", background: dark ? "#2a2a2a" : "#eeeeee", margin: "0 3px" }} />
-              <button type="button" aria-label="Import" title="Import a script — Fountain, Final Draft (.fdx), PDF, or Word (.docx)"
-                onClick={(e) => { if (enforceGoldPlan(e)) screenplayFileInputRef.current?.click(); }} className="ckcp-iconbtn" style={cpIconBtnStyle(dark)}>
-                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>file_upload</span>
-              </button>
+              {canEditContent && (
+                <button type="button" aria-label="Import" title="Import a script — Fountain, Final Draft (.fdx), PDF, or Word (.docx)"
+                  onClick={(e) => { if (enforceGoldPlan(e)) screenplayFileInputRef.current?.click(); }} className="ckcp-iconbtn" style={cpIconBtnStyle(dark)}>
+                  <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>file_upload</span>
+                </button>
+              )}
               <div style={{ position: "relative" }}>
                 <button type="button" aria-label="Export" title="Export — PDF, Watermarked PDF, Fountain, Final Draft"
                   onClick={() => setExportMenuOpen((o) => !o)} disabled={Boolean(exportingScreenplay)} className="ckcp-iconbtn" style={{ ...cpIconBtnStyle(dark), opacity: exportingScreenplay ? 0.5 : 1 }}>
@@ -136,7 +141,7 @@ const CreateProjectShell = ({ children }) => {
           <div style={{ fontSize: "10px", fontWeight: 600, letterSpacing: ".4px", color: "#b3b3b3", marginBottom: "18px" }}>Project setup</div>
           {STEPS.map((s, i) => {
             const active = s.num === step;
-            const clickable = s.num < step;
+            const clickable = s.num < step && (hasFullAccess || s.num === 1);
             return (
               <div key={s.num} style={{ display: "flex", flexDirection: "column" }}>
                 <button type="button" onClick={() => clickable && goToStep(s.num)} disabled={!clickable}
@@ -170,7 +175,7 @@ const CreateProjectShell = ({ children }) => {
           <div className="ckcp-mobstepper" style={{ display: "none", flex: "none", alignItems: "center", gap: "6px", padding: "12px 14px", borderBottom: `1px solid ${dark ? "#262626" : "#f0f0f0"}`, overflowX: "auto" }}>
             {STEPS.map((s, i) => {
               const active = s.num === step;
-              const done = s.num < step;
+              const done = s.num < step && (hasFullAccess || s.num === 1);
               return (
                 <div key={s.num} style={{ display: "flex", alignItems: "center", flex: "none" }}>
                   <button type="button" onClick={() => done && goToStep(s.num)} disabled={!done}
@@ -292,19 +297,21 @@ const CreateProjectShell = ({ children }) => {
             <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: "none" }}>
               <button type="button" onClick={handleBack} disabled={step === 1}
                 style={{ height: "38px", padding: "0 16px", border: "none", borderRadius: "9px", background: "transparent", color: dark ? (step === 1 ? "#4a4a4a" : "#b0b0b0") : (step === 1 ? "#cfcfcf" : "#767676"), fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: step === 1 ? "default" : "pointer" }}>Back</button>
-              {step < 5 ? (
-                <button type="button" onClick={handleNext} disabled={creationBlocked} className="ckcp-solid"
-                  title={creationBlocked ? "Upgrade your plan to create another script" : undefined}
-                  style={{ display: "flex", alignItems: "center", gap: "8px", height: "38px", padding: "0 20px", border: "none", borderRadius: "9px", background: dark ? "#f2f2f2" : "#111111", color: dark ? "#111" : "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: creationBlocked ? "not-allowed" : "pointer", opacity: creationBlocked ? 0.4 : 1 }}>
-                  Next<span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
-                </button>
-              ) : (
-                <button type="button" onClick={handlePublish} disabled={loading || !legal.agreedToTerms || creationBlocked} className="ckcp-solid"
-                  title={!legal.agreedToTerms ? "Accept the Submission Agreement to submit" : undefined}
-                  style={{ display: "flex", alignItems: "center", gap: "8px", height: "38px", padding: "0 20px", border: "none", borderRadius: "9px", background: dark ? "#f2f2f2" : "#111111", color: dark ? "#111" : "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: (loading || !legal.agreedToTerms || creationBlocked) ? "not-allowed" : "pointer", opacity: (loading || !legal.agreedToTerms || creationBlocked) ? 0.4 : 1 }}>
-                  {loading ? "Submitting…" : "Submit for Approval"}
-                  {!loading && <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>check</span>}
-                </button>
+              {hasFullAccess && (
+                step < 5 ? (
+                  <button type="button" onClick={handleNext} disabled={creationBlocked} className="ckcp-solid"
+                    title={creationBlocked ? "Upgrade your plan to create another script" : undefined}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", height: "38px", padding: "0 20px", border: "none", borderRadius: "9px", background: dark ? "#f2f2f2" : "#111111", color: dark ? "#111" : "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: creationBlocked ? "not-allowed" : "pointer", opacity: creationBlocked ? 0.4 : 1 }}>
+                    Next<span className="material-symbols-outlined" style={{ fontSize: "18px" }}>arrow_forward</span>
+                  </button>
+                ) : (
+                  <button type="button" onClick={handlePublish} disabled={loading || !legal.agreedToTerms || creationBlocked || !hasPublishAccess} className="ckcp-solid"
+                    title={!hasPublishAccess ? "You only have Content access, so you cannot publish." : (!legal.agreedToTerms ? "Accept the Submission Agreement to submit" : undefined)}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", height: "38px", padding: "0 20px", border: "none", borderRadius: "9px", background: dark ? "#f2f2f2" : "#111111", color: dark ? "#111" : "#fff", fontFamily: "inherit", fontWeight: 600, fontSize: "13px", cursor: (loading || !legal.agreedToTerms || creationBlocked || !hasPublishAccess) ? "not-allowed" : "pointer", opacity: (loading || !legal.agreedToTerms || creationBlocked || !hasPublishAccess) ? 0.4 : 1 }}>
+                    {loading ? "Submitting…" : "Submit for Approval"}
+                    {!loading && <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>check</span>}
+                  </button>
+                )
               )}
             </div>
             )}
