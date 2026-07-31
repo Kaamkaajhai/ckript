@@ -194,11 +194,22 @@ export const validateUploadScreen = (screen, context = {}) => {
     if (Number(effectivePrice) <= 0) {
       issues.push(issue("publish", "su-custom-price", "Enter a valid paid-access price.", "price-required"));
     }
+    /*
+     * ONE legal acknowledgement on this screen, because that is all the screen has.
+     *
+     * An `ownershipConfirmed` requirement was added here at some point, and it made the upload flow
+     * impossible to complete: ScriptUploadWorkspace renders a single legal checkbox (su-legal-terms,
+     * which sets agreedToTerms and platformTermsAccepted together) and no ownership control at all,
+     * while ScriptUpload seeds ownershipConfirmed to false for a new script. So Publish stayed
+     * blocked on an error whose fieldId matched no element on the page — nothing to click, nothing
+     * to scroll to, and no way through.
+     *
+     * The server agrees on the requirement: scriptController's publish validation checks
+     * platformTermsAccepted and nothing else. The ownership checkbox belongs to the OTHER flow
+     * (CreateProject's Step5Publish), which renders its own control and gates on it there.
+     */
     if (!legal.agreedToTerms || !rightsLicensing.legalAcknowledgement?.platformTermsAccepted) {
       issues.push(issue("publish", "su-legal-terms", "Accept the Script Upload Terms & Conditions.", "platform-terms-required"));
-    }
-    if (!rightsLicensing.legalAcknowledgement?.ownershipConfirmed) {
-      issues.push(issue("publish", "su-legal-ownership", "You must confirm you are the sole creator or own the IP outright.", "ownership-required"));
     }
   }
 
