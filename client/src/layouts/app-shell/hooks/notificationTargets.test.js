@@ -50,9 +50,28 @@ describe("getNotificationTarget", () => {
   });
 
   it.each([
-    "unlock", "script_score", "trailer_ready", "hold", "collab_invite", "revision_update",
+    "unlock", "script_score", "trailer_ready", "hold",
   ])("%s opens the script it concerns", (type) => {
     expect(getNotificationTarget({ type, script }, viewer)).toBe("/the-long-walk/ada");
+  });
+
+  /*
+   * Collaboration is the exception: these open the EDITOR, not the public script page, because
+   * every one of them exists because someone wants you to work on the draft. Asserted for all
+   * four types — two of them used to sit in the list above and quietly kept asserting the old
+   * public-page destination after the routing changed.
+   */
+  it.each([
+    "collab_invite", "collab_request", "collab_update", "revision_update",
+  ])("%s opens the draft in the editor", (type) => {
+    expect(getNotificationTarget({ type, script }, viewer)).toBe("/create-project/s1");
+  });
+
+  it.each([
+    "collab_invite", "collab_request", "collab_update", "revision_update",
+  ])("%s never dead-ends when the script carries no id", (type) => {
+    // Returning null here makes the click do nothing at all.
+    expect(getNotificationTarget({ type, script: { title: "Untitled" } }, viewer)).toBe("/dashboard");
   });
 
   it.each(["follow", "profile_view", "like", "comment"])(
