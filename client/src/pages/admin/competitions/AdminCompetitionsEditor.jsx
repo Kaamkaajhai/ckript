@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Save, ArrowLeft, Eye, MoreVertical, LayoutDashboard, Palette, Clock, CheckSquare, Trophy, Users, Star, MessageSquare, Download, Link2, Bell, Award, Mail, Settings, Activity } from "lucide-react";
+import { Save, ArrowLeft, Eye, MoreVertical, UploadCloud, LayoutDashboard, Palette, Clock, CheckSquare, Trophy, Users, Star, MessageSquare, Download, Link2, Bell, Award, Mail, Settings, Activity } from "lucide-react";
 import { adminApi } from "../../AdminDashboard";
 import OverviewModule from "./modules/OverviewModule";
 import BrandingModule from "./modules/BrandingModule";
@@ -11,41 +11,68 @@ import JudgesModule from "./modules/JudgesModule";
 import SponsorsModule from "./modules/SponsorsModule";
 import CommunityModule from "./modules/CommunityModule";
 import ResourcesModule from "./modules/ResourcesModule";
-import SeoModule from "./modules/SeoModule";
 import SettingsModule from "./modules/SettingsModule";
-import PreviewPane from "./modules/PreviewPane";
+import RulesModule from "./modules/RulesModule";
 
 // The API speaks ISO UTC, but <input type="datetime-local"> speaks local wall-clock time
 const fromLocalInput = (value) => (value ? new Date(value).toISOString() : null);
 
+/* Eleven destinations, all of which do something. Five were removed: SEO wrote fields no page reads,
+   and Notifications / Certificates / Emails / Analytics had no render branch at all — every one
+   fell through to a "currently being built" placeholder, so a quarter of the navigation advertised
+   features that did not exist. (Referral analytics already exists for real at its own admin
+   endpoint; the stub was hiding it rather than linking it.) */
 const SIDEBAR_NAV = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "branding", label: "Branding & Media", icon: Palette },
   { id: "timeline", label: "Timeline", icon: Clock },
   { id: "theme", label: "Theme & Requirements", icon: CheckSquare },
+  { id: "rules", label: "Rules & Eligibility", icon: CheckSquare },
   { id: "prizes", label: "Prizes", icon: Trophy },
   { id: "judges", label: "Judging Panel", icon: Users },
   { id: "sponsors", label: "Sponsors", icon: Star },
   { id: "community", label: "Community", icon: MessageSquare },
   { id: "resources", label: "Resources", icon: Download },
-  { id: "seo", label: "SEO & Social", icon: Link2 },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "certificates", label: "Certificates", icon: Award },
-  { id: "emails", label: "Emails", icon: Mail },
-  { id: "analytics", label: "Analytics", icon: Activity },
   { id: "settings", label: "Settings", icon: Settings, danger: true },
 ];
+
+// The competitions list is a TAB inside AdminDashboard, not a route of its own: App.jsx declares
+// /admin and /admin/competitions/:id, but never /admin/competitions. Navigating there fell through
+// the two-segment catch-all (/:projectHeading/:writerUsername) and dropped the admin on a public
+// ScriptDetail page for a script that does not exist.
+const ADMIN_LIST = "/admin";
+
+/**
+ * The admin session token adminApi signs its requests with. AdminDashboard gates /admin behind an
+ * access code and keeps the result here; this route had no gate at all, so a logged-out visitor
+ * loading /admin/competitions/new rendered the entire console — all fifteen modules and the Danger
+ * Zone — while every request it made 401'd. The data was never exposed, but the console should not
+ * draw itself for someone who cannot use it.
+ */
+const hasAdminSession = () => {
+  try {
+    return Boolean(JSON.parse(sessionStorage.getItem("admin-session") || "{}").token);
+  } catch {
+    return false;
+  }
+};
 
 export default function AdminCompetitionsEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const allowed = hasAdminSession();
+
+  // Send an unauthenticated visitor to the admin entrance rather than rendering the console.
+  useEffect(() => {
+    if (!allowed) navigate(ADMIN_LIST, { replace: true });
+  }, [allowed, navigate]);
   
   const [activeTab, setActiveTab] = useState("overview");
   const [competition, setCompetition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     const loadCompetition = async () => {
@@ -114,21 +141,43 @@ export default function AdminCompetitionsEditor() {
       setSaving(false);
     }
   };
+  /**
+   * Save first, then publish. The server validates the STORED document, so publishing without
+   * flushing unsaved edits would reject on fields the admin can see filled in on screen.
+   */
+  const handlePublish = async () => {
+    if (!window.confirm("Publish this competition? It becomes visible to everyone and registration opens on its scheduled date.")) return;
+    setPublishing(true);
+    try {
+      await adminApi.put(`/admin/competitions/${id}`, competition);
+      await adminApi.post(`/admin/competitions/${id}/publish`);
+      setCompetition((prev) => ({ ...prev, lifecycle: "published" }));
+      alert("Competition published.");
+    } catch (err) {
+      // The server explains exactly what is missing ("Add at least one rule before publishing.").
+      alert(err?.response?.data?.message || err.message);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const handleArchive = async () => {
     if (!window.confirm("Are you sure you want to archive this competition?")) return;
     try {
       await adminApi.post(`/admin/competitions/${id}/archive`);
-      navigate("/admin/competitions");
+      navigate(ADMIN_LIST);
     } catch (err) {
       alert("Failed to archive: " + (err?.response?.data?.message || err.message));
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("DANGER: Are you sure you want to PERMANENTLY delete this competition? This cannot be undone.")) return;
+    // The server refuses this once anyone has entered or results are declared, and says why — so
+    // the confirm only has to cover the case that is actually allowed to proceed.
+    if (!window.confirm("Permanently delete this competition? This cannot be undone.")) return;
     try {
       await adminApi.delete(`/admin/competitions/${id}`);
-      navigate("/admin/competitions");
+      navigate(ADMIN_LIST);
     } catch (err) {
       alert("Failed to delete: " + (err?.response?.data?.message || err.message));
     }
@@ -138,6 +187,9 @@ export default function AdminCompetitionsEditor() {
     setCompetition(prev => ({ ...prev, [key]: value }));
   };
 
+  // Render nothing at all without a session — the redirect above runs after the first paint, and
+  // one frame of the full console is still one frame too many.
+  if (!allowed) return null;
   if (loading) return <div className="p-8 text-[#888]">Loading editor...</div>;
   if (error) return <div className="p-8 text-red-500">{error}</div>;
 
@@ -147,7 +199,7 @@ export default function AdminCompetitionsEditor() {
       {/* Left Sidebar */}
       <div className="w-64 bg-[#f4f2f0] border-r border-[#eaeaea] flex flex-col">
         <div className="p-4 border-b border-[#eaeaea] flex items-center gap-2">
-          <button onClick={() => navigate("/admin/competitions")} className="p-1.5 hover:bg-[#e4e2e0] rounded-md transition-colors text-[#555]">
+          <button onClick={() => navigate(ADMIN_LIST)} className="p-1.5 hover:bg-[#e4e2e0] rounded-md transition-colors text-[#555]">
             <ArrowLeft size={16} />
           </button>
           <span className="font-semibold text-sm truncate">{competition.name || "Untitled Competition"}</span>
@@ -189,13 +241,6 @@ export default function AdminCompetitionsEditor() {
           
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => setPreviewOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-[#555] bg-white border border-[#eaeaea] hover:bg-[#faf9f8] rounded-lg transition-all"
-            >
-              <Eye size={16} />
-              Preview
-            </button>
-            <button 
               onClick={handleSave}
               disabled={saving}
               className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-[#111] hover:bg-[#333] shadow-md rounded-lg transition-all disabled:opacity-50"
@@ -203,9 +248,19 @@ export default function AdminCompetitionsEditor() {
               <Save size={16} />
               {saving ? "Saving..." : "Save Draft"}
             </button>
-            <button className="p-2 text-[#555] hover:bg-[#faf9f8] border border-[#eaeaea] rounded-lg transition-colors">
-              <MoreVertical size={16} />
-            </button>
+            {/* Publishing is what makes a competition public — without this control nothing created
+                in this editor could ever appear on /challenge, the Hall of Fame or the landing page,
+                because every public query filters lifecycle: "published". */}
+            {competition.lifecycle !== "published" ? (
+              <button
+                onClick={handlePublish}
+                disabled={publishing}
+                className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-[#c94b3a] hover:bg-[#b03e2f] shadow-md rounded-lg transition-all disabled:opacity-50"
+              >
+                <UploadCloud size={16} />
+                {publishing ? "Publishing..." : "Publish"}
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -217,6 +272,10 @@ export default function AdminCompetitionsEditor() {
               <OverviewModule data={competition} onChange={updateField} />
             )}
             
+            {activeTab === "rules" && (
+              <RulesModule data={competition} onChange={updateField} />
+            )}
+
             {activeTab === "branding" && (
               <BrandingModule data={competition} onChange={updateField} />
             )}
@@ -249,9 +308,6 @@ export default function AdminCompetitionsEditor() {
               <ResourcesModule data={competition} onChange={updateField} />
             )}
 
-            {activeTab === "seo" && (
-              <SeoModule data={competition} onChange={updateField} />
-            )}
 
             {activeTab === "settings" && (
               <SettingsModule 
@@ -262,27 +318,12 @@ export default function AdminCompetitionsEditor() {
               />
             )}
             
-            {/* Fallback for unbuilt modules */}
-            {activeTab !== "overview" && activeTab !== "branding" && activeTab !== "timeline" && activeTab !== "theme" && activeTab !== "prizes" && activeTab !== "judges" && activeTab !== "sponsors" && activeTab !== "community" && activeTab !== "resources" && activeTab !== "seo" && activeTab !== "settings" && (
-              <div className="p-12 border-2 border-dashed border-[#eaeaea] rounded-2xl flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 bg-[#f4f2f0] rounded-2xl flex items-center justify-center text-[#888] mb-4">
-                  {React.createElement(SIDEBAR_NAV.find(n => n.id === activeTab)?.icon, { size: 32 })}
-                </div>
-                <h3 className="text-xl font-bold text-[#111] mb-2">{SIDEBAR_NAV.find(n => n.id === activeTab)?.label}</h3>
-                <p className="text-[#666] max-w-sm">This module is part of the new architecture and is currently being built.</p>
-              </div>
-            )}
 
           </div>
         </div>
       </div>
 
       {/* Slide-over Preview Pane */}
-      <PreviewPane 
-        data={competition} 
-        isVisible={previewOpen} 
-        onClose={() => setPreviewOpen(false)} 
-      />
 
     </div>
   );

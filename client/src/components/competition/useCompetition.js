@@ -1,5 +1,12 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import api from "../../services/api";
+// The /active leg is PUBLIC and this hook backs CompetitionLanding, a public route. services/api
+// hard-redirects to sign-in inside its REQUEST interceptor the moment a stored token is past
+// expiresAt — for any url, before the call leaves — so a visitor arriving from a shared link or a
+// search result with a stale session never sees the competition at all. ChallengeHub was immunised
+// for exactly this reason; the page its cards point at was not. The authenticated /:id/me calls
+// below stay on `api`, which is where the session is actually wanted.
+import publicApi from "../../services/publicApi";
 import { AuthContext } from "../../context/AuthContext";
 
 /**
@@ -70,7 +77,7 @@ const useCompetition = ({ poll = true, enabled = true, slug = "", id = "" } = {}
         referrals = data.referrals || null;
         referralCode = data.referralCode || "";
       } else {
-        const active = await api.get("/competitions/active", slug ? { params: { c: slug } } : undefined);
+        const active = await publicApi.get("/competitions/active", slug ? { params: { c: slug } } : undefined);
         data = active.data || {};
         timeline = data.timeline || [];
 

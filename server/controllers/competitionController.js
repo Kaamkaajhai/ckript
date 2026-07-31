@@ -26,16 +26,30 @@ import {
 
 const PHASES_WITH_THEME = new Set(["live", "judging", "results"]);
 
+// Visibility is a DISCOVERY control, never an access one: a competition kept out of the lists stays
+// fully usable for anyone holding its direct link. `private` was added to the enum and offered in
+// the admin UI as "Private (Invite only)" without being added to any filter, which made it strictly
+// MORE public than `hidden` — it still surfaced in every list and in the Hall of Fame. Both values
+// mean "not discoverable"; anything that should also be unreadable belongs in `lifecycle`.
+const UNDISCOVERABLE = ["hidden", "private"];
+
 /**
  * Shape a competition for the client.
  *
  * The theme is withheld until the competition is live — the reveal is the whole point of the event,
  * so it is stripped SERVER-side. Never rely on the client hiding it.
+ *
+ * This is the ONLY shaper for three routes — listCompetitions, getActiveCompetition and getMyEntry —
+ * two of them unauthenticated. It was once "simplified" to return the raw document so an admin-built
+ * page could read the theme, which broke the event in three ways at once: an `announced` competition
+ * published its theme to anyone, `?c=<slug>` exposed the theme of competitions deliberately kept out
+ * of discovery, and — through getMyEntry — registrants could read the brief before the clock started
+ * while the editor still refused to open until `live`, so the only way to use the head start was to
+ * write off-platform. If an admin surface needs the theme early, it must read the ADMIN endpoint.
  */
 const publicCompetition = (competition, phase) => {
   const obj = typeof competition.toObject === "function" ? competition.toObject() : { ...competition };
-  // Serve the entire competition object exactly as set in the admin dashboard,
-  // allowing the user to see the theme and guidelines immediately.
+  if (!PHASES_WITH_THEME.has(phase)) delete obj.theme;
   return obj;
 };
 
@@ -59,7 +73,7 @@ const findActiveCompetition = async () => {
   const now = new Date();
   // `hidden` competitions are never DISCOVERED — an internal or university-only event must not take
   // over the public landing page. It stays fully usable for anyone holding its direct link.
-  const discoverable = { lifecycle: "published", visibility: { $ne: "hidden" } };
+  const discoverable = { lifecycle: "published", visibility: { $nin: UNDISCOVERABLE } };
 
   // Everything already under way: registration has opened and results are not declared yet.
   //
@@ -213,7 +227,7 @@ const buildCompetitionStats = async (competitionId) => {
 // never appear.
 const HALL_OF_FAME_FILTER = {
   lifecycle: { $ne: "draft" },
-  visibility: { $ne: "hidden" },
+  visibility: { $nin: UNDISCOVERABLE },
   resultsDeclaredAt: { $ne: null },
 };
 
@@ -237,7 +251,7 @@ export const listCompetitions = async (req, res) => {
     const now = new Date();
     const competitions = await Competition.find({
       lifecycle: "published",
-      visibility: { $ne: "hidden" },
+      visibility: { $nin: UNDISCOVERABLE },
     }).sort({ "dates.startsAt": -1 }).lean();
 
     const buckets = { live: [], upcoming: [], past: [] };
@@ -869,12 +883,19 @@ export const getMyCompetitions = async (req, res) => {
     const now = new Date();
     const items = entries
       .filter((entry) => entry.competitionId)
-      .map((entry) => ({
-        entry,
-        competition: entry.competitionId,
-        phase: getCompetitionPhase(entry.competitionId, now),
-        timeline: buildTimeline(entry.competitionId, entry, now),
-      }));
+      .map((entry) => {
+        const phase = getCompetitionPhase(entry.competitionId, now);
+        return {
+          entry,
+          // Through publicCompetition like every other read path. `theme.title` is populated for the
+          // record card, and returning the competition raw would have handed a registrant the theme
+          // the moment they signed up — the seal has to hold on THIS door too, not just the
+          // unauthenticated ones. Entrants are exactly who it protects: everyone gets it at once.
+          competition: publicCompetition(entry.competitionId, phase),
+          phase,
+          timeline: buildTimeline(entry.competitionId, entry, now),
+        };
+      });
 
     return res.json({ items, serverNow: now.toISOString() });
   } catch (error) {
@@ -916,7 +937,7 @@ export const getCompetitionHistory = async (req, res) => {
       .map((entry) => ({
         competitionName: entry.competitionId.name,
         // Only a competition with a public Hall of Fame record is linkable.
-        competitionSlug: entry.competitionId.visibility === "hidden" || !entry.competitionId.resultsDeclaredAt
+        competitionSlug: UNDISCOVERABLE.includes(entry.competitionId.visibility) || !entry.competitionId.resultsDeclaredAt
           ? ""
           : entry.competitionId.slug || "",
         year: new Date(entry.competitionId.dates?.startsAt || entry.createdAt).getUTCFullYear(),

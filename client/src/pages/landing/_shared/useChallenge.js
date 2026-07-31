@@ -105,6 +105,9 @@ const useChallenge = () => {
           winner: withWinner
             ? {
               name: withWinner.winner.name,
+              // Title only, never the logline: loglineByAi marks machine-written prose, and that
+              // must not be attributed to a real writer on a marketing page.
+              scriptTitle: withWinner.winner.scriptTitle || "",
               year: withWinner.year,
               competitionName: withWinner.name,
               slug: withWinner.slug,

@@ -243,7 +243,9 @@ export const adminUpdateCompetition = async (req, res) => {
     return res.json({ competition, phase: getCompetitionPhase(competition) });
   } catch (error) {
     console.error("[competition admin] update failed:", error?.message || error);
-    return res.status(500).json({ message: "Failed to update the competition: " + (error?.message || error) });
+    // Fixed string, like every other handler here. Mongoose cast/validation errors carry schema
+    // paths and raw values; the detail belongs in the log above, not in the browser.
+    return res.status(500).json({ message: "Failed to update the competition." });
   }
 };
 
@@ -287,20 +289,53 @@ export const adminArchiveCompetition = async (req, res) => {
   }
 };
 
+/**
+ * Delete a competition outright.
+ *
+ * Deliberately narrow. A declared competition is a PERMANENT RECORD — the Hall of Fame reads live
+ * Competition documents, every entrant's certificate resolves through one, and the winner badges on
+ * User.badges[].competitionId point at it. Deleting one leaves those badges dangling and erases the
+ * frozen snapshots that were judged, so it is refused outright: archiving is how a finished edition
+ * is retired, and it keeps the record readable.
+ *
+ * Entries are refused too. They are writers' work, not the admin's configuration.
+ *
+ * ORDER MATTERS. This used to delete the competition first; if the sweep that follows failed or the
+ * process died mid-flight, scripts kept `competitionLocked: true` with no competition left to
+ * release them — and Script.js enforces that lock in saveDraft, updateScript AND deleteScript, so
+ * the writer could never edit or delete their own script again. Release the writers first, then the
+ * entries, and only remove the competition once nothing can still be orphaned by it.
+ */
 export const adminDeleteCompetition = async (req, res) => {
   try {
     const competitionId = asId(req.params.id);
-    const competition = await Competition.findByIdAndDelete(competitionId);
+
+    // Read BEFORE deleting — a guard placed after findByIdAndDelete can never run.
+    const competition = await Competition.findById(competitionId);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    // Delete all entries for this competition
-    await CompetitionEntry.deleteMany({ competitionId });
+    if (competition.resultsDeclaredAt) {
+      return res.status(409).json({
+        message: "Results have been declared, so this competition is a permanent record. "
+          + "Archive it instead — it stays readable and its certificates keep working.",
+      });
+    }
 
-    // Unlink scripts
+    const entryCount = await CompetitionEntry.countDocuments({ competitionId });
+    if (entryCount > 0) {
+      return res.status(409).json({
+        message: `${entryCount} writer${entryCount === 1 ? " has" : "s have"} entered this `
+          + "competition. Archive it instead — deleting it would destroy their submissions.",
+      });
+    }
+
+    // Release any script that was linked, so no writer is left holding a locked draft.
     await Script.updateMany(
       { competitionId },
       { $set: { competitionId: null, competitionLocked: false, competitionReleasedAt: null } }
     );
+    await CompetitionEntry.deleteMany({ competitionId });
+    await Competition.deleteOne({ _id: competitionId });
 
     return res.json({ message: "Competition deleted successfully." });
   } catch (error) {

@@ -55,15 +55,12 @@ export default function Hero() {
             </button>
             {/* A real route, unlike its siblings which open modals. `.ckl-hero-navlink` already
                 styles both <button> and <a>, so the shape matches without a variant. */}
-            <Link to={ROUTES.challenge} className="ckl-hero-navlink hov-red">
+            <Link to={ROUTES.challenges} className="ckl-hero-navlink hov-red">
               Challenge
             </Link>
             <button type="button" onClick={() => openProducerOnboarding()} className="ckl-hero-navlink hov-red">
               For Producers
             </button>
-            <Link to="/events" className="ckl-hero-navlink hov-red">
-              Events
-            </Link>
 
             <div
               className="ckl-hero-pricing"
@@ -159,7 +156,7 @@ export default function Hero() {
               {/* Closes the overlay like every sibling — a route change alone would leave the
                   fixed, full-screen menu covering the page it navigated to. */}
               <Link
-                to={ROUTES.challenge}
+                to={ROUTES.challenges}
                 className="ckl-hero-mmenu-item"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -175,13 +172,6 @@ export default function Hero() {
               >
                 For Producers
               </button>
-              <Link
-                to="/events"
-                className="ckl-hero-mmenu-item"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Events
-              </Link>
               <button
                 type="button"
                 className="ckl-hero-mmenu-item"

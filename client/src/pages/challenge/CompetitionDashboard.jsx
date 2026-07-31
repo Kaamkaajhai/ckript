@@ -313,7 +313,7 @@ const CompetitionDashboard = () => {
 
       <AIResults ai={entry.ai} />
 
-      <Link to="/my-competitions" className="ckc-card ckc-card-pad">
+      <Link to="/challenge?tab=mine" className="ckc-card ckc-card-pad">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="ckc-title ckc-h3">My Competitions</p>

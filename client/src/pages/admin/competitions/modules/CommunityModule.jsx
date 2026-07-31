@@ -1,5 +1,5 @@
 import React from "react";
-import { Plus, GripVertical, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 export default function CommunityModule({ data, onChange }) {
   const links = data.communityLinks || [];
@@ -49,9 +49,6 @@ export default function CommunityModule({ data, onChange }) {
             links.map((link, idx) => (
               <div key={idx} className="flex gap-4 p-4 bg-[#fbfbfa] border border-[#eaeaea] rounded-xl group hover:border-[#ccc] transition-colors items-center">
                 
-                <div className="cursor-grab text-[#ccc] group-hover:text-[#888]">
-                  <GripVertical size={20} />
-                </div>
                 
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
                   

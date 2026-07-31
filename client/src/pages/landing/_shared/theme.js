@@ -28,9 +28,12 @@ export const ROUTES = {
   home: "/",
   writer: "/writer-onboarding",
   pro: "/producer-director-onboarding",
-  // The competition hub. Public, and until now unreachable from anywhere on the marketing site —
-  // the only nav that linked to it was the signed-in dashboard rail.
+  // The competition hub — the application surface. Marketing traffic goes to `challenges` below;
+  // the hub is where that page's CTAs land, and where the signed-in rail still points.
   challenge: "/challenge",
+  // The landing-register overview page. The marketing nav points HERE, never at the hub:
+  // a first-time visitor gets the pitch before the console.
+  challenges: "/challenges",
   pricing: "/pricing",
   login: "/login",
   about: "/about",
