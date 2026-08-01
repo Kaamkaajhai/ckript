@@ -9,15 +9,9 @@ export default function EventPosterModal() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Only show once per session so we don't annoy users
-    if (sessionStorage.getItem('ckript-event-poster-seen')) {
-      return;
-    }
-
     // Hardcoded live event path as requested
     setLiveEventId('the-final-draft');
     setIsOpen(true);
-    sessionStorage.setItem('ckript-event-poster-seen', 'true');
   }, []);
 
   if (!isOpen || !liveEventId) return null;
@@ -32,7 +26,7 @@ export default function EventPosterModal() {
     setIsOpen(false);
   };
 
-  const imageSrc = "/competition-poster.png";
+  const imageSrc = "/competition_poster.png";
 
   return (
     <div 
