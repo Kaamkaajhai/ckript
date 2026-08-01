@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Copy, Check } from "lucide-react";
+import { CheckCircle2, Copy, Check, Laptop } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useDarkMode } from "../../context/DarkModeContext";
 import api from "../../services/api";
@@ -9,6 +9,7 @@ import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import TagSelect from "../../components/TagSelect";
 import { genres as GENRE_OPTIONS, CP_FILM_LANGUAGE_OPTIONS } from "../CreateProject/constants";
 import { COUNTRIES, EXPERIENCE_LEVELS } from "./constants";
+import useIsMobile from "../../mobile/hooks/useIsMobile";
 import "./challenge.css";
 
 // A form field is labelled in the slug-line voice, like every other label on these pages.
@@ -44,6 +45,7 @@ const CompetitionRegister = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
   const { isDarkMode } = useDarkMode();
+  const isMobile = useIsMobile();
   // This page has no slug of its own — it is one route for every competition — so the competition
   // it belongs to travels in `?c=`, put there by whichever page sent us here. Without it we resolve
   // "the active one", which is how you end up registering for a competition you never opened.
@@ -209,10 +211,21 @@ const CompetitionRegister = () => {
           <div className="ckc-card ckc-card-pad text-center" style={{ padding: "40px 32px" }}>
             {/* The one coral mark on this panel: you are now in a competition that is running. */}
             <CheckCircle2 className="mx-auto h-12 w-12" style={{ color: "var(--ckc-accent)" }} aria-hidden="true" />
-            <h1 className="ckc-title ckc-h2" style={{ marginTop: 18 }}>You're registered</h1>
+            <h1 className="ckc-title ckc-h2" style={{ marginTop: 18 }}>You're registered! 🚀</h1>
             <p className="ckc-lede" style={{ margin: "10px auto 0" }}>
               You're in for <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{competition.name}</strong>. Keep your Event ID — it identifies your entry.
             </p>
+            {isMobile && (
+              <div 
+                className="mx-auto mt-6 p-4 rounded-lg flex flex-col items-center gap-2"
+                style={{ background: "var(--ckc-button-secondary)", border: "1px solid var(--ckc-rule)", color: "var(--ckc-ink)" }}
+              >
+                <Laptop className="h-6 w-6 text-[var(--ckc-accent)]" />
+                <p className="text-sm font-medium">
+                  Jump on your laptop to see your profile, view full competition details, and write your script.
+                </p>
+              </div>
+            )}
 
             {/* The Event ID is an identifier, so it is set as one — mono, tracked, in a quiet inset. */}
             <div
