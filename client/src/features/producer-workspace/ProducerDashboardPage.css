@@ -1,0 +1,1486 @@
+/*
+ * ProducerDashboardPage.css — "The Ledger".
+ *
+ * Self-contained on purpose. Every colour, size, radius and shadow below is a
+ * literal taken from the supplied design: this file reads no CSS custom
+ * properties, imports nothing, and composes nothing, so the page cannot drift
+ * when a theme variable elsewhere changes. Everything is scoped beneath
+ * `.ck-ledger` (or `.ck-ledger-portal` for the two overlays, which render at
+ * the end of the page but sit above the whole content area) so nothing can leak
+ * into the app shell's rail, topbar or any other route.
+ *
+ * Palette, for reading the numbers below:
+ *   ink #1c1a17 · body #3a352e · muted #6f695f · faint #a39d92
+ *   rules #ece8e0 / #f2f1ee / #d8cfbe · paper #fff / #f6f6f5
+ *   accent (terracotta) #d14d37, deep #a93625, wash #fdf1ef
+ *   sage #4f7e59 · amber #9b681d · danger #b73a34
+ */
+
+/* ── Root ─────────────────────────────────────────────────────────────────── */
+
+.ck-ledger {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+  color: #1c1a17;
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /*
+   * The app's global stylesheet puts `letter-spacing: .2px` and a 1.5
+   * line-height on the body. The design does neither — its type is set solid,
+   * and the tracking is declared per element (the 800-weight eyebrows, the
+   * -.02em masthead). Both are reset here so the page measures like the design
+   * rather than inheriting someone else's rhythm.
+   */
+  letter-spacing: normal;
+  line-height: normal;
+}
+
+.ck-ledger *,
+.ck-ledger *::before,
+.ck-ledger *::after { box-sizing: border-box; }
+
+.ck-ledger__scroll {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 0 56px;
+}
+.ck-ledger__scroll::-webkit-scrollbar { width: 5px; }
+.ck-ledger__scroll::-webkit-scrollbar-track { background: transparent; }
+.ck-ledger__scroll::-webkit-scrollbar-thumb { background: #e4ddd2; border-radius: 9px; }
+.ck-ledger__scroll::-webkit-scrollbar-thumb:hover { background: #cec7bc; }
+
+.ck-ledger :focus-visible { outline: 2px solid #e08d7c; outline-offset: 2px; }
+/*
+ * `:where()` on purpose. Written as `.ck-ledger button { font: inherit }` this
+ * rule outranks every single-class button rule below it (0-1-1 vs 0-1-0), so
+ * the shorthand's font-size and font-weight silently replaced the design's —
+ * every control rendered at the inherited 14px/400 instead of its own 11.5px or
+ * 13px. `:where()` contributes no specificity, so it normalises without winning.
+ */
+.ck-ledger :where(button, input, select, textarea) { font: inherit; }
+/*
+ * The app's global stylesheet styles bare elements:
+ *   h1…h6 { letter-spacing: -.025em; line-height: var(--lh-tight); font-feature-settings: "ss01","ss02" }
+ *   button { font-size: 15px; font-weight: 500; line-height: 1.45; letter-spacing: var(--tracking-ui) }
+ * Those beat inheritance from `.ck-ledger`, so the design's headings arrived
+ * tracked-in and its controls 3px wide per label — enough to push the deal
+ * book's filter row onto a second line. `.ck-ledger :where(…)` matches at
+ * 0-1-0: above the bare-element globals, level with (and therefore overridable
+ * by) every single-class rule below.
+ */
+.ck-ledger :where(h1, h2, h3, h4, h5, h6),
+.ck-ledger-portal :where(h1, h2, h3, h4, h5, h6) {
+  letter-spacing: normal;
+  line-height: normal;
+  font-feature-settings: normal;
+}
+.ck-ledger :where(button, input, select, textarea, a),
+.ck-ledger-portal :where(button, input, select, textarea, a) {
+  letter-spacing: normal;
+  line-height: normal;
+}
+.ck-ledger button { cursor: pointer; }
+.ck-ledger button:disabled { cursor: default; }
+/*
+ * `:where` again: several buttons in this design are links (Edit mandates, Open
+ * messages, a watchlist row), and a plain `.ck-ledger a` rule outranks the
+ * `.ck-ledger__btn` class that gives them their ink colour — so they rendered
+ * terracotta inside a bordered button.
+ */
+.ck-ledger :where(a) { color: #d14d37; text-decoration: none; }
+.ck-ledger :where(a:hover) { color: #a93625; }
+
+@keyframes ck-ledger-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ck-ledger-slide {
+  from { transform: translateX(22px); opacity: .4; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes ck-ledger-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+@keyframes ck-ledger-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ck-ledger *,
+  .ck-ledger *::before,
+  .ck-ledger *::after,
+  .ck-ledger-portal * {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* ── Shared type helpers ──────────────────────────────────────────────────── */
+
+.ck-ledger__eyebrow {
+  margin: 0 0 8px;
+  color: #d14d37;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+/* Announced, never seen. Own rule rather than a utility class from elsewhere. */
+.ck-ledger__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ck-ledger__label {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+
+.ck-ledger__serif {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+}
+
+/* ── Status tones ─────────────────────────────────────────────────────────── */
+
+.ck-ledger-tone--neutral { --tone-fg: #6f695f; --tone-bg: #f6f6f5; --tone-border: #e8e7e4; }
+.ck-ledger-tone--sage    { --tone-fg: #4f7e59; --tone-bg: #eef5f0; --tone-border: #c9ddcd; }
+.ck-ledger-tone--amber   { --tone-fg: #9b681d; --tone-bg: #fdf6e9; --tone-border: #ecd29e; }
+.ck-ledger-tone--danger  { --tone-fg: #b73a34; --tone-bg: #fdf0ef; --tone-border: #e9b6b1; }
+.ck-ledger-tone--accent  { --tone-fg: #a93625; --tone-bg: #fdf1ef; --tone-border: #f0d6d0; }
+.ck-ledger-tone--ink     { --tone-fg: #1c1a17; --tone-bg: #f2f1ee; --tone-border: #d8cfbe; }
+
+.ck-ledger__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid var(--tone-border);
+  border-radius: 7px;
+  background: var(--tone-bg);
+  color: var(--tone-fg);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+.ck-ledger__pill::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ck-ledger__pill--flat { min-height: 0; }
+.ck-ledger__pill--flat::before { display: none; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+
+.ck-ledger__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 9px 15px;
+  border: 1px solid #d8cfbe;
+  border-radius: 9px;
+  background: #fff;
+  color: #1c1a17;
+  font-size: 13px;
+  font-weight: 700;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.ck-ledger__btn:hover:not(:disabled) { border-color: #1c1a17; }
+/* Links used as buttons must not keep the accent link colour. */
+.ck-ledger a.ck-ledger__btn { color: #1c1a17; text-decoration: none; }
+.ck-ledger a.ck-ledger__btn--primary { color: #fff; }
+.ck-ledger a.ck-ledger__btn--quiet { color: #d14d37; }
+
+.ck-ledger__btn--primary {
+  padding: 9px 17px;
+  border-color: #1c1a17;
+  background: #1c1a17;
+  color: #fff;
+}
+.ck-ledger__btn--primary:hover:not(:disabled) { background: #312d27; border-color: #312d27; }
+
+.ck-ledger__btn--icon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-color: #ece8e0;
+  color: #6f695f;
+}
+.ck-ledger__btn--icon:hover:not(:disabled) { border-color: #d6d5d1; }
+
+.ck-ledger__btn--sm {
+  min-height: 34px;
+  padding: 7px 13px;
+  border-color: #ece8e0;
+  font-size: 12px;
+}
+
+.ck-ledger__btn--quiet {
+  border: 0;
+  background: transparent;
+  color: #d14d37;
+  font-size: 11px;
+  font-weight: 800;
+  min-height: 0;
+  padding: 0;
+}
+.ck-ledger__btn--quiet:hover:not(:disabled) { color: #a93625; }
+
+.ck-ledger__btn:disabled { opacity: .45; }
+
+/* ── Menus ────────────────────────────────────────────────────────────────── */
+
+.ck-ledger__menu-anchor { position: relative; }
+
+.ck-ledger__menu {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  z-index: 55;
+  width: 232px;
+  padding: 6px;
+  border: 1px solid #ece8e0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(45, 37, 28, .17);
+  animation: ck-ledger-fade .15s ease;
+}
+.ck-ledger__menu--row { top: 42px; width: 246px; padding: 5px; z-index: 45; }
+.ck-ledger__menu--sort { top: 38px; width: 196px; padding: 5px; border-radius: 11px; z-index: 50; box-shadow: 0 16px 34px rgba(45, 37, 28, .16); }
+
+.ck-ledger__menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #3a352e;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  min-height: 0;
+}
+.ck-ledger a.ck-ledger__menu-item { color: #3a352e; text-decoration: none; }
+.ck-ledger__menu-item:hover:not(:disabled) { background: #f6f6f5; }
+.ck-ledger__menu-item .material-symbols-outlined { color: #a39d92; }
+.ck-ledger__menu-item:disabled { opacity: .45; }
+.ck-ledger__menu-item--danger { color: #b73a34; }
+.ck-ledger__menu-item--danger .material-symbols-outlined { color: #b73a34; }
+
+.ck-ledger__menu--row .ck-ledger__menu-item { padding: 8px 9px; font-size: 12px; }
+.ck-ledger__menu--sort .ck-ledger__menu-item { padding: 8px 9px; font-size: 12px; justify-content: space-between; }
+.ck-ledger__menu--sort .ck-ledger__menu-item[aria-checked="true"] { background: #f6f6f5; }
+.ck-ledger__menu--sort .ck-ledger__menu-item .material-symbols-outlined { color: #d14d37; }
+
+/* ── Profile banner ───────────────────────────────────────────────────────── */
+
+.ck-ledger__banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 34px;
+  border-bottom: 1px solid #f0d6d0;
+  background: #fdf1ef;
+}
+.ck-ledger__banner-icon { color: #a93625; }
+.ck-ledger__banner-text { flex: 1; font-size: 12.5px; color: #6f695f; }
+.ck-ledger__banner-text strong { color: #1c1a17; }
+.ck-ledger__banner .ck-ledger__btn {
+  min-height: 34px;
+  padding: 7px 14px;
+  font-size: 12px;
+  border-color: #1c1a17;
+  background: #1c1a17;
+  color: #fff;
+}
+.ck-ledger__banner-close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #a39d92;
+}
+.ck-ledger__banner-close:hover { background: #fbe4de; }
+
+/* ── Masthead ─────────────────────────────────────────────────────────────── */
+
+.ck-ledger__head { padding: 30px 34px 0; }
+
+.ck-ledger__masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 34px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #1c1a17;
+}
+.ck-ledger__title {
+  margin: 0;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -.02em;
+}
+.ck-ledger__standfirst {
+  margin: 9px 0 0;
+  font-size: 13.5px;
+  color: #6f695f;
+}
+.ck-ledger__actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+}
+
+/* ── The board ────────────────────────────────────────────────────────────── */
+
+.ck-ledger__board {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-bottom: 1px solid #ece8e0;
+}
+.ck-ledger__board-cell {
+  padding: 22px 22px 22px 22px;
+  border-left: 1px solid #ece8e0;
+  min-width: 0;
+}
+.ck-ledger__board-cell:first-child { padding-left: 0; border-left-color: transparent; }
+.ck-ledger__board-value {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 1;
+  margin-top: 11px;
+  color: #1c1a17;
+}
+.ck-ledger__board-sub {
+  font-size: 11.5px;
+  color: #6f695f;
+  margin-top: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Section tabs ─────────────────────────────────────────────────────────── */
+
+.ck-ledger__tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 26px;
+  margin-top: 22px;
+  border-bottom: 1px solid #ece8e0;
+}
+.ck-ledger__tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #6f695f;
+  font-size: 13.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color .15s ease;
+}
+.ck-ledger__tab:hover { color: #1c1a17; }
+.ck-ledger__tab[aria-selected="true"] {
+  border-bottom-color: #d14d37;
+  color: #1c1a17;
+  font-weight: 600;
+}
+.ck-ledger__tab-count {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 13px;
+  color: #a39d92;
+}
+.ck-ledger__synced {
+  margin-left: auto;
+  padding-bottom: 12px;
+  font-size: 11px;
+  color: #a39d92;
+  white-space: nowrap;
+}
+
+/* ── Body grid ────────────────────────────────────────────────────────────── */
+
+.ck-ledger__body {
+  padding: 26px 34px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 318px;
+  gap: 28px;
+  align-items: start;
+}
+.ck-ledger__deals {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/*
+ * Does NOT wrap. The heading block shrinks (min-width: 0) and its subtitle
+ * truncates instead, because wrapping pushed the filter row onto its own line
+ * and added ~47px of vertical space the design does not have.
+ */
+.ck-ledger__section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+.ck-ledger__section-head > div:first-child { min-width: 0; }
+.ck-ledger__section-tools { flex: none; }
+.ck-ledger__section-title {
+  margin: 0;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 29px;
+  font-weight: 600;
+}
+.ck-ledger__section-sub {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  color: #6f695f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-ledger__section-tools {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ck-ledger__filter {
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid #ece8e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #6f695f;
+  font-size: 11.5px;
+  font-weight: 600;
+  transition: border-color .15s ease;
+}
+.ck-ledger__filter:hover { border-color: #d5cbbb; }
+.ck-ledger__filter[aria-pressed="true"] {
+  border-color: #1c1a17;
+  background: #1c1a17;
+  color: #fff;
+}
+
+.ck-ledger__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid #ece8e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #3a352e;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ck-ledger__sort .material-symbols-outlined { color: #a39d92; }
+
+/* ── Deal card ────────────────────────────────────────────────────────────── */
+
+.ck-ledger__deal {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 17px 18px;
+  border: 1px solid #ece8e0;
+  border-radius: 14px;
+  background: #fff;
+  transition: border-color .15s ease;
+}
+.ck-ledger__deal:hover { border-color: #d5cbbb; }
+.ck-ledger__deal--urgent { border-color: #e9c4bc; background: #fdf1ef; }
+.ck-ledger__deal--urgent:hover { border-color: #e0a99e; }
+
+.ck-ledger__marker {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ece8e0;
+  border-radius: 50%;
+  background: #fff;
+  color: #a39d92;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ck-ledger__deal--urgent .ck-ledger__marker { border-color: #e9b6b1; background: #fdf0ef; color: #b73a34; }
+.ck-ledger__deal--converted .ck-ledger__marker { border-color: #c9ddcd; background: #eef5f0; color: #4f7e59; }
+
+.ck-ledger__deal-main { min-width: 0; }
+.ck-ledger__deal-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.ck-ledger__deal-kind {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+.ck-ledger__deal-title {
+  margin: 4px 0 3px;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-ledger__deal-meta {
+  margin: 0;
+  font-size: 11.5px;
+  color: #6f695f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-ledger__deal-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ck-ledger__deal-figures { text-align: right; }
+.ck-ledger__deal-fee {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ck-ledger__deal-date {
+  font-size: 10.5px;
+  color: #a39d92;
+  white-space: nowrap;
+}
+.ck-ledger__deal-open {
+  min-height: 36px;
+  padding: 8px 13px;
+  border: 1px solid #1c1a17;
+  border-radius: 9px;
+  background: #fff;
+  color: #1c1a17;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background .15s ease, color .15s ease;
+}
+.ck-ledger__deal-open:hover { background: #1c1a17; color: #fff; }
+.ck-ledger__kebab {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ece8e0;
+  border-radius: 9px;
+  background: #fff;
+  color: #6f695f;
+  transition: border-color .15s ease;
+}
+.ck-ledger__kebab:hover { border-color: #d5cbbb; }
+
+/* ── Pagination ───────────────────────────────────────────────────────────── */
+
+.ck-ledger__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 2px 0;
+  font-size: 11.5px;
+  color: #6f695f;
+  flex-wrap: wrap;
+}
+.ck-ledger__pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ck-ledger__pager-btn {
+  min-width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ece8e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #6f695f;
+  font-size: 12px;
+  font-weight: 600;
+}
+.ck-ledger__pager-btn:disabled { opacity: .45; }
+.ck-ledger__pager-btn[aria-current="page"] {
+  border-color: #1c1a17;
+  background: #1c1a17;
+  color: #fff;
+}
+.ck-ledger__pager-rows {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+.ck-ledger__pager-rows select {
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid #ece8e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #1c1a17;
+  font-size: 12px;
+}
+
+/* ── Sub-sections (writers' room, money) ──────────────────────────────────── */
+
+.ck-ledger__block {
+  margin-top: 16px;
+  padding-top: 20px;
+  border-top: 1px solid #ece8e0;
+}
+.ck-ledger__block--money { margin-top: 24px; }
+.ck-ledger__block--lead { margin-top: 0; padding-top: 0; border-top: 0; }
+
+.ck-ledger__block-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.ck-ledger__block-title {
+  margin: 0;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+}
+.ck-ledger__block-sub {
+  margin: 5px 0 0;
+  font-size: 12.5px;
+  color: #6f695f;
+}
+
+.ck-ledger__writer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 4px;
+  border-bottom: 1px solid #f2f1ee;
+}
+.ck-ledger__avatar {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid #f0d6d0;
+  border-radius: 50%;
+  background: #fdf1ef;
+  color: #a93625;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+}
+.ck-ledger__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ck-ledger a.ck-ledger__avatar { color: #a93625; text-decoration: none; }
+.ck-ledger__writer-body { flex: 1; min-width: 0; }
+.ck-ledger__writer-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.ck-ledger__writer-name a {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1c1a17;
+}
+.ck-ledger__writer-name a:hover { color: #a93625; }
+.ck-ledger__writer-flag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+.ck-ledger__writer-bio {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  color: #6f695f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-ledger__writer .ck-ledger__btn--sm { color: #3a352e; flex: none; }
+
+.ck-ledger__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.ck-ledger__table th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid #d8cfbe;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+.ck-ledger__table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid #f2f1ee;
+  color: #1c1a17;
+}
+.ck-ledger__table th:first-child,
+.ck-ledger__table td:first-child { padding-left: 4px; }
+.ck-ledger__table th:last-child,
+.ck-ledger__table td:last-child { padding-right: 4px; text-align: right; }
+.ck-ledger__table th:nth-child(2),
+.ck-ledger__table td:nth-child(2) { color: #6f695f; }
+.ck-ledger__table th:nth-child(3),
+.ck-ledger__table td:nth-child(3) { text-align: right; font-variant-numeric: tabular-nums; }
+.ck-ledger__amount--credit { color: #4f7e59; }
+
+/* ── Aside ────────────────────────────────────────────────────────────────── */
+
+.ck-ledger__aside {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.ck-ledger__card {
+  border: 1px solid #ece8e0;
+  border-radius: 14px;
+  background: #fff;
+  padding: 17px;
+}
+.ck-ledger__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ck-ledger__card-head strong { font-size: 12.5px; }
+.ck-ledger__card-note { font-size: 10.5px; color: #a39d92; }
+
+.ck-ledger__capital-value {
+  display: block;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 31px;
+  font-weight: 500;
+  line-height: 1;
+}
+.ck-ledger__capital-sub {
+  display: block;
+  font-size: 11px;
+  color: #6f695f;
+  margin-top: 4px;
+}
+.ck-ledger__meter {
+  height: 6px;
+  margin-top: 13px;
+  border-radius: 4px;
+  background: #f2f1ee;
+  overflow: hidden;
+}
+.ck-ledger__meter > span { display: block; height: 100%; background: #d14d37; }
+.ck-ledger__capital-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid #ece8e0;
+  text-align: center;
+}
+.ck-ledger__capital-grid b {
+  display: block;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+.ck-ledger__capital-grid small { display: block; font-size: 10px; color: #a39d92; }
+
+.ck-ledger__brief-group { margin-bottom: 11px; }
+.ck-ledger__brief-group:last-child { margin-bottom: 0; }
+.ck-ledger__brief-label {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: #a39d92;
+  margin-bottom: 6px;
+}
+.ck-ledger__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ck-ledger__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid #ece8e0;
+  border-radius: 7px;
+  background: #f6f6f5;
+  color: #3a352e;
+  font-size: 11px;
+  font-weight: 600;
+}
+.ck-ledger__chip--danger { border-color: #e9b6b1; background: #fdf0ef; color: #b73a34; }
+
+.ck-ledger__quota { margin-bottom: 12px; }
+.ck-ledger__quota-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  margin-bottom: 5px;
+  color: #3a352e;
+}
+.ck-ledger__quota-row b { font-weight: 700; color: #1c1a17; }
+.ck-ledger__quota--blocked .ck-ledger__quota-row b { color: #b73a34; }
+.ck-ledger__quota-bar { height: 3px; background: #f2f1ee; overflow: hidden; }
+.ck-ledger__quota-bar > span { display: block; height: 100%; background: #1c1a17; }
+.ck-ledger__quota--blocked .ck-ledger__quota-bar > span { background: #d14d37; }
+.ck-ledger__quota-warn { font-size: 10.5px; color: #9b681d; margin-top: 5px; }
+.ck-ledger__card .ck-ledger__btn--block {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 2px;
+  border-color: #ece8e0;
+  font-size: 12px;
+}
+
+.ck-ledger__card--dark {
+  background: #1c1a17;
+  color: #fff;
+}
+.ck-ledger__pulse-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ck-ledger__pulse-head span:first-child {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: #b7b0a4;
+}
+.ck-ledger__pulse-rule { width: 20px; height: 2px; background: #d14d37; }
+.ck-ledger__pulse-value {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 1;
+  margin-top: 10px;
+}
+.ck-ledger__pulse-sub { font-size: 11px; color: #9c958a; margin-top: 5px; }
+.ck-ledger__pulse-genres {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #2c2a26;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ck-ledger__pulse-genre {
+  display: grid;
+  grid-template-columns: 66px 1fr 26px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #b7b0a4;
+}
+.ck-ledger__pulse-genre > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-ledger__pulse-bar { height: 3px; background: #2c2a26; display: block; }
+.ck-ledger__pulse-bar > span { display: block; height: 100%; background: #d14d37; }
+.ck-ledger__pulse-genre > span:last-child { text-align: right; color: #fff; }
+
+.ck-ledger__card--flush { padding: 0; overflow: hidden; }
+.ck-ledger__watch-head { padding: 14px 17px 10px; }
+.ck-ledger__watch-head strong { font-size: 12.5px; }
+.ck-ledger__watch-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 17px;
+  border: 0;
+  border-top: 1px solid #f2f1ee;
+  background: transparent;
+  text-align: left;
+  color: #1c1a17;
+}
+.ck-ledger a.ck-ledger__watch-item { color: #1c1a17; text-decoration: none; }
+.ck-ledger__watch-item:hover { background: #f6f6f5; }
+.ck-ledger__watch-rank {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 13px;
+  color: #a39d92;
+  width: 12px;
+  flex: none;
+}
+.ck-ledger__watch-item:first-of-type .ck-ledger__watch-rank { color: #d14d37; }
+.ck-ledger__watch-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ck-ledger__watch-score {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 14px;
+  color: #6f695f;
+}
+.ck-ledger__watch-empty { padding: 0 17px 15px; font-size: 11.5px; color: #a39d92; }
+
+/* ── State screens ────────────────────────────────────────────────────────── */
+
+.ck-ledger__notice {
+  margin: 26px 34px;
+  padding: 22px 24px;
+  border: 1px solid #e9b6b1;
+  border-radius: 14px;
+  background: #fdf0ef;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.ck-ledger__notice .material-symbols-outlined { color: #b73a34; }
+.ck-ledger__notice-body { flex: 1; }
+.ck-ledger__notice h2 {
+  margin: 0 0 5px;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 21px;
+  font-weight: 600;
+}
+.ck-ledger__notice p { margin: 0 0 13px; font-size: 12.5px; color: #6f695f; }
+.ck-ledger__notice code {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+.ck-ledger__notice .ck-ledger__btn {
+  min-height: 36px;
+  padding: 8px 15px;
+  border-color: #b73a34;
+  color: #b73a34;
+  font-size: 12px;
+}
+.ck-ledger__notice .ck-ledger__btn:hover { border-color: #b73a34; background: #fbe4de; }
+
+.ck-ledger__lapsed {
+  margin: 26px 34px;
+  padding: 24px;
+  border: 1px solid #ecd29e;
+  border-radius: 14px;
+  background: #fdf6e9;
+}
+.ck-ledger__lapsed-eyebrow {
+  margin: 0 0 6px;
+  color: #9b681d;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ck-ledger__lapsed h2 {
+  margin: 0 0 7px;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 23px;
+  font-weight: 600;
+}
+.ck-ledger__lapsed p {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  color: #6f695f;
+  max-width: 74ch;
+}
+.ck-ledger__lapsed-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.ck-ledger__lapsed-actions .ck-ledger__btn { min-height: 38px; padding: 9px 16px; font-size: 12.5px; }
+
+.ck-ledger__empty {
+  margin: 34px;
+  padding: 52px 40px;
+  border: 1px dashed #d8cfbe;
+  border-radius: 16px;
+  background: #fff;
+  text-align: center;
+}
+.ck-ledger__empty-mark {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  border-radius: 16px;
+  background: #fdf1ef;
+  color: #d14d37;
+  display: grid;
+  place-items: center;
+}
+.ck-ledger__empty h2 {
+  margin: 0 0 8px;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 29px;
+  font-weight: 600;
+}
+.ck-ledger__empty p {
+  margin: 0 auto 20px;
+  max-width: 56ch;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #6f695f;
+}
+.ck-ledger__empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.ck-ledger__empty-actions .ck-ledger__btn { min-height: 42px; padding: 11px 20px; border-radius: 11px; font-size: 13.5px; }
+
+.ck-ledger__no-results {
+  padding: 38px 26px;
+  border: 1px dashed #d8cfbe;
+  border-radius: 14px;
+  background: #fff;
+  text-align: center;
+}
+.ck-ledger__no-results h3 {
+  margin: 0 0 6px;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 21px;
+  font-weight: 600;
+}
+.ck-ledger__no-results p { margin: 0 0 14px; font-size: 12.5px; color: #6f695f; }
+.ck-ledger__no-results .ck-ledger__btn { min-height: 36px; padding: 8px 15px; border-color: #1c1a17; font-size: 12px; }
+
+/* ── Skeleton ─────────────────────────────────────────────────────────────── */
+
+.ck-ledger__skeleton { padding: 30px 34px; display: flex; flex-direction: column; gap: 14px; }
+.ck-ledger__skeleton-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  animation: ck-ledger-pulse 1.3s ease-in-out infinite;
+}
+.ck-ledger__skeleton-mark { width: 43px; height: 43px; border-radius: 50%; background: #f2f1ee; flex: none; }
+.ck-ledger__skeleton-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.ck-ledger__skeleton-line { height: 11px; background: #f2f1ee; border-radius: 3px; }
+.ck-ledger__skeleton-line--faint { height: 9px; background: #f6f6f5; }
+.ck-ledger__skeleton-tail { width: 96px; height: 13px; background: #f2f1ee; border-radius: 3px; flex: none; }
+
+/* ── Overlays (drawer + confirm dialog) ───────────────────────────────────── */
+
+.ck-ledger-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #1c1a17;
+  letter-spacing: normal;
+  line-height: normal;
+}
+.ck-ledger-portal :where(button, input, select, textarea) { font: inherit; }
+.ck-ledger-portal *,
+.ck-ledger-portal *::before,
+.ck-ledger-portal *::after { box-sizing: border-box; }
+.ck-ledger-portal button { font: inherit; cursor: pointer; }
+.ck-ledger-portal :focus-visible { outline: 2px solid #e08d7c; outline-offset: 2px; }
+
+.ck-ledger-portal__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(15, 13, 11, .5);
+}
+.ck-ledger-portal--dialog .ck-ledger-portal__scrim { background: rgba(15, 13, 11, .6); }
+
+/* Drawer */
+.ck-ledger-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 452px;
+  max-width: 100%;
+  background: #fff;
+  border-left: 1px solid #ece8e0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -24px 0 60px rgba(45, 37, 28, .2);
+  animation: ck-ledger-slide .22s ease;
+}
+.ck-ledger-drawer__head {
+  flex: none;
+  padding: 20px 22px;
+  border-bottom: 1px solid #ece8e0;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.ck-ledger-drawer__head-body { flex: 1; min-width: 0; }
+.ck-ledger-drawer__kind {
+  margin: 0 0 6px;
+  color: #d14d37;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.ck-ledger-drawer__title {
+  margin: 0;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.12;
+}
+.ck-ledger-drawer__meta { margin: 6px 0 0; font-size: 12px; color: #6f695f; }
+.ck-ledger-drawer__close {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ece8e0;
+  border-radius: 9px;
+  background: #fff;
+  color: #6f695f;
+}
+.ck-ledger-drawer__close:hover { border-color: #d5cbbb; }
+
+.ck-ledger-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+/*
+ * The body is a scrolling flex column, so its children are shrinkable by
+ * default. The figures grid sets `overflow: hidden` for its rounded corners,
+ * which gives it a min-content contribution of 0 — once the drawer's content
+ * overflowed, the browser collapsed that block to its 1px border and the fee,
+ * score and countdown vanished. Nothing in this column may shrink.
+ */
+.ck-ledger-drawer__body > * { flex: none; }
+
+.ck-ledger-drawer__logline { display: flex; gap: 14px; }
+.ck-ledger-drawer__cover {
+  width: 78px;
+  height: 104px;
+  flex: none;
+  border: 1px solid #ece8e0;
+  border-radius: 10px;
+  background: repeating-linear-gradient(45deg, #fbfbfa, #fbfbfa 6px, #f4f3f1 6px, #f4f3f1 12px);
+  display: grid;
+  place-items: center;
+  color: #c9c4bb;
+  overflow: hidden;
+}
+.ck-ledger-drawer__cover img { width: 100%; height: 100%; object-fit: cover; }
+.ck-ledger-drawer__logline p { margin: 0; font-size: 12.5px; line-height: 1.62; color: #3a352e; }
+
+.ck-ledger-drawer__figures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid #ece8e0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ck-ledger-drawer__figure { padding: 12px 13px; border-left: 1px solid #ece8e0; min-width: 0; }
+.ck-ledger-drawer__figure:first-child { border-left-color: transparent; }
+.ck-ledger-drawer__figure-label {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+.ck-ledger-drawer__figure-value {
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 20px;
+  font-weight: 500;
+  margin-top: 5px;
+}
+
+.ck-ledger-drawer__writer { border: 1px solid #ece8e0; border-radius: 12px; padding: 15px; }
+.ck-ledger-drawer__writer-top { display: flex; align-items: center; gap: 11px; }
+.ck-ledger-drawer__writer-name { font-size: 13px; font-weight: 600; }
+.ck-ledger-drawer__writer-line { font-size: 11px; color: #a39d92; }
+.ck-ledger-drawer__writer-note { margin: 11px 0 0; font-size: 11.5px; color: #6f695f; }
+.ck-ledger-drawer__writer-actions { display: flex; gap: 7px; margin-top: 11px; }
+.ck-ledger-drawer__writer-actions > * {
+  flex: 1;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid #ece8e0;
+  border-radius: 9px;
+  background: #fff;
+  color: #3a352e;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  transition: border-color .15s ease;
+}
+.ck-ledger-drawer__writer-actions > a { color: #3a352e; text-decoration: none; }
+.ck-ledger-drawer__writer-actions > *:hover:not(:disabled) { border-color: #1c1a17; }
+.ck-ledger-drawer__writer-actions > *:disabled { opacity: .45; }
+
+.ck-ledger-drawer__activity-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: #a39d92;
+  margin-bottom: 10px;
+}
+.ck-ledger-drawer__event {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 11px;
+  padding-bottom: 13px;
+}
+.ck-ledger-drawer__event-rail { position: relative; display: block; }
+.ck-ledger-drawer__event-rail::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone-fg, #a39d92);
+}
+.ck-ledger-drawer__event:not(:last-child) .ck-ledger-drawer__event-rail::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 14px;
+  bottom: -13px;
+  width: 1px;
+  background: #ece8e0;
+}
+.ck-ledger-drawer__event-text { font-size: 12px; color: #3a352e; }
+.ck-ledger-drawer__event-when { font-size: 10.5px; color: #a39d92; margin-top: 2px; }
+
+.ck-ledger-drawer__foot {
+  flex: none;
+  padding: 16px 22px;
+  border-top: 1px solid #ece8e0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ck-ledger-drawer__foot .ck-ledger-drawer__primary {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid #1c1a17;
+  border-radius: 10px;
+  background: #1c1a17;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ck-ledger-drawer__foot .ck-ledger-drawer__primary:hover { background: #312d27; }
+.ck-ledger-drawer__secondary { display: flex; gap: 8px; }
+.ck-ledger-drawer__secondary > button {
+  flex: 1;
+  min-height: 38px;
+  border: 1px solid #ece8e0;
+  border-radius: 9px;
+  background: #fff;
+  color: #3a352e;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ck-ledger-drawer__secondary > button:hover:not(:disabled) { border-color: #d5cbbb; }
+.ck-ledger-drawer__secondary > button:disabled { opacity: .45; }
+.ck-ledger-drawer__secondary > button.is-danger { color: #b73a34; border-color: #e9b6b1; }
+
+/* Confirm dialog */
+.ck-ledger-portal--dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 26px;
+}
+.ck-ledger-dialog {
+  position: relative;
+  width: 428px;
+  max-width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  border: 1px solid #ece8e0;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 30px 70px rgba(45, 37, 28, .28);
+  animation: ck-ledger-fade .18s ease;
+}
+.ck-ledger-dialog__head { padding: 22px 24px 0; }
+.ck-ledger-dialog__eyebrow {
+  margin: 0 0 7px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: #b73a34;
+}
+.ck-ledger-dialog__title {
+  margin: 0;
+  font-family: Spectral, "Iowan Old Style", Georgia, serif;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.14;
+}
+.ck-ledger-dialog__body { margin: 9px 0 0; font-size: 12.5px; line-height: 1.6; color: #6f695f; }
+.ck-ledger-dialog__error {
+  display: flex;
+  gap: 10px;
+  margin: 14px 24px 0;
+  padding: 11px 13px;
+  border: 1px solid #e9b6b1;
+  border-radius: 11px;
+  background: #fdf0ef;
+  font-size: 11.5px;
+  color: #b73a34;
+}
+.ck-ledger-dialog__foot {
+  padding: 20px 24px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+}
+.ck-ledger-dialog__foot button {
+  min-height: 40px;
+  padding: 9px 16px;
+  border: 1px solid #ece8e0;
+  border-radius: 10px;
+  background: #fff;
+  color: #1c1a17;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.ck-ledger-dialog__foot button:hover:not(:disabled) { border-color: #d5cbbb; }
+.ck-ledger-dialog__foot .is-confirm {
+  padding: 9px 18px;
+  border-color: #b73a34;
+  background: #b73a34;
+  color: #fff;
+}
+.ck-ledger-dialog__foot .is-confirm:hover:not(:disabled) { background: #a13029; border-color: #a13029; }
+.ck-ledger-dialog__foot button:disabled { opacity: .6; cursor: default; }
+.ck-ledger-dialog__spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, .4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ck-ledger-spin .8s linear infinite;
+}
+
+/* ── Desktop widths ───────────────────────────────────────────────────────── */
+
+/*
+ * The design's own frame is min-width 1280, and at exactly 1280 its 318px aside
+ * still leaves the deal cards 757px — wide enough for a 20px Spectral title on
+ * one line. So nothing moves until BELOW the design's floor: the aside narrows
+ * first, then the board wraps to three columns, then the aside drops under the
+ * deal book. Nothing is ever hidden.
+ */
+@media (max-width: 1240px) {
+  .ck-ledger__body { grid-template-columns: minmax(0, 1fr) 286px; gap: 22px; }
+}
+
+@media (max-width: 1120px) {
+  .ck-ledger__head,
+  .ck-ledger__body { padding-left: 24px; padding-right: 24px; }
+  .ck-ledger__banner { padding-left: 24px; padding-right: 24px; }
+  .ck-ledger__notice,
+  .ck-ledger__lapsed { margin-left: 24px; margin-right: 24px; }
+  .ck-ledger__skeleton { padding-left: 24px; padding-right: 24px; }
+  .ck-ledger__title { font-size: 38px; }
+  .ck-ledger__board { grid-template-columns: repeat(3, 1fr); }
+  .ck-ledger__board-cell:nth-child(4) { padding-left: 0; border-left-color: transparent; }
+  .ck-ledger__board-cell:nth-child(-n+3) { border-bottom: 1px solid #ece8e0; }
+  .ck-ledger__deal { grid-template-columns: 44px minmax(0, 1fr); row-gap: 12px; }
+  .ck-ledger__deal-right { grid-column: 2; justify-content: flex-end; }
+}
+
+/*
+ * Below ~1000 the two-column body cannot hold both, so the aside moves under
+ * the deal book rather than squeezing it. The page stays a desktop layout: the
+ * cards, the board and the masthead keep their structure.
+ */
+@media (max-width: 1000px) {
+  .ck-ledger__body { grid-template-columns: minmax(0, 1fr); }
+  .ck-ledger__aside {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    margin-top: 8px;
+  }
+  .ck-ledger__masthead { flex-wrap: wrap; gap: 18px; }
+  .ck-ledger__tabs { flex-wrap: wrap; gap: 18px; }
+  .ck-ledger__synced { margin-left: 0; }
+}
