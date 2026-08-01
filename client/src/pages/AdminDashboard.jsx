@@ -236,8 +236,10 @@ const BroadcastComposer = ({
     audienceLabel,
     title,
     content,
+    actionUrl,
     onTitleChange,
     onContentChange,
+    onActionUrlChange,
     onSend,
     sending = false,
 }) => (
@@ -264,6 +266,13 @@ const BroadcastComposer = ({
                 onChange={(event) => onContentChange(event.target.value)}
                 placeholder={`Write the message you want all ${audienceLabel.toLowerCase()} to receive`}
                 className={`w-full rounded-xl border px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+            />
+            <input
+                type="url"
+                value={actionUrl}
+                onChange={(event) => onActionUrlChange(event.target.value)}
+                placeholder="Optional link URL (e.g., https://example.com)"
+                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
             />
             <div className="flex justify-end">
                 <button
@@ -1048,10 +1057,13 @@ const AdminDashboard = () => {
     const [deletingScriptId, setDeletingScriptId] = useState("");
     const [writerBroadcastTitle, setWriterBroadcastTitle] = useState("");
     const [writerBroadcastContent, setWriterBroadcastContent] = useState("");
+    const [writerBroadcastLink, setWriterBroadcastLink] = useState("");
     const [filmBroadcastTitle, setFilmBroadcastTitle] = useState("");
     const [filmBroadcastContent, setFilmBroadcastContent] = useState("");
+    const [filmBroadcastLink, setFilmBroadcastLink] = useState("");
     const [scriptBroadcastTitle, setScriptBroadcastTitle] = useState("");
     const [scriptBroadcastContent, setScriptBroadcastContent] = useState("");
+    const [scriptBroadcastLink, setScriptBroadcastLink] = useState("");
     const [trailerRequirementsModal, setTrailerRequirementsModal] = useState(null);
 
     // ─── Toast notification system ───
@@ -1069,28 +1081,34 @@ const AdminDashboard = () => {
             writers: {
                 title: writerBroadcastTitle,
                 content: writerBroadcastContent,
+                actionUrl: writerBroadcastLink,
                 audienceLabel: "writers",
                 reset: () => {
                     setWriterBroadcastTitle("");
                     setWriterBroadcastContent("");
+                    setWriterBroadcastLink("");
                 },
             },
             "film-professionals": {
                 title: filmBroadcastTitle,
                 content: filmBroadcastContent,
+                actionUrl: filmBroadcastLink,
                 audienceLabel: "film professionals",
                 reset: () => {
                     setFilmBroadcastTitle("");
                     setFilmBroadcastContent("");
+                    setFilmBroadcastLink("");
                 },
             },
             "script-uploaders": {
                 title: scriptBroadcastTitle,
                 content: scriptBroadcastContent,
+                actionUrl: scriptBroadcastLink,
                 audienceLabel: "script uploaders",
                 reset: () => {
                     setScriptBroadcastTitle("");
                     setScriptBroadcastContent("");
+                    setScriptBroadcastLink("");
                 },
             },
         };
@@ -1101,7 +1119,7 @@ const AdminDashboard = () => {
             return;
         }
 
-        const { title, content, audienceLabel, reset } = broadcastConfig;
+        const { title, content, actionUrl, audienceLabel, reset } = broadcastConfig;
 
         if (!title.trim() || !content.trim()) {
             showToast(`Please enter both title and content for the ${audienceLabel} broadcast.`, "error");
@@ -1114,6 +1132,7 @@ const AdminDashboard = () => {
             const { data } = await adminApi.post(`/admin/broadcast/${audience}`, {
                 title: title.trim(),
                 content: content.trim(),
+                actionUrl: actionUrl.trim(),
             });
             showToast(data?.message || `Broadcast sent to ${audienceLabel}.`);
             reset();
@@ -3335,8 +3354,10 @@ const AdminDashboard = () => {
                                 audienceLabel="Writers"
                                 title={writerBroadcastTitle}
                                 content={writerBroadcastContent}
+                                actionUrl={writerBroadcastLink}
                                 onTitleChange={setWriterBroadcastTitle}
                                 onContentChange={setWriterBroadcastContent}
+                                onActionUrlChange={setWriterBroadcastLink}
                                 onSend={() => handleSendAudienceBroadcast("writers")}
                                 sending={userActionLoading === "broadcast:writers"}
                             />
@@ -3347,8 +3368,10 @@ const AdminDashboard = () => {
                                 audienceLabel="Film Professionals"
                                 title={filmBroadcastTitle}
                                 content={filmBroadcastContent}
+                                actionUrl={filmBroadcastLink}
                                 onTitleChange={setFilmBroadcastTitle}
                                 onContentChange={setFilmBroadcastContent}
+                                onActionUrlChange={setFilmBroadcastLink}
                                 onSend={() => handleSendAudienceBroadcast("film-professionals")}
                                 sending={userActionLoading === "broadcast:film-professionals"}
                             />
@@ -3380,8 +3403,10 @@ const AdminDashboard = () => {
                             audienceLabel="Script Uploaders"
                             title={scriptBroadcastTitle}
                             content={scriptBroadcastContent}
+                            actionUrl={scriptBroadcastLink}
                             onTitleChange={setScriptBroadcastTitle}
                             onContentChange={setScriptBroadcastContent}
+                            onActionUrlChange={setScriptBroadcastLink}
                             onSend={() => handleSendAudienceBroadcast("script-uploaders")}
                             sending={userActionLoading === "broadcast:script-uploaders"}
                         />
