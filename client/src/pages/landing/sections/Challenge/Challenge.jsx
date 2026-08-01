@@ -59,7 +59,17 @@ const Challenge = ({ phase, competition, winner }) => {
         
         {/* Live challenge card added as requested */}
         {competition ? (
-          <div className="ckc" style={{ marginTop: "40px", marginBottom: "40px", maxWidth: "800px", marginInline: "auto" }} data-ra="ckl-fadeUp" data-rd="0.15">
+          <div 
+            className="ckc" 
+            style={{ 
+              marginTop: "40px", 
+              marginBottom: "40px", 
+              maxWidth: "800px", 
+              marginInline: "auto",
+              background: "transparent",
+              animation: "ckl-fadeUp 0.85s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both"
+            }}
+          >
             <CompetitionCard 
               item={competition} 
               variant={phase === "announced" ? "upcoming" : "live"} 
