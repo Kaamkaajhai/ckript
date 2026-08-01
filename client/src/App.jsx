@@ -35,6 +35,7 @@ const SeoPage = lazy(() => import("./pages/SeoPage"));
 const PricingRoute = lazy(() => import("./pages/PricingRoute"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const EventPosterModal = lazy(() => import("./components/EventPosterModal"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
 const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
@@ -592,6 +593,7 @@ function App() {
             </Routes>
             </RootExperience>
             </Suspense>
+            <EventPosterModal />
           </AdminLoginHandler>
           </AuthModalProvider>
         </Router>

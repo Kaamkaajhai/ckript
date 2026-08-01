@@ -9,6 +9,7 @@ import useCompetition from "../../components/competition/useCompetition";
 import CompetitionRecord from "../hall-of-fame/HallOfFameDetail";
 import CountdownTimer from "../../components/competition/CountdownTimer";
 import PhaseTimeline from "../../components/competition/PhaseTimeline";
+import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
 import { COMPANY } from "../../constants/company";
 import externalUrl from "../../utils/externalUrl";
 import "./challenge.css";
@@ -298,6 +299,10 @@ const CompetitionLanding = () => {
             ) : null}
           </div>
         </header>
+
+        <Section id="participants" title="Who else is writing">
+          <ParticipantsGrid totalParticipants={competition.totalParticipants || 0} prizePool={competition.prizePool} />
+        </Section>
 
         {/* Theme — only exists in the payload once the competition is live */}
         {competition.theme?.title ? (

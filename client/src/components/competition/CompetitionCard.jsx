@@ -106,12 +106,36 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
         ) : null}
 
         <p className="ckc-meta" style={{ marginTop: 12, letterSpacing: "0.06em" }}>
-          {fmt(item.dates?.startsAt)}
+          Event: {fmt(item.dates?.startsAt)}
           {item.dates?.endsAt ? ` – ${fmt(item.dates.endsAt)}` : ""}
         </p>
+        {item.dates?.regClosesAt ? (
+          <p className="ckc-meta" style={{ marginTop: 4, letterSpacing: "0.06em" }}>
+            Reg. Closes: {fmt(item.dates.regClosesAt)}
+          </p>
+        ) : null}
 
         {item.prizePool ? (
-          <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}>{item.prizePool}</p>
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: 'rgba(245, 158, 11, 0.15)', 
+              color: '#d97706', 
+              borderRadius: '50%',
+              width: 26, 
+              height: 26 
+            }}>
+              <Trophy className="h-4 w-4" />
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--ckc-muted)' }}>
+              Prize Pool:
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--ckc-ink)' }}>
+              {item.prizePool}
+            </span>
+          </div>
         ) : null}
 
         {isArchive ? (
