@@ -478,68 +478,185 @@ export const registerForCompetition = async (req, res) => {
     }
     if (!cleanLanguage) return res.status(400).json({ message: "Preferred language is required." });
     if (cleanGenres.length < 1 || cleanGenres.length > 3) {
-      return res.status(400).json({ message: "Choose between 1 and 3 preferred genres." });
+      return res.status(400).json({ message: "Select between 1 and 3 preferred genres." });
     }
     if (!["beginner", "intermediate", "professional"].includes(cleanExperience)) {
-      return res.status(400).json({ message: "Select your experience level." });
+      return res.status(400).json({ message: "Select a valid experience level." });
     }
-    if (cleanPortfolio && !/^https?:\/\//i.test(cleanPortfolio)) {
-      return res.status(400).json({ message: "Portfolio link must start with http:// or https://" });
-    }
-    if (acceptRules !== true) return res.status(400).json({ message: "You must accept the competition rules." });
-    if (acceptCopyright !== true) return res.status(400).json({ message: "You must accept the copyright policy." });
+    if (!acceptRules) return res.status(400).json({ message: "You must accept the competition rules." });
+    if (!acceptCopyright) return res.status(400).json({ message: "You must accept the copyright policy." });
 
-    let entry;
-    try {
-      entry = await CompetitionEntry.create({
-        competitionId: competition._id,
-        userId: req.user._id,
-        registration: {
-          country: cleanCountry,
-          language: cleanLanguage,
-          genres: cleanGenres,
-          experienceLevel: cleanExperience,
-          portfolioUrl: cleanPortfolio,
-        },
-        acceptedRulesAt: now,
-        acceptedCopyrightAt: now,
-      });
-    } catch (err) {
-      // Lost a race against a double-submit — the unique index is the source of truth.
-      if (err?.code === 11000) {
-        const raced = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
-        if (raced) {
-          return res.json({ entry: raced, alreadyRegistered: true, phase, timeline: buildTimeline(competition, raced, now) });
-        }
-      }
-      throw err;
-    }
-
-    await createNotification({
+    const entry = new CompetitionEntry({
+      competitionId: competition._id,
       userId: req.user._id,
-      type: "competition",
-      message: `You're registered for ${competition.name}. Event ID ${entry.eventId}.`,
+      registration: {
+        country: cleanCountry,
+        language: cleanLanguage,
+        genres: cleanGenres,
+        experienceLevel: cleanExperience,
+        portfolioUrl: cleanPortfolio,
+      },
+      acceptedRulesAt: now,
+      acceptedCopyrightAt: now,
+      status: "registered",
     });
-    sendEmailNotification({
-      to: req.user.email,
-      // Every value in the HTML body goes through escapeHtml. A display name or a competition name is
-      // free text, and this template concatenates strings — nothing else escapes for us, so a name
-      // containing a tag was being mailed as live markup. The plain-text body and the subject are not
-      // HTML and are deliberately left alone.
-      subject: `You're in — ${competition.name}`,
-      html: `<p>Hi ${escapeHtml(req.user.name || "there")},</p>
-        <p>You're registered for <strong>${escapeHtml(competition.name)}</strong>.</p>
-        <p>Your Event ID is <strong>${escapeHtml(entry.eventId)}</strong>.</p>
-        <p>The competition starts ${escapeHtml(new Date(competition.dates.startsAt).toUTCString())} — the theme is revealed then, and you'll have 48 hours to write.</p>`,
-      text: `You're registered for ${competition.name}. Event ID ${entry.eventId}. Starts ${new Date(competition.dates.startsAt).toUTCString()}.`,
-    }).catch(() => { /* email is best-effort; registration already succeeded */ });
 
-    return res.status(201).json({ entry, phase, timeline: buildTimeline(competition, entry, now) });
+    await entry.save();
+    
+    // We try to link the referral if they have one.
+    await ensureReferralCode(req.user._id);
+
+    return res.json({
+      entry,
+      timeline: buildTimeline(competition, entry, now),
+    });
   } catch (error) {
     console.error("[competition] register failed:", error?.message || error);
     return res.status(500).json({ message: "Failed to register for the competition." });
   }
 };
+
+export const createRegistrationOrder = async (req, res) => {
+  try {
+    const competition = await loadOpenCompetitionById(req.params.id);
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    if (!hasProjectCreatorAccess(req.user)) {
+      return res.status(403).json({ message: "Only writer accounts can enter the competition." });
+    }
+
+    const now = new Date();
+    const phase = getCompetitionPhase(competition, now);
+
+    const existing = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
+    if (existing) {
+      return res.status(400).json({ message: "Already registered for this competition." });
+    }
+
+    if (phase !== "registration_open") {
+      return res.status(409).json({ message: "Registration is not open." });
+    }
+
+    const { country, language, genres, experienceLevel, acceptRules, acceptCopyright } = req.body || {};
+    const cleanCountry = String(country || "").trim();
+    if (!isKnownCountry(cleanCountry)) return res.status(400).json({ message: "Select a country from the list." });
+    if (!String(language || "").trim()) return res.status(400).json({ message: "Preferred language is required." });
+    if (!acceptRules || !acceptCopyright) return res.status(400).json({ message: "You must accept the rules and copyright." });
+
+    const { default: Razorpay } = await import("razorpay");
+    const razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+
+    const { resolveCurrency } = await import("../utils/currencyFx.js");
+    const { createOrderWithUsdFallback } = await import("../utils/razorpayOrder.js");
+
+    const currency = resolveCurrency(req.body?.currency, req.user.preferredCurrency);
+    const inrAmount = 9800; // 98 INR in paise
+    const finalAmount = currency === "USD" ? 200 : inrAmount; // 2 USD in cents
+
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: finalAmount,
+      currency,
+      inrAmount,
+      receipt: `reg_${req.user._id.toString().substring(18)}_${Date.now()}`,
+    });
+
+    if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
+
+    return res.status(200).json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID,
+      fellBackToINR,
+    });
+  } catch (error) {
+    console.error("[competition] createRegistrationOrder failed:", error);
+    return res.status(500).json({ message: "Failed to create payment order." });
+  }
+};
+
+export const verifyRegistrationPayment = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ message: "Missing required payment details" });
+    }
+
+    const crypto = await import("crypto");
+    const generated_signature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (generated_signature !== razorpay_signature) {
+      return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
+    }
+    
+    const competition = await loadOpenCompetitionById(req.params.id);
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    const {
+      country, language, genres, experienceLevel, portfolioUrl,
+      acceptRules, acceptCopyright,
+    } = req.body || {};
+
+    const cleanCountry = String(country || "").trim();
+    const cleanLanguage = String(language || "").trim();
+    const cleanGenres = (Array.isArray(genres) ? genres : []).map((g) => String(g || "").trim()).filter(Boolean);
+    const cleanExperience = String(experienceLevel || "").trim().toLowerCase();
+    const cleanPortfolio = String(portfolioUrl || "").trim();
+
+    if (!isKnownCountry(cleanCountry)) return res.status(400).json({ message: "Select a country from the list." });
+    if (!cleanLanguage) return res.status(400).json({ message: "Preferred language is required." });
+    if (cleanGenres.length < 1 || cleanGenres.length > 3) return res.status(400).json({ message: "Select 1 to 3 genres." });
+    if (!["beginner", "intermediate", "professional"].includes(cleanExperience)) return res.status(400).json({ message: "Select a valid experience level." });
+    if (!acceptRules) return res.status(400).json({ message: "You must accept the competition rules." });
+    if (!acceptCopyright) return res.status(400).json({ message: "You must accept the copyright policy." });
+
+    const now = new Date();
+    
+    // Safety check in case it's double-submitted
+    const existing = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
+    if (existing) {
+      return res.json({
+        entry: existing,
+        timeline: buildTimeline(competition, existing, now),
+      });
+    }
+
+    const entry = new CompetitionEntry({
+      competitionId: competition._id,
+      userId: req.user._id,
+      registration: {
+        country: cleanCountry,
+        language: cleanLanguage,
+        genres: cleanGenres,
+        experienceLevel: cleanExperience,
+        portfolioUrl: cleanPortfolio,
+      },
+      acceptedRulesAt: now,
+      acceptedCopyrightAt: now,
+      status: "registered",
+    });
+
+    await entry.save();
+    await ensureReferralCode(req.user._id);
+    
+    return res.json({
+      entry,
+      timeline: buildTimeline(competition, entry, now),
+    });
+  } catch (error) {
+    console.error("[competition] verifyRegistrationPayment failed:", error);
+    return res.status(500).json({ message: "Registration payment verification failed." });
+  }
+};
+
+
+
 
 // GET /api/competitions/:id/me  (protect) — the single payload the dashboard renders from
 export const getMyEntry = async (req, res) => {

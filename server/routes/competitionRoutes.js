@@ -14,6 +14,8 @@ import {
   getCompletedCompetitions,
   getHallOfFameEntry,
   getMyCompetitionReferrals,
+  createRegistrationOrder,
+  verifyRegistrationPayment,
 } from "../controllers/competitionController.js";
 
 const router = express.Router();
@@ -28,6 +30,8 @@ router.get("/history/:userId", getCompetitionHistory);
 // Participant. `/mine` is declared before `/:id/...` so it is never captured as an id.
 router.get("/mine", protect, getMyCompetitions);
 router.post("/:id/register", protect, registerForCompetition);
+router.post("/:id/create-registration-order", protect, createRegistrationOrder);
+router.post("/:id/verify-registration-payment", protect, verifyRegistrationPayment);
 router.get("/:id/me", protect, getMyEntry);
 router.get("/:id/participants", protect, getCompetitionParticipants);
 router.get("/:id/referrals", protect, getMyCompetitionReferrals);
