@@ -449,6 +449,10 @@ export const adminReferralAnalytics = async (req, res) => {
       { $sort: { count: -1 } },
     ]);
 
+    // Fetch referral tiers once for this competition (or default)
+    const { tiersFor, tierFor } = await import("../utils/competitionReferrals.js");
+    const referralTiers = tiersFor(competition);
+
     const payload = {
       competition: competition ? { _id: competition._id, name: competition.name } : null,
       totalReferrals,
@@ -457,13 +461,19 @@ export const adminReferralAnalytics = async (req, res) => {
       // Of the people who signed up through a link, how many finished verifying.
       conversionRate: totalReferrals ? Math.round((qualified / totalReferrals) * 100) : 0,
       rewardsDistributed: rewardRows.map((r) => ({ tier: r._id.replace(/^referral_/, ""), count: r.count })),
-      topReferrers,
+      topReferrers: topReferrers.map(r => {
+        const earned = tierFor(r.qualified, referralTiers);
+        return {
+          ...r,
+          earnedTier: earned ? earned.label : null,
+        };
+      }),
     };
 
     if (String(req.query.format || "").toLowerCase() === "csv") {
       const csv = toCsv(
-        ["Referrer", "Email", "Referral code", "Referrals", "Qualified"],
-        topReferrers.map((r) => [r.name, r.email, r.referralCode, r.referrals, r.qualified]),
+        ["Referrer", "Email", "Referral code", "Referrals", "Qualified", "Reward Earned"],
+        payload.topReferrers.map((r) => [r.name, r.email, r.referralCode, r.referrals, r.qualified, r.earnedTier || "None"]),
       );
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="referrals-${Date.now()}.csv"`);
