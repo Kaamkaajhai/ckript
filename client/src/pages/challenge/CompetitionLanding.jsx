@@ -139,7 +139,7 @@ const CompetitionLanding = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
   const { openAuthModal } = useAuthModal();
-  const [showMobileBlock, setShowMobileBlock] = useState(false);
+  const [activeTab, setActiveTab] = useState("brief");
   // /challenge/c/:slug names its competition; the hook falls back to "the active one" when it is
   // absent, which is how every pre-hub entry point still works.
   const { slug } = useParams();
@@ -230,11 +230,7 @@ const CompetitionLanding = () => {
           if (user) {
             navigate(registerPath);
           } else {
-            if (window.innerWidth <= 768) {
-              setShowMobileBlock(true);
-            } else {
-              openAuthModal({ redirect: registerPath });
-            }
+            openAuthModal({ redirect: registerPath });
           }
         },
         disabled: false,
@@ -529,29 +525,7 @@ const CompetitionLanding = () => {
         </div>
       </div>
 
-      {showMobileBlock && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="ckc-card p-8 max-w-sm w-full shadow-2xl relative text-center" style={{ background: "var(--ckc-card)", border: "1px solid var(--ckc-rule)", borderRadius: 8 }}>
-            <button 
-              onClick={() => setShowMobileBlock(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-            >
-              ✕
-            </button>
-            <h3 className="ckc-title ckc-h3 mb-3">Switch to Desktop</h3>
-            <p className="ckc-lede mb-6" style={{ fontSize: 15, color: "var(--ckc-body)", lineHeight: 1.5 }}>
-              CKRIPT is a professional screenwriting platform. Please use a desktop computer to register and participate in the challenge for the optimal writing experience.
-            </p>
-            <button 
-              onClick={() => setShowMobileBlock(false)}
-              className="ckc-btn w-full py-3"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
-
+      </div>
     </div>
   );
 };

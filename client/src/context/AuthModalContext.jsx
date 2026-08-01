@@ -136,8 +136,8 @@ export const AuthModalProvider = ({ children }) => {
     // There is no render-time equivalent, and consuming the key makes this fire exactly once.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ open: true, redirect: parked });
-    navigate("/", { replace: true }); // drop the marker so a refresh doesn't re-trigger
-  }, [location.search, navigate]);
+    navigate(location.pathname, { replace: true }); // drop the marker so a refresh doesn't re-trigger
+  }, [location.search, location.pathname, navigate]);
 
   // Password recovery, as an overlay. Like pricing, the /forgot-password route
   // still works for deep links via ForgotPasswordRoute.
