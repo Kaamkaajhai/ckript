@@ -535,7 +535,7 @@ const CompetitionLanding = () => {
             </button>
             <h3 className="ckc-title ckc-h3 mb-3">Switch to Desktop</h3>
             <p className="ckc-lede mb-6" style={{ fontSize: 15, color: "var(--ckc-body)", lineHeight: 1.5 }}>
-              ScriptBridge is a professional screenwriting platform. Please use a desktop computer to register and participate in the challenge for the optimal writing experience.
+              CKRIPT is a professional screenwriting platform. Please use a desktop computer to register and participate in the challenge for the optimal writing experience.
             </p>
             <button 
               onClick={() => setShowMobileBlock(false)}
