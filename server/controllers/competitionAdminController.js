@@ -243,9 +243,8 @@ export const adminUpdateCompetition = async (req, res) => {
     return res.json({ competition, phase: getCompetitionPhase(competition) });
   } catch (error) {
     console.error("[competition admin] update failed:", error?.message || error);
-    // Fixed string, like every other handler here. Mongoose cast/validation errors carry schema
-    // paths and raw values; the detail belongs in the log above, not in the browser.
-    return res.status(500).json({ message: "Failed to update the competition." });
+    // Temporarily return the error message for debugging
+    return res.status(500).json({ message: "Failed to update the competition. " + (error?.message || error) });
   }
 };
 
