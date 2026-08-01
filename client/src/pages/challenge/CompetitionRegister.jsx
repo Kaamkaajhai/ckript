@@ -64,6 +64,25 @@ const CompetitionRegister = () => {
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [razorpayReady, setRazorpayReady] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
+
+  useEffect(() => {
+    const existingScript = document.querySelector('script[data-razorpay-sdk="true"]');
+    if (existingScript) {
+      setRazorpayReady(true);
+      return;
+    }
+    const sdkScript = document.createElement("script");
+    sdkScript.src = "https://checkout.razorpay.com/v1/checkout.js";
+    sdkScript.setAttribute("data-razorpay-sdk", "true");
+    sdkScript.async = true;
+    sdkScript.onload = () => setRazorpayReady(true);
+    sdkScript.onerror = () => {
+      setServerError("Payment SDK failed to load. Disable ad blocker for checkout.razorpay.com and try again.");
+    };
+    document.body.appendChild(sdkScript);
+  }, []);
 
   // Registration only makes sense in one phase, and only once. `created` keeps the success panel up
   // right after registering, before the redirect guard would bounce us to the dashboard.
@@ -97,23 +116,77 @@ const CompetitionRegister = () => {
     return !firstKey;
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     setServerError("");
     if (!validate()) return;
+    if (!window.Razorpay || !razorpayReady) {
+      setServerError("Payment system is not ready. Please wait or disable your ad blocker.");
+      return;
+    }
+    setShowCurrencyModal(true);
+  };
 
+  const initiatePayment = async (currency) => {
+    setShowCurrencyModal(false);
     setSubmitting(true);
+    setServerError("");
     try {
-      const { data } = await api.post(`/competitions/${competition._id}/register`, {
+      const payload = {
         ...form,
         portfolioUrl: form.portfolioUrl.trim(),
         acceptRules,
         acceptCopyright,
-      });
-      setCreated(data);
+        currency,
+      };
+
+      // 1. Create Order
+      const { data: orderData } = await api.post(`/competitions/${competition._id}/create-registration-order`, payload);
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: orderData.key,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "CKRIPT",
+        description: `Registration for ${competition.name}`,
+        order_id: orderData.orderId,
+        handler: async (response) => {
+          try {
+            setSubmitting(true);
+            // 3. Verify Payment
+            const { data: verifyData } = await api.post(`/competitions/${competition._id}/verify-registration-payment`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              ...payload,
+            });
+            setCreated(verifyData);
+          } catch (verifyErr) {
+            setServerError(verifyErr?.response?.data?.message || "Payment verification failed. Please contact support.");
+          } finally {
+            setSubmitting(false);
+          }
+        },
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+          contact: user?.phone || "",
+        },
+        theme: {
+          color: "#E25822",
+        },
+        modal: {
+          ondismiss: () => {
+            setSubmitting(false);
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
     } catch (err) {
-      setServerError(err?.response?.data?.message || "Registration failed. Please try again.");
-    } finally {
+      setServerError(err?.response?.data?.message || "Failed to initialize payment. Please try again.");
       setSubmitting(false);
     }
   };
@@ -324,10 +397,10 @@ const CompetitionRegister = () => {
           <div className="flex items-center gap-5">
             <button
               type="submit"
-              disabled={!acceptRules || !acceptCopyright || submitting}
+              disabled={!acceptRules || !acceptCopyright || submitting || !razorpayReady}
               className="ckc-btn"
             >
-              {submitting ? "Registering…" : "Complete registration"}
+              {submitting ? "Processing…" : (!razorpayReady ? "Loading checkout…" : "Pay to Register")}
             </button>
             <Link to={competition?.slug ? `/challenge/c/${competition.slug}` : "/challenge"} className="ckc-link" style={{ fontSize: 14 }}>
               Back to the competition
@@ -335,6 +408,40 @@ const CompetitionRegister = () => {
           </div>
         </form>
       </div>
+
+      {showCurrencyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="ckc-card p-8 max-w-sm w-full shadow-2xl relative" style={{ background: "var(--ckc-card)" }}>
+            <button 
+              onClick={() => setShowCurrencyModal(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              ✕
+            </button>
+            <h3 className="ckc-h3 text-center mb-2">Select Currency</h3>
+            <p className="text-center text-sm mb-6" style={{ color: "var(--ckc-muted)" }}>
+              Please choose your preferred payment currency.
+            </p>
+            <div className="flex flex-col gap-4">
+              <button 
+                onClick={() => initiatePayment("INR")}
+                className="ckc-btn py-3 text-lg flex items-center justify-center gap-2"
+                style={{ width: "100%" }}
+              >
+                Pay in INR (₹98)
+              </button>
+              <button 
+                onClick={() => initiatePayment("USD")}
+                className="ckc-btn py-3 text-lg flex items-center justify-center gap-2"
+                style={{ width: "100%", background: "var(--ckc-button-secondary)", color: "var(--ckc-button-secondary-text)", border: "1px solid var(--ckc-rule)" }}
+              >
+                Pay in USD ($2)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

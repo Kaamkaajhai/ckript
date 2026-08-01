@@ -1,4 +1,6 @@
 import User, { createReferralCode } from "../models/User.js";
+import Competition from "../models/Competition.js";
+import { sendEmailNotification } from "./notify.js";
 
 /**
  * The user's referral code, minting one if they don't have it yet.
@@ -51,9 +53,9 @@ export const ensureReferralCode = async (user) => {
 
 /** Used when a competition does not define its own tiers. */
 export const REFERRAL_TIERS = [
-  { count: 3, id: "challenge_referral_bronze", label: "Challenge Advocate", days: 0 },
-  { count: 5, id: "challenge_referral_silver", label: "Challenge Champion", days: 15 },
-  { count: 10, id: "challenge_referral_gold", label: "Challenge Ambassador", days: 30 },
+  { count: 5, id: "challenge_referral_silver", label: "30 Days Silver Subscription", days: 0 },
+  { count: 12, id: "challenge_referral_gold", label: "Gold Subscription", days: 0 },
+  { count: 20, id: "challenge_referral_diamond", label: "AI Trailer (60 sec)", days: 0 },
 ];
 
 /**
@@ -163,6 +165,44 @@ const countSignedUpReferrals = async (userId, competition) => {
   const { start, end } = referralWindow(competition);
   if (!start || !end) return 0;
   return User.countDocuments({ referredBy: userId, referredAt: { $gte: start, $lte: end } });
+};
+
+/**
+ * Checks if a referrer just hit a milestone during an active competition,
+ * and emails the admin so they can manually grant the rewards.
+ */
+export const checkAndNotifyReferralMilestones = async (userId) => {
+  try {
+    const activeCompetitions = await Competition.find({
+      "dates.regOpensAt": { $lte: new Date() },
+      "dates.endsAt": { $gte: new Date() },
+    });
+
+    if (!activeCompetitions.length) return;
+    
+    const referrer = await User.findById(userId).select("name email _id");
+    if (!referrer) return;
+
+    for (const competition of activeCompetitions) {
+      const count = await countCompetitionReferrals(userId, competition);
+      const tiers = tiersFor(competition);
+      
+      const justHitTier = tiers.find(t => t.count === count);
+      if (justHitTier) {
+        const adminEmail = process.env.ADMIN_EMAIL || "support@ckript.com";
+        const message = `Writer ${referrer.name} (${referrer.email}) has just reached ${count} verified referrals in ${competition.name} and earned the "${justHitTier.label}" reward! Please verify and manually grant this reward from the admin dashboard.`;
+        
+        await sendEmailNotification({
+          to: adminEmail,
+          subject: `Referral Milestone Reached: ${referrer.name} hit ${count} referrals!`,
+          html: `<p>${message}</p>`,
+          text: message,
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Failed to check/notify referral milestones:", error);
+  }
 };
 
 export default getReferralProgress;

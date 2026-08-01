@@ -79,8 +79,10 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
       {/* Only a real banner earns image height. The placeholder gradient was decoration that
           pushed every actual detail below the fold. */}
       {item.bannerUrl ? (
-        <img src={item.bannerUrl} alt="" style={{ height: 128, width: "100%", objectFit: "cover", borderRadius: "3px 3px 0 0" }} />
-      ) : null}
+        <img src={item.bannerUrl} alt="" style={{ height: 160, width: "100%", objectFit: "cover" }} />
+      ) : (
+        <div style={{ height: 160, width: "100%", background: "linear-gradient(135deg, rgba(209, 77, 55, 0.1), var(--ckc-rule))" }} />
+      )}
 
       <div className="ckc-card-pad">
         <div className="flex items-center justify-between gap-3">
@@ -163,6 +165,26 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
             ) : null}
           </div>
         ) : null}
+
+        <div className="mt-6 flex justify-end">
+          <span 
+            style={{ 
+              padding: "7px 14px", 
+              fontSize: 13, 
+              fontWeight: 600, 
+              color: "var(--ckc-ink)", 
+              background: "color-mix(in srgb, var(--ckc-rule) 40%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--ckc-rule) 80%, transparent)", 
+              borderRadius: 30,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.2s ease"
+            }}
+          >
+            View Details <span style={{ fontSize: 15 }}>&rarr;</span>
+          </span>
+        </div>
       </div>
     </Link>
   );
