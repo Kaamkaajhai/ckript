@@ -69,7 +69,7 @@ const Messages = lazy(() => import("./features/messages-operator"));
 // and, just as importantly, what deliberately does not.
 const Mandates = lazy(() => import("./features/producer-workspace/MandatesPage"));
 const Writers = lazy(() => import("./features/producer-workspace/WriterDirectoryPage"));
-const InvestorHome = lazy(() => import("./pages/InvestorHome"));
+const InvestorHome = lazy(() => import("./features/investor-desk"));
 const ReaderHome = lazy(() => import("./pages/ReaderHome"));
 const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
