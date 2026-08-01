@@ -64,7 +64,7 @@ const Challenge = ({ phase, competition, winner }) => {
             style={{ 
               marginTop: "40px", 
               marginBottom: "40px", 
-              maxWidth: "800px", 
+              maxWidth: "380px", 
               marginInline: "auto",
               background: "transparent",
               animation: "ckl-fadeUp 0.85s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both"

@@ -80,7 +80,9 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
           pushed every actual detail below the fold. */}
       {item.bannerUrl ? (
         <img src={item.bannerUrl} alt="" style={{ height: 160, width: "100%", objectFit: "cover" }} />
-      ) : null}
+      ) : (
+        <div style={{ height: 160, width: "100%", background: "linear-gradient(135deg, rgba(209, 77, 55, 0.1), var(--ckc-rule))" }} />
+      )}
 
       <div className="ckc-card-pad">
         <div className="flex items-center justify-between gap-3">
