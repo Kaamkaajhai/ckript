@@ -406,7 +406,7 @@ const CompetitionDashboard = () => {
           Everyone entered in this challenge. Follow the writers whose work you want to keep up with.
         </p>
         <div className="mt-5">
-          <ParticipantsGrid competitionId={competition._id} viewer={user} />
+          <ParticipantsGrid competitionId={competition._id} prizePool={competition.prizePool} />
         </div>
       </Card>
     </div>
