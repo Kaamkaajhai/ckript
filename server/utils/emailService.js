@@ -1108,10 +1108,7 @@ export const sendAdminBroadcastEmail = async (
     const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
     const finalUrl = actionUrl || dashboardUrl;
     const buttonText = actionUrl ? "Open Link" : "Open ckript";
-    const htmlContent = safeContent
-      .split(/\r?\n/)
-      .map((line) => `<p style="margin:0 0 12px;">${line || "&nbsp;"}</p>`)
-      .join("");
+    const htmlContent = safeContent.replace(/\n/g, '<br/>');
 
     const mailOptions = {
       from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
@@ -1126,7 +1123,6 @@ export const sendAdminBroadcastEmail = async (
               <h2 style="margin:0; font-size:20px;">${safeTitle}</h2>
             </div>
             <div style="padding:24px 20px; background:#ffffff;">
-              <p style="margin:0 0 16px; font-weight: bold; font-size: 16px;">Hi ${name || "there"},</p>
               <p style="margin:0 0 20px; color: #4b5563;">The ckript team has a new update for you.</p>
               <div style="margin-bottom: 24px; color: #1a1a1a;">
                 ${htmlContent || '<p style="margin:0 0 12px;">Please open your dashboard for the latest update.</p>'}
@@ -1139,7 +1135,7 @@ export const sendAdminBroadcastEmail = async (
         </body>
         </html>
       `,
-      text: `Hi ${name || "there"},\n\nThe ckript team has a new update for you.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\n${buttonText}: ${finalUrl}\n\n- ckript`,
+      text: `The ckript team has a new update for you.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\n${buttonText}: ${finalUrl}\n\n- ckript`,
     };
 
     const info = await transporter.sendMail(mailOptions);
