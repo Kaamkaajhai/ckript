@@ -525,7 +525,6 @@ const CompetitionLanding = () => {
         </div>
       </div>
 
-      </div>
     </div>
   );
 };
