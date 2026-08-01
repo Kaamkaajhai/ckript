@@ -329,6 +329,29 @@ const CompetitionDashboard = () => {
 
   const renderEvent = () => (
     <div className="ckc-stack">
+      {competition.theme && (competition.theme.title || competition.theme.brief || (competition.theme.allowedGenres || []).length > 0 || competition.theme.writingPrompt) && (
+        <Card>
+          <h2 className="ckc-title ckc-h3">Theme & Genre</h2>
+          {competition.theme.title && <h3 className="ckc-title mt-4" style={{ fontSize: 18 }}>{competition.theme.title}</h3>}
+          {competition.theme.brief && <p className="ckc-prose mt-2" style={{ whiteSpace: 'pre-wrap' }}>{competition.theme.brief}</p>}
+          {(competition.theme.allowedGenres || []).length > 0 && (
+            <div className="mt-4">
+              <h4 className="ckc-title" style={{ fontSize: 13, textTransform: 'uppercase', color: 'var(--ckc-muted)' }}>Allowed Genres</h4>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {competition.theme.allowedGenres.map(g => <span key={g} className="ckc-chip">{g}</span>)}
+              </div>
+            </div>
+          )}
+          {competition.theme.writingPrompt && (
+            <div className="mt-4">
+              <h4 className="ckc-title" style={{ fontSize: 13, textTransform: 'uppercase', color: 'var(--ckc-muted)' }}>Writing Prompt</h4>
+              <p className="ckc-prose mt-2" style={{ whiteSpace: 'pre-wrap', fontStyle: 'italic', borderLeft: '3px solid var(--ckc-rule)', paddingLeft: '12px' }}>
+                {competition.theme.writingPrompt}
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
       <Card>
         <h2 className="ckc-title ckc-h3">Rules</h2>
         <ol className="ckc-prose mt-4 list-decimal space-y-2 pl-5">
