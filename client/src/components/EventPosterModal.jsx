@@ -37,7 +37,7 @@ export default function EventPosterModal() {
     setIsOpen(false);
   };
 
-  const imageSrc = "/competition_poster.png";
+  const imageSrc = isMobile ? "/competition-poster-mobile.png" : "/competition_poster.png";
 
   return (
     <div 
