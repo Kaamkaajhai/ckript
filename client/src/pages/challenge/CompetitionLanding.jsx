@@ -301,7 +301,7 @@ const CompetitionLanding = () => {
         </header>
 
         <Section id="participants" title="Who else is writing">
-          <ParticipantsGrid competitionId={competition._id} prizePool={competition.prizePool} />
+          <ParticipantsGrid totalParticipants={competition.totalParticipants || 0} prizePool={competition.prizePool} />
         </Section>
 
         {/* Theme — only exists in the payload once the competition is live */}

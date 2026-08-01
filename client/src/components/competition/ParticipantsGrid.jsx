@@ -2,27 +2,8 @@ import { useEffect, useState } from "react";
 import { Users, Building2, Trophy } from "lucide-react";
 import api from "../../services/api";
 
-const ParticipantsGrid = ({ competitionId, prizePool }) => {
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!competitionId) return undefined;
-    let alive = true;
-    setLoading(true);
-    api.get(`/competitions/${competitionId}/participants`)
-      .then(({ data }) => {
-        if (!alive) return;
-        setTotal(data.total || 0);
-      })
-      .catch(() => {
-        // gracefully fallback to 0 on error
-      })
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [competitionId]);
-
-  if (loading) return <p className="ckc-meta mt-4">Loading stats…</p>;
+const ParticipantsGrid = ({ totalParticipants = 0, prizePool }) => {
+  const total = totalParticipants || 0;
 
   return (
     <div className="grid gap-6 sm:grid-cols-3 mt-4">
