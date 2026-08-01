@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Home, CalendarDays, Trophy, Users, BookOpen, PenLine,
-  Lock, Copy, Check, CheckCircle2, AlertCircle, ExternalLink,
+  Lock, Copy, Check, CheckCircle2, AlertCircle, ExternalLink, Laptop,
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../services/api";
@@ -13,6 +13,7 @@ import CompetitionJourney from "../../components/competition/CompetitionJourney"
 import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
 import ReferralDrive from "../../components/competition/ReferralDrive";
 import { rewardLabel } from "../../components/competition/labels";
+import useIsMobile from "../../mobile/hooks/useIsMobile";
 import "./challenge.css";
 import {
   JUDGING_CRITERIA, WRITING_RESOURCES, STUDIO_LOCKED_MESSAGE, PARTICIPANT_COMPLETION_MESSAGE,
@@ -117,6 +118,7 @@ const AIResults = ({ ai }) => {
 const CompetitionDashboard = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
+  const isMobile = useIsMobile();
   // One route serves every competition, so the one being looked at travels in `?c=` from whichever
   // page linked here. Resolving "the active competition" instead would show a writer the wrong
   // event's clock, theme and entry — and their own is the one with a deadline.
@@ -528,6 +530,27 @@ const CompetitionDashboard = () => {
     home: renderHome, event: renderEvent, prizes: renderPrizes,
     community: renderCommunity, resources: renderResources, studio: renderStudio,
   }[section]();
+
+  if (isMobile) {
+    return (
+      <div className="ckc" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <Card className="text-center w-full max-w-sm" style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", padding: "32px 24px" }}>
+          <div className="flex flex-col items-center gap-4">
+            <Laptop className="h-10 w-10" style={{ color: "var(--ckc-accent)" }} />
+            <div>
+              <h3 className="ckc-title ckc-h2" style={{ color: "var(--ckc-ink)" }}>You're registered!</h3>
+              <p style={{ marginTop: 8, fontSize: 15, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+                Please log in on a laptop or desktop computer to view full competition details, access the challenge workflow, and write your script.
+              </p>
+            </div>
+            <button className="ckc-btn w-full mt-4" onClick={() => navigate("/")}>
+              Return Home
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="ckc" style={{ minHeight: "100vh", paddingBottom: 96 }}>

@@ -393,6 +393,7 @@ function DashboardRoute() {
 function RootExperience({ children }) {
   const isMobile = useIsMobile();
   const { user, loading } = useContext(AuthContext);
+  const location = useLocation();
 
   /*
    * The mobile app is a writer experience — it has no producer surfaces — so the
@@ -401,6 +402,11 @@ function RootExperience({ children }) {
    * `creator` is ever renamed, this stops being a place it can be forgotten.
    */
   if (!loading && isMobile && user && isWriterAudience(user.role)) {
+    // Exempt /challenge routes so the competition registration and dashboard 
+    // flows are accessible on mobile devices.
+    if (location.pathname.startsWith("/challenge")) {
+      return children;
+    }
     return <MobileApp />;
   }
 

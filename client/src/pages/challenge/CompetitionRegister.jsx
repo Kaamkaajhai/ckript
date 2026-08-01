@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Copy, Check } from "lucide-react";
+import { CheckCircle2, Copy, Check, Laptop } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useDarkMode } from "../../context/DarkModeContext";
 import api from "../../services/api";
@@ -9,6 +9,7 @@ import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import TagSelect from "../../components/TagSelect";
 import { genres as GENRE_OPTIONS, CP_FILM_LANGUAGE_OPTIONS } from "../CreateProject/constants";
 import { COUNTRIES, EXPERIENCE_LEVELS } from "./constants";
+import useIsMobile from "../../mobile/hooks/useIsMobile";
 import "./challenge.css";
 
 // A form field is labelled in the slug-line voice, like every other label on these pages.
@@ -44,6 +45,7 @@ const CompetitionRegister = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
   const { isDarkMode } = useDarkMode();
+  const isMobile = useIsMobile();
   // This page has no slug of its own — it is one route for every competition — so the competition
   // it belongs to travels in `?c=`, put there by whichever page sent us here. Without it we resolve
   // "the active one", which is how you end up registering for a competition you never opened.
@@ -203,13 +205,35 @@ const CompetitionRegister = () => {
 
   if (created) {
     const eventId = created.entry?.eventId || "";
+
+    if (isMobile) {
+      return (
+        <div className="ckc" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div className="ckc-card text-center w-full max-w-sm" style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", padding: "32px 24px" }}>
+            <div className="flex flex-col items-center gap-4">
+              <CheckCircle2 className="h-10 w-10" style={{ color: "var(--ckc-accent)" }} />
+              <div>
+                <h3 className="ckc-title ckc-h2" style={{ color: "var(--ckc-ink)" }}>Registration Complete!</h3>
+                <p style={{ marginTop: 8, fontSize: 15, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+                  You're officially in. Please switch to a laptop or desktop computer to view full details, access the challenge workflow, and write your script.
+                </p>
+              </div>
+              <button className="ckc-btn w-full mt-4" onClick={() => navigate("/")}>
+                Return Home
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="ckc" style={{ minHeight: "100vh" }}>
         <div className="mx-auto max-w-3xl px-4 py-12">
           <div className="ckc-card ckc-card-pad text-center" style={{ padding: "40px 32px" }}>
             {/* The one coral mark on this panel: you are now in a competition that is running. */}
             <CheckCircle2 className="mx-auto h-12 w-12" style={{ color: "var(--ckc-accent)" }} aria-hidden="true" />
-            <h1 className="ckc-title ckc-h2" style={{ marginTop: 18 }}>You're registered</h1>
+            <h1 className="ckc-title ckc-h2" style={{ marginTop: 18 }}>You're registered! 🚀</h1>
             <p className="ckc-lede" style={{ margin: "10px auto 0" }}>
               You're in for <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{competition.name}</strong>. Keep your Event ID — it identifies your entry.
             </p>

@@ -89,8 +89,10 @@ const useCompetition = ({ poll = true, enabled = true, slug = "", id = "" } = {}
             referrals = mine.data?.referrals || null;
             referralCode = mine.data?.referralCode || "";
           } catch (err) {
-            // 404 simply means "not registered" — the common case, not an error worth surfacing.
-            if (err?.response?.status !== 404) throw err;
+            // 404 simply means "not registered". 
+            // 403 means "access denied" (e.g. investor/producer instead of writer).
+            // In both cases, we don't have an entry, but we shouldn't throw and destroy the public competition data.
+            if (err?.response?.status !== 404 && err?.response?.status !== 403) throw err;
           }
         }
       }
