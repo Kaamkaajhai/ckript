@@ -531,6 +531,27 @@ const CompetitionDashboard = () => {
     community: renderCommunity, resources: renderResources, studio: renderStudio,
   }[section]();
 
+  if (isMobile) {
+    return (
+      <div className="ckc" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <Card className="text-center w-full max-w-sm" style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", padding: "32px 24px" }}>
+          <div className="flex flex-col items-center gap-4">
+            <Laptop className="h-10 w-10" style={{ color: "var(--ckc-accent)" }} />
+            <div>
+              <h3 className="ckc-title ckc-h2" style={{ color: "var(--ckc-ink)" }}>You're registered!</h3>
+              <p style={{ marginTop: 8, fontSize: 15, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+                Please log in on a laptop or desktop computer to view full competition details, access the challenge workflow, and write your script.
+              </p>
+            </div>
+            <button className="ckc-btn w-full mt-4" onClick={() => navigate("/")}>
+              Return Home
+            </button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="ckc" style={{ minHeight: "100vh", paddingBottom: 96 }}>
       <div style={{ margin: "0 auto", maxWidth: 1120, padding: "48px 24px 0" }}>
@@ -563,20 +584,6 @@ const CompetitionDashboard = () => {
             </button>
           </div>
         </header>
-
-        {isMobile && (
-          <Card className="mt-8 text-center" style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", padding: "24px" }}>
-            <div className="flex flex-col items-center gap-3">
-              <Laptop className="h-8 w-8" style={{ color: "var(--ckc-accent)" }} />
-              <div>
-                <h3 className="ckc-title ckc-h3" style={{ color: "var(--ckc-ink)" }}>You're registered!</h3>
-                <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
-                  Please log in on a laptop or desktop computer to view full competition details, access the challenge workflow, and write your script.
-                </p>
-              </div>
-            </div>
-          </Card>
-        )}
 
         {/* The clock leads. A 48-hour challenge IS its clock, and it has to answer from whichever
             section you are standing in — so it sits above the nav rather than three cards into Home. */}
