@@ -205,6 +205,28 @@ const CompetitionRegister = () => {
 
   if (created) {
     const eventId = created.entry?.eventId || "";
+
+    if (isMobile) {
+      return (
+        <div className="ckc" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <div className="ckc-card text-center w-full max-w-sm" style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", padding: "32px 24px" }}>
+            <div className="flex flex-col items-center gap-4">
+              <CheckCircle2 className="h-10 w-10" style={{ color: "var(--ckc-accent)" }} />
+              <div>
+                <h3 className="ckc-title ckc-h2" style={{ color: "var(--ckc-ink)" }}>Registration Complete!</h3>
+                <p style={{ marginTop: 8, fontSize: 15, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+                  You're officially in. Please switch to a laptop or desktop computer to view full details, access the challenge workflow, and write your script.
+                </p>
+              </div>
+              <button className="ckc-btn w-full mt-4" onClick={() => navigate("/")}>
+                Return Home
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="ckc" style={{ minHeight: "100vh" }}>
         <div className="mx-auto max-w-3xl px-4 py-12">
@@ -215,17 +237,6 @@ const CompetitionRegister = () => {
             <p className="ckc-lede" style={{ margin: "10px auto 0" }}>
               You're in for <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{competition.name}</strong>. Keep your Event ID — it identifies your entry.
             </p>
-            {isMobile && (
-              <div 
-                className="mx-auto mt-6 p-4 rounded-lg flex flex-col items-center gap-2"
-                style={{ background: "var(--ckc-button-secondary)", border: "1px solid var(--ckc-rule)", color: "var(--ckc-ink)" }}
-              >
-                <Laptop className="h-6 w-6 text-[var(--ckc-accent)]" />
-                <p className="text-sm font-medium">
-                  Jump on your laptop to see your profile, view full competition details, and write your script.
-                </p>
-              </div>
-            )}
 
             {/* The Event ID is an identifier, so it is set as one — mono, tracked, in a quiet inset. */}
             <div
