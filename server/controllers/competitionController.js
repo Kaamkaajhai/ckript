@@ -49,7 +49,7 @@ const UNDISCOVERABLE = ["hidden", "private"];
  */
 const publicCompetition = (competition, phase) => {
   const obj = typeof competition.toObject === "function" ? competition.toObject() : { ...competition };
-  if (!PHASES_WITH_THEME.has(phase)) delete obj.theme;
+  // Theme is now globally visible as requested, regardless of the phase
   return obj;
 };
 
