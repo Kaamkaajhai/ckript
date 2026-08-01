@@ -6,6 +6,7 @@ import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import { useScriptBookmark } from "../hooks/useScriptBookmark";
 import SocialShareButton from "./SocialShareButton";
 import { formatScriptCredit } from "../utils/writerCredits";
 import {
@@ -49,8 +50,8 @@ const STATUS = {
 const ProjectCard = ({ project, userName, onBlock }) => {
   const navigate = useNavigate();
   const { isDarkMode: dark } = useDarkMode();
-  const { user, setUser } = useContext(AuthContext);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const { user } = useContext(AuthContext);
+  const { isBookmarked, canBookmark, toggleBookmark: handleToggleBookmark } = useScriptBookmark(project);
   const [coverError, setCoverError] = useState(false);
 
   const isClickable  = project?.status === "published" || project?.status === "approved";
@@ -70,7 +71,6 @@ const ProjectCard = ({ project, userName, onBlock }) => {
   const coverImage   = project?.coverImage || null;
   const resolvedCoverImage = coverError ? "" : resolveMediaUrl(coverImage);
   const initials     = (project?.title || "SC").replace(/[^a-zA-Z0-9 ]/g, "").trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "SC";
-  const canBookmark  = Boolean(user?._id && project?._id && project?.creator?._id !== user?._id);
   const spotlightSpend = Number(
     project?.billing?.spotlightCreditsSpent
       || project?.billing?.spotlightCreditsChargedAtUpload
@@ -102,49 +102,8 @@ const ProjectCard = ({ project, userName, onBlock }) => {
   };
 
   useEffect(() => {
-    const ids = user?.favoriteScripts || [];
-    const scriptId = project?._id;
-    if (!scriptId || !Array.isArray(ids)) {
-      setIsBookmarked(false);
-      return;
-    }
-    const hasBookmark = ids.some((item) => (typeof item === "string" ? item : item?._id) === scriptId);
-    setIsBookmarked(hasBookmark);
-  }, [user?.favoriteScripts, project?._id]);
-
-  useEffect(() => {
     setCoverError(false);
   }, [project?._id, coverImage]);
-
-  const handleToggleBookmark = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!canBookmark) return;
-    try {
-      const { data } = await api.post(`/scripts/${project._id}/favorite`);
-      const nextFavorited = Boolean(data?.favorited);
-      setIsBookmarked(nextFavorited);
-
-      setUser((prev) => {
-        if (!prev) return prev;
-        const currentIds = Array.isArray(prev.favoriteScripts)
-          ? prev.favoriteScripts.map((item) => (typeof item === "string" ? item : item?._id)).filter(Boolean)
-          : [];
-        const updatedIds = nextFavorited
-          ? Array.from(new Set([...currentIds, project._id]))
-          : currentIds.filter((item) => item !== project._id);
-        const updatedUser = { ...prev, favoriteScripts: updatedIds };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        return updatedUser;
-      });
-
-      window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
-        detail: { scriptId: project._id, bookmarked: nextFavorited },
-      }));
-    } catch {
-      // keep card interaction silent on toggle failure
-    }
-  };
 
   const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 

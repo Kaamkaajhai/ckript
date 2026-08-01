@@ -16,8 +16,9 @@
  * Deliberately NOT moved, because they are shared and moving them would have
  * been a lie about ownership:
  *
- *   pages/InvestorHome.jsx    /home — pages/ReaderHome.jsx re-exports it
+ *   features/investor-desk    /home — pages/ReaderHome.jsx re-exports it
  *                             verbatim, so readers and industry share one page.
+ *                             It owns its own folder for the same reason.
  *   pages/FeaturedProjects.jsx  /featured — reader and industry both route here.
  *   pages/TopList.jsx, pages/Search.jsx  — every audience uses them.
  *
