@@ -79,7 +79,7 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
       {/* Only a real banner earns image height. The placeholder gradient was decoration that
           pushed every actual detail below the fold. */}
       {item.bannerUrl ? (
-        <img src={item.bannerUrl} alt="" style={{ height: 128, width: "100%", objectFit: "cover", borderRadius: "3px 3px 0 0" }} />
+        <img src={item.bannerUrl} alt="" style={{ height: 160, width: "100%", objectFit: "cover" }} />
       ) : null}
 
       <div className="ckc-card-pad">

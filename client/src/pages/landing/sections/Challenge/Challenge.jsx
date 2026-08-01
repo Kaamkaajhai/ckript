@@ -59,7 +59,7 @@ const Challenge = ({ phase, competition, winner }) => {
         
         {/* Live challenge card added as requested */}
         {competition ? (
-          <div style={{ marginTop: "40px", marginBottom: "40px", maxWidth: "800px", marginInline: "auto" }} data-ra="ckl-fadeUp" data-rd="0.15">
+          <div className="ckc" style={{ marginTop: "40px", marginBottom: "40px", maxWidth: "800px", marginInline: "auto" }} data-ra="ckl-fadeUp" data-rd="0.15">
             <CompetitionCard 
               item={competition} 
               variant={phase === "announced" ? "upcoming" : "live"} 
