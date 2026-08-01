@@ -65,6 +65,7 @@ const CompetitionRegister = () => {
   const [created, setCreated] = useState(null);
   const [copied, setCopied] = useState(false);
   const [razorpayReady, setRazorpayReady] = useState(false);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
 
   useEffect(() => {
     const existingScript = document.querySelector('script[data-razorpay-sdk="true"]');
@@ -115,7 +116,7 @@ const CompetitionRegister = () => {
     return !firstKey;
   };
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
     setServerError("");
     if (!validate()) return;
@@ -123,14 +124,20 @@ const CompetitionRegister = () => {
       setServerError("Payment system is not ready. Please wait or disable your ad blocker.");
       return;
     }
+    setShowCurrencyModal(true);
+  };
 
+  const initiatePayment = async (currency) => {
+    setShowCurrencyModal(false);
     setSubmitting(true);
+    setServerError("");
     try {
       const payload = {
         ...form,
         portfolioUrl: form.portfolioUrl.trim(),
         acceptRules,
         acceptCopyright,
+        currency,
       };
 
       // 1. Create Order
@@ -393,7 +400,7 @@ const CompetitionRegister = () => {
               disabled={!acceptRules || !acceptCopyright || submitting || !razorpayReady}
               className="ckc-btn"
             >
-              {submitting ? "Processing…" : (!razorpayReady ? "Loading checkout…" : "Pay ₹98 / $2 to Register")}
+              {submitting ? "Processing…" : (!razorpayReady ? "Loading checkout…" : "Pay to Register")}
             </button>
             <Link to={competition?.slug ? `/challenge/c/${competition.slug}` : "/challenge"} className="ckc-link" style={{ fontSize: 14 }}>
               Back to the competition
@@ -401,6 +408,40 @@ const CompetitionRegister = () => {
           </div>
         </form>
       </div>
+
+      {showCurrencyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="ckc-card p-8 max-w-sm w-full shadow-2xl relative" style={{ background: "var(--ckc-card)" }}>
+            <button 
+              onClick={() => setShowCurrencyModal(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            >
+              ✕
+            </button>
+            <h3 className="ckc-h3 text-center mb-2">Select Currency</h3>
+            <p className="text-center text-sm mb-6" style={{ color: "var(--ckc-muted)" }}>
+              Please choose your preferred payment currency.
+            </p>
+            <div className="flex flex-col gap-4">
+              <button 
+                onClick={() => initiatePayment("INR")}
+                className="ckc-btn py-3 text-lg flex items-center justify-center gap-2"
+                style={{ width: "100%" }}
+              >
+                Pay in INR (₹98)
+              </button>
+              <button 
+                onClick={() => initiatePayment("USD")}
+                className="ckc-btn py-3 text-lg flex items-center justify-center gap-2"
+                style={{ width: "100%", background: "var(--ckc-button-secondary)", color: "var(--ckc-button-secondary-text)", border: "1px solid var(--ckc-rule)" }}
+              >
+                Pay in USD ($2)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
