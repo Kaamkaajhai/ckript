@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useIsMobile from '../mobile/hooks/useIsMobile';
 
 export default function EventPosterModal() {
@@ -8,13 +8,24 @@ export default function EventPosterModal() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Hardcoded live event path as requested
-    setLiveEventId('the-final-draft');
-    setIsOpen(true);
-  }, []);
+  const location = useLocation();
 
-  if (!isOpen || !liveEventId) return null;
+  useEffect(() => {
+    // Only show on the very first mount if we are on the homepage
+    if (location.pathname === '/') {
+      setLiveEventId('the-final-draft');
+      setIsOpen(true);
+    }
+  }, []); // Intentionally only run on mount
+
+  useEffect(() => {
+    // If they navigate away while it's open, close it
+    if (location.pathname !== '/') {
+      setIsOpen(false);
+    }
+  }, [location.pathname]);
+
+  if (!isOpen || !liveEventId || location.pathname !== '/') return null;
 
   const handleImageClick = () => {
     setIsOpen(false);
