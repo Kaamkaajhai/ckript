@@ -148,7 +148,7 @@ const CompetitionRegister = () => {
         key: orderData.key,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: "ScriptBridge",
+        name: "CKRIPT",
         description: `Registration for ${competition.name}`,
         order_id: orderData.orderId,
         handler: async (response) => {
