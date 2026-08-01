@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Home, CalendarDays, Trophy, Users, BookOpen, PenLine,
-  Lock, Copy, Check, CheckCircle2, AlertCircle, ExternalLink,
+  Lock, Copy, Check, CheckCircle2, AlertCircle, ExternalLink, Laptop,
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import api from "../../services/api";
@@ -13,6 +13,7 @@ import CompetitionJourney from "../../components/competition/CompetitionJourney"
 import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
 import ReferralDrive from "../../components/competition/ReferralDrive";
 import { rewardLabel } from "../../components/competition/labels";
+import useIsMobile from "../../mobile/hooks/useIsMobile";
 import "./challenge.css";
 import {
   JUDGING_CRITERIA, WRITING_RESOURCES, STUDIO_LOCKED_MESSAGE, PARTICIPANT_COMPLETION_MESSAGE,
@@ -117,6 +118,7 @@ const AIResults = ({ ai }) => {
 const CompetitionDashboard = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
+  const isMobile = useIsMobile();
   // One route serves every competition, so the one being looked at travels in `?c=` from whichever
   // page linked here. Resolving "the active competition" instead would show a writer the wrong
   // event's clock, theme and entry — and their own is the one with a deadline.
@@ -561,6 +563,20 @@ const CompetitionDashboard = () => {
             </button>
           </div>
         </header>
+
+        {isMobile && (
+          <Card className="mt-8 text-center" style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", padding: "24px" }}>
+            <div className="flex flex-col items-center gap-3">
+              <Laptop className="h-8 w-8" style={{ color: "var(--ckc-accent)" }} />
+              <div>
+                <h3 className="ckc-title ckc-h3" style={{ color: "var(--ckc-ink)" }}>You're registered!</h3>
+                <p style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
+                  Please log in on a laptop or desktop computer to view full competition details, access the challenge workflow, and write your script.
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* The clock leads. A 48-hour challenge IS its clock, and it has to answer from whichever
             section you are standing in — so it sits above the nav rather than three cards into Home. */}
