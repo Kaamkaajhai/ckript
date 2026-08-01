@@ -165,6 +165,26 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
             ) : null}
           </div>
         ) : null}
+
+        <div className="mt-6 flex justify-end">
+          <span 
+            style={{ 
+              padding: "7px 14px", 
+              fontSize: 13, 
+              fontWeight: 600, 
+              color: "var(--ckc-ink)", 
+              background: "color-mix(in srgb, var(--ckc-rule) 40%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--ckc-rule) 80%, transparent)", 
+              borderRadius: 30,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.2s ease"
+            }}
+          >
+            View Details <span style={{ fontSize: 15 }}>&rarr;</span>
+          </span>
+        </div>
       </div>
     </Link>
   );
