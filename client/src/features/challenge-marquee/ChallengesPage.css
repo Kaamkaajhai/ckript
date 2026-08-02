@@ -1,0 +1,520 @@
+/*
+ * ChallengesPage.css — the marquee at /challenges.
+ *
+ * Self-contained on purpose: every colour, size, rule and radius below is the
+ * literal value measured off the supplied design. Nothing here reads a shared
+ * custom property — landing.css happens to define `--ck-ink` and friends on the
+ * `.ckl` ancestor with exactly these values, but this page does not depend on
+ * that, so retuning the landing's tokens cannot silently restyle the marquee.
+ *
+ * Nothing is written above `.cmq`, so the navbar and footer wrapped around this
+ * page keep their own styling untouched.
+ *
+ * Baskervville (display) and PT Serif (body) are already loaded by index.html
+ * for the landing; they are named directly rather than through a token.
+ *
+ * PALETTE
+ *   #0B0A06  ink                      #D14D37  red, the one accent
+ *   #33312e  lead copy                #57544f  body copy
+ *   #9a978f  muted                    #6f6c66  italic heading / figure unit
+ *   #e7e5df  hairline                 #FBFAF7  paper-alt bands
+ *   #fcfcfa  card                     #0b0a06  laureate ground
+ */
+
+.cmq main { background: #ffffff; }
+
+.cmq .cmq-msi {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "opsz" 24, "wght" 400, "GRAD" 0, "FILL" 0;
+}
+
+/* Carries the deadline for a screen reader once, since the clock must not announce. */
+.cmq .cmq-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes cmqDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(1.35); } }
+@keyframes cmqFadeUp { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes cmqGrowLine { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
+
+.cmq .cmq-rise { opacity: 0; animation: cmqFadeUp .9s cubic-bezier(.2, .7, .2, 1) forwards; }
+
+/* ── Live notice bar ───────────────────────────────────────────────────────── */
+
+.cmq .cmq-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  padding: 14px clamp(20px, 5vw, 40px);
+  background: #D14D37;
+}
+
+.cmq .cmq-notice__phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.cmq .cmq-notice__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  animation: cmqDot 2s ease-in-out infinite;
+}
+
+.cmq .cmq-notice__name {
+  font-family: Baskervville, Georgia, serif;
+  font-size: 18px;
+  color: #fff;
+}
+
+.cmq .cmq-notice__sep { width: 1px; height: 16px; background: rgba(255, 255, 255, .45); }
+
+.cmq .cmq-notice__clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: ui-monospace, "Courier New", monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: #fff;
+}
+
+/* The shared CountdownTimer renders .ckc-clock-inline; the bar owns its colour. */
+.cmq .cmq-notice__clock .ckc-clock-inline {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  color: #fff;
+}
+
+.cmq .cmq-notice__link {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, .6);
+  padding-bottom: 2px;
+  transition: border-color .22s ease;
+}
+.cmq .cmq-notice__link:hover { color: #fff; border-bottom-color: #fff; }
+
+/* ── Hero ──────────────────────────────────────────────────────────────────── */
+
+.cmq .cmq-hero {
+  padding: clamp(56px, 8vw, 104px) clamp(20px, 5vw, 80px) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cmq .cmq-kicker {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #9a978f;
+}
+
+.cmq .cmq-figure {
+  margin-top: 26px;
+  font-family: Baskervville, Georgia, serif;
+  font-size: clamp(7rem, 16vw, 15rem);
+  line-height: .78;
+  letter-spacing: -.05em;
+  color: #0B0A06;
+  font-variant-numeric: lining-nums;
+}
+
+.cmq .cmq-figure-u {
+  margin-top: 18px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: clamp(13px, 1.2vw, 15px);
+  letter-spacing: .42em;
+  text-transform: uppercase;
+  color: #6f6c66;
+}
+
+.cmq .cmq-rule {
+  display: block;
+  width: 1px;
+  height: 56px;
+  background: #bdbbb5;
+  margin: clamp(26px, 3.5vw, 38px) 0;
+  transform-origin: top;
+  opacity: 0;
+  animation: cmqGrowLine .7s .5s ease forwards;
+}
+
+.cmq .cmq-h1 {
+  margin: 0;
+  font-family: Baskervville, Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(2.6rem, 5.6vw, 4.4rem);
+  line-height: 1.04;
+  color: #0B0A06;
+  text-wrap: pretty;
+}
+.cmq .cmq-h1 em { font-style: italic; color: #6f6c66; }
+
+.cmq .cmq-h1__dot {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background: #D14D37;
+  margin-left: 16px;
+  vertical-align: 2px;
+}
+
+.cmq .cmq-lead {
+  margin: 30px 0 0;
+  max-width: 620px;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: clamp(17px, 1.5vw, 20px);
+  line-height: 1.6;
+  color: #33312e;
+}
+
+.cmq .cmq-hero__actions {
+  margin-top: clamp(34px, 4vw, 46px);
+  display: flex;
+  align-items: center;
+  gap: clamp(24px, 4vw, 46px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+
+.cmq .cmq-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 244px;
+  height: 70px;
+  padding: 0 34px;
+  background: #161513;
+  color: #fff;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: .2px;
+  text-decoration: none;
+  transition: background .25s ease, transform .25s cubic-bezier(.2, .7, .2, 1);
+}
+.cmq .cmq-btn:hover { background: #2c2a26; color: #fff; transform: translateY(-3px); }
+
+.cmq .cmq-btn-text {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  color: #0B0A06;
+  text-decoration: none;
+  border-bottom: 2px solid #0B0A06;
+  padding-bottom: 7px;
+  transition: border-color .22s ease, color .22s ease;
+}
+.cmq .cmq-btn-text:hover { border-bottom-color: #D14D37; color: #D14D37; }
+
+/* ── Three cards ───────────────────────────────────────────────────────────── */
+
+.cmq .cmq-cards {
+  margin-top: clamp(64px, 9vw, 110px);
+  background: #FBFAF7;
+  border-top: 1px solid #e7e5df;
+  border-bottom: 1px solid #e7e5df;
+  padding: clamp(52px, 6vw, 84px) clamp(20px, 5vw, 80px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.cmq .cmq-card {
+  padding: 0 clamp(18px, 3vw, 40px);
+  text-align: center;
+  border-right: 1px solid #e7e5df;
+}
+.cmq .cmq-card:last-child { border-right: none; }
+
+.cmq .cmq-card__i { font-size: 34px; color: #D14D37; }
+
+.cmq .cmq-card__t {
+  margin: 22px 0 0;
+  font-family: Baskervville, Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
+  line-height: 1.14;
+  color: #0B0A06;
+}
+
+.cmq .cmq-card__b {
+  margin: 14px 0 0;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 17px;
+  line-height: 28px;
+  color: #57544f;
+}
+
+/* ── Laureate ──────────────────────────────────────────────────────────────── */
+
+.cmq .cmq-laureate {
+  background: #0b0a06;
+  padding: clamp(64px, 8vw, 104px) clamp(20px, 5vw, 80px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cmq .cmq-lau__meta {
+  margin: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .62);
+}
+
+.cmq .cmq-lau__award {
+  margin: 20px 0 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .82);
+}
+
+.cmq .cmq-lau__name {
+  margin: 16px 0 0;
+  font-family: Baskervville, Georgia, serif;
+  font-size: clamp(2.8rem, 7vw, 6rem);
+  line-height: 1;
+  letter-spacing: -.025em;
+  color: #fff;
+}
+
+.cmq .cmq-lau__script {
+  margin: 16px 0 0;
+  font-family: Baskervville, Georgia, serif;
+  font-style: italic;
+  font-size: clamp(1.25rem, 2.2vw, 1.8rem);
+  line-height: 1.3;
+  color: rgba(255, 255, 255, .74);
+}
+
+.cmq .cmq-lau__facts {
+  margin-top: clamp(36px, 5vw, 52px);
+  display: flex;
+  align-items: stretch;
+  gap: clamp(28px, 5vw, 56px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Each group pairs its own leading divider, so the rule count follows the fact
+   count instead of being hand-placed. */
+.cmq .cmq-lau__fact-group {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(28px, 5vw, 56px);
+}
+
+.cmq .cmq-lau__div { width: 1px; background: rgba(255, 255, 255, .18); }
+
+.cmq .cmq-lau__fact-l {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .55);
+}
+
+.cmq .cmq-lau__fact-v {
+  margin-top: 8px;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 16px;
+  line-height: 24px;
+  color: rgba(255, 255, 255, .88);
+}
+
+.cmq .cmq-lau__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: clamp(32px, 4vw, 44px);
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 2px solid rgba(255, 255, 255, .4);
+  padding-bottom: 6px;
+  transition: border-color .22s ease;
+}
+.cmq .cmq-lau__link:hover { color: #fff; border-bottom-color: #fff; }
+.cmq .cmq-lau__link .cmq-msi { font-size: 17px; }
+
+/* ── Anyone can enter ──────────────────────────────────────────────────────── */
+
+.cmq .cmq-anyone {
+  padding: clamp(64px, 8vw, 104px) clamp(20px, 5vw, 80px) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cmq .cmq-anyone__h {
+  margin: 0;
+  font-family: Baskervville, Georgia, serif;
+  font-size: clamp(2rem, 4.4vw, 3.4rem);
+  line-height: 1.1;
+  letter-spacing: -.015em;
+  color: #0B0A06;
+}
+
+.cmq .cmq-chips {
+  margin-top: clamp(26px, 3.5vw, 34px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  max-width: 760px;
+}
+
+.cmq .cmq-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 24px;
+  border: 1px solid #e7e5df;
+  border-radius: 999px;
+  background: #fcfcfa;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  color: #0B0A06;
+  white-space: nowrap;
+}
+
+.cmq .cmq-flow {
+  margin: clamp(44px, 6vw, 62px) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 900px;
+}
+
+.cmq .cmq-flow__i { display: flex; align-items: center; gap: 20px; flex: 1; }
+.cmq .cmq-flow__i:last-child { flex: none; }
+
+.cmq .cmq-flow__t {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 500;
+  font-size: clamp(16px, 1.4vw, 19px);
+  color: #0B0A06;
+  white-space: nowrap;
+}
+
+.cmq .cmq-flow__sq { width: 7px; height: 7px; background: #0B0A06; }
+.cmq .cmq-flow__sq--end { background: #D14D37; }
+.cmq .cmq-flow__r { flex: 1; height: 1px; min-width: 26px; background: #e7e5df; }
+
+/* ── Closing ask ───────────────────────────────────────────────────────────── */
+
+.cmq .cmq-cta {
+  margin-top: clamp(64px, 8vw, 104px);
+  padding: clamp(64px, 8vw, 96px) clamp(20px, 5vw, 80px);
+  background: #FBFAF7;
+  border-top: 1px solid #e7e5df;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.cmq .cmq-cta__h {
+  margin: 0;
+  font-family: Baskervville, Georgia, serif;
+  font-weight: 400;
+  font-size: clamp(2rem, 4.6vw, 3.6rem);
+  line-height: 1.06;
+  letter-spacing: -.015em;
+  color: #0B0A06;
+}
+
+.cmq .cmq-cta__l {
+  margin: 14px 0 0;
+  font-family: "PT Serif", Georgia, serif;
+  font-size: 20px;
+  line-height: 30px;
+  color: #57544f;
+}
+
+.cmq .cmq-cta .cmq-btn { margin-top: clamp(28px, 3.5vw, 38px); min-width: 280px; }
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+  .cmq .cmq-cards { grid-template-columns: 1fr; gap: 44px; }
+  .cmq .cmq-card { border-right: none; padding: 0; }
+  .cmq .cmq-flow { flex-direction: column; align-items: flex-start; gap: 14px; max-width: 320px; }
+  .cmq .cmq-flow__i,
+  .cmq .cmq-flow__i:last-child { flex: none; }
+  .cmq .cmq-flow__r { display: none; }
+  .cmq .cmq-lau__div { display: none; }
+  .cmq .cmq-lau__fact-group { gap: 0; }
+  .cmq .cmq-btn { width: 100%; max-width: 340px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmq .cmq-rise,
+  .cmq .cmq-rule,
+  .cmq .cmq-notice__dot {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .cmq .cmq-btn,
+  .cmq a { transition: none; }
+}
