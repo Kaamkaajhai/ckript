@@ -652,7 +652,7 @@ function PublishPanel({ vm }) {
           <p className="text-xs mb-3 text-gray-600">What type of rights are you offering?</p>
           <TagSelect
             ariaLabel="Rights Type"
-            options={options.rights}
+            options={[{ value: "full_rights_sale", label: "Full Rights Sale (Ownership Transfer)" }, { value: "exclusive_license", label: "Exclusive License" }, { value: "custom_negotiation_required", label: "Custom Negotiation Required" }]}
             value={state.rightsLicensing.rightsType || "custom_negotiation_required"}
             onChange={(v) => setRights({ rightsType: v })}
             size="sm"
@@ -672,7 +672,7 @@ function PublishPanel({ vm }) {
           <p className="text-xs mb-3 text-gray-600">How much creative control are you willing to give up?</p>
           <TagSelect
             ariaLabel="Modification Rights"
-            options={options.modification}
+            options={[{ value: "buyer_can_modify_freely", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_retains_creative_approval_rights", label: "Writer approval required" }]}
             value={state.rightsLicensing.modificationRights || ""}
             onChange={(v) => setRights({ modificationRights: v })}
             size="sm"
@@ -684,7 +684,7 @@ function PublishPanel({ vm }) {
           <p className="text-xs mb-3 text-gray-600">How do you expect to be paid for these rights?</p>
           <TagSelect
             ariaLabel="Payment Structure"
-            options={options.payments}
+            options={[{ value: "one_time_upfront_payment", label: "One-time upfront payment" }, { value: "lower_upfront_plus_royalty_percent", label: "Lower upfront + royalty %" }, { value: "revenue_sharing_model", label: "Revenue sharing model" }, { value: "custom_deal", label: "Custom deal" }]}
             value={state.rightsLicensing.paymentStructure || ""}
             onChange={(v) => setRights({ paymentStructure: v })}
             size="sm"
@@ -721,7 +721,7 @@ function PublishPanel({ vm }) {
           <p className="text-xs mb-3 text-gray-600">Are you open to counter-offers?</p>
           <TagSelect
             ariaLabel="Negotiation Mode"
-            options={options.negotiations}
+            options={[{ value: "fixed_terms_non_negotiable", label: "Fixed terms" }, { value: "open_to_discussion_after_purchase", label: "Open to negotiation" }]}
             value={state.rightsLicensing.negotiationMode || ""}
             onChange={(v) => setRights({ negotiationMode: v })}
             size="sm"
