@@ -1,0 +1,1234 @@
+/*
+ * InvestorDeskPage.css — the broadsheet desk at /home.
+ *
+ * Self-contained on purpose: every colour, size, rule and radius below is the
+ * literal value measured off the supplied design. Nothing here reads a shared
+ * custom property, and nothing here is written above `.investor-desk-page`, so
+ * the rail, header, drawer and every other route keep their own styling.
+ *
+ * Spectral and IBM Plex Sans are the two faces index.html already loads for the
+ * broadsheet type system; they are named directly rather than through a token.
+ *
+ * Specificity note: the app shell sets `.ck-dash-root * { font-family: … }`
+ * (0,1,0) on every descendant. The `[class*="idp-"]` rule below is (0,2,0), so
+ * the desk's own typography wins without !important.
+ */
+
+.investor-desk-page {
+  color: #1c1a17;
+  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+
+  /*
+   * The desk folds on the width it actually gets, not the window's. The two
+   * shells hand it very different columns — the app shell subtracts a rail
+   * whose width is itself a variable, MainLayout subtracts a 270px sidebar —
+   * so a viewport media query would fold at the wrong moment in one of them.
+   */
+  container-type: inline-size;
+  container-name: investor-desk;
+}
+
+.investor-desk-page [class*="idp-"] {
+  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+}
+
+/*
+ * The design puts the desk on a #f7f7f8 field with white shelf rails sitting on
+ * it. The app shell's page column supplies 24px 28px 80px of padding and a
+ * white background, so the desk cancels that padding and lays down its own
+ * field plus the design's 22px 26px 60px. Only applied when the app shell is
+ * the host — MainLayout pads differently, so that variant simply keeps the
+ * shell's own column (see InvestorDeskPage.jsx).
+ */
+.investor-desk-page--bleed {
+  margin: -24px -28px -80px;
+  padding: 22px 26px 60px;
+  background: #f7f7f8;
+  min-height: calc(100vh - 74px);
+}
+
+.investor-desk-page__inner {
+  max-width: 1240px;
+}
+
+/* ── Shared primitives ─────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-icon {
+  font-family: "Material Symbols Outlined";
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  flex: none;
+}
+
+.investor-desk-page .idp-icon--filled {
+  font-variation-settings: "FILL" 1;
+}
+
+.investor-desk-page .idp-serif,
+.investor-desk-page .idp-masthead__title,
+.investor-desk-page .idp-brief__value,
+.investor-desk-page .idp-stat__value,
+.investor-desk-page .idp-shelf__title,
+.investor-desk-page .idp-lead__heading,
+.investor-desk-page .idp-lead__title,
+.investor-desk-page .idp-lead__byline,
+.investor-desk-page .idp-lead__logline,
+.investor-desk-page .idp-lead__score,
+.investor-desk-page .idp-lead__figure,
+.investor-desk-page .idp-card__credit,
+.investor-desk-page .idp-card__score,
+.investor-desk-page .idp-elsewhere__title,
+.investor-desk-page .idp-elsewhere__count,
+.investor-desk-page .idp-empty__title,
+.investor-desk-page .idp-empty__lede,
+.investor-desk-page .idp-caption {
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+}
+
+/* Uppercase micro-label — the design's recurring 10px/1.6px eyebrow. */
+.investor-desk-page .idp-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+
+.investor-desk-page .idp-caption {
+  font-style: italic;
+  font-size: 13.5px;
+  color: #8d877e;
+}
+
+.investor-desk-page .idp-btn {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.investor-desk-page .idp-btn:focus-visible,
+.investor-desk-page .idp-select:focus-visible,
+.investor-desk-page a:focus-visible {
+  outline: 2px solid #d14d37;
+  outline-offset: 2px;
+}
+
+.investor-desk-page .idp-btn--ghost {
+  border: 1px solid #e4e5e6;
+  background: #ffffff;
+  border-radius: 9px;
+  padding: 12px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.investor-desk-page .idp-btn--ghost:hover {
+  background: #1c1a17;
+  border-color: #1c1a17;
+  color: #ffffff;
+}
+
+.investor-desk-page .idp-btn--ghost-sm {
+  border: 1px solid #e4e5e6;
+  background: #ffffff;
+  border-radius: 9px;
+  padding: 8px 14px;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.investor-desk-page .idp-btn--ghost-sm:hover {
+  background: #1c1a17;
+  border-color: #1c1a17;
+  color: #ffffff;
+}
+
+.investor-desk-page .idp-btn--ink {
+  background: #1c1a17;
+  color: #ffffff;
+  border-radius: 9px;
+  padding: 13px 24px;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: background-color 0.16s ease;
+}
+
+.investor-desk-page .idp-btn--ink:hover {
+  background: #35302a;
+}
+
+.investor-desk-page .idp-btn--ink:disabled,
+.investor-desk-page .idp-btn--ghost:disabled,
+.investor-desk-page .idp-btn--ghost-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.investor-desk-page .idp-btn--ink:disabled:hover {
+  background: #1c1a17;
+}
+
+.investor-desk-page .idp-btn--ghost:disabled:hover,
+.investor-desk-page .idp-btn--ghost-sm:disabled:hover {
+  background: #ffffff;
+  border-color: #e4e5e6;
+  color: inherit;
+}
+
+.investor-desk-page .idp-btn--bookmarked {
+  border-color: #1c1a17;
+  background: #1c1a17;
+  color: #ffffff;
+}
+
+.investor-desk-page .idp-btn--bookmarked:hover {
+  background: #35302a;
+  border-color: #35302a;
+}
+
+.investor-desk-page .idp-btn--icon {
+  border: 1px solid #e4e5e6;
+  background: #ffffff;
+  border-radius: 9px;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6f695f;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.investor-desk-page .idp-btn--icon:hover {
+  background: #1c1a17;
+  border-color: #1c1a17;
+  color: #ffffff;
+}
+
+.investor-desk-page .idp-link {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: #d14d37;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.investor-desk-page .idp-link:hover {
+  color: #b8402d;
+}
+
+/* Diagonal hatch used wherever the design shows a cover plate with no image. */
+.investor-desk-page .idp-plate {
+  background-image: repeating-linear-gradient(45deg, #e6e7e8 0 7px, #f0f1f2 7px 14px);
+  background-color: #f0f1f2;
+}
+
+/* ── Banners ───────────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-banner {
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.investor-desk-page .idp-banner--error {
+  border: 1px solid #eccfc9;
+  background: #fdf5f4;
+}
+
+.investor-desk-page .idp-banner--locked {
+  border: 1px solid #ecdcc0;
+  background: #fdfaf3;
+}
+
+.investor-desk-page .idp-banner__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.investor-desk-page .idp-banner__title {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.investor-desk-page .idp-banner--error .idp-banner__title { color: #8f2d1c; }
+.investor-desk-page .idp-banner--locked .idp-banner__title { color: #8a5a12; }
+
+.investor-desk-page .idp-banner__note {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: #6f695f;
+}
+
+.investor-desk-page .idp-banner--error .idp-icon { color: #d14d37; }
+.investor-desk-page .idp-banner--locked .idp-icon { color: #b7791f; }
+
+.investor-desk-page .idp-banner__action {
+  background: #1c1a17;
+  color: #ffffff;
+  border-radius: 9px;
+  padding: 9px 16px;
+  font-size: 11.5px;
+  font-weight: 600;
+  flex: none;
+}
+
+.investor-desk-page .idp-banner__action:hover { background: #35302a; }
+
+/* ── Masthead ──────────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid #1c1a17;
+}
+
+.investor-desk-page .idp-masthead__title {
+  margin: 12px 0 0;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  max-width: 760px;
+}
+
+.investor-desk-page .idp-brief {
+  flex: none;
+  width: 240px;
+  text-align: right;
+}
+
+.investor-desk-page .idp-brief__label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+
+.investor-desk-page .idp-brief__reading {
+  margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.investor-desk-page .idp-brief__value { font-size: 30px; }
+
+.investor-desk-page .idp-brief__unit {
+  font-size: 11px;
+  color: #a39d92;
+}
+
+.investor-desk-page .idp-brief__track {
+  margin-top: 8px;
+  height: 3px;
+  background: #eff0f1;
+}
+
+.investor-desk-page .idp-brief__fill {
+  height: 3px;
+  background: #d14d37;
+}
+
+.investor-desk-page .idp-brief__cta { margin-top: 12px; }
+
+/* ── Stat band ─────────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-stats {
+  display: flex;
+  margin-top: 26px;
+}
+
+.investor-desk-page .idp-stat {
+  flex: 1;
+  min-width: 0;
+  padding: 0 24px;
+  border-left: 1px solid #e8e9ea;
+}
+
+.investor-desk-page .idp-stat:first-child { border-left: none; }
+
+.investor-desk-page .idp-stat__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+
+.investor-desk-page .idp-stat__value {
+  font-size: 44px;
+  font-weight: 400;
+  line-height: 1;
+  margin-top: 12px;
+}
+
+.investor-desk-page .idp-stat__sub {
+  margin-top: 9px;
+  font-style: italic;
+  font-size: 13px;
+  color: #8d877e;
+}
+
+/* ── The lead ──────────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-lead__head {
+  margin-top: 34px;
+  padding-top: 26px;
+  border-top: 1px solid #e8e9ea;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.investor-desk-page .idp-lead__head > .idp-icon { color: #d14d37; }
+
+.investor-desk-page .idp-lead__heading {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.investor-desk-page .idp-lead__spacer { flex: 1; }
+
+.investor-desk-page .idp-lead {
+  margin-top: 18px;
+  display: flex;
+  gap: 30px;
+}
+
+.investor-desk-page .idp-lead__plate {
+  flex: none;
+  width: 344px;
+  height: 344px;
+  border: 1px solid #e8e9ea;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  display: block;
+  cursor: pointer;
+}
+
+.investor-desk-page .idp-lead__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.investor-desk-page .idp-lead__plate-frame {
+  position: absolute;
+  inset: 14px;
+  border: 1px dashed #d6d7d8;
+  pointer-events: none;
+}
+
+.investor-desk-page .idp-lead__plate-note {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 9.5px;
+  color: #8a8477;
+}
+
+.investor-desk-page .idp-lead__flag {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: #1c1a17;
+  color: #ffffff;
+  padding: 5px 10px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+.investor-desk-page .idp-lead__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.investor-desk-page .idp-lead__meta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.investor-desk-page .idp-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: #3a352e;
+}
+
+.investor-desk-page .idp-meta__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3f9c76;
+}
+
+.investor-desk-page .idp-meta__dot--review { background: #b7791f; }
+.investor-desk-page .idp-meta__dot--rejected { background: #d14d37; }
+.investor-desk-page .idp-meta__dot--draft { background: #a39d92; }
+
+.investor-desk-page .idp-meta__rule {
+  width: 1px;
+  height: 12px;
+  background: #e2e3e4;
+}
+
+.investor-desk-page .idp-lead__scoreblock {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.investor-desk-page .idp-lead__score { font-size: 34px; }
+
+.investor-desk-page .idp-lead__score-unit {
+  font-size: 11px;
+  color: #a39d92;
+}
+
+.investor-desk-page .idp-lead__title {
+  margin: 14px 0 0;
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.investor-desk-page a.idp-lead__title-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.investor-desk-page a.idp-lead__title-link:hover { color: #d14d37; }
+
+.investor-desk-page .idp-lead__byline {
+  margin-top: 8px;
+  font-style: italic;
+  font-size: 14.5px;
+  color: #8d877e;
+}
+
+.investor-desk-page .idp-lead__logline {
+  margin: 16px 0 0;
+  font-size: 17px;
+  line-height: 1.62;
+  color: #3a352e;
+  max-width: 660px;
+}
+
+.investor-desk-page .idp-lead__figures {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px dashed #e2e3e4;
+  display: flex;
+  gap: 34px;
+  flex-wrap: wrap;
+}
+
+.investor-desk-page .idp-lead__figure-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+
+.investor-desk-page .idp-lead__figure {
+  font-size: 26px;
+  margin-top: 5px;
+}
+
+.investor-desk-page .idp-lead__figure--sold { color: #1f7a52; }
+.investor-desk-page .idp-lead__figure--hold { color: #8a5a12; }
+
+.investor-desk-page .idp-lead__actions {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.investor-desk-page .idp-menu-anchor { position: relative; }
+
+.investor-desk-page .idp-menu {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  width: 252px;
+  background: #ffffff;
+  border: 1px solid #e8e9ea;
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 20;
+  box-shadow: 0 18px 40px rgba(28, 26, 23, 0.16);
+  animation: idp-fade-in 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.investor-desk-page .idp-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #1c1a17;
+  text-decoration: none;
+}
+
+.investor-desk-page .idp-menu__item:hover { background: #f7f7f8; }
+
+.investor-desk-page .idp-menu__item .idp-icon { color: #8a8477; }
+
+/* Why-it-matched panel — reads back the feed's own score breakdown. */
+.investor-desk-page .idp-why {
+  margin-top: 18px;
+  border: 1px solid #e8e9ea;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 18px;
+  animation: idp-fade-in 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.investor-desk-page .idp-why__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 12px;
+  color: #3a352e;
+}
+
+.investor-desk-page .idp-why__row + .idp-why__row { border-top: 1px solid #f4f5f6; }
+
+.investor-desk-page .idp-why__row .idp-icon { color: #d14d37; }
+.investor-desk-page .idp-why__row--off .idp-icon { color: #c9cacb; }
+.investor-desk-page .idp-why__row--off { color: #8d877e; }
+
+.investor-desk-page .idp-why__pct {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a39d92;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Tabs + sort ───────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-toolbar {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid #e8e9ea;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+
+.investor-desk-page .idp-tabs {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.investor-desk-page .idp-tab {
+  padding: 0 2px 11px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: #a39d92;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -17px;
+  white-space: nowrap;
+}
+
+.investor-desk-page .idp-tab:hover { color: #3a352e; }
+
+.investor-desk-page .idp-tab--active {
+  color: #1c1a17;
+  border-bottom-color: #d14d37;
+}
+
+.investor-desk-page .idp-tab__count { color: #c4c5c6; }
+
+.investor-desk-page .idp-sort {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: #6f695f;
+  margin-left: auto;
+  flex: none;
+}
+
+.investor-desk-page .idp-select {
+  border: none;
+  border-bottom: 1px solid #d8d9da;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 2px;
+  outline: none;
+  color: #1c1a17;
+  cursor: pointer;
+}
+
+/* ── Shelves ───────────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-shelf { margin-top: 32px; }
+
+.investor-desk-page .idp-shelf__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.investor-desk-page .idp-shelf__head > .idp-icon { color: #d14d37; }
+
+.investor-desk-page .idp-shelf__title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.investor-desk-page .idp-shelf__count {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #8d877e;
+  background: #f0f1f2;
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+
+.investor-desk-page .idp-shelf__spacer { flex: 1; }
+
+.investor-desk-page .idp-rail {
+  margin-top: 14px;
+  display: flex;
+  overflow-x: auto;
+  border-top: 1px solid #e8e9ea;
+  scrollbar-width: thin;
+}
+
+.investor-desk-page .idp-rail::-webkit-scrollbar { height: 6px; }
+.investor-desk-page .idp-rail::-webkit-scrollbar-thumb { background: #e0e1e2; border-radius: 9px; }
+.investor-desk-page .idp-rail::-webkit-scrollbar-track { background: transparent; }
+
+.investor-desk-page .idp-card {
+  flex: 0 0 232px;
+  padding: 16px 18px 18px;
+  border-right: 1px dashed #e2e3e4;
+  background: #ffffff;
+}
+
+.investor-desk-page .idp-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.investor-desk-page .idp-card__rank {
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  color: #c0bbb2;
+}
+
+.investor-desk-page .idp-card__bookmark { color: #c0bbb2; }
+.investor-desk-page .idp-card__bookmark:hover { color: #1c1a17; }
+.investor-desk-page .idp-card__bookmark--on { color: #d14d37; }
+
+.investor-desk-page .idp-card__open {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.investor-desk-page .idp-card__plate {
+  height: 120px;
+  margin-top: 10px;
+  border: 1px solid #e8e9ea;
+  overflow: hidden;
+}
+
+.investor-desk-page .idp-card__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.investor-desk-page .idp-card__open:hover .idp-card__cover { transform: scale(1.04); }
+
+.investor-desk-page .idp-card__title {
+  margin-top: 11px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 36px;
+}
+
+.investor-desk-page .idp-card__open:hover .idp-card__title { color: #d14d37; }
+
+.investor-desk-page .idp-card__credit {
+  margin-top: 5px;
+  font-style: italic;
+  font-size: 12.5px;
+  color: #8d877e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.investor-desk-page .idp-card__foot {
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid #eff0f1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.investor-desk-page .idp-card__format {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #a39d92;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.investor-desk-page .idp-card__score { font-size: 18px; }
+
+.investor-desk-page .idp-card__stats {
+  margin-top: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: #8d877e;
+}
+
+.investor-desk-page .idp-card__ask { font-weight: 700; color: #1c1a17; }
+.investor-desk-page .idp-card__ask--sold { color: #1f7a52; }
+.investor-desk-page .idp-card__ask--hold { color: #8a5a12; }
+.investor-desk-page .idp-card__ask--free { color: #6f695f; }
+
+.investor-desk-page .idp-rail__all {
+  flex: 0 0 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #8d877e;
+  text-decoration: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.investor-desk-page .idp-rail__all:hover { color: #d14d37; }
+
+/* ── Elsewhere index ───────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-elsewhere {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 2px solid #1c1a17;
+}
+
+.investor-desk-page .idp-elsewhere__row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  width: 100%;
+  padding: 15px 2px;
+  border-bottom: 1px solid #eff0f1;
+  color: inherit;
+  text-decoration: none;
+}
+
+.investor-desk-page .idp-elsewhere__row:hover .idp-elsewhere__title { color: #d14d37; }
+
+.investor-desk-page .idp-elsewhere__title {
+  font-size: 19px;
+  flex: none;
+  width: 200px;
+}
+
+.investor-desk-page .idp-elsewhere__sub {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: #6f695f;
+}
+
+.investor-desk-page .idp-elsewhere__count {
+  font-size: 19px;
+  color: #8d877e;
+}
+
+.investor-desk-page .idp-elsewhere__row .idp-icon { color: #c0bbb2; }
+
+.investor-desk-page .idp-elsewhere__panel {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eff0f1;
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-empty {
+  padding: 70px 0;
+  max-width: 620px;
+}
+
+.investor-desk-page .idp-empty__title {
+  margin: 14px 0 0;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.08;
+}
+
+.investor-desk-page .idp-empty__lede {
+  margin: 16px 0 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: #6f695f;
+}
+
+.investor-desk-page .idp-empty__actions {
+  margin-top: 26px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.investor-desk-page .idp-empty__note {
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px dashed #e2e3e4;
+  font-size: 11.5px;
+  color: #a39d92;
+}
+
+/* ── Loading ───────────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-skel {
+  position: relative;
+  overflow: hidden;
+  background: #edeeef;
+  border-radius: 8px;
+}
+
+.investor-desk-page .idp-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: idp-shimmer 1.5s ease-in-out infinite;
+}
+
+.investor-desk-page .idp-skel-stats {
+  display: flex;
+  margin-top: 28px;
+}
+
+.investor-desk-page .idp-skel-stat {
+  flex: 1;
+  padding: 0 24px;
+  border-left: 1px solid #e8e9ea;
+}
+
+.investor-desk-page .idp-skel-stat:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+
+.investor-desk-page .idp-skel-lead {
+  display: flex;
+  gap: 28px;
+  margin-top: 36px;
+  padding-top: 26px;
+  border-top: 1px solid #e8e9ea;
+}
+
+@keyframes idp-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes idp-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── Upgrade modal ─────────────────────────────────────────────────────────── */
+
+.investor-desk-page .idp-modal-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 26, 23, 0.42);
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.investor-desk-page .idp-modal {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border: 1px solid #e8e9ea;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(28, 26, 23, 0.18);
+  animation: idp-fade-in 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.investor-desk-page .idp-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #fdfaf3;
+  border-bottom: 1px solid #eff0f1;
+}
+
+.investor-desk-page .idp-modal__eyebrow {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+
+.investor-desk-page .idp-modal__title {
+  margin: 7px 0 0;
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-size: 24px;
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+.investor-desk-page .idp-modal__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e8e9ea;
+  border-radius: 9px;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6f695f;
+  flex: none;
+}
+
+.investor-desk-page .idp-modal__close:hover {
+  background: #1c1a17;
+  border-color: #1c1a17;
+  color: #ffffff;
+}
+
+.investor-desk-page .idp-modal__body { padding: 18px 20px 20px; }
+
+.investor-desk-page .idp-modal__note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #6f695f;
+}
+
+.investor-desk-page .idp-modal__option {
+  margin-top: 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #e4e5e6;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 13px 15px;
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.investor-desk-page .idp-modal__option:hover {
+  border-color: #1c1a17;
+  background: #fbfbfc;
+}
+
+.investor-desk-page .idp-modal__option-kind {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #a39d92;
+  margin-bottom: 4px;
+}
+
+.investor-desk-page .idp-modal__option-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.investor-desk-page .idp-modal__option .idp-icon {
+  margin-left: auto;
+  color: #c0bbb2;
+}
+
+/* ── Narrower desktops ─────────────────────────────────────────────────────── */
+
+/*
+ * The design is a 1240px broadsheet. Below ~1120px of column width the lead's
+ * 344px plate and the 240px brief column stop fitting beside their text, so the
+ * masthead and lead fold rather than overlap. Everything keeps its type scale
+ * and rules; only the columns collapse.
+ */
+@container investor-desk (max-width: 1120px) {
+  .investor-desk-page .idp-lead__plate {
+    width: 280px;
+    height: 280px;
+  }
+
+  .investor-desk-page .idp-lead { gap: 24px; }
+
+  .investor-desk-page .idp-masthead__title { font-size: 34px; }
+
+  .investor-desk-page .idp-stat { padding: 0 16px; }
+
+  .investor-desk-page .idp-stat__value { font-size: 36px; }
+}
+
+@container investor-desk (max-width: 880px) {
+  .investor-desk-page .idp-masthead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .investor-desk-page .idp-brief {
+    width: 100%;
+    text-align: left;
+  }
+
+  .investor-desk-page .idp-brief__reading { justify-content: flex-start; }
+
+  .investor-desk-page .idp-stats { flex-wrap: wrap; }
+
+  .investor-desk-page .idp-stat {
+    flex: 0 0 50%;
+    padding: 14px 16px;
+    border-left: none;
+    border-top: 1px solid #e8e9ea;
+  }
+
+  .investor-desk-page .idp-stat:first-child,
+  .investor-desk-page .idp-stat:nth-child(2) { border-top: none; }
+
+  .investor-desk-page .idp-stat:nth-child(odd) { padding-left: 0; }
+
+  .investor-desk-page .idp-lead { flex-direction: column; }
+
+  .investor-desk-page .idp-lead__plate {
+    width: 100%;
+    max-width: 344px;
+    height: 300px;
+  }
+
+  .investor-desk-page .idp-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .investor-desk-page .idp-tab { margin-bottom: 0; }
+
+  .investor-desk-page .idp-sort { margin-left: 0; }
+
+  .investor-desk-page .idp-elsewhere__title { width: 150px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .investor-desk-page .idp-skel::after,
+  .investor-desk-page .idp-menu,
+  .investor-desk-page .idp-why,
+  .investor-desk-page .idp-modal {
+    animation: none;
+  }
+
+  .investor-desk-page .idp-card__cover { transition: none; }
+}

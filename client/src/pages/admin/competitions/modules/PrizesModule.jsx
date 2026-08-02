@@ -195,8 +195,7 @@ export default function PrizesModule({ data, onChange }) {
           </button>
         </div>
         <p className="text-xs text-[#888] mb-4">
-          Leave empty to use the platform defaults (3 &rarr; Challenge Advocate, 5 &rarr; +15 days
-          Silver, 10 &rarr; +30 days Silver). The ID becomes the reward&rsquo;s permanent key &mdash;
+          Leave empty to use the platform defaults (5 &rarr; 30 days Silver, 12 &rarr; Gold, 20 &rarr; AI Trailer). The ID becomes the reward&rsquo;s permanent key &mdash;
           changing it after results are declared will not re-grant anything.
         </p>
         <div className="space-y-2">
@@ -265,8 +264,7 @@ export default function PrizesModule({ data, onChange }) {
           </button>
         </div>
         <p className="text-xs text-[#888] mb-4">
-          Leave empty to use the platform defaults (3 &rarr; Challenge Advocate, 5 &rarr; +15 days
-          Silver, 10 &rarr; +30 days Silver). The ID becomes the reward&rsquo;s permanent key &mdash;
+          Leave empty to use the platform defaults (5 &rarr; 30 days Silver, 12 &rarr; Gold, 20 &rarr; AI Trailer). The ID becomes the reward&rsquo;s permanent key &mdash;
           changing it after results are declared will not re-grant anything.
         </p>
         <div className="space-y-2">

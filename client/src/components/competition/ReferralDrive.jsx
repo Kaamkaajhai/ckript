@@ -204,7 +204,7 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
               color: "var(--ckc-body)",
             }}
           >
-            You've earned <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{earned.label}</strong>. It's granted when results are announced.
+            Congratulations! You've unlocked the <strong style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{earned.label}</strong> reward. Our admin team will issue your reward within 48 hours.
           </p>
         ) : null}
       </div>

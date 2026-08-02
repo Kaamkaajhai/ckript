@@ -35,6 +35,7 @@ const SeoPage = lazy(() => import("./pages/SeoPage"));
 const PricingRoute = lazy(() => import("./pages/PricingRoute"));
 const PrivacyPolicy = lazy(() => import("./pages/PolicyPage"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
+const EventPosterModal = lazy(() => import("./components/EventPosterModal"));
 const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const ScriptUploadTermsConditions = lazy(() => import("./pages/ScriptUploadTermsConditions"));
 const ForgotPasswordRoute = lazy(() => import("./pages/ForgotPasswordRoute"));
@@ -62,14 +63,14 @@ const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
 const ScriptPaymentPage = lazy(() => import("./pages/ScriptPaymentPage"));
-const FeaturedProjects = lazy(() => import("./pages/FeaturedProjects"));
+const FeaturedProjects = lazy(() => import("./features/featured-broadsheet"));
 const TopList = lazy(() => import("./pages/TopList"));
 const Messages = lazy(() => import("./features/messages-operator"));
 // The industry section — see features/producer-workspace for what lives there
 // and, just as importantly, what deliberately does not.
 const Mandates = lazy(() => import("./features/producer-workspace/MandatesPage"));
 const Writers = lazy(() => import("./features/producer-workspace/WriterDirectoryPage"));
-const InvestorHome = lazy(() => import("./pages/InvestorHome"));
+const InvestorHome = lazy(() => import("./features/investor-desk"));
 const ReaderHome = lazy(() => import("./pages/ReaderHome"));
 const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
@@ -392,6 +393,7 @@ function DashboardRoute() {
 function RootExperience({ children }) {
   const isMobile = useIsMobile();
   const { user, loading } = useContext(AuthContext);
+  const location = useLocation();
 
   /*
    * The mobile app is a writer experience — it has no producer surfaces — so the
@@ -400,6 +402,11 @@ function RootExperience({ children }) {
    * `creator` is ever renamed, this stops being a place it can be forgotten.
    */
   if (!loading && isMobile && user && isWriterAudience(user.role)) {
+    // Exempt /challenge routes so the competition registration and dashboard 
+    // flows are accessible on mobile devices.
+    if (location.pathname.startsWith("/challenge")) {
+      return children;
+    }
     return <MobileApp />;
   }
 
@@ -592,6 +599,7 @@ function App() {
             </Routes>
             </RootExperience>
             </Suspense>
+            <EventPosterModal />
           </AdminLoginHandler>
           </AuthModalProvider>
         </Router>

@@ -340,6 +340,11 @@ const awardReferralBonusForUser = async (userId) => {
     console.error("Referral stat increment failed:", error?.message || error);
   });
 
+  // Check if the referrer hit a competition milestone and notify the admin
+  import("../utils/competitionReferrals.js")
+    .then(({ checkAndNotifyReferralMilestones }) => checkAndNotifyReferralMilestones(referrer._id))
+    .catch((err) => console.error("Failed to load competition referrals check:", err));
+
   return {
     awarded: true,
     referrerName: referrer.name || "",

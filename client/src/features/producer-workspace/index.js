@@ -16,9 +16,11 @@
  * Deliberately NOT moved, because they are shared and moving them would have
  * been a lie about ownership:
  *
- *   pages/InvestorHome.jsx    /home — pages/ReaderHome.jsx re-exports it
+ *   features/investor-desk    /home — pages/ReaderHome.jsx re-exports it
  *                             verbatim, so readers and industry share one page.
- *   pages/FeaturedProjects.jsx  /featured — reader and industry both route here.
+ *                             It owns its own folder for the same reason.
+ *   features/featured-broadsheet  /featured — reader and industry both route
+ *                             here, so it owns its own folder too.
  *   pages/TopList.jsx, pages/Search.jsx  — every audience uses them.
  *
  * The page CONTENT is unchanged by the move: only the file locations, the

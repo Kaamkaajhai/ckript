@@ -1095,7 +1095,7 @@ export const sendAdminMessageEmail = async (
 export const sendAdminBroadcastEmail = async (
   email,
   name,
-  { title = "Platform update", content = "", audienceLabel = "community", adminName = "ckript Admin", clientBaseUrl = "" } = {}
+  { title = "Platform update", content = "", actionUrl = "", audienceLabel = "community", adminName = "ckript Admin", clientBaseUrl = "" } = {}
 ) => {
   try {
     validateEmailConfig();
@@ -1106,10 +1106,9 @@ export const sendAdminBroadcastEmail = async (
     const safeAudienceLabel = String(audienceLabel || "community").trim() || "community";
     const safeAdminName = String(adminName || "ckript Admin").trim() || "ckript Admin";
     const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
-    const htmlContent = safeContent
-      .split(/\r?\n/)
-      .map((line) => `<p style="margin:0 0 12px;">${line || "&nbsp;"}</p>`)
-      .join("");
+    const finalUrl = actionUrl || dashboardUrl;
+    const buttonText = actionUrl ? "Open Link" : "Open ckript";
+    const htmlContent = safeContent.replace(/\n/g, '<br/>');
 
     const mailOptions = {
       from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
@@ -1118,23 +1117,25 @@ export const sendAdminBroadcastEmail = async (
       html: `
         <!DOCTYPE html>
         <html>
-        <body style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
-          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
-            <div style="background:#0f172a; color:#fff; padding:16px 20px;">
+        <body style="font-family: Arial, sans-serif; color: #1a1a1a; line-height: 1.6; background-color: #f9fafb; padding: 20px 0;">
+          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #ffffff;">
+            <div style="background:#111111; color:#ffffff; padding:16px 20px;">
               <h2 style="margin:0; font-size:20px;">${safeTitle}</h2>
             </div>
-            <div style="padding:20px; background:#ffffff;">
-              <p style="margin:0 0 12px;">Hi ${name || "there"},</p>
-              <p style="margin:0 0 12px;">${safeAdminName} shared an update for the ${safeAudienceLabel} on ckript.</p>
-              ${htmlContent || '<p style="margin:0 0 12px;">Please open your dashboard for the latest update.</p>'}
-              <a href="${dashboardUrl}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:8px;font-weight:600;">Open ckript</a>
-              <p style="margin:16px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript.</p>
+            <div style="padding:24px 20px; background:#ffffff;">
+              <p style="margin:0 0 20px; color: #4b5563;">The ckript team has a new update for you.</p>
+              <div style="margin-bottom: 24px; color: #1a1a1a;">
+                ${htmlContent || '<p style="margin:0 0 12px;">Please open your dashboard for the latest update.</p>'}
+              </div>
+              <a href="${finalUrl}" style="display:inline-block;background:#E25822;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 14px;">${buttonText}</a>
+              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0 16px;" />
+              <p style="margin:0; color:#9ca3af; font-size:12px;">This is an automated email from the ckript platform.</p>
             </div>
           </div>
         </body>
         </html>
       `,
-      text: `Hi ${name || "there"},\n\n${safeAdminName} shared an update for the ${safeAudienceLabel} on ckript.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\nOpen ckript: ${dashboardUrl}\n\n- ckript`,
+      text: `The ckript team has a new update for you.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\n${buttonText}: ${finalUrl}\n\n- ckript`,
     };
 
     const info = await transporter.sendMail(mailOptions);
