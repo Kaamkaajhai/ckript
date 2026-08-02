@@ -19,6 +19,14 @@
 import { getScriptCanonicalPath } from "../../../utils/scriptPath";
 import { getProfileCanonicalPath } from "../../../utils/profilePath";
 
+/** Types that open the draft in the editor, because they are an invitation to work on it. */
+const COLLAB_TYPES = new Set([
+  "collab_invite",
+  "collab_request",
+  "collab_update",
+  "revision_update",
+]);
+
 /** Types that belong on the script they concern. */
 const SCRIPT_TYPES = new Set([
   "purchase_approved",
@@ -78,8 +86,20 @@ export const getNotificationTarget = (notification, viewer) => {
 
   if (FIXED_TYPES[type]) return FIXED_TYPES[type];
 
-  if (["collab_invite", "collab_request", "collab_update", "revision_update"].includes(type)) {
-    if (notification?.script?._id) return `/create-project/${notification.script._id}`;
+  /*
+   * Collaboration lands in the EDITOR, not on the script's public page: every one of these
+   * notifications exists because someone wants you to work on the draft, and the read-only page
+   * has nothing to act on.
+   *
+   * The fallback matters. These four used to live in SCRIPT_TYPES below, which never dead-ends —
+   * moving them up here without a fallback meant a collab notification whose script carries no id
+   * returned null and the click did nothing at all. The dashboard is the one place every audience
+   * can act from, which is the same reasoning SCRIPT_TYPES uses.
+   */
+  if (COLLAB_TYPES.has(type)) {
+    return notification?.script?._id
+      ? `/create-project/${notification.script._id}`
+      : "/dashboard";
   }
 
   if (SCRIPT_TYPES.has(type)) {
