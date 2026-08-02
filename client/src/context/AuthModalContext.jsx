@@ -215,7 +215,9 @@ export const AuthModalProvider = ({ children }) => {
         onClose={closeWriterOnboarding}
         onComplete={() => {
           closeWriterOnboarding();
-          navigate("/profile", { replace: true });
+          const target = state.redirect || "/profile";
+          if (state.redirect) setState((prev) => ({ ...prev, redirect: "" }));
+          navigate(target, { replace: true });
         }}
       />
       <AboutModal open={aboutOpen} onClose={closeAboutModal} />
