@@ -956,3 +956,50 @@
   .ck-drawer,
   .ck-backdrop { transition: none; }
 }
+
+/* ── Notification Truncation & Modal ── */
+.ck-notif-popup__text.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ck-notif-full-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 24px;
+}
+.ck-notif-full-modal__surface {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+.ck-notif-full-modal__surface h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ck-base);
+}
+.ck-notif-full-modal__surface p {
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ck-base);
+}
+.ck-notif-full-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
