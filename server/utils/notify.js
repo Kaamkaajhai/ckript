@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import Notification from "../models/Notification.js";
+import mailFrom from "./mailFrom.js";
 
 let cachedTransporter = null;
 
@@ -81,7 +82,7 @@ export const sendEmailNotification = async ({
 
   try {
     const info = await transporter.sendMail({
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to,
       subject,
       html,

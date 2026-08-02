@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { getOTPExpirySeconds } from "./otpHelper.js";
+import mailFrom from "./mailFrom.js";
 
 let cachedTransporter = null;
 
@@ -133,7 +134,7 @@ export const sendOTPEmail = async (email, name, otp) => {
     const otpValidityLabel = formatOtpValidityLabel(getOTPExpirySeconds());
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: email,
       subject: 'Verify Your Email - ckript',
       html: `
@@ -214,7 +215,7 @@ export const sendPasswordResetOTPEmail = async (email, name, otp, validitySecond
     const otpValidityLabel = formatOtpValidityLabel(validitySeconds || getOTPExpirySeconds());
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: email,
       subject: 'Reset your ckript password',
       html: `
@@ -285,7 +286,7 @@ export const sendWelcomeEmail = async (email, name) => {
     console.log('Email service verified successfully');
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: email,
       subject: 'Welcome to ckript!',
       html: `
@@ -347,7 +348,7 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
     await transporter.verify();
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: email,
       subject: 'Welcome to ckript — Your Gateway to Exceptional Scripts',
       html: `
@@ -422,7 +423,7 @@ export const sendInvestorApprovalEmail = async (email, name, options = {}) => {
     const loginUrl = buildClientUrl("/login", options?.clientBaseUrl || "");
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: email,
       subject: '✅ Your Investor Account Has Been Approved — ckript',
       html: `
@@ -486,7 +487,7 @@ export const sendInvestorRejectionEmail = async (email, name, reason, options = 
     const safeReason = String(reason || "").trim();
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: email,
       subject: 'Update on Your Investor Profile Review — ckript',
       html: `
@@ -565,7 +566,7 @@ export const sendWriterMembershipDecisionEmail = async (
       : `Update on Your ${safeMembershipLabel} Membership Review — ckript`;
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: email,
       subject,
       html: `
@@ -645,7 +646,7 @@ export const sendPurchaseRequestEmail = async (
     const dashboardUrl = buildClientUrl("/purchase-requests", options?.clientBaseUrl || "");
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: writerEmail,
       subject: `📩 ${safeRequesterType} Access Request for "${scriptTitle}" — ckript`,
       html: `
@@ -741,7 +742,7 @@ export const sendPurchaseApprovedEmail = async (investorEmail, investorName, wri
       : `Hi ${investorName},\n\n${writerName} has approved your purchase request for "${scriptTitle}". You now have full access.\n\nOpen script: ${scriptsUrl}\n\nThe ckript Team`;
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: investorEmail,
       subject,
       html: `
@@ -808,7 +809,7 @@ export const sendPurchaseRejectedEmail = async (investorEmail, investorName, wri
     const searchUrl = buildClientUrl("/search", options?.clientBaseUrl || "");
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || 'noreply@ckript.com'}>`,
+      from: mailFrom(),
       to: investorEmail,
       subject: `Purchase Request Declined — "${scriptTitle}" — ckript`,
       html: `
@@ -911,7 +912,7 @@ export const sendAdminWorkflowAlertEmail = async ({ title, section, message, met
       .join("");
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: companyEmail,
       subject: `[Admin Alert] ${safeTitle}`,
       html: `
@@ -951,7 +952,7 @@ export const sendAdminPremiumGrantedEmail = async (
     const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: "Welcome to ckript Premium!",
       html: `
@@ -1004,7 +1005,7 @@ export const sendAdminPremiumRemovedEmail = async (
     const contactUrl = buildClientUrl("/contact", clientBaseUrl);
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: "Update Regarding Your ckript Premium Access",
       html: `
@@ -1059,7 +1060,7 @@ export const sendAdminMessageEmail = async (
         : "You have a new message from admin.";
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: "New admin message on ckript",
       html: `
@@ -1112,7 +1113,7 @@ export const sendAdminBroadcastEmail = async (
       .join("");
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: safeTitle,
       html: `
@@ -1160,7 +1161,7 @@ export const sendNewMessageEmail = async (
     const messagesUrl = buildClientUrl("/messages", clientBaseUrl);
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: `New direct message from ${safeSenderName}`,
       html: `
@@ -1212,7 +1213,7 @@ export const sendMeetingInvitationEmail = async (
     const dashboardUrl = buildClientUrl("/profile", clientBaseUrl);
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: `Meeting Request from Producer on Ckript`,
       html: `
@@ -1270,7 +1271,7 @@ export const sendMeetingAcceptedEmail = async (
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: `Meeting Confirmed: ${writerName}`,
       html: `
@@ -1326,7 +1327,7 @@ export const sendMeetingAcceptedWriterEmail = async (
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: `Meeting Details: ${producerName} - ckript`,
       html: `
@@ -1380,7 +1381,7 @@ export const sendMeetingRejectedEmail = async (
     const transporter = createTransporter();
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: `Meeting Declined: ${writerName}`,
       html: `
@@ -1430,7 +1431,7 @@ export const sendWriterPlanGrantedEmail = async (
     const loginUrl = buildClientUrl("/login", clientBaseUrl);
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: `🎉 You've been upgraded to ${formattedPlanName} — ckript`,
       html: `
@@ -1496,7 +1497,7 @@ export const sendFipPlanGrantedEmail = async (
     const loginUrl = buildClientUrl("/login", clientBaseUrl);
 
     const mailOptions = {
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to: email,
       subject: `🎉 You've been upgraded to Diamond Film Industry Professional — ckript`,
       html: `
