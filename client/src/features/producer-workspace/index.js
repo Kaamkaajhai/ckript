@@ -19,7 +19,8 @@
  *   features/investor-desk    /home — pages/ReaderHome.jsx re-exports it
  *                             verbatim, so readers and industry share one page.
  *                             It owns its own folder for the same reason.
- *   pages/FeaturedProjects.jsx  /featured — reader and industry both route here.
+ *   features/featured-broadsheet  /featured — reader and industry both route
+ *                             here, so it owns its own folder too.
  *   pages/TopList.jsx, pages/Search.jsx  — every audience uses them.
  *
  * The page CONTENT is unchanged by the move: only the file locations, the
