@@ -62,7 +62,7 @@ const Search = lazy(() => import("./pages/Search"));
 const ScriptDetail = lazy(() => import("./pages/ScriptDetail"));
 const PublicScript = lazy(() => import("./pages/PublicScript"));
 const ScriptPaymentPage = lazy(() => import("./pages/ScriptPaymentPage"));
-const FeaturedProjects = lazy(() => import("./pages/FeaturedProjects"));
+const FeaturedProjects = lazy(() => import("./features/featured-broadsheet"));
 const TopList = lazy(() => import("./pages/TopList"));
 const Messages = lazy(() => import("./features/messages-operator"));
 // The industry section — see features/producer-workspace for what lives there
