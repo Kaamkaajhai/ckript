@@ -65,6 +65,38 @@ const CompetitionRegister = () => {
   const [serverError, setServerError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState(null);
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
+
+  /**
+   * Fetch the entry-fee invoice as a blob and save it.
+   *
+   * Streamed through the authenticated client rather than linked directly: the endpoint is behind
+   * `protect`, so a plain <a href> would open an unauthenticated request and 401. Failure is shown
+   * inline and never blocks — the registration itself has already succeeded by this point, and the
+   * invoice stays available from the dashboard.
+   */
+  const downloadInvoice = async (invoice) => {
+    if (!invoice?._id || invoiceBusy) return;
+    setInvoiceBusy(true);
+    try {
+      const { data } = await api.get(`/invoices/${invoice._id}/pdf`, {
+        params: { download: 1 },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${invoice.invoiceNumber || "invoice"}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setServerError("Could not download the invoice just now. It stays available from your dashboard.");
+    } finally {
+      setInvoiceBusy(false);
+    }
+  };
   const [copied, setCopied] = useState(false);
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
@@ -205,6 +237,7 @@ const CompetitionRegister = () => {
 
   if (created) {
     const eventId = created.entry?.eventId || "";
+    const invoice = created.invoice || null;
 
     if (isMobile) {
       return (
@@ -218,6 +251,16 @@ const CompetitionRegister = () => {
                   You're officially in. Please switch to a laptop or desktop computer to view full details, access the challenge workflow, and write your script.
                 </p>
               </div>
+              {invoice?._id ? (
+                <button
+                  type="button"
+                  className="ckc-btn-ghost w-full"
+                  onClick={() => downloadInvoice(invoice)}
+                  disabled={invoiceBusy}
+                >
+                  {invoiceBusy ? "Preparing invoice…" : "Download invoice"}
+                </button>
+              ) : null}
               <button className="ckc-btn w-full mt-4" onClick={() => navigate("/")}>
                 Return Home
               </button>
@@ -255,6 +298,31 @@ const CompetitionRegister = () => {
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
+
+            {/* The receipt for the entry fee. Offered at the moment of payment because that is when
+                someone expecting one looks for it; it stays retrievable from the dashboard after. */}
+            {invoice?._id ? (
+              <p style={{ marginTop: 18, fontSize: 14, color: "var(--ckc-muted)" }}>
+                Invoice{" "}
+                <span style={{ fontFamily: "var(--ckc-mono)", color: "var(--ckc-ink)" }}>
+                  {invoice.invoiceNumber}
+                </span>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  onClick={() => downloadInvoice(invoice)}
+                  disabled={invoiceBusy}
+                  style={{
+                    color: "var(--ckc-accent-text)",
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
+                    cursor: invoiceBusy ? "default" : "pointer",
+                  }}
+                >
+                  {invoiceBusy ? "Preparing…" : "Download PDF"}
+                </button>
+              </p>
+            ) : null}
 
             <p style={{ marginTop: 24, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
               The theme is revealed when the competition starts. You'll have 48 hours to write.

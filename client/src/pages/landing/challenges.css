@@ -1,0 +1,629 @@
+/* ═══════════════════════ /challenges ═══════════════════════
+   Implementation of the "Challenges Page" design. Every value below is the design's, translated
+   from its inline styles into classes and scoped under `.ckl .ckl-chalp*` so nothing reaches the
+   homepage, which shares much of this vocabulary.
+
+   The page is self-contained on purpose: it no longer borrows Challenge.css / Problem.css /
+   FinalCta.css. Those arrived through the section components that own them, and Vite code-splits
+   CSS per lazy chunk — so on a cold load of this route the rules were simply absent. */
+
+/* ── Frame ──────────────────────────────────────────────────────────────────*/
+.ckl .ckl-chalp-in { max-width: 1320px; margin: 0 auto; }
+
+.ckl .ckl-chalp-sec {
+  background: var(--ck-paper);
+  padding: clamp(80px, 9vw, 140px) clamp(20px, 5vw, 80px);
+}
+.ckl .ckl-chalp-sec--alt {
+  background: var(--ck-paper-alt);
+  border-top: 1px solid #efece5;
+}
+
+.ckl .ckl-chalp-kicker {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  /* --ck-muted (#9a978f) measures 2.92:1 on paper at this size — a contrast failure on the first
+     text of the page. This is the design's own #6f6c66, at 5.23:1. */
+  color: var(--ck-heading-italic);
+}
+
+.ckl .ckl-chalp-h2 {
+  margin: 22px 0 0;
+  font-family: var(--ck-serif);
+  /* Baskervville is imported at weight 400 ONLY. Every serif heading must state its weight or the
+     browser synthesises a faux-bold on h1/h2/h3, whose UA default is bold. */
+  font-weight: 400;
+  font-size: clamp(2rem, 3.8vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chalp-h2--flush { margin-top: 0; }
+.ckl .ckl-chalp-h2-em { font-style: italic; color: var(--ck-heading-italic); }
+
+/* ── Accessibility ──────────────────────────────────────────────────────────*/
+.ckl .ckl-skip {
+  position: absolute; left: -9999px; top: 0; z-index: 999;
+  background: var(--ck-ink); color: #fff;
+  padding: 12px 20px; font-size: 15px; border-radius: 0 0 8px 0;
+}
+.ckl .ckl-skip:focus { left: 0; }
+
+.ckl .ckl-sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* landing.css hides every [data-ra] at opacity 0 and only the IntersectionObserver reveals it, so
+   switching the ANIMATION off alone would leave this page permanently invisible under reduced
+   motion. Opacity has to be restored in the same breath. */
+@media (prefers-reduced-motion: reduce) {
+  .ckl .ckl-chalp-root [data-ra] { animation: none !important; opacity: 1 !important; }
+  .ckl .ckl-chalp-band-dot { animation: none !important; }
+}
+
+/* No focus style exists anywhere in the landing register — controls fall back to the UA ring, which
+   is near-invisible against ink. */
+.ckl .ckl-chalp-root :focus-visible { outline: 2px solid var(--ck-red); outline-offset: 3px; }
+.ckl .ckl-chalp-band :focus-visible,
+.ckl .ckl-chalp-laureate :focus-visible { outline-color: #fff; }
+
+/* ── Masthead ───────────────────────────────────────────────────────────────*/
+.ckl .ckl-chalp-mast {
+  background: var(--ck-paper);
+  padding: clamp(56px, 7vw, 100px) clamp(20px, 5vw, 80px) clamp(64px, 8vw, 110px);
+}
+.ckl .ckl-chalp-h1 {
+  margin: 22px 0 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(2.9rem, 6vw, 5.4rem);
+  line-height: 1.02;
+  letter-spacing: -0.024em;
+  color: var(--ck-ink);
+  max-width: 20ch;
+  text-wrap: balance;
+}
+.ckl .ckl-chalp-h1-em { font-style: italic; color: var(--ck-heading-italic); }
+.ckl .ckl-chalp-lead {
+  margin: 26px 0 0;
+  font-family: var(--ck-body);
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--ck-body-ink);
+  max-width: 58ch;
+}
+
+/* The motif: ten pages, one claimed. It states "the same blank page, for everyone" structurally —
+   which is why the masthead needs no headline number to carry a visual. */
+.ckl .ckl-chalp-motif { margin-top: clamp(34px, 4vw, 52px); }
+.ckl .ckl-chalp-pages {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: 520px;
+}
+.ckl .ckl-chalp-page {
+  width: 22px;
+  height: 30px;
+  border: 1.5px solid var(--ck-ink);
+  background: transparent;
+  border-radius: 2px;
+  flex: none;
+}
+.ckl .ckl-chalp-page.is-marked { border-color: var(--ck-red); background: var(--ck-red); }
+.ckl .ckl-chalp-motif-rule {
+  width: 100%;
+  max-width: 520px;
+  height: 1px;
+  background: var(--ck-ink);
+  margin-top: 10px;
+}
+.ckl .ckl-chalp-motif-cap {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ck-heading-italic);
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────────*/
+.ckl .ckl-chalp-actions {
+  margin-top: clamp(30px, 3.5vw, 44px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 40px;
+}
+.ckl .ckl-chalp-actions--center { justify-content: center; gap: 20px 48px; margin-top: 42px; }
+
+.ckl .ckl-chalp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Fixed minimum so the label swapping from "Explore the challenge" to "Register" when the API
+     resolves cannot reflow the row. */
+  min-width: 244px;
+  height: 70px;
+  padding: 0 34px;
+  background: #161513;
+  color: #fff;
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.2px;
+  text-decoration: none;
+  transition: background .25s ease, transform .25s cubic-bezier(.2, .7, .2, 1);
+}
+.ckl .ckl-chalp-btn:hover { background: #2c2a26; color: #fff; transform: translateY(-3px); }
+
+.ckl .ckl-chalp-link {
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--ck-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--ck-ink);
+  padding-bottom: 7px;
+  transition: color .22s ease, border-color .22s ease;
+}
+.ckl .ckl-chalp-link:hover { color: var(--ck-red); border-bottom-color: var(--ck-red); }
+
+/* ── Status band ────────────────────────────────────────────────────────────
+   The one element that knows the phase. Both states share a min-height so the swap when the API
+   resolves cannot move the page. */
+.ckl .ckl-chalp-band {
+  background: #0b0a06;
+  padding: 20px clamp(20px, 5vw, 80px);
+}
+.ckl .ckl-chalp-band-in {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 44px;
+}
+.ckl .ckl-chalp-band-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ck-red);
+  flex: none;
+  animation: ckl-chalp-pulse 2.4s ease-in-out infinite;
+}
+@keyframes ckl-chalp-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+.ckl .ckl-chalp-band-n { font-weight: 600; color: #fff; }
+.ckl .ckl-chalp-band-sep { color: var(--ck-red); }
+/* Tinted from the foreground, never gray: 9.65:1 on this ground. */
+.ckl .ckl-chalp-band-l { color: rgba(255, 255, 255, 0.7); }
+.ckl .ckl-chalp-band-clock { font-variant-numeric: tabular-nums; font-weight: 600; color: #fff; }
+
+.ckl .ckl-chalp-band-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  padding: 0 26px;
+  background: var(--ck-red);
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  text-decoration: none;
+  transition: transform .25s cubic-bezier(.2, .7, .2, 1);
+}
+.ckl .ckl-chalp-band-btn:hover { color: #fff; transform: translateY(-2px); }
+
+.ckl .ckl-chalp-band-link {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 16px;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+  padding-bottom: 3px;
+}
+.ckl .ckl-chalp-band-link:hover { color: #fff; border-bottom-color: #fff; }
+
+/* ── How it works ───────────────────────────────────────────────────────────
+   A ruled row, not cards: the diamond sits ON the rule, so the sequence reads as one continuous
+   line across the grid rather than six boxes. No ordinals — numbering is the documentation signal,
+   and the hub owns the dated timeline. */
+/* Explicit column counts, never auto-fit. `auto-fit` picks whatever fits, which for six items means
+   5+1 and for four means 3+1 — a full-width orphan stranded on its own row. Counts that divide the
+   item count evenly are the whole of the symmetry fix. */
+.ckl .ckl-chalp-steps {
+  margin: clamp(44px, 5vw, 68px) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));   /* 6 items → 3 rows of 2 */
+  column-gap: clamp(24px, 3vw, 44px);
+  row-gap: 40px;
+}
+.ckl .ckl-chalp-step {
+  position: relative;
+  min-width: 0;
+  padding: 22px 30px 0 0;
+  border-top: 1px solid var(--ck-border);
+}
+.ckl .ckl-chalp-step-mark {
+  position: absolute;
+  top: -4.5px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  background: var(--ck-red);
+  transform: rotate(45deg);
+}
+.ckl .ckl-chalp-step-l {
+  display: block;
+  font-weight: 500;
+  font-size: 19px;
+  line-height: 1.25;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chalp-step-s {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--ck-body);
+  font-size: 14.5px;
+  line-height: 1.45;
+  color: var(--ck-heading-italic);
+  text-wrap: pretty;
+}
+
+/* ── What you receive ───────────────────────────────────────────────────────*/
+/* 4 items → 2×2, never 3+1. */
+.ckl .ckl-chalp-rewards {
+  margin-top: clamp(44px, 5vw, 68px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+.ckl .ckl-chalp-reward {
+  background: var(--ck-card);
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  padding: clamp(28px, 3vw, 40px) clamp(24px, 2.6vw, 34px);
+  transition: transform .25s cubic-bezier(.2, .7, .2, 1);
+}
+.ckl .ckl-chalp-reward:hover { transform: translateY(-3px); }
+.ckl .ckl-chalp-reward-i { color: var(--ck-red); line-height: 1; display: inline-block; }
+.ckl .ckl-chalp-reward-t {
+  margin: 20px 0 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(1.4rem, 2vw, 1.75rem);
+  line-height: 1.15;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chalp-reward-b {
+  margin: 12px 0 0;
+  font-family: var(--ck-body);
+  font-size: 17px;
+  line-height: 27px;
+  color: var(--ck-body-ink);
+}
+
+.ckl .ckl-chalp-note {
+  margin: clamp(30px, 3.5vw, 44px) 0 0;
+  font-family: var(--ck-body);
+  font-style: italic;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ck-heading-italic);
+  max-width: 62ch;
+}
+.ckl .ckl-chalp-note a { color: inherit; }
+
+/* ── Terms of entry ─────────────────────────────────────────────────────────*/
+.ckl .ckl-chalp-dl { margin: clamp(34px, 4vw, 52px) 0 0; max-width: 820px; }
+.ckl .ckl-chalp-dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  padding: 20px 0;
+  border-top: 1px solid var(--ck-border);
+}
+.ckl .ckl-chalp-dt {
+  flex: 0 0 200px;
+  margin: 0;
+  padding-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ck-heading-italic);
+}
+.ckl .ckl-chalp-dd {
+  flex: 1 1 320px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--ck-body);
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--ck-body-ink);
+}
+
+/* A run of type, not pills: six bordered 44px capsules that do nothing carry the exact signature of
+   a filter control, and would be the most tappable-looking cluster on the page. */
+.ckl .ckl-chalp-run {
+  margin: clamp(30px, 3.5vw, 44px) 0 0;
+  font-family: var(--ck-body);
+  font-size: 19px;
+  line-height: 1.7;
+  color: var(--ck-body-ink);
+  max-width: 60ch;
+}
+.ckl .ckl-chalp-run-lead {
+  display: block;
+  font-family: var(--ck-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ck-heading-italic);
+  margin-bottom: 10px;
+}
+.ckl .ckl-chalp-run-sep { color: var(--ck-red); padding: 0 6px; }
+
+.ckl .ckl-chalp-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: clamp(26px, 3vw, 38px);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ck-ink);
+  text-decoration: none;
+  border-bottom: 2px solid var(--ck-ink);
+  padding-bottom: 6px;
+  transition: color .22s ease, border-color .22s ease;
+}
+.ckl .ckl-chalp-more:hover { color: var(--ck-red); border-bottom-color: var(--ck-red); }
+
+/* ── The record ─────────────────────────────────────────────────────────────
+   The page's one dark panel. White type only: coral on this ground falls under 4.5:1. */
+.ckl .ckl-chalp-laureate {
+  margin-top: clamp(28px, 3.5vw, 44px);
+  background: #0b0a06;
+  border-radius: 16px;
+  padding: clamp(40px, 5.5vw, 88px) clamp(28px, 4.5vw, 72px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(32px, 5vw, 88px);
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.ckl .ckl-chalp-laureate-main { flex: 1 1 320px; min-width: 0; }
+.ckl .ckl-chalp-laureate-meta {
+  margin: 0;
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.62);
+}
+.ckl .ckl-chalp-laureate-award {
+  margin: 22px 0 0;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+}
+.ckl .ckl-chalp-laureate-name {
+  margin: 12px 0 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 5.2vw, 4rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.ckl .ckl-chalp-laureate-script {
+  margin: 14px 0 0;
+  font-family: var(--ck-serif);
+  font-style: italic;
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.74);
+}
+.ckl .ckl-chalp-laureate-side {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 22px;
+}
+.ckl .ckl-chalp-fact { display: flex; flex-direction: column; gap: 5px; }
+.ckl .ckl-chalp-fact-l {
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+.ckl .ckl-chalp-fact-v {
+  font-family: var(--ck-body);
+  font-size: 16px;
+  line-height: 24px;
+  color: rgba(255, 255, 255, 0.88);
+}
+.ckl .ckl-chalp-laureate-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 6px;
+  font-weight: 600;
+  font-size: 17px;
+  color: #fff;
+  text-decoration: none;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.4);
+  padding-bottom: 6px;
+  transition: border-color .22s ease;
+}
+.ckl .ckl-chalp-laureate-link:hover { color: #fff; border-bottom-color: #fff; }
+
+/* ── Questions ──────────────────────────────────────────────────────────────
+   Prose, not an accordion: disclosure widgets are the hub's idiom, and hiding four short answers
+   behind clicks is the opposite of what a prospectus does. */
+/* 4 items → 2×2. */
+.ckl .ckl-chalp-qa {
+  margin-top: clamp(40px, 4.5vw, 64px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(28px, 3vw, 44px) clamp(40px, 5vw, 80px);
+}
+.ckl .ckl-chalp-qa-q {
+  margin: 0 0 10px;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(1.3rem, 1.9vw, 1.65rem);
+  line-height: 1.25;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chalp-qa-a {
+  margin: 0;
+  font-family: var(--ck-body);
+  font-size: 18px;
+  line-height: 1.56;
+  color: var(--ck-body-ink);
+  max-width: 54ch;
+}
+.ckl .ckl-chalp-qa-link {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 15px;
+  color: var(--ck-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ck-border);
+  padding-bottom: 2px;
+}
+.ckl .ckl-chalp-qa-link:hover { color: var(--ck-red); border-bottom-color: var(--ck-red); }
+
+/* ── The ask ────────────────────────────────────────────────────────────────*/
+.ckl .ckl-chalp-cta {
+  background: var(--ck-paper);
+  padding: clamp(90px, 11vw, 170px) clamp(20px, 5vw, 80px);
+  text-align: center;
+  overflow: hidden;
+}
+.ckl .ckl-chalp-cta-line {
+  display: block;
+  width: 1px;
+  height: 64px;
+  margin: 0 auto;
+  background: linear-gradient(to bottom, rgba(11, 10, 6, 0), #c4c2bc);
+}
+.ckl .ckl-chalp-cta-diamond {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 18px auto 4px;
+  background: var(--ck-red);
+  transform: rotate(45deg);
+}
+.ckl .ckl-chalp-cta-h2 {
+  margin: 18px auto 0;
+  max-width: 1000px;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 4.8vw, 4rem);
+  line-height: 1;
+  color: var(--ck-ink);
+}
+.ckl .ckl-chalp-cta-em { font-style: italic; }
+.ckl .ckl-chalp-cta-lead {
+  margin: 30px auto 0;
+  max-width: 540px;
+  font-family: var(--ck-body);
+  font-size: 21px;
+  line-height: 31px;
+  color: var(--ck-body-ink);
+}
+.ckl .ckl-chalp-cta .ckl-chalp-btn { width: 262px; height: 72px; min-width: 0; }
+
+/* ── Breakpoints ────────────────────────────────────────────────────────────*/
+
+/* Above this width the masthead becomes a real two-column composition: the argument on the left,
+   the motif holding the right. Stacked, its content topped out around 750px inside a 1140px field,
+   so the first screen carried ~400px of dead space down its right edge — the page read as one
+   ragged column adrift in a wide container rather than as a composed spread.
+
+   Placement is explicit rather than auto-flowed: the motif has to span the full height of the text
+   column to sit optically centred against it, which auto-placement cannot express. */
+@media (min-width: 1080px) {
+  .ckl .ckl-chalp-mast .ckl-chalp-in {
+    display: grid;
+    /* The right column can never go below the strip's intrinsic width — ten 22px pages plus nine
+       10px gaps is 310px, and a narrower column would push the last page out of the section. */
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 27vw, 420px);
+    column-gap: clamp(48px, 6vw, 100px);
+    align-items: start;
+  }
+  .ckl .ckl-chalp-mast .ckl-chalp-kicker  { grid-area: 1 / 1 / 2 / 2; }
+  .ckl .ckl-chalp-mast .ckl-chalp-h1      { grid-area: 2 / 1 / 3 / 2; max-width: none; }
+  .ckl .ckl-chalp-mast .ckl-chalp-lead    { grid-area: 3 / 1 / 4 / 2; max-width: none; }
+  .ckl .ckl-chalp-mast .ckl-chalp-actions { grid-area: 4 / 1 / 5 / 2; }
+  .ckl .ckl-chalp-mast .ckl-chalp-motif {
+    grid-area: 2 / 2 / 5 / 3;
+    align-self: center;
+    margin-top: 0;
+  }
+  .ckl .ckl-chalp-mast .ckl-chalp-pages,
+  .ckl .ckl-chalp-mast .ckl-chalp-motif-rule { max-width: none; }
+}
+
+/* The terms section, on the same two-column spread as the masthead — which is what turns the page
+   from a stack of differently-ragged left-aligned blocks into a repeating composition.
+
+   Stacked, its three blocks ended at 884, 672 and 341 inside a 1206 field: three different right
+   edges under a full-width heading. The definition list now holds the left column and the examples
+   run sits beside it as a margin note, which is what it actually is. */
+@media (min-width: 1080px) {
+  .ckl .ckl-chalp-terms {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 400px);
+    column-gap: clamp(48px, 6vw, 100px);
+    align-items: start;
+  }
+  .ckl .ckl-chalp-terms .ckl-chalp-kicker { grid-area: 1 / 1 / 2 / 3; }
+  .ckl .ckl-chalp-terms .ckl-chalp-h2     { grid-area: 2 / 1 / 3 / 3; }
+  .ckl .ckl-chalp-terms .ckl-chalp-dl     { grid-area: 3 / 1 / 4 / 2; max-width: none; }
+  .ckl .ckl-chalp-terms .ckl-chalp-run    { grid-area: 3 / 2 / 4 / 3; margin-top: clamp(34px, 4vw, 52px); }
+  .ckl .ckl-chalp-terms .ckl-chalp-more   { grid-area: 4 / 1 / 5 / 2; justify-self: start; }
+}
+
+@media (min-width: 900px) {
+  /* 6 steps → one clean row of 6; 4 rewards stay 2×2 so the cards keep a readable measure. */
+  .ckl .ckl-chalp-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1180px) {
+  .ckl .ckl-chalp-steps { grid-template-columns: repeat(6, minmax(0, 1fr)); column-gap: 0; }
+  .ckl .ckl-chalp-step { padding-right: 30px; }
+}
+
+@media (max-width: 620px) {
+  /* Single column below this: two columns of 14.5px prose in ~150px is not a layout. */
+  .ckl .ckl-chalp-steps,
+  .ckl .ckl-chalp-rewards,
+  .ckl .ckl-chalp-qa { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .ckl .ckl-chalp-btn { min-width: 0; width: 100%; }
+  .ckl .ckl-chalp-cta .ckl-chalp-btn { width: 100%; }
+  /* Stacked, the auto-margin would leave the action orphaned against the right edge. */
+  .ckl .ckl-chalp-band-btn,
+  .ckl .ckl-chalp-band-link { margin-left: 0; }
+  .ckl .ckl-chalp-dt { flex-basis: 100%; }
+}

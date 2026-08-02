@@ -6,6 +6,7 @@ import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import Footer from "./landing/sections/Footer/Footer";
 import { ROUTES, LOGO_SRC } from "./landing/_shared/theme";
+import { COMPANY } from "../constants/company";
 import "./landing/landing.css";
 import "./ContactPage.css";
 
@@ -181,9 +182,9 @@ export default function ContactPage() {
         <aside className="ckl-contact-sidebar">
           <div className="ckl-contact-card">
             <p className="ckl-contact-card-head">Direct Contact</p>
-            <a href="mailto:contact@ckript.com" className="ckl-contact-card-row hov-red">
+            <a href={`mailto:${COMPANY.contactEmail}`} className="ckl-contact-card-row hov-red">
               <span className="msi" style={{ fontSize: 18 }}>mail</span>
-              <span>contact@ckript.com</span>
+              <span>{COMPANY.contactEmail}</span>
             </a>
             <a href="tel:+917986950853" className="ckl-contact-card-row hov-red">
               <span className="msi" style={{ fontSize: 18 }}>call</span>

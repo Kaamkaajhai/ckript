@@ -145,7 +145,7 @@ export default function PrivacyPolicy() {
           <div className="mb-1 text-[10.5px] font-bold uppercase tracking-[0.12em] text-gray-400">Corporate Information</div>
           <p><span className="font-semibold text-gray-600">Legal Entity:</span> {COMPANY.legalName} <span className="mx-2 opacity-40">|</span> <span className="font-semibold text-gray-600">CIN:</span> {COMPANY.cin}</p>
           <p><span className="font-semibold text-gray-600">Registered Office:</span> {COMPANY.registeredOffice}</p>
-          <p><span className="font-semibold text-gray-600">Contact:</span> <a href={`mailto:${COMPANY.supportEmail}`} className="underline underline-offset-2 hover:text-gray-700">{COMPANY.supportEmail}</a></p>
+          <p><span className="font-semibold text-gray-600">Contact:</span> <a href={`mailto:${COMPANY.email}`} className="underline underline-offset-2 hover:text-gray-700">{COMPANY.email}</a></p>
         </div>
 
         {/* Footer nav */}

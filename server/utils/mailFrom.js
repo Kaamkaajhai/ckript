@@ -1,3 +1,5 @@
+import { CONTACTS } from "./companyContacts.js";
+
 /**
  * Who the mail claims to be from.
  *
@@ -10,20 +12,24 @@
  *     like "resend" as the login — never an address — so a From derived from it is not a valid
  *     sender at all.
  *
- * Defaults to EMAIL_USER so existing deployments keep working untouched: set EMAIL_FROM only when
- * the visible sender differs from the login.
+ * So EMAIL_USER is NOT in the chain below. It was, and the fallback quietly won: the .env in this
+ * project configures the visible sender as EMAIL_FROM_ADDRESS, a key this file did not read, so
+ * every message resolved past it to EMAIL_USER and went out under the login address instead.
+ * EMAIL_FROM_ADDRESS is checked first because that is the key actually in use; EMAIL_FROM stays
+ * accepted so a deployment configured with either name keeps working.
  *
  * Note for whoever configures this: the address here must be one the SMTP account is actually
  * authorised to send as — a verified Gmail "send mail as" alias, or a domain verified with your
  * provider. Putting an unauthorised address here does not fail loudly; it lands the mail in spam,
  * because it breaks SPF/DKIM alignment.
  */
-const FALLBACK = "noreply@ckript.com";
 
-/** `"ckript" <address>`, ready for nodemailer's `from`. */
-export const mailFrom = () => {
-  const address = process.env.EMAIL_FROM || process.env.EMAIL_USER || FALLBACK;
-  return `"ckript" <${address}>`;
+const fromAddress = () => {
+  const configured = process.env.EMAIL_FROM_ADDRESS || process.env.EMAIL_FROM;
+  return String(configured ?? "").trim() || CONTACTS.company;
 };
+
+/** `CKRIPT <info@ckript.com>`, ready for nodemailer's `from`. */
+export const mailFrom = () => `"${CONTACTS.name}" <${fromAddress()}>`;
 
 export default mailFrom;

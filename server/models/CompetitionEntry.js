@@ -35,6 +35,22 @@ const competitionEntrySchema = new mongoose.Schema({
   acceptedRulesAt: { type: Date, required: true },
   acceptedCopyrightAt: { type: Date, required: true },
 
+  // What the entrant paid to enter. The verify handler used to check the Razorpay signature and
+  // then create the entry while storing NOTHING about the payment — so an entry carried no proof of
+  // what was charged, in which currency, or against which order. Support could not answer "did this
+  // person pay?" and no invoice could be issued after the fact.
+  //
+  // `orderId` is unique-sparse so one Razorpay order can only ever produce one entry: a
+  // double-submitted checkout callback hits the index instead of creating a second registration.
+  payment: {
+    orderId: { type: String, default: "" },
+    paymentId: { type: String, default: "" },
+    amount: { type: Number, default: 0 },      // major units, as charged
+    currency: { type: String, default: "" },
+    paidAt: { type: Date, default: null },
+    invoice: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice", default: null },
+  },
+
   scriptId: { type: mongoose.Schema.Types.ObjectId, ref: "Script", default: null },
   status: {
     type: String,
@@ -91,6 +107,11 @@ const competitionEntrySchema = new mongoose.Schema({
 
 // One entry per writer per competition.
 competitionEntrySchema.index({ competitionId: 1, userId: 1 }, { unique: true });
+// Lookup only, deliberately NOT unique: `payment.orderId` defaults to "" rather than being absent,
+// and a sparse index skips only ABSENT fields — so a unique one would let the first free entry
+// claim "" and reject every free entry after it. Double registration is already impossible via the
+// compound unique index above, and duplicate invoices via Invoice.paymentReference.
+competitionEntrySchema.index({ "payment.orderId": 1 });
 
 competitionEntrySchema.pre("validate", async function ensureEventId() {
   if (this.eventId) return;

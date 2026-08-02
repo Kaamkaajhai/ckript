@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { getOTPExpirySeconds } from "./otpHelper.js";
 import mailFrom from "./mailFrom.js";
+import { CONTACTS, signatureHtml, signatureText } from "./companyContacts.js";
 
 let cachedTransporter = null;
 
@@ -169,9 +170,9 @@ export const sendOTPEmail = async (email, name, otp) => {
               <p>This code will expire in <strong>${otpValidityLabel}</strong>.</p>
               <p>If you didn't create an account with ckript, please ignore this email.</p>
               
-              <p>Best regards,<br>The ckript Team</p>
+              <p>Best regards,<br>Team ${CONTACTS.name}</p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -179,7 +180,7 @@ export const sendOTPEmail = async (email, name, otp) => {
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nThank you for signing up with ckript! Your verification code is: ${otp}\n\nThis code will expire in ${otpValidityLabel}.\n\nIf you didn't create an account with ckript, please ignore this email.\n\nBest regards,\nThe ckript Team`,
+      text: `Hi ${name},\n\nThank you for signing up with ckript! Your verification code is: ${otp}\n\nThis code will expire in ${otpValidityLabel}.\n\nIf you didn't create an account with ckript, please ignore this email.\n\nBest regards,\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -253,9 +254,9 @@ export const sendPasswordResetOTPEmail = async (email, name, otp, validitySecond
                 If you did not request a password reset, you can safely ignore this email — your password will remain unchanged.
               </div>
 
-              <p style="margin-top:16px;">Best regards,<br>The ckript Team</p>
+              <p style="margin-top:16px;">Best regards,<br>Team ${CONTACTS.name}</p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -263,7 +264,7 @@ export const sendPasswordResetOTPEmail = async (email, name, otp, validitySecond
         </body>
         </html>
       `,
-      text: `Hi ${name || 'there'},\n\nWe received a request to reset the password for your ckript account.\n\nYour password reset code is: ${otp}\n\nThis code will expire in ${otpValidityLabel}.\n\nIf you didn't request a password reset, ignore this email — your password will remain unchanged.\n\nBest regards,\nThe ckript Team`,
+      text: `Hi ${name || 'there'},\n\nWe received a request to reset the password for your ckript account.\n\nYour password reset code is: ${otp}\n\nThis code will expire in ${otpValidityLabel}.\n\nIf you didn't request a password reset, ignore this email — your password will remain unchanged.\n\nBest regards,\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -316,16 +317,16 @@ export const sendWelcomeEmail = async (email, name) => {
                 <li>Connecting with industry professionals</li>
               </ul>
               <p>We're excited to have you on board!</p>
-              <p>Best regards,<br>The ckript Team</p>
+              <p>Best regards,<br>Team ${CONTACTS.name}</p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
             </div>
           </div>
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nYour email has been successfully verified! You're now part of the ckript community.\n\nWe're excited to have you on board!\n\nBest regards,\nThe ckript Team`,
+      text: `Hi ${name},\n\nYour email has been successfully verified! You're now part of the ckript community.\n\nWe're excited to have you on board!\n\nBest regards,\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -393,7 +394,7 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
                 <a href="${buildClientUrl('/search')}" class="cta">Discover Scripts</a>
               </div>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>If you have any questions, reply to this email. We're here to help.</p>
               <p>© ${new Date().getFullYear()} ckript. All rights reserved.</p>
             </div>
@@ -401,7 +402,7 @@ export const sendInvestorWelcomeEmail = async (email, name) => {
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nEvery masterpiece starts with a single line. Your next big project is hiding in plain sight.\n\nWelcome to ckript. You now have exclusive access to a curated marketplace of production-ready stories, brilliant writers, and untapped intellectual property. No middlemen. Just you and the script.\n\nDiscover Scripts: ${buildClientUrl('/search')}\n\nThe ckript Team`,
+      text: `Hi ${name},\n\nEvery masterpiece starts with a single line. Your next big project is hiding in plain sight.\n\nWelcome to ckript. You now have exclusive access to a curated marketplace of production-ready stories, brilliant writers, and untapped intellectual property. No middlemen. Just you and the script.\n\nDiscover Scripts: ${buildClientUrl('/search')}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -454,9 +455,9 @@ export const sendInvestorApprovalEmail = async (email, name, options = {}) => {
                 <a href="${loginUrl}" class="button">Log In to ckript</a>
               </div>
               <p style="color:#666;font-size:13px">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${loginUrl}" style="color:#1e3a5f">${loginUrl}</a></p>
-              <p>Welcome aboard,<br/><strong>The ckript Team</strong></p>
+              <p>Welcome aboard,<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -464,7 +465,7 @@ export const sendInvestorApprovalEmail = async (email, name, options = {}) => {
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nGreat news! Your investor account on ckript has been approved.\n\nYou can now log in at: ${loginUrl}\n\nWelcome aboard,\nThe ckript Team`,
+      text: `Hi ${name},\n\nGreat news! Your investor account on ckript has been approved.\n\nYou can now log in at: ${loginUrl}\n\nWelcome aboard,\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -519,10 +520,10 @@ export const sendInvestorRejectionEmail = async (email, name, reason, options = 
               <div style="text-align:center">
                 <a href="${loginUrl}" class="button">Open ckript Login</a>
               </div>
-              <p style="color:#666;font-size:13px">Need help? Reach us at info.ckript@gmail.com</p>
-              <p>Regards,<br/><strong>The ckript Team</strong></p>
+              <p style="color:#666;font-size:13px">Need help? Reach us at ${CONTACTS.support}</p>
+              <p>Regards,<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -530,7 +531,7 @@ export const sendInvestorRejectionEmail = async (email, name, reason, options = 
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nYour investor profile was not approved at this time.${safeReason ? `\n\nReview reason: ${safeReason}` : ""}\n\nYou can contact support at info.ckript@gmail.com.\n\nLogin: ${loginUrl}\n\nThe ckript Team`,
+      text: `Hi ${name},\n\nYour investor profile was not approved at this time.${safeReason ? `\n\nReview reason: ${safeReason}` : ""}\n\nYou can contact support at ${CONTACTS.support}.\n\nLogin: ${loginUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -602,9 +603,9 @@ export const sendWriterMembershipDecisionEmail = async (
                 <a href="${profileUrl}" class="button">Open My Profile</a>
               </div>
               <p style="color:#666;font-size:13px">If the button doesn't work, use this link:<br/><a href="${profileUrl}" style="color:#1e3a5f">${profileUrl}</a></p>
-              <p>Regards,<br/><strong>The ckript Team</strong></p>
+              <p>Regards,<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -612,7 +613,7 @@ export const sendWriterMembershipDecisionEmail = async (
         </body>
         </html>
       `,
-      text: `Hi ${name},\n\nYour ${safeMembershipLabel} membership request has been ${isApproved ? "approved" : "reviewed"}.${safeNote ? `\n\nAdmin note: ${safeNote}` : ""}\n\nOpen profile: ${profileUrl}\n\nThe ckript Team`,
+      text: `Hi ${name},\n\nYour ${safeMembershipLabel} membership request has been ${isApproved ? "approved" : "reviewed"}.${safeNote ? `\n\nAdmin note: ${safeNote}` : ""}\n\nOpen profile: ${profileUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -686,9 +687,9 @@ export const sendPurchaseRequestEmail = async (
                 <a href="${dashboardUrl}" class="button">Review Purchase Request</a>
               </div>
               <p style="color:#666;font-size:13px">If the button doesn't work, copy and paste this link:<br/><a href="${dashboardUrl}" style="color:#1e3a5f">${dashboardUrl}</a></p>
-              <p>Best regards,<br/><strong>The ckript Team</strong></p>
+              <p>Best regards,<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -696,7 +697,7 @@ export const sendPurchaseRequestEmail = async (
         </body>
         </html>
       `,
-      text: `Hi ${writerName},\n\n${safeRequesterName} (${safeRequesterType}) wants access to your script "${scriptTitle}" and has sent a purchase request for ₹${amount}.${safeRequestNote ? `\n\nMessage: ${safeRequestNote}` : ""}\n\nPlease review the request on ckript and approve from the dashboard. After approval, the buyer will be asked to pay before access is granted.\n\nReview request: ${dashboardUrl}\n\nThe ckript Team`,
+      text: `Hi ${writerName},\n\n${safeRequesterName} (${safeRequesterType}) wants access to your script "${scriptTitle}" and has sent a purchase request for ₹${amount}.${safeRequestNote ? `\n\nMessage: ${safeRequestNote}` : ""}\n\nPlease review the request on ckript and approve from the dashboard. After approval, the buyer will be asked to pay before access is granted.\n\nReview request: ${dashboardUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -738,8 +739,8 @@ export const sendPurchaseApprovedEmail = async (investorEmail, investorName, wri
       ? `<p>Please complete payment${amount > 0 ? ` of <strong>₹${amount.toLocaleString("en-IN")}</strong>` : ""} from the script page to unlock full synopsis and content.</p>${deadlineText ? `<p><strong>Payment deadline:</strong> ${deadlineText}</p>` : ""}`
       : `<p>You can now view the complete synopsis, full content, and all script details on ckript.</p>`;
     const textVersion = requiresPayment
-      ? `Hi ${investorName},\n\n${writerName} approved your purchase request for "${scriptTitle}". Please complete payment${amount > 0 ? ` of ₹${amount.toLocaleString("en-IN")}` : ""} to unlock full access.${deadlineText ? `\nPayment deadline: ${deadlineText}` : ""}\n\nContinue: ${scriptsUrl}\n\nThe ckript Team`
-      : `Hi ${investorName},\n\n${writerName} has approved your purchase request for "${scriptTitle}". You now have full access.\n\nOpen script: ${scriptsUrl}\n\nThe ckript Team`;
+      ? `Hi ${investorName},\n\n${writerName} approved your purchase request for "${scriptTitle}". Please complete payment${amount > 0 ? ` of ₹${amount.toLocaleString("en-IN")}` : ""} to unlock full access.${deadlineText ? `\nPayment deadline: ${deadlineText}` : ""}\n\nContinue: ${scriptsUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`
+      : `Hi ${investorName},\n\n${writerName} has approved your purchase request for "${scriptTitle}". You now have full access.\n\nOpen script: ${scriptsUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`;
 
     const mailOptions = {
       from: mailFrom(),
@@ -778,9 +779,9 @@ export const sendPurchaseApprovedEmail = async (investorEmail, investorName, wri
               <div style="text-align:center">
                 <a href="${scriptsUrl}" class="button">${ctaLabel}</a>
               </div>
-              <p>${requiresPayment ? "Once payment is confirmed, access is granted instantly." : "Congratulations on your acquisition,"}<br/><strong>The ckript Team</strong></p>
+              <p>${requiresPayment ? "Once payment is confirmed, access is granted instantly." : "Congratulations on your acquisition,"}<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -850,9 +851,9 @@ export const sendPurchaseRejectedEmail = async (investorEmail, investorName, wri
               <div style="text-align:center">
                 <a href="${searchUrl}" class="button">Explore More Scripts</a>
               </div>
-              <p>Best regards,<br/><strong>The ckript Team</strong></p>
+              <p>Best regards,<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -860,7 +861,7 @@ export const sendPurchaseRejectedEmail = async (investorEmail, investorName, wri
         </body>
         </html>
       `,
-      text: `Hi ${investorName},\n\n${writerName} has declined your purchase request for "${scriptTitle}".\n${note ? `\nWriter's note: ${note}\n` : ''}\n${refundAmount > 0 ? `Any reserved funds were refunded${refundAmount ? ` (₹${refundAmount.toLocaleString("en-IN")})` : ""}.` : "No payment was collected for this request."}\n\nExplore more scripts: ${searchUrl}\n\nThe ckript Team`,
+      text: `Hi ${investorName},\n\n${writerName} has declined your purchase request for "${scriptTitle}".\n${note ? `\nWriter's note: ${note}\n` : ''}\n${refundAmount > 0 ? `Any reserved funds were refunded${refundAmount ? ` (₹${refundAmount.toLocaleString("en-IN")})` : ""}.` : "No payment was collected for this request."}\n\nExplore more scripts: ${searchUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -879,10 +880,14 @@ export const sendAdminWorkflowAlertEmail = async ({ title, section, message, met
     const transporter = createTransporter();
     await transporter.verify();
 
-    const companyEmail = (process.env.COMPANY_NOTIFICATION_EMAIL || "info.ckript@gmail.com").trim().toLowerCase();
+    const companyEmail = (process.env.COMPANY_NOTIFICATION_EMAIL || CONTACTS.company).trim().toLowerCase();
     if (!companyEmail || !companyEmail.includes("@")) {
       return { success: false, error: "Invalid company notification email" };
     }
+
+    // Whether the alerts below are being posted to the company's own inbox — the two suppression
+    // rules underneath apply there and nowhere else.
+    const isCompanyInbox = companyEmail === CONTACTS.company.trim().toLowerCase();
 
     const safeTitle = String(title || "Admin Workflow Alert").trim();
     const safeSection = String(section || "admin").trim();
@@ -896,11 +901,11 @@ export const sendAdminWorkflowAlertEmail = async ({ title, section, message, met
       combinedAlertText.includes("project spotlight activated");
 
     // Do not send trailer-related alerts to the company inbox alias requested by the user.
-    if (companyEmail === "info.ckript@gmail.com" && trailerRelated) {
+    if (isCompanyInbox && trailerRelated) {
       return { success: true, skipped: true, reason: "trailer-alert-blocked-for-company-email" };
     }
 
-    if (companyEmail === "info.ckript@gmail.com" && projectSpotlightActivatedRelated) {
+    if (isCompanyInbox && projectSpotlightActivatedRelated) {
       return { success: true, skipped: true, reason: "spotlight-activation-alert-blocked-for-company-email" };
     }
 
@@ -924,10 +929,12 @@ export const sendAdminWorkflowAlertEmail = async ({ title, section, message, met
           <p style="margin:0 0 16px;">${safeMessage}</p>
           ${rows ? `<table style="border-collapse:collapse;border:1px solid #e5e7eb;">${rows}</table>` : ""}
           <p style="margin-top:16px;color:#6b7280;font-size:12px;">Generated at ${new Date().toISOString()}</p>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Title: ${safeTitle}\nSection: ${safeSection}\nMessage: ${safeMessage}\n${Object.entries(metadata || {}).map(([k, v]) => `${k}: ${v}`).join("\n")}`,
+      text: `Title: ${safeTitle}\nSection: ${safeSection}\nMessage: ${safeMessage}\n${Object.entries(metadata || {}).map(([k, v]) => `${k}: ${v}`).join("\n")}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -977,10 +984,12 @@ export const sendAdminPremiumGrantedEmail = async (
               <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">Thank you for being part of the ckript community.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hi ${name || "there"},\n\nWe have great news! ${safeAdminName} has granted you full access to the ckript Premium Model.\n\nWith Premium, you can explore high-quality scripts, view writer details, and access exclusive AI tools.\n\nExplore ckript Premium: ${dashboardUrl}\n\nThank you for being part of the ckript community.`,
+      text: `Hi ${name || "there"},\n\nWe have great news! ${safeAdminName} has granted you full access to the ckript Premium Model.\n\nWith Premium, you can explore high-quality scripts, view writer details, and access exclusive AI tools.\n\nExplore ckript Premium: ${dashboardUrl}\n\nThank you for being part of the ckript community.\n\nRegards,\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1025,10 +1034,12 @@ export const sendAdminPremiumRemovedEmail = async (
               <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">Thank you for being part of the ckript community.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hi ${name || "there"},\n\nWe are writing to inform you that ${safeAdminName} has removed your access to the ckript Premium Model.\n\nYour account has been reverted to the standard tier. If you have any questions, please reach out to our support team.\n\nContact Support: ${contactUrl}\n\nThank you for being part of the ckript community.`,
+      text: `Hi ${name || "there"},\n\nWe are writing to inform you that ${safeAdminName} has removed your access to the ckript Premium Model.\n\nYour account has been reverted to the standard tier. If you have any questions, please reach out to our support team.\n\nContact Support: ${contactUrl}\n\nThank you for being part of the ckript community.\n\nRegards,\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1079,10 +1090,12 @@ export const sendAdminMessageEmail = async (
               <p style="margin:16px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hi ${name || "there"},\n\n${safeSenderName} sent you a new message on ckript.\nPreview: ${summary}\n\nOpen messages: ${messagesUrl}\n\n- ckript`,
+      text: `Hi ${name || "there"},\n\n${safeSenderName} sent you a new message on ckript.\nPreview: ${summary}\n\nOpen messages: ${messagesUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1133,10 +1146,12 @@ export const sendAdminBroadcastEmail = async (
               <p style="margin:0; color:#9ca3af; font-size:12px;">This is an automated email from the ckript platform.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `The ckript team has a new update for you.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\n${buttonText}: ${finalUrl}\n\n- ckript`,
+      text: `The ckript team has a new update for you.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\n${buttonText}: ${finalUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1181,10 +1196,12 @@ export const sendNewMessageEmail = async (
               <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hi ${safeReceiverName},\n\nGreat news! Film industry professional ${safeSenderName} has sent you a direct message regarding your work on ckript.\n\nDon't keep them waiting—head over to your messages to reply and start the conversation!\n\nOpen Messages: ${messagesUrl}\n\n- ckript`,
+      text: `Hi ${safeReceiverName},\n\nGreat news! Film industry professional ${safeSenderName} has sent you a direct message regarding your work on ckript.\n\nDon't keep them waiting—head over to your messages to reply and start the conversation!\n\nOpen Messages: ${messagesUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1242,10 +1259,12 @@ export const sendMeetingInvitationEmail = async (
               <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hello,\n\n${producerName} has requested a meeting with you regarding your script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nDuration: ${duration} minutes\n\nPlease review and respond to this request from your dashboard: ${dashboardUrl}\n\n- ckript`,
+      text: `Hello,\n\n${producerName} has requested a meeting with you regarding your script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nDuration: ${duration} minutes\n\nPlease review and respond to this request from your dashboard: ${dashboardUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1298,10 +1317,12 @@ export const sendMeetingAcceptedEmail = async (
               <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hello,\n\n${writerName} has accepted your meeting request regarding the script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nMeeting Link: ${meetingLink}\n\n- ckript`,
+      text: `Hello,\n\n${writerName} has accepted your meeting request regarding the script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nMeeting Link: ${meetingLink}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1355,10 +1376,12 @@ export const sendMeetingAcceptedWriterEmail = async (
               <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. We wish you a productive meeting!</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hi ${writerName},\n\nYou have accepted the meeting request from ${producerName} regarding your script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nMeeting Link: ${meetingLink}\n\nPlease use the link above to join the meeting at the scheduled time.\n\n- ckript`,
+      text: `Hi ${writerName},\n\nYou have accepted the meeting request from ${producerName} regarding your script "${scriptName}".\n\nDate: ${date}\nTime: ${time}\nMeeting Link: ${meetingLink}\n\nPlease use the link above to join the meeting at the scheduled time.\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1402,10 +1425,12 @@ export const sendMeetingRejectedEmail = async (
               <p style="margin:24px 0 0; color:#6b7280; font-size:12px;">This is an automated email from ckript. If you need help, contact our support team.</p>
             </div>
           </div>
+            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
+            </div>
         </body>
         </html>
       `,
-      text: `Hello,\n\nUnfortunately, ${writerName} has declined your meeting request regarding the script "${scriptName}".\n\nYour meeting quota slot for this request has been consumed. You may reach out to them via direct messages instead.\n\n- ckript`,
+      text: `Hello,\n\nUnfortunately, ${writerName} has declined your meeting request regarding the script "${scriptName}".\n\nYour meeting quota slot for this request has been consumed. You may reach out to them via direct messages instead.\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1463,9 +1488,9 @@ export const sendWriterPlanGrantedEmail = async (
                 <a href="${loginUrl}" class="button">Log In to ckript</a>
               </div>
               <p style="color:#666;font-size:13px">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${loginUrl}" style="color:#1e3a5f">${loginUrl}</a></p>
-              <p>Welcome to the premium tier,<br/><strong>The ckript Team</strong></p>
+              <p>Welcome to the premium tier,<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -1473,7 +1498,7 @@ export const sendWriterPlanGrantedEmail = async (
         </body>
         </html>
       `,
-      text: `Hi ${writerName},\n\nGreat news! An administrator on ckript has granted your account the ${formattedPlanName} plan.\n\nYou can now enjoy all the premium benefits. Log in to explore: ${loginUrl}\n\nThe ckript Team`,
+      text: `Hi ${writerName},\n\nGreat news! An administrator on ckript has granted your account the ${formattedPlanName} plan.\n\nYou can now enjoy all the premium benefits. Log in to explore: ${loginUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -1529,9 +1554,9 @@ export const sendFipPlanGrantedEmail = async (
                 <a href="${loginUrl}" class="button">Log In to ckript</a>
               </div>
               <p style="color:#666;font-size:13px">If the button doesn't work, copy and paste this link into your browser:<br/><a href="${loginUrl}" style="color:#1e3a5f">${loginUrl}</a></p>
-              <p>Welcome to Diamond,<br/><strong>The ckript Team</strong></p>
+              <p>Welcome to Diamond,<br/><strong>Team ${CONTACTS.name}</strong></p>
             </div>
-            <div class="footer">
+            <div class="footer">${signatureHtml()}
               <p>© 2026 ckript. All rights reserved.</p>
               <p>This is an automated message, please do not reply.</p>
             </div>
@@ -1539,7 +1564,7 @@ export const sendFipPlanGrantedEmail = async (
         </body>
         </html>
       `,
-      text: `Hi ${userName},\n\nGreat news! An administrator on ckript has granted your account a 1-year Diamond Film Industry Professional subscription.\n\nYou can now enjoy all the premium benefits. Log in to explore: ${loginUrl}\n\nThe ckript Team`,
+      text: `Hi ${userName},\n\nGreat news! An administrator on ckript has granted your account a 1-year Diamond Film Industry Professional subscription.\n\nYou can now enjoy all the premium benefits. Log in to explore: ${loginUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
     };
 
     const info = await transporter.sendMail(mailOptions);
