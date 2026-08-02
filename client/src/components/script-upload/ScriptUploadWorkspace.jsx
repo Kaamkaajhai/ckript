@@ -646,7 +646,98 @@ function PublishPanel({ vm }) {
 
       </div>
 
+      <div className="rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 space-y-6 border-emerald-200 bg-emerald-50/60">
+        <div>
+          <h3 className="text-sm font-bold text-emerald-700">Rights Type</h3>
+          <p className="text-xs mb-3 text-gray-600">What type of rights are you offering?</p>
+          <TagSelect
+            ariaLabel="Rights Type"
+            options={[{ value: "full_rights_sale", label: "Full Rights Sale (Ownership Transfer)" }, { value: "exclusive_license", label: "Exclusive License" }, { value: "custom_negotiation_required", label: "Custom Negotiation Required" }]}
+            value={state.rightsLicensing.rightsType || "custom_negotiation_required"}
+            onChange={(v) => setRights({ rightsType: v })}
+            size="sm"
+          />
+        </div>
 
+        {state.rightsLicensing.rightsType === "exclusive_license" && (
+          <div>
+            <h3 className="text-sm font-bold text-emerald-700">License Duration</h3>
+            <p className="text-xs mb-3 text-gray-600">How many months will the license last?</p>
+            <input type="number" min="1" max="120" value={state.rightsLicensing.timeBound?.licenseDurationMonths || 12} onChange={(e) => setRights({ timeBound: { ...state.rightsLicensing.timeBound, licenseDurationMonths: Number(e.target.value) } })} className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white" />
+          </div>
+        )}
+
+        <div>
+          <h3 className="text-sm font-bold text-emerald-700">Modification Rights</h3>
+          <p className="text-xs mb-3 text-gray-600">How much creative control are you willing to give up?</p>
+          <TagSelect
+            ariaLabel="Modification Rights"
+            options={[{ value: "buyer_can_modify_freely", label: "Publisher can modify freely" }, { value: "buyer_must_consult_writer", label: "Must consult writer" }, { value: "writer_retains_creative_approval_rights", label: "Writer approval required" }]}
+            value={state.rightsLicensing.modificationRights || ""}
+            onChange={(v) => setRights({ modificationRights: v })}
+            size="sm"
+          />
+        </div>
+
+        <div>
+          <h3 className="text-sm font-bold text-emerald-700">Payment Structure</h3>
+          <p className="text-xs mb-3 text-gray-600">How do you expect to be paid for these rights?</p>
+          <TagSelect
+            ariaLabel="Payment Structure"
+            options={[{ value: "one_time_upfront_payment", label: "One-time upfront payment" }, { value: "lower_upfront_plus_royalty_percent", label: "Lower upfront + royalty %" }, { value: "revenue_sharing_model", label: "Revenue sharing model" }, { value: "custom_deal", label: "Custom deal" }]}
+            value={state.rightsLicensing.paymentStructure || ""}
+            onChange={(v) => setRights({ paymentStructure: v })}
+            size="sm"
+          />
+        </div>
+
+        {royaltyBased && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-emerald-700">Royalty Percentage (%)</h3>
+              <input type="number" min="0" max="100" value={state.rightsLicensing.royaltySettings?.percentage || 0} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, percentage: Number(e.target.value) } })} className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-700">Royalty Duration</h3>
+              <TagSelect
+                ariaLabel="Royalty duration"
+                options={[{ value: "none", label: "None" }, { value: "project_lifetime", label: "Project Lifetime" }, { value: "years", label: "Fixed Years" }]}
+                value={state.rightsLicensing.royaltySettings?.durationType || "none"}
+                onChange={(v) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, durationType: v } })}
+                size="sm"
+              />
+            </div>
+            {state.rightsLicensing.royaltySettings?.durationType === "years" && (
+              <div className="sm:col-span-2">
+                <h3 className="text-sm font-bold text-emerald-700">Number of Years</h3>
+                <input type="number" min="1" max="99" value={state.rightsLicensing.royaltySettings?.durationYears || 1} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, durationYears: Number(e.target.value) } })} className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white" />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div>
+          <h3 className="text-sm font-bold text-emerald-700">Negotiation Mode</h3>
+          <p className="text-xs mb-3 text-gray-600">Are you open to counter-offers?</p>
+          <TagSelect
+            ariaLabel="Negotiation Mode"
+            options={[{ value: "fixed_terms_non_negotiable", label: "Fixed terms" }, { value: "open_to_discussion_after_purchase", label: "Open to negotiation" }]}
+            value={state.rightsLicensing.negotiationMode || ""}
+            onChange={(v) => setRights({ negotiationMode: v })}
+            size="sm"
+          />
+        </div>
+
+        <div>
+          <h3 className="text-sm font-bold text-emerald-700">Custom Conditions (Optional)</h3>
+          <textarea
+            placeholder="e.g. Specific investor terms, guaranteed credit conditions..."
+            value={state.rightsLicensing.customConditions || ""}
+            onChange={(e) => setRights({ customConditions: e.target.value })}
+            className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white min-h-[100px] resize-y"
+          />
+        </div>
+      </div>
 
       <div className="su-card su-legal-card">
         <h3 className="su-card-title">Legal acknowledgements</h3>
@@ -664,6 +755,16 @@ function PublishPanel({ vm }) {
               {...validationFieldProps(state, "su-legal-terms")}
             />
             <span>I accept the <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer">Script Upload Terms & Conditions</Link>.</span>
+          </label>
+          <label>
+            <input
+              id="su-legal-ownership"
+              type="checkbox"
+              checked={legalAck.ownershipConfirmed || false}
+              onChange={(event) => setAck("ownershipConfirmed", event.target.checked)}
+              {...validationFieldProps(state, "su-legal-ownership")}
+            />
+            <span>I explicitly confirm that I am the sole creator or own the IP outright.</span>
           </label>
         </div>
         <div ref={agreementRef} className="su-agreement" tabIndex="0">
