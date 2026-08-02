@@ -756,6 +756,16 @@ function PublishPanel({ vm }) {
             />
             <span>I accept the <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer">Script Upload Terms & Conditions</Link>.</span>
           </label>
+          <label>
+            <input
+              id="su-legal-ownership"
+              type="checkbox"
+              checked={legalAck.ownershipConfirmed || false}
+              onChange={(event) => setAck("ownershipConfirmed", event.target.checked)}
+              {...validationFieldProps(state, "su-legal-ownership")}
+            />
+            <span>I explicitly confirm that I am the sole creator or own the IP outright.</span>
+          </label>
         </div>
         <div ref={agreementRef} className="su-agreement" tabIndex="0">
           <pre>{computed.legalAgreement}</pre>
