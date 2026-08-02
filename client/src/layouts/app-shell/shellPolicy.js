@@ -126,17 +126,27 @@ export const usesAppShell = (role) => getShell(role) === SHELL.APP;
  * full-bleed in one wrapper and padded in another.
  *
  * `audiences` is the important part. Full-bleed is a property of the PAGE, not
- * the URL, and one URL can resolve to different pages per audience: /dashboard
- * is the writer's self-scrolling 2B dashboard but the producer's ordinary
- * padded page. Listing the prefix unqualified would strip the padding off the
- * producer dashboard. Omit `audiences` only when every audience's page at that
- * prefix really does own its own scroll.
+ * the URL, and one URL can resolve to different pages per audience. Omit
+ * `audiences` only when every audience's page at that prefix really does own
+ * its own scroll.
+ *
+ * /dashboard used to be qualified to the writer, because the producer's
+ * dashboard was an ordinary padded page and lost its layout without the shell's
+ * padding. Both dashboards now scroll themselves — the industry one is the
+ * ledger, which bleeds its banner, masthead rules and stat band to the edges of
+ * the content area — so the qualifier is gone.
+ *
+ * /ai-tools and /offer-holds are listed for the same reason: App.jsx mounts the
+ * SAME `Dashboard` component on all three, so all three must mount it the same
+ * way. Leaving them off is how one URL would inset a page the other does not.
  */
 const FULL_BLEED_ROUTES = [
-  { prefix: "/messages" },                            // operator console — two-pane, own scroll
-  { prefix: "/script/" },                             // cinematic script detail
-  { prefix: "/profile" },                             // profile workspace
-  { prefix: "/dashboard", audiences: [AUDIENCE.WRITER] },
+  { prefix: "/messages" },     // operator console — two-pane, own scroll
+  { prefix: "/script/" },      // cinematic script detail
+  { prefix: "/profile" },      // profile workspace
+  { prefix: "/dashboard" },    // writer's 2B dashboard and the industry ledger
+  { prefix: "/ai-tools" },     // …the same component
+  { prefix: "/offer-holds" },  // …and again
 ];
 
 /*

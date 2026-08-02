@@ -117,18 +117,27 @@ export const AuthModalProvider = ({ children }) => {
   // redirect, so an expiry costs them a sign-in rather than their place in the app.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (new URLSearchParams(location.search).get("reason") !== "session-expired") return;
+    const searchParams = new URLSearchParams(location.search);
+    const reason = searchParams.get("reason");
+    
+    if (reason !== "session-expired" && reason !== "auth-required") return;
+    
     let parked = "";
-    try {
-      parked = sessionStorage.getItem(PENDING_AUTH_REDIRECT_KEY) || "";
-      sessionStorage.removeItem(PENDING_AUTH_REDIRECT_KEY); // consume once
-    } catch { /* storage unavailable — still open the modal, just without a redirect */ }
-    // Reading a one-shot handoff from two external systems (the URL marker and sessionStorage).
+    if (reason === "session-expired") {
+      try {
+        parked = sessionStorage.getItem(PENDING_AUTH_REDIRECT_KEY) || "";
+        sessionStorage.removeItem(PENDING_AUTH_REDIRECT_KEY); // consume once
+      } catch { /* storage unavailable — still open the modal, just without a redirect */ }
+    } else if (reason === "auth-required") {
+      parked = searchParams.get("redirect") || "";
+    }
+    
+    // Reading a one-shot handoff from two external systems (the URL marker and sessionStorage/params).
     // There is no render-time equivalent, and consuming the key makes this fire exactly once.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setState({ open: true, redirect: parked });
-    navigate("/", { replace: true }); // drop the marker so a refresh doesn't re-trigger
-  }, [location.search, navigate]);
+    navigate(location.pathname, { replace: true }); // drop the marker so a refresh doesn't re-trigger
+  }, [location.search, location.pathname, navigate]);
 
   // Password recovery, as an overlay. Like pricing, the /forgot-password route
   // still works for deep links via ForgotPasswordRoute.
@@ -206,7 +215,9 @@ export const AuthModalProvider = ({ children }) => {
         onClose={closeWriterOnboarding}
         onComplete={() => {
           closeWriterOnboarding();
-          navigate("/profile", { replace: true });
+          const target = state.redirect || "/profile";
+          if (state.redirect) setState((prev) => ({ ...prev, redirect: "" }));
+          navigate(target, { replace: true });
         }}
       />
       <AboutModal open={aboutOpen} onClose={closeAboutModal} />

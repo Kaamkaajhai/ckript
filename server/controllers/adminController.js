@@ -1070,6 +1070,7 @@ export const sendAudienceBroadcast = async (req, res) => {
 
         const title = String(req.body?.title || "").trim();
         const content = String(req.body?.content || "").trim();
+        const actionUrl = String(req.body?.actionUrl || "").trim();
         if (!title) {
             return res.status(400).json({ message: "Title is required" });
         }
@@ -1104,6 +1105,7 @@ export const sendAudienceBroadcast = async (req, res) => {
                 sendAdminBroadcastEmail(recipient.email, recipient.name, {
                     title,
                     content,
+                    actionUrl,
                     audienceLabel: audienceConfig.audienceLabel,
                     adminName: req.user?.name || "ckript Admin",
                     clientBaseUrl: resolveClientOriginFromRequest(req),

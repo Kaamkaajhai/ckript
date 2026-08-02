@@ -98,6 +98,7 @@ const useChallenge = () => {
               slug: current.slug,
               dates: current.dates || {},
               prizePool: current.prizePool || "",
+              bannerUrl: current.bannerUrl || "",
               // Only ever present once the reveal has happened — the server strips it before that.
               theme: current.theme || "",
             }

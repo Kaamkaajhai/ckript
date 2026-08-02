@@ -1,7 +1,10 @@
+import { useContext } from "react";
 import { Link } from "react-router-dom";
 import Diamond from "../../_shared/Diamond";
 import { countdownFor } from "../../_shared/useChallenge";
 import CountdownTimer from "../../../../components/competition/CountdownTimer";
+import { AuthContext } from "../../../../context/AuthContext";
+import { useAuthModal } from "../../../../context/AuthModalContext";
 import "./ChallengeStrip.css";
 
 /**
@@ -29,6 +32,16 @@ const ChallengeStrip = ({ phase, competition, serverNow }) => {
     ? `/challenge/register?c=${competition.slug}`
     : `/challenge/c/${competition.slug}`;
 
+  const { user } = useContext(AuthContext) || {};
+  const { openAuthModal } = useAuthModal();
+
+  const handleActionClick = (e) => {
+    if (registering && !user) {
+      e.preventDefault();
+      openAuthModal({ redirect: to });
+    }
+  };
+
   return (
     <section className="ckl-cstrip" aria-label="Competition deadline">
       <div className="ckl-cstrip-inner">
@@ -43,7 +56,7 @@ const ChallengeStrip = ({ phase, competition, serverNow }) => {
           <CountdownTimer target={at} serverNow={serverNow} size="sm" />
         </span>
 
-        <Link to={to} className="ckl-cstrip-btn">
+        <Link to={to} className="ckl-cstrip-btn" onClick={handleActionClick}>
           {registering ? "Register" : "See the theme"}
         </Link>
       </div>

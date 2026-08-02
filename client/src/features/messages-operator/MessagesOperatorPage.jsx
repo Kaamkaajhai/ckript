@@ -95,6 +95,49 @@ const Avatar = ({ user, size = "" }) => {
 /* ═══════════════════════════════════════════════════════════════
    MESSAGES · OPERATOR CONSOLE (Wireframe 2 · Design 2)
 ═══════════════════════════════════════════════════════════════ */
+const LongMessageText = ({ text, scriptTitle, scriptId, navigate, onShowFull }) => {
+  const maxLength = 250;
+  const needsTruncation = text.length > maxLength;
+
+  const renderContent = (content) => {
+    if (!scriptTitle || !content.includes(scriptTitle)) return content;
+    return (
+      <span>
+        {content.split(scriptTitle).reduce((acc, part, idx, arr) => {
+          acc.push(<span key={`t${idx}`}>{part}</span>);
+          if (idx < arr.length - 1) {
+            acc.push(
+              <button key={`l${idx}`} className="mo-lnk" onClick={() => scriptId && navigate(`/script/${scriptId}`)}>
+                {scriptTitle}
+              </button>
+            );
+          }
+          return acc;
+        }, [])}
+      </span>
+    );
+  };
+
+  if (!needsTruncation) {
+    return <>{renderContent(text)}</>;
+  }
+
+  const truncated = text.slice(0, maxLength) + "...";
+  return (
+    <div>
+      {renderContent(truncated)}
+      <div style={{ marginTop: '6px' }}>
+        <button 
+          onClick={() => onShowFull(text)} 
+          style={{ background: 'none', border: 'none', color: '#007bff', padding: 0, cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}
+        >
+          See full message
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const MessagesOperatorPage = () => {
   const { user } = useContext(AuthContext);
   const [searchParams] = useSearchParams();
@@ -114,6 +157,7 @@ const MessagesOperatorPage = () => {
   const [emojiPicker, setEmojiPicker] = useState(null);
   const [hoveredMsg, setHoveredMsg] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null);
+  const [fullMessageModal, setFullMessageModal] = useState(null);
   const [trailerActionLoading, setTrailerActionLoading] = useState("");
   const [attachment, setAttachment] = useState(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -715,21 +759,13 @@ const MessagesOperatorPage = () => {
                   ) : null}
                   {msg.text ? (
                     <div className={msg.fileUrl ? "mo-att-txt" : ""}>
-                      {scriptTitle && msg.text.includes(scriptTitle) ? (
-                        <span>
-                          {msg.text.split(scriptTitle).reduce((acc, part, idx, arr) => {
-                            acc.push(<span key={`t${idx}`}>{part}</span>);
-                            if (idx < arr.length - 1) {
-                              acc.push(
-                                <button key={`l${idx}`} className="mo-lnk" onClick={() => scriptId && navigate(`/script/${scriptId}`)}>
-                                  {scriptTitle}
-                                </button>
-                              );
-                            }
-                            return acc;
-                          }, [])}
-                        </span>
-                      ) : msg.text}
+                      <LongMessageText
+                        text={msg.text}
+                        scriptTitle={scriptTitle}
+                        scriptId={scriptId}
+                        navigate={navigate}
+                        onShowFull={setFullMessageModal}
+                      />
                     </div>
                   ) : null}
                   <div className="mo-ts">
@@ -1147,6 +1183,23 @@ const MessagesOperatorPage = () => {
           scriptName={scriptTitle}
           onMeetingScheduled={() => setShowMeeting(false)}
         />
+      )}
+
+      {/* full message modal */}
+      {fullMessageModal && (
+        <div className="mo-scrim" onClick={() => setFullMessageModal(null)}>
+          <div className="mo-modal" style={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h4 style={{ margin: 0 }}>Message</h4>
+              <button onClick={() => setFullMessageModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', fontSize: '14px' }}>
+              {fullMessageModal}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* delete confirmation modal */}

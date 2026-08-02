@@ -9,6 +9,7 @@ import useCompetition from "../../components/competition/useCompetition";
 import CompetitionRecord from "../hall-of-fame/HallOfFameDetail";
 import CountdownTimer from "../../components/competition/CountdownTimer";
 import PhaseTimeline from "../../components/competition/PhaseTimeline";
+import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
 import { COMPANY } from "../../constants/company";
 import externalUrl from "../../utils/externalUrl";
 import "./challenge.css";
@@ -138,6 +139,7 @@ const CompetitionLanding = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
   const { openAuthModal } = useAuthModal();
+  const [activeTab, setActiveTab] = useState("brief");
   // /challenge/c/:slug names its competition; the hook falls back to "the active one" when it is
   // absent, which is how every pre-hub entry point still works.
   const { slug } = useParams();
@@ -222,12 +224,15 @@ const CompetitionLanding = () => {
     if (phase === "registration_open") {
       return {
         label: "Register Now",
-        // A logged-out visitor gets the auth modal with a redirect, NOT a /signup URL: the /signup
         // route is a <Navigate to="/"> that drops its query string, so a ?next= link would strand
         // them on the homepage having forgotten why they came.
-        onClick: () => (user
-          ? navigate(registerPath)
-          : openAuthModal({ redirect: registerPath })),
+        onClick: () => {
+          if (user) {
+            navigate(registerPath);
+          } else {
+            openAuthModal({ redirect: registerPath });
+          }
+        },
         disabled: false,
       };
     }
@@ -290,6 +295,10 @@ const CompetitionLanding = () => {
             ) : null}
           </div>
         </header>
+
+        <Section id="participants" title="Who else is writing">
+          <ParticipantsGrid totalParticipants={competition.totalParticipants || 0} prizePool={competition.prizePool} />
+        </Section>
 
         {/* Theme — only exists in the payload once the competition is live */}
         {competition.theme?.title ? (
@@ -515,6 +524,7 @@ const CompetitionLanding = () => {
           <CtaButton cta={cta} className="shrink-0" />
         </div>
       </div>
+
     </div>
   );
 };

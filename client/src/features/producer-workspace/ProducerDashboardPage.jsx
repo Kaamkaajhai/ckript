@@ -1,890 +1,1133 @@
-import { useEffect, useState, useContext, useCallback } from "react";
+/*
+ * ProducerDashboardPage — "The Ledger", the industry audience's /dashboard.
+ *
+ * WHAT THIS PAGE IS
+ * -----------------
+ * A producer's deal book. One list holds every option they are holding and
+ * every purchase request they have sent; around it sit the money that moved,
+ * the writers whose contacts they have spent credits on, the brief those
+ * matches are drawn from and this cycle's quotas.
+ *
+ * It replaces the KPI-tiles-and-cards dashboard that shipped here before. That
+ * page was written in a dark-navy Tailwind palette while the shell around it is
+ * the cream/terracotta "Broadsheet" system, so the chrome and the content read
+ * as two different products; and its four tiles could not answer the question a
+ * producer actually opens this page with — what needs a decision today.
+ *
+ * WHERE THE DATA COMES FROM
+ * -------------------------
+ * Five endpoints, all pre-existing, fetched with `allSettled` so one failure
+ * degrades one region instead of blanking the page:
+ *
+ *   /dashboard/investor              stats · marketPulse · activeHolds ·
+ *                                    recentDeals · matchedScripts · industryProfile
+ *   /scripts/purchase-requests/mine  the requests this account has sent
+ *   /transactions/wallet/balance     wallet
+ *   /transactions?limit=10           the money table
+ *   /users/watchlist                 saved scripts
+ *
+ * Presentation lives in ProducerDashboardPage.css (scoped to `.ck-ledger`, no
+ * shared variables); derivation lives in producerLedger.js, which is unit
+ * tested. This file is fetching, state and wiring.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO
+ * --------------------------------
+ * It does not offer, price or pay for anything. The purchase flow has terms,
+ * escrow, a payment provider and a rights summary, and it already exists on the
+ * script's own page — so the drawer's primary action opens that page rather
+ * than growing a second copy of the same business logic here.
+ */
+import {
+  useCallback, useContext, useEffect, useMemo, useState,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
-import { motion, AnimatePresence } from "framer-motion";
 import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
-import { useDarkMode } from "../../context/DarkModeContext";
-import ProfileCompletionBanner from "../../components/ProfileCompletionBanner";
+import MeetingModal from "../../components/MeetingModal";
+import { MatIcon } from "../../layouts/app-shell/navigation/icons.jsx";
 import { getScriptCanonicalPath } from "../../utils/scriptPath";
 import { getProfileCanonicalPath } from "../../utils/profilePath";
 import {
-  getScriptCompletionBadgeClasses,
-  getScriptCompletionProgressText,
-  getScriptCompletionStatusLabel,
-} from "../../utils/scriptCompletion";
+  getContactsLimit,
+  getMeetingsLimit,
+  getMessageWritersLimit,
+  getMessagedWritersCount,
+  getRemainingContacts,
+  getRevealedContactCount,
+  getScheduledMeetingsCount,
+  hasAnyFipAccess,
+  hasRevealedContact,
+} from "../../utils/industryAccess";
+import {
+  SORT_OPTIONS,
+  STATUS_FILTERS,
+  buildBoardStats,
+  buildCapital,
+  buildDealRows,
+  buildGenreBars,
+  buildLedgerCsv,
+  buildLedgerLine,
+  buildMandateGroups,
+  buildQuotas,
+  buildScoreIndex,
+  filterDeals,
+  formatDateline,
+  formatInr,
+  formatShortInr,
+  getFirstName,
+  getGreeting,
+  getInitials,
+  formatDesk,
+  presentDeal,
+  presentTransaction,
+  sortDeals,
+} from "./producerLedger";
+import LedgerDealRow from "./components/LedgerDealRow";
+import LedgerAside from "./components/LedgerAside";
+import LedgerDetailDrawer from "./components/LedgerDetailDrawer";
+import LedgerConfirmDialog from "./components/LedgerConfirmDialog";
+import "./ProducerDashboardPage.css";
 
-/* ── Fade wrapper ────────────────────────────────────────────── */
-const Fade = ({ children, delay = 0, className = "" }) => (
-  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.35, delay }} className={className}>
-    {children}
-  </motion.div>
-);
+/*
+ * Short in the tab strip, long in the section heading beneath it — the design
+ * carries the full editorial title ("The writers' room") once, in the H2, and
+ * keeps the strip itself terse. Only the first three carry a count; a count on
+ * Finance or Market would be a number with no obvious unit.
+ */
+const TABS = [
+  { key: "deals", label: "Deal book", counted: true },
+  { key: "matched", label: "Matched scripts", counted: true },
+  { key: "writers", label: "Writers", counted: true },
+  { key: "finance", label: "Finance", counted: false },
+  { key: "market", label: "Market", counted: false },
+];
+
+const PER_PAGE_OPTIONS = [4, 6, 10];
+
+/*
+ * A matched script is not a deal — nothing has been agreed — but it is shown in
+ * the same card, so it is adapted to the same shape here. `canRelease` and
+ * `canDownloadPdf` are false, which is what makes those two menu entries render
+ * disabled rather than lying about what they would do.
+ */
+const presentMatch = (script) => {
+  const score = Number.isFinite(Number(script?.scriptScore?.overall))
+    ? Number(script.scriptScore.overall)
+    : null;
+  const parts = [script?.genre, String(script?.contentType || "").replace(/_/g, " "), script?.creator?.name]
+    .filter(Boolean);
+  if (score != null) parts.push(`score ${score}`);
+
+  return {
+    id: `match:${script._id}`,
+    recordId: String(script._id),
+    kind: "match",
+    kindLabel: "Matched to your brief",
+    script,
+    scriptId: String(script?._id || ""),
+    title: script?.title || "Untitled project",
+    genre: script?.genre || "",
+    contentType: String(script?.contentType || "").replace(/_/g, " "),
+    logline: script?.logline || "",
+    writer: script?.creator?.name || "",
+    writerId: String(script?.creator?._id || ""),
+    score,
+    fee: Number(script?.budget || script?.price || 0),
+    status: "available",
+    startDate: script?.createdAt || null,
+    endDate: null,
+    daysRemaining: null,
+    canRelease: false,
+    canDownloadPdf: false,
+    purchaseRequestId: null,
+    // Presentation fields LedgerDealRow expects from presentDeal().
+    urgent: false,
+    tone: "neutral",
+    statusLabel: "Available",
+    metaLine: parts.join(" · "),
+    feeText: Number(script?.budget || script?.price || 0) > 0
+      ? formatInr(script?.budget || script?.price)
+      : "Ask on file",
+    marker: score == null ? "—" : String(score),
+    dateText: `${Number(script?.views || 0).toLocaleString("en-IN")} views`,
+    primaryLabel: "Open",
+  };
+};
 
 const ProducerDashboardPage = () => {
-  const { user } = useContext(AuthContext);
-  const { isDarkMode: dark } = useDarkMode();
+  const { user, setUser } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [data, setData] = useState(null);
+
+  // ── Server state ──────────────────────────────────────────────────────────
+  const [dash, setDash] = useState(null);
+  const [dashFailed, setDashFailed] = useState(false);
   const [wallet, setWallet] = useState(null);
   const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [purchaseRequests, setPurchaseRequests] = useState([]);
+  const [watchlist, setWatchlist] = useState([]);
   const [revealedWriters, setRevealedWriters] = useState([]);
-  const [writersLoading, setWritersLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { fetchData(); }, []);
+  // ── View state ────────────────────────────────────────────────────────────
+  const [tab, setTab] = useState("deals");
+  const [statuses, setStatuses] = useState([]);
+  const [sort, setSort] = useState("days");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(6);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [syncedAt, setSyncedAt] = useState(null);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [dashRes, walletRes, txnRes] = await Promise.allSettled([
-        api.get("/dashboard/investor"),
-        api.get("/transactions/wallet/balance"),
-        api.get("/transactions?limit=10"),
-      ]);
-      if (dashRes.status === "fulfilled") setData(dashRes.value.data);
-      if (walletRes.status === "fulfilled") setWallet(walletRes.value.data);
-      if (txnRes.status === "fulfilled") setTransactions(txnRes.value.data?.transactions || txnRes.value.data || []);
-    } catch {
-      setData(null);
-    } finally {
-      setLoading(false);
+  // ── Transient surfaces ────────────────────────────────────────────────────
+  const [openMenu, setOpenMenu] = useState(null);   // "sort" | "page" | deal id
+  const [detailId, setDetailId] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState("");
+  const [meeting, setMeeting] = useState(null);
+  const [actionError, setActionError] = useState("");
+
+  // ── Fetching ──────────────────────────────────────────────────────────────
+  const fetchAll = useCallback(async () => {
+    const [dashRes, walletRes, txnRes, requestRes, watchRes] = await Promise.allSettled([
+      api.get("/dashboard/investor"),
+      api.get("/transactions/wallet/balance"),
+      api.get("/transactions?limit=10"),
+      api.get("/scripts/purchase-requests/mine"),
+      api.get("/users/watchlist"),
+    ]);
+
+    /*
+     * A failed leg keeps whatever is already on screen rather than blanking the
+     * region — a transient 500 on one endpoint must not wipe the four that
+     * answered. Only the deal-flow endpoint raises the error notice, because it
+     * is the only one whose absence changes what the page means.
+     */
+    if (dashRes.status === "fulfilled") {
+      setDash(dashRes.value.data);
+      setDashFailed(false);
+    } else {
+      setDashFailed(true);
     }
+    if (walletRes.status === "fulfilled") setWallet(walletRes.value.data);
+    if (txnRes.status === "fulfilled") {
+      const payload = txnRes.value.data;
+      setTransactions(payload?.transactions || (Array.isArray(payload) ? payload : []));
+    }
+    if (requestRes.status === "fulfilled") {
+      setPurchaseRequests(Array.isArray(requestRes.value.data) ? requestRes.value.data : []);
+    }
+    if (watchRes.status === "fulfilled") {
+      setWatchlist(Array.isArray(watchRes.value.data) ? watchRes.value.data : []);
+    }
+
+    setSyncedAt(new Date());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  /*
+   * The writers' room is the people behind `subscription.revealedContacts` —
+   * ids, so each one needs a lookup. Depends on the id list rather than on
+   * `user`, or every unrelated auth refresh would re-fetch every profile.
+   */
+  const revealedIds = useMemo(() => (
+    (user?.subscription?.revealedContacts || [])
+      .filter((entry) => entry?.writerId)
+      .map((entry) => ({ id: String(entry.writerId), revealedAt: entry.revealedAt }))
+  ), [user?.subscription?.revealedContacts]);
+  const revealedKey = revealedIds.map((entry) => entry.id).join(",");
+
+  useEffect(() => {
+    if (!revealedIds.length) {
+      setRevealedWriters([]);
+      return undefined;
+    }
+    let disposed = false;
+    (async () => {
+      const results = await Promise.allSettled(
+        revealedIds.map((entry) => api.get(`/users/${entry.id}`))
+      );
+      if (disposed) return;
+      setRevealedWriters(results.map((result, index) => {
+        if (result.status !== "fulfilled") return null;
+        const writer = result.value.data?.user || result.value.data;
+        return writer ? { ...writer, revealedAt: revealedIds[index].revealedAt } : null;
+      }).filter(Boolean));
+    })();
+    return () => { disposed = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealedKey]);
+
+  // Any click outside an open popover closes it — one listener, not one per menu.
+  useEffect(() => {
+    if (!openMenu) return undefined;
+    const onPointerDown = (event) => {
+      if (!event.target.closest?.(".ck-ledger__menu-anchor")) setOpenMenu(null);
+    };
+    const onKeyDown = (event) => { if (event.key === "Escape") setOpenMenu(null); };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openMenu]);
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+  /*
+   * `dash?.stats || {}` makes a NEW object on every render, so anything
+   * downstream that memoises on it never hits its cache. Each fallback gets its
+   * own useMemo so the identity is stable between fetches.
+   */
+  const stats = useMemo(() => dash?.stats || {}, [dash]);
+  const marketPulse = useMemo(() => dash?.marketPulse || {}, [dash]);
+  const industryProfile = useMemo(() => dash?.industryProfile || {}, [dash]);
+  const mandates = useMemo(() => industryProfile?.mandates || {}, [industryProfile]);
+  const matchedScripts = useMemo(() => dash?.matchedScripts || [], [dash]);
+  const walletBalance = wallet?.balance ?? wallet?.wallet?.balance ?? 0;
+
+  const scoreIndex = useMemo(() => buildScoreIndex(dash || {}), [dash]);
+  const allDeals = useMemo(() => buildDealRows({
+    recentDeals: dash?.recentDeals,
+    activeHolds: dash?.activeHolds,
+    purchaseRequests,
+    scoreIndex,
+  }), [dash?.recentDeals, dash?.activeHolds, purchaseRequests, scoreIndex]);
+
+  const dealRows = useMemo(
+    () => sortDeals(filterDeals(allDeals, statuses), sort).map(presentDeal),
+    [allDeals, statuses, sort]
+  );
+  const matchRows = useMemo(() => matchedScripts.map(presentMatch), [matchedScripts]);
+
+  const rows = tab === "matched" ? matchRows : dealRows;
+  const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((currentPage - 1) * perPage, currentPage * perPage);
+
+  const locked = !hasAnyFipAccess(user);
+  const quotaData = useMemo(() => buildQuotas({
+    contacts: { used: getRevealedContactCount(user), limit: getContactsLimit(user) },
+    messages: { used: getMessagedWritersCount(user), limit: getMessageWritersLimit(user) },
+    meetings: { used: getScheduledMeetingsCount(user), limit: getMeetingsLimit(user) },
+  }), [user]);
+  const contactsBlocked = quotaData[0].blocked;
+  const meetingsBlocked = quotaData[2].blocked;
+
+  const boardStats = useMemo(
+    () => buildBoardStats({ stats, deals: allDeals, walletBalance, statsKnown: Boolean(dash) }),
+    [stats, allDeals, walletBalance, dash]
+  );
+  const capital = useMemo(
+    () => buildCapital({ stats, walletBalance, dealCount: allDeals.length }),
+    [stats, walletBalance, allDeals.length]
+  );
+  const mandateGroups = useMemo(() => buildMandateGroups(mandates), [mandates]);
+  const genreBars = useMemo(() => buildGenreBars(matchedScripts), [matchedScripts]);
+  const watchedIds = useMemo(
+    () => new Set(watchlist.map((script) => String(script._id))),
+    [watchlist]
+  );
+
+  const firstName = getFirstName(user);
+  const desk = formatDesk(industryProfile, user?.role);
+  const profileEditPath = getProfileCanonicalPath(user, { viewerId: user?._id, viewerRole: user?.role });
+  const completion = user?.profileCompletion;
+  const showBanner = Boolean(completion) && !completion.isComplete && !bannerDismissed;
+
+  const detailDeal = useMemo(
+    () => [...dealRows, ...matchRows].find((row) => row.id === detailId) || null,
+    [dealRows, matchRows, detailId]
+  );
+
+  const isEmpty = !loading
+    && allDeals.length === 0
+    && matchedScripts.length === 0
+    && transactions.length === 0;
+
+  const market = {
+    newThisWeek: Number(marketPulse.newThisWeek || 0).toLocaleString("en-IN"),
+    availableText: Number(marketPulse.available || 0).toLocaleString("en-IN"),
+    totalText: Number(marketPulse.totalScripts || 0).toLocaleString("en-IN"),
+    genres: genreBars,
   };
 
-  const fetchRevealedWriters = useCallback(async () => {
-    const contacts = (user?.subscription?.revealedContacts || []).filter(c => c.writerId);
-    if (!contacts.length) return;
-    try {
-      setWritersLoading(true);
-      const results = await Promise.allSettled(
-        contacts.map(c => api.get(`/users/${c.writerId}`))
-      );
-      const writers = results
-        .map((r, i) => {
-          if (r.status !== "fulfilled") return null;
-          const w = r.value.data?.user || r.value.data;
-          return w ? { ...w, revealedAt: contacts[i].revealedAt } : null;
-        })
-        .filter(Boolean);
-      setRevealedWriters(writers);
-    } catch {
-      setRevealedWriters([]);
-    } finally {
-      setWritersLoading(false);
-    }
-  }, [user]);
+  const tabCounts = {
+    deals: allDeals.length,
+    matched: matchedScripts.length,
+    writers: revealedWriters.length,
+    finance: transactions.length,
+    market: Number(marketPulse.newThisWeek || 0),
+  };
 
-  useEffect(() => { fetchRevealedWriters(); }, [fetchRevealedWriters]);
-
-  /* ── Derived data ──────────────────────────────────────────── */
-  const stats = data?.stats || {};
-  const market = data?.marketPulse || {};
-  const profile = data?.industryProfile || {};
-  const mandates = profile?.mandates || {};
-  const firstName = user?.name?.split(" ")[0] || "Investor";
-  const profileEditPath = getProfileCanonicalPath(user, {
+  // ── Paths ─────────────────────────────────────────────────────────────────
+  const scriptPathFor = useCallback((script) => (
+    script?._id ? getScriptCanonicalPath(script) : ""
+  ), []);
+  const messagePathFor = (deal) => (deal.writerId
+    ? `/messages?recipientId=${deal.writerId}&recipientName=${encodeURIComponent(deal.writer || "Writer")}`
+    : "");
+  const writerPathFor = (writer) => getProfileCanonicalPath(writer, {
     viewerId: user?._id,
     viewerRole: user?.role,
   });
-  const walletBalance = wallet?.balance ?? wallet?.wallet?.balance ?? 0;
-  const closedDealsCount = Math.max(
-    Number(stats.convertedDeals || 0),
-    Number(stats.scriptsPurchased || 0),
-    Number(stats.successfulProjects || 0)
-  );
-  const totalDealsCount = Math.max(Number(stats.totalDeals || 0), closedDealsCount);
 
-  /* ── Loading ─────────────────────────────────────────────── */
-  /* ── Loading spinner removed to allow instantaneous dashboard shell rendering ── */
+  // ── Actions ───────────────────────────────────────────────────────────────
+  const closeMenus = () => setOpenMenu(null);
 
-  /* ══════════════════════════════════════════════════════════
-     RENDER
-  ══════════════════════════════════════════════════════════ */
-  return (
-    <div className="max-w-[1280px] mx-auto px-1">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
+  const handleRefresh = () => {
+    closeMenus();
+    setActionError("");
+    fetchAll();
+  };
 
-        <ProfileCompletionBanner
-          completion={user?.profileCompletion}
-          subtitle="Your profile is incomplete. Complete it to improve your deal flow quality."
-          ctaLabel="Edit Profile"
-          ctaTo={profileEditPath}
-          className="mb-6"
-        />
+  const handleOpenDeal = (deal) => {
+    closeMenus();
+    setDetailId(deal.id);
+  };
 
-        {/* ─────────────── HEADER ─────────────── */}
-        <Fade>
-          <div className="rounded-2xl p-6 sm:p-8 mb-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-extrabold select-none shrink-0
-                  ${dark ? "bg-white/[0.06] text-white border border-white/[0.08]" : "bg-[#1e3a5f] text-white"}`}>
-                  {firstName.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <h1 className={`text-xl sm:text-2xl font-extrabold tracking-tight
-                    ${dark ? "text-white" : "text-gray-900"}`}>
-                    Welcome back, <span className={dark ? "text-gray-300" : "text-[#1e3a5f]"}>{firstName}</span>
-                  </h1>
-                  <p className={`text-sm font-medium mt-0.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                    {profile.company ? `${profile.jobTitle || "Investor"} at ${profile.company}` : "Your deal flow & market intelligence"}
-                  </p>
-                </div>
+  const handleMessage = (deal) => {
+    closeMenus();
+    const path = messagePathFor(deal);
+    if (path) navigate(path);
+  };
+
+  const handleToggleWatch = async (deal) => {
+    closeMenus();
+    if (!deal.scriptId) return;
+    const watched = watchedIds.has(deal.scriptId);
+    setActionError("");
+    try {
+      await api.post(`/users/watchlist/${watched ? "remove" : "add"}`, { scriptId: deal.scriptId });
+      const { data } = await api.get("/users/watchlist");
+      setWatchlist(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setActionError(error?.response?.data?.message || "Couldn't update your watchlist.");
+    }
+  };
+
+  const handleDownloadPdf = async (deal) => {
+    closeMenus();
+    if (!deal.purchaseRequestId) return;
+    setActionError("");
+    try {
+      const response = await api.get(
+        `/scripts/purchase-request/${deal.purchaseRequestId}/acceptance-pdf?download=1`,
+        { responseType: "blob" }
+      );
+      const objectUrl = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const safeTitle = String(deal.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "script";
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${safeTitle}_accepted_terms.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+    } catch (error) {
+      setActionError(error?.response?.data?.message || "Couldn't download the acceptance PDF.");
+    }
+  };
+
+  const handleExportCsv = () => {
+    closeMenus();
+    const csv = buildLedgerCsv(allDeals);
+    const objectUrl = window.URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `ckript_deal_ledger_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+  };
+
+  /*
+   * Releasing an option cancels it and does not refund the fee, and revealing a
+   * contact spends a credit that does not come back. Both go through the
+   * confirm dialog; neither is fired straight off a menu click.
+   */
+  const askRelease = (deal) => {
+    closeMenus();
+    setConfirmError("");
+    setConfirm({
+      kind: "release",
+      deal,
+      eyebrow: "Cancel option",
+      title: `Release your option on ${deal.title}?`,
+      body: "The script goes back on the market immediately and the option fee is not refunded. This cannot be undone.",
+      confirmLabel: "Cancel option",
+    });
+  };
+
+  const askReveal = (deal) => {
+    closeMenus();
+    setConfirmError("");
+    setConfirm({
+      kind: "reveal",
+      deal,
+      eyebrow: "Reveal contact",
+      title: `Reveal ${deal.writer || "this writer"}'s contact details?`,
+      body: `This spends one reveal credit. You have ${getRemainingContacts(user)} left in this cycle.`,
+      confirmLabel: "Use 1 credit",
+    });
+  };
+
+  const runConfirm = async () => {
+    if (!confirm) return;
+    setConfirmBusy(true);
+    setConfirmError("");
+    try {
+      if (confirm.kind === "release") {
+        await api.post("/scripts/release-hold", { scriptId: confirm.deal.scriptId });
+        setDetailId(null);
+        await fetchAll();
+      } else {
+        const { data } = await api.post(`/payment/reveal-contact/${confirm.deal.writerId}`);
+        /*
+         * Reflect the spend in the session immediately so the quota meter and
+         * the menu's disabled state agree with the server without a reload.
+         */
+        if (data?.contactsUsed !== undefined) {
+          setUser((previous) => (previous ? {
+            ...previous,
+            subscription: {
+              ...(previous.subscription || {}),
+              revealedContacts: [
+                ...(Array.isArray(previous.subscription?.revealedContacts)
+                  ? previous.subscription.revealedContacts
+                  : []),
+                { writerId: confirm.deal.writerId, revealedAt: new Date().toISOString() },
+              ],
+            },
+          } : previous));
+        }
+      }
+      setConfirm(null);
+    } catch (error) {
+      setConfirmError(error?.response?.data?.message || "That didn't go through. Try again.");
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  const handleMeeting = (deal) => {
+    closeMenus();
+    if (!deal.scriptId || !deal.writerId) return;
+    setMeeting({
+      writerId: deal.writerId,
+      scriptId: deal.scriptId,
+      writerName: deal.writer,
+      scriptName: deal.title,
+    });
+  };
+
+  const toggleStatus = (key) => {
+    setPage(1);
+    setStatuses((current) => (
+      current.includes(key) ? current.filter((value) => value !== key) : [...current, key]
+    ));
+  };
+
+  const selectTab = (key) => {
+    closeMenus();
+    setTab(key);
+    setPage(1);
+  };
+
+  // ── Section renderers ─────────────────────────────────────────────────────
+  const writersLine = [
+    `${revealedWriters.length} contact${revealedWriters.length === 1 ? "" : "s"} unlocked`,
+    `${getRemainingContacts(user)} reveal credit${getRemainingContacts(user) === 1 ? "" : "s"} left`,
+    `${quotaData[1].value} writers messaged`,
+  ].join(" · ");
+
+  const writersBlock = (lead) => (
+    <section className={`ck-ledger__block${lead ? " ck-ledger__block--lead" : ""}`}>
+      <div className="ck-ledger__block-head">
+        <div>
+          <h2 className="ck-ledger__block-title">The writers’ room</h2>
+          <p className="ck-ledger__block-sub">{writersLine}</p>
+        </div>
+        <Link to="/messages" className="ck-ledger__btn ck-ledger__btn--sm">Open messages</Link>
+      </div>
+
+      {revealedWriters.length === 0 ? (
+        <p className="ck-ledger__block-sub" style={{ margin: 0 }}>
+          No contacts unlocked yet. Reveal a writer from any deal&rsquo;s menu and they appear here.
+        </p>
+      ) : revealedWriters.map((writer) => {
+        const profilePath = writerPathFor(writer);
+        const bio = writer.bio || writer.genre || "Writer";
+        return (
+          <div key={writer._id} className="ck-ledger__writer">
+            <Link to={profilePath} className="ck-ledger__avatar">
+              {writer.profileImage
+                ? <img src={writer.profileImage} alt="" />
+                : getInitials(writer.name)}
+            </Link>
+            <div className="ck-ledger__writer-body">
+              <div className="ck-ledger__writer-name">
+                <Link to={profilePath}>{writer.name || "Writer"}</Link>
+                {writer.revealedAt && (
+                  <span className="ck-ledger__writer-flag">
+                    revealed {new Date(writer.revealedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </span>
+                )}
               </div>
+              <p className="ck-ledger__writer-bio">{bio}</p>
             </div>
+            {locked ? (
+              <button type="button" className="ck-ledger__btn ck-ledger__btn--sm" disabled title="Renew access to message writers">
+                <MatIcon name="forum" size={17} />
+                Message
+              </button>
+            ) : (
+              <Link
+                to={`/messages?recipientId=${writer._id}&recipientName=${encodeURIComponent(writer.name || "Writer")}`}
+                className="ck-ledger__btn ck-ledger__btn--sm"
+              >
+                <MatIcon name="forum" size={17} />
+                Message
+              </Link>
+            )}
+            <Link to={profilePath} className="ck-ledger__btn ck-ledger__btn--sm">Profile</Link>
           </div>
-        </Fade>
+        );
+      })}
+    </section>
+  );
 
-        {/* ─────────────── KPI ROW ─────────────── */}
-        <Fade delay={0.04}>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            {[
-              {
-                label: "Scripts Viewed", value: stats.totalViewed || 0,
-                iconD: "M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.64 0 8.577 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.64 0-8.577-3.007-9.963-7.178z",
-                iconD2: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
-                accent: dark ? "text-gray-300 bg-white/[0.06]" : "text-[#1e3a5f] bg-gray-100"
-              },
-              {
-                label: "Successful Projects", value: stats.successfulProjects || 0,
-                iconD: "M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.746 3.746 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.745 3.745 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z",
-                accent: dark ? "text-emerald-400 bg-emerald-500/10" : "text-emerald-600 bg-emerald-50"
-              },
-              {
-                label: "Scripts Purchased", value: stats.scriptsPurchased || 0,
-                iconD: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z",
-                accent: dark ? "text-purple-400 bg-purple-500/10" : "text-purple-600 bg-purple-50"
-              },
-              {
-                label: "Total Invested", value: `₹${(stats.totalInvested || 0).toLocaleString()}`,
-                iconD: "M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-                accent: dark ? "text-amber-400 bg-amber-500/10" : "text-amber-600 bg-amber-50"
-              },
-            ].map((kpi, i) => (
-              <div key={i} className={`rounded-2xl border p-4 transition-all hover:-translate-y-0.5
-                ${dark ? "bg-[#0a1628] border-[#162240] hover:border-[#1d3350]" : "bg-white border-gray-100 hover:shadow-md"}`}>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${kpi.accent.split(" ").slice(1).join(" ")}`}>
-                  <svg className={`w-[18px] h-[18px] ${kpi.accent.split(" ")[0]}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={kpi.iconD} />
-                    {kpi.iconD2 && <path strokeLinecap="round" strokeLinejoin="round" d={kpi.iconD2} />}
-                  </svg>
-                </div>
-                <p className={`text-[22px] font-extrabold tabular-nums leading-none mb-1 ${dark ? "text-white" : "text-gray-900"}`}>
-                  {kpi.value}
-                </p>
-                <p className={`text-[10px] font-bold uppercase tracking-[0.12em] ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                  {kpi.label}
-                </p>
-              </div>
+  const moneyBlock = (lead) => (
+    <section className={`ck-ledger__block ck-ledger__block--money${lead ? " ck-ledger__block--lead" : ""}`}>
+      <div className="ck-ledger__block-head">
+        <div>
+          <h2 className="ck-ledger__block-title">Money in and out</h2>
+          <p className="ck-ledger__block-sub">
+            {formatShortInr(walletBalance)} in wallet · {formatShortInr(stats.totalInvested)} deployed
+          </p>
+        </div>
+        <button type="button" className="ck-ledger__btn ck-ledger__btn--sm" onClick={handleExportCsv}>
+          <MatIcon name="download" size={17} />
+          Export CSV
+        </button>
+      </div>
+
+      {transactions.length === 0 ? (
+        <p className="ck-ledger__block-sub" style={{ margin: 0 }}>No transactions on this account yet.</p>
+      ) : (
+        <table className="ck-ledger__table">
+          <thead>
+            <tr>
+              <th scope="col">Entry</th>
+              <th scope="col">Date</th>
+              <th scope="col">Amount</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((txn) => {
+              const row = presentTransaction(txn);
+              return (
+                <tr key={row.id}>
+                  <td>{row.description}</td>
+                  <td>{row.date}</td>
+                  <td className={row.isCredit ? "ck-ledger__amount--credit" : undefined}>{row.amount}</td>
+                  <td>
+                    <span className={`ck-ledger__pill ck-ledger__pill--flat ck-ledger-tone--${row.tone}`}>
+                      {row.status}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+
+  const marketBlock = (
+    <section className="ck-ledger__block ck-ledger__block--lead">
+      <div className="ck-ledger__block-head">
+        <div>
+          <h2 className="ck-ledger__block-title">Market pulse</h2>
+          <p className="ck-ledger__block-sub">
+            What is on the platform right now, and how much of it fits your brief.
+          </p>
+        </div>
+        <Link to="/search" className="ck-ledger__btn ck-ledger__btn--sm">Search projects</Link>
+      </div>
+
+      <div className="ck-ledger__board" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+        {[
+          { label: "New this week", value: market.newThisWeek, sub: "published in the last 7 days" },
+          { label: "Available now", value: market.availableText, sub: "unsold and not on hold" },
+          { label: "Total published", value: market.totalText, sub: "across every genre" },
+        ].map((cell) => (
+          <div key={cell.label} className="ck-ledger__board-cell">
+            <div className="ck-ledger__label">{cell.label}</div>
+            <div className="ck-ledger__board-value">{cell.value}</div>
+            <div className="ck-ledger__board-sub">{cell.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {genreBars.length > 0 && (
+        <table className="ck-ledger__table" style={{ marginTop: 20 }}>
+          <thead>
+            <tr>
+              <th scope="col">Genre</th>
+              <th scope="col">Share of your matches</th>
+              <th scope="col">Scripts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {genreBars.map((genre) => (
+              <tr key={genre.name}>
+                <td>{genre.name}</td>
+                <td>
+                  <span className="ck-ledger__quota-bar" style={{ display: "block", maxWidth: 320 }}>
+                    <span style={{ width: genre.pct, background: "#d14d37" }} />
+                  </span>
+                </td>
+                <td>{genre.count}</td>
+              </tr>
             ))}
-          </div>
-        </Fade>
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
 
-        {/* ─────────────── TAB BAR ─────────────── */}
-        <Fade delay={0.06}>
-          <div className="mb-6 max-[640px]:overflow-x-auto max-[640px]:pb-1 [scrollbar-width:none] [-ms-overflow-style:none] max-[640px]:[&::-webkit-scrollbar]:hidden">
-            <div className={`flex items-center gap-1 p-1 rounded-xl w-fit max-[640px]:w-max max-[640px]:min-w-max
-              ${dark ? "bg-[#0a1628] border border-[#162240]" : "bg-gray-50 border border-gray-100"}`}>
-            {[
-              {
-                key: "overview", label: "Overview",
-                d: "M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
-              },
-            ].map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-all shrink-0 whitespace-nowrap
-                  ${activeTab === tab.key
-                    ? dark ? "bg-[#151f2e] text-gray-300" : "bg-white text-[#1e3a5f] shadow-sm"
-                    : dark ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d={tab.d} />
-                </svg>
-                <span className="inline text-[12px] max-[360px]:text-[11px]">{tab.label}</span>
+  const listBlock = (
+    <>
+      <div className="ck-ledger__section-head">
+        <div>
+          <h2 className="ck-ledger__section-title">
+            {tab === "matched" ? "Matched to your brief" : "The deal book"}
+          </h2>
+          <p className="ck-ledger__section-sub">
+            {tab === "matched"
+              ? `${matchedScripts.length} script${matchedScripts.length === 1 ? "" : "s"} matched to your mandates`
+              : "Options and purchase requests, soonest deadline first"}
+          </p>
+        </div>
+
+        <div className="ck-ledger__section-tools">
+          {tab === "deals" && STATUS_FILTERS.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              className="ck-ledger__filter"
+              aria-pressed={statuses.includes(filter.key)}
+              onClick={() => toggleStatus(filter.key)}
+            >
+              {filter.label}
+            </button>
+          ))}
+
+          {tab === "deals" && (
+            <div className="ck-ledger__menu-anchor">
+              <button
+                type="button"
+                className="ck-ledger__sort"
+                aria-expanded={openMenu === "sort"}
+                aria-haspopup="menu"
+                onClick={() => setOpenMenu(openMenu === "sort" ? null : "sort")}
+              >
+                Sort: {SORT_OPTIONS.find((option) => option.key === sort)?.short}
+                <MatIcon name="expand_more" size={16} />
+              </button>
+              {openMenu === "sort" && (
+                <div className="ck-ledger__menu ck-ledger__menu--sort" role="menu">
+                  {SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={sort === option.key}
+                      className="ck-ledger__menu-item"
+                      onClick={() => { setSort(option.key); setOpenMenu(null); }}
+                    >
+                      {option.label}
+                      {sort === option.key && <MatIcon name="check" size={16} />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {pagedRows.length === 0 ? (
+        <div className="ck-ledger__no-results">
+          <h3>
+            {tab === "matched"
+              ? "Nothing matches your brief this week"
+              : statuses.length
+                ? "Nothing in the ledger matches those filters"
+                : "Your deal book is empty"}
+          </h3>
+          <p>
+            {tab === "matched"
+              ? "New scripts are matched against your mandates every day. Widen the brief to see more."
+              : statuses.length
+                ? "Try clearing the status filters — closed and past deals are hidden."
+                : "Option or request a script and it will appear here."}
+          </p>
+          {statuses.length > 0 ? (
+            <button type="button" className="ck-ledger__btn" onClick={() => { setStatuses([]); setPage(1); }}>
+              Clear filters
+            </button>
+          ) : (
+            <Link to={tab === "matched" ? "/mandates" : "/search"} className="ck-ledger__btn">
+              {tab === "matched" ? "Edit mandates" : "Browse projects"}
+            </Link>
+          )}
+        </div>
+      ) : pagedRows.map((row) => (
+        <LedgerDealRow
+          key={row.id}
+          deal={row}
+          scriptPath={scriptPathFor(row.script)}
+          menuOpen={openMenu === row.id}
+          onToggleMenu={(deal) => setOpenMenu(openMenu === deal.id ? null : deal.id)}
+          onOpen={handleOpenDeal}
+          onMessage={handleMessage}
+          onReveal={askReveal}
+          onToggleWatch={handleToggleWatch}
+          onDownloadPdf={handleDownloadPdf}
+          onRelease={askRelease}
+          isWatched={watchedIds.has(row.scriptId)}
+          locked={locked}
+          contactsBlocked={contactsBlocked}
+          contactRevealed={hasRevealedContact(user, row.writerId)}
+        />
+      ))}
+
+      {rows.length > perPage && (
+        <div className="ck-ledger__pager">
+          <span>
+            Showing {(currentPage - 1) * perPage + 1}–{Math.min(currentPage * perPage, rows.length)} of {rows.length}
+          </span>
+          <div className="ck-ledger__pager-controls">
+            <button
+              type="button"
+              className="ck-ledger__pager-btn"
+              aria-label="Previous page"
+              disabled={currentPage === 1}
+              onClick={() => setPage(Math.max(1, currentPage - 1))}
+            >
+              <MatIcon name="chevron_left" size={17} />
+            </button>
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((number) => (
+              <button
+                key={number}
+                type="button"
+                className="ck-ledger__pager-btn"
+                aria-current={number === currentPage ? "page" : undefined}
+                onClick={() => setPage(number)}
+              >
+                {number}
               </button>
             ))}
+            <button
+              type="button"
+              className="ck-ledger__pager-btn"
+              aria-label="Next page"
+              disabled={currentPage === totalPages}
+              onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
+            >
+              <MatIcon name="chevron_right" size={17} />
+            </button>
+            <label className="ck-ledger__pager-rows">
+              Rows
+              <select
+                aria-label="Rows per page"
+                value={perPage}
+                onChange={(event) => { setPerPage(Number(event.target.value)); setPage(1); }}
+              >
+                {PER_PAGE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="ck-ledger">
+      <div className="ck-ledger__scroll">
+
+        {showBanner && (
+          <div className="ck-ledger__banner" role="status">
+            <MatIcon name="account_circle" size={20} className="ck-ledger__banner-icon" />
+            <div className="ck-ledger__banner-text">
+              <strong>Your profile is {Math.round(completion.percentage || 0)}% complete.</strong>{" "}
+              Writers see your company and slate before they accept — finish it to improve deal-flow quality.
+            </div>
+            <Link to={profileEditPath} className="ck-ledger__btn">Edit profile</Link>
+            <button
+              type="button"
+              className="ck-ledger__banner-close"
+              aria-label="Dismiss"
+              onClick={() => setBannerDismissed(true)}
+            >
+              <MatIcon name="close" size={18} />
+            </button>
+          </div>
+        )}
+
+        <div className="ck-ledger__head">
+          <div className="ck-ledger__masthead">
+            <div>
+              <p className="ck-ledger__eyebrow">Acquisitions ledger · {formatDateline()}</p>
+              <h1 className="ck-ledger__title">{getGreeting()}, {firstName}</h1>
+              <p className="ck-ledger__standfirst">
+                {desk ? `${desk} · ` : ""}{buildLedgerLine({ deals: allDeals, walletBalance })}
+              </p>
+            </div>
+
+            <div className="ck-ledger__actions">
+              <button
+                type="button"
+                className="ck-ledger__btn ck-ledger__btn--primary"
+                onClick={() => selectTab("matched")}
+              >
+                <MatIcon name="auto_awesome" size={19} />
+                Review {matchedScripts.length} match{matchedScripts.length === 1 ? "" : "es"}
+              </button>
+              <Link to="/mandates" className="ck-ledger__btn">Edit mandates</Link>
+              <button
+                type="button"
+                className="ck-ledger__btn ck-ledger__btn--icon"
+                aria-label="Refresh"
+                onClick={handleRefresh}
+              >
+                <MatIcon name="refresh" size={19} />
+              </button>
+              <div className="ck-ledger__menu-anchor">
+                <button
+                  type="button"
+                  className="ck-ledger__btn ck-ledger__btn--icon"
+                  aria-label="Page actions"
+                  aria-haspopup="menu"
+                  aria-expanded={openMenu === "page"}
+                  onClick={() => setOpenMenu(openMenu === "page" ? null : "page")}
+                >
+                  <MatIcon name="more_horiz" size={19} />
+                </button>
+                {openMenu === "page" && (
+                  <div className="ck-ledger__menu" role="menu">
+                    <button type="button" role="menuitem" className="ck-ledger__menu-item" onClick={handleExportCsv}>
+                      <MatIcon name="download" size={18} />
+                      Export deal ledger (CSV)
+                    </button>
+                    <Link to="/mandates" role="menuitem" className="ck-ledger__menu-item" onClick={closeMenus}>
+                      <MatIcon name="tune" size={18} />
+                      Edit mandates
+                    </Link>
+                    <Link to="/writers" role="menuitem" className="ck-ledger__menu-item" onClick={closeMenus}>
+                      <MatIcon name="group" size={18} />
+                      Browse writers
+                    </Link>
+                    <Link to="/pricing" role="menuitem" className="ck-ledger__menu-item" onClick={closeMenus}>
+                      <MatIcon name="credit_card" size={18} />
+                      Plan &amp; billing
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </Fade>
 
-        {/* ─────────────── TAB CONTENT ─────────────── */}
-        <AnimatePresence mode="wait">
-
-          {/* ═══ OVERVIEW ═══ */}
-          {activeTab === "overview" && (
-            <motion.div key="overview" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-
-              {/* Row 1 — Market Pulse + Mandate */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-
-                {/* Market Pulse */}
-                <Card dark={dark} className="p-5">
-                  <CardTitle dark={dark}
-                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />}
-                    iconBg={dark ? "bg-white/[0.06]" : "bg-gray-100"}
-                    iconColor={dark ? "text-gray-300" : "text-[#1e3a5f]"}
-                    title="Market Pulse" />
-                  <div className="grid grid-cols-3 gap-3 mt-4">
-                    {[
-                      { label: "Total Scripts", value: market.totalScripts || 0 },
-                      { label: "New This Week", value: market.newThisWeek || 0, highlight: true },
-                      { label: "Available", value: market.available || 0 },
-                    ].map((m, i) => (
-                      <div key={i} className={`rounded-xl p-3 text-center ${dark ? "bg-white/[0.03]" : "bg-gray-50"}`}>
-                        <p className={`text-lg font-extrabold tabular-nums ${m.highlight ? (dark ? "text-gray-300" : "text-[#1e3a5f]") : (dark ? "text-white" : "text-gray-900")}`}>
-                          {m.value.toLocaleString()}
-                        </p>
-                        <p className={`text-[9px] font-bold uppercase tracking-[0.12em] mt-0.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>
-                          {m.label}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-
-                {/* Mandate Summary */}
-                <Card dark={dark} className="p-5">
-                  <CardTitle dark={dark}
-                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />}
-                    iconBg={dark ? "bg-white/[0.06]" : "bg-gray-100"}
-                    iconColor={dark ? "text-gray-300" : "text-[#1e3a5f]"}
-                    title="My Preferences"
-                    action={<Link to="/mandates" className={`text-[11px] font-semibold ${dark ? "text-gray-300 hover:text-gray-200" : "text-[#1e3a5f] hover:text-[#162d4a]"}`}>Edit →</Link>} />
-                  {mandates.genres?.length > 0 || mandates.formats?.length > 0 ? (
-                    <div className="mt-4 space-y-3">
-                      {mandates.genres?.length > 0 && (
-                        <div>
-                          <p className={`text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>Genres</p>
-                          <div className="flex flex-wrap gap-1">
-                            {mandates.genres.map(g => (
-                              <span key={g} className={`px-2 py-0.5 rounded-md text-[11px] font-semibold
-                                ${dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.06]" : "bg-gray-50 text-gray-600 border border-gray-200"}`}>
-                                {g}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {mandates.formats?.length > 0 && (
-                        <div>
-                          <p className={`text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>Formats</p>
-                          <div className="flex flex-wrap gap-1">
-                            {mandates.formats.map(f => (
-                              <span key={f} className={`px-2 py-0.5 rounded-md text-[11px] font-semibold
-                                ${dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.06]" : "bg-gray-50 text-gray-600 border border-gray-200"}`}>
-                                {f}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {mandates.specificHooks?.length > 0 && (
-                        <div>
-                          <p className={`text-[9px] font-bold uppercase tracking-[0.15em] mb-1.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>Hooks</p>
-                          <div className="flex flex-wrap gap-1">
-                            {mandates.specificHooks.map(h => (
-                              <span key={h} className={`px-2 py-0.5 rounded-md text-[11px] font-semibold
-                                ${dark ? "bg-white/[0.04] text-gray-300 border border-white/[0.06]" : "bg-gray-50 text-gray-600 border border-gray-200"}`}>
-                                {h}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <EmptySmall dark={dark} text="Set up your preferences to get matched scripts" cta={{ label: "Set Preferences", to: "/mandates" }} />
-                  )}
-                </Card>
+          <div className="ck-ledger__board">
+            {boardStats.map((cell) => (
+              <div key={cell.key} className="ck-ledger__board-cell">
+                <div className="ck-ledger__label">{cell.label}</div>
+                <div className="ck-ledger__board-value">{cell.value}</div>
+                <div className="ck-ledger__board-sub" title={cell.sub}>{cell.sub}</div>
               </div>
+            ))}
+          </div>
 
-              {/* Row 2 — Portfolio Summary + Deal Funnel Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-
-                {/* Portfolio Summary — Donut Chart */}
-                <Card dark={dark} className="p-5">
-                  <CardTitle dark={dark}
-                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />}
-                    iconBg={dark ? "bg-emerald-500/10" : "bg-emerald-50"}
-                    iconColor={dark ? "text-emerald-400" : "text-emerald-600"}
-                    title="Portfolio Summary" />
-                  <div className="flex items-center gap-6 mt-5">
-                    {(() => {
-                      const invested = stats.totalInvested || 0;
-                      const balance = walletBalance || 0;
-                      const total = invested + balance;
-                      const pct = total > 0 ? Math.round((invested / total) * 100) : 0;
-                      const r = 38;
-                      const circ = 2 * Math.PI * r;
-                      const offset = circ - (pct / 100) * circ;
-                      return (
-                        <div className="relative w-24 h-24 shrink-0">
-                          <svg viewBox="0 0 100 100" className="w-full h-full" style={{ transform: "rotate(-90deg)" }}>
-                            <circle cx="50" cy="50" r={r} fill="none"
-                              stroke={dark ? "rgba(255,255,255,0.06)" : "#f3f4f6"} strokeWidth="8" />
-                            <circle cx="50" cy="50" r={r} fill="none"
-                              stroke={dark ? "#10b981" : "#059669"} strokeWidth="8" strokeLinecap="round"
-                              strokeDasharray={circ} strokeDashoffset={offset}
-                              style={{ transition: "stroke-dashoffset 1s ease-out" }} />
-                          </svg>
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-lg font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>{pct}%</span>
-                            <span className={`text-[8px] font-bold uppercase tracking-wider ${dark ? "text-gray-500" : "text-gray-400"}`}>Deployed</span>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dark ? "bg-emerald-500" : "bg-emerald-600"}`} />
-                        <div className="flex-1">
-                          <p className={`text-[10px] font-bold uppercase tracking-wider ${dark ? "text-gray-500" : "text-gray-400"}`}>Invested</p>
-                          <p className={`text-sm font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>₹{(stats.totalInvested || 0).toLocaleString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dark ? "bg-amber-500" : "bg-amber-600"}`} />
-                        <div className="flex-1">
-                          <p className={`text-[10px] font-bold uppercase tracking-wider ${dark ? "text-gray-500" : "text-gray-400"}`}>Deals</p>
-                          <p className={`text-sm font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>{totalDealsCount}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Deal Funnel — Horizontal Bar Chart */}
-                <Card dark={dark} className="p-5">
-                  <CardTitle dark={dark}
-                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.914-.836a2.25 2.25 0 00-1.078 2.592l.383 1.53a2.25 2.25 0 002.181 1.714h3.6a2.25 2.25 0 002.18-1.714l.384-1.53a2.25 2.25 0 00-1.078-2.592L18 12.75l1.736-1.164a2.25 2.25 0 001.078-2.592l-.383-1.53A2.25 2.25 0 0018.25 5.75h-3.6a2.25 2.25 0 00-2.18 1.714l-.384 1.53a2.25 2.25 0 001.078 2.592L15 12.75l-1.736 1.164z" />}
-                    iconBg={dark ? "bg-purple-500/10" : "bg-purple-50"}
-                    iconColor={dark ? "text-purple-400" : "text-purple-600"}
-                    title="Deal Funnel" />
-                  <div className="mt-5 space-y-4">
-                    {(() => {
-                      const viewed = stats.totalViewed || 0;
-                      const closed = closedDealsCount;
-                      const invested = stats.totalInvested || 0;
-                      const maxVal = Math.max(viewed, 1);
-                      const conversionRate = viewed > 0 ? ((closed / viewed) * 100).toFixed(1) : "0.0";
-                      const bars = [
-                        { label: "Viewed", value: viewed, pct: 100, color: dark ? "bg-gray-400" : "bg-[#1e3a5f]" },
-                        { label: "Deals Closed", value: closed, pct: Math.max((closed / maxVal) * 100, closed > 0 ? 8 : 0), color: dark ? "bg-emerald-500" : "bg-emerald-600" },
-                        { label: "Invested", value: `₹${invested.toLocaleString()}`, pct: Math.max((closed / maxVal) * 100 * 0.7, invested > 0 ? 6 : 0), color: dark ? "bg-amber-500" : "bg-amber-600" },
-                      ];
-                      return (
-                        <>
-                          {bars.map((bar, i) => (
-                            <div key={i}>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className={`text-[11px] font-semibold ${dark ? "text-gray-400" : "text-gray-500"}`}>{bar.label}</span>
-                                <span className={`text-[13px] font-extrabold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>{bar.value}</span>
-                              </div>
-                              <div className={`w-full h-2 rounded-full overflow-hidden ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`}>
-                                <div className={`h-full rounded-full ${bar.color}`}
-                                  style={{ width: `${bar.pct}%`, transition: "width 1s ease-out" }} />
-                              </div>
-                            </div>
-                          ))}
-                          <div className={`flex items-center gap-2 pt-2 border-t ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
-                            <svg className={`w-3.5 h-3.5 ${dark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22" />
-                            </svg>
-                            <span className={`text-[11px] font-semibold ${dark ? "text-gray-400" : "text-gray-500"}`}>
-                              Conversion rate: <span className={`font-bold ${dark ? "text-emerald-400" : "text-emerald-600"}`}>{conversionRate}%</span>
-                            </span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </Card>
-              </div>
-
-              {/* Active Options — only when investor has active holds */}
-              {data?.activeHolds?.length > 0 && (
-                <Card dark={dark} className="p-5 mb-4">
-                  <CardTitle dark={dark}
-                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />}
-                    iconBg={dark ? "bg-amber-500/10" : "bg-amber-50"}
-                    iconColor={dark ? "text-amber-400" : "text-amber-600"}
-                    title="Active Options"
-                    action={<span className={`text-xs font-bold px-2 py-1 rounded-lg ${dark ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-600"}`}>{data.activeHolds.length} active</span>} />
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {data.activeHolds.map(hold => (
-                      <div key={hold._id}
-                        onClick={() => hold.script?._id && navigate(getScriptCanonicalPath(hold.script))}
-                        className={`rounded-xl p-3.5 cursor-pointer transition-all border
-                          ${dark ? "bg-white/[0.02] border-white/[0.04] hover:border-amber-500/30" : "bg-amber-50/40 border-amber-100 hover:border-amber-300"}`}>
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <p className={`text-sm font-bold truncate ${dark ? "text-gray-200" : "text-gray-800"}`}>
-                            {hold.script?.title || "Unknown Script"}
-                          </p>
-                          <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md
-                            ${hold.daysRemaining <= 3
-                              ? (dark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600")
-                              : hold.daysRemaining <= 7
-                                ? (dark ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-600")
-                                : (dark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600")}`}>
-                            {hold.daysRemaining}d left
-                          </span>
-                        </div>
-                        <p className={`text-[11px] font-medium mb-2.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                          {hold.script?.genre || "—"}
-                        </p>
-                        <p className={`text-sm font-extrabold tabular-nums ${dark ? "text-amber-400" : "text-amber-600"}`}>
-                          ₹{(hold.fee || 0).toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              )}
-
-              {/* ─ Writer Inbox ─ */}
-              <Card dark={dark} className="mt-4 overflow-hidden">
-                {/* Header */}
-                <div className={`flex items-center justify-between px-5 py-4 border-b ${dark ? "border-white/[0.06]" : "border-gray-100"}`}>
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dark ? "bg-indigo-500/10" : "bg-indigo-50"}`}>
-                      <svg className={`w-4 h-4 ${dark ? "text-indigo-400" : "text-indigo-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className={`text-sm font-bold leading-none ${dark ? "text-gray-100" : "text-gray-800"}`}>Writer Inbox</h3>
-                      <p className={`text-[10px] mt-0.5 ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                        {revealedWriters.length} contact{revealedWriters.length !== 1 ? "s" : ""} unlocked
-                      </p>
-                    </div>
-                  </div>
-                  <Link to="/messages"
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors ${dark ? "bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"}`}>
-                    View all
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6.75-6.75M19.5 12l-6.75 6.75" />
-                    </svg>
-                  </Link>
-                </div>
-
-                {/* Writer list */}
-                {writersLoading ? (
-                  <div className="px-5 py-6 space-y-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="flex items-center gap-3 animate-pulse">
-                        <div className={`w-9 h-9 rounded-full shrink-0 ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`} />
-                        <div className="flex-1 space-y-1.5">
-                          <div className={`h-2.5 w-28 rounded-full ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`} />
-                          <div className={`h-2 w-16 rounded-full ${dark ? "bg-white/[0.04]" : "bg-gray-50"}`} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : revealedWriters.length === 0 ? (
-                  <div className="px-5 py-8 flex flex-col items-center text-center gap-2">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-1 ${dark ? "bg-white/[0.04]" : "bg-gray-50"}`}>
-                      <svg className={`w-5 h-5 ${dark ? "text-gray-600" : "text-gray-300"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
-                      </svg>
-                    </div>
-                    <p className={`text-xs font-semibold ${dark ? "text-gray-400" : "text-gray-500"}`}>No writers unlocked yet</p>
-                    <p className={`text-[11px] ${dark ? "text-gray-600" : "text-gray-400"}`}>Reveal a writer contact to start messaging</p>
-                  </div>
-                ) : (
-                  <div className={`divide-y ${dark ? "divide-white/[0.04]" : "divide-gray-50"}`}>
-                    {revealedWriters.map((writer) => {
-                      const initials = (writer.name || "W").split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase();
-                      const revealedDate = writer.revealedAt ? new Date(writer.revealedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
-                      const msgUrl = `/messages?recipientId=${writer._id}&recipientName=${encodeURIComponent(writer.name || "Writer")}`;
-                      const profileUrl = getProfileCanonicalPath(writer, { viewerId: user?._id, viewerRole: user?.role });
-                      return (
-                        <div key={writer._id} className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${dark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/60"}`}>
-                          {/* Avatar */}
-                          <Link to={profileUrl} className="shrink-0">
-                            {writer.profileImage ? (
-                              <img src={writer.profileImage} alt={writer.name} className="w-9 h-9 rounded-full object-cover ring-1 ring-white/10" />
-                            ) : (
-                              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold ring-1 ${dark ? "bg-indigo-500/10 text-indigo-300 ring-indigo-500/20" : "bg-indigo-50 text-indigo-600 ring-indigo-100"}`}>
-                                {initials}
-                              </div>
-                            )}
-                          </Link>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <Link to={profileUrl} className={`text-[13px] font-semibold truncate block ${dark ? "text-gray-100 hover:text-white" : "text-gray-800 hover:text-gray-900"}`}>
-                              {writer.name || "Writer"}
-                            </Link>
-                            <p className={`text-[10px] truncate ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                              {writer.bio ? writer.bio.slice(0, 40) + (writer.bio.length > 40 ? "…" : "") : writer.genre || "Writer"}
-                              {revealedDate && <span className={`ml-1.5 ${dark ? "text-gray-600" : "text-gray-300"}`}>· {revealedDate}</span>}
-                            </p>
-                          </div>
-
-                          {/* Message button */}
-                          <Link to={msgUrl}
-                            className={`shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg transition-colors ${dark ? "bg-white/[0.05] text-gray-300 hover:bg-indigo-500/15 hover:text-indigo-300" : "bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"}`}>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                            </svg>
-                            Message
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
+          <div className="ck-ledger__tabs" role="tablist" aria-label="Dashboard sections">
+            {TABS.map((entry) => (
+              <button
+                key={entry.key}
+                type="button"
+                role="tab"
+                className="ck-ledger__tab"
+                aria-selected={tab === entry.key}
+                onClick={() => selectTab(entry.key)}
+              >
+                {entry.label}
+                {entry.counted && tabCounts[entry.key] > 0 && (
+                  <span className="ck-ledger__tab-count">{tabCounts[entry.key]}</span>
                 )}
-              </Card>
+              </button>
+            ))}
+            <span className="ck-ledger__synced">
+              {syncedAt ? `Synced ${syncedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "Syncing…"}
+            </span>
+          </div>
+        </div>
 
-            </motion.div>
-          )}
+        {locked && (
+          <div className="ck-ledger__lapsed">
+            <p className="ck-ledger__lapsed-eyebrow">Access lapsed</p>
+            <h2>Your Film Industry Professional access is not active</h2>
+            <p>
+              Read-only mode: your ledger, watchlist and history stay visible. Revealing contacts,
+              messaging writers, booking meetings and releasing options are paused until you renew.
+            </p>
+            <div className="ck-ledger__lapsed-actions">
+              <Link to="/pricing" className="ck-ledger__btn ck-ledger__btn--primary">See plans</Link>
+              <Link to="/contact" className="ck-ledger__btn">Talk to us</Link>
+            </div>
+          </div>
+        )}
 
-          {activeTab === "finance_removed" && (
-            <motion.div key="finance" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+        {dashFailed && (
+          <div className="ck-ledger__notice" role="alert">
+            <MatIcon name="error" size={22} />
+            <div className="ck-ledger__notice-body">
+              <h2>We couldn’t load your deal flow</h2>
+              <p>
+                Wallet, transactions and watchlist loaded normally — only{" "}
+                <code>/dashboard/investor</code> failed. Anything already fetched is still shown above.
+              </p>
+              <button type="button" className="ck-ledger__btn" onClick={handleRefresh}>Retry</button>
+            </div>
+          </div>
+        )}
 
-              {/* Transaction Activity — Area Sparkline */}
-              <Card dark={dark} className="p-5 mb-4">
-                <CardTitle dark={dark}
-                  icon={<path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />}
-                  iconBg={dark ? "bg-white/[0.06]" : "bg-gray-100"}
-                  iconColor={dark ? "text-gray-300" : "text-[#1e3a5f]"}
-                  title="Transaction Activity" />
-                {(() => {
-                  const debits = transactions.filter(t => t.type === "payment" || t.type === "debit");
-                  // Group into 7 buckets by day
-                  const now = new Date();
-                  const buckets = Array.from({ length: 7 }, (_, i) => {
-                    const d = new Date(now);
-                    d.setDate(d.getDate() - (6 - i));
-                    return { date: d, label: d.toLocaleDateString("en-US", { weekday: "short" }), total: 0 };
-                  });
-                  debits.forEach(txn => {
-                    const txDate = new Date(txn.createdAt);
-                    const dayDiff = Math.floor((now - txDate) / (1000 * 60 * 60 * 24));
-                    const idx = 6 - dayDiff;
-                    if (idx >= 0 && idx < 7) buckets[idx].total += txn.amount || 0;
-                  });
-                  const maxVal = Math.max(...buckets.map(b => b.total), 1);
-                  const w = 100;
-                  const h = 40;
-                  const padding = 2;
-                  const stepX = (w - padding * 2) / 6;
-                  const points = buckets.map((b, i) => {
-                    const x = padding + i * stepX;
-                    const y = h - padding - ((b.total / maxVal) * (h - padding * 2 - 4));
-                    return `${x},${y}`;
-                  });
-                  const linePath = `M${points.join(" L")}`;
-                  const areaPath = `${linePath} L${padding + 6 * stepX},${h - padding} L${padding},${h - padding} Z`;
-                  const strokeColor = dark ? "#3b82f6" : "#2563eb";
-                  const fillColor = dark ? "rgba(59,130,246,0.1)" : "rgba(37,99,235,0.08)";
+        {actionError && (
+          <div className="ck-ledger__notice" role="alert">
+            <MatIcon name="error" size={22} />
+            <div className="ck-ledger__notice-body">
+              <h2>That action didn’t complete</h2>
+              <p>{actionError}</p>
+              <button type="button" className="ck-ledger__btn" onClick={() => setActionError("")}>Dismiss</button>
+            </div>
+          </div>
+        )}
 
-                  return debits.length > 0 ? (
-                    <div className="mt-4">
-                      <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-28" preserveAspectRatio="none">
-                        {/* Grid lines */}
-                        {[0.25, 0.5, 0.75].map(pct => (
-                          <line key={pct} x1={padding} y1={h - padding - pct * (h - padding * 2 - 4)} x2={w - padding} y2={h - padding - pct * (h - padding * 2 - 4)}
-                            stroke={dark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"} strokeWidth="0.3" />
-                        ))}
-                        {/* Area fill */}
-                        <path d={areaPath} fill={fillColor} />
-                        {/* Line */}
-                        <path d={linePath} fill="none" stroke={strokeColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        {/* Dots */}
-                        {buckets.map((b, i) => {
-                          const x = padding + i * stepX;
-                          const y = h - padding - ((b.total / maxVal) * (h - padding * 2 - 4));
-                          return b.total > 0 ? <circle key={i} cx={x} cy={y} r="1.5" fill={strokeColor} /> : null;
-                        })}
-                      </svg>
-                      {/* Day labels */}
-                      <div className="flex justify-between mt-1.5 px-0.5">
-                        {buckets.map((b, i) => (
-                          <span key={i} className={`text-[9px] font-bold ${dark ? "text-gray-600" : "text-gray-400"}`}>{b.label}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className={`text-xs text-center py-8 ${dark ? "text-gray-600" : "text-gray-400"}`}>No recent transaction data to chart</p>
-                  );
-                })()}
-              </Card>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-                {/* Wallet */}
-                <Card dark={dark} className="p-5">
-                  <CardTitle dark={dark}
-                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 110-6h5.25A2.25 2.25 0 0121 6v0m0 6v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18V6a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 6v6z" />}
-                    iconBg={dark ? "bg-emerald-500/10" : "bg-emerald-50"}
-                    iconColor={dark ? "text-emerald-400" : "text-emerald-600"}
-                    title="Wallet Balance" />
-                  <p className={`text-3xl font-extrabold tabular-nums mt-4 ${dark ? "text-white" : "text-gray-900"}`}>
-                    ₹{walletBalance.toLocaleString()}
-                  </p>
-                  <p className={`text-xs font-medium mt-1 ${dark ? "text-gray-600" : "text-gray-400"}`}>Available balance</p>
-                </Card>
-
-                {/* Spending Summary */}
-                <Card dark={dark} className="p-5">
-                  <CardTitle dark={dark}
-                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />}
-                    iconBg={dark ? "bg-amber-500/10" : "bg-amber-50"}
-                    iconColor={dark ? "text-amber-400" : "text-amber-600"}
-                    title="Total Spent" />
-                  <p className={`text-3xl font-extrabold tabular-nums mt-4 ${dark ? "text-white" : "text-gray-900"}`}>
-                    ₹{(stats.totalInvested || 0).toLocaleString()}
-                  </p>
-                  {/* Spent vs Balance progress bar */}
-                  {(() => {
-                    const spent = stats.totalInvested || 0;
-                    const balance = walletBalance || 0;
-                    const total = spent + balance;
-                    const spentPct = total > 0 ? Math.round((spent / total) * 100) : 0;
-                    return (
-                      <div className="mt-3">
-                        <div className={`w-full h-2 rounded-full overflow-hidden flex ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`}>
-                          <div className={`h-full ${dark ? "bg-amber-500" : "bg-amber-600"}`} style={{ width: `${spentPct}%`, transition: "width 1s ease-out" }} />
-                          <div className={`h-full ${dark ? "bg-gray-500" : "bg-[#1e3a5f]"}`} style={{ width: `${100 - spentPct}%`, transition: "width 1s ease-out" }} />
-                        </div>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-2 h-2 rounded-full ${dark ? "bg-amber-500" : "bg-amber-600"}`} />
-                            <span className={`text-[10px] font-semibold ${dark ? "text-gray-500" : "text-gray-400"}`}>Spent {spentPct}%</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-2 h-2 rounded-full ${dark ? "bg-gray-500" : "bg-[#1e3a5f]"}`} />
-                            <span className={`text-[10px] font-semibold ${dark ? "text-gray-500" : "text-gray-400"}`}>Balance {100 - spentPct}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </Card>
-
+        {loading ? (
+          <div className="ck-ledger__skeleton" aria-busy="true" aria-live="polite">
+            <span className="ck-ledger__sr">Loading your deal flow…</span>
+            {["62%", "48%", "70%", "55%", "64%"].map((width, index) => (
+              <div key={width} className="ck-ledger__skeleton-row">
+                <span className="ck-ledger__skeleton-mark" />
+                <span className="ck-ledger__skeleton-lines">
+                  <span className="ck-ledger__skeleton-line" style={{ width }} />
+                  <span
+                    className="ck-ledger__skeleton-line ck-ledger__skeleton-line--faint"
+                    style={{ width: ["38%", "30%", "42%", "26%", "34%"][index] }}
+                  />
+                </span>
+                <span className="ck-ledger__skeleton-tail" />
               </div>
-
-              {/* Recent Transactions */}
-              <Card dark={dark} className="p-5">
-                <CardTitle dark={dark}
-                  icon={<path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zm3.75 11.625a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />}
-                  iconBg={dark ? "bg-purple-500/10" : "bg-purple-50"}
-                  iconColor={dark ? "text-purple-400" : "text-purple-600"}
-                  title="Recent Transactions" />
-                {transactions.filter(t => t.type !== "credit").length > 0 ? (
-                  <div className="mt-4 space-y-2">
-                    {transactions.filter(t => t.type !== "credit").slice(0, 8).map(txn => (
-                      <div key={txn._id} className={`flex items-center gap-3 p-3 rounded-xl ${dark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"} transition-colors`}>
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0
-                          ${txn.type === "payment" || txn.type === "debit"
-                            ? (dark ? "bg-red-500/10" : "bg-red-50")
-                            : (dark ? "bg-emerald-500/10" : "bg-emerald-50")}`}>
-                          <svg className={`w-3.5 h-3.5 ${txn.type === "payment" || txn.type === "debit" ? (dark ? "text-red-400" : "text-red-600") : (dark ? "text-emerald-400" : "text-emerald-600")}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round"
-                              d={txn.type === "payment" || txn.type === "debit"
-                                ? "M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
-                                : "M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25"} />
-                          </svg>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-xs font-semibold truncate ${dark ? "text-gray-300" : "text-gray-700"}`}>
-                            {txn.description || txn.type}
-                          </p>
-                          <p className={`text-[10px] font-medium mt-0.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>
-                            {new Date(txn.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </p>
-                        </div>
-                        <p className={`text-sm font-bold tabular-nums
-                          ${txn.type === "payment" || txn.type === "debit" ? (dark ? "text-red-400" : "text-red-600") : (dark ? "text-emerald-400" : "text-emerald-600")}`}>
-                          {txn.type === "payment" || txn.type === "debit" ? "-" : "+"}₹{(txn.amount || 0).toLocaleString()}
-                        </p>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded capitalize
-                          ${txn.status === "completed" ? (dark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600")
-                            : txn.status === "failed" ? (dark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600")
-                              : (dark ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-600")}`}>
-                          {txn.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptySmall dark={dark} text="No transactions yet" />
-                )}
-              </Card>
-
-              {/* Option Deals History */}
-              {data?.recentDeals?.length > 0 && (
-                <Card dark={dark} className="p-5 mt-4">
-                  <CardTitle dark={dark}
-                    icon={<><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 12h6M9 16h4" /></>}
-                    iconBg={dark ? "bg-indigo-500/10" : "bg-indigo-50"}
-                    iconColor={dark ? "text-indigo-400" : "text-indigo-600"}
-                    title="Option Deals"
-                    action={<span className={`text-xs font-bold px-2 py-1 rounded-lg ${dark ? "bg-white/[0.04] text-gray-400" : "bg-gray-50 text-gray-500"}`}>{totalDealsCount} total</span>} />
-                  <div className="mt-4 space-y-2">
-                    {data.recentDeals.map(deal => {
-                      const statusColor =
-                        deal.status === "active" ? (dark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600")
-                          : deal.status === "converted" ? (dark ? "bg-white/[0.06] text-gray-300" : "bg-gray-100 text-[#1e3a5f]")
-                            : deal.status === "cancelled" ? (dark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600")
-                              : (dark ? "bg-gray-500/10 text-gray-400" : "bg-gray-100 text-gray-500");
-                      return (
-                        <div key={deal._id}
-                          onClick={() => deal.script?._id && navigate(getScriptCanonicalPath(deal.script))}
-                          className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${dark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50"}`}>
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${dark ? "bg-white/[0.04]" : "bg-gray-50"}`}>
-                            <svg className={`w-3.5 h-3.5 ${dark ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-semibold truncate ${dark ? "text-gray-300" : "text-gray-700"}`}>
-                              {deal.script?.title || "Unknown Script"}
-                            </p>
-                            <p className={`text-[10px] font-medium mt-0.5 ${dark ? "text-gray-600" : "text-gray-400"}`}>
-                              {deal.script?.genre || "—"} · {deal.startDate ? new Date(deal.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {deal.daysRemaining !== null && (
-                              <span className={`text-[10px] font-bold ${deal.daysRemaining <= 3 ? (dark ? "text-red-400" : "text-red-600") : (dark ? "text-amber-400" : "text-amber-600")}`}>
-                                {deal.daysRemaining}d left
-                              </span>
-                            )}
-                            <p className={`text-sm font-bold tabular-nums ${dark ? "text-white" : "text-gray-900"}`}>
-                              ₹{(deal.fee || 0).toLocaleString()}
-                            </p>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded capitalize ${statusColor}`}>
-                              {deal.status}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Card>
+            ))}
+          </div>
+        ) : isEmpty ? (
+          <div className="ck-ledger__empty">
+            <div className="ck-ledger__empty-mark">
+              <MatIcon name="bookmark_heart" size={28} />
+            </div>
+            <h2>Your ledger starts with a brief</h2>
+            <p>
+              Tell us the genres, formats and hooks you option. We&rsquo;ll match new scripts to that
+              brief every day and this page becomes your deal book.
+            </p>
+            <div className="ck-ledger__empty-actions">
+              <Link to="/mandates" className="ck-ledger__btn ck-ledger__btn--primary">Set up mandates</Link>
+              <Link to="/search" className="ck-ledger__btn">
+                Browse {market.availableText} available scripts
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="ck-ledger__body">
+            <div className="ck-ledger__deals">
+              {tab === "writers" && writersBlock(true)}
+              {tab === "finance" && moneyBlock(true)}
+              {tab === "market" && marketBlock}
+              {(tab === "deals" || tab === "matched") && (
+                <>
+                  {listBlock}
+                  {writersBlock(false)}
+                  {moneyBlock(false)}
+                </>
               )}
+            </div>
 
-            </motion.div>
-          )}
+            <LedgerAside
+              capital={capital}
+              mandateGroups={mandateGroups}
+              quotas={quotaData}
+              quotaResets="resets next cycle"
+              market={market}
+              watchlist={watchlist}
+              scriptPathFor={scriptPathFor}
+              onOpenFinance={() => selectTab("finance")}
+            />
+          </div>
+        )}
+      </div>
 
-        </AnimatePresence>
+      {detailDeal && (
+        <LedgerDetailDrawer
+          deal={detailDeal}
+          scriptPath={scriptPathFor(detailDeal.script)}
+          messagePath={messagePathFor(detailDeal)}
+          writerPath={detailDeal.writerId
+            ? writerPathFor({ _id: detailDeal.writerId, ...(detailDeal.script?.creator || {}) })
+            : ""}
+          contactRevealed={hasRevealedContact(user, detailDeal.writerId)}
+          locked={locked}
+          meetingsBlocked={meetingsBlocked}
+          onClose={() => setDetailId(null)}
+          onMeeting={handleMeeting}
+          onRelease={askRelease}
+          onDownloadPdf={handleDownloadPdf}
+        />
+      )}
 
-      </motion.div>
+      <LedgerConfirmDialog
+        open={Boolean(confirm)}
+        eyebrow={confirm?.eyebrow}
+        title={confirm?.title}
+        body={confirm?.body}
+        confirmLabel={confirm?.confirmLabel}
+        cancelLabel="Keep as is"
+        submitting={confirmBusy}
+        error={confirmError}
+        onConfirm={runConfirm}
+        onCancel={() => { if (!confirmBusy) { setConfirm(null); setConfirmError(""); } }}
+      />
+
+      {/*
+        The meeting flow is Google-Calendar-backed and quota-checked on the
+        server. It already exists as a component, so it is reused rather than
+        rebuilt — the design does not specify a meeting dialog of its own.
+      */}
+      <MeetingModal
+        isOpen={Boolean(meeting)}
+        onClose={() => setMeeting(null)}
+        writerId={meeting?.writerId}
+        scriptId={meeting?.scriptId}
+        writerName={meeting?.writerName}
+        scriptName={meeting?.scriptName}
+        onMeetingScheduled={() => { setMeeting(null); fetchAll(); }}
+      />
     </div>
   );
 };
-
-
-/* ═══════════════════════════════════════════════════════════════
-   REUSABLE SUB-COMPONENTS
-═══════════════════════════════════════════════════════════════ */
-
-const Card = ({ dark, className = "", children }) => (
-  <div className={`rounded-2xl border ${dark ? "bg-[#0a1628] border-[#162240]" : "bg-white border-gray-100"} ${className}`}>
-    {children}
-  </div>
-);
-
-const CardTitle = ({ dark, icon, iconBg, iconColor, title, action }) => (
-  <div className="flex items-center justify-between">
-    <div className="flex items-center gap-2.5">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg}`}>
-        <svg className={`w-4 h-4 ${iconColor}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          {icon}
-        </svg>
-      </div>
-      <h3 className={`text-sm font-bold ${dark ? "text-gray-200" : "text-gray-800"}`}>{title}</h3>
-    </div>
-    {action}
-  </div>
-);
-
-const EmptySmall = ({ dark, text, cta }) => (
-  <div className={`flex flex-col items-center justify-center py-8 ${dark ? "text-gray-600" : "text-gray-400"}`}>
-    <p className="text-xs font-semibold">{text}</p>
-    {cta && (
-      <Link to={cta.to} className="mt-3 px-3 py-1.5 bg-[#1e3a5f] hover:bg-[#162d4a] text-white rounded-lg text-[12px] font-semibold transition-colors">
-        {cta.label}
-      </Link>
-    )}
-  </div>
-);
-
-/* ── Script mini section (overview cards) ─────────────────── */
-const ScriptSection = ({ dark, navigate, title, sub, iconBg, iconColor, iconD, scripts, seeAllTo, matched, fill }) => (
-  <Card dark={dark} className="p-5">
-    <div className="flex items-center justify-between mb-4">
-      <div className="flex items-center gap-2.5">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg}`}>
-          <svg className={`w-4 h-4 ${iconColor}`} fill={fill ? "currentColor" : "none"} stroke={fill ? "none" : "currentColor"} strokeWidth={fill ? 0 : 2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d={iconD} />
-          </svg>
-        </div>
-        <div>
-          <h3 className={`text-sm font-bold ${dark ? "text-gray-200" : "text-gray-800"}`}>{title}</h3>
-          <p className={`text-[11px] font-medium ${dark ? "text-gray-600" : "text-gray-400"}`}>{sub}</p>
-        </div>
-      </div>
-      {seeAllTo && (
-        <Link to={seeAllTo} className={`text-[11px] font-semibold ${dark ? "text-gray-300 hover:text-gray-200" : "text-[#1e3a5f] hover:text-[#162d4a]"}`}>
-          View all →
-        </Link>
-      )}
-    </div>
-    <div className="space-y-2">
-      {scripts.slice(0, 5).map(script => (
-        <div key={script._id} onClick={() => navigate(getScriptCanonicalPath(script))}
-          className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${dark ? "hover:bg-white/[0.03]" : "hover:bg-gray-50"}`}>
-          <div className={`w-9 h-11 rounded-lg shrink-0 overflow-hidden flex items-center justify-center
-            ${dark ? "bg-white/[0.06]" : "bg-gray-100"}`}>
-            {script.coverImage
-              ? <img src={script.coverImage} alt="" className="w-full h-full object-cover" />
-              : <svg className={`w-4 h-4 ${dark ? "text-gray-500" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            }
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-semibold truncate ${dark ? "text-gray-200" : "text-gray-800"}`}>{script.title}</p>
-            <p className={`text-[11px] font-medium ${dark ? "text-gray-500" : "text-gray-400"}`}>
-              {script.genre}{script.creator?.name ? ` · ${script.creator.name}` : ""}
-            </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getScriptCompletionBadgeClasses(script, dark)}`}>
-                {getScriptCompletionStatusLabel(script)}
-              </span>
-              {getScriptCompletionProgressText(script) && (
-                <span className={`text-[10px] ${dark ? "text-gray-500" : "text-gray-400"}`}>
-                  {getScriptCompletionProgressText(script)}
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {matched && (
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${dark ? "bg-purple-500/10 text-purple-400" : "bg-purple-50 text-purple-600"}`}>
-                Match
-              </span>
-            )}
-            {script.scriptScore?.overall && (
-              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md
-                ${script.scriptScore.overall >= 80
-                  ? (dark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600")
-                  : script.scriptScore.overall >= 60
-                    ? (dark ? "bg-white/[0.06] text-gray-300" : "bg-gray-100 text-[#1e3a5f]")
-                    : (dark ? "bg-white/[0.04] text-gray-400" : "bg-gray-50 text-gray-500")}`}>
-                {script.scriptScore.overall}
-              </span>
-            )}
-          </div>
-        </div>
-      ))}
-      {scripts.length === 0 && <EmptySmall dark={dark} text="No scripts available" />}
-    </div>
-  </Card>
-);
 
 export default ProducerDashboardPage;

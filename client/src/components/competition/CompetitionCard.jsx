@@ -79,8 +79,10 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
       {/* Only a real banner earns image height. The placeholder gradient was decoration that
           pushed every actual detail below the fold. */}
       {item.bannerUrl ? (
-        <img src={item.bannerUrl} alt="" style={{ height: 128, width: "100%", objectFit: "cover", borderRadius: "3px 3px 0 0" }} />
-      ) : null}
+        <img src={item.bannerUrl} alt="" style={{ height: 160, width: "100%", objectFit: "cover" }} />
+      ) : (
+        <div style={{ height: 160, width: "100%", background: "linear-gradient(135deg, rgba(209, 77, 55, 0.1), var(--ckc-rule))" }} />
+      )}
 
       <div className="ckc-card-pad">
         <div className="flex items-center justify-between gap-3">
@@ -104,12 +106,36 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
         ) : null}
 
         <p className="ckc-meta" style={{ marginTop: 12, letterSpacing: "0.06em" }}>
-          {fmt(item.dates?.startsAt)}
+          Event: {fmt(item.dates?.startsAt)}
           {item.dates?.endsAt ? ` – ${fmt(item.dates.endsAt)}` : ""}
         </p>
+        {item.dates?.regClosesAt ? (
+          <p className="ckc-meta" style={{ marginTop: 4, letterSpacing: "0.06em" }}>
+            Reg. Closes: {fmt(item.dates.regClosesAt)}
+          </p>
+        ) : null}
 
         {item.prizePool ? (
-          <p style={{ marginTop: 12, fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}>{item.prizePool}</p>
+          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ 
+              display: 'inline-flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              background: 'rgba(245, 158, 11, 0.15)', 
+              color: '#d97706', 
+              borderRadius: '50%',
+              width: 26, 
+              height: 26 
+            }}>
+              <Trophy className="h-4 w-4" />
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--ckc-muted)' }}>
+              Prize Pool:
+            </span>
+            <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--ckc-ink)' }}>
+              {item.prizePool}
+            </span>
+          </div>
         ) : null}
 
         {isArchive ? (
@@ -163,6 +189,26 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
             ) : null}
           </div>
         ) : null}
+
+        <div className="mt-6 flex justify-end">
+          <span 
+            style={{ 
+              padding: "7px 14px", 
+              fontSize: 13, 
+              fontWeight: 600, 
+              color: "var(--ckc-ink)", 
+              background: "color-mix(in srgb, var(--ckc-rule) 40%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--ckc-rule) 80%, transparent)", 
+              borderRadius: 30,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              transition: "all 0.2s ease"
+            }}
+          >
+            View Details <span style={{ fontSize: 15 }}>&rarr;</span>
+          </span>
+        </div>
       </div>
     </Link>
   );

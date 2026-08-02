@@ -24,7 +24,7 @@ const competitionSchema = new mongoose.Schema({
   shortName: { type: String, trim: true, maxlength: 60, default: "" },
   slug: { type: String, unique: true, sparse: true, lowercase: true, trim: true },
   tagline: { type: String, trim: true, maxlength: 120, default: "" },
-  shortDescription: { type: String, maxlength: 300, default: "" },
+  shortDescription: { type: String, maxlength: 1000, default: "" },
   host: { type: String, trim: true, maxlength: 120, default: "" },
   language: { type: String, trim: true, default: "English" },
   timezone: { type: String, trim: true, default: "UTC" },

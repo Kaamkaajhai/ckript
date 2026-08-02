@@ -146,7 +146,7 @@ export default function AdminReferrals({ isDark: dark = false }) {
                 <table className="w-full min-w-[560px] text-left text-sm">
                   <thead>
                     <tr className={dark ? "text-white/50" : "text-gray-500"}>
-                      {["Writer", "Referral code", "Referrals", "Qualified"].map((h) => (
+                      {["Writer", "Referral code", "Referrals", "Qualified", "Reward Earned"].map((h) => (
                         <th key={h} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide">{h}</th>
                       ))}
                     </tr>
@@ -161,6 +161,7 @@ export default function AdminReferrals({ isDark: dark = false }) {
                         <td className={`px-3 py-3 font-mono text-xs ${cls.body(dark)}`}>{r.referralCode || "—"}</td>
                         <td className={`px-3 py-3 ${cls.body(dark)}`}>{r.referrals}</td>
                         <td className={`px-3 py-3 font-semibold ${dark ? "text-white" : "text-gray-900"}`}>{r.qualified}</td>
+                        <td className={`px-3 py-3 font-semibold ${dark ? "text-blue-400" : "text-blue-600"}`}>{r.earnedTier || "—"}</td>
                       </tr>
                     ))}
                   </tbody>

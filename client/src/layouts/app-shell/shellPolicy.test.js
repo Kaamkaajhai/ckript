@@ -125,15 +125,16 @@ describe("shellPolicy — content variant", () => {
   });
 
   /*
-   * The asymmetry worth locking down: /dashboard is one URL and two completely
-   * different pages. The writer's scrolls itself; the producer's is a padded
-   * page and loses its layout without the shell's padding.
+   * /dashboard is one URL and two completely different pages. Both own their
+   * scroll now — the writer's 2B dashboard and the industry ledger — so neither
+   * may be handed the shell's padded column, which would inset the ledger's
+   * full-bleed banner and masthead rules.
    */
-  it("treats /dashboard as full-bleed for writers only", () => {
+  it("treats /dashboard as full-bleed for both dashboards", () => {
     expect(isFullBleedRoute("/dashboard", "writer")).toBe(true);
-    expect(isFullBleedRoute("/dashboard", "producer")).toBe(false);
+    expect(isFullBleedRoute("/dashboard", "producer")).toBe(true);
     expect(resolveShell({ role: "producer", pathname: "/dashboard" }).contentVariant)
-      .toBe(CONTENT_VARIANT.PAGE);
+      .toBe(CONTENT_VARIANT.FILL);
   });
 
   it("translates full-bleed into each shell's own vocabulary", () => {

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import Icon from "../../_shared/Icon";
 import { RED } from "../../_shared/theme";
+import CompetitionCard from "../../../../components/competition/CompetitionCard";
 import {
   KICKER, HERO_FIGURE, HERO_LINES, LEAD, CARDS, WINNER_FACTS, ENTRY_CHIPS, FLOW, CTA,
 } from "./challenge.data";
@@ -55,6 +56,28 @@ const Challenge = ({ phase, competition, winner }) => {
             </div>
           </div>
         </div>
+        
+        {/* Live challenge card added as requested */}
+        {competition ? (
+          <div 
+            className="ckc" 
+            style={{ 
+              marginTop: "40px", 
+              marginBottom: "40px", 
+              maxWidth: "380px", 
+              marginInline: "auto",
+              background: "transparent",
+              animation: "ckl-fadeUp 0.85s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both"
+            }}
+          >
+            <CompetitionCard 
+              item={competition} 
+              variant={phase === "announced" ? "upcoming" : "live"} 
+              to={`/challenge/c/${competition.slug}`} 
+              serverNow={Date.now()} 
+            />
+          </div>
+        ) : null}
 
         {/* ── 2 · Three cards ────────────────────────────────────────────────────────────────── */}
         <div className="ckl-chal-cards">
