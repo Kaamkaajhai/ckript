@@ -646,11 +646,10 @@ function PublishPanel({ vm }) {
 
       </div>
 
-      <div className="su-card su-rights-card">
-        <h3 className="su-card-title">Rights & Licensing</h3>
-        
+      <div className="rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 space-y-6 border-emerald-200 bg-emerald-50/60">
         <div>
-          <FieldLabel meta="Required">Rights Type</FieldLabel>
+          <h3 className="text-sm font-bold text-emerald-700">Rights Type</h3>
+          <p className="text-xs mb-3 text-gray-600">What type of rights are you offering?</p>
           <TagSelect
             ariaLabel="Rights Type"
             options={options.rights}
@@ -662,13 +661,15 @@ function PublishPanel({ vm }) {
 
         {state.rightsLicensing.rightsType === "exclusive_license" && (
           <div>
-            <FieldLabel meta="Months">License Duration</FieldLabel>
-            <input type="number" min="1" max="120" value={state.rightsLicensing.timeBound?.licenseDurationMonths || 12} onChange={(e) => setRights({ timeBound: { ...state.rightsLicensing.timeBound, licenseDurationMonths: Number(e.target.value) } })} />
+            <h3 className="text-sm font-bold text-emerald-700">License Duration</h3>
+            <p className="text-xs mb-3 text-gray-600">How many months will the license last?</p>
+            <input type="number" min="1" max="120" value={state.rightsLicensing.timeBound?.licenseDurationMonths || 12} onChange={(e) => setRights({ timeBound: { ...state.rightsLicensing.timeBound, licenseDurationMonths: Number(e.target.value) } })} className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white" />
           </div>
         )}
 
         <div>
-          <FieldLabel>Modification Rights</FieldLabel>
+          <h3 className="text-sm font-bold text-emerald-700">Modification Rights</h3>
+          <p className="text-xs mb-3 text-gray-600">How much creative control are you willing to give up?</p>
           <TagSelect
             ariaLabel="Modification Rights"
             options={options.modification}
@@ -679,7 +680,8 @@ function PublishPanel({ vm }) {
         </div>
 
         <div>
-          <FieldLabel>Payment Structure</FieldLabel>
+          <h3 className="text-sm font-bold text-emerald-700">Payment Structure</h3>
+          <p className="text-xs mb-3 text-gray-600">How do you expect to be paid for these rights?</p>
           <TagSelect
             ariaLabel="Payment Structure"
             options={options.payments}
@@ -690,13 +692,13 @@ function PublishPanel({ vm }) {
         </div>
 
         {royaltyBased && (
-          <div className="su-grid-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <FieldLabel>Royalty Percentage (%)</FieldLabel>
-              <input type="number" min="0" max="100" value={state.rightsLicensing.royaltySettings?.percentage || 0} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, percentage: Number(e.target.value) } })} />
+              <h3 className="text-sm font-bold text-emerald-700">Royalty Percentage (%)</h3>
+              <input type="number" min="0" max="100" value={state.rightsLicensing.royaltySettings?.percentage || 0} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, percentage: Number(e.target.value) } })} className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white" />
             </div>
             <div>
-              <FieldLabel>Royalty Duration</FieldLabel>
+              <h3 className="text-sm font-bold text-emerald-700">Royalty Duration</h3>
               <TagSelect
                 ariaLabel="Royalty duration"
                 options={[{ value: "none", label: "None" }, { value: "project_lifetime", label: "Project Lifetime" }, { value: "years", label: "Fixed Years" }]}
@@ -706,16 +708,17 @@ function PublishPanel({ vm }) {
               />
             </div>
             {state.rightsLicensing.royaltySettings?.durationType === "years" && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <FieldLabel>Number of Years</FieldLabel>
-                <input type="number" min="1" max="99" value={state.rightsLicensing.royaltySettings?.durationYears || 1} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, durationYears: Number(e.target.value) } })} />
+              <div className="sm:col-span-2">
+                <h3 className="text-sm font-bold text-emerald-700">Number of Years</h3>
+                <input type="number" min="1" max="99" value={state.rightsLicensing.royaltySettings?.durationYears || 1} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, durationYears: Number(e.target.value) } })} className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white" />
               </div>
             )}
           </div>
         )}
 
         <div>
-          <FieldLabel>Negotiation Mode</FieldLabel>
+          <h3 className="text-sm font-bold text-emerald-700">Negotiation Mode</h3>
+          <p className="text-xs mb-3 text-gray-600">Are you open to counter-offers?</p>
           <TagSelect
             ariaLabel="Negotiation Mode"
             options={options.negotiations}
@@ -726,12 +729,12 @@ function PublishPanel({ vm }) {
         </div>
 
         <div>
-          <FieldLabel meta="Optional">Custom Conditions</FieldLabel>
+          <h3 className="text-sm font-bold text-emerald-700">Custom Conditions (Optional)</h3>
           <textarea
             placeholder="e.g. Specific investor terms, guaranteed credit conditions..."
             value={state.rightsLicensing.customConditions || ""}
             onChange={(e) => setRights({ customConditions: e.target.value })}
-            rows={3}
+            className="w-full px-4 py-3 rounded-xl border-2 outline-none transition-all bg-white border-gray-200 text-gray-900 focus:border-emerald-500 focus:bg-white min-h-[100px] resize-y"
           />
         </div>
       </div>
