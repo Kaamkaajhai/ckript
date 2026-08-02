@@ -53,7 +53,7 @@ const CompetitionLanding = lazy(() => import("./pages/challenge/CompetitionLandi
 const ChallengeHub = lazy(() => import("./pages/challenge/ChallengeHub"));
 // The landing-register overview of the challenge. Marketing surface, so it is bare like the
 // landing itself — the hub above is what renders inside the app shell.
-const ChallengesPage = lazy(() => import("./pages/landing/ChallengesPage"));
+const ChallengesPage = lazy(() => import("./features/challenge-marquee"));
 const HallOfFame = lazy(() => import("./pages/hall-of-fame/HallOfFame"));
 const HallOfFameDetail = lazy(() => import("./pages/hall-of-fame/HallOfFameDetail"));
 const CompetitionRegister = lazy(() => import("./pages/challenge/CompetitionRegister"));
