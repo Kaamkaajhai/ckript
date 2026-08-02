@@ -65,17 +65,6 @@ const CountdownTimer = ({ target, serverNow, onExpire, size = "lg", label = "" }
     );
   }
 
-  // Named units, minute resolution: "06d 14h 22m". For editorial notice bars,
-  // where a ticking seconds column pulls the eye away from the sentence around
-  // it. Still padded and monospace, so the width holds steady.
-  if (size === "units") {
-    return (
-      <span className="ckc-clock-inline">
-        {pad(days)}d {pad(hours)}h {pad(minutes)}m
-      </span>
-    );
-  }
-
   // Full: the masthead numeral display. A 48-hour challenge IS its clock, so this is set like a
   // title page — large tabular serif figures, the unit named beneath in the slug-line voice. Four
   // bordered boxes made the most characteristic thing on the page look like a cookie banner.

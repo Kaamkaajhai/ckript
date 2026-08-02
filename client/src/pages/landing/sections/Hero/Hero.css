@@ -69,13 +69,6 @@
   opacity: 0;
   animation: ckl-fadeDown .8s .05s cubic-bezier(.2, .7, .2, 1) forwards;
 }
-.ckl .ckl-hero-nav--page {
-  position: relative;
-  max-width: 1586px;
-  margin: 0 auto;
-  opacity: 1;
-  animation: none;
-}
 .ckl .ckl-hero-brand { display: flex; align-items: center; text-decoration: none; }
 .ckl .ckl-hero-brand > img { height: 38px; width: auto; display: block; }
 
