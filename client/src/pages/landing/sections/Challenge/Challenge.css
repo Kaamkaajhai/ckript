@@ -88,6 +88,10 @@
 .ckl .ckl-chal-card-t {
   margin-top: 20px;
   font-family: var(--ck-serif);
+  /* Baskervville is imported at weight 400 only (landing.css). This sits on an <h3>, whose UA
+     default is bold — so without an explicit weight the browser SYNTHESISES one, smearing the
+     letterforms. Every serif heading in this register must state its weight. */
+  font-weight: 400;
   font-size: clamp(1.4rem, 2vw, 1.75rem);
   line-height: 1.15;
   color: var(--ck-ink);
@@ -215,6 +219,8 @@
 
 .ckl .ckl-chal-anyone-h {
   font-family: var(--ck-serif);
+  /* Now an <h2> rather than a <p> — same faux-bold trap as .ckl-chal-card-t above. */
+  font-weight: 400;
   font-size: clamp(2rem, 4vw, 3.2rem);
   line-height: 1.1;
   letter-spacing: -0.015em;

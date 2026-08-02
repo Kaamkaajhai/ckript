@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Competition from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
 import Script from "../models/Script.js";
+import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import { createNotification, sendEmailNotification } from "../utils/notify.js";
 import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
@@ -516,6 +517,86 @@ export const registerForCompetition = async (req, res) => {
   }
 };
 
+// ── Registration fee ────────────────────────────────────────────────────────
+//
+// ONE definition, read by both the order and its verification. They were previously unrelated: the
+// order charged a literal 9800 paise / 200 cents, and the verifier checked only that the Razorpay
+// signature was valid — never what was paid, in which currency, or against which order. A signature
+// is only proof that SOME payment on this merchant account succeeded, so any captured payment in
+// the app satisfied it, and the amount an invoice would have to state was never established at all.
+const REGISTRATION_FEE = {
+  INR: { minor: 9800, major: 98 },   // paise
+  USD: { minor: 200, major: 2 },     // cents
+};
+const REGISTRATION_RECEIPT_PREFIX = "reg_";
+
+const REGISTRATION_INVOICE_PREFIX = "CKR-REG";
+
+const buildRegistrationInvoiceNumber = (paymentId = "") => {
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const suffix = String(paymentId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase()
+    || Date.now().toString().slice(-8);
+  return `${REGISTRATION_INVOICE_PREFIX}-${stamp}-${suffix}`;
+};
+
+/**
+ * Issue the tax invoice for a paid competition entry.
+ *
+ * IDEMPOTENT on `paymentReference`, which carries a unique index: Razorpay's checkout callback can
+ * fire more than once, and a buyer must never end up with two invoice numbers for one payment.
+ *
+ * Deliberately NON-FATAL. The money is already captured and the entry already exists by the time
+ * this runs — failing the request because a PDF could not be uploaded would tell the entrant their
+ * payment did not work, and they would pay twice. A missing invoice is recoverable later; a lost
+ * registration is not.
+ */
+const issueRegistrationInvoice = async ({ user, competition, entry, paymentId, amountMajor, currency }) => {
+  const paymentReference = String(paymentId || "").trim();
+  if (!paymentReference) return null;
+
+  const existing = await Invoice.findOne({ paymentReference }).select("_id invoiceNumber pdfPath");
+  if (existing) return existing;
+
+  try {
+    return await Invoice.create({
+      paymentReference,
+      invoiceNumber: buildRegistrationInvoiceNumber(paymentReference),
+      invoiceDate: new Date(),
+      kind: "competition_registration",
+      creator: user._id,
+      creatorSid: user.sid || "",
+      competition: competition._id,
+      currency,
+      amountCharged: amountMajor,
+      accessType: "premium",
+      rows: [
+        {
+          item: "Competition Entry Fee",
+          type: "registration",
+          detail: `${competition.name}${entry?.eventId ? ` · Entry ${entry.eventId}` : ""}`,
+          amountLabel: `${currency} ${Number(amountMajor).toFixed(2)}`,
+          amountValue: amountMajor,
+        },
+      ],
+    });
+  } catch (error) {
+    // A duplicate key here means a concurrent callback won the race — return its invoice.
+    if (error?.code === 11000) {
+      return Invoice.findOne({ paymentReference }).select("_id invoiceNumber pdfPath");
+    }
+    console.error("[competition] invoice creation failed:", error?.message || error);
+    return null;
+  }
+};
+
+const getRazorpayClient = async () => {
+  const { default: Razorpay } = await import("razorpay");
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+};
+
 export const createRegistrationOrder = async (req, res) => {
   try {
     const competition = await loadOpenCompetitionById(req.params.id);
@@ -543,24 +624,28 @@ export const createRegistrationOrder = async (req, res) => {
     if (!String(language || "").trim()) return res.status(400).json({ message: "Preferred language is required." });
     if (!acceptRules || !acceptCopyright) return res.status(400).json({ message: "You must accept the rules and copyright." });
 
-    const { default: Razorpay } = await import("razorpay");
-    const razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET,
-    });
+    const razorpay = await getRazorpayClient();
 
     const { resolveCurrency } = await import("../utils/currencyFx.js");
     const { createOrderWithUsdFallback } = await import("../utils/razorpayOrder.js");
 
     const currency = resolveCurrency(req.body?.currency, req.user.preferredCurrency);
-    const inrAmount = 9800; // 98 INR in paise
-    const finalAmount = currency === "USD" ? 200 : inrAmount; // 2 USD in cents
+    const inrAmount = REGISTRATION_FEE.INR.minor;
+    const finalAmount = currency === "USD" ? REGISTRATION_FEE.USD.minor : inrAmount;
 
     const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
       amount: finalAmount,
       currency,
       inrAmount,
-      receipt: `reg_${req.user._id.toString().substring(18)}_${Date.now()}`,
+      receipt: `${REGISTRATION_RECEIPT_PREFIX}${req.user._id.toString().substring(18)}_${Date.now()}`,
+      // Stamped so verification can prove this order was created HERE, for THIS competition, by
+      // THIS user. Razorpay returns notes on orders.fetch, so it needs no storage of our own — and
+      // without it, any captured payment from anywhere in the app satisfies the signature check.
+      notes: {
+        purpose: "competition_registration",
+        competitionId: String(competition._id),
+        userId: String(req.user._id),
+      },
     });
 
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
@@ -594,9 +679,42 @@ export const verifyRegistrationPayment = async (req, res) => {
     if (generated_signature !== razorpay_signature) {
       return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
     }
-    
+
     const competition = await loadOpenCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    // Read back what was ACTUALLY charged, rather than trusting the client or re-deriving it from
+    // our own price table. Two things depend on this being real: the entry fee we claim to have
+    // collected, and the amount printed on a tax document the buyer keeps.
+    let order = null;
+    try {
+      const razorpay = await getRazorpayClient();
+      order = await razorpay.orders.fetch(razorpay_order_id);
+    } catch (fetchError) {
+      console.error("[competition] order fetch failed:", fetchError?.message || fetchError);
+      return res.status(502).json({ message: "Could not confirm the payment with Razorpay. Please contact support." });
+    }
+    if (!order) return res.status(400).json({ message: "Payment order could not be found." });
+
+    // Bind the order to THIS registration. The signature alone proves only that some payment on our
+    // merchant account succeeded — without these checks a cheaper payment made elsewhere in the app
+    // could be replayed here to enter for free.
+    const notes = order.notes || {};
+    const boundToThisFlow = notes.purpose === "competition_registration"
+      && String(notes.competitionId) === String(competition._id)
+      && String(notes.userId) === String(req.user._id);
+    if (!boundToThisFlow) {
+      return res.status(400).json({ message: "This payment does not belong to this registration." });
+    }
+
+    const paidCurrency = String(order.currency || "INR").toUpperCase();
+    const expected = REGISTRATION_FEE[paidCurrency];
+    // `amount_paid` rather than `amount`: the former is what Razorpay actually captured.
+    const paidMinor = Number(order.amount_paid ?? order.amount) || 0;
+    if (!expected || paidMinor < expected.minor) {
+      return res.status(400).json({ message: "The amount paid does not match the entry fee." });
+    }
+    const paidMajor = paidMinor / 100;
 
     const {
       country, language, genres, experienceLevel, portfolioUrl,
@@ -618,12 +736,23 @@ export const verifyRegistrationPayment = async (req, res) => {
 
     const now = new Date();
     
-    // Safety check in case it's double-submitted
+    // Safety check in case it's double-submitted. Razorpay's handler can fire twice, so this path
+    // is reached in normal operation — it re-issues (never duplicates) the invoice and returns the
+    // same entry, so a retried callback is indistinguishable from the first for the buyer.
     const existing = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
     if (existing) {
+      const invoice = await issueRegistrationInvoice({
+        user: req.user,
+        competition,
+        entry: existing,
+        paymentId: razorpay_payment_id,
+        amountMajor: paidMajor,
+        currency: paidCurrency,
+      });
       return res.json({
         entry: existing,
         timeline: buildTimeline(competition, existing, now),
+        invoice: invoice ? { _id: invoice._id, invoiceNumber: invoice.invoiceNumber } : null,
       });
     }
 
@@ -640,14 +769,37 @@ export const verifyRegistrationPayment = async (req, res) => {
       acceptedRulesAt: now,
       acceptedCopyrightAt: now,
       status: "registered",
+      payment: {
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        amount: paidMajor,
+        currency: paidCurrency,
+        paidAt: now,
+      },
     });
 
     await entry.save();
     await ensureReferralCode(req.user._id);
-    
+
+    // After the entry is saved, never before: the invoice references the entry's eventId, and an
+    // invoice for a registration that failed to persist would be a receipt for nothing.
+    const invoice = await issueRegistrationInvoice({
+      user: req.user,
+      competition,
+      entry,
+      paymentId: razorpay_payment_id,
+      amountMajor: paidMajor,
+      currency: paidCurrency,
+    });
+    if (invoice?._id) {
+      entry.payment.invoice = invoice._id;
+      await entry.save();
+    }
+
     return res.json({
       entry,
       timeline: buildTimeline(competition, entry, now),
+      invoice: invoice ? { _id: invoice._id, invoiceNumber: invoice.invoiceNumber } : null,
     });
   } catch (error) {
     console.error("[competition] verifyRegistrationPayment failed:", error);

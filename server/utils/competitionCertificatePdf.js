@@ -3,6 +3,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { Writable } from "stream";
 import PDFDocument from "pdfkit";
+import { CONTACTS } from "./companyContacts.js";
 
 // Participation / achievement certificate for a judged competition entry.
 //
@@ -26,7 +27,8 @@ const LOGO_CANDIDATES = [
 ];
 
 const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";
-const COMPANY_EMAIL = process.env.COMPANY_EMAIL || "info.ckript@gmail.com";
+// Read at RENDER time via CONTACTS rather than captured here — see the note in companyContacts.js:
+// dotenv.config() runs after every import is evaluated, so a module-level env read never sees .env.
 const FOUNDER_NAME = process.env.FOUNDER_NAME || "Yash";
 
 const ACCENT = "#D14D37";
@@ -183,7 +185,7 @@ export const generateCompetitionCertificate = async ({
     // The event ID is what makes the certificate checkable against a real entry.
     if (eventId) {
       doc.font("Helvetica").fontSize(8).fillColor(MUTED)
-        .text(`Event ID ${eventId}  ·  Verify at ${COMPANY_EMAIL}`, 0, H - 52, { width: W, align: "center" });
+        .text(`Event ID ${eventId}  ·  Verify at ${CONTACTS.company}`, 0, H - 52, { width: W, align: "center" });
     }
 
     doc.end();

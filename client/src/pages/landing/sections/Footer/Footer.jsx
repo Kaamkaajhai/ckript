@@ -79,7 +79,7 @@ export default function Footer() {
           </p>
           <p className="ckl-footer-legal-row">
             <span className="ckl-footer-legal-key">Contact:</span>{" "}
-            <a href={`mailto:${COMPANY.supportEmail}`} className="ckl-footer-legal-mail">{COMPANY.supportEmail}</a>
+            <a href={`mailto:${COMPANY.email}`} className="ckl-footer-legal-mail">{COMPANY.email}</a>
           </p>
         </div>
       </div>

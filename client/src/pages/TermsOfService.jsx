@@ -202,7 +202,7 @@ export default function TermsOfService() {
               <div className="mb-2 font-bold uppercase tracking-widest text-gray-400">Corporate Information</div>
               <p className="mb-1"><span className="font-semibold text-gray-700">Legal Entity:</span> {COMPANY.legalName} <span className="mx-2 text-gray-300">|</span> <span className="font-semibold text-gray-700">CIN:</span> {COMPANY.cin}</p>
               <p className="mb-1"><span className="font-semibold text-gray-700">Registered Office:</span> {COMPANY.registeredOffice}</p>
-              <p><span className="font-semibold text-gray-700">Contact:</span> <a href={`mailto:${COMPANY.supportEmail}`} className="text-red-900 hover:underline">{COMPANY.supportEmail}</a></p>
+              <p><span className="font-semibold text-gray-700">Contact:</span> <a href={`mailto:${COMPANY.email}`} className="text-red-900 hover:underline">{COMPANY.email}</a></p>
             </div>
           </div>
         </div>

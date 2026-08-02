@@ -18,8 +18,32 @@ const invoiceSchema = new mongoose.Schema(
     invoiceDate: { type: Date, required: true, default: Date.now },
     creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     creatorSid: { type: String, default: "" },
-    script: { type: mongoose.Schema.Types.ObjectId, ref: "Script", required: true },
+
+    // What was bought. Defaults to "script" so every existing document keeps its meaning without a
+    // migration — this collection is the single invoice ledger, so a competition entry fee lands
+    // here too rather than in a parallel model with its own numbering that could collide.
+    kind: {
+      type: String,
+      enum: ["script", "competition_registration"],
+      default: "script",
+      index: true,
+    },
+
+    // Required only for script invoices. A competition registration has no script, and a blanket
+    // `required: true` is what would otherwise force a dummy reference into the ledger.
+    script: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Script",
+      required() { return this.kind !== "competition_registration"; },
+    },
     scriptSid: { type: String, default: "" },
+    competition: { type: mongoose.Schema.Types.ObjectId, ref: "Competition" },
+
+    // What the buyer was actually charged, in the currency they actually paid. The ledger had no
+    // currency field at all because scripts were INR-only; competition entry is INR or USD, and an
+    // amount without its currency is not a record of anything.
+    currency: { type: String, default: "INR" },
+    amountCharged: { type: Number, default: 0 },
     accessType: { type: String, enum: ["free", "premium"], default: "free" },
     scriptPrice: { type: Number, default: 0 },
     platformFeeRate: { type: Number, default: 0.2 },

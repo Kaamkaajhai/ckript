@@ -9,8 +9,15 @@ export const COMPANY = {
   cin: "U62099DL2026PTC468691",
   registeredOffice:
     "SUIT-D, 400-A, 4th Floor, 12 Ajit Singh House, Yusuf Sarai Commercial Complex, New Delhi - 110016, India",
-  // Must be an inbox that is actually monitored — see SUPPORT_EMAIL in server/.env.
+  // Three addresses, split by ROLE — mirrors server/utils/companyContacts.js, which stamps the same
+  // set into every outgoing email. Pick by what the reader is writing ABOUT, not by which key is
+  // nearest: a stuck user wants `supportEmail`, a partnership wants `contactEmail`, and anything
+  // speaking for the company itself (footer, legal pages, invoices) uses `email`.
+  // Each must be an inbox that is actually monitored — see the matching keys in server/.env.
+  email: "info@ckript.com",
   supportEmail: "support@ckript.com",
+  contactEmail: "contact@ckript.com",
+  website: "https://ckript.com",
   description:
     "Ckript is an AI-powered platform for script discovery, trailer generation, and film funding.",
 };

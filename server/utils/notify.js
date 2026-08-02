@@ -1,5 +1,7 @@
 import nodemailer from "nodemailer";
 import Notification from "../models/Notification.js";
+import mailFrom from "./mailFrom.js";
+import { CONTACTS, signatureHtml, signatureText } from "./companyContacts.js";
 
 let cachedTransporter = null;
 
@@ -68,6 +70,20 @@ export const createNotification = async ({
   }
 };
 
+/**
+ * The generic sender every controller reaches for, so the contact signature is appended HERE rather
+ * than in each caller — four call sites today, and any future one gets it without remembering to.
+ * Callers pass HTML fragments, not whole documents, but the `</body>` case is handled anyway so a
+ * caller that later passes a full document does not end up with the block outside the body.
+ */
+const withSignature = (body = "", append) => {
+  const source = String(body || "");
+  if (!source.trim()) return source;
+  return source.includes("</body>")
+    ? source.replace("</body>", `${append}\n</body>`)
+    : source + append;
+};
+
 export const sendEmailNotification = async ({
   to,
   subject,
@@ -81,11 +97,11 @@ export const sendEmailNotification = async ({
 
   try {
     const info = await transporter.sendMail({
-      from: `"ckript" <${process.env.EMAIL_USER || "noreply@ckript.com"}>`,
+      from: mailFrom(),
       to,
       subject,
-      html,
-      text,
+      html: withSignature(html, `\n<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;" />\n<div style="color:#6b7280;font-size:12px;line-height:1.7;">\n              <p style="margin:0 0 8px 0;">Regards,<br/><strong>Team ${CONTACTS.name}</strong></p>${signatureHtml()}\n</div>`),
+      text: withSignature(text, `\n\nRegards,\nTeam ${CONTACTS.name}${signatureText()}`),
     });
 
     return { success: true, messageId: info.messageId };

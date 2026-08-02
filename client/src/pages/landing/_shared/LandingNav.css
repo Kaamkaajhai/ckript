@@ -1,0 +1,237 @@
+/* ═══════════════════════ LANDING NAV ═══════════════════════
+   Moved verbatim out of sections/Hero/Hero.css so that every .ckl page can mount the real site
+   navigation, not just the homepage. The `.ckl-hero-*` names are kept deliberately: renaming them
+   would have meant touching every rule and both breakpoint blocks in the same commit that moves
+   them, turning a provable no-op into a diff nobody could verify by eye.
+
+   The base rules below describe the "stage" variant — the homepage, where the nav is absolutely
+   positioned inside the fixed 1586×992 hero composition that useStageFit scales to the viewport.
+   The `--page` block re-expresses those same metrics for pages that have no stage. */
+
+/* ── Nav ──────────────────────────────────────────────────────── */
+.ckl .ckl-hero-nav {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 104px;
+  display: flex;
+  align-items: center;
+  padding: 0 52px;
+  z-index: 10;
+  opacity: 0;
+  animation: ckl-fadeDown .8s .05s cubic-bezier(.2, .7, .2, 1) forwards;
+}
+.ckl .ckl-hero-brand { display: flex; align-items: center; text-decoration: none; }
+.ckl .ckl-hero-brand > img { height: 38px; width: auto; display: block; }
+
+.ckl .ckl-hero-nav-divider {
+  width: 1px;
+  height: 40px;
+  background: #cfcdc7;
+  margin: 0 0 0 34px;
+}
+.ckl .ckl-hero-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  margin-left: 48px;
+}
+
+.ckl .ckl-hero-navlink {
+  color: #262523;
+  text-decoration: none;
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 19px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+}
+/* The page you are on. Paired with aria-current on the element itself. */
+.ckl .ckl-hero-navlink.is-active { color: var(--ck-red); }
+
+.ckl .ckl-hero-navlink--pricing {
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Pricing dropdown */
+.ckl .ckl-hero-pricing { position: relative; }
+.ckl .ckl-hero-pricing-menu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ck-paper);
+  border: 1px solid #cfcdc7;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 8px 0;
+  min-width: 200px;
+  z-index: 100;
+  overflow: hidden;
+}
+.ckl .ckl-hero-pricing-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--ck-sans);
+  font-size: 16px;
+  color: var(--ck-ink);
+  transition: background .2s;
+}
+.ckl .ckl-hero-pricing-item:hover { background: #f4f3f0; }
+
+.ckl .ckl-hero-nav-actions { margin-left: auto; display: flex; align-items: center; }
+.ckl .ckl-hero-nav-login {
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 19px;
+  color: var(--ck-ink);
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color .22s ease;
+}
+.ckl .ckl-hero-iconbtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ck-ink);
+}
+
+/* ── Mobile menu overlay ──────────────────────────────────────── */
+.ckl .ckl-hero-mmenu {
+  position: fixed;
+  inset: 0;
+  background: var(--ck-paper);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 15px;
+}
+.ckl .ckl-hero-mmenu-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ckl .ckl-hero-mmenu-head img { height: 30px; width: auto; display: block; }
+.ckl .ckl-hero-mmenu-links {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-top: 80px;
+  align-items: center;
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 22px;
+}
+.ckl .ckl-hero-mmenu-item {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ck-ink);
+  text-decoration: none;
+}
+.ckl .ckl-hero-mmenu-login { margin-top: 24px; }
+
+/* ── "page" variant: the same bar, without a stage to scale it ──────────────────────────────────
+   The homepage nav is 104px inside a stage transformed by (viewportWidth / 1586). Its ON-SCREEN
+   height is therefore 104 × vw/1586 = 6.5573vw, and every other metric scales by the same factor.
+   Restating the ratios in vw makes this variant render at the SAME size as the homepage's at any
+   width, rather than approximately the same — so moving between / and /challenges shows no shift.
+
+   Only widths above 900px need this: the breakpoint block below already collapses both variants
+   into the same static mobile bar. */
+.ckl .ckl-hero-nav--page {
+  position: relative;
+  background: var(--ck-paper);
+}
+
+/* The vw sizing applies ONLY above the breakpoint, because only above it does the homepage still
+   scale. At ≤900px the stage transform is neutralised, so the homepage bar reverts to its literal
+   design pixels — and the page variant matches it for free by inheriting the very same base and
+   breakpoint rules. Sizing this variant below 901px would re-introduce the divergence it exists to
+   avoid (a 2.3959vw logo is 19px at 800px, against the homepage's 38px). */
+@media (min-width: 901px) {
+  .ckl .ckl-hero-nav--page {
+    height: 6.5573vw;                                                        /* 104 / 1586 */
+    padding: 0 3.2787vw;                                                     /*  52 */
+  }
+  .ckl .ckl-hero-nav--page .ckl-hero-brand > img { height: 2.3959vw; }       /*  38 */
+  .ckl .ckl-hero-nav--page .ckl-hero-nav-divider {
+    height: 2.5221vw;                                                        /*  40 */
+    margin-left: 2.1438vw;                                                   /*  34 */
+  }
+  .ckl .ckl-hero-nav--page .ckl-hero-nav-links {
+    gap: 2.2699vw;                                                           /*  36 */
+    margin-left: 3.0265vw;                                                   /*  48 */
+  }
+  .ckl .ckl-hero-nav--page .ckl-hero-navlink,
+  .ckl .ckl-hero-nav--page .ckl-hero-nav-login { font-size: 1.1980vw; }      /*  19 */
+}
+
+/* ── Breakpoints ──────────────────────────────────────────────────
+   Unchanged from Hero.css. The !important flags were already there — they exist to beat the
+   absolute positioning of the stage variant, and they make both variants collapse identically. */
+@media (max-width: 900px) {
+  .ckl .ckl-hero-nav {
+    position: relative !important;
+    padding: 24px 15px 0 !important;
+    height: auto !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  .ckl .ckl-hero-nav > a:first-child {
+    flex: 0 0 auto !important;
+    text-align: left !important;
+    font-size: 24px !important;
+  }
+  .ckl .ckl-hero-nav-divider { display: none !important; }
+  .ckl .ckl-hero-nav-links {
+    margin-left: 0 !important;
+    gap: 12px !important;
+    flex-wrap: nowrap !important;
+    justify-content: center !important;
+    flex: 1 1 auto !important;
+  }
+  .ckl .ckl-hero-nav-links > * {
+    font-size: 13px !important;
+    white-space: nowrap !important;
+  }
+  .ckl .ckl-hero-nav-login {
+    margin-left: 0 !important;
+    flex: 0 0 auto !important;
+    text-align: right !important;
+    margin-top: 0 !important;
+    font-size: 14px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .ckl .ckl-hero-nav-links { gap: 12px !important; }
+}
+
+/* The bar starts at opacity 0 and is made visible ONLY by ckl-fadeDown finishing. That makes the
+   site navigation dependent on motion running: the day anyone adds a global
+   `prefers-reduced-motion` reset — the most common accessibility patch there is — the nav would
+   silently vanish on every landing page, with no error and nothing in the DOM to explain it.
+   Restoring opacity in the same breath as cancelling the animation removes that dependency. */
+@media (prefers-reduced-motion: reduce) {
+  .ckl .ckl-hero-nav { animation: none; opacity: 1; }
+}
