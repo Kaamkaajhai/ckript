@@ -974,6 +974,7 @@
   justify-content: center;
   background: rgba(0, 0, 0, 0.4);
   padding: 24px;
+  pointer-events: auto;
 }
 .ck-notif-full-modal__surface {
   background: #fff;
