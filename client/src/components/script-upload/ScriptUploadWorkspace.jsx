@@ -646,7 +646,95 @@ function PublishPanel({ vm }) {
 
       </div>
 
+      <div className="su-card su-rights-card">
+        <h3 className="su-card-title">Rights & Licensing</h3>
+        
+        <div>
+          <FieldLabel meta="Required">Rights Type</FieldLabel>
+          <TagSelect
+            ariaLabel="Rights Type"
+            options={options.rights}
+            value={state.rightsLicensing.rightsType || "custom_negotiation_required"}
+            onChange={(v) => setRights({ rightsType: v })}
+            size="sm"
+          />
+        </div>
 
+        {state.rightsLicensing.rightsType === "exclusive_license" && (
+          <div>
+            <FieldLabel meta="Months">License Duration</FieldLabel>
+            <input type="number" min="1" max="120" value={state.rightsLicensing.timeBound?.licenseDurationMonths || 12} onChange={(e) => setRights({ timeBound: { ...state.rightsLicensing.timeBound, licenseDurationMonths: Number(e.target.value) } })} />
+          </div>
+        )}
+
+        <div>
+          <FieldLabel>Modification Rights</FieldLabel>
+          <TagSelect
+            ariaLabel="Modification Rights"
+            options={options.modification}
+            value={state.rightsLicensing.modificationRights || ""}
+            onChange={(v) => setRights({ modificationRights: v })}
+            size="sm"
+          />
+        </div>
+
+        <div>
+          <FieldLabel>Payment Structure</FieldLabel>
+          <TagSelect
+            ariaLabel="Payment Structure"
+            options={options.payments}
+            value={state.rightsLicensing.paymentStructure || ""}
+            onChange={(v) => setRights({ paymentStructure: v })}
+            size="sm"
+          />
+        </div>
+
+        {royaltyBased && (
+          <div className="su-grid-2">
+            <div>
+              <FieldLabel>Royalty Percentage (%)</FieldLabel>
+              <input type="number" min="0" max="100" value={state.rightsLicensing.royaltySettings?.percentage || 0} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, percentage: Number(e.target.value) } })} />
+            </div>
+            <div>
+              <FieldLabel>Royalty Duration</FieldLabel>
+              <TagSelect
+                ariaLabel="Royalty duration"
+                options={[{ value: "none", label: "None" }, { value: "project_lifetime", label: "Project Lifetime" }, { value: "years", label: "Fixed Years" }]}
+                value={state.rightsLicensing.royaltySettings?.durationType || "none"}
+                onChange={(v) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, durationType: v } })}
+                size="sm"
+              />
+            </div>
+            {state.rightsLicensing.royaltySettings?.durationType === "years" && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <FieldLabel>Number of Years</FieldLabel>
+                <input type="number" min="1" max="99" value={state.rightsLicensing.royaltySettings?.durationYears || 1} onChange={(e) => setRights({ royaltySettings: { ...state.rightsLicensing.royaltySettings, durationYears: Number(e.target.value) } })} />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div>
+          <FieldLabel>Negotiation Mode</FieldLabel>
+          <TagSelect
+            ariaLabel="Negotiation Mode"
+            options={options.negotiations}
+            value={state.rightsLicensing.negotiationMode || ""}
+            onChange={(v) => setRights({ negotiationMode: v })}
+            size="sm"
+          />
+        </div>
+
+        <div>
+          <FieldLabel meta="Optional">Custom Conditions</FieldLabel>
+          <textarea
+            placeholder="e.g. Specific investor terms, guaranteed credit conditions..."
+            value={state.rightsLicensing.customConditions || ""}
+            onChange={(e) => setRights({ customConditions: e.target.value })}
+            rows={3}
+          />
+        </div>
+      </div>
 
       <div className="su-card su-legal-card">
         <h3 className="su-card-title">Legal acknowledgements</h3>
