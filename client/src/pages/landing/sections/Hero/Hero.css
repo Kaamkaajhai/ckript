@@ -69,8 +69,23 @@
   opacity: 0;
   animation: ckl-fadeDown .8s .05s cubic-bezier(.2, .7, .2, 1) forwards;
 }
-.ckl .ckl-hero-nav--page {
+/*
+ * The nav on a standalone marketing page (see _shared/MarketingPageLayout).
+ *
+ * The base rule above pins the nav absolutely at the top of Hero's stage,
+ * which is right on the homepage and wrong everywhere else: a page that puts
+ * anything above its content — /challenges opens with a full-bleed notice bar —
+ * gets the nav drawn on top of it.
+ *
+ * Both class names are on the element, so this is written as a compound
+ * selector rather than relying on source order to break a specificity tie.
+ * `top`/`left` are reset explicitly; leaving them set would offset the nav once
+ * it is back in normal flow.
+ */
+.ckl .ckl-hero-nav.ckl-hero-nav--page {
   position: relative;
+  top: auto;
+  left: auto;
   max-width: 1586px;
   margin: 0 auto;
   opacity: 1;
