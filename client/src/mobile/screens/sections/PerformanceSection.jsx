@@ -1,6 +1,5 @@
 import Icon from "../../components/Icon";
 import EmptyState from "../../components/EmptyState";
-import { PERFORMANCE } from "../../data/dashboardData";
 import "./PerformanceSection.css";
 
 /*
@@ -8,8 +7,8 @@ import "./PerformanceSection.css";
  * bar chart (bars grow on mount) and a details list. Falls back to the
  * zero-state when there is nothing published yet.
  */
-export default function PerformanceSection({ onDetail }) {
-  const { stats, chart, details } = PERFORMANCE;
+export default function PerformanceSection({ onDetail, data }) {
+  const { stats, chart, details } = data;
 
   if (!chart.bars.length) {
     return (

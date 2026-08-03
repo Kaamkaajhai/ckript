@@ -1,6 +1,5 @@
 import Icon from "../../components/Icon";
 import EmptyState from "../../components/EmptyState";
-import { PROJECTS } from "../../data/dashboardData";
 import heroImg from "../../assets/hero-last-scene.jpg";
 import "./ProjectsSection.css";
 
@@ -10,8 +9,8 @@ import "./ProjectsSection.css";
  * a "View all" entry into the paginated sheet, and a Collaborations list.
  * Unbuilt actions (filter, share, open) route through the Dynamic Island.
  */
-export default function ProjectsSection({ onViewAll, onFilter, onOpenProject, onShare, onOpenCollab }) {
-  const { total, pendingApproval, featured, collaborations } = PROJECTS;
+export default function ProjectsSection({ onViewAll, onFilter, onOpenProject, onShare, onOpenCollab, data }) {
+  const { total, pendingApproval, featured, collaborations } = data;
 
   if (!featured.length) {
     return (
