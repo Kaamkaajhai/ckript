@@ -172,13 +172,13 @@ export function ConfirmDialog({
  * Slide-over drawer — detail and edit surfaces that keep the table visible behind them, which is
  * the workflow win over navigating away: the admin never loses their place in the list.
  */
-export function Drawer({ open, onClose, title, footer = null, width = 480, children }) {
+export function Drawer({ open, onClose, title, footer = null, width = 480, side = "right", children }) {
   const panelRef = useRef(null);
   const onKeyDown = useOverlay({ open, onClose, panelRef });
   const titleId = useId();
 
   return (
-    <OverlayShell open={open} onClose={onClose} onKeyDown={onKeyDown} labelledBy={titleId} kind="drawer" panelRef={panelRef}>
+    <OverlayShell open={open} onClose={onClose} onKeyDown={onKeyDown} labelledBy={titleId} kind={side === "left" ? "drawer-left" : "drawer"} panelRef={panelRef}>
       <div className="ado-sheet" style={{ width }}>
         <header className="ado-head">
           <h2 className="ado-title" id={titleId}>{title}</h2>

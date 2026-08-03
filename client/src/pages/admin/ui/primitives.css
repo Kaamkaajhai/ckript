@@ -153,12 +153,16 @@
 }
 .ado--dialog { align-items: flex-start; justify-content: center; padding: 9vh 16px 16px; }
 .ado--drawer { justify-content: flex-end; }
+.ado--drawer-left { justify-content: flex-start; }
 
 /* The panel wrapper carries role="dialog" and programmatic focus; it must sit above the absolute
    backdrop and pass the layout through to the card or sheet inside it. */
 .ado-panel { position: relative; outline: none; }
 .ado--dialog .ado-panel { width: 100%; display: flex; justify-content: center; }
 .ado--drawer .ado-panel { height: 100%; margin-left: auto; }
+.ado--drawer-left .ado-panel { height: 100%; margin-right: auto; }
+.ado--drawer-left .ado-sheet { animation-name: ado-slide-left; }
+@keyframes ado-slide-left { from { transform: translateX(-24px); opacity: 0.4; } }
 
 .ado-backdrop {
   position: absolute;

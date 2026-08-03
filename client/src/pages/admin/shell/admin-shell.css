@@ -1,0 +1,215 @@
+/* ═══════════════════════ CKRIPT ADMIN — SHELL ═══════════════════════
+   Layout only: sidebar, header, content column. Prefix: adsh. Tokens only. */
+
+.ckad.adsh {
+  display: flex;
+  min-height: 100vh;
+  background: var(--ad-canvas);
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────────*/
+.ckad .adsh-side {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
+  width: var(--ad-sidebar-w);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  background: var(--ad-surface);
+  border-right: 1px solid var(--ad-line);
+  transition: width var(--ad-base) var(--ad-ease);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.ckad.adsh--collapsed .adsh-side { width: var(--ad-sidebar-w-collapsed); }
+
+.ckad .adsh-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-s3);
+  padding: var(--ad-s4);
+  height: var(--ad-header-h);
+  flex: none;
+  border-bottom: 1px solid var(--ad-line);
+}
+.ckad .adsh-brand-mark {
+  width: 26px; height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--ad-accent);
+  color: var(--ad-ink-invert);
+  border-radius: var(--ad-r);
+  font-weight: var(--ad-fw-semi);
+  font-size: var(--ad-t-sm);
+}
+.ckad .adsh-brand-name {
+  font-weight: var(--ad-fw-semi);
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink);
+  white-space: nowrap;
+}
+
+.ckad .adsh-nav { flex: 1; padding: var(--ad-s3) var(--ad-s2); }
+.ckad .adsh-group { margin-bottom: var(--ad-s3); }
+.ckad .adsh-group-t {
+  padding: var(--ad-s2) var(--ad-s3);
+  font-size: var(--ad-t-micro);
+  font-weight: var(--ad-fw-semi);
+  letter-spacing: var(--ad-track-caps);
+  text-transform: uppercase;
+  color: var(--ad-ink-4);
+  white-space: nowrap;
+}
+.ckad .adsh-group-rule { height: 1px; margin: var(--ad-s2) var(--ad-s2); background: var(--ad-line); }
+.ckad .adsh-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+
+.ckad .adsh-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-s3);
+  width: 100%;
+  padding: 7px var(--ad-s3);
+  border: 0;
+  border-radius: var(--ad-r);
+  background: none;
+  font: inherit;
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--ad-fast) var(--ad-ease), color var(--ad-fast) var(--ad-ease);
+}
+.ckad .adsh-item:hover { background: var(--ad-surface-2); color: var(--ad-ink); }
+.ckad .adsh-item.is-active {
+  background: var(--ad-accent-soft);
+  color: var(--ad-accent-ink);
+  font-weight: var(--ad-fw-medium);
+}
+.ckad .adsh-item svg { flex: none; }
+.ckad .adsh-item-l { overflow: hidden; text-overflow: ellipsis; }
+.ckad .adsh-item-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin: 0 6px; flex: none; }
+.ckad .adsh-item-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  background: var(--ad-accent);
+  color: var(--ad-ink-invert);
+  border-radius: var(--ad-r-pill);
+  font-size: var(--ad-t-micro);
+  font-weight: var(--ad-fw-semi);
+}
+
+.ckad .adsh-collapse {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-s3);
+  margin: var(--ad-s2);
+  padding: 7px var(--ad-s3);
+  border: 0;
+  border-radius: var(--ad-r);
+  background: none;
+  font: inherit;
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-3);
+  cursor: pointer;
+  flex: none;
+}
+.ckad .adsh-collapse:hover { background: var(--ad-surface-2); color: var(--ad-ink); }
+
+/* ── Main column ────────────────────────────────────────────────────────────*/
+.ckad .adsh-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.ckad .adsh-head {
+  position: sticky;
+  top: 0;
+  z-index: var(--ad-z-header);
+  display: flex;
+  align-items: center;
+  gap: var(--ad-s4);
+  height: var(--ad-header-h);
+  padding: 0 var(--ad-s6);
+  background: color-mix(in srgb, var(--ad-canvas) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--ad-line);
+}
+
+.ckad .adsh-burger {
+  display: none;
+  border: 0;
+  background: none;
+  font-size: 18px;
+  color: var(--ad-ink-2);
+  cursor: pointer;
+  padding: var(--ad-s1);
+}
+
+.ckad .adsh-crumbs ol {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-s2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-3);
+  white-space: nowrap;
+}
+.ckad .adsh-crumbs li + li::before { content: "/"; margin-right: var(--ad-s2); color: var(--ad-ink-4); }
+.ckad .adsh-crumbs li[aria-current="page"] { color: var(--ad-ink); font-weight: var(--ad-fw-medium); }
+
+.ckad .adsh-search { width: min(360px, 38vw); margin-left: auto; }
+.ckad .adsh-search .adf-control { height: 32px; background: var(--ad-surface); }
+.ckad .adsh-spacer { margin-left: auto; }
+
+.ckad .adsh-head-end { display: flex; align-items: center; gap: var(--ad-s2); }
+.ckad .adsh-theme {
+  width: 32px; height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r);
+  background: var(--ad-surface);
+  color: var(--ad-ink-2);
+  font-size: 14px;
+  cursor: pointer;
+}
+.ckad .adsh-theme:hover { color: var(--ad-ink); border-color: var(--ad-ink-4); }
+
+.ckad .adsh-main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--ad-content-max);
+  margin: 0 auto;
+  padding: var(--ad-s6);
+  outline: none;
+}
+
+.ckad .adsh-skip:focus {
+  position: fixed;
+  left: var(--ad-s4); top: var(--ad-s4);
+  width: auto; height: auto;
+  padding: var(--ad-s2) var(--ad-s4);
+  clip: auto;
+  background: var(--ad-ink);
+  color: var(--ad-ink-invert);
+  border-radius: var(--ad-r);
+  z-index: var(--ad-z-toast);
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────
+   Under 920px the fixed sidebar is worth more as content width: navigation moves to the drawer
+   behind the burger. One tree, two containers — never two navs to maintain. */
+@media (max-width: 920px) {
+  .ckad .adsh-side { display: none; }
+  .ckad .adsh-burger { display: block; }
+  .ckad .adsh-crumbs { display: none; }
+  .ckad .adsh-head { padding: 0 var(--ad-s4); }
+  .ckad .adsh-main { padding: var(--ad-s4); }
+  .ckad .adsh-search { width: 100%; }
+}
