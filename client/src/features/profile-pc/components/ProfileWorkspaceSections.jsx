@@ -95,6 +95,7 @@ export function ProfileWorkspaceIdentity({
   onBlock,
   onEdit,
   onMessage,
+  onPitch,
   onFollowers,
   onFollowing,
   canViewContactDetails,
@@ -109,11 +110,16 @@ export function ProfileWorkspaceIdentity({
   onToggleContact,
   onRevealContact,
   revealedContact,
-  contactLinks,
+  contactLinks = [],
 }) {
   const writer = profile?.writerProfile || {};
-  const username = writer.username ? `@${writer.username}` : "";
-  const representation = `${getRepresentationLabel(writer)}${writer.agencyName ? ` · ${writer.agencyName}` : ""}`;
+  const isWriterProfile = ["writer", "creator"].includes(String(profile?.role || "").toLowerCase());
+  const roleLabel = titleCase(profile?.role || "Member");
+  const username = isWriterProfile && writer.username ? `@${writer.username}` : "";
+  const industryProfile = profile?.industryProfile || {};
+  const representation = isWriterProfile
+    ? `${getRepresentationLabel(writer)}${writer.agencyName ? ` · ${writer.agencyName}` : ""}`
+    : [industryProfile.jobTitle, industryProfile.company].filter(Boolean).join(" · ") || roleLabel;
   const wgaVerified = writer.membershipVerification?.wga?.status === "approved";
   const swaVerified = writer.membershipVerification?.swa?.status === "approved";
   const planLabel = hasActiveFilmIndustryProfessionalAccess(profile)
@@ -123,12 +129,11 @@ export function ProfileWorkspaceIdentity({
       : "";
   const revealProgress = Math.min(100, (Number(contactsUsed || 0) / Math.max(Number(contactsLimit || 1), 1)) * 100);
   const visibleContact = isOwnProfile || (contactAlreadyRevealed && showContactDetails);
-  const email = isOwnProfile ? profile.email : revealedContact?.email || profile.email;
-  const phone = isOwnProfile ? profile.phone : revealedContact?.phone || profile.phone;
+  const email = isOwnProfile ? profile?.email : revealedContact?.email || profile?.email;
+  const phone = isOwnProfile ? profile?.phone : revealedContact?.phone || profile?.phone;
   const visibleLinks = isOwnProfile || contactAlreadyRevealed ? contactLinks : [];
-
   return (
-    <aside className="profile-workspace-identity" aria-label="Writer identity">
+    <aside className="profile-workspace-identity" aria-label={`${roleLabel} identity`}>
       {profile.profileImage ? (
         <img className="profile-workspace-identity__avatar" src={resolvedImage} alt={profile.name} />
       ) : (
@@ -139,10 +144,10 @@ export function ProfileWorkspaceIdentity({
       {username && <div className="profile-workspace-identity__username">{username}</div>}
 
       <div className="profile-workspace-identity__badges" aria-label="Profile credentials">
-        <span className="profile-workspace-identity__role">Writer</span>
+        <span className="profile-workspace-identity__role">{roleLabel}</span>
         {planLabel && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__plan">{planLabel}</span></>}
-        {(writer.wgaMember || wgaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={wgaVerified} label="WGA" />WGA</span></>}
-        {(writer.sgaMember || swaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={swaVerified} label="SWA" />SWA</span></>}
+        {isWriterProfile && (writer.wgaMember || wgaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={wgaVerified} label="WGA" />WGA</span></>}
+        {isWriterProfile && (writer.sgaMember || swaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={swaVerified} label="SWA" />SWA</span></>}
       </div>
 
       <p className="profile-workspace-identity__representation">
@@ -151,7 +156,7 @@ export function ProfileWorkspaceIdentity({
       </p>
 
       <div className="profile-workspace-stats" aria-label="Profile statistics">
-        <div className="profile-workspace-stat"><strong>{scriptsCount}</strong><span>Projects</span></div>
+        {isWriterProfile && <div className="profile-workspace-stat"><strong>{scriptsCount}</strong><span>Projects</span></div>}
         <button type="button" className="profile-workspace-stat" onClick={onFollowers}>
           <strong>{profile.followers?.length || 0}</strong><span>Followers</span>
         </button>
@@ -178,6 +183,11 @@ export function ProfileWorkspaceIdentity({
           {!isOwnProfile && onMessage && (
             <button type="button" className="profile-workspace-btn profile-workspace-btn--primary" onClick={onMessage} disabled={isBlockedByCurrent || blockedByProfile}>
               Message
+            </button>
+          )}
+          {!isOwnProfile && onPitch && (
+            <button type="button" className="profile-workspace-btn profile-workspace-btn--primary" onClick={onPitch} disabled={isBlockedByCurrent || blockedByProfile}>
+              Pitch script
             </button>
           )}
           <SocialShareButton share={profileShare} buttonLabel="Share" className="profile-workspace-btn" />
@@ -217,7 +227,7 @@ export function ProfileWorkspaceIdentity({
           </p>
         ) : (
           <p className="profile-workspace-contact__copy">
-            {isOwnProfile ? "Your contact details are visible here." : "Contact details are available to eligible film-industry accounts."}
+            {isOwnProfile ? "Your contact details are visible here." : isWriterProfile ? "Available to eligible film-industry accounts when the writer opts in." : "Contact information is protected by this member's privacy settings."}
           </p>
         )}
 
@@ -227,22 +237,22 @@ export function ProfileWorkspaceIdentity({
           contactAlreadyRevealed ? (
             <button type="button" className="profile-workspace-btn" onClick={onToggleContact}>{showContactDetails ? "Hide contact" : "View contact"}</button>
           ) : contactRevealBlocked ? (
-            <button type="button" className="profile-workspace-btn" disabled>Monthly limit reached</button>
+            <button type="button" className="profile-workspace-btn" disabled aria-describedby="contact-limit-reason">Monthly limit reached</button>
           ) : (
-            <button type="button" className="profile-workspace-btn profile-workspace-btn--accent" onClick={onRevealContact} disabled={contactRevealLoading}>
-              {contactRevealLoading ? "Revealing…" : "Reveal contact · uses 1 credit"}
+            <button type="button" className="profile-workspace-btn profile-workspace-btn--accent" onClick={onRevealContact} disabled={contactRevealLoading || isBlockedByCurrent}>
+              {contactRevealLoading ? "Revealing…" : "Reveal contact · uses 1 reveal"}
             </button>
           )
         )}
+        {contactRevealBlocked && <span id="contact-limit-reason" className="profile-workspace-sr-only">Your monthly contact reveal limit has been reached.</span>}
       </section>
 
       {visibleLinks.length > 0 && (
         <nav className="profile-workspace-identity__links" aria-label="External profile links">
-          {visibleLinks.map((item) => (
-            <a key={item.key} href={item.href} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>
-          ))}
+          {visibleLinks.map((item) => <a key={item.key} href={item.href} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>)}
         </nav>
       )}
+
     </aside>
   );
 }
