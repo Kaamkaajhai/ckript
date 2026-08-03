@@ -26,17 +26,17 @@ const BankReviewsSection = () => {
                             Bank Detail Reviews
                             <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredBankReviews.length : total})</span>
                         </h2>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                        <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                             {["Writer", "Requested Details", "Active Details", "Security", "Submitted", "Due", "Actions"].map((h) => (
                                                 <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                         {filteredBankReviews.map((review) => (
                                             <tr key={review._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
                                                 <td className="px-5 py-3.5">

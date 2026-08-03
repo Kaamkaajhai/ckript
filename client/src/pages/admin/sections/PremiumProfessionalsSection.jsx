@@ -27,11 +27,11 @@ const PremiumProfessionalsSection = () => {
                                 <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredUsers.length : total})</span>
                             </h2>
                         </div>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                        <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                             <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>User</th>
                                             <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Email</th>
                                             <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Joined</th>
@@ -40,7 +40,7 @@ const PremiumProfessionalsSection = () => {
                                             <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</th>
                                         </tr>
                                     </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                         {filteredUsers.map((u) => {
                                             const expiryDate = u.subscription?.accessExpiresAt ? new Date(u.subscription.accessExpiresAt) : null;
                                             const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 3600 * 24))) : 0;
@@ -51,7 +51,7 @@ const PremiumProfessionalsSection = () => {
                                                             {u.profileImage ? (
                                                                 <img src={u.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
                                                             ) : (
-                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
+                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-[#a83a4d]/20 text-[#e79aa6]" : "bg-[#7a2233]/10 text-[#7a2233]"}`}>
                                                                     {u.name?.charAt(0)?.toUpperCase() || "?"}
                                                                 </div>
                                                             )}

@@ -25,7 +25,7 @@ const DeletedScriptsSection = () => {
                         <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true}
                             actions={(s) => (
                                 <div className="flex items-center gap-2">
-                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
+                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6] px-2.5 py-1 rounded-lg hover:bg-[#a83a4d]/10 transition-colors">View</a>
                                     <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${isDark ? "bg-red-500/15 text-red-300" : "bg-red-50 text-red-700"}`}>Deleted</span>
                                 </div>
                             )}

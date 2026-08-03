@@ -243,7 +243,7 @@ export const BroadcastComposer = ({
     onSend,
     sending = false,
 }) => (
-    <div className={`rounded-2xl border p-4 sm:p-5 mb-5 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+    <div className={`rounded-2xl border p-4 sm:p-5 mb-5 ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
         <div className="flex flex-col gap-4">
             <div>
                 <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-700"}`}>
@@ -258,28 +258,28 @@ export const BroadcastComposer = ({
                 value={title}
                 onChange={(event) => onTitleChange(event.target.value)}
                 placeholder={`Title for ${audienceLabel}`}
-                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#221d1d] border-[#2e2828] text-gray-100 placeholder:text-gray-500 focus:ring-[#a83a4d]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#a83a4d]"}`}
             />
             <textarea
                 rows={5}
                 value={content}
                 onChange={(event) => onContentChange(event.target.value)}
                 placeholder={`Write the message you want all ${audienceLabel.toLowerCase()} to receive`}
-                className={`w-full rounded-xl border px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+                className={`w-full rounded-xl border px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${isDark ? "bg-[#221d1d] border-[#2e2828] text-gray-100 placeholder:text-gray-500 focus:ring-[#a83a4d]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#a83a4d]"}`}
             />
             <input
                 type="url"
                 value={actionUrl}
                 onChange={(event) => onActionUrlChange(event.target.value)}
                 placeholder="Optional link URL (e.g., https://example.com)"
-                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#221d1d] border-[#2e2828] text-gray-100 placeholder:text-gray-500 focus:ring-[#a83a4d]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#a83a4d]"}`}
             />
             <div className="flex justify-end">
                 <button
                     type="button"
                     onClick={onSend}
                     disabled={sending || !title.trim() || !content.trim()}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-blue-500/15 text-blue-200 hover:bg-blue-500/25" : "bg-[#1e3a5f] text-white hover:bg-[#162d4a]"}`}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#a83a4d]/15 text-[#e79aa6] hover:bg-[#a83a4d]/25" : "bg-[#7a2233] text-white hover:bg-[#162d4a]"}`}
                 >
                     {sending ? "Sending..." : `Send to ${audienceLabel}`}
                 </button>
@@ -293,11 +293,11 @@ export const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, 
     const hasRowActions = Boolean(onLoginAs || onViewUser || onFreezeUser || onUnfreezeUser || onGrantPremium || onRemovePremium || onDeleteUser);
 
     return (
-        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
         <div className="overflow-x-auto">
             <table className="w-full">
                 <thead>
-                    <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                    <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>User</th>
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Email</th>
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Role</th>
@@ -305,7 +305,7 @@ export const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, 
                         {hasRowActions && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</th>}
                     </tr>
                 </thead>
-                <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                     {users.map((u) => (
                         <tr key={u._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
                             <td className="px-5 py-3.5">
@@ -313,7 +313,7 @@ export const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, 
                                     {u.profileImage ? (
                                         <img src={u.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
                                     ) : (
-                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-[#a83a4d]/20 text-[#e79aa6]" : "bg-[#7a2233]/10 text-[#7a2233]"}`}>
                                             {u.name?.charAt(0)?.toUpperCase() || "?"}
                                         </div>
                                     )}
@@ -334,7 +334,7 @@ export const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, 
                             <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{u.email}</td>
                             <td className="px-5 py-3.5">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${u.role === "investor" ? "bg-emerald-100 text-emerald-700" :
-                                    u.role === "writer" || u.role === "creator" ? "bg-blue-100 text-blue-700" :
+                                    u.role === "writer" || u.role === "creator" ? "bg-[#f7edee] text-[#a83a4d]" :
                                         "bg-purple-100 text-purple-700"
                                     }`}>{u.role}</span>
                             </td>
@@ -349,7 +349,7 @@ export const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, 
                                             <button
                                                 onClick={() => onLoginAs(u._id)}
                                                 disabled={u.isFrozen || u.isDeactivated}
-                                                className="text-xs font-bold text-blue-500 hover:text-blue-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                                className="text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6] transition-colors px-3 py-1.5 rounded-lg hover:bg-[#a83a4d]/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                             >
                                                 Login As
                                             </button>
@@ -417,11 +417,11 @@ export const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, 
 
 // ─── Script Table ───
 export const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator = true, showApprovalType = false, showPreviewWindow = false }) => (
-    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
         <div className="overflow-x-auto">
             <table className="w-full">
                 <thead>
-                    <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                    <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Title</th>
                         {showCreator && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Creator</th>}
                         <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Genre</th>
@@ -434,7 +434,7 @@ export const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator =
                         {actions && <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</th>}
                     </tr>
                 </thead>
-                <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                     {scripts.map((s) => (
                         <tr key={s._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
                             <td className="px-5 py-3.5">
@@ -443,7 +443,7 @@ export const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator =
                                     SID: {s.sid || "Pending"}
                                 </p>
                                 {getScriptPreviewWindowLabel(s) && (
-                                    <p className={`text-[11px] mt-0.5 ${isDark ? "text-blue-300" : "text-blue-600"}`}>
+                                    <p className={`text-[11px] mt-0.5 ${isDark ? "text-[#e79aa6]" : "text-[#a83a4d]"}`}>
                                         Viewable: {getScriptPreviewWindowLabel(s)}
                                     </p>
                                 )}
@@ -469,7 +469,7 @@ export const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator =
                             {showPreviewWindow && (
                                 <td className="px-5 py-3.5">
                                     {getScriptPreviewWindowLabel(s) ? (
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${isDark ? "bg-blue-500/10 text-blue-300" : "bg-blue-50 text-blue-700"}`}>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${isDark ? "bg-[#a83a4d]/10 text-[#e79aa6]" : "bg-[#f7edee] text-[#a83a4d]"}`}>
                                             {getScriptPreviewWindowLabel(s)}
                                         </span>
                                     ) : (
@@ -480,7 +480,7 @@ export const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator =
                             {showApprovalType && (
                                 <td className="px-5 py-3.5">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${s.approvalRequestType === "edit_submission"
-                                        ? "bg-blue-100 text-blue-700"
+                                        ? "bg-[#f7edee] text-[#a83a4d]"
                                         : "bg-slate-100 text-slate-700"
                                         }`}>
                                         {s.approvalRequestType === "edit_submission" ? "Edit Approval" : "New Submission"}
@@ -506,7 +506,7 @@ export const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator =
                                 })()}
                             </td>
                             {showScore && (
-                                <td className={`px-5 py-3.5 text-sm font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>
+                                <td className={`px-5 py-3.5 text-sm font-bold ${isDark ? "text-[#e79aa6]" : "text-[#a83a4d]"}`}>
                                     {s.scriptScore?.overall || s.platformScore?.overall || s.rating || "—"}
                                 </td>
                             )}
@@ -525,17 +525,17 @@ export const ScriptTable = ({ scripts, isDark, actions, showScore, showCreator =
 
 // ─── Transaction Table ───
 export const TransactionTable = ({ transactions, isDark }) => (
-    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
         <div className="overflow-x-auto">
             <table className="w-full">
                 <thead>
-                    <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                    <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                         {["User", "Type", "Amount", "Status", "Description", "Transaction / Pay ID", "Date"].map((h) => (
                             <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
                         ))}
                     </tr>
                 </thead>
-                <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                     {transactions.map((t) => (
                         <tr key={t._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
                             <td className={`px-5 py-3.5 text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{t.user?.name || "—"}</td>
@@ -590,7 +590,7 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
     };
 
     const dims = [
-        { key: "content", label: "Main Content", color: "from-blue-500 to-cyan-500" },
+        { key: "content", label: "Main Content", color: "from-[#7a2233] to-cyan-500" },
         { key: "trailer", label: "Trailer", color: "from-purple-500 to-pink-500" },
         { key: "title", label: "Title", color: "from-amber-500 to-orange-500" },
         { key: "synopsis", label: "Synopsis", color: "from-emerald-500 to-teal-500" },
@@ -599,7 +599,7 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className={`w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`w-full max-w-lg mx-4 rounded-2xl p-6 max-h-[90vh] overflow-y-auto ${isDark ? "bg-[#1a1616] border border-[#2e2828]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
                 <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Score: {script?.title}</h3>
                 <p className={`text-sm mb-5 ${isDark ? "text-gray-500" : "text-gray-500"}`}>Rate each dimension from 0 to 100</p>
                 <div className="space-y-4">
@@ -607,19 +607,19 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
                         <div key={d.key}>
                             <div className="flex items-center justify-between mb-1.5">
                                 <label className={`text-sm font-semibold ${isDark ? "text-gray-300" : "text-gray-700"}`}>{d.label}</label>
-                                <span className={`text-sm font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>{scores[d.key]}</span>
+                                <span className={`text-sm font-bold ${isDark ? "text-[#e79aa6]" : "text-[#a83a4d]"}`}>{scores[d.key]}</span>
                             </div>
                             <input type="range" min="0" max="100" value={scores[d.key]}
                                 onChange={(e) => setScores((p) => ({ ...p, [d.key]: Number(e.target.value) }))}
-                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-500"
-                                style={{ background: `linear-gradient(to right, #3b82f6 ${scores[d.key]}%, ${isDark ? "#1a3050" : "#e5e7eb"} ${scores[d.key]}%)` }}
+                                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-[#a83a4d]"
+                                style={{ background: `linear-gradient(to right, #3b82f6 ${scores[d.key]}%, ${isDark ? "#2e2828" : "#e5e7eb"} ${scores[d.key]}%)` }}
                             />
                         </div>
                     ))}
                     <div>
                         <label className={`text-sm font-semibold block mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Feedback</label>
                         <textarea rows={3} value={scores.feedback} onChange={(e) => setScores((p) => ({ ...p, feedback: e.target.value }))}
-                            className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`}
+                            className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`}
                             placeholder="Write your feedback..."
                         />
                     </div>
@@ -627,16 +627,16 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
                         <div key={key}>
                             <label className={`text-sm font-semibold block mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{label}</label>
                             <textarea rows={4} value={scores[key]} onChange={(e) => setScores((p) => ({ ...p, [key]: e.target.value }))}
-                                className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`}
+                                className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`}
                                 placeholder={placeholder}
                             />
                         </div>
                     ))}
                 </div>
                 <div className="flex items-center justify-end gap-3 mt-5">
-                    <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
+                    <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#2e2828]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
                     <button onClick={handleSave} disabled={saving}
-                        className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50">
+                        className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-[#7a2233] to-purple-500 text-white hover:from-[#7a2233] hover:to-purple-600 transition-all disabled:opacity-50">
                         {saving ? "Saving..." : "Save Score"}
                     </button>
                 </div>
@@ -647,7 +647,7 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
 
 // ─── Search Bar ───
 export const SearchBar = ({ value, onChange, placeholder, isDark }) => (
-    <div className={`flex items-center rounded-xl overflow-hidden border ${isDark ? "bg-[#0b1426] border-[#1a3050]" : "bg-gray-50 border-gray-200"}`}>
+    <div className={`flex items-center rounded-xl overflow-hidden border ${isDark ? "bg-[#0b1426] border-[#2e2828]" : "bg-gray-50 border-gray-200"}`}>
         <div className="pl-3.5">
             <Icon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" className={`w-4 h-4 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
         </div>
@@ -675,10 +675,10 @@ export const Pagination = ({ page, totalPages, onPageChange, isDark }) => {
     return (
         <div className="flex items-center justify-center gap-2 mt-4">
             <button onClick={() => onPageChange(page - 1)} disabled={page <= 1}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-30 ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Prev</button>
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-30 ${isDark ? "text-gray-400 hover:bg-[#2e2828]" : "text-gray-500 hover:bg-gray-100"}`}>Prev</button>
             <span className={`text-sm font-bold ${isDark ? "text-gray-300" : "text-gray-700"}`}>{page} / {totalPages}</span>
             <button onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-30 ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Next</button>
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-30 ${isDark ? "text-gray-400 hover:bg-[#2e2828]" : "text-gray-500 hover:bg-gray-100"}`}>Next</button>
         </div>
     );
 };
@@ -868,10 +868,10 @@ export const DiscountCodeFormModal = ({ initial, onClose, onSave, isDark }) => {
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" onClick={onClose}>
-            <div className={`w-full max-w-xl mx-auto rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`w-full max-w-xl mx-auto rounded-2xl p-6 ${isDark ? "bg-[#1a1616] border border-[#2e2828]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-6">
                     <h3 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{isEdit ? "Edit Discount Code" : "Create Discount Code"}</h3>
-                    <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050] hover:text-white" : "text-gray-500 hover:bg-gray-100"}`}>
+                    <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${isDark ? "text-gray-400 hover:bg-[#2e2828] hover:text-white" : "text-gray-500 hover:bg-gray-100"}`}>
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
@@ -880,12 +880,12 @@ export const DiscountCodeFormModal = ({ initial, onClose, onSave, isDark }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Code (e.g. WELCOME50)</label>
-                            <input required type="text" name="code" value={formData.code} onChange={handleChange} className={`w-full uppercase rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} placeholder="DISCOUNT20" />
+                            <input required type="text" name="code" value={formData.code} onChange={handleChange} className={`w-full uppercase rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} placeholder="DISCOUNT20" />
                         </div>
                         
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Type</label>
-                            <select name="discountType" value={formData.discountType} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200" : "bg-gray-50 border-gray-200 text-gray-800"}`}>
+                            <select name="discountType" value={formData.discountType} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200" : "bg-gray-50 border-gray-200 text-gray-800"}`}>
                                 <option value="percentage">Percentage (%)</option>
                                 <option value="flat">Flat Amount (₹)</option>
                             </select>
@@ -893,50 +893,50 @@ export const DiscountCodeFormModal = ({ initial, onClose, onSave, isDark }) => {
                         
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Value</label>
-                            <input required type="number" min="1" step="any" name="discountValue" value={formData.discountValue} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} placeholder={formData.discountType === "percentage" ? "1-100" : "Amount in ₹"} />
+                            <input required type="number" min="1" step="any" name="discountValue" value={formData.discountValue} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} placeholder={formData.discountType === "percentage" ? "1-100" : "Amount in ₹"} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Max Uses Globally (0 = unlimited)</label>
-                            <input type="number" min="0" name="maxUses" value={formData.maxUses} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} />
+                            <input type="number" min="0" name="maxUses" value={formData.maxUses} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Max Uses Per User (0 = unlimited)</label>
-                            <input type="number" min="0" name="maxUsesPerUser" value={formData.maxUsesPerUser} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} />
+                            <input type="number" min="0" name="maxUsesPerUser" value={formData.maxUsesPerUser} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Min Purchase (₹) (0 = none)</label>
-                            <input type="number" min="0" name="minPurchaseAmount" value={formData.minPurchaseAmount} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} />
+                            <input type="number" min="0" name="minPurchaseAmount" value={formData.minPurchaseAmount} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Max Discount (₹) (0 = none)</label>
-                            <input type="number" min="0" name="maxDiscountAmount" value={formData.maxDiscountAmount} onChange={handleChange} disabled={formData.discountType === 'flat'} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border disabled:opacity-50 ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} />
+                            <input type="number" min="0" name="maxDiscountAmount" value={formData.maxDiscountAmount} onChange={handleChange} disabled={formData.discountType === 'flat'} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border disabled:opacity-50 ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
                         </div>
 
                         <div className="col-span-2">
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Valid Until</label>
-                            <input required type="date" name="validUntil" value={formData.validUntil} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} />
+                            <input required type="date" name="validUntil" value={formData.validUntil} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
                         </div>
 
                         <div className="col-span-2">
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Description (Optional)</label>
-                            <input type="text" name="description" value={formData.description} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-blue-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-400"}`} placeholder="e.g. Winter Sale 2024" />
+                            <input type="text" name="description" value={formData.description} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} placeholder="e.g. Winter Sale 2024" />
                         </div>
 
                         {isEdit && (
                             <div className="col-span-2 flex items-center mt-2">
-                                <input type="checkbox" id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+                                <input type="checkbox" id="isActive" name="isActive" checked={formData.isActive} onChange={handleChange} className="w-4 h-4 text-[#a83a4d] bg-gray-100 border-gray-300 rounded focus:ring-[#a83a4d] dark:focus:ring-[#a83a4d] dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                                 <label htmlFor="isActive" className={`ml-2 text-sm font-medium ${isDark ? "text-gray-300" : "text-gray-900"}`}>Active</label>
                             </div>
                         )}
                     </div>
                     
-                    <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-[#1a3050]">
-                        <button type="button" onClick={onClose} className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
-                        <button type="submit" className="px-6 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/20">{isEdit ? "Update Code" : "Create Code"}</button>
+                    <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-[#2e2828]">
+                        <button type="button" onClick={onClose} className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#2e2828]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
+                        <button type="submit" className="px-6 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-[#7a2233] to-[#a83a4d] text-white hover:from-[#7a2233] hover:to-[#a83a4d] transition-all shadow-lg shadow-[#a83a4d]/20">{isEdit ? "Update Code" : "Create Code"}</button>
                     </div>
                 </form>
             </div>
@@ -953,7 +953,7 @@ export const RejectInvestorModal = ({ investor, onClose, onConfirm, isDark }) =>
     const [note, setNote] = useState("");
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className={`w-full max-w-md mx-4 rounded-2xl p-6 ${isDark ? "bg-[#0f1d35] border border-[#1a3050]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
+            <div className={`w-full max-w-md mx-4 rounded-2xl p-6 ${isDark ? "bg-[#1a1616] border border-[#2e2828]" : "bg-white shadow-2xl"}`} onClick={(e) => e.stopPropagation()}>
                 <h3 className={`text-lg font-bold mb-1 ${isDark ? "text-white" : "text-gray-900"}`}>Reject Investor</h3>
                 <p className={`text-sm mb-4 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                     Rejecting <strong>{investor.name}</strong> ({investor.email}). They will not be able to log in.<br />
@@ -964,10 +964,10 @@ export const RejectInvestorModal = ({ investor, onClose, onConfirm, isDark }) =>
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="Rejection reason (optional)..."
-                    className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#1a3050] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
+                    className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
                 />
                 <div className="flex items-center justify-end gap-3 mt-4">
-                    <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#1a3050]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
+                    <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#2e2828]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>
                     <button onClick={() => onConfirm(investor._id, note.trim())}
                         className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 transition-all">
                         Confirm Reject

@@ -80,13 +80,13 @@ const OverviewSection = () => {
                                         Showing cross-section matches for "{search.trim()}"
                                     </p>
                                 </div>
-                                <span className={`text-xs font-bold px-3 py-1 rounded-full ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-50 text-blue-700"}`}>
+                                <span className={`text-xs font-bold px-3 py-1 rounded-full ${isDark ? "bg-[#a83a4d]/15 text-[#e79aa6]" : "bg-[#f7edee] text-[#a83a4d]"}`}>
                                     {totalMatches} match{totalMatches === 1 ? "" : "es"}
                                 </span>
                             </div>
 
                             {totalMatches === 0 ? (
-                                <div className={`rounded-2xl border p-10 text-center ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                                <div className={`rounded-2xl border p-10 text-center ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                                     <p className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-600"}`}>
                                         No results found. Try a different keyword.
                                     </p>
@@ -94,7 +94,7 @@ const OverviewSection = () => {
                             ) : (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                                     {resultBlocks.filter((block) => block.count > 0).map((block) => (
-                                        <div key={block.key} className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                                        <div key={block.key} className={`rounded-2xl border p-4 ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                                             <div className="flex items-center justify-between mb-3">
                                                 <h3 className={`text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{block.title}</h3>
                                                 <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isDark ? "bg-white/10 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{block.count}</span>
@@ -120,7 +120,7 @@ const OverviewSection = () => {
                             <div>
                                 <h3 className={`text-sm font-extrabold uppercase tracking-wide mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Platform Snapshot</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <StatCard isDark={isDark} label="Total Users" value={stats.totalUsers || 0} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" color="bg-blue-500/15 text-blue-500" />
+                                    <StatCard isDark={isDark} label="Total Users" value={stats.totalUsers || 0} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" color="bg-[#a83a4d]/15 text-[#a83a4d]" />
                                     <StatCard isDark={isDark} label="Total Scripts" value={stats.totalScripts || 0} icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" color="bg-purple-500/15 text-purple-500" />
                                     <StatCard isDark={isDark} label="Published Scripts" value={stats.publishedScripts || 0} icon="M5.25 6.75h13.5M5.25 12h13.5m-13.5 5.25h13.5" color="bg-indigo-500/15 text-indigo-500" />
                                     <StatCard isDark={isDark} label="Deleted Scripts" value={stats.deletedScripts || 0} icon="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79" color="bg-rose-500/15 text-rose-500" />

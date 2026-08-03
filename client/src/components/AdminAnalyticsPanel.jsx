@@ -6,7 +6,7 @@ import {
 import { Icon, StatCard } from "./AdminUI";
 import { formatDuration, formatDateTime, formatRelativeTime, formatPathLabel, getAnalyticsStatusTone, humanizeEventLabel, getInitials, getAvatarTone } from "../utils/adminFormatters";
 
-// Validated (see dataviz skill) against this admin panel's card surface (#0f1d35, dark).
+// Validated (see dataviz skill) against this admin panel's card surface (#1a1616, dark).
 const COLORS = {
     visitors: "#3987e5",
     signups: "#008300",
@@ -28,7 +28,7 @@ const getTimeValue = (value) => {
 };
 
 const getTooltipStyle = (isDark) => ({
-    backgroundColor: isDark ? "#132744" : "#ffffff",
+    backgroundColor: isDark ? "#221d1d" : "#ffffff",
     border: `1px solid ${isDark ? "#294468" : "#e5e7eb"}`,
     borderRadius: 8,
     fontSize: 12,
@@ -37,7 +37,7 @@ const getTooltipStyle = (isDark) => ({
 });
 
 const Panel = ({ isDark, className = "", children }) => (
-    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"} ${className}`}>
+    <div className={`rounded-2xl border p-4 ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"} ${className}`}>
         {children}
     </div>
 );
@@ -115,7 +115,7 @@ const DonutBreakdown = ({ isDark, chartsReady, data }) => {
                                 innerRadius="62%"
                                 outerRadius="100%"
                                 paddingAngle={2}
-                                stroke={isDark ? "#0f1d35" : "#ffffff"}
+                                stroke={isDark ? "#1a1616" : "#ffffff"}
                                 strokeWidth={2}
                             >
                                 {data.map((entry) => <Cell key={entry.key} fill={entry.color} />)}
@@ -205,7 +205,7 @@ const MetricTile = ({ isDark, icon, label, value }) => (
 
 // A titled card used throughout the user detail panel, optionally with a right-aligned action/badge.
 const DetailCard = ({ isDark, title, action, children, className = "" }) => (
-    <div className={`rounded-xl border p-3 ${isDark ? "border-[#1a3050]" : "border-gray-200"} ${className}`}>
+    <div className={`rounded-xl border p-3 ${isDark ? "border-[#2e2828]" : "border-gray-200"} ${className}`}>
         <div className="mb-2 flex items-center justify-between gap-2">
             <h4 className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-600"}`}>{title}</h4>
             {action}
@@ -231,7 +231,7 @@ const OverviewTab = ({
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                <StatCard isDark={isDark} label="Total Footprint" value={totalFootprint} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493" color="bg-blue-500/15 text-blue-500" />
+                <StatCard isDark={isDark} label="Total Footprint" value={totalFootprint} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493" color="bg-[#a83a4d]/15 text-[#a83a4d]" />
                 <StatCard isDark={isDark} label="Live Right Now" value={liveNow} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-emerald-500/15 text-emerald-500" />
                 <StatCard isDark={isDark} label="Returning Rate" value={`${returningRate}%`} icon="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992" color="bg-amber-500/15 text-amber-500" />
                 <StatCard isDark={isDark} label="Total Signups" value={authSummary.totalSignupEvents || 0} icon="M12 4.5v15m7.5-7.5h-15" color="bg-purple-500/15 text-purple-500" />
@@ -283,7 +283,7 @@ const OverviewTab = ({
                             <p className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>Returning Visitor Alerts</p>
                             <p className={`mt-1 text-2xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{alerts.length}</p>
                         </div>
-                        <button type="button" onClick={() => setAnalyticsSection("anonymous")} className="shrink-0 text-xs font-bold text-blue-400 hover:text-blue-300">
+                        <button type="button" onClick={() => setAnalyticsSection("anonymous")} className="shrink-0 text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
                             View all →
                         </button>
                     </div>
@@ -305,7 +305,7 @@ const OverviewTab = ({
                             <p className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>Recent Login / Signup Events</p>
                             <p className={`mt-1 text-2xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{recentAuthEvents.length}</p>
                         </div>
-                        <button type="button" onClick={() => setAnalyticsSection("registered")} className="shrink-0 text-xs font-bold text-blue-400 hover:text-blue-300">
+                        <button type="button" onClick={() => setAnalyticsSection("registered")} className="shrink-0 text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
                             View all →
                         </button>
                     </div>
@@ -479,7 +479,7 @@ export default function AdminAnalyticsPanel({
 
     const tabButtonClass = (key) => (
         `px-3 py-2 rounded-lg text-xs font-bold transition-all ${analyticsSection === key
-            ? (isDark ? "bg-blue-500/25 text-blue-100 shadow-sm shadow-blue-500/20" : "bg-white text-blue-700 shadow-sm")
+            ? (isDark ? "bg-[#a83a4d]/25 text-[#f7edee] shadow-sm shadow-[#a83a4d]/20" : "bg-white text-[#a83a4d] shadow-sm")
             : (isDark ? "text-gray-300 hover:bg-[#1b3558] hover:text-white" : "text-gray-600 hover:bg-white/70")
         }`
     );
@@ -494,7 +494,7 @@ export default function AdminAnalyticsPanel({
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className={`flex gap-1 rounded-lg p-1 ${isDark ? "bg-[#132744]/60" : "bg-gray-100"}`}>
+                    <div className={`flex gap-1 rounded-lg p-1 ${isDark ? "bg-[#221d1d]/60" : "bg-gray-100"}`}>
                         {[
                             { key: "overview", label: "Overview" },
                             { key: "anonymous", label: "Visitors" },
@@ -509,7 +509,7 @@ export default function AdminAnalyticsPanel({
                         type="button"
                         onClick={onRefresh}
                         disabled={refreshing}
-                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-50 ${isDark ? "border-[#294468] bg-[#132744]/60 text-gray-200 hover:bg-[#1b3558]" : "border-gray-200 text-gray-600 hover:bg-gray-100"}`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-50 ${isDark ? "border-[#294468] bg-[#221d1d]/60 text-gray-200 hover:bg-[#1b3558]" : "border-gray-200 text-gray-600 hover:bg-gray-100"}`}
                     >
                         <Icon d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
                         Refresh
@@ -548,7 +548,7 @@ export default function AdminAnalyticsPanel({
             {analyticsSection === "anonymous" && (
                 <>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <StatCard isDark={isDark} label="Total Visitors" value={anonymousSummary.totalVisitors || 0} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493" color="bg-blue-500/15 text-blue-500" />
+                        <StatCard isDark={isDark} label="Total Visitors" value={anonymousSummary.totalVisitors || 0} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493" color="bg-[#a83a4d]/15 text-[#a83a4d]" />
                         <StatCard isDark={isDark} label="New Visitors" value={anonymousSummary.newVisitors || 0} icon="M12 4.5v15m7.5-7.5h-15" color="bg-emerald-500/15 text-emerald-500" />
                         <StatCard isDark={isDark} label="Returning Visitors" value={anonymousSummary.returningVisitors || 0} icon="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992" color="bg-amber-500/15 text-amber-500" />
                         <StatCard isDark={isDark} label="Live Anonymous" value={live.activeAnonymousUsers || 0} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-purple-500/15 text-purple-500" />
@@ -566,7 +566,7 @@ export default function AdminAnalyticsPanel({
                                     <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No return alerts yet.</p>
                                 ) : (
                                     alerts.map((alert, index) => (
-                                        <div key={`${alert.anonymousId}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                                        <div key={`${alert.anonymousId}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                                             <p className={`text-xs font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{alert.anonymousId}</p>
                                             <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                                                 {alert.city || "Unknown"}, {alert.country || "Unknown"} • {alert.path || "-"}
@@ -583,7 +583,7 @@ export default function AdminAnalyticsPanel({
                             <PanelHeading
                                 isDark={isDark}
                                 action={locations.length > 8 && (
-                                    <button type="button" onClick={() => setShowAllLocations((prev) => !prev)} className="text-xs font-bold text-blue-400 hover:text-blue-300">
+                                    <button type="button" onClick={() => setShowAllLocations((prev) => !prev)} className="text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
                                         {showAllLocations ? "Hide full list" : `View all ${locations.length}`}
                                     </button>
                                 )}
@@ -609,7 +609,7 @@ export default function AdminAnalyticsPanel({
                             <PanelHeading
                                 isDark={isDark}
                                 action={(anonymousSummary.clickHeatmap || []).length > 0 && (
-                                    <button type="button" onClick={() => setShowRawClicks((prev) => !prev)} className="text-xs font-bold text-blue-400 hover:text-blue-300">
+                                    <button type="button" onClick={() => setShowRawClicks((prev) => !prev)} className="text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
                                         {showRawClicks ? "Hide raw clicks" : "Show recent raw clicks"}
                                     </button>
                                 )}
@@ -620,7 +620,7 @@ export default function AdminAnalyticsPanel({
                             {showRawClicks && (
                                 <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
                                     {(anonymousSummary.clickHeatmap || []).slice(0, 50).map((click, index) => (
-                                        <div key={`${click.path}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                                        <div key={`${click.path}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                                             <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Button: {click.label || click.text || click.element || "Unknown"}</p>
                                             <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Page: {click.path || "-"} • Section: {click.section || "General"}</p>
                                             <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Position: ({click.x}, {click.y})</p>
@@ -631,17 +631,17 @@ export default function AdminAnalyticsPanel({
                         </Panel>
                     </div>
 
-                    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                    <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                         <div className="max-h-80 overflow-auto">
                             <table className="w-full">
                                 <thead>
-                                    <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                    <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                         {["Page", "Visits", "Avg Time", "Total Time"].map((h) => (
                                             <th key={h} className={`px-5 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                     {pageVisits.slice(0, 25).map((item) => (
                                         <tr key={item.page}>
                                             <td className={`px-5 py-3.5 text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{item.page}</td>
@@ -659,17 +659,17 @@ export default function AdminAnalyticsPanel({
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-                        <div className={`xl:col-span-2 rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                        <div className={`xl:col-span-2 rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                        <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                             {["Temporary ID", "Last Active", "Location", "Browser / OS", "Action"].map((h) => (
                                                 <th key={h} className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                         {anonymousUsers.slice(0, 120).map((entry) => (
                                             <tr key={entry.anonymousId}>
                                                 <td className={`px-4 py-3 text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{entry.anonymousId}</td>
@@ -684,7 +684,7 @@ export default function AdminAnalyticsPanel({
                                                         type="button"
                                                         onClick={() => fetchAnalyticsAnonymousDetail(entry.anonymousId)}
                                                         disabled={!entry.anonymousId || analyticsAnonymousDetailLoading}
-                                                        className="rounded-md bg-blue-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50"
+                                                        className="rounded-md bg-[#a83a4d] px-2.5 py-1.5 text-xs font-bold text-white hover:bg-[#922f41] disabled:opacity-50"
                                                     >
                                                         View Details
                                                     </button>
@@ -699,10 +699,10 @@ export default function AdminAnalyticsPanel({
                             </div>
                         </div>
 
-                        <div className={`xl:col-span-3 rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                        <div className={`xl:col-span-3 rounded-2xl border p-4 ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                             {analyticsAnonymousDetailLoading ? (
                                 <div className="flex items-center justify-center py-20">
-                                    <div className="w-7 h-7 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                    <div className="w-7 h-7 border-2 border-gray-300 border-t-[#a83a4d] rounded-full animate-spin"></div>
                                 </div>
                             ) : !analyticsAnonymousDetail ? (
                                 <div className="py-20 text-center">
@@ -737,7 +737,7 @@ export default function AdminAnalyticsPanel({
                                             <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Devices</h4>
                                             <div className="flex flex-wrap gap-2">
                                                 {selectedAnonymousDevices.length === 0 ? <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No data</span> : selectedAnonymousDevices.map((item) => (
-                                                    <span key={item.label || `${item.deviceType}-${item.browser}-${item.os}`} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{item.label || `${item.deviceType || "unknown"} / ${item.browser || "Unknown"} / ${item.os || "Unknown"}`} ({item.count})</span>
+                                                    <span key={item.label || `${item.deviceType}-${item.browser}-${item.os}`} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-[#a83a4d]/15 text-[#e79aa6]" : "bg-[#f7edee] text-[#a83a4d]"}`}>{item.label || `${item.deviceType || "unknown"} / ${item.browser || "Unknown"} / ${item.os || "Unknown"}`} ({item.count})</span>
                                                 ))}
                                             </div>
                                         </div>
@@ -776,7 +776,7 @@ export default function AdminAnalyticsPanel({
                                         <h4 className={`mb-2 text-xs font-bold uppercase ${isDark ? "text-gray-400" : "text-gray-600"}`}>Session Journey</h4>
                                         <div className="max-h-48 overflow-y-auto space-y-2">
                                             {selectedAnonymousSessions.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No sessions found</p> : selectedAnonymousSessions.slice(0, 20).map((session) => (
-                                                <div key={session.sessionId} className={`rounded-md border px-2.5 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                                                <div key={session.sessionId} className={`rounded-md border px-2.5 py-2 ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                                                     <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{session.sessionId}</p>
                                                     <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{`${session.entryPath || "-"} to ${session.exitPath || "-"} - ${formatDuration(session.durationSeconds || 0)}`}</p>
                                                     <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{`${session.location?.city || "Unknown"}, ${session.location?.country || "Unknown"} - ${session.device?.deviceType || "unknown"} / ${session.device?.browser || "Unknown"} / ${session.device?.os || "Unknown"}`}</p>
@@ -805,7 +805,7 @@ export default function AdminAnalyticsPanel({
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <StatCard isDark={isDark} label="Tracked Users" value={registeredSummary.totalUsers || 0} icon="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5z" color="bg-emerald-500/15 text-emerald-500" />
                         <StatCard isDark={isDark} label="Live Right Now" value={live.activeRegisteredUsers || 0} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-emerald-500/15 text-emerald-500" />
-                        <StatCard isDark={isDark} label="Active In 30 Min" value={registeredActivitySummary.activeInLast30Minutes || 0} icon="M11.25 6.75v5.25l3.75 2.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-blue-500/15 text-blue-500" />
+                        <StatCard isDark={isDark} label="Active In 30 Min" value={registeredActivitySummary.activeInLast30Minutes || 0} icon="M11.25 6.75v5.25l3.75 2.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-[#a83a4d]/15 text-[#a83a4d]" />
                         <StatCard isDark={isDark} label="Users With Projects" value={registeredActivitySummary.usersWithProjects || 0} icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12" color="bg-purple-500/15 text-purple-500" />
                     </div>
 
@@ -827,7 +827,7 @@ export default function AdminAnalyticsPanel({
                                 <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No auth events yet.</p>
                             ) : (
                                 recentAuthEvents.slice(0, 25).map((event, index) => (
-                                    <div key={`${event.userId}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                                    <div key={`${event.userId}-${index}`} className={`rounded-lg border px-3 py-2 ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                                         <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{event.userName} • {event.type}</p>
                                         <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{event.userEmail || "-"} • {event.timestamp ? new Date(event.timestamp).toLocaleString() : "-"}</p>
                                     </div>
@@ -837,8 +837,8 @@ export default function AdminAnalyticsPanel({
                     </Panel>
 
                     <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
-                        <div className={`xl:col-span-2 rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className={`border-b px-4 py-4 ${isDark ? "border-[#1a3050]" : "border-gray-100"}`}>
+                        <div className={`xl:col-span-2 rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                            <div className={`border-b px-4 py-4 ${isDark ? "border-[#2e2828]" : "border-gray-100"}`}>
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
@@ -849,7 +849,7 @@ export default function AdminAnalyticsPanel({
                                             <select
                                                 value={registeredSort}
                                                 onChange={(event) => setRegisteredSort(event.target.value)}
-                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#132744] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
+                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#221d1d] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
                                             >
                                                 <option value="recent">Sort: Most recent</option>
                                                 <option value="sessions">Sort: Most sessions</option>
@@ -859,7 +859,7 @@ export default function AdminAnalyticsPanel({
                                             <select
                                                 value={analyticsRegisteredStatusFilter}
                                                 onChange={(event) => setAnalyticsRegisteredStatusFilter(event.target.value)}
-                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#132744] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
+                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#221d1d] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
                                             >
                                                 <option value="all">All statuses</option>
                                                 <option value="live">Live now</option>
@@ -888,7 +888,7 @@ export default function AdminAnalyticsPanel({
                                             type="button"
                                             onClick={() => fetchAnalyticsUserDetail(String(entry.userId || ""))}
                                             disabled={!entry.userId || analyticsUserDetailLoading}
-                                            className={`w-full rounded-2xl border p-4 text-left transition-all disabled:opacity-60 ${String(selectedUser?.id || "") === String(entry?.userId || "") ? (isDark ? "border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]" : "border-cyan-300 bg-cyan-50") : (isDark ? "border-[#1a3050] bg-[#0c172b] hover:border-[#335782] hover:bg-[#10203a]" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}`}
+                                            className={`w-full rounded-2xl border p-4 text-left transition-all disabled:opacity-60 ${String(selectedUser?.id || "") === String(entry?.userId || "") ? (isDark ? "border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]" : "border-cyan-300 bg-cyan-50") : (isDark ? "border-[#2e2828] bg-[#0c172b] hover:border-[#335782] hover:bg-[#10203a]" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}`}
                                         >
                                             <div className="flex items-start gap-3">
                                                 <Avatar isDark={isDark} name={entry.name} />
@@ -921,7 +921,7 @@ export default function AdminAnalyticsPanel({
                                                 </div>
                                             </div>
                                             <div className="mt-3 flex flex-wrap items-center gap-2">
-                                                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-blue-500/10 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{entry?.sessionCount || 0} sessions</span>
+                                                <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-[#a83a4d]/10 text-[#e79aa6]" : "bg-[#f7edee] text-[#a83a4d]"}`}>{entry?.sessionCount || 0} sessions</span>
                                                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-purple-500/10 text-purple-300" : "bg-purple-100 text-purple-700"}`}>{entry?.projectSummary?.totalProjects || 0} projects</span>
                                                 {(entry?.projectSummary?.pendingProjects || 0) > 0 && (
                                                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-100 text-amber-700"}`}>{entry.projectSummary.pendingProjects} pending</span>
@@ -939,10 +939,10 @@ export default function AdminAnalyticsPanel({
                             </div>
                         </div>
 
-                        <div className={`xl:col-span-3 rounded-2xl border p-5 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                        <div className={`xl:col-span-3 rounded-2xl border p-5 ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                             {analyticsUserDetailLoading ? (
                                 <div className="flex items-center justify-center py-20">
-                                    <div className="w-7 h-7 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                                    <div className="w-7 h-7 border-2 border-gray-300 border-t-[#a83a4d] rounded-full animate-spin"></div>
                                 </div>
                             ) : !analyticsUserDetail ? (
                                 <div className="py-20 text-center">
@@ -999,7 +999,7 @@ export default function AdminAnalyticsPanel({
                                             </div>
                                             <div className="mt-3 flex flex-wrap gap-2">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-purple-500/15 text-purple-300" : "bg-purple-100 text-purple-700"}`}>Trailer {selectedProjectSummary.aiTrailerProjects || 0}</span>
-                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>Evaluation {selectedProjectSummary.evaluationProjects || 0}</span>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-[#a83a4d]/15 text-[#e79aa6]" : "bg-[#f7edee] text-[#a83a4d]"}`}>Evaluation {selectedProjectSummary.evaluationProjects || 0}</span>
                                                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-700"}`}>Spotlight {selectedProjectSummary.spotlightProjects || 0}</span>
                                             </div>
                                         </DetailCard>
@@ -1023,7 +1023,7 @@ export default function AdminAnalyticsPanel({
                                         <DetailCard isDark={isDark} title="Devices Used">
                                             <div className="flex flex-wrap gap-2">
                                                 {selectedDevices.length === 0 ? <span className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No data</span> : selectedDevices.map((item) => (
-                                                    <span key={item.label || `${item.deviceType}-${item.browser}-${item.os}`} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-100 text-blue-700"}`}>{item.label || `${item.deviceType || "unknown"} / ${item.browser || "Unknown"} / ${item.os || "Unknown"}`} ({item.count})</span>
+                                                    <span key={item.label || `${item.deviceType}-${item.browser}-${item.os}`} className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? "bg-[#a83a4d]/15 text-[#e79aa6]" : "bg-[#f7edee] text-[#a83a4d]"}`}>{item.label || `${item.deviceType || "unknown"} / ${item.browser || "Unknown"} / ${item.os || "Unknown"}`} ({item.count})</span>
                                                 ))}
                                             </div>
                                         </DetailCard>
@@ -1037,7 +1037,7 @@ export default function AdminAnalyticsPanel({
                                         </DetailCard>
                                     </div>
 
-                                    <div className={`rounded-xl border ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                                    <div className={`rounded-xl border ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                                         <button
                                             type="button"
                                             onClick={() => setShowFullActivityTrail((prev) => !prev)}
@@ -1049,7 +1049,7 @@ export default function AdminAnalyticsPanel({
                                             <Icon d={showFullActivityTrail ? "M4.5 15.75l7.5-7.5 7.5 7.5" : "M19.5 8.25l-7.5 7.5-7.5-7.5"} className={`h-4 w-4 shrink-0 ${isDark ? "text-gray-400" : "text-gray-500"}`} />
                                         </button>
                                         {showFullActivityTrail && (
-                                            <div className="space-y-3 border-t p-3 pt-3" style={{ borderColor: isDark ? "#1a3050" : "#e5e7eb" }}>
+                                            <div className="space-y-3 border-t p-3 pt-3" style={{ borderColor: isDark ? "#2e2828" : "#e5e7eb" }}>
                                                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                                                     <DetailCard isDark={isDark} title="Auth Timeline">
                                                         <div className="max-h-40 overflow-y-auto space-y-1">
@@ -1071,7 +1071,7 @@ export default function AdminAnalyticsPanel({
                                                 <DetailCard isDark={isDark} title="Session Journey">
                                                     <div className="max-h-48 overflow-y-auto space-y-2">
                                                         {selectedSessions.length === 0 ? <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No sessions found</p> : selectedSessions.slice(0, 20).map((session) => (
-                                                            <div key={session.sessionId} className={`rounded-md border px-2.5 py-2 ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                                                            <div key={session.sessionId} className={`rounded-md border px-2.5 py-2 ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                                                                 <p className={`text-xs font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{session.sessionId}</p>
                                                                 <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>Entry: {formatPathLabel(session.entryPath)} · Exit: {formatPathLabel(session.exitPath || session.entryPath)} · {formatDuration(session.durationSeconds || 0)}</p>
                                                                 <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{`${session.location?.city || "Unknown"}, ${session.location?.country || "Unknown"} - ${session.device?.deviceType || "unknown"} / ${session.device?.browser || "Unknown"} / ${session.device?.os || "Unknown"}`}</p>

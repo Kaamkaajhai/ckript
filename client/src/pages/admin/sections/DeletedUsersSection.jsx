@@ -26,17 +26,17 @@ const DeletedUsersSection = () => {
                                 ({activeTab === "deleted-film-professionals" ? filteredDeletedFilmProfessionals.length : filteredDeletedWriters.length})
                             </span>
                         </h2>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                        <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                             {["User", "SID", "Role", "Reason", "Source", "Requested", "Deleted", "Actions"].map((h) => (
                                                 <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                         {(activeTab === "deleted-film-professionals" ? filteredDeletedFilmProfessionals : filteredDeletedWriters).map((item) => (
                                             <tr key={item._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
                                                 <td className="px-5 py-3.5">
@@ -51,7 +51,7 @@ const DeletedUsersSection = () => {
                                                     <p className="line-clamp-2">{item.reason || "No reason provided"}</p>
                                                 </td>
                                                 <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${item.source === "admin" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${item.source === "admin" ? "bg-amber-100 text-amber-700" : "bg-[#f7edee] text-[#a83a4d]"}`}>
                                                         {item.source === "admin" ? "Admin" : "User"}
                                                     </span>
                                                 </td>

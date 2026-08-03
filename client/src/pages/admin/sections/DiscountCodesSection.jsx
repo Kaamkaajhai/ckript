@@ -29,23 +29,23 @@ const DiscountCodesSection = () => {
                             </h2>
                             <button
                                 onClick={() => setDiscountCodeModal({})}
-                                className="px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 transition-all"
+                                className="px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-[#7a2233] to-purple-500 text-white hover:from-[#7a2233] hover:to-purple-600 transition-all"
                             >+ Create Code</button>
                         </div>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                        <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                             {["Code", "Type", "Value", "Used / Max", "Min Purchase", "Valid Until", "Status", "Actions"].map((h) => (
                                                 <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
                                             ))}
                                         </tr>
                                     </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                    <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                         {discountCodes.map((dc) => (
                                             <tr key={dc._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className={`px-5 py-3.5 text-sm font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>{dc.code}</td>
+                                                <td className={`px-5 py-3.5 text-sm font-bold ${isDark ? "text-[#e79aa6]" : "text-[#a83a4d]"}`}>{dc.code}</td>
                                                 <td className="px-5 py-3.5">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${dc.discountType === "percentage" ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700"}`}>
                                                         {dc.discountType === "percentage" ? "%" : "₹"}
@@ -65,7 +65,7 @@ const DiscountCodesSection = () => {
                                                 </td>
                                                 <td className="px-5 py-3.5">
                                                     <div className="flex items-center gap-2">
-                                                        <button onClick={() => setDiscountCodeModal(dc)} className="text-xs font-bold text-blue-500 hover:text-blue-400 transition-colors px-2 py-1 rounded-lg hover:bg-blue-500/10">Edit</button>
+                                                        <button onClick={() => setDiscountCodeModal(dc)} className="text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6] transition-colors px-2 py-1 rounded-lg hover:bg-[#a83a4d]/10">Edit</button>
                                                         {dc.isActive && <button onClick={() => handleDeleteDiscountCode(dc._id)} className="text-xs font-bold text-red-500 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10">Deactivate</button>}
                                                     </div>
                                                 </td>

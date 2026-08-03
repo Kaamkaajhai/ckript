@@ -30,7 +30,7 @@ const MembershipReviewsSection = () => {
                         </div>
 
                         {filteredMembershipReviews.length === 0 ? (
-                            <div className={`rounded-2xl border p-12 text-center ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                            <div className={`rounded-2xl border p-12 text-center ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                                 <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
                                     <svg className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -39,11 +39,11 @@ const MembershipReviewsSection = () => {
                                 <p className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-600"}`}>No pending SWA/WGA reviews</p>
                             </div>
                         ) : (
-                            <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                            <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
                                 <div className="overflow-x-auto">
                                     <table className="w-full">
                                         <thead>
-                                            <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
+                                            <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                                 {[
                                                     "Writer",
                                                     "Pending SWA/WGA",
@@ -55,7 +55,7 @@ const MembershipReviewsSection = () => {
                                                 ))}
                                             </tr>
                                         </thead>
-                                        <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
+                                        <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                             {filteredMembershipReviews.map((review) => {
                                                 const pendingRows = Array.isArray(review.pendingMemberships)
                                                     ? review.pendingMemberships.filter((item) => String(item.status || "").toLowerCase() === "pending")
@@ -68,7 +68,7 @@ const MembershipReviewsSection = () => {
                                                                 {review.profileImage ? (
                                                                     <img src={review.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
                                                                 ) : (
-                                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"}`}>
+                                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-[#a83a4d]/20 text-[#e79aa6]" : "bg-[#f7edee] text-[#a83a4d]"}`}>
                                                                         {review.name?.charAt(0)?.toUpperCase() || "?"}
                                                                     </div>
                                                                 )}
@@ -114,7 +114,7 @@ const MembershipReviewsSection = () => {
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
                                                                             onClick={(event) => handleOpenMembershipProof(event, review._id, item.type, item.proofUrl)}
-                                                                            className="text-xs font-bold text-blue-500 hover:text-blue-400"
+                                                                            className="text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6]"
                                                                         >
                                                                             {item.label} proof
                                                                         </a>

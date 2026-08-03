@@ -45,7 +45,7 @@ const AiTrailersSection = () => {
                                     >
                                         Remove Trailer
                                     </button>
-                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
+                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6] px-2.5 py-1.5 rounded-lg hover:bg-[#a83a4d]/10 transition-colors">View</a>
                                 </div>
                             )}
                         />

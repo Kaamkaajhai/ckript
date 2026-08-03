@@ -2108,10 +2108,10 @@ const AdminDashboard = () => {
     if (!authorized) {
         return (
             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-[#050d1a] via-[#0b1a30] to-[#0a1628]">
-                <div className="w-full max-w-md mx-4 rounded-2xl p-8 border bg-[#0f1d35]/80 border-[#1a3050] backdrop-blur-xl shadow-2xl">
+                <div className="w-full max-w-md mx-4 rounded-2xl p-8 border bg-[#1a1616]/80 border-[#2e2828] backdrop-blur-xl shadow-2xl">
                     <div className="text-center mb-6">
-                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20">
-                            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-[#7a2233]/20 to-purple-500/20 border border-[#a83a4d]/20">
+                            <svg className="w-8 h-8 text-[#e79aa6]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                             </svg>
                         </div>
@@ -2124,7 +2124,7 @@ const AdminDashboard = () => {
                             onChange={(e) => { setCodeInput(e.target.value); setCodeError(""); }}
                             placeholder="Access Code"
                             autoFocus
-                            className="w-full px-4 py-3.5 rounded-xl text-center text-lg font-bold tracking-[0.3em] outline-none border bg-[#0b1426] border-[#1a3050] text-white placeholder-gray-600 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                            className="w-full px-4 py-3.5 rounded-xl text-center text-lg font-bold tracking-[0.3em] outline-none border bg-[#0b1426] border-[#2e2828] text-white placeholder-gray-600 focus:border-[#a83a4d]/50 focus:ring-2 focus:ring-[#a83a4d]/20 transition-all"
                         />
                         {codeError && (
                             <p className="text-red-400 text-sm font-semibold mt-2 text-center">{codeError}</p>
@@ -2132,7 +2132,7 @@ const AdminDashboard = () => {
                         <button
                             type="submit"
                             disabled={codeLoading || !codeInput}
-                            className="w-full mt-4 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:shadow-blue-500/20"
+                            className="w-full mt-4 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-[#7a2233] to-purple-500 text-white hover:from-[#7a2233] hover:to-purple-600 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:shadow-[#a83a4d]/20"
                         >
                             {codeLoading ? (
                                 <span className="flex items-center justify-center gap-2">
@@ -2152,7 +2152,7 @@ const AdminDashboard = () => {
         if (loading) {
             return (
                 <div className="flex items-center justify-center py-20">
-                    <div className="w-8 h-8 border-3 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-3 border-gray-200 border-t-[#a83a4d] rounded-full animate-spin"></div>
                 </div>
             );
         }
@@ -2399,12 +2399,12 @@ const AdminDashboard = () => {
             return text || "-";
         };
 
-        const sectionClass = `rounded-xl border p-4 ${isDark ? "border-[#1a3050] bg-[#0b1426]" : "border-gray-200 bg-gray-50"}`;
+        const sectionClass = `rounded-xl border p-4 ${isDark ? "border-[#2e2828] bg-[#0b1426]" : "border-gray-200 bg-gray-50"}`;
 
         return (
             <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
-                <div className={`w-full max-w-3xl mx-4 rounded-2xl border max-h-[88vh] overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200"}`} onClick={(e) => e.stopPropagation()}>
-                    <div className={`px-5 py-4 border-b flex items-center justify-between ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                <div className={`w-full max-w-3xl mx-4 rounded-2xl border max-h-[88vh] overflow-hidden ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200"}`} onClick={(e) => e.stopPropagation()}>
+                    <div className={`px-5 py-4 border-b flex items-center justify-between ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                         <div>
                             <h3 className={`text-lg font-bold ${isDark ? "text-white" : "text-gray-900"}`}>User Full Profile</h3>
                             <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Writer / Investor complete details for admin review</p>
@@ -2482,7 +2482,7 @@ const AdminDashboard = () => {
                                 <button
                                     onClick={() => handleLoginAs(user?._id)}
                                     disabled={isUserDeleted || isUserFrozen}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-blue-500 hover:text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
+                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6] hover:bg-[#a83a4d]/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-colors"
                                 >
                                     Login As User
                                 </button>
@@ -2536,7 +2536,7 @@ const AdminDashboard = () => {
                                             const isPending = status === "pending";
 
                                             return (
-                                                <div key={item.key} className={`rounded-lg border p-3 ${isDark ? "border-[#1a3050] bg-[#091121]" : "border-gray-200 bg-white"}`}>
+                                                <div key={item.key} className={`rounded-lg border p-3 ${isDark ? "border-[#2e2828] bg-[#091121]" : "border-gray-200 bg-white"}`}>
                                                     <p className={`text-sm font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}>{item.label} Membership</p>
                                                     <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Status: <span className="font-semibold">{status}</span></p>
                                                     <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Submitted: {submittedAt}</p>
@@ -2551,7 +2551,7 @@ const AdminDashboard = () => {
                                                             href={item.verification.proofUrl}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex mt-2 text-xs font-bold text-blue-500 hover:text-blue-400"
+                                                            className="inline-flex mt-2 text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6]"
                                                         >
                                                             View uploaded proof
                                                         </a>
@@ -2611,7 +2611,7 @@ const AdminDashboard = () => {
                                 </div>
 
                                 {notableCreditAttachments.length > 0 && (
-                                    <div className={`mt-4 pt-3 border-t ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                                    <div className={`mt-4 pt-3 border-t ${isDark ? "border-[#2e2828]" : "border-gray-200"}`}>
                                         <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
                                             Notable Credit Attachments ({notableCreditAttachments.length})
                                         </p>
@@ -2623,7 +2623,7 @@ const AdminDashboard = () => {
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     onClick={(event) => handleOpenAdminAttachment(event, file)}
-                                                    className={`block text-sm break-all underline underline-offset-2 ${isDark ? "text-blue-300 hover:text-blue-200" : "text-blue-600 hover:text-blue-700"}`}
+                                                    className={`block text-sm break-all underline underline-offset-2 ${isDark ? "text-[#e79aa6] hover:text-[#e79aa6]" : "text-[#a83a4d] hover:text-[#a83a4d]"}`}
                                                 >
                                                     {openingAttachmentKey === String(file?.publicId || file?.url || "")
                                                         ? "Opening..."
@@ -2806,7 +2806,7 @@ const AdminDashboard = () => {
                     <div className={`flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl border backdrop-blur-sm ${toast.type === "error"
                         ? "bg-red-500/90 border-red-400/30 text-white"
                         : toast.type === "info"
-                            ? "bg-blue-500/90 border-blue-400/30 text-white"
+                            ? "bg-[#a83a4d]/90 border-[#a83a4d]/30 text-white"
                         : "bg-emerald-500/90 border-emerald-400/30 text-white"
                         }`}>
                         <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -2852,7 +2852,7 @@ const AdminDashboard = () => {
             <div className="fixed inset-0 z-[10060] flex items-center justify-center px-4" onClick={() => closeAdminDialog(null)}>
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
                 <div
-                    className="relative w-[min(94vw,460px)] rounded-2xl border border-[#1a3050] bg-[#0f1d35] p-5 text-white shadow-2xl"
+                    className="relative w-[min(94vw,460px)] rounded-2xl border border-[#2e2828] bg-[#1a1616] p-5 text-white shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                 >
                     <p className="text-base font-bold">{adminDialog.title}</p>
@@ -2866,7 +2866,7 @@ const AdminDashboard = () => {
                                 onChange={(event) => setAdminDialog((prev) => ({ ...prev, value: event.target.value }))}
                                 rows={4}
                                 placeholder={adminDialog.placeholder}
-                                className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 outline-none focus:border-blue-400/60"
+                                className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 outline-none focus:border-[#a83a4d]/60"
                             />
                         ) : (
                             <input
@@ -2875,7 +2875,7 @@ const AdminDashboard = () => {
                                 value={adminDialog.value}
                                 onChange={(event) => setAdminDialog((prev) => ({ ...prev, value: event.target.value }))}
                                 placeholder={adminDialog.placeholder}
-                                className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 outline-none focus:border-blue-400/60"
+                                className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 outline-none focus:border-[#a83a4d]/60"
                             />
                         )
                     )}
@@ -2885,7 +2885,7 @@ const AdminDashboard = () => {
                             autoFocus
                             value={adminDialog.value}
                             onChange={(event) => setAdminDialog((prev) => ({ ...prev, value: event.target.value }))}
-                            className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 outline-none focus:border-blue-400/60"
+                            className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 outline-none focus:border-[#a83a4d]/60"
                         >
                             {adminDialog.options?.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -2906,7 +2906,7 @@ const AdminDashboard = () => {
                         <button
                             type="button"
                             onClick={() => closeAdminDialog(adminDialog.type === "prompt" || adminDialog.type === "select" ? adminDialog.value : true)}
-                            className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#1e3a5f] text-white hover:bg-[#2a4b77]"
+                            className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#7a2233] text-white hover:bg-[#2a4b77]"
                         >
                             {adminDialog.confirmText || "Confirm"}
                         </button>
@@ -2922,7 +2922,7 @@ const AdminDashboard = () => {
             >
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
                 <div
-                    className="relative w-[min(94vw,560px)] rounded-2xl border border-[#1a3050] bg-[#0f1d35] p-5 text-white shadow-2xl"
+                    className="relative w-[min(94vw,560px)] rounded-2xl border border-[#2e2828] bg-[#1a1616] p-5 text-white shadow-2xl"
                     onClick={(event) => event.stopPropagation()}
                 >
                     <div className="flex items-start justify-between gap-4">

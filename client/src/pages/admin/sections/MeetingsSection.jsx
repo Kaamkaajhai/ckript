@@ -20,7 +20,7 @@ const MeetingsSection = () => {
                                 <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No meetings found.</p>
                             ) : (
                                 meetings.map((meeting) => (
-                                    <div key={meeting._id} className={`p-4 rounded-xl border ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200"}`}>
+                                    <div key={meeting._id} className={`p-4 rounded-xl border ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200"}`}>
                                         <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
                                             <div>
                                                 <h3 className={`font-semibold text-lg ${isDark ? "text-white" : "text-gray-900"}`}>{meeting.title}</h3>
@@ -28,7 +28,7 @@ const MeetingsSection = () => {
                                                     Producer: <span className="font-semibold">{meeting.producer_name}</span> | Writer: <span className="font-semibold">{meeting.writer_name}</span>
                                                 </p>
                                                 <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                    Script: <a href={`/admin/scripts/${meeting.script}`} className="text-blue-500 hover:underline">{meeting.script_name}</a>
+                                                    Script: <a href={`/admin/scripts/${meeting.script}`} className="text-[#a83a4d] hover:underline">{meeting.script_name}</a>
                                                 </p>
                                                 <div className={`mt-2 flex gap-4 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>
                                                     <span>📅 {new Date(meeting.scheduledDate).toLocaleDateString()}</span>
