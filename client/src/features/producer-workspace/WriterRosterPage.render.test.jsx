@@ -189,6 +189,7 @@ describe("WriterRosterPage — the detail pane", () => {
 
     const pane = container.querySelector(".ckr-pane");
     expect(pane.querySelector(".ckr-pane__name").textContent).toBe("Wei Chen");
+    expect(pane.querySelector(".ckr-pane__bio").getAttribute("title")).toBe("Bio b");
     expect(all(".ckr-row")).toHaveLength(3);
   });
 

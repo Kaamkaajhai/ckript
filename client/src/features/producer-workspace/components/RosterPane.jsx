@@ -55,6 +55,7 @@ const RosterPane = ({ writer, mandate, profilePath, restricted, onOpenProfile })
 
   const avatar = resolveMediaUrl(writer.profileImage);
   const name = writer.name || "Unnamed writer";
+  const bio = getBioLine(writer);
   const genres = getGenres(writer);
   const matches = getMandateMatches(writer, mandate);
   const band = getScoreBand(writer);
@@ -76,7 +77,7 @@ const RosterPane = ({ writer, mandate, profilePath, restricted, onOpenProfile })
             : <span className="ckr-pane__av" aria-hidden="true">{name.charAt(0).toUpperCase()}</span>}
           <div className="ckr-pane__idtext">
             <h2 className="ckr-pane__name">{name}</h2>
-            <p className="ckr-pane__bio">{getBioLine(writer)}</p>
+            <p className="ckr-pane__bio" title={bio}>{bio}</p>
           </div>
         </div>
 
