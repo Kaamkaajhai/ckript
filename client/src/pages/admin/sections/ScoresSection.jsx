@@ -1,5 +1,6 @@
 import { useAdminDashboard } from "../dashboardContext";
-import { Pagination, ScriptTable } from "../dashboardShared";
+import { Pagination } from "../dashboardShared";
+import ScriptsDataTable from "./shared/ScriptsDataTable";
 
 /**
  * "scores" panel, extracted VERBATIM from AdminDashboard's renderContent in
@@ -32,7 +33,7 @@ const ScoresSection = () => {
                                 ))}
                             </div>
                         </div>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true}
+                        <ScriptsDataTable scripts={filteredScripts} isDark={isDark} showScore={true}
                             actions={(s) => (
                                 <button onClick={() => setScoreModal(s)} className="text-xs font-bold text-purple-500 hover:text-purple-400 px-2.5 py-1 rounded-lg hover:bg-purple-500/10 transition-colors">Score</button>
                             )}

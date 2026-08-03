@@ -1,5 +1,6 @@
 import { useAdminDashboard } from "../dashboardContext";
-import { Pagination, ScriptTable } from "../dashboardShared";
+import { Pagination } from "../dashboardShared";
+import ScriptsDataTable from "./shared/ScriptsDataTable";
 
 /**
  * "ai-trailers" panel, extracted VERBATIM from AdminDashboard's renderContent in
@@ -27,7 +28,7 @@ const AiTrailersSection = () => {
                                 <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span>
                             </h2>
                         </div>
-                        <ScriptTable
+                        <ScriptsDataTable
                             scripts={filteredScripts}
                             isDark={isDark}
                             showScore={false}

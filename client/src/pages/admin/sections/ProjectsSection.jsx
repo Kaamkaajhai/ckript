@@ -1,5 +1,6 @@
 import { useAdminDashboard } from "../dashboardContext";
-import { BroadcastComposer, Pagination, ScriptTable } from "../dashboardShared";
+import { BroadcastComposer, Pagination } from "../dashboardShared";
+import ScriptsDataTable from "./shared/ScriptsDataTable";
 
 /**
  * "projects" panel, extracted VERBATIM from AdminDashboard's renderContent in
@@ -45,7 +46,7 @@ const ProjectsSection = () => {
                             onSend={() => handleSendAudienceBroadcast("script-uploaders")}
                             sending={userActionLoading === "broadcast:script-uploaders"}
                         />
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true}
+                        <ScriptsDataTable scripts={filteredScripts} isDark={isDark} showScore={true}
                             actions={(s) => (
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => setScoreModal(s)} className="text-xs font-bold text-purple-500 hover:text-purple-400 px-2.5 py-1 rounded-lg hover:bg-purple-500/10 transition-colors">Score</button>

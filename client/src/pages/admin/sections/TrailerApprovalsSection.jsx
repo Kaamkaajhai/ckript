@@ -1,5 +1,6 @@
 import { useAdminDashboard } from "../dashboardContext";
-import { Pagination, ScriptTable } from "../dashboardShared";
+import { Pagination } from "../dashboardShared";
+import ScriptsDataTable from "./shared/ScriptsDataTable";
 
 /**
  * "trailers" panel, extracted VERBATIM from AdminDashboard's renderContent in
@@ -35,7 +36,7 @@ const TrailerApprovalsSection = () => {
                         <div className="flex items-center justify-between mb-5">
                             <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>AI Trailer Approvals<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({trailerRequestCount})</span></h2>
                         </div>
-                        <ScriptTable scripts={newTrailerRequests} isDark={isDark} showScore={false}
+                        <ScriptsDataTable scripts={newTrailerRequests} isDark={isDark} showScore={false}
                             actions={(s) => (
                                 <div className="flex flex-wrap items-center gap-2">
                                     <button

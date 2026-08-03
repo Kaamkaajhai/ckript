@@ -1,5 +1,6 @@
 import { useAdminDashboard } from "../dashboardContext";
-import { Pagination, ScriptTable } from "../dashboardShared";
+import { Pagination } from "../dashboardShared";
+import ScriptsDataTable from "./shared/ScriptsDataTable";
 
 /**
  * "approvals" panel, extracted VERBATIM from AdminDashboard's renderContent in
@@ -30,7 +31,7 @@ const ApprovalsSection = () => {
                                 <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span>
                             </h2>
                         </div>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false} showApprovalType={true} showPreviewWindow={true}
+                        <ScriptsDataTable scripts={filteredScripts} isDark={isDark} showScore={false} showApprovalType={true} showPreviewWindow={true}
                             actions={(s) => (
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => handleApprove(s._id)} className="text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors">✓ Approve</button>

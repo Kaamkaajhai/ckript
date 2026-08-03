@@ -1,5 +1,6 @@
 import { useAdminDashboard } from "../dashboardContext";
-import { Pagination, ScriptTable } from "../dashboardShared";
+import { Pagination } from "../dashboardShared";
+import ScriptsDataTable from "./shared/ScriptsDataTable";
 
 /**
  * "evaluations" panel, extracted VERBATIM from AdminDashboard's renderContent in
@@ -20,7 +21,7 @@ const EvaluationsSection = () => {
                 return (
                     <div>
                         <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>AI Evaluations<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true} />
+                        <ScriptsDataTable scripts={filteredScripts} isDark={isDark} showScore={true} />
                         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
                     </div>
                 );
