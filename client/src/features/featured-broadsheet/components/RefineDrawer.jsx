@@ -17,6 +17,7 @@ import {
   PREMIUM_OPTIONS,
   SORT_OPTIONS,
 } from "../featuredBroadsheet";
+import FeaturedIcon from "./FeaturedIcon";
 
 const Group = ({ label, children }) => (
   <div className="fbp-drawer__group">
@@ -62,7 +63,7 @@ const RefineDrawer = ({
             <h2 className="fbp-drawer__title">Refine</h2>
           </div>
           <button type="button" className="fbp-sheet__close" onClick={onClose} aria-label="Close refine">
-            <span className="fbp-icon" aria-hidden="true">close</span>
+            <FeaturedIcon name="close" />
           </button>
         </header>
 

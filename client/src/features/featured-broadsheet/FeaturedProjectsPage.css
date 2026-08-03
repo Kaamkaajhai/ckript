@@ -63,20 +63,11 @@
 }
 
 .fbp-icon {
-  font-family: "Material Symbols Outlined";
-  font-weight: 400;
-  font-style: normal;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  direction: ltr;
   font-size: 18px;
-  -webkit-font-feature-settings: "liga";
-  font-feature-settings: "liga";
+  width: 1em;
+  height: 1em;
+  flex: none;
 }
 
 .fbp-eyebrow {

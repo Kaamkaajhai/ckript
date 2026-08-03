@@ -11,6 +11,7 @@
  * rendered rather than shown disabled.
  */
 import useScriptBookmark from "../../../hooks/useScriptBookmark";
+import FeaturedIcon from "./FeaturedIcon";
 
 const SaveButton = ({ script, variant = "card" }) => {
   const { isBookmarked, canBookmark, pending, toggleBookmark } = useScriptBookmark(script);
@@ -47,9 +48,7 @@ const SaveButton = ({ script, variant = "card" }) => {
       title={label}
       disabled={pending}
     >
-      <span className="fbp-icon" aria-hidden="true">
-        {isBookmarked ? "favorite" : "favorite_border"}
-      </span>
+      <FeaturedIcon name="favorite" fill={isBookmarked} />
     </button>
   );
 };

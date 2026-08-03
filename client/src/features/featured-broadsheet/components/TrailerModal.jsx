@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import { getContentTypeLabel } from "../featuredBroadsheet";
+import FeaturedIcon from "./FeaturedIcon";
 
 const resolveTrailerCandidates = (script) => {
   const ai = script?.trailerUrl || "";
@@ -97,7 +98,7 @@ const NarratedDemo = ({ script }) => {
         </>
       ) : (
         <button type="button" className="fbp-trailer__demo-btn fbp-trailer__demo-btn--play" onClick={start}>
-          <span className="fbp-icon" aria-hidden="true">play_arrow</span>
+          <FeaturedIcon name="play" fill />
           Play 30s narrated summary
         </button>
       )}
@@ -146,7 +147,7 @@ const TrailerModal = ({ script, onClose, onOpenProject }) => {
             <div className="fbp-trailer__title">{script?.title}</div>
           </div>
           <button type="button" className="fbp-trailer__close" onClick={onClose} aria-label="Close trailer">
-            <span className="fbp-icon" aria-hidden="true">close</span>
+            <FeaturedIcon name="close" />
           </button>
         </div>
 
