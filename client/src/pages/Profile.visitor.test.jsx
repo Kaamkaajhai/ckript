@@ -92,10 +92,76 @@ describe("Profile visitor rendering", () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
     expect(container.querySelector(".profile-pc-page")).not.toBeNull();
+    expect(container.querySelector(".profile-pc-page__status-column")).toBeNull();
     expect(container.textContent).toContain("Other Writer");
     expect(container.textContent).toContain("Follow");
     expect(container.textContent).toContain("Message");
     expect(container.textContent).not.toContain("Edit profile");
     expect(container.textContent).not.toContain("Settings");
+  });
+
+  it("renders owner-only work and operations groups without the status rail", async () => {
+    const owner = { ...viewedWriter, email: "writer@example.com", profileCompletion: { percentage: 75, completedFields: 6, totalFields: 8, isComplete: false } };
+    apiMocks.get.mockImplementation((url) => {
+      if (url === "/meetings") return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: { user: owner, scripts: [], deletedScripts: [], purchasedScripts: [], bookmarkedScripts: [] } });
+    });
+
+    await act(async () => {
+      root.render(
+        <AuthContext.Provider value={{ user: owner, setUser: vi.fn(), logout: vi.fn() }}>
+          <MemoryRouter initialEntries={["/other_writer"]}>
+            <Routes><Route path="/:id" element={<Profile />} /></Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      );
+    });
+
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    const groups = [...container.querySelectorAll(".profile-workspace-tabgroup__label")].map((node) => node.textContent);
+    expect(groups).toEqual(["Profile", "Work", "Operations"]);
+    expect(container.textContent).not.toContain("Needs you");
+    expect(container.textContent).not.toContain("75%");
+    expect(container.querySelector(".profile-pc-page__status-column")).toBeNull();
+    expect(container.textContent).toContain("Settings");
+  });
+
+  it("uses the professional workspace for an investor owner profile", async () => {
+    const investor = {
+      ...viewedWriter,
+      _id: "investor-1",
+      name: "Investor Owner",
+      role: "investor",
+      email: "investor@example.com",
+      writerProfile: undefined,
+      industryProfile: { jobTitle: "Investor", company: "Northlight Capital" },
+      profileCompletion: { percentage: 33, completedFields: 4, totalFields: 12, isComplete: false },
+    };
+    apiMocks.get.mockImplementation((url) => {
+      if (url === "/meetings") return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: { user: investor, scripts: [], deletedScripts: [], purchasedScripts: [], bookmarkedScripts: [] } });
+    });
+
+    await act(async () => {
+      root.render(
+        <AuthContext.Provider value={{ user: investor, setUser: vi.fn(), logout: vi.fn() }}>
+          <MemoryRouter initialEntries={["/investor-1"]}>
+            <Routes><Route path="/:id" element={<Profile />} /></Routes>
+          </MemoryRouter>
+        </AuthContext.Provider>
+      );
+    });
+
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    expect(container.querySelector(".profile-pc-page")).not.toBeNull();
+    expect(container.querySelector(".profile-pc-page__identity-column")).not.toBeNull();
+    expect(container.textContent).toContain("Investor Owner");
+    expect(container.textContent).toContain("Northlight Capital");
+    expect(container.textContent).not.toContain("33%");
+    const groups = [...container.querySelectorAll(".profile-workspace-tabgroup__label")].map((node) => node.textContent);
+    expect(groups).toEqual(["Profile", "Work", "Operations"]);
+    expect(container.textContent).not.toContain("Your profile is incomplete. Add missing details from Edit Profile.");
   });
 });
