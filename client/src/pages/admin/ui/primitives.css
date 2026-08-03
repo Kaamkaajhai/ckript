@@ -325,3 +325,29 @@
   border-radius: 50%;
   animation: ckad-rotate 0.7s linear infinite;
 }
+
+/* ── Section header ─────────────────────────────────────────────────────────*/
+.ckad .adsc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ad-s4);
+  margin-bottom: var(--ad-s5);
+  flex-wrap: wrap;
+}
+.ckad .adsc-title {
+  margin: 0;
+  font-size: var(--ad-t-title);
+  font-weight: var(--ad-fw-semi);
+  letter-spacing: var(--ad-track-tight);
+  color: var(--ad-ink);
+  display: flex;
+  align-items: baseline;
+  gap: var(--ad-s2);
+}
+.ckad .adsc-count {
+  font-size: var(--ad-t-sm);
+  font-weight: var(--ad-fw-medium);
+  color: var(--ad-ink-3);
+}
+.ckad .adsc-actions { display: flex; align-items: center; gap: var(--ad-s2); }

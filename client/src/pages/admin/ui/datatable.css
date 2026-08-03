@@ -128,3 +128,14 @@
 }
 .ckad .adtb-pager-info { font-size: var(--ad-t-xs); color: var(--ad-ink-3); font-variant-numeric: tabular-nums; }
 .ckad .adtb-pager-btns { display: flex; gap: var(--ad-s2); }
+
+/* ── Cell helpers for re-skinned sections ───────────────────────────────────*/
+/* A secondary line under a cell's main value (SIDs, ids) — quiet, never the row's voice. */
+.ckad .adtb-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--ad-t-micro);
+  color: var(--ad-ink-4);
+}
+/* Inline row actions: ghost buttons sit flush so the row height stays one line. */
+.ckad .adtb-rowactions { display: inline-flex; gap: var(--ad-s1); white-space: nowrap; }
