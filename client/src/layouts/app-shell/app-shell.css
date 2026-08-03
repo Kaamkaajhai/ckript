@@ -893,14 +893,8 @@
   .ck-sidebar { display: none; }
 
   .ck-header {
-    gap: 16px;
-    padding: 0 16px;
+    display: none;
   }
-  .ck-header__search {
-    width: auto;
-    flex: 1;
-  }
-  .ck-header__username { display: none; }
 
   .ck-page-scroll { padding: 16px 16px 90px; }
   .ck-page-scroll--workspace {
