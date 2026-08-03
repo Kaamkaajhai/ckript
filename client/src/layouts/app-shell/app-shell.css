@@ -900,7 +900,7 @@
   }
   .ck-header__logo,
   .ck-header__logo img {
-    height: 26px;
+    height: 38px !important;
   }
   .ck-header__search {
     width: auto;
