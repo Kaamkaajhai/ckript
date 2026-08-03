@@ -69,7 +69,7 @@ const Messages = lazy(() => import("./features/messages-operator"));
 // The industry section — see features/producer-workspace for what lives there
 // and, just as importantly, what deliberately does not.
 const Mandates = lazy(() => import("./features/producer-workspace/MandatesPage"));
-const Writers = lazy(() => import("./features/producer-workspace/WriterDirectoryPage"));
+const Writers = lazy(() => import("./features/producer-workspace/WriterRosterPage"));
 const InvestorHome = lazy(() => import("./features/investor-desk"));
 const ReaderHome = lazy(() => import("./pages/ReaderHome"));
 const ScriptReader = lazy(() => import("./pages/ScriptReader"));

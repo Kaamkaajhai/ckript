@@ -333,3 +333,46 @@ describe("AppShell — a role nobody planned for", () => {
     expect(container.querySelector(".ck-sidebar")).toBeTruthy();
   });
 });
+
+/*
+ * The mounting contract, end to end.
+ *
+ * shellPolicy.test.js asserts that /writers resolves to FILL; this asserts what
+ * FILL actually does to the DOM — no padded scroll column, the page sitting
+ * directly in the content area. The two together are the whole chain App.jsx's
+ * one-line ternary sits in the middle of.
+ */
+describe("AppShell — the fill mount", () => {
+  const mountAt = async (route, variant) => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={[route]}>
+          <AuthContext.Provider value={{ user: USERS.producer, logout: vi.fn(), setUser: vi.fn() }}>
+            <AppShell variant={variant}>
+              <div className="test-page">page content</div>
+            </AppShell>
+          </AuthContext.Provider>
+        </MemoryRouter>,
+      );
+    });
+    await settle();
+  };
+
+  it("hands a padded scroll column to an ordinary page", async () => {
+    await mountAt("/search", "page");
+    expect(container.querySelector(".ck-page-scroll")).toBeTruthy();
+  });
+
+  it("gives /writers the whole content area, with no padded column", async () => {
+    const { resolveShell, CONTENT_VARIANT } = await import("./shellPolicy");
+    const { contentVariant } = resolveShell({ role: "producer", pathname: "/writers" });
+    expect(contentVariant).toBe(CONTENT_VARIANT.FILL);
+
+    // Exactly the mapping App.jsx's AppChrome performs.
+    await mountAt("/writers", contentVariant === CONTENT_VARIANT.PAGE ? "page" : "fill");
+
+    expect(container.querySelector(".ck-page-scroll")).toBeNull();
+    const page = container.querySelector(".test-page");
+    expect(page.parentElement.className).toBe("ck-content-area");
+  });
+});

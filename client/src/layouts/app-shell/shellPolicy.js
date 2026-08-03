@@ -147,6 +147,7 @@ const FULL_BLEED_ROUTES = [
   { prefix: "/dashboard" },    // writer's 2B dashboard and the industry ledger
   { prefix: "/ai-tools" },     // …the same component
   { prefix: "/offer-holds" },  // …and again
+  { prefix: "/writers" },      // the roster desk — facet rail, register, detail pane
 ];
 
 /*
