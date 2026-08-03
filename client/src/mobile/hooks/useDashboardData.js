@@ -55,9 +55,11 @@ export function useDashboardData(user) {
           .sort((a, b) => (b.views || 0) - (a.views || 0))
           .slice(0, 4);
 
+        const profileCompletionValue = typeof user?.profileCompletion === 'object' ? (user?.profileCompletion?.percentage || 0) : (user?.profileCompletion || 0);
+
         // Overview
         const overview = {
-          profileCompletion: user?.profileCompletion || 0,
+          profileCompletion: profileCompletionValue,
           hero: {
             title: "Your Stories in Motion",
             body: "Track scripts, trailer engagement & producer interest — all in one place.",
