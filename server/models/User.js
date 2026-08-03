@@ -52,6 +52,8 @@ const userSchema = new mongoose.Schema({
   googleId: { type: String, index: true, sparse: true },
   authProvider: { type: String, enum: ["password", "google"], default: "password" },
   role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin", "finance"], required: true },
+  // The role a finance grant replaced, so revoking restores it exactly — roles are load-bearing.
+  financeRoleGrantedFrom: { type: String },
   bio: { type: String },
   skills: [String],
   profileImage: { type: String },

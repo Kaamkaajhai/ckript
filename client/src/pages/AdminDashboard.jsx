@@ -1711,6 +1711,37 @@ const AdminDashboard = () => {
         }
     };
 
+    /**
+     * Toggle the finance role — the read-only payments panel handed to an external accountant.
+     * Confirmed first because a role swap changes what the whole product shows this account; the
+     * server remembers the previous role, so revoking restores it exactly.
+     */
+    const handleFinanceRoleToggle = async (user, grant) => {
+        if (!user?._id || userActionLoading) return;
+        const confirmed = await openAdminDialog({
+            type: "confirm",
+            title: grant ? "Grant finance access" : "Remove finance access",
+            message: grant
+                ? `${user.name || user.email} becomes a FINANCE account: read-only access to the payments panel at /finance, and their current role (${user.role}) is set aside until revoked.`
+                : `Restore ${user.name || user.email} to their previous role and remove payments-panel access.`,
+            confirmText: grant ? "Grant" : "Remove",
+            cancelText: "Cancel",
+        });
+        if (!confirmed) return;
+
+        setUserActionLoading(`finance-${user._id}`);
+        try {
+            const { data } = await adminApi.post(`/admin/users/${user._id}/finance-role`, { grant });
+            showToast(data?.message || "Finance access updated");
+            setSelectedUserDetail(null);
+            fetchData(search);
+        } catch (error) {
+            showToast(error?.response?.data?.message || "Failed to update finance access", "error");
+        } finally {
+            setUserActionLoading("");
+        }
+    };
+
     const handleFreezeToggleUser = async (user, freeze) => {
         if (!user?._id || userActionLoading) return;
         if (user.isDeactivated) {
@@ -2410,6 +2441,17 @@ const AdminDashboard = () => {
                                         className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#0e7490] hover:text-[#155e75] hover:bg-[#0e7490]/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                     >
                                         {userActionLoading === `grant-fip-plan-${user._id}` ? "Granting..." : "Grant 1-Year FIP Plan"}
+                                    </button>
+                                )}
+                                {!isUserDeleted && normalizedRole !== "admin" && (
+                                    <button
+                                        onClick={() => handleFinanceRoleToggle(user, normalizedRole !== "finance")}
+                                        disabled={userActionLoading === `finance-${user._id}`}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {userActionLoading === `finance-${user._id}`
+                                            ? "Updating..."
+                                            : normalizedRole === "finance" ? "Remove Finance Access" : "Grant Finance Access"}
                                     </button>
                                 )}
                                 {!isUserFrozen && !isUserDeleted && (

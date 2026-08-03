@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
 import "./finance-panel.css";
 
@@ -46,6 +47,11 @@ const today = () => new Date().toISOString().slice(0, 10);
 const monthStart = () => `${new Date().toISOString().slice(0, 7)}-01`;
 
 export default function FinancePanel() {
+  // The server already 403s non-finance callers on every endpoint — this guard exists so a person
+  // who is not the accountant sees a plain explanation instead of a panel shell full of errors.
+  const { user } = useContext(AuthContext) || {};
+  const allowed = ["finance", "admin"].includes(String(user?.role || ""));
+
   const [filters, setFilters] = useState({
     from: monthStart(), to: today(), kind: "", settlement: "", currency: "",
   });
@@ -112,6 +118,23 @@ export default function FinancePanel() {
       setError("Could not export the transactions.");
     }
   };
+
+  if (!allowed) {
+    return (
+      <div className="fin">
+        <header className="fin-head">
+          <div>
+            <h1 className="fin-title">Payments</h1>
+            <p className="fin-sub">
+              This panel is for finance accounts. You are signed in as
+              {user ? ` ${user.name || user.email} (${user.role})` : " no one"} — ask an
+              administrator to grant finance access, or sign in with a finance account.
+            </p>
+          </div>
+        </header>
+      </div>
+    );
+  }
 
   return (
     <div className="fin">

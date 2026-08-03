@@ -55,6 +55,7 @@ import {
     getAdminPurchaseTermsVersions,
     createAdminPurchaseTermsVersion,
     sendAudienceBroadcast,
+    setFinanceRole,
 } from "../controllers/adminController.js";
 import { upload } from "../controllers/userController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
@@ -98,6 +99,7 @@ router.post("/users/:id/remove-premium", removePremiumModelFromUser);
 router.post("/users/:id/grant-writer-plan", grantWriterPlanToUser);
 router.post("/users/:id/remove-writer-plan", removeWriterPlanFromUser);
 router.post("/users/:id/grant-fip-plan", grantFipPlanToUser);
+router.post("/users/:id/finance-role", setFinanceRole);
 router.post("/broadcast/:audience", sendAudienceBroadcast);
 
 // Scripts (admin auth from router.use(protect, adminOnly) above is the only gate — the extra

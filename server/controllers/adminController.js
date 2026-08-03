@@ -2795,3 +2795,44 @@ export const createAdminPurchaseTermsVersion = async (req, res) => {
 };
 
 
+
+/**
+ * Grant or revoke the finance role — the read-only payments panel handed to an external
+ * accountant (see middleware/financeMiddleware.js for why it is not admin).
+ *
+ * Granting REMEMBERS the user's previous role in financeRoleGrantedFrom so revoking restores it
+ * exactly; a role is load-bearing everywhere (routing, entitlements, nav), so "revoke to reader"
+ * would quietly break a writer's account. Admin accounts are refused: demoting an admin to a
+ * read-only role through this side door would be privilege management by accident.
+ */
+export const setFinanceRole = async (req, res) => {
+    try {
+        const { grant } = req.body || {};
+        const user = await User.findById(req.params.id).select("role email name financeRoleGrantedFrom");
+        if (!user) return res.status(404).json({ message: "User not found" });
+        if (user.role === "admin") {
+            return res.status(400).json({ message: "Admin accounts cannot be converted to finance." });
+        }
+
+        if (grant) {
+            if (user.role === "finance") return res.json({ message: "Already a finance account.", user });
+            user.financeRoleGrantedFrom = user.role;
+            user.role = "finance";
+        } else {
+            if (user.role !== "finance") return res.status(400).json({ message: "Not a finance account." });
+            user.role = user.financeRoleGrantedFrom || "reader";
+            user.financeRoleGrantedFrom = undefined;
+        }
+        await user.save({ validateModifiedOnly: true });
+
+        return res.json({
+            message: grant
+                ? `${user.name || user.email} can now access the payments panel at /finance.`
+                : `Finance access removed; role restored to ${user.role}.`,
+            user: { _id: user._id, role: user.role },
+        });
+    } catch (error) {
+        console.error("[admin] setFinanceRole failed:", error?.message || error);
+        return res.status(500).json({ message: "Failed to update finance access." });
+    }
+};
