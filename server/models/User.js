@@ -51,7 +51,7 @@ const userSchema = new mongoose.Schema({
   // Google OAuth linkage (writers / creators sign-in with Google).
   googleId: { type: String, index: true, sparse: true },
   authProvider: { type: String, enum: ["password", "google"], default: "password" },
-  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin"], required: true },
+  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin", "finance"], required: true },
   bio: { type: String },
   skills: [String],
   profileImage: { type: String },
@@ -310,7 +310,13 @@ const userSchema = new mongoose.Schema({
       enum: ["none", "razorpay", "razorpay_test", "manual", "mock"],
       default: "none",
     },
+    // The Razorpay ORDER id for writer plans, the PAYMENT id for the FIP plan — the two verifiers
+    // disagree about what belongs here. `paymentId` below is the unambiguous one.
     checkoutReference: { type: String },
+    // The Razorpay payment id. verifyWriterRazorpayPayment has always tried to $set this, but it was
+    // not a schema path and the schema is strict, so Mongoose discarded it silently on every writer
+    // subscription ever sold — leaving no way to look a plan payment up in the Razorpay dashboard.
+    paymentId: { type: String },
     sourcePath: { type: String },
     contactsLimit: { type: Number, default: 10 },
     messageWritersLimit: { type: Number, default: 10 },
