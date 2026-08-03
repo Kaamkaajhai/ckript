@@ -53,6 +53,8 @@ import {
     RejectInvestorModal,
 } from "./admin/dashboardShared";
 import { AdminDashboardContext } from "./admin/dashboardContext";
+import AdminShell from "./admin/shell/AdminShell";
+import { ADMIN_NAV_GROUPS, groupNavItems } from "./admin/shell/adminNavGroups";
 import OverviewSection from "./admin/sections/OverviewSection";
 import PremiumProfessionalsSection from "./admin/sections/PremiumProfessionalsSection";
 import WriterPlansSection from "./admin/sections/WriterPlansSection";
@@ -2601,6 +2603,14 @@ const AdminDashboard = () => {
 
     // Everything the extracted section panels reach through useAdminDashboard(). Built from the
     // measured usage of each panel at extraction time — extend it when a section needs a new name.
+    // Sidebar model for AdminShell: the real TABS with live badge counts. Recomputed per render
+    // so a pending-approvals badge updates the moment its count does — exactly as the old
+    // hand-rolled sidebar behaved.
+    const navGroups = groupNavItems(ADMIN_NAV_GROUPS, TABS.map((tab) => ({
+        ...tab,
+        badge: getBadgeCountForTab(tab.key) > 0 ? formatBadgeCount(getBadgeCountForTab(tab.key)) : null,
+    })));
+
     const dashboardContextValue = {
         search,
         activeMessageUser,
@@ -2717,108 +2727,36 @@ const AdminDashboard = () => {
     return (
         <AdminDashboardContext.Provider value={dashboardContextValue}>
         <>
-        <div className="fixed inset-0 z-[9999] flex flex-col bg-[#060e1a] text-white overflow-hidden">
-            {/* ─── Admin Header ─── */}
-            <header className="h-14 shrink-0 flex items-center justify-between px-5 border-b border-[#1a3050] bg-[#0b1628]">
-                <div className="flex items-center gap-3">
-                    <BrandLogo className="h-9 w-auto" />
-                    <div>
-                        <h1 className="text-sm font-extrabold tracking-tight text-white">Ckript Admin</h1>
-                        <p className="text-[10px] text-gray-500 font-medium -mt-0.5">Management Console</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="hidden md:block w-72">
-                        <SearchBar
-                            value={searchInput}
-                            onChange={setSearchInput}
-                            placeholder={SEARCH_PLACEHOLDER_BY_TAB[activeTab] || "Search current section..."}
-                            isDark={true}
-                        />
-                    </div>
-                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider hidden sm:block">Admin Mode</span>
+        <AdminShell
+            groups={navGroups}
+            activeKey={activeTab}
+            onNavigate={handleTabChange}
+            crumbs={[TABS.find((tab) => tab.key === activeTab)?.label || "Overview"]}
+            searchValue={searchInput}
+            onSearchChange={(event) => setSearchInput(event.target.value)}
+            searchPlaceholder={SEARCH_PLACEHOLDER_BY_TAB[activeTab] || "Search current section..."}
+            defaultTheme="dark"
+            headerActions={(
+                <>
+                    <a href="/admin/agreements" className="adsh-item" style={{ width: "auto" }}>Agreements</a>
+                    <DownloadIconButton
+                        onClick={handleDownloadCurrentSectionPdf}
+                        disabled={loading || exportingCurrent}
+                        title={exportingCurrent ? "Preparing section PDF..." : "Download This Section PDF"}
+                    />
                     <DownloadIconButton
                         onClick={handleDownloadWholeDashboardPdf}
                         disabled={exportingAll}
                         title={exportingAll ? "Preparing full dashboard PDF..." : "Download Complete Dashboard PDF"}
-                        className="text-gray-400 hover:text-blue-300 hover:bg-blue-500/10 border-[#1a3050]"
                     />
-                    <div className="w-px h-5 bg-[#1a3050] hidden sm:block"></div>
-                    <button onClick={handleLogout}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-                        </svg>
+                    <button type="button" onClick={handleLogout} className="adsh-item" style={{ width: "auto" }}>
                         Exit Admin
                     </button>
-                </div>
-            </header>
-
-            {/* ─── Body ─── */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* Sidebar */}
-                <aside className="hidden lg:flex w-56 shrink-0 flex-col border-r border-[#1a3050] bg-[#0b1628] overflow-y-auto">
-                    <div className="px-3 pt-4 pb-2">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-600 px-2">Navigation</p>
-                    </div>
-                    <nav className="flex-1 px-2 pb-4 space-y-0.5">
-                        <a
-                            href="/admin/agreements"
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-semibold text-gray-400 hover:bg-[#132744] hover:text-gray-200 transition-all"
-                        >
-                            <Icon d="M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 3h1.5A2.25 2.25 0 0115 5.25v1.5A2.25 2.25 0 0113.5 9h-3A2.25 2.25 0 019 6.75v-1.5zM4.5 10.5h15m-15 4.5h15m-15 4.5h9" className="w-4 h-4" />
-                            <span className="flex-1 text-left">Agreements</span>
-                        </a>
-                        {TABS.map((tab) => (
-                            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-semibold transition-all ${activeTab === tab.key
-                                    ? "bg-blue-500/15 text-blue-400"
-                                    : "text-gray-400 hover:bg-[#132744] hover:text-gray-200"
-                                    }`}>
-                                <Icon d={tab.icon} className="w-4 h-4" />
-                                <span className="flex-1 text-left">{tab.label}</span>
-                                {getBadgeCountForTab(tab.key) > 0 && (
-                                    <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full ${activeTab === tab.key ? "bg-blue-400/20 text-blue-300" : "bg-white/10 text-gray-200"}`}>
-                                        {formatBadgeCount(getBadgeCountForTab(tab.key))}
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </nav>
-                </aside>
-
-                {/* Mobile tab bar */}
-                <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-[#1a3050] bg-[#0b1628]/95 backdrop-blur-md">
-                    <div className="flex overflow-x-auto gap-1 p-1.5">
-                        <a
-                            href="/admin/agreements"
-                            className="whitespace-nowrap px-3 py-2 rounded-lg text-xs font-bold text-gray-500"
-                        >
-                            Agreements
-                        </a>
-                        {TABS.map((tab) => (
-                            <button key={tab.key} onClick={() => handleTabChange(tab.key)}
-                                className={`whitespace-nowrap px-3 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === tab.key
-                                    ? "bg-blue-500/15 text-blue-400"
-                                    : "text-gray-500"
-                                    }`}>{tab.label}{getBadgeCountForTab(tab.key) > 0 ? ` ${formatBadgeCount(getBadgeCountForTab(tab.key))}` : ""}</button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Main content */}
-                <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-                    <div className="flex items-center justify-end mb-4">
-                        <DownloadIconButton
-                            onClick={handleDownloadCurrentSectionPdf}
-                            disabled={loading || exportingCurrent}
-                            title={exportingCurrent ? "Preparing section PDF..." : "Download This Section PDF"}
-                            className={`${isDark ? "text-gray-300 hover:text-blue-300 hover:bg-blue-500/10 border-[#1a3050]" : "text-gray-600 hover:text-blue-600 hover:bg-blue-50 border-gray-300"}`}
-                        />
-                    </div>
-                    {renderContent()}
-                </main>
-            </div>
+                </>
+            )}
+        >
+            {renderContent()}
+        </AdminShell>
 
             {/* Toast Notification */}
             {toast && (
@@ -2856,8 +2794,6 @@ const AdminDashboard = () => {
 
             {/* User Details Modal */}
             {selectedUserDetail && <UserDetailsModal user={selectedUserDetail} onClose={() => setSelectedUserDetail(null)} />}
-
-        </div>
 
         <ConfirmDialog
             open={showLogoutConfirm}

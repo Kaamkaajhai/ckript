@@ -70,10 +70,11 @@ export default function AdminShell({
   onSearchChange = null,       // absent → the search box is not rendered
   headerActions = null,
   brand = "Ckript Admin",
+  defaultTheme = "light",       // a surface whose content is tuned dark (the current admin) starts dark
   children,
 }) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === "1");
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || "light");
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || defaultTheme);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const searchRef = useRef(null);
 
