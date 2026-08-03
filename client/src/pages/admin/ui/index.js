@@ -8,8 +8,10 @@
  */
 import "./tokens.css";
 import "./primitives.css";
+import "./datatable.css";
 
 export { default as Button } from "./Button";
+export { default as DataTable } from "./DataTable";
 export { Field, Input, Textarea, Select, SearchInput } from "./fields";
 export { Badge, StatusPill } from "./Badge";
 export { Dialog, ConfirmDialog, Drawer } from "./overlays";
