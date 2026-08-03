@@ -139,3 +139,25 @@
 }
 /* Inline row actions: ghost buttons sit flush so the row height stays one line. */
 .ckad .adtb-rowactions { display: inline-flex; gap: var(--ad-s1); white-space: nowrap; }
+
+/* ── User cell ──────────────────────────────────────────────────────────────*/
+.ckad .adtb-user { display: flex; align-items: flex-start; gap: var(--ad-s3); }
+.ckad .adtb-avatar {
+  width: 30px; height: 30px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.ckad .adtb-avatar--initial {
+  display: grid;
+  place-items: center;
+  background: var(--ad-accent-soft);
+  color: var(--ad-accent-ink);
+  font-size: var(--ad-t-xs);
+  font-weight: var(--ad-fw-semi);
+}
+/* Action clusters that are allowed to wrap (user rows carry up to six). */
+.ckad .adtb-rowactions--wrap { flex-wrap: wrap; white-space: normal; }
+/* The one destructive row action keeps the danger voice without a filled button per row. */
+.ckad .adtb-danger { color: var(--ad-danger); }
+.ckad .adtb-danger:hover:not(:disabled) { background: var(--ad-danger-soft); color: var(--ad-danger); }
