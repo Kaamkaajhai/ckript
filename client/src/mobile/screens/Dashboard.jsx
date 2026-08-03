@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar";
 import SectionTabs from "../components/SectionTabs";
 import BottomNav from "../components/BottomNav";
@@ -23,6 +24,7 @@ import "./Dashboard.css";
  */
 export default function Dashboard({ time, initials, userName, onLogout }) {
   const island = useDynamicIsland();
+  const navigate = useNavigate();
 
   const [tab, setTab] = useState("overview");
   const [notifications, setNotifications] = useState(NOTIFICATIONS);
@@ -45,7 +47,13 @@ export default function Dashboard({ time, initials, userName, onLogout }) {
         onAvatar={() => setShowAccount(true)}
       />
 
-      <SectionTabs active={tab} onChange={setTab} />
+      <SectionTabs active={tab} onChange={(newTab) => {
+        if (newTab === "challenge") {
+          navigate("/challenge/c/the-final-draft");
+        } else {
+          setTab(newTab);
+        }
+      }} />
 
       <main className="ckm-dash__scroll ckm-scroll">
         <div className="ckm-dash__page">
@@ -74,7 +82,11 @@ export default function Dashboard({ time, initials, userName, onLogout }) {
       <BottomNav
         active="dashboard"
         onSelect={(item) => {
-          if (!item.implemented) desktopOnly(item.label);
+          if (item.id === "challenge") {
+            navigate("/challenge/c/the-final-draft");
+          } else if (!item.implemented) {
+            desktopOnly(item.label);
+          }
         }}
       />
 

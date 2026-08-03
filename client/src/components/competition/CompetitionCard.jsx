@@ -130,7 +130,7 @@ const CompetitionCard = ({ item, variant = "past", serverNow, to }) => {
               <Trophy className="h-4 w-4" />
             </span>
             <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--ckc-muted)' }}>
-              Prize Pool:
+              worth of Prize pool:
             </span>
             <span style={{ fontSize: 15, fontWeight: 800, color: 'var(--ckc-ink)' }}>
               {item.prizePool}
