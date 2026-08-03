@@ -62,6 +62,20 @@ import MessagesSection from "./admin/sections/MessagesSection";
 import MembershipReviewsSection from "./admin/sections/MembershipReviewsSection";
 import BankReviewsSection from "./admin/sections/BankReviewsSection";
 import DeletedUsersSection from "./admin/sections/DeletedUsersSection";
+import UsersSection from "./admin/sections/UsersSection";
+import ProjectsSection from "./admin/sections/ProjectsSection";
+import DeletedScriptsSection from "./admin/sections/DeletedScriptsSection";
+import AiUsageSection from "./admin/sections/AiUsageSection";
+import EvaluationsSection from "./admin/sections/EvaluationsSection";
+import InvestorPurchasesSection from "./admin/sections/InvestorPurchasesSection";
+import PaymentsSection from "./admin/sections/PaymentsSection";
+import ScoresSection from "./admin/sections/ScoresSection";
+import ApprovalsSection from "./admin/sections/ApprovalsSection";
+import AiTrailersSection from "./admin/sections/AiTrailersSection";
+import MeetingsSection from "./admin/sections/MeetingsSection";
+import QueriesSection from "./admin/sections/QueriesSection";
+import AnalyticsSection from "./admin/sections/AnalyticsSection";
+import DiscountCodesSection from "./admin/sections/DiscountCodesSection";
 
 // Re-exported for AdminCompetitions, AdminReferrals and the competitions editor, which import
 // the shared admin API client from this module — and for the tests that mock this module path.
@@ -2123,311 +2137,43 @@ const AdminDashboard = () => {
             case "investors":
             case "writers":
             case "readers":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                {activeTab === "investors" ? "Film Professionals" : activeTab === "writers" ? "Writers" : "Readers"}
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredUsers.length : total})</span>
-                            </h2>
-                        </div>
-                        {activeTab === "writers" && (
-                            <BroadcastComposer
-                                isDark={isDark}
-                                audienceLabel="Writers"
-                                title={writerBroadcastTitle}
-                                content={writerBroadcastContent}
-                                actionUrl={writerBroadcastLink}
-                                onTitleChange={setWriterBroadcastTitle}
-                                onContentChange={setWriterBroadcastContent}
-                                onActionUrlChange={setWriterBroadcastLink}
-                                onSend={() => handleSendAudienceBroadcast("writers")}
-                                sending={userActionLoading === "broadcast:writers"}
-                            />
-                        )}
-                        {activeTab === "investors" && (
-                            <BroadcastComposer
-                                isDark={isDark}
-                                audienceLabel="Film Professionals"
-                                title={filmBroadcastTitle}
-                                content={filmBroadcastContent}
-                                actionUrl={filmBroadcastLink}
-                                onTitleChange={setFilmBroadcastTitle}
-                                onContentChange={setFilmBroadcastContent}
-                                onActionUrlChange={setFilmBroadcastLink}
-                                onSend={() => handleSendAudienceBroadcast("film-professionals")}
-                                sending={userActionLoading === "broadcast:film-professionals"}
-                            />
-                        )}
-                        <UserTable
-                            users={filteredUsers}
-                            isDark={isDark}
-                            onLoginAs={null}
-                            onViewUser={setSelectedUserDetail}
-                            onFreezeUser={(user) => handleFreezeToggleUser(user, true)}
-                            onUnfreezeUser={(user) => handleFreezeToggleUser(user, false)}
-                            onGrantPremium={handleGrantPremiumToUser}
-                            onRemovePremium={handleRemovePremiumFromUser}
-                            onDeleteUser={handleDeleteUserAccount}
-                            userActionLoading={userActionLoading}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <UsersSection />;
 
             case "projects":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>All Scripts<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
-                        </div>
-                        <BroadcastComposer
-                            isDark={isDark}
-                            audienceLabel="Script Uploaders"
-                            title={scriptBroadcastTitle}
-                            content={scriptBroadcastContent}
-                            actionUrl={scriptBroadcastLink}
-                            onTitleChange={setScriptBroadcastTitle}
-                            onContentChange={setScriptBroadcastContent}
-                            onActionUrlChange={setScriptBroadcastLink}
-                            onSend={() => handleSendAudienceBroadcast("script-uploaders")}
-                            sending={userActionLoading === "broadcast:script-uploaders"}
-                        />
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true}
-                            actions={(s) => (
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => setScoreModal(s)} className="text-xs font-bold text-purple-500 hover:text-purple-400 px-2.5 py-1 rounded-lg hover:bg-purple-500/10 transition-colors">Score</button>
-                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
-                                    <button
-                                        onClick={() => handleDeleteProject(s)}
-                                        disabled={Boolean(s.isDeleted) || deletingScriptId === s._id}
-                                        className="text-xs font-bold text-red-500 hover:text-red-400 px-2.5 py-1 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                    >
-                                        {s.isDeleted ? "Deleted" : deletingScriptId === s._id ? "Deleting..." : "Delete"}
-                                    </button>
-                                </div>
-                            )}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <ProjectsSection />;
 
             case "deleted-scripts":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Deleted Scripts<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
-                        </div>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true}
-                            actions={(s) => (
-                                <div className="flex items-center gap-2">
-                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
-                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${isDark ? "bg-red-500/15 text-red-300" : "bg-red-50 text-red-700"}`}>Deleted</span>
-                                </div>
-                            )}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <DeletedScriptsSection />;
 
             case "ai-usage":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>AI Usage in Projects<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true} />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <AiUsageSection />;
 
             case "evaluations":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>AI Evaluations<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true} />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <EvaluationsSection />;
 
             case "investor-purchases":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>Investor Purchases<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span></h2>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false}
-                            actions={(s) => (
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    <a
-                                        href={`/admin/scripts/${s._id}`}
-                                        className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-500/10 transition-colors"
-                                    >
-                                        View
-                                    </a>
-                                    {s.unlockedBy?.map((u) => (
-                                        <span key={u._id || u} className={`text-xs font-medium px-2 py-0.5 rounded-full ${isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-700"}`}>
-                                            {u.name || "Investor"}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <InvestorPurchasesSection />;
 
             case "payments":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>Payment Transactions<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredTransactions.length : total})</span></h2>
-                        <TransactionTable transactions={filteredTransactions} isDark={isDark} />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <PaymentsSection />;
 
             case "invoices":
                 return <InvoicesSection />;
 
             case "scores":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Score Rankings</h2>
-                            <div className={`flex rounded-xl overflow-hidden border ${isDark ? "border-[#1a3050] bg-[#0b1426]" : "border-gray-200 bg-gray-50"}`}>
-                                {[{ k: "ai", l: "AI Scores" }, { k: "platform", l: "Platform" }, { k: "reader", l: "Reader" }].map((t) => (
-                                    <button key={t.k} onClick={() => setScoreSubTab(t.k)}
-                                        className={`px-4 py-2 text-sm font-bold transition-all ${scoreSubTab === t.k
-                                            ? isDark ? "bg-blue-500/15 text-blue-400" : "bg-[#1e3a5f] text-white"
-                                            : isDark ? "text-gray-500 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"
-                                            }`}>{t.l}</button>
-                                ))}
-                            </div>
-                        </div>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={true}
-                            actions={(s) => (
-                                <button onClick={() => setScoreModal(s)} className="text-xs font-bold text-purple-500 hover:text-purple-400 px-2.5 py-1 rounded-lg hover:bg-purple-500/10 transition-colors">Score</button>
-                            )}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <ScoresSection />;
 
             case "approvals":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                Script Approvals
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span>
-                            </h2>
-                        </div>
-                        <ScriptTable scripts={filteredScripts} isDark={isDark} showScore={false} showApprovalType={true} showPreviewWindow={true}
-                            actions={(s) => (
-                                <div className="flex items-center gap-2">
-                                    <button onClick={() => handleApprove(s._id)} className="text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors">✓ Approve</button>
-                                    <button onClick={() => handleReject(s._id)} className="text-xs font-bold text-red-500 hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">✕ Reject</button>
-                                    <button onClick={() => setScoreModal(s)} className="text-xs font-bold text-purple-500 hover:text-purple-400 px-2.5 py-1.5 rounded-lg hover:bg-purple-500/10 transition-colors">Score</button>
-                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
-                                    <button
-                                        onClick={() => handleDeleteProject(s)}
-                                        disabled={Boolean(s.isDeleted) || deletingScriptId === s._id}
-                                        className="text-xs font-bold text-red-500 hover:text-red-400 px-2.5 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                    >
-                                        {s.isDeleted ? "Deleted" : deletingScriptId === s._id ? "Deleting..." : "Delete"}
-                                    </button>
-                                </div>
-                            )}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <ApprovalsSection />;
 
             case "trailers":
                 return <TrailerApprovalsSection />;
 
             case "ai-trailers":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                AI Trailer
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredScripts.length : total})</span>
-                            </h2>
-                        </div>
-                        <ScriptTable
-                            scripts={filteredScripts}
-                            isDark={isDark}
-                            showScore={false}
-                            actions={(s) => (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                        onClick={() => handleSendTrailerToWriter(s)}
-                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
-                                    >
-                                        Send Trailer
-                                    </button>
-                                    <button
-                                        onClick={() => handleRemoveTrailer(s)}
-                                        className="text-xs font-bold text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
-                                    >
-                                        Remove Trailer
-                                    </button>
-                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
-                                </div>
-                            )}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <AiTrailersSection />;
 
             case "meetings":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>Scheduled Meetings<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({meetings.length})</span></h2>
-                        <div className="space-y-4">
-                            {meetings.length === 0 ? (
-                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No meetings found.</p>
-                            ) : (
-                                meetings.map((meeting) => (
-                                    <div key={meeting._id} className={`p-4 rounded-xl border ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200"}`}>
-                                        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-3">
-                                            <div>
-                                                <h3 className={`font-semibold text-lg ${isDark ? "text-white" : "text-gray-900"}`}>{meeting.title}</h3>
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"} mt-1`}>
-                                                    Producer: <span className="font-semibold">{meeting.producer_name}</span> | Writer: <span className="font-semibold">{meeting.writer_name}</span>
-                                                </p>
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                    Script: <a href={`/admin/scripts/${meeting.script}`} className="text-blue-500 hover:underline">{meeting.script_name}</a>
-                                                </p>
-                                                <div className={`mt-2 flex gap-4 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                                                    <span>📅 {new Date(meeting.scheduledDate).toLocaleDateString()}</span>
-                                                    <span>⏰ {meeting.scheduledTime}</span>
-                                                    <span>⏱️ {meeting.duration} min</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col sm:items-end gap-2">
-                                                <span className={`px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wider ${
-                                                    meeting.status === 'accepted' ? 'bg-emerald-100 text-emerald-700' :
-                                                    meeting.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                    'bg-yellow-100 text-yellow-700'
-                                                }`}>
-                                                    {meeting.status}
-                                                </span>
-                                                {meeting.status === "accepted" && (
-                                                    <a
-                                                        href={meeting.meetingLink}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="mt-1 text-xs font-bold text-[#D14D37] hover:underline"
-                                                    >
-                                                        Meeting Link
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                );
+                return <MeetingsSection />;
 
             case "messages":
                 return <MessagesSection />;
@@ -2445,146 +2191,17 @@ const AdminDashboard = () => {
                 return <AdminReferrals isDark={isDark} />;
 
             case "queries":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>
-                            Contact Queries
-                            <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredContacts.length : total})</span>
-                        </h2>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            {["Name", "Email", "Reason", "Message", "Date"].map((h) => (
-                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {filteredContacts.map((c) => (
-                                            <tr key={c._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className={`px-5 py-3.5 text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{c.name}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{c.email}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                                        c.reason === "doubt" ? "bg-blue-100 text-blue-700" :
-                                                        c.reason === "team" ? "bg-purple-100 text-purple-700" :
-                                                        c.reason === "general" ? "bg-gray-100 text-gray-600" :
-                                                        "bg-amber-100 text-amber-700"
-                                                    }`}>
-                                                        {c.reason === "doubt" ? "Question" : c.reason === "team" ? "Join Team" : c.reason === "general" ? "Feedback" : "Email"}
-                                                    </span>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm max-w-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                    <p className="line-clamp-2">{c.message}</p>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>{new Date(c.createdAt).toLocaleDateString()}</td>
-                                            </tr>
-                                        ))}
-                                        {filteredContacts.length === 0 && (
-                                            <tr><td colSpan={5} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No queries yet</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <QueriesSection />;
 
             case "deleted-film-professionals":
             case "deleted-writers":
                 return <DeletedUsersSection />;
 
             case "analytics":
-                return (
-                    <AdminAnalyticsPanel
-                        isDark={isDark}
-                        analyticsData={analyticsData}
-                        analyticsSection={analyticsSection}
-                        setAnalyticsSection={setAnalyticsSection}
-                        analyticsAnonymousDetail={analyticsAnonymousDetail}
-                        analyticsAnonymousDetailLoading={analyticsAnonymousDetailLoading}
-                        fetchAnalyticsAnonymousDetail={fetchAnalyticsAnonymousDetail}
-                        setAnalyticsAnonymousDetail={setAnalyticsAnonymousDetail}
-                        analyticsUserDetail={analyticsUserDetail}
-                        analyticsUserDetailLoading={analyticsUserDetailLoading}
-                        fetchAnalyticsUserDetail={fetchAnalyticsUserDetail}
-                        setAnalyticsUserDetail={setAnalyticsUserDetail}
-                        analyticsRegisteredSearch={analyticsRegisteredSearch}
-                        setAnalyticsRegisteredSearch={setAnalyticsRegisteredSearch}
-                        analyticsRegisteredStatusFilter={analyticsRegisteredStatusFilter}
-                        setAnalyticsRegisteredStatusFilter={setAnalyticsRegisteredStatusFilter}
-                        apiBaseUrl={API_BASE_URL}
-                        onRefresh={() => fetchData()}
-                        refreshing={loading}
-                    />
-                );
+                return <AnalyticsSection />;
 
             case "discount-codes":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                Discount Codes
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({total})</span>
-                            </h2>
-                            <button
-                                onClick={() => setDiscountCodeModal({})}
-                                className="px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 transition-all"
-                            >+ Create Code</button>
-                        </div>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            {["Code", "Type", "Value", "Used / Max", "Min Purchase", "Valid Until", "Status", "Actions"].map((h) => (
-                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {discountCodes.map((dc) => (
-                                            <tr key={dc._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className={`px-5 py-3.5 text-sm font-bold ${isDark ? "text-blue-400" : "text-blue-600"}`}>{dc.code}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${dc.discountType === "percentage" ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700"}`}>
-                                                        {dc.discountType === "percentage" ? "%" : "₹"}
-                                                    </span>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>
-                                                    {dc.discountType === "percentage" ? `${dc.discountValue}%` : `₹${dc.discountValue}`}
-                                                    {dc.maxDiscountAmount > 0 && dc.discountType === "percentage" && <span className={`text-xs ml-1 ${isDark ? "text-gray-500" : "text-gray-400"}`}>(max ₹{dc.maxDiscountAmount})</span>}
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{dc.usedCount} / {dc.maxUses || "∞"}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{dc.minPurchaseAmount > 0 ? `₹${dc.minPurchaseAmount}` : "—"}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>{new Date(dc.validUntil).toLocaleDateString()}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${dc.isActive && new Date(dc.validUntil) > new Date() ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
-                                                        {dc.isActive && new Date(dc.validUntil) > new Date() ? "Active" : "Inactive"}
-                                                    </span>
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    <div className="flex items-center gap-2">
-                                                        <button onClick={() => setDiscountCodeModal(dc)} className="text-xs font-bold text-blue-500 hover:text-blue-400 transition-colors px-2 py-1 rounded-lg hover:bg-blue-500/10">Edit</button>
-                                                        {dc.isActive && <button onClick={() => handleDeleteDiscountCode(dc._id)} className="text-xs font-bold text-red-500 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10">Deactivate</button>}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {discountCodes.length === 0 && (
-                                            <tr><td colSpan={8} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No discount codes yet</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                        {discountCodeModal !== null && <DiscountCodeFormModal initial={discountCodeModal} onClose={() => setDiscountCodeModal(null)} onSave={handleSaveDiscountCode} isDark={isDark} />}
-                    </div>
-                );
+                return <DiscountCodesSection />;
 
             default:
                 return null;
@@ -3042,6 +2659,59 @@ const AdminDashboard = () => {
         uploadingMessageAttachment,
         uploadingTrailerScriptId,
         userActionLoading,
+        analyticsAnonymousDetail,
+        analyticsAnonymousDetailLoading,
+        analyticsData,
+        analyticsRegisteredSearch,
+        analyticsRegisteredStatusFilter,
+        analyticsSection,
+        analyticsUserDetail,
+        analyticsUserDetailLoading,
+        deletingScriptId,
+        discountCodeModal,
+        discountCodes,
+        fetchAnalyticsAnonymousDetail,
+        fetchAnalyticsUserDetail,
+        fetchData,
+        filmBroadcastContent,
+        filmBroadcastLink,
+        filmBroadcastTitle,
+        handleApprove,
+        handleDeleteDiscountCode,
+        handleDeleteProject,
+        handleDeleteUserAccount,
+        handleFreezeToggleUser,
+        handleGrantPremiumToUser,
+        handleReject,
+        handleRemoveTrailer,
+        handleSaveDiscountCode,
+        handleSendAudienceBroadcast,
+        loading,
+        meetings,
+        scoreSubTab,
+        scriptBroadcastContent,
+        scriptBroadcastLink,
+        scriptBroadcastTitle,
+        setAnalyticsAnonymousDetail,
+        setAnalyticsRegisteredSearch,
+        setAnalyticsRegisteredStatusFilter,
+        setAnalyticsSection,
+        setAnalyticsUserDetail,
+        setDiscountCodeModal,
+        setFilmBroadcastContent,
+        setFilmBroadcastLink,
+        setFilmBroadcastTitle,
+        setScoreModal,
+        setScoreSubTab,
+        setScriptBroadcastContent,
+        setScriptBroadcastLink,
+        setScriptBroadcastTitle,
+        setWriterBroadcastContent,
+        setWriterBroadcastLink,
+        setWriterBroadcastTitle,
+        writerBroadcastContent,
+        writerBroadcastLink,
+        writerBroadcastTitle,
     };
 
     return (
