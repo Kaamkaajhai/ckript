@@ -8,9 +8,7 @@ import "./SectionTabs.css";
  */
 const TABS = [
   { id: "overview", label: "Overview" },
-  { id: "performance", label: "Perf." },
-  { id: "reviews", label: "Reviews" },
-  { id: "projects", label: "Projects" },
+  { id: "challenge", label: "Challenge" },
 ];
 
 export default function SectionTabs({ active, onChange }) {
