@@ -45,8 +45,6 @@ import {
     EMPTY_GLOBAL_RESULTS,
     formatExportDate,
     buildChatId,
-    resolveMediaUrl,
-    formatFileSize,
     getTransactionIdLabel,
     getPaymentIdLabel,
     getMessagePreview,
@@ -54,6 +52,16 @@ import {
     DiscountCodeFormModal,
     RejectInvestorModal,
 } from "./admin/dashboardShared";
+import { AdminDashboardContext } from "./admin/dashboardContext";
+import OverviewSection from "./admin/sections/OverviewSection";
+import PremiumProfessionalsSection from "./admin/sections/PremiumProfessionalsSection";
+import WriterPlansSection from "./admin/sections/WriterPlansSection";
+import InvoicesSection from "./admin/sections/InvoicesSection";
+import TrailerApprovalsSection from "./admin/sections/TrailerApprovalsSection";
+import MessagesSection from "./admin/sections/MessagesSection";
+import MembershipReviewsSection from "./admin/sections/MembershipReviewsSection";
+import BankReviewsSection from "./admin/sections/BankReviewsSection";
+import DeletedUsersSection from "./admin/sections/DeletedUsersSection";
 
 // Re-exported for AdminCompetitions, AdminReferrals and the competitions editor, which import
 // the shared admin API client from this module — and for the tests that mock this module path.
@@ -2104,319 +2112,13 @@ const AdminDashboard = () => {
 
         switch (activeTab) {
             case "overview":
-                if (!stats) return null;
-                if (hasSearch) {
-                    const totalMatches =
-                        filteredUsers.length +
-                        filteredScripts.length +
-                        filteredInvoices.length +
-                        filteredTransactions.length +
-                        filteredPendingInvestors.length +
-                        filteredContacts.length;
-
-                    const resultBlocks = [
-                        {
-                            key: "users",
-                            title: "Users",
-                            count: filteredUsers.length,
-                            lines: filteredUsers.slice(0, 6).map((u) => `${u.name || "-"} • ${u.email || "-"} • ${u.role || "-"} • ${u.phone || "No phone"} • ${getUserCompany(u) || "No company"} • ${getUserGenres(u) || "No genres"}`),
-                        },
-                        {
-                            key: "projects",
-                            title: "Projects",
-                            count: filteredScripts.length,
-                            lines: filteredScripts.slice(0, 6).map((s) => `${s.title || "-"} • SID: ${s.sid || "-"} • ${getScriptCreatorName(s)}`),
-                        },
-                        {
-                            key: "invoices",
-                            title: "Invoices",
-                            count: filteredInvoices.length,
-                            lines: filteredInvoices.slice(0, 6).map((inv) => `${inv.invoiceNumber || "-"} • ${inv.creator?.name || "-"} • ${inv.script?.title || "-"}`),
-                        },
-                        {
-                            key: "payments",
-                            title: "Payments",
-                            count: filteredTransactions.length,
-                            lines: filteredTransactions.slice(0, 6).map((t) => `${t.user?.name || "-"} • ${t.type || "-"} • ${formatCurrency(t.amount || 0, t.currency || "INR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`),
-                        },
-                        {
-                            key: "requests",
-                            title: "Investor Requests",
-                            count: filteredPendingInvestors.length,
-                            lines: filteredPendingInvestors.slice(0, 6).map((inv) => `${inv.name || "-"} • ${inv.email || "-"}`),
-                        },
-                        {
-                            key: "queries",
-                            title: "Queries",
-                            count: filteredContacts.length,
-                            lines: filteredContacts.slice(0, 6).map((c) => `${c.name || "-"} • ${c.reason || "-"} • ${c.email || "-"}`),
-                        },
-                    ];
-
-                    return (
-                        <div>
-                            <div className="flex items-end justify-between mb-5 gap-4">
-                                <div>
-                                    <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Search Results</h2>
-                                    <p className={`text-sm mt-1 ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                        Showing cross-section matches for "{search.trim()}"
-                                    </p>
-                                </div>
-                                <span className={`text-xs font-bold px-3 py-1 rounded-full ${isDark ? "bg-blue-500/15 text-blue-300" : "bg-blue-50 text-blue-700"}`}>
-                                    {totalMatches} match{totalMatches === 1 ? "" : "es"}
-                                </span>
-                            </div>
-
-                            {totalMatches === 0 ? (
-                                <div className={`rounded-2xl border p-10 text-center ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                    <p className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                        No results found. Try a different keyword.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    {resultBlocks.filter((block) => block.count > 0).map((block) => (
-                                        <div key={block.key} className={`rounded-2xl border p-4 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h3 className={`text-sm font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{block.title}</h3>
-                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isDark ? "bg-white/10 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{block.count}</span>
-                                            </div>
-                                            <div className="space-y-2">
-                                                {block.lines.map((line, index) => (
-                                                    <p key={`${block.key}-${index}`} className={`text-xs leading-relaxed ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                        {line}
-                                                    </p>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    );
-                }
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>Platform Overview</h2>
-                        <div className="space-y-8">
-                            <div>
-                                <h3 className={`text-sm font-extrabold uppercase tracking-wide mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Platform Snapshot</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <StatCard isDark={isDark} label="Total Users" value={stats.totalUsers || 0} icon="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" color="bg-blue-500/15 text-blue-500" />
-                                    <StatCard isDark={isDark} label="Total Scripts" value={stats.totalScripts || 0} icon="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" color="bg-purple-500/15 text-purple-500" />
-                                    <StatCard isDark={isDark} label="Published Scripts" value={stats.publishedScripts || 0} icon="M5.25 6.75h13.5M5.25 12h13.5m-13.5 5.25h13.5" color="bg-indigo-500/15 text-indigo-500" />
-                                    <StatCard isDark={isDark} label="Deleted Scripts" value={stats.deletedScripts || 0} icon="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79" color="bg-rose-500/15 text-rose-500" />
-                                    <StatCard isDark={isDark} label="Writers" value={stats.totalWriters || 0} icon="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" color="bg-amber-500/15 text-amber-500" />
-                                    <StatCard isDark={isDark} label="Film Professionals" value={stats.totalInvestors || 0} icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-emerald-500/15 text-emerald-500" />
-                                    <StatCard isDark={isDark} label="Readers" value={stats.totalReaders || 0} icon="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" color="bg-cyan-500/15 text-cyan-500" />
-                                    <StatCard isDark={isDark} label="Total Revenue" value={`₹${stats.totalRevenue?.toFixed(2) || "0.00"}`} icon="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-green-500/15 text-green-500" />
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 className={`text-sm font-extrabold uppercase tracking-wide mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Script Pipeline</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <StatCard isDark={isDark} label="Draft Scripts" value={stats.draftScripts || 0} icon="M3.375 19.5h17.25M4.5 16.5V6.75A2.25 2.25 0 016.75 4.5h10.5A2.25 2.25 0 0119.5 6.75v9.75" color="bg-slate-500/15 text-slate-500" />
-                                    <StatCard isDark={isDark} label="Rejected Scripts" value={stats.rejectedScripts || 0} icon="M6 18L18 6M6 6l12 12" color="bg-red-500/15 text-red-500" />
-                                    <StatCard isDark={isDark} label="Sold Scripts" value={stats.soldScripts || 0} icon="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25h11.218" color="bg-lime-500/15 text-lime-500" />
-                                    <StatCard isDark={isDark} label="Pending Script Approvals" value={stats.pendingApprovals || 0} icon="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-orange-500/15 text-orange-500" />
-                                    <StatCard isDark={isDark} label="Pending AI Trailer Approvals" value={stats.pendingTrailerRequests || 0} icon="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375V5.625A1.125 1.125 0 016 4.5h12a1.125 1.125 0 011.125 1.125v12.75c0 .621-.504 1.125-1.125 1.125h1.5" color="bg-fuchsia-500/15 text-fuchsia-500" />
-                                    <StatCard isDark={isDark} label="AI Usage Scripts" value={stats.aiUsageScripts || 0} icon="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" color="bg-violet-500/15 text-violet-500" />
-                                    <StatCard isDark={isDark} label="Evaluation Scripts" value={stats.evaluationScripts || 0} icon="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" color="bg-sky-500/15 text-sky-500" />
-                                    <StatCard isDark={isDark} label="Transactions" value={stats.totalTransactions || 0} icon="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" color="bg-pink-500/15 text-pink-500" />
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 className={`text-sm font-extrabold uppercase tracking-wide mb-3 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Pending Actions</h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <StatCard isDark={isDark} label="Pending SWA/WGA Reviews" value={stats.pendingMembershipReviews || 0} icon="M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 0h1.5A2.25 2.25 0 0115 2.25v1.134a9 9 0 11-6 0V2.25z" color="bg-amber-500/15 text-amber-500" />
-                                    <StatCard isDark={isDark} label="Pending Bank Reviews" value={stats.pendingBankReviews || 0} icon="M3.75 4.5h16.5A1.5 1.5 0 0121.75 6v12a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5zM6 9h12M6 13.5h5.25" color="bg-orange-500/15 text-orange-500" />
-                                    <StatCard isDark={isDark} label="Locked Bank Users" value={stats.lockedBankUsers || 0} icon="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5A1.5 1.5 0 0118.75 12v7.5a1.5 1.5 0 01-1.5 1.5H6.75a1.5 1.5 0 01-1.5-1.5V12a1.5 1.5 0 011.5-1.5z" color="bg-yellow-500/15 text-yellow-500" />
-                                    <StatCard isDark={isDark} label="Bank Review Alerts" value={stats.bankReviewAlerts || 0} icon="M12 9v3.75m9 0a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-red-500/15 text-red-500" />
-                                    <StatCard isDark={isDark} label="Queries" value={stats.queries || 0} icon="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75" color="bg-cyan-500/15 text-cyan-500" />
-                                    <StatCard isDark={isDark} label="Deleted Accounts" value={stats.deletedAccounts || 0} icon="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166" color="bg-rose-500/15 text-rose-500" />
-                                    <StatCard isDark={isDark} label="Deleted Film Professionals" value={stats.deletedFilmProfessionals || 0} icon="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166" color="bg-orange-500/15 text-orange-500" />
-                                    <StatCard isDark={isDark} label="Deleted Writers" value={stats.deletedWriters || 0} icon="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166" color="bg-pink-500/15 text-pink-500" />
-                                    <StatCard isDark={isDark} label="Open Admin Actions" value={stats.openAdminActions || 0} icon="M11.25 3.75h1.5m-1.5 16.5h1.5m-7.5-7.5h16.5" color="bg-indigo-500/15 text-indigo-500" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
+                return <OverviewSection />;
 
             case "premium-professionals":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                Premium Professionals
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredUsers.length : total})</span>
-                            </h2>
-                        </div>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>User</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Email</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Joined</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Premium Expiry</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Days Left</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {filteredUsers.map((u) => {
-                                            const expiryDate = u.subscription?.accessExpiresAt ? new Date(u.subscription.accessExpiresAt) : null;
-                                            const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 3600 * 24))) : 0;
-                                            return (
-                                                <tr key={u._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                    <td className="px-5 py-3.5">
-                                                        <div className="flex items-center gap-3">
-                                                            {u.profileImage ? (
-                                                                <img src={u.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                                            ) : (
-                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
-                                                                    {u.name?.charAt(0)?.toUpperCase() || "?"}
-                                                                </div>
-                                                            )}
-                                                            <div>
-                                                                <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{u.name}</p>
-                                                                <p className={`text-[11px] mt-0.5 font-bold ${u.isDeactivated ? "text-red-500" : u.isFrozen ? "text-amber-500" : (isDark ? "text-emerald-400" : "text-emerald-600")}`}>
-                                                                    SID: {u.sid || "Pending"}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{u.email}</td>
-                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                        {new Date(u.createdAt).toLocaleDateString()}
-                                                    </td>
-                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                        {expiryDate ? expiryDate.toLocaleDateString() : "Lifetime/None"}
-                                                    </td>
-                                                    <td className="px-5 py-3.5">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${daysLeft > 7 ? (isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-700") : daysLeft > 0 ? (isDark ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-700") : (isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-700")}`}>
-                                                            {daysLeft > 0 ? `${daysLeft} Days` : "Expired"}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-5 py-3.5">
-                                                        <button
-                                                            onClick={() => handleRemovePremiumFromUser(u)}
-                                                            disabled={Boolean(u.isDeactivated) || userActionLoading === `remove-premium-${u._id}`}
-                                                            className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                                        >
-                                                            {userActionLoading === `remove-premium-${u._id}` ? "Removing..." : "Remove Premium"}
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <PremiumProfessionalsSection />;
 
             case "writer-plans":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                Writer Plans
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredUsers.length : total})</span>
-                            </h2>
-                        </div>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>User</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Email</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Plan</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Joined</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Expiry</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Days Left</th>
-                                            <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {filteredUsers.map((u) => {
-                                            const expiryDate = u.subscription?.accessExpiresAt ? new Date(u.subscription.accessExpiresAt) : null;
-                                            const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 3600 * 24))) : 0;
-                                            const planName = u.subscription?.plan || "Unknown";
-                                            return (
-                                                <tr key={u._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                    <td className="px-5 py-3.5">
-                                                        <div className="flex items-center gap-3">
-                                                            {u.profileImage ? (
-                                                                <img src={u.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                                            ) : (
-                                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-[#1e3a5f]/10 text-[#1e3a5f]"}`}>
-                                                                    {u.name?.charAt(0)?.toUpperCase() || "?"}
-                                                                </div>
-                                                            )}
-                                                            <div>
-                                                                <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{u.name}</p>
-                                                                <p className={`text-[11px] mt-0.5 font-bold ${u.isDeactivated ? "text-red-500" : u.isFrozen ? "text-amber-500" : (isDark ? "text-emerald-400" : "text-emerald-600")}`}>
-                                                                    SID: {u.sid || "Pending"}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{u.email}</td>
-                                                    <td className={`px-5 py-3.5 text-sm font-bold capitalize ${isDark ? "text-purple-400" : "text-purple-600"}`}>{planName}</td>
-                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                        {new Date(u.createdAt).toLocaleDateString()}
-                                                    </td>
-                                                    <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                                                        {expiryDate ? expiryDate.toLocaleDateString() : "Lifetime/None"}
-                                                    </td>
-                                                    <td className="px-5 py-3.5">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${daysLeft > 7 ? (isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-700") : daysLeft > 0 ? (isDark ? "bg-amber-500/10 text-amber-400" : "bg-amber-50 text-amber-700") : (isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-700")}`}>
-                                                            {daysLeft > 0 ? `${daysLeft} Days` : "Expired"}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-5 py-3.5">
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => handleGrantWriterPlan(u, "gold")}
-                                                                disabled={Boolean(u.isDeactivated) || userActionLoading === `grant-writer-plan-${u._id}`}
-                                                                className="text-xs font-bold text-[#d4af37] hover:text-[#aa801a] transition-colors px-2 py-1.5 rounded-lg hover:bg-[#d4af37]/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                                            >
-                                                                Gold
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleGrantWriterPlan(u, "silver")}
-                                                                disabled={Boolean(u.isDeactivated) || userActionLoading === `grant-writer-plan-${u._id}`}
-                                                                className="text-xs font-bold text-gray-400 hover:text-gray-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-gray-400/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                                            >
-                                                                Silver
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleRemoveWriterPlan(u)}
-                                                                disabled={Boolean(u.isDeactivated) || userActionLoading === `remove-writer-plan-${u._id}`}
-                                                                className="text-xs font-bold text-red-400 hover:text-red-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                                            >
-                                                                Remove
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <WriterPlansSection />;
 
             case "investors":
             case "writers":
@@ -2581,80 +2283,7 @@ const AdminDashboard = () => {
                 );
 
             case "invoices":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Invoices<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredInvoices.length : total})</span></h2>
-                        </div>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            {[
-                                                "Invoice #",
-                                                "Creator",
-                                                "Project",
-                                                "Access",
-                                                "Credits",
-                                                "Date",
-                                                "Actions",
-                                            ].map((h) => (
-                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {filteredInvoices.map((inv) => (
-                                            <tr key={inv._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className={`px-5 py-3.5 text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{inv.invoiceNumber}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{inv.creator?.name || "-"}</p>
-                                                    <p className={`text-[11px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                                                        SID: {inv.creatorSid || inv.creator?.sid || "-"}
-                                                    </p>
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{inv.script?.title || "-"}</p>
-                                                    <p className={`text-[11px] mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                                                        SID: {inv.scriptSid || inv.script?.sid || "-"}
-                                                    </p>
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${inv.accessType === "premium" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}`}>
-                                                        {inv.accessType === "premium" ? "Premium" : "Free"}
-                                                    </span>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>{inv.totalCreditsRequired || 0} cr</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-500" : "text-gray-500"}`}>{new Date(inv.invoiceDate || inv.createdAt).toLocaleDateString()}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => handleInvoicePdfAction(inv, "open")}
-                                                            className="text-xs font-bold text-blue-500 hover:text-blue-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-blue-500/10"
-                                                        >
-                                                            Open PDF
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleInvoicePdfAction(inv, "download")}
-                                                            className="text-xs font-bold text-emerald-500 hover:text-emerald-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-emerald-500/10"
-                                                        >
-                                                            Download
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {filteredInvoices.length === 0 && (
-                                            <tr><td colSpan={7} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No invoices found</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <InvoicesSection />;
 
             case "scores":
                 return (
@@ -2710,54 +2339,8 @@ const AdminDashboard = () => {
                     </div>
                 );
 
-            case "trailers": {
-                const newTrailerRequests = filteredScripts;
-                const trailerRequestCount = newTrailerRequests.length;
-                return (
-                    <div>
-                        <input
-                            ref={trailerFileInputRef}
-                            type="file"
-                            accept="video/*"
-                            className="hidden"
-                            onChange={handleAdminTrailerFileChange}
-                        />
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>AI Trailer Approvals<span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({trailerRequestCount})</span></h2>
-                        </div>
-                        <ScriptTable scripts={newTrailerRequests} isDark={isDark} showScore={false}
-                            actions={(s) => (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <button
-                                        onClick={() => handleOpenTrailerUpload(s)}
-                                        disabled={uploadingTrailerScriptId === String(s._id)}
-                                        className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${uploadingTrailerScriptId === String(s._id)
-                                            ? isDark ? "text-gray-500 bg-white/[0.03]" : "text-gray-400 bg-gray-100"
-                                            : isDark ? "text-amber-300 hover:text-amber-200 hover:bg-amber-500/10" : "text-amber-700 hover:bg-amber-100"
-                                            }`}
-                                    >
-                                        {uploadingTrailerScriptId === String(s._id) ? "Uploading..." : "Add Trailer"}
-                                    </button>
-                                    <button
-                                        onClick={() => handleSendTrailerToWriter(s)}
-                                        className="text-xs font-bold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors"
-                                    >
-                                        Send Trailer
-                                    </button>
-                                    <button
-                                        onClick={() => openTrailerRequirements(s)}
-                                        className="text-xs font-bold text-violet-300 hover:text-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-500/10 transition-colors"
-                                    >
-                                        Requirements
-                                    </button>
-                                    <a href={`/admin/scripts/${s._id}`} className="text-xs font-bold text-blue-500 hover:text-blue-400 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/10 transition-colors">View</a>
-                                </div>
-                            )}
-                        />
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
-            }
+            case "trailers":
+                return <TrailerApprovalsSection />;
 
             case "ai-trailers":
                 return (
@@ -2846,450 +2429,15 @@ const AdminDashboard = () => {
                     </div>
                 );
 
-            case "messages": {
-                const selectedWriterId = String(activeMessageUser?._id || "");
-                const selectedConversation = adminConversations.find((conv) => String(conv?.user?._id) === selectedWriterId);
-
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                Admin Messages
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                                    ({hasSearch ? filteredMessageUsers.length : messageUsers.length})
-                                </span>
-                            </h2>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                            <div className={`lg:col-span-1 h-[240px] sm:h-[280px] lg:h-[calc(100vh-240px)] lg:min-h-[520px] lg:max-h-[760px] rounded-2xl border flex flex-col overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                <div className={`px-4 py-3 border-b ${isDark ? "border-[#1a3050]" : "border-gray-100"}`}>
-                                    <p className={`text-sm font-bold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Writers</p>
-                                </div>
-                                <div className="flex-1 overflow-y-auto">
-                                    {messagesLoading && filteredMessageUsers.length === 0 ? (
-                                        <p className={`px-4 py-5 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading conversations...</p>
-                                    ) : filteredMessageUsers.length === 0 ? (
-                                        <p className={`px-4 py-5 text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No writers found.</p>
-                                    ) : (
-                                        filteredMessageUsers.map((writer) => {
-                                            const isSelected = String(writer._id) === selectedWriterId;
-                                            const conversation = writer.conversation;
-                                            return (
-                                                <button
-                                                    key={writer._id}
-                                                    onClick={() => openWriterConversation(writer)}
-                                                    className={`w-full text-left px-4 py-3 border-b transition-colors ${isDark ? "border-[#1a3050]" : "border-gray-100"} ${isSelected ? (isDark ? "bg-blue-500/10" : "bg-blue-50") : (isDark ? "hover:bg-white/[0.03]" : "hover:bg-gray-50")}`}
-                                                >
-                                                    <p className={`text-sm font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{writer.name || "Unknown"}</p>
-                                                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{writer.email || "No email"}</p>
-                                                    {conversation?.lastMessage && (
-                                                        <p className={`text-xs mt-1 truncate ${isDark ? "text-gray-500" : "text-gray-500"}`}>{conversation.lastMessage}</p>
-                                                    )}
-                                                </button>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className={`relative lg:col-span-2 h-[62vh] sm:h-[66vh] lg:h-[calc(100vh-240px)] lg:min-h-[520px] lg:max-h-[760px] rounded-2xl border flex flex-col overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                {!activeMessageUser ? (
-                                    <div className="flex-1 py-20 flex items-center justify-center px-6 text-center">
-                                        <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Select a writer to start or continue a trailer discussion.</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className={`px-4 py-3 border-b ${isDark ? "border-[#1a3050]" : "border-gray-100"}`}>
-                                            <p className={`text-sm font-bold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{activeMessageUser.name || "Writer"}</p>
-                                            <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-                                                {activeMessageUser.email || "No email"}
-                                                {selectedConversation?.timestamp ? ` • Last active ${new Date(selectedConversation.timestamp).toLocaleString()}` : ""}
-                                            </p>
-                                        </div>
-
-                                        <div
-                                            ref={messageListContainerRef}
-                                            onScroll={handleAdminMessageScroll}
-                                            className="p-4 space-y-3 flex-1 min-h-0 overflow-y-auto"
-                                        >
-                                            {messagesLoading ? (
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>Loading thread...</p>
-                                            ) : messageList.length === 0 ? (
-                                                <p className={`text-sm ${isDark ? "text-gray-400" : "text-gray-500"}`}>No messages yet. Send the first message to start this conversation.</p>
-                                            ) : (
-                                                messageList.map((msg) => {
-                                                    const isWriterMessage = String(msg?.sender?._id || "") === String(activeMessageUser._id || "");
-                                                    return (
-                                                        <div key={msg._id} className={`flex ${isWriterMessage ? "justify-start" : "justify-end"}`}>
-                                                            <div className={`max-w-[80%] px-3 py-2 rounded-xl ${isWriterMessage ? (isDark ? "bg-[#132744] text-gray-100" : "bg-gray-100 text-gray-800") : (isDark ? "bg-blue-500/20 text-blue-100" : "bg-blue-50 text-blue-900")}`}>
-                                                                {msg.fileUrl && msg.fileType === "image" ? (
-                                                                    <div className="space-y-2">
-                                                                        <img src={resolveMediaUrl(msg.fileUrl)} alt="attachment" className="max-w-full rounded-xl" />
-                                                                        {msg.text ? <p className="text-sm whitespace-pre-wrap">{msg.text}</p> : null}
-                                                                    </div>
-                                                                ) : msg.fileUrl && msg.fileType === "video" ? (
-                                                                    <div className="space-y-2">
-                                                                        <video src={resolveMediaUrl(msg.fileUrl)} controls preload="metadata" className="w-full rounded-xl max-h-72" />
-                                                                        <a href={resolveMediaUrl(msg.fileUrl)} target="_blank" rel="noreferrer" className={`text-xs underline ${isDark ? "text-blue-200" : "text-blue-700"}`}>Open video in new tab</a>
-                                                                        {msg.text ? <p className="text-sm whitespace-pre-wrap">{msg.text}</p> : null}
-                                                                    </div>
-                                                                ) : msg.fileUrl ? (
-                                                                    <div className="space-y-2">
-                                                                        <div className={`rounded-lg px-2.5 py-2 ${isWriterMessage ? (isDark ? "bg-[#0b1426]" : "bg-white") : (isDark ? "bg-blue-900/25" : "bg-blue-100/60")}`}>
-                                                                            <p className="text-xs font-semibold truncate">{msg.fileName || "Attachment"}</p>
-                                                                            <p className={`text-[10px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{formatFileSize(msg.fileSize)}</p>
-                                                                            <a href={resolveMediaUrl(msg.fileUrl)} target="_blank" rel="noreferrer" className={`inline-block mt-1 text-xs underline ${isDark ? "text-blue-200" : "text-blue-700"}`}>Open file</a>
-                                                                        </div>
-                                                                        {msg.text ? <p className="text-sm whitespace-pre-wrap">{msg.text}</p> : null}
-                                                                    </div>
-                                                                ) : (
-                                                                    <p className="text-sm whitespace-pre-wrap">{msg.text || "(attachment)"}</p>
-                                                                )}
-                                                                <p className={`text-[11px] mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>{msg.createdAt ? new Date(msg.createdAt).toLocaleString() : ""}</p>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })
-                                            )}
-                                            <div ref={messageListEndRef} />
-                                        </div>
-
-                                        {showAdminScrollToBottomButton && (
-                                            <button
-                                                type="button"
-                                                onClick={() => scrollAdminMessagesToBottom("smooth")}
-                                                aria-label="Scroll to latest message"
-                                                title="Scroll to latest"
-                                                className={`absolute right-4 bottom-[78px] z-20 w-10 h-10 rounded-full flex items-center justify-center shadow-md border ${isDark ? "bg-[#132744] border-[#1c2a3a] text-gray-200 hover:bg-[#1a3354]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </button>
-                                        )}
-
-                                        <div className={`p-3 border-t ${isDark ? "border-[#1a3050]" : "border-gray-100"}`}>
-                                            {messageAttachment && (
-                                                <div className={`mb-2 rounded-xl border px-3 py-2 flex items-center justify-between ${isDark ? "border-[#1a3050] bg-[#132744]" : "border-gray-200 bg-gray-50"}`}>
-                                                    <div>
-                                                        <p className={`text-xs font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{messageAttachment.fileName || "Attachment"}</p>
-                                                        <p className={`text-[11px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{messageAttachment.fileType || "file"} • {formatFileSize(messageAttachment.fileSize)}</p>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => {
-                                                            setMessageAttachment(null);
-                                                            if (messageFileInputRef.current) messageFileInputRef.current.value = "";
-                                                        }}
-                                                        className={`text-xs font-bold px-2 py-1 rounded-lg ${isDark ? "text-red-300 hover:bg-red-500/10" : "text-red-600 hover:bg-red-50"}`}
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                            )}
-
-                                            <input
-                                                ref={messageFileInputRef}
-                                                type="file"
-                                                className="hidden"
-                                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip"
-                                                onChange={handleAdminAttachmentChange}
-                                            />
-
-                                            <div className={`rounded-2xl border p-2 flex items-center gap-2 ${isDark ? "bg-[#0b1628] border-[#1a3050]" : "bg-gray-50 border-gray-200"}`}>
-                                                <button
-                                                    type="button"
-                                                    onClick={handlePickMessageAttachment}
-                                                    disabled={uploadingMessageAttachment || !activeMessageUser}
-                                                    className={`w-12 h-12 shrink-0 rounded-full inline-flex items-center justify-center transition-colors ${uploadingMessageAttachment || !activeMessageUser ? (isDark ? "bg-[#122540] text-gray-500" : "bg-gray-200 text-gray-400") : (isDark ? "bg-[#10233f] text-gray-200 hover:bg-[#153156]" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100")}`}
-                                                    title={uploadingMessageAttachment ? "Uploading..." : "Attach file"}
-                                                >
-                                                    {uploadingMessageAttachment ? (
-                                                        <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v4m0 8v4m8-8h-4M8 12H4m12.364-5.657l-2.828 2.828M10.464 13.536l-2.828 2.828m0-9.9l2.828 2.828m5.072 5.072l2.828 2.828" />
-                                                        </svg>
-                                                    ) : (
-                                                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 114.95 4.95l-9.19 9.19a1.5 1.5 0 01-2.12-2.12l8.49-8.49" />
-                                                        </svg>
-                                                    )}
-                                                </button>
-
-                                                <textarea
-                                                    rows={1}
-                                                    value={messageText}
-                                                    onChange={(e) => setMessageText(e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === "Enter" && !e.shiftKey) {
-                                                            e.preventDefault();
-                                                            handleSendAdminMessage();
-                                                        }
-                                                    }}
-                                                    placeholder="Reply with text or attach file..."
-                                                    className={`flex-1 resize-none h-12 rounded-xl px-4 py-3 text-base border focus:outline-none focus:ring-2 ${isDark ? "bg-[#061327] border-[#204777] text-gray-100 placeholder:text-[#5c7190] focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
-                                                />
-                                                <button
-                                                    onClick={handleSendAdminMessage}
-                                                    disabled={uploadingMessageAttachment || (!messageText.trim() && !messageAttachment)}
-                                                    className={`w-12 h-12 shrink-0 rounded-full inline-flex items-center justify-center transition-colors ${(!uploadingMessageAttachment && (messageText.trim() || messageAttachment)) ? (isDark ? "bg-[#10233f] text-blue-200 hover:bg-[#153156]" : "bg-blue-600 text-white hover:bg-blue-700") : (isDark ? "bg-[#122540] text-gray-500" : "bg-gray-200 text-gray-400")}`}
-                                                    title="Send message"
-                                                >
-                                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M22 2L11 13" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M22 2L15 22 11 13 2 9 22 2z" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
+            case "messages":
+                return <MessagesSection />;
 
             case "membership-reviews":
-                return (
-                    <div>
-                        <div className="flex items-center justify-between mb-5">
-                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                                SWA/WGA Reviews
-                                <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredMembershipReviews.length : total})</span>
-                            </h2>
-                        </div>
-
-                        {filteredMembershipReviews.length === 0 ? (
-                            <div className={`rounded-2xl border p-12 text-center ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${isDark ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
-                                    <svg className={`w-6 h-6 ${isDark ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <p className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-600"}`}>No pending SWA/WGA reviews</p>
-                            </div>
-                        ) : (
-                            <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                                {[
-                                                    "Writer",
-                                                    "Pending SWA/WGA",
-                                                    "Submitted",
-                                                    "Proof",
-                                                    "Actions",
-                                                ].map((h) => (
-                                                    <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                            {filteredMembershipReviews.map((review) => {
-                                                const pendingRows = Array.isArray(review.pendingMemberships)
-                                                    ? review.pendingMemberships.filter((item) => String(item.status || "").toLowerCase() === "pending")
-                                                    : [];
-
-                                                return (
-                                                    <tr key={review._id} className={`align-top transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                        <td className="px-5 py-3.5">
-                                                            <div className="flex items-center gap-3">
-                                                                {review.profileImage ? (
-                                                                    <img src={review.profileImage} alt="" className="w-8 h-8 rounded-full object-cover" />
-                                                                ) : (
-                                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${isDark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-700"}`}>
-                                                                        {review.name?.charAt(0)?.toUpperCase() || "?"}
-                                                                    </div>
-                                                                )}
-                                                                <div>
-                                                                    <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{review.name || "-"}</p>
-                                                                    <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{review.email || "-"}</p>
-                                                                    <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>SID: {review.sid || "-"}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-
-                                                        <td className="px-5 py-3.5">
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {pendingRows.map((item) => (
-                                                                    <span key={`${review._id}-${item.type}`} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-100 text-amber-700"}`}>
-                                                                        {item.label}
-                                                                    </span>
-                                                                ))}
-                                                            </div>
-                                                        </td>
-
-                                                        <td className="px-5 py-3.5">
-                                                            {pendingRows.length > 0 ? (
-                                                                <div className="flex flex-col gap-1">
-                                                                    {pendingRows.map((item) => (
-                                                                        <p key={`${review._id}-${item.type}-submitted`} className={`text-xs ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                                                                            {item.label}: {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "-"}
-                                                                        </p>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <p className={`text-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>-</p>
-                                                            )}
-                                                        </td>
-
-                                                        <td className="px-5 py-3.5">
-                                                            <div className="flex flex-col gap-1">
-                                                                {pendingRows.map((item) => (
-                                                                    item.proofUrl ? (
-                                                                        <a
-                                                                            key={`${review._id}-${item.type}-proof`}
-                                                                            href={item.proofUrl}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            onClick={(event) => handleOpenMembershipProof(event, review._id, item.type, item.proofUrl)}
-                                                                            className="text-xs font-bold text-blue-500 hover:text-blue-400"
-                                                                        >
-                                                                            {item.label} proof
-                                                                        </a>
-                                                                    ) : (
-                                                                        <span key={`${review._id}-${item.type}-no-proof`} className={`text-xs ${isDark ? "text-red-300" : "text-red-600"}`}>
-                                                                            {item.label}: no proof
-                                                                        </span>
-                                                                    )
-                                                                ))}
-                                                            </div>
-                                                        </td>
-
-                                                        <td className="px-5 py-3.5">
-                                                            <div className="flex flex-col gap-2">
-                                                                {pendingRows.map((item) => {
-                                                                    const approveLoading = userActionLoading === `membership-approve-${item.type}-${review._id}`;
-                                                                    const rejectLoading = userActionLoading === `membership-reject-${item.type}-${review._id}`;
-
-                                                                    return (
-                                                                        <div key={`${review._id}-${item.type}-actions`} className="flex items-center gap-2">
-                                                                            <button
-                                                                                onClick={() => handleReviewWriterMembership(review._id, item.type, "approve")}
-                                                                                disabled={approveLoading || rejectLoading}
-                                                                                className="px-2.5 py-1.5 rounded-md text-xs font-bold text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                            >
-                                                                                {approveLoading ? "Approving..." : `Approve ${item.label}`}
-                                                                            </button>
-                                                                            <button
-                                                                                onClick={() => handleReviewWriterMembership(review._id, item.type, "reject")}
-                                                                                disabled={approveLoading || rejectLoading}
-                                                                                className="px-2.5 py-1.5 rounded-md text-xs font-bold text-red-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                                            >
-                                                                                {rejectLoading ? "Rejecting..." : `Reject ${item.label}`}
-                                                                            </button>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <MembershipReviewsSection />;
 
             case "bank-reviews":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>
-                            Bank Detail Reviews
-                            <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>({hasSearch ? filteredBankReviews.length : total})</span>
-                        </h2>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            {["Writer", "Requested Details", "Active Details", "Security", "Submitted", "Due", "Actions"].map((h) => (
-                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {filteredBankReviews.map((review) => (
-                                            <tr key={review._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className="px-5 py-3.5">
-                                                    <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{review.name || "-"}</p>
-                                                    <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>{review.email || "-"}</p>
-                                                    <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>SID: {review.sid || "-"}</p>
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    <div className={`text-xs leading-5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Holder:</span> {review.requestedDetails?.accountHolderName || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Bank:</span> {review.requestedDetails?.bankName || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Account #:</span> {review.requestedDetails?.accountNumber || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Routing:</span> {review.requestedDetails?.routingNumber || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Type:</span> {review.requestedDetails?.accountType || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Country/Currency:</span> {review.requestedDetails?.country || "-"} / {review.requestedDetails?.currency || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>SWIFT:</span> {review.requestedDetails?.swiftCode || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>IBAN:</span> {review.requestedDetails?.iban || "-"}</p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    {review.activeDetails ? (
-                                                        <div className={`text-xs leading-5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Holder:</span> {review.activeDetails?.accountHolderName || "-"}</p>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Bank:</span> {review.activeDetails?.bankName || "-"}</p>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Account #:</span> {review.activeDetails?.accountNumber || "-"}</p>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Routing:</span> {review.activeDetails?.routingNumber || "-"}</p>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Type:</span> {review.activeDetails?.accountType || "-"}</p>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Country/Currency:</span> {review.activeDetails?.country || "-"} / {review.activeDetails?.currency || "-"}</p>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>SWIFT:</span> {review.activeDetails?.swiftCode || "-"}</p>
-                                                            <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>IBAN:</span> {review.activeDetails?.iban || "-"}</p>
-                                                        </div>
-                                                    ) : (
-                                                        <p className={`text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>No active bank details yet</p>
-                                                    )}
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    <div className={`text-xs leading-5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Attempts:</span> {Number(review.bankSecurity?.invalidAttempts || 0)} / 5</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Locked:</span> {review.bankSecurity?.isLocked ? "Yes" : "No"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Last invalid:</span> {review.bankSecurity?.lastInvalidAttemptAt ? new Date(review.bankSecurity.lastInvalidAttemptAt).toLocaleString() : "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Reason:</span> {review.bankSecurity?.lastInvalidReason || "-"}</p>
-                                                        <p><span className={`font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>Review status:</span> {review.status || "-"}</p>
-                                                    </div>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{review.submittedAt ? new Date(review.submittedAt).toLocaleString() : "-"}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{review.dueAt ? new Date(review.dueAt).toLocaleString() : "-"}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <div className="flex items-center gap-2">
-                                                        {review.status === "pending" && (
-                                                            <>
-                                                                <button onClick={() => handleApproveBankReview(review._id)} className="text-xs font-bold text-emerald-500 hover:text-emerald-400 px-3 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-colors">✓ Approve</button>
-                                                                <button onClick={() => handleRejectBankReview(review._id)} className="text-xs font-bold text-red-500 hover:text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/10 transition-colors">✕ Reject</button>
-                                                            </>
-                                                        )}
-                                                        {review.bankSecurity?.isLocked && (
-                                                            <button onClick={() => handleUnblockBankReview(review._id)} className="text-xs font-bold text-amber-500 hover:text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-500/10 transition-colors">Unblock User</button>
-                                                        )}
-                                                    </div>
-                                                    {review.adminNote ? (
-                                                        <p className={`text-xs mt-2 max-w-[200px] ${isDark ? "text-gray-500" : "text-gray-500"}`}>Note: {review.adminNote}</p>
-                                                    ) : null}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {filteredBankReviews.length === 0 && (
-                                            <tr><td colSpan={7} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No bank detail reviews found</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <BankReviewsSection />;
 
-            // The whole competitions panel lives in its own file to keep this switch readable.
             case "competitions":
                 return <AdminCompetitions isDark={isDark} />;
 
@@ -3347,80 +2495,7 @@ const AdminDashboard = () => {
 
             case "deleted-film-professionals":
             case "deleted-writers":
-                return (
-                    <div>
-                        <h2 className={`text-xl font-extrabold mb-5 ${isDark ? "text-white" : "text-gray-900"}`}>
-                            {activeTab === "deleted-film-professionals" ? "Deleted Film Professionals" : "Deleted Writers"}
-                            <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                                ({activeTab === "deleted-film-professionals" ? filteredDeletedFilmProfessionals.length : filteredDeletedWriters.length})
-                            </span>
-                        </h2>
-                        <div className={`rounded-2xl border overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className={isDark ? "bg-[#132744]" : "bg-gray-50"}>
-                                            {["User", "SID", "Role", "Reason", "Source", "Requested", "Deleted", "Actions"].map((h) => (
-                                                <th key={h} className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>{h}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody className={`divide-y ${isDark ? "divide-[#1a3050]" : "divide-gray-100"}`}>
-                                        {(activeTab === "deleted-film-professionals" ? filteredDeletedFilmProfessionals : filteredDeletedWriters).map((item) => (
-                                            <tr key={item._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
-                                                <td className="px-5 py-3.5">
-                                                    <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{item.name || "-"}</p>
-                                                    <p className={`text-xs mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>{item.email || "-"}</p>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{item.sid || "-"}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${isDark ? "bg-white/10 text-gray-300" : "bg-gray-100 text-gray-700"}`}>{item.role || "-"}</span>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm max-w-sm ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                                                    <p className="line-clamp-2">{item.reason || "No reason provided"}</p>
-                                                </td>
-                                                <td className="px-5 py-3.5">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${item.source === "admin" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                                                        {item.source === "admin" ? "Admin" : "User"}
-                                                    </span>
-                                                </td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{item.requestedAt ? new Date(item.requestedAt).toLocaleString() : "-"}</td>
-                                                <td className={`px-5 py-3.5 text-sm ${isDark ? "text-gray-400" : "text-gray-600"}`}>{item.deactivatedAt ? new Date(item.deactivatedAt).toLocaleString() : "-"}</td>
-                                                <td className="px-5 py-3.5">
-                                                    <button
-                                                        onClick={() => setSelectedUserDetail(item.profileSnapshot || {
-                                                            _id: item._id,
-                                                            sid: item.sid,
-                                                            role: item.role,
-                                                            name: item.name,
-                                                            email: item.email,
-                                                            isDeactivated: true,
-                                                            deactivatedAt: item.deactivatedAt,
-                                                            accountDeletion: {
-                                                                reason: item.reason,
-                                                                source: item.source,
-                                                                requestedAt: item.requestedAt,
-                                                                originalName: item.name,
-                                                                originalEmail: item.email,
-                                                            },
-                                                        })}
-                                                        className="text-xs font-bold text-emerald-500 hover:text-emerald-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-emerald-500/10"
-                                                    >
-                                                        View Details
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {(activeTab === "deleted-film-professionals" ? filteredDeletedFilmProfessionals.length : filteredDeletedWriters.length) === 0 && (
-                                            <tr><td colSpan={8} className={`px-5 py-10 text-center text-sm ${isDark ? "text-gray-500" : "text-gray-400"}`}>No deleted accounts found in this section</td></tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
-                    </div>
-                );
+                return <DeletedUsersSection />;
 
             case "analytics":
                 return (
@@ -3907,7 +2982,70 @@ const AdminDashboard = () => {
     };
 
 
+    // Everything the extracted section panels reach through useAdminDashboard(). Built from the
+    // measured usage of each panel at extraction time — extend it when a section needs a new name.
+    const dashboardContextValue = {
+        search,
+        activeMessageUser,
+        activeTab,
+        adminConversations,
+        filteredBankReviews,
+        filteredContacts,
+        filteredDeletedFilmProfessionals,
+        filteredDeletedWriters,
+        filteredInvoices,
+        filteredMembershipReviews,
+        filteredMessageUsers,
+        filteredPendingInvestors,
+        filteredScripts,
+        filteredTransactions,
+        filteredUsers,
+        handleAdminAttachmentChange,
+        handleAdminMessageScroll,
+        handleAdminTrailerFileChange,
+        handleApproveBankReview,
+        handleGrantWriterPlan,
+        handleInvoicePdfAction,
+        handleOpenMembershipProof,
+        handleOpenTrailerUpload,
+        handlePickMessageAttachment,
+        handleRejectBankReview,
+        handleRemovePremiumFromUser,
+        handleRemoveWriterPlan,
+        handleReviewWriterMembership,
+        handleSendAdminMessage,
+        handleSendTrailerToWriter,
+        handleUnblockBankReview,
+        hasSearch,
+        isDark,
+        messageAttachment,
+        messageFileInputRef,
+        messageList,
+        messageListContainerRef,
+        messageListEndRef,
+        messageText,
+        messageUsers,
+        messagesLoading,
+        openTrailerRequirements,
+        openWriterConversation,
+        page,
+        scrollAdminMessagesToBottom,
+        setMessageAttachment,
+        setMessageText,
+        setPage,
+        setSelectedUserDetail,
+        showAdminScrollToBottomButton,
+        stats,
+        total,
+        totalPages,
+        trailerFileInputRef,
+        uploadingMessageAttachment,
+        uploadingTrailerScriptId,
+        userActionLoading,
+    };
+
     return (
+        <AdminDashboardContext.Provider value={dashboardContextValue}>
         <>
         <div className="fixed inset-0 z-[9999] flex flex-col bg-[#060e1a] text-white overflow-hidden">
             {/* ─── Admin Header ─── */}
@@ -4195,6 +3333,7 @@ const AdminDashboard = () => {
             </div>
         )}
         </>
+        </AdminDashboardContext.Provider>
     );
 };
 
