@@ -24,12 +24,12 @@
   transform: scale(0.97);
 }
 
-.ckm-btn--dark {
+.ckm .ckm-btn--dark {
   background: var(--ckm-ink);
   color: #fff;
   box-shadow: 0 8px 18px -6px rgba(28, 26, 23, 0.4);
 }
-.ckm-btn--ghost {
+.ckm .ckm-btn--ghost {
   background: #fff;
   color: var(--ckm-ink);
   border: 1px solid #d7d0c2;

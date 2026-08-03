@@ -14,6 +14,7 @@ import NotificationsPanel from "./overlays/NotificationsPanel";
 import AccountMenu from "./overlays/AccountMenu";
 import { NOTIFICATIONS } from "../data/dashboardData";
 import "./Dashboard.css";
+import { useDashboardData } from "../hooks/useDashboardData";
 
 /*
  * Dashboard — the only fully-built mobile screen. Owns the active section,
@@ -22,7 +23,7 @@ import "./Dashboard.css";
  * opening a project, the other bottom-nav tabs — is funnelled to the Dynamic
  * Island as a "use desktop" hint, so there are no dead ends.
  */
-export default function Dashboard({ time, initials, userName, onLogout }) {
+export default function Dashboard({ time, initials, userName, onLogout, user }) {
   const island = useDynamicIsland();
   const navigate = useNavigate();
 
@@ -33,8 +34,14 @@ export default function Dashboard({ time, initials, userName, onLogout }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
 
+  const { data, loading } = useDashboardData(user);
+
   const unread = notifications.filter((n) => n.unread).length;
   const desktopOnly = (feature) => island.desktopOnly(feature);
+
+  if (loading || !data) {
+    return <div className="ckm-dash"><main className="ckm-dash__scroll"><div style={{padding: 20, textAlign: 'center'}}>Loading...</div></main></div>;
+  }
 
   return (
     <div className="ckm-dash">
@@ -63,10 +70,11 @@ export default function Dashboard({ time, initials, userName, onLogout }) {
               onUpload={() => desktopOnly("Upload")}
               onEditProfile={() => desktopOnly("Edit profile")}
               onFullAnalytics={() => setTab("performance")}
+              data={data.overview}
             />
           )}
-          {tab === "performance" && <PerformanceSection onDetail={() => desktopOnly("Details")} />}
-          {tab === "reviews" && <ReviewsSection onOpenAiDetail={setAiReview} />}
+          {tab === "performance" && <PerformanceSection onDetail={() => desktopOnly("Details")} data={data.performance} />}
+          {tab === "reviews" && <ReviewsSection onOpenAiDetail={setAiReview} aiReviews={data.aiReviews} platformReviews={data.platformReviews} />}
           {tab === "projects" && (
             <ProjectsSection
               onViewAll={() => setShowAllProjects(true)}
@@ -74,6 +82,7 @@ export default function Dashboard({ time, initials, userName, onLogout }) {
               onOpenProject={() => desktopOnly("Project pages")}
               onShare={() => desktopOnly("Sharing")}
               onOpenCollab={() => desktopOnly("Collaborations")}
+              data={data.projects}
             />
           )}
         </div>
@@ -96,6 +105,7 @@ export default function Dashboard({ time, initials, userName, onLogout }) {
         open={showAllProjects}
         onClose={() => setShowAllProjects(false)}
         onOpenProject={() => desktopOnly("Project pages")}
+        allProjects={data.allProjects}
       />
       <NotificationsPanel
         open={showNotifications}

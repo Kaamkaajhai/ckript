@@ -893,12 +893,47 @@
   .ck-sidebar { display: none; }
 
   .ck-header {
-    gap: 16px;
-    padding: 0 16px;
+    gap: 11px;
+    padding: 6px 16px 12px;
+    height: auto;
+    border-bottom: none;
+  }
+  .ck-header__logo,
+  .ck-header__logo img {
+    height: 38px !important;
   }
   .ck-header__search {
     width: auto;
     flex: 1;
+    min-width: 0;
+    height: 38px;
+    padding: 0 12px;
+    background: #faf7f2;
+    border: 1px solid #e4ddd2;
+    border-radius: 11px;
+  }
+  .ck-header__search input {
+    font-size: 12.5px;
+  }
+  .ck-header__spacer,
+  .ck-header__pricing {
+    display: none;
+  }
+  .ck-header__user {
+    padding: 0;
+  }
+  .ck-header__user:hover {
+    background: transparent;
+  }
+  .ck-header__user > .material-symbols-outlined {
+    display: none;
+  }
+  .ck-header__avatar {
+    background: #1c1a17;
+    color: #fff;
+    border: none;
+    font-size: 12px;
+    font-weight: 600;
   }
   .ck-header__username { display: none; }
 

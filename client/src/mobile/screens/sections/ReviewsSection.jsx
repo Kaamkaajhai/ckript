@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Icon from "../../components/Icon";
 import EmptyState from "../../components/EmptyState";
-import { AI_REVIEWS, PLATFORM_REVIEWS, PAGE_SIZE } from "../../data/dashboardData";
+import { PAGE_SIZE } from "../../data/dashboardData";
 import "./ReviewsSection.css";
 
 /*
@@ -11,7 +11,7 @@ import "./ReviewsSection.css";
  * with a "View more" pill. View-state is local, so leaving and returning
  * resets to the first page — the expected mobile behaviour.
  */
-export default function ReviewsSection({ onOpenAiDetail }) {
+export default function ReviewsSection({ onOpenAiDetail, aiReviews, platformReviews }) {
   const [rtab, setRtab] = useState("ai");
   const [aiShown, setAiShown] = useState(PAGE_SIZE);
   const [plShown, setPlShown] = useState(PAGE_SIZE);
@@ -43,9 +43,9 @@ export default function ReviewsSection({ onOpenAiDetail }) {
       </div>
 
       {isAi ? (
-        <AiList shown={aiShown} onMore={() => setAiShown((n) => n + PAGE_SIZE)} onOpenDetail={onOpenAiDetail} />
+        <AiList shown={aiShown} onMore={() => setAiShown((n) => n + PAGE_SIZE)} onOpenDetail={onOpenAiDetail} aiReviews={aiReviews} />
       ) : (
-        <PlatformList shown={plShown} onMore={() => setPlShown((n) => n + PAGE_SIZE)} />
+        <PlatformList shown={plShown} onMore={() => setPlShown((n) => n + PAGE_SIZE)} platformReviews={platformReviews} />
       )}
     </div>
   );
@@ -67,19 +67,19 @@ function ScoreBars({ bars }) {
   );
 }
 
-function AiList({ shown, onMore, onOpenDetail }) {
-  if (!AI_REVIEWS.length) {
+function AiList({ shown, onMore, onOpenDetail, aiReviews }) {
+  if (!aiReviews || !aiReviews.length) {
     return <EmptyState icon="auto_awesome" title="No AI analyses yet" body="Score a script to see insights here." />;
   }
-  const list = AI_REVIEWS.slice(0, shown);
-  const hasMore = shown < AI_REVIEWS.length;
+  const list = aiReviews.slice(0, shown);
+  const hasMore = shown < aiReviews.length;
 
   return (
     <>
       <div className="ckm-rev__count-row">
         <span className="ckm-rev__count-kicker">AI Analyses</span>
         <span className="ckm-rev__count">
-          Showing {list.length} of {AI_REVIEWS.length}
+          Showing {list.length} of {aiReviews.length}
         </span>
       </div>
       <div className="ckm-rev__list">
@@ -121,19 +121,19 @@ function AiList({ shown, onMore, onOpenDetail }) {
   );
 }
 
-function PlatformList({ shown, onMore }) {
-  if (!PLATFORM_REVIEWS.length) {
+function PlatformList({ shown, onMore, platformReviews }) {
+  if (!platformReviews || !platformReviews.length) {
     return <EmptyState icon="reviews" title="No platform reviews yet" body="Publish a script to receive platform insights." />;
   }
-  const list = PLATFORM_REVIEWS.slice(0, shown);
-  const hasMore = shown < PLATFORM_REVIEWS.length;
+  const list = platformReviews.slice(0, shown);
+  const hasMore = shown < platformReviews.length;
 
   return (
     <>
       <div className="ckm-rev__count-row">
         <span className="ckm-rev__count-kicker">Platform Reviews</span>
         <span className="ckm-rev__count">
-          Showing {list.length} of {PLATFORM_REVIEWS.length}
+          Showing {list.length} of {platformReviews.length}
         </span>
       </div>
       <div className="ckm-rev__list">

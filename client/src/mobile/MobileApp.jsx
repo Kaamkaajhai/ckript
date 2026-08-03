@@ -71,7 +71,7 @@ export default function MobileApp() {
           {booting ? (
             <Skeleton time={time} />
           ) : (
-            <Dashboard time={time} initials={initials} userName={userName} onLogout={() => logout()} />
+            <Dashboard time={time} initials={initials} userName={userName} onLogout={() => logout()} user={user} />
           )}
         </DynamicIslandProvider>
       </div>
