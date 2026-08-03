@@ -3,6 +3,7 @@ import Competition from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
 import Script from "../models/Script.js";
 import Invoice from "../models/Invoice.js";
+import { recordPayment } from "../utils/ledger.js";
 import User from "../models/User.js";
 import { createNotification, sendEmailNotification } from "../utils/notify.js";
 import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
@@ -556,6 +557,22 @@ const issueRegistrationInvoice = async ({ user, competition, entry, paymentId, a
 
   const existing = await Invoice.findOne({ paymentReference }).select("_id invoiceNumber pdfPath");
   if (existing) return existing;
+
+  // The ledger entry is idempotent on the payment id, so a retried checkout callback that finds no
+  // invoice yet still cannot produce two revenue rows.
+  await recordPayment({
+    kind: "competition_registration",
+    user: user._id,
+    amountMinor: Math.round(Number(amountMajor) * 100),
+    currency,
+    listPriceMinor: REGISTRATION_FEE[currency]?.minor || 0,
+    providerPaymentId: paymentReference,
+    subjectType: "Competition",
+    subjectId: competition._id,
+    label: competition.name,
+    source: "competitionController.issueRegistrationInvoice",
+    metadata: { eventId: entry?.eventId || "" },
+  });
 
   try {
     return await Invoice.create({

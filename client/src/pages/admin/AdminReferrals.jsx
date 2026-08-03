@@ -161,7 +161,7 @@ export default function AdminReferrals({ isDark: dark = false }) {
                         <td className={`px-3 py-3 font-mono text-xs ${cls.body(dark)}`}>{r.referralCode || "—"}</td>
                         <td className={`px-3 py-3 ${cls.body(dark)}`}>{r.referrals}</td>
                         <td className={`px-3 py-3 font-semibold ${dark ? "text-white" : "text-gray-900"}`}>{r.qualified}</td>
-                        <td className={`px-3 py-3 font-semibold ${dark ? "text-blue-400" : "text-blue-600"}`}>{r.earnedTier || "—"}</td>
+                        <td className={`px-3 py-3 font-semibold ${dark ? "text-[#e79aa6]" : "text-[#a83a4d]"}`}>{r.earnedTier || "—"}</td>
                       </tr>
                     ))}
                   </tbody>

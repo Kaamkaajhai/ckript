@@ -1,0 +1,163 @@
+/* ═══════════════════════ CKRIPT ADMIN — DATA TABLE ═══════════════════════
+   Styles for DataTable.jsx only. Prefix: adtb. Scoped under .ckad, tokens only. */
+
+.ckad .adtb { display: flex; flex-direction: column; }
+
+/* ── Toolbar ────────────────────────────────────────────────────────────────*/
+.ckad .adtb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ad-s3);
+  padding: var(--ad-s3) var(--ad-s5);
+  border-bottom: 1px solid var(--ad-line);
+  flex-wrap: wrap;
+}
+.ckad .adtb-search { width: min(320px, 100%); }
+.ckad .adtb-search .adf-control { height: 32px; }
+.ckad .adtb-bar-end { display: flex; align-items: center; gap: var(--ad-s2); flex-wrap: wrap; }
+
+/* Columns menu — a plain positioned panel, dismissed on outside press. */
+.ckad .adtb-menu { position: relative; }
+.ckad .adtb-menu-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: var(--ad-z-dropdown);
+  min-width: 180px;
+  padding: var(--ad-s2);
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  box-shadow: var(--ad-e2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ckad .adtb-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-s2);
+  padding: 6px var(--ad-s2);
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-2);
+  border-radius: var(--ad-r-sm);
+  cursor: pointer;
+}
+.ckad .adtb-menu-item:hover { background: var(--ad-surface-2); }
+
+/* ── Bulk bar ───────────────────────────────────────────────────────────────
+   Appears between toolbar and table only while something is selected — accent-tinted so the admin
+   can see at a glance that actions now apply to a selection, not the whole list. */
+.ckad .adtb-bulk {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-s2);
+  padding: var(--ad-s2) var(--ad-s5);
+  background: var(--ad-accent-soft);
+  border-bottom: 1px solid var(--ad-accent-line);
+}
+.ckad .adtb-bulk-count {
+  font-size: var(--ad-t-sm);
+  font-weight: var(--ad-fw-semi);
+  color: var(--ad-accent-ink);
+  margin-right: var(--ad-s2);
+}
+
+/* ── Table ──────────────────────────────────────────────────────────────────*/
+.ckad .adtb-scroll { overflow-x: auto; }   /* the table scrolls; the page never does */
+.ckad .adtb-table { width: 100%; border-collapse: collapse; font-size: var(--ad-t-sm); }
+
+.ckad .adtb-th {
+  position: sticky;
+  top: 0;
+  z-index: var(--ad-z-sticky);
+  background: var(--ad-surface-2);
+  text-align: left;
+  padding: var(--ad-s2) var(--ad-s4);
+  font-size: var(--ad-t-micro);
+  font-weight: var(--ad-fw-semi);
+  letter-spacing: var(--ad-track-caps);
+  text-transform: uppercase;
+  color: var(--ad-ink-3);
+  border-bottom: 1px solid var(--ad-line);
+  white-space: nowrap;
+}
+.ckad .adtb-th--right { text-align: right; }
+.ckad .adtb-th--check { width: 36px; padding-right: 0; }
+
+.ckad .adtb-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ckad .adtb-sort:hover { color: var(--ad-ink); }
+.ckad .adtb-sort-ico { font-size: 10px; opacity: 0.7; }
+
+.ckad .adtb-td {
+  padding: var(--ad-s3) var(--ad-s4);
+  border-bottom: 1px solid var(--ad-line);
+  color: var(--ad-ink-2);
+  vertical-align: middle;
+}
+.ckad .adtb-td--right { text-align: right; }
+.ckad .adtb-td--check { width: 36px; padding-right: 0; }
+
+.ckad .adtb-table tbody tr { transition: background var(--ad-fast) var(--ad-ease); }
+.ckad .adtb-table tbody tr:hover { background: var(--ad-surface-2); }
+.ckad .adtb-tr--link { cursor: pointer; }
+.ckad .adtb-tr--selected,
+.ckad .adtb-tr--selected:hover { background: var(--ad-accent-soft); }
+
+/* ── Pager ──────────────────────────────────────────────────────────────────*/
+.ckad .adtb-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ad-s3);
+  padding: var(--ad-s3) var(--ad-s5);
+  border-top: 1px solid var(--ad-line);
+}
+.ckad .adtb-pager-info { font-size: var(--ad-t-xs); color: var(--ad-ink-3); font-variant-numeric: tabular-nums; }
+.ckad .adtb-pager-btns { display: flex; gap: var(--ad-s2); }
+
+/* ── Cell helpers for re-skinned sections ───────────────────────────────────*/
+/* A secondary line under a cell's main value (SIDs, ids) — quiet, never the row's voice. */
+.ckad .adtb-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--ad-t-micro);
+  color: var(--ad-ink-4);
+}
+/* Inline row actions: ghost buttons sit flush so the row height stays one line. */
+.ckad .adtb-rowactions { display: inline-flex; gap: var(--ad-s1); white-space: nowrap; }
+
+/* ── User cell ──────────────────────────────────────────────────────────────*/
+.ckad .adtb-user { display: flex; align-items: flex-start; gap: var(--ad-s3); }
+.ckad .adtb-avatar {
+  width: 30px; height: 30px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.ckad .adtb-avatar--initial {
+  display: grid;
+  place-items: center;
+  background: var(--ad-accent-soft);
+  color: var(--ad-accent-ink);
+  font-size: var(--ad-t-xs);
+  font-weight: var(--ad-fw-semi);
+}
+/* Action clusters that are allowed to wrap (user rows carry up to six). */
+.ckad .adtb-rowactions--wrap { flex-wrap: wrap; white-space: normal; }
+/* The one destructive row action keeps the danger voice without a filled button per row. */
+.ckad .adtb-danger { color: var(--ad-danger); }
+.ckad .adtb-danger:hover:not(:disabled) { background: var(--ad-danger-soft); color: var(--ad-danger); }
