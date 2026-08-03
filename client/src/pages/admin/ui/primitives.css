@@ -351,3 +351,31 @@
   color: var(--ad-ink-3);
 }
 .ckad .adsc-actions { display: flex; align-items: center; gap: var(--ad-s2); }
+
+/* ── Stat card ──────────────────────────────────────────────────────────────
+   The repeating unit of the overview grid. Consumed by components/AdminUI's StatCard, which
+   renders inside the shell's .ckad scope. */
+.ckad .adst {
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  padding: var(--ad-s5);
+  box-shadow: var(--ad-e1);
+  transition: transform var(--ad-base) var(--ad-ease), box-shadow var(--ad-base) var(--ad-ease);
+}
+.ckad .adst:hover { transform: translateY(-2px); box-shadow: var(--ad-e2); }
+.ckad .adst-ico {
+  width: 40px; height: 40px;
+  border-radius: var(--ad-r-lg);
+  display: grid;
+  place-items: center;
+  margin-bottom: var(--ad-s3);
+}
+.ckad .adst-value {
+  margin: 0;
+  font-size: 24px;
+  font-weight: var(--ad-fw-semi);
+  letter-spacing: var(--ad-track-tight);
+  color: var(--ad-ink);
+}
+.ckad .adst-label { margin: var(--ad-s1) 0 0; font-size: var(--ad-t-sm); color: var(--ad-ink-3); }

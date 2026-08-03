@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useAdminDashboard } from "../dashboardContext";
 import { Pagination } from "../dashboardShared";
 
@@ -18,6 +19,10 @@ const PremiumProfessionalsSection = () => {
         totalPages,
         userActionLoading,
     } = useAdminDashboard();
+
+    // Captured once per mount so the render stays pure — the compiler flags Date.now() in render,
+    // and a per-row "now" was never meaningful for a days-left column.
+    const [nowTs] = useState(() => Date.now());
 
                 return (
                     <div>
@@ -43,7 +48,7 @@ const PremiumProfessionalsSection = () => {
                                     <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                         {filteredUsers.map((u) => {
                                             const expiryDate = u.subscription?.accessExpiresAt ? new Date(u.subscription.accessExpiresAt) : null;
-                                            const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - Date.now()) / (1000 * 3600 * 24))) : 0;
+                                            const daysLeft = expiryDate ? Math.max(0, Math.ceil((expiryDate.getTime() - nowTs) / (1000 * 3600 * 24))) : 0;
                                             return (
                                                 <tr key={u._id} className={`transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
                                                     <td className="px-5 py-3.5">
