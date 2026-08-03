@@ -52,6 +52,7 @@ import SpotlightCard from "./components/SpotlightCard";
 import RefineDrawer from "./components/RefineDrawer";
 import DetailSheet from "./components/DetailSheet";
 import TrailerModal from "./components/TrailerModal";
+import FeaturedIcon from "./components/FeaturedIcon";
 import {
   EMPTY_FILTERS,
   SORT_OPTIONS,
@@ -345,7 +346,7 @@ const FeaturedProjectsPage = () => {
    * rather than showing a control that leads nowhere.
    */
   const primaryCta = isWriterAudience(user?.role)
-    ? { label: "Promote a project", icon: "bolt", to: "/create-project" }
+    ? { label: "Promote a project", icon: "promote", to: "/create-project" }
     : (isFilmIndustryProfessionalRole(user)
       ? { label: mandate.isSet ? "Edit mandate" : "Set a mandate", icon: "flag", to: "/mandates" }
       : null);
@@ -367,7 +368,7 @@ const FeaturedProjectsPage = () => {
         {/* ── Mandate hint ─────────────────────────────────────────────── */}
         {showHint && (
           <div className="fbp-hint">
-            <span className="fbp-icon fbp-hint__icon" aria-hidden="true">info</span>
+            <FeaturedIcon name="info" className="fbp-hint__icon" />
             <span className="fbp-hint__text">
               Featured shows projects whose writers bought spotlight placement. Set a mandate
               and matching scripts are grouped for you first.
@@ -409,7 +410,7 @@ const FeaturedProjectsPage = () => {
         {/* ── Toolbar ──────────────────────────────────────────────────── */}
         <div className="fbp-toolbar">
           <label className="fbp-search">
-            <span className="fbp-icon" aria-hidden="true">search</span>
+            <FeaturedIcon name="search" />
             <input
               type="search"
               value={query}
@@ -420,7 +421,7 @@ const FeaturedProjectsPage = () => {
           </label>
 
           <button type="button" className="fbp-refine" onClick={() => setDrawerOpen(true)}>
-            <span className="fbp-icon" aria-hidden="true">tune</span>
+            <FeaturedIcon name="tune" />
             Refine
             {activeCount > 0 && <span className="fbp-refine__count">{activeCount}</span>}
           </button>
@@ -434,7 +435,7 @@ const FeaturedProjectsPage = () => {
               aria-expanded={sortOpen}
             >
               Sort: {getSortLabel(sort)}
-              <span className="fbp-icon" aria-hidden="true">expand_more</span>
+              <FeaturedIcon name="chevronDown" />
             </button>
             {sortOpen && (
               <div className="fbp-sortmenu" role="menu">
@@ -457,7 +458,7 @@ const FeaturedProjectsPage = () => {
 
           {primaryCta && (
             <Link to={primaryCta.to} className="fbp-btn fbp-btn--primary fbp-btn--tool">
-              <span className="fbp-icon" aria-hidden="true">{primaryCta.icon}</span>
+              <FeaturedIcon name={primaryCta.icon} />
               {primaryCta.label}
             </Link>
           )}
@@ -470,7 +471,7 @@ const FeaturedProjectsPage = () => {
             {query.trim() && (
               <button type="button" className="fbp-chip" onClick={() => setQuery("")}>
                 “{query.trim()}”
-                <span className="fbp-icon" aria-hidden="true">close</span>
+                <FeaturedIcon name="close" />
               </button>
             )}
             {chips.map((chip) => (
@@ -483,7 +484,7 @@ const FeaturedProjectsPage = () => {
                   : toggleFacet(chip.kind, chip.value))}
               >
                 {chip.label}
-                <span className="fbp-icon" aria-hidden="true">close</span>
+                <FeaturedIcon name="close" />
               </button>
             ))}
             <button type="button" className="fbp-chips__clear" onClick={clearFilters}>Clear all</button>
@@ -513,7 +514,7 @@ const FeaturedProjectsPage = () => {
         {/* ── Error ────────────────────────────────────────────────────── */}
         {status === "error" && (
           <div className="fbp-error">
-            <span className="fbp-icon fbp-error__icon" aria-hidden="true">error</span>
+            <FeaturedIcon name="error" className="fbp-error__icon" />
             <div className="fbp-error__body">
               <h2 className="fbp-error__title">We couldn’t load featured projects</h2>
               <p className="fbp-error__text">
@@ -531,7 +532,7 @@ const FeaturedProjectsPage = () => {
         {status === "ok" && visible.length === 0 && !hasQueryOrFilters && (
           <div className="fbp-empty">
             <span className="fbp-empty__badge">
-              <span className="fbp-icon" aria-hidden="true">movie_filter</span>
+              <FeaturedIcon name="emptyProjects" />
             </span>
             <h2 className="fbp-empty__title">No spotlights running right now</h2>
             <p className="fbp-empty__text">
@@ -605,7 +606,7 @@ const FeaturedProjectsPage = () => {
               </div>
             ) : (
               <div className="fbp-shelfnote">
-                <span className="fbp-icon" aria-hidden="true">filter_alt_off</span>
+                <FeaturedIcon name="filterOff" />
                 <span className="fbp-shelfnote__text">
                   {hasQueryOrFilters
                     ? "No spotlight projects match these filters."
@@ -626,7 +627,7 @@ const FeaturedProjectsPage = () => {
               note={`The full featured list · ${visible.length} ${visible.length === 1 ? "project" : "projects"}`}
               action={(
                 <button type="button" className="fbp-btn fbp-btn--quiet fbp-btn--sm" onClick={() => setAsTable((t) => !t)}>
-                  <span className="fbp-icon" aria-hidden="true">swap_horiz</span>
+                  <FeaturedIcon name="swap" />
                   {asTable ? "Back to cards" : "Open as table"}
                 </button>
               )}
@@ -659,7 +660,7 @@ const FeaturedProjectsPage = () => {
                       onClick={() => setSheetId(script._id)}
                       aria-label={`Open details for ${script.title}`}
                     >
-                      <span className="fbp-icon" aria-hidden="true">chevron_right</span>
+                      <FeaturedIcon name="chevronRight" />
                     </button>
                   </div>
                 ))}
@@ -750,7 +751,7 @@ const FeaturedProjectsPage = () => {
                   </div>
                 ) : (
                   <div className="fbp-shelfnote">
-                    <span className="fbp-icon" aria-hidden="true">flag</span>
+                    <FeaturedIcon name="flag" />
                     <span className="fbp-shelfnote__text">
                       Nothing in the current results satisfies two or more mandate conditions.
                     </span>
@@ -821,7 +822,7 @@ const FeaturedProjectsPage = () => {
                 onClick={() => setRestrictedFor(null)}
                 aria-label="Close"
               >
-                <span className="fbp-icon" aria-hidden="true">close</span>
+                <FeaturedIcon name="close" />
               </button>
             </div>
             <div className="fbp-restrict__body">
@@ -858,7 +859,7 @@ const FeaturedProjectsPage = () => {
 
       {toast && (
         <div className="fbp-toast" role="status">
-          <span className="fbp-icon fbp-toast__icon" aria-hidden="true">check_circle</span>
+          <FeaturedIcon name="checkCircle" className="fbp-toast__icon" />
           {toast}
         </div>
       )}
