@@ -1,0 +1,323 @@
+/* ═══════════════════════ CKRIPT ADMIN — PRIMITIVES ═══════════════════════
+   The visual layer for every component in ui/. Consumes tokens.css exclusively — a literal colour
+   or pixel value in this file is a bug, because it is a value the theme cannot reach.
+
+   Prefixes: adb button · adf field · adg badge · ado overlay · adt toast · adc card ·
+   ade empty/error · ads skeleton · adsp spinner. All scoped under .ckad. */
+
+/* ── Buttons ────────────────────────────────────────────────────────────────*/
+.ckad .adb {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ad-s2);
+  border: 1px solid transparent;
+  border-radius: var(--ad-r);
+  font-family: var(--ad-font);
+  font-weight: var(--ad-fw-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--ad-fast) var(--ad-ease), border-color var(--ad-fast) var(--ad-ease),
+    color var(--ad-fast) var(--ad-ease), box-shadow var(--ad-fast) var(--ad-ease);
+}
+.ckad .adb:disabled { cursor: default; opacity: 0.55; }
+
+.ckad .adb--sm { height: 30px; padding: 0 var(--ad-s3); font-size: var(--ad-t-xs); }
+.ckad .adb--md { height: 36px; padding: 0 var(--ad-s4); font-size: var(--ad-t-sm); }
+.ckad .adb--lg { height: 42px; padding: 0 var(--ad-s5); font-size: var(--ad-t-body); }
+.ckad .adb--icon.adb--sm { width: 30px; padding: 0; }
+.ckad .adb--icon.adb--md { width: 36px; padding: 0; }
+.ckad .adb--icon.adb--lg { width: 42px; padding: 0; }
+
+.ckad .adb--primary { background: var(--ad-accent); border-color: var(--ad-accent); color: var(--ad-ink-invert); }
+.ckad .adb--primary:hover:not(:disabled) { background: var(--ad-accent-hover); border-color: var(--ad-accent-hover); }
+.ckad .adb--primary:active:not(:disabled) { background: var(--ad-accent-press); }
+
+.ckad .adb--secondary { background: var(--ad-surface); border-color: var(--ad-line-2); color: var(--ad-ink); }
+.ckad .adb--secondary:hover:not(:disabled) { border-color: var(--ad-ink-4); background: var(--ad-surface-2); }
+
+.ckad .adb--ghost { background: transparent; color: var(--ad-ink-2); }
+.ckad .adb--ghost:hover:not(:disabled) { background: var(--ad-surface-2); color: var(--ad-ink); }
+
+.ckad .adb--danger { background: var(--ad-danger); border-color: var(--ad-danger); color: var(--ad-ink-invert); }
+.ckad .adb--danger:hover:not(:disabled) { filter: brightness(0.92); }
+
+.ckad .adb--success { background: var(--ad-success); border-color: var(--ad-success); color: var(--ad-ink-invert); }
+.ckad .adb--success:hover:not(:disabled) { filter: brightness(0.92); }
+
+.ckad .adb-body { display: inline-flex; align-items: center; gap: var(--ad-s2); }
+.ckad .adb-ico { display: inline-flex; line-height: 0; }
+
+/* Loading: the label stays mounted (width cannot change) but goes transparent under the spinner. */
+.ckad .adb.is-loading .adb-body { opacity: 0; }
+.ckad .adb-spin {
+  position: absolute;
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ckad-rotate 0.7s linear infinite;
+}
+@keyframes ckad-rotate { to { transform: rotate(360deg); } }
+
+/* ── Fields ─────────────────────────────────────────────────────────────────*/
+.ckad .adf { display: flex; flex-direction: column; gap: var(--ad-s2); }
+.ckad .adf-label {
+  font-size: var(--ad-t-xs);
+  font-weight: var(--ad-fw-semi);
+  color: var(--ad-ink);
+}
+.ckad .adf-req { color: var(--ad-danger); margin-left: 3px; }
+
+.ckad .adf-control {
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--ad-s3);
+  font: inherit;
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink);
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-line-2);
+  border-radius: var(--ad-r);
+  transition: border-color var(--ad-fast) var(--ad-ease), box-shadow var(--ad-fast) var(--ad-ease);
+}
+.ckad .adf-control::placeholder { color: var(--ad-ink-4); }
+.ckad .adf-control:hover { border-color: var(--ad-ink-4); }
+.ckad .adf-control:focus { border-color: var(--ad-accent); box-shadow: var(--ad-e-focus); outline: none; }
+.ckad .adf-control--area { height: auto; padding: var(--ad-s2) var(--ad-s3); resize: vertical; line-height: var(--ad-lh-body); }
+
+.ckad .adf--invalid .adf-control { border-color: var(--ad-danger); }
+.ckad .adf--invalid .adf-control:focus { box-shadow: 0 0 0 3px var(--ad-danger-soft); }
+
+.ckad .adf-help { margin: 0; font-size: var(--ad-t-xs); color: var(--ad-ink-3); }
+.ckad .adf-error { margin: 0; font-size: var(--ad-t-xs); color: var(--ad-danger); font-weight: var(--ad-fw-medium); }
+
+.ckad .adf-selectwrap { position: relative; display: block; }
+.ckad .adf-control--select { appearance: none; padding-right: var(--ad-s8); cursor: pointer; }
+.ckad .adf-selectcaret {
+  position: absolute;
+  right: var(--ad-s3);
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--ad-ink-3);
+  font-size: 11px;
+}
+
+.ckad .adf-search { position: relative; display: block; }
+.ckad .adf-search-ico {
+  position: absolute;
+  left: var(--ad-s3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ad-ink-3);
+  line-height: 0;
+  pointer-events: none;
+}
+.ckad .adf-control--search { padding-left: var(--ad-s8); }
+
+/* ── Badges ─────────────────────────────────────────────────────────────────*/
+.ckad .adg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 var(--ad-s2);
+  font-size: var(--ad-t-xs);
+  font-weight: var(--ad-fw-medium);
+  border-radius: var(--ad-r-sm);
+  border: 1px solid var(--ad-line);
+  background: var(--ad-surface-2);
+  color: var(--ad-ink-2);
+  white-space: nowrap;
+}
+.ckad .adg--pill { border-radius: var(--ad-r-pill); padding: 0 var(--ad-s3); text-transform: capitalize; }
+.ckad .adg-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+
+.ckad .adg--success { background: var(--ad-success-soft); border-color: var(--ad-success-line); color: var(--ad-success); }
+.ckad .adg--warn { background: var(--ad-warn-soft); border-color: var(--ad-warn-line); color: var(--ad-warn); }
+.ckad .adg--danger { background: var(--ad-danger-soft); border-color: var(--ad-danger-line); color: var(--ad-danger); }
+.ckad .adg--info { background: var(--ad-info-soft); border-color: var(--ad-info-line); color: var(--ad-info); }
+.ckad .adg--accent { background: var(--ad-accent-soft); border-color: var(--ad-accent-line); color: var(--ad-accent-ink); }
+.ckad .adg--gold { background: var(--ad-gold-soft); border-color: var(--ad-gold); color: var(--ad-gold); }
+
+/* ── Overlays ───────────────────────────────────────────────────────────────
+   Portal roots carry .ckad themselves (they mount on body), so tokens resolve here too; the
+   var() fallbacks below are only the last line of defence. */
+.ado {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ad-z-modal, 60);
+  display: flex;
+}
+.ado--dialog { align-items: flex-start; justify-content: center; padding: 9vh 16px 16px; }
+.ado--drawer { justify-content: flex-end; }
+
+/* The panel wrapper carries role="dialog" and programmatic focus; it must sit above the absolute
+   backdrop and pass the layout through to the card or sheet inside it. */
+.ado-panel { position: relative; outline: none; }
+.ado--dialog .ado-panel { width: 100%; display: flex; justify-content: center; }
+.ado--drawer .ado-panel { height: 100%; margin-left: auto; }
+
+.ado-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(28, 22, 21, 0.44);
+  animation: ado-fade 160ms ease-out;
+  cursor: default;
+}
+
+.ado-card {
+  position: relative;
+  width: 100%;
+  background: var(--ad-surface, #fff);
+  border-radius: var(--ad-r-xl, 14px);
+  box-shadow: var(--ad-e3);
+  animation: ado-pop 200ms var(--ad-ease, ease-out);
+  display: flex;
+  flex-direction: column;
+  max-height: 82vh;
+}
+.ado-sheet {
+  position: relative;
+  max-width: 92vw;
+  height: 100%;
+  background: var(--ad-surface, #fff);
+  box-shadow: var(--ad-e3);
+  animation: ado-slide 220ms var(--ad-ease, ease-out);
+  display: flex;
+  flex-direction: column;
+}
+
+.ado-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--ad-line, #e6e1dd);
+  flex: none;
+}
+.ado-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--ad-ink, #1c1615); }
+.ado-body { padding: 20px; overflow-y: auto; color: var(--ad-ink-2, #4a4341); font-size: 14px; }
+.ado-body--scroll { flex: 1; }
+.ado-copy { margin: 0; line-height: 1.55; }
+.ado-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--ad-line, #e6e1dd);
+  flex: none;
+}
+
+@keyframes ado-fade { from { opacity: 0; } }
+@keyframes ado-pop { from { opacity: 0; transform: translateY(8px) scale(0.985); } }
+@keyframes ado-slide { from { transform: translateX(24px); opacity: 0.4; } }
+
+/* ── Toasts ─────────────────────────────────────────────────────────────────*/
+.adt-stack {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+}
+.adt {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--ad-surface, #fff);
+  border: 1px solid var(--ad-line, #e6e1dd);
+  border-radius: 10px;
+  box-shadow: var(--ad-e2);
+  animation: adt-in 200ms var(--ad-ease, ease-out);
+}
+.adt-bar { width: 3px; align-self: stretch; border-radius: 2px; flex: none; }
+.adt--success .adt-bar { background: var(--ad-success, #1f6b4a); }
+.adt--info .adt-bar { background: var(--ad-info, #3f4a57); }
+.adt--error .adt-bar { background: var(--ad-danger, #9a2f22); }
+.adt-body { flex: 1; min-width: 0; }
+.adt-title { margin: 0; font-size: 13.5px; font-weight: 600; color: var(--ad-ink, #1c1615); }
+.adt-desc { margin: 3px 0 0; font-size: 12.5px; color: var(--ad-ink-3, #6f6764); line-height: 1.45; }
+.adt-x {
+  border: 0;
+  background: none;
+  padding: 2px;
+  color: var(--ad-ink-4, #9c9491);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.adt-x:hover { color: var(--ad-ink, #1c1615); }
+@keyframes adt-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* ── Cards ──────────────────────────────────────────────────────────────────*/
+.ckad .adc {
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-r-lg);
+  box-shadow: var(--ad-e1);
+}
+.ckad .adc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ad-s4);
+  padding: var(--ad-s5) var(--ad-s5) 0;
+}
+.ckad .adc-title { margin: 0; font-size: var(--ad-t-subtitle); font-weight: var(--ad-fw-semi); color: var(--ad-ink); }
+.ckad .adc-desc { margin: var(--ad-s1) 0 0; font-size: var(--ad-t-sm); color: var(--ad-ink-3); }
+.ckad .adc-actions { display: flex; gap: var(--ad-s2); flex: none; }
+.ckad .adc-body { padding: var(--ad-s5); }
+.ckad .adc-body--flush { padding: 0; }
+.ckad .adc-head + .adc-body { padding-top: var(--ad-s4); }
+.ckad .adc-head + .adc-body--flush { padding-top: var(--ad-s4); }
+
+/* ── Empty / error ──────────────────────────────────────────────────────────*/
+.ckad .ade {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--ad-s10) var(--ad-s6);
+}
+.ckad .ade-ico { color: var(--ad-ink-4); margin-bottom: var(--ad-s3); }
+.ckad .ade-title { margin: 0; font-size: var(--ad-t-body); font-weight: var(--ad-fw-semi); color: var(--ad-ink); }
+.ckad .ade-body { margin: var(--ad-s2) 0 0; font-size: var(--ad-t-sm); color: var(--ad-ink-3); max-width: 44ch; }
+.ckad .ade-cta { margin-top: var(--ad-s4); }
+.ckad .ade--error .ade-title { color: var(--ad-danger); }
+
+/* ── Skeletons ──────────────────────────────────────────────────────────────*/
+.ckad .ads {
+  display: inline-block;
+  background: linear-gradient(90deg, var(--ad-surface-2) 25%, var(--ad-surface-3) 45%, var(--ad-surface-2) 65%);
+  background-size: 200% 100%;
+  animation: ckad-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes ckad-shimmer { to { background-position: -200% 0; } }
+.ckad .ads-text { display: flex; flex-direction: column; gap: var(--ad-s2); }
+.ckad .ads-table { display: flex; flex-direction: column; }
+.ckad .ads-row {
+  display: flex;
+  gap: var(--ad-s4);
+  padding: var(--ad-s3) var(--ad-s5);
+  border-bottom: 1px solid var(--ad-line);
+}
+.ckad .ads-row:last-child { border-bottom: 0; }
+
+/* ── Spinner ────────────────────────────────────────────────────────────────*/
+.ckad .adsp {
+  display: inline-block;
+  border: 2px solid var(--ad-line-2);
+  border-top-color: var(--ad-accent);
+  border-radius: 50%;
+  animation: ckad-rotate 0.7s linear infinite;
+}
