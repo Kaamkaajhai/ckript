@@ -76,7 +76,7 @@ export const industryNav = ({ user, profilePath, msgCount }) => ({
     { key: "messages",  path: "/messages",  label: "Messages", icon: "messages", badge: msgCount },
   ],
 
-  mobileKeys: ["home", "featured", "messages"],
+  mobileKeys: ["home", "featured", "messages", "profile"],
 
   /*
    * The producer's equivalent of the writer's "My Projects": the scripts they

@@ -39,7 +39,7 @@ export const writerNav = ({ profilePath, msgCount }) => ({
   ],
 
   // Selected by key, never by index — see buildNav.
-  mobileKeys: ["dashboard", "create", "messages"],
+  mobileKeys: ["dashboard", "challenge"],
 
   /*
    * The drawer's contextual list. Writers see the projects they are actively
