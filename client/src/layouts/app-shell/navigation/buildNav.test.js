@@ -43,13 +43,13 @@ describe("buildNav — writer", () => {
   // nav. This is the guard for that.
   it("keeps the mobile bottom nav intact when the rail grows", () => {
     const { mobile } = forWriter();
-    expect(paths(mobile)).toEqual(["/dashboard", "/challenge"]);
+    expect(paths(mobile)).toEqual(["/dashboard", "/create-project", "/messages", "/profile/ada"]);
     expect(mobile.length).toBeLessThanOrEqual(MOBILE_SLOTS);
     expect(mobile.every(Boolean)).toBe(true);
   });
 
-  it("carries the unread badge through to mobile for roles that have it", () => {
-    const messages = navFor("producer").mobile.find((i) => i.path === "/messages");
+  it("carries the unread badge through to mobile, not just the rail", () => {
+    const messages = forWriter().mobile.find((i) => i.path === "/messages");
     expect(messages?.badge).toBe(3);
   });
 
@@ -181,7 +181,12 @@ describe("buildNav — invariants across every role", () => {
     }
   });
 
-
+  it("always ends the mobile bar with Profile", () => {
+    for (const role of KNOWN_ROLES) {
+      const { mobile } = navFor(role);
+      expect(mobile.at(-1).key).toBe("profile");
+    }
+  });
 
   it("never throws on a missing user or profile path", () => {
     expect(() => buildNav({})).not.toThrow();

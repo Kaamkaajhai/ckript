@@ -72,9 +72,12 @@ const buildMobile = (rail, mobileKeys, profilePath) => {
   const picked = mobileKeys
     .map((key) => byKey.get(key))
     .filter(Boolean)
-    .slice(0, MOBILE_SLOTS);
+    .slice(0, MOBILE_SLOTS - 1);
 
-  return picked;
+  return [
+    ...picked,
+    { key: "profile", path: profilePath, label: "Profile", icon: "profile" },
+  ];
 };
 
 /**

@@ -18,7 +18,7 @@ export const writerNav = ({ profilePath, msgCount }) => ({
     { key: "dashboard", path: "/dashboard",      label: "Dashboard",      icon: "dashboard", exact: true },
     { key: "create",    path: "/create-project", label: "Create",         icon: "create", fresh: true },
     { key: "upload",    path: "/upload",         label: "Upload",         icon: "upload" },
-    { key: "challenge", path: "/challenge",      label: "Event",      icon: "challenge" },
+    { key: "challenge", path: "/challenge",      label: "Challenge",      icon: "challenge" },
     { key: "messages",  path: "/messages",       label: "Messages",       icon: "messages", badge: msgCount },
     { key: "profile",   path: profilePath,       label: "Writer Profile", icon: "profile" },
   ],
@@ -32,14 +32,14 @@ export const writerNav = ({ profilePath, msgCount }) => ({
     { key: "create",       path: "/create-project",  label: "Create Project",  icon: "ideas", fresh: true },
     { key: "upload",       path: "/upload",          label: "Upload Project",  icon: "upload" },
     { divider: true },
-    { key: "challenge",    path: "/challenge",       label: "Event",       icon: "challenge" },
+    { key: "challenge",    path: "/challenge",       label: "Challenge",       icon: "challenge" },
     { key: "competitions", path: "/challenge?tab=mine", label: "My Competitions", icon: "competitions" },
     { divider: true },
     { key: "messages",     path: "/messages",        label: "Messages",        icon: "messages", badge: msgCount },
   ],
 
   // Selected by key, never by index — see buildNav.
-  mobileKeys: ["dashboard", "challenge"],
+  mobileKeys: ["dashboard", "create", "messages"],
 
   /*
    * The drawer's contextual list. Writers see the projects they are actively

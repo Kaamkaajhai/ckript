@@ -35,7 +35,7 @@ export const readerNav = ({ profilePath, msgCount }) => ({
     { key: "profile",  path: profilePath,      label: "Profile",  icon: "profile" },
   ],
 
-  mobileKeys: ["home", "search", "messages", "profile"],
+  mobileKeys: ["home", "search", "messages"],
 
   // Readers do not own a project list; the drawer simply omits the section.
   collection: null,

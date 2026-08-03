@@ -37,7 +37,7 @@ export const adminNav = ({ profilePath, msgCount }) => ({
     { key: "profile",    path: profilePath,   label: "Profile",  icon: "profile" },
   ],
 
-  mobileKeys: ["admin", "search", "messages", "profile"],
+  mobileKeys: ["admin", "search", "messages"],
 
   collection: null,
 });
