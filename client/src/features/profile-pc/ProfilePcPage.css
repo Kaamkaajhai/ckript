@@ -2990,6 +2990,235 @@
 .profile-pc-page .profile-workspace-card,
 .profile-pc-page .profile-workspace-projects { border-color: var(--profile-line); box-shadow: none; }
 
+/* Editorial content system -------------------------------------------------
+   Panels sit directly on the workspace canvas. Structure comes from rules,
+   type hierarchy, and spacing rather than rounded containers inside a shell. */
+.profile-pc-page .profile-workspace-overview {
+  gap: 0;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.profile-pc-page .profile-workspace-overview__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, .8fr);
+  gap: 40px;
+  align-items: end;
+  padding: 4px 0 24px;
+}
+
+.profile-pc-page .profile-workspace-overview__eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--profile-accent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.profile-pc-page .profile-workspace-overview__header h2 {
+  max-width: 620px;
+  margin: 0;
+  color: #1c1a17;
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-size: clamp(25px, 2.6vw, 38px);
+  font-weight: 500;
+  letter-spacing: -.025em;
+  line-height: 1.02;
+}
+
+.profile-pc-page .profile-workspace-overview__header p {
+  max-width: 420px;
+  margin: 0;
+  color: #777168;
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+.profile-pc-page .profile-workspace-overview__grid {
+  gap: 0;
+  border-bottom: 1px solid var(--profile-line);
+}
+
+.profile-pc-page .profile-workspace-overview .profile-workspace-card {
+  position: relative;
+  padding: 22px 28px 26px 42px;
+  border: 0;
+  border-top: 1px solid var(--profile-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.profile-pc-page .profile-workspace-overview__grid > .profile-workspace-card:nth-child(even):not(.profile-workspace-card--wide) {
+  border-left: 1px solid var(--profile-line);
+}
+
+.profile-pc-page .profile-workspace-overview__grid > .profile-workspace-card--wide {
+  border-top: 1px solid var(--profile-line);
+}
+
+.profile-pc-page .profile-workspace-overview > .profile-workspace-card:first-of-type {
+  min-height: 132px;
+  border-bottom: 1px solid var(--profile-line);
+  border-top: 3px solid #1c1a17;
+}
+
+.profile-pc-page .profile-workspace-card__index {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  color: var(--profile-accent);
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.profile-pc-page .profile-workspace-overview .profile-workspace-card h2 {
+  color: #1c1a17;
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+
+.profile-pc-page .profile-workspace-about-copy,
+.profile-pc-page .profile-workspace-card__lede {
+  max-width: 820px;
+  margin: 10px 0 0;
+  color: #5f5a52;
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.profile-pc-page .profile-workspace-card__lede {
+  min-height: 43px;
+  font-style: italic;
+}
+
+.profile-pc-page .profile-workspace-facts {
+  gap: 0;
+  margin-top: 15px;
+}
+
+.profile-pc-page .profile-workspace-facts > div {
+  min-height: 31px;
+  padding: 7px 0;
+  border-top: 1px solid var(--profile-line-soft);
+}
+
+.profile-pc-page .profile-workspace-facts dt {
+  color: #8f887c;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.profile-pc-page .profile-workspace-facts dd {
+  color: #2c2925;
+  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.profile-pc-page .profile-workspace-facts--compact {
+  margin-top: 14px;
+}
+
+.profile-pc-page .profile-workspace-mandates {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 17px;
+  border-top: 1px solid var(--profile-line-soft);
+}
+
+.profile-pc-page .profile-workspace-mandates > div {
+  min-width: 0;
+  padding: 15px 18px 2px 0;
+}
+
+.profile-pc-page .profile-workspace-mandates > div + div {
+  padding-left: 18px;
+  border-left: 1px solid var(--profile-line-soft);
+}
+
+.profile-pc-page .profile-workspace-mandates h3 {
+  margin: 0;
+  color: #8f887c;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.profile-pc-page .profile-workspace-mandates .profile-workspace-chips {
+  margin-top: 9px;
+}
+
+.profile-pc-page .profile-workspace-mandates .is-muted .profile-workspace-chips span {
+  background: #f4f4f4;
+  color: #8b8b8b;
+  text-decoration: line-through;
+  text-decoration-color: #c7c7c7;
+}
+
+.profile-pc-page .profile-workspace-overview > .profile-workspace-projects {
+  margin-top: 28px;
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
+/* Saved and Meetings use the same open-canvas treatment as Settings. */
+.profile-pc-page .profile-workspace-bookmarks,
+.profile-pc-page .profile-workspace-meetings {
+  max-width: 1180px;
+  margin: 0 auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.profile-pc-page .profile-workspace-bookmarks__header,
+.profile-pc-page .profile-workspace-meetings__header {
+  padding: 4px 0 20px;
+  border-bottom: 3px solid #1c1a17;
+  background: transparent;
+}
+
+.profile-pc-page .profile-workspace-bookmarks__mark,
+.profile-pc-page .profile-workspace-meetings__mark {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--profile-accent);
+}
+
+.profile-pc-page .profile-workspace-bookmarks__heading h2,
+.profile-pc-page .profile-workspace-meetings__heading h2 {
+  font-size: 27px;
+  font-weight: 500;
+  letter-spacing: -.02em;
+}
+
+.profile-pc-page .profile-workspace-bookmark-row,
+.profile-pc-page .profile-workspace-meeting-row {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.profile-pc-page .profile-workspace-bookmark-row:hover,
+.profile-pc-page .profile-workspace-meeting-row:hover {
+  background: #fdfbf8;
+}
+
 .profile-workspace-sr-only {
   position: absolute;
   width: 1px;
@@ -3073,3 +3302,101 @@
 }
 .profile-pc-page[data-theme="dark"] .profile-workspace-tab:hover { background: #1d1d1d; }
 .profile-pc-page[data-theme="dark"] .profile-workspace-tab[aria-selected="true"] { background: rgba(209,77,55,.13); }
+
+@media (max-width: 1100px) {
+  .profile-pc-page .profile-workspace-mandates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-pc-page .profile-workspace-mandates > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--profile-line-soft);
+  }
+
+  .profile-pc-page .profile-workspace-mandates > div:nth-child(4) {
+    border-top: 1px solid var(--profile-line-soft);
+  }
+}
+
+@media (max-width: 767px) {
+  .profile-pc-page .profile-workspace-overview__header {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-bottom: 20px;
+  }
+
+  .profile-pc-page .profile-workspace-overview__header h2 {
+    font-size: 27px;
+  }
+
+  .profile-pc-page .profile-workspace-overview__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-pc-page .profile-workspace-overview__grid > .profile-workspace-card:nth-child(even):not(.profile-workspace-card--wide) {
+    border-left: 0;
+  }
+
+  .profile-pc-page .profile-workspace-overview .profile-workspace-card {
+    padding: 20px 4px 23px 32px;
+  }
+
+  .profile-pc-page .profile-workspace-card__index {
+    top: 22px;
+  }
+
+  .profile-pc-page .profile-workspace-mandates {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-pc-page .profile-workspace-mandates > div,
+  .profile-pc-page .profile-workspace-mandates > div + div {
+    padding: 13px 0;
+    border-left: 0;
+    border-top: 1px solid var(--profile-line-soft);
+  }
+
+  .profile-pc-page .profile-workspace-mandates > div:first-child {
+    border-top: 0;
+  }
+
+  .profile-pc-page .profile-workspace-bookmarks__header,
+  .profile-pc-page .profile-workspace-meetings__header {
+    align-items: flex-start;
+  }
+
+  .profile-pc-page .profile-workspace-bookmarks__heading h2,
+  .profile-pc-page .profile-workspace-meetings__heading h2 {
+    font-size: 23px;
+  }
+}
+
+.profile-pc-page[data-theme="dark"] .profile-workspace-overview__header h2,
+.profile-pc-page[data-theme="dark"] .profile-workspace-overview .profile-workspace-card h2,
+.profile-pc-page[data-theme="dark"] .profile-workspace-facts dd,
+.profile-pc-page[data-theme="dark"] .profile-workspace-bookmarks__heading h2,
+.profile-pc-page[data-theme="dark"] .profile-workspace-meetings__heading h2 {
+  color: #f2f2f2;
+}
+
+.profile-pc-page[data-theme="dark"] .profile-workspace-overview .profile-workspace-card,
+.profile-pc-page[data-theme="dark"] .profile-workspace-overview > .profile-workspace-projects,
+.profile-pc-page[data-theme="dark"] .profile-workspace-bookmarks,
+.profile-pc-page[data-theme="dark"] .profile-workspace-meetings,
+.profile-pc-page[data-theme="dark"] .profile-workspace-bookmarks__header,
+.profile-pc-page[data-theme="dark"] .profile-workspace-meetings__header {
+  background: transparent;
+}
+
+.profile-pc-page[data-theme="dark"] .profile-workspace-overview > .profile-workspace-card:first-of-type,
+.profile-pc-page[data-theme="dark"] .profile-workspace-bookmarks__header,
+.profile-pc-page[data-theme="dark"] .profile-workspace-meetings__header {
+  border-color: #f2f2f2;
+}
+
+.profile-pc-page[data-theme="dark"] .profile-workspace-about-copy,
+.profile-pc-page[data-theme="dark"] .profile-workspace-card__lede,
+.profile-pc-page[data-theme="dark"] .profile-workspace-overview__header p {
+  color: #aaa49a;
+}
