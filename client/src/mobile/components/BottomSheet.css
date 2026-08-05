@@ -1,4 +1,4 @@
-.ckm-sheet__layer {
+.ckm .ckm-sheet__layer {
   position: absolute;
   inset: 0;
   z-index: 70;
@@ -7,13 +7,13 @@
   justify-content: flex-end;
 }
 
-.ckm-sheet__scrim {
+.ckm .ckm-sheet__scrim {
   position: absolute;
   inset: 0;
   background: rgba(20, 18, 15, 0.42);
 }
 
-.ckm-sheet {
+.ckm .ckm-sheet {
   position: relative;
   background: var(--ckm-bg);
   border-radius: var(--ckm-r-sheet) var(--ckm-r-sheet) 0 0;
@@ -25,7 +25,7 @@
   will-change: transform;
 }
 
-.ckm-sheet__grip {
+.ckm .ckm-sheet__grip {
   width: 40px;
   height: 5px;
   border-radius: 3px;
@@ -35,7 +35,7 @@
   cursor: grab;
 }
 
-.ckm-sheet__body {
+.ckm .ckm-sheet__body {
   flex: 1;
   min-height: 0;
   padding: 0 18px calc(26px + var(--ckm-safe-bottom));

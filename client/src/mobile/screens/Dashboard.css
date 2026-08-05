@@ -1,4 +1,4 @@
-.ckm-dash {
+.ckm .ckm-dashboard {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -7,12 +7,12 @@
   overflow: hidden;
 }
 
-.ckm-dash__scroll {
+.ckm .ckm-dashboard__scroll {
   flex: 1;
   min-height: 0;
   background: var(--ckm-bg);
 }
 
-.ckm-dash__page {
+.ckm .ckm-dashboard__page {
   padding: 16px 18px 22px;
 }

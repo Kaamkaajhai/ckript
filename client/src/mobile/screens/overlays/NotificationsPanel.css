@@ -1,14 +1,14 @@
-.ckm-noti__layer {
+.ckm .ckm-noti__layer {
   position: absolute;
   inset: 0;
   z-index: 60;
 }
-.ckm-noti__scrim {
+.ckm .ckm-noti__scrim {
   position: absolute;
   inset: 0;
   background: rgba(20, 18, 15, 0.16);
 }
-.ckm-noti {
+.ckm .ckm-noti {
   position: absolute;
   top: calc(96px + var(--ckm-safe-top));
   right: 14px;
@@ -20,49 +20,49 @@
   box-shadow: var(--ckm-shadow-pop);
   transform-origin: top right;
 }
-.ckm-noti__head {
+.ckm .ckm-noti__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 14px;
   border-bottom: 1px solid #f0ebe0;
 }
-.ckm-noti__title {
+.ckm .ckm-noti__title {
   font: 700 13px/1 var(--ckm-body);
 }
-.ckm-noti__count {
+.ckm .ckm-noti__count {
   color: var(--ckm-muted-2);
   font-weight: 500;
 }
-.ckm-noti__markall {
+.ckm .ckm-noti__markall {
   border: none;
   background: transparent;
   font: 600 11px/1 var(--ckm-body);
   color: var(--ckm-muted-2);
   cursor: pointer;
 }
-.ckm-noti__markall:disabled {
+.ckm .ckm-noti__markall:disabled {
   opacity: 0.5;
   cursor: default;
 }
-.ckm-noti__list {
+.ckm .ckm-noti__list {
   max-height: 320px;
   overflow-y: auto;
 }
-.ckm-noti__item {
+.ckm .ckm-noti__item {
   display: flex;
   gap: 11px;
   align-items: flex-start;
   padding: 12px 14px;
   border-top: 1px solid var(--ckm-track);
 }
-.ckm-noti__item:first-child {
+.ckm .ckm-noti__item:first-child {
   border-top: none;
 }
-.ckm-noti__item.is-unread {
+.ckm .ckm-noti__item.is-unread {
   background: var(--ckm-accent-soft);
 }
-.ckm-noti__icon {
+.ckm .ckm-noti__icon {
   width: 32px;
   height: 32px;
   flex: none;
@@ -73,23 +73,23 @@
   align-items: center;
   justify-content: center;
 }
-.ckm-noti__icon.is-unread {
+.ckm .ckm-noti__icon.is-unread {
   background: #fbeeeb;
   color: var(--ckm-accent);
 }
-.ckm-noti__body {
+.ckm .ckm-noti__body {
   flex: 1;
   min-width: 0;
 }
-.ckm-noti__text {
+.ckm .ckm-noti__text {
   font: 400 12px/1.4 var(--ckm-body);
 }
-.ckm-noti__time {
+.ckm .ckm-noti__time {
   font: 400 10.5px/1 var(--ckm-body);
   color: var(--ckm-muted-2);
   margin-top: 4px;
 }
-.ckm-noti__unread-dot {
+.ckm .ckm-noti__unread-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;

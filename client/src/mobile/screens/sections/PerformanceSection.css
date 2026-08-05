@@ -1,35 +1,35 @@
-.ckm-perf {
+.ckm .ckm-perf {
   animation: ckm-fade-up 0.28s var(--ckm-ease);
 }
 
-.ckm-perf__head {
+.ckm .ckm-perf__head {
   display: flex;
   align-items: center;
   gap: 9px;
 }
-.ckm-perf__title {
+.ckm .ckm-perf__title {
   font: 600 27px/1.05 var(--ckm-display);
   letter-spacing: -0.01em;
 }
-.ckm-perf__dot {
+.ckm .ckm-perf__dot {
   width: 8px;
   height: 8px;
   background: var(--ckm-accent);
   border-radius: 2px;
   margin-top: 6px;
 }
-.ckm-perf__sub {
+.ckm .ckm-perf__sub {
   font: 400 12.5px/1.4 var(--ckm-body);
   color: var(--ckm-muted);
   margin-top: 8px;
 }
 
-.ckm-perf__stats {
+.ckm .ckm-perf__stats {
   display: flex;
   gap: 9px;
   margin-top: 18px;
 }
-.ckm-perf__stat {
+.ckm .ckm-perf__stat {
   flex: 1;
   min-width: 0;
   border: 1px solid var(--ckm-line);
@@ -37,17 +37,17 @@
   background: #fff;
   padding: 13px 12px;
 }
-.ckm-perf__stat-label {
+.ckm .ckm-perf__stat-label {
   font: 700 8.5px/1.2 var(--ckm-body);
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: var(--ckm-muted-2);
 }
-.ckm-perf__stat-value {
+.ckm .ckm-perf__stat-value {
   font: 500 27px/1 var(--ckm-display);
   margin-top: 10px;
 }
-.ckm-perf__stat-sub {
+.ckm .ckm-perf__stat-sub {
   font: 400 10px/1.2 var(--ckm-body);
   color: var(--ckm-muted);
   margin-top: 6px;
@@ -56,28 +56,28 @@
   white-space: nowrap;
 }
 
-.ckm-perf__kicker {
+.ckm .ckm-perf__kicker {
   font: 700 9px/1 var(--ckm-body);
   letter-spacing: 1.1px;
   text-transform: uppercase;
   color: var(--ckm-muted-2);
   margin: 24px 4px 9px;
 }
-.ckm-perf__kicker + .ckm-perf__details,
-.ckm-perf__kicker + .ckm-perf__chart {
+.ckm .ckm-perf__kicker + .ckm-perf__details,
+.ckm .ckm-perf__kicker + .ckm-perf__chart {
   margin-top: 0;
 }
 
-.ckm-perf__chart {
+.ckm .ckm-perf__chart {
   border: 1px solid var(--ckm-line);
   border-radius: var(--ckm-r-xl);
   background: #fff;
   padding: 16px 15px 14px;
 }
-.ckm-perf__chart-row {
+.ckm .ckm-perf__chart-row {
   display: flex;
 }
-.ckm-perf__yaxis {
+.ckm .ckm-perf__yaxis {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -87,21 +87,21 @@
   font: 400 10.5px/1 var(--ckm-body);
   color: var(--ckm-muted-3);
 }
-.ckm-perf__plot-wrap {
+.ckm .ckm-perf__plot-wrap {
   flex: 1;
   min-width: 0;
 }
-.ckm-perf__plot {
+.ckm .ckm-perf__plot {
   position: relative;
   height: 220px;
 }
-.ckm-perf__grid {
+.ckm .ckm-perf__grid {
   position: absolute;
   left: 0;
   right: 0;
   border-top: 1px dashed #e6e0d3;
 }
-.ckm-perf__axis {
+.ckm .ckm-perf__axis {
   position: absolute;
   left: 0;
   right: 0;
@@ -109,46 +109,46 @@
   height: 1px;
   background: #cfc7b6;
 }
-.ckm-perf__bars {
+.ckm .ckm-perf__bars {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: flex-end;
 }
-.ckm-perf__bar-slot {
+.ckm .ckm-perf__bar-slot {
   flex: 1;
   display: flex;
   justify-content: center;
   align-items: flex-end;
   height: 100%;
 }
-.ckm-perf__bar {
+.ckm .ckm-perf__bar {
   width: 24px;
   background: var(--ckm-ink);
   transform-origin: bottom;
   animation: ckm-grow 0.55s ease-out both;
 }
-.ckm-perf__bar.is-accent {
+.ckm .ckm-perf__bar.is-accent {
   background: var(--ckm-accent);
 }
-.ckm-perf__xlabels {
+.ckm .ckm-perf__xlabels {
   display: flex;
   margin-top: 12px;
 }
-.ckm-perf__xlabels span {
+.ckm .ckm-perf__xlabels span {
   flex: 1;
   text-align: center;
   font: italic 400 11.5px/1.2 var(--ckm-display);
   color: var(--ckm-text-3);
 }
 
-.ckm-perf__details {
+.ckm .ckm-perf__details {
   border: 1px solid var(--ckm-line);
   border-radius: var(--ckm-r-lg);
   background: #fff;
   overflow: hidden;
 }
-.ckm-perf__detail {
+.ckm .ckm-perf__detail {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -159,10 +159,10 @@
   cursor: pointer;
   text-align: left;
 }
-.ckm-perf__detail.has-divider {
+.ckm .ckm-perf__detail.has-divider {
   border-top: 1px solid var(--ckm-line-3);
 }
-.ckm-perf__detail-icon {
+.ckm .ckm-perf__detail-icon {
   width: 30px;
   height: 30px;
   flex: none;
@@ -173,10 +173,10 @@
   justify-content: center;
   color: var(--ckm-accent);
 }
-.ckm-perf__detail-label {
+.ckm .ckm-perf__detail-label {
   flex: 1;
   font: 500 13.5px/1.2 var(--ckm-body);
 }
-.ckm-perf__detail-value {
+.ckm .ckm-perf__detail-value {
   font: 500 17px/1 var(--ckm-display);
 }

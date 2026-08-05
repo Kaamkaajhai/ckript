@@ -1,0 +1,148 @@
+/*
+ * Ckript Mobile — action button (prefix: ckm-button)
+ * ------------------------------------------------------------------
+ * Every rule is scoped under `.ckm` (plan §7.1). Sizes come from the control
+ * tokens, so "how tall is a button" is answered in tokens.css, not here.
+ *
+ * Note this is deliberately NOT `.ckm-btn` (theme/primitives.css). That older
+ * 40px control is the dashboard's established look and stays untouched until
+ * Phase 2 hardens that screen; `ckm-button` is the touch-safe system every new
+ * screen builds on.
+ */
+
+.ckm .ckm-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ckm-space-2);
+  min-height: var(--ckm-control-h-md);
+  /* Both axes, not just height: a one-character label ("1", "OK", a CJK verb)
+     measured 43.9px wide before this and missed the product target by a hair.
+     WCAG 2.2 SC 2.5.8 would have passed it at 24px; Ckript's own floor is 44. */
+  min-width: var(--ckm-touch-target);
+  padding: 0 var(--ckm-control-pad-md);
+  border: 1px solid transparent;
+  border-radius: var(--ckm-r-md);
+  background: transparent;
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-support);
+  font-weight: var(--ckm-weight-semibold);
+  line-height: var(--ckm-leading-support);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition:
+    transform var(--ckm-duration-press) var(--ckm-ease),
+    background-color var(--ckm-duration-feedback) var(--ckm-ease),
+    border-color var(--ckm-duration-feedback) var(--ckm-ease),
+    opacity var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+/* Immediate press feedback — mobile has no hover to fall back on. */
+.ckm .ckm-button:active:not(.is-pending):not(.is-disabled) {
+  transform: scale(var(--ckm-press-scale));
+}
+
+.ckm .ckm-button:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-button.is-disabled,
+.ckm .ckm-button:disabled {
+  opacity: var(--ckm-disabled-opacity);
+  cursor: default;
+}
+
+.ckm .ckm-button.is-pending {
+  cursor: progress;
+}
+
+/* --- Sizes -------------------------------------------------------------- */
+
+.ckm .ckm-button--lg {
+  min-height: var(--ckm-control-h-lg);
+  padding: 0 var(--ckm-control-pad-lg);
+  font-size: var(--ckm-text-body);
+  line-height: var(--ckm-leading-body);
+}
+
+.ckm .ckm-button--block {
+  display: flex;
+  width: 100%;
+}
+
+/* --- Variants ----------------------------------------------------------- */
+
+.ckm .ckm-button--primary {
+  background: var(--ckm-ink);
+  color: var(--ckm-on-dark);
+}
+.ckm .ckm-button--primary:active:not(.is-pending):not(.is-disabled) {
+  background: #000;
+}
+
+.ckm .ckm-button--secondary {
+  background: var(--ckm-bg);
+  color: var(--ckm-text);
+  /* Not a hairline: this border is the only thing identifying the control's
+     boundary, so it owes WCAG 2.2 SC 1.4.11 its 3:1 (see tokens.css). */
+  border-color: var(--ckm-control-border);
+}
+.ckm .ckm-button--secondary:active:not(.is-pending):not(.is-disabled) {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-button--tertiary {
+  background: transparent;
+  color: var(--ckm-text);
+  padding: 0 var(--ckm-space-3);
+}
+.ckm .ckm-button--tertiary:active:not(.is-pending):not(.is-disabled) {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-button--destructive {
+  background: var(--ckm-red);
+  color: var(--ckm-on-dark);
+}
+.ckm .ckm-button--destructive:active:not(.is-pending):not(.is-disabled) {
+  background: #a83a30;
+}
+
+/* --- Content ------------------------------------------------------------ */
+
+.ckm .ckm-button__label {
+  min-width: 0;
+  /* Long or translated labels wrap inside the control instead of overflowing
+     the screen; the control grows, the layout does not break (§16.2). */
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-button__icon {
+  flex: none;
+}
+
+/* Pending indicator. It occupies the leading-icon slot, so a control that
+   already has an icon does not change width when work starts. Under reduced
+   motion base.css freezes the spin — which is why `pendingLabel` carries the
+   meaning in words and aria-busy carries it to assistive technology. */
+.ckm .ckm-button__spinner {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.85;
+  animation: ckm-button-spin 700ms linear infinite;
+}
+
+@keyframes ckm-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

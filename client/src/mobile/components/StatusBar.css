@@ -1,4 +1,4 @@
-.ckm-statusbar {
+.ckm .ckm-statusbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7,14 +7,14 @@
   flex: none;
 }
 
-.ckm-statusbar__time {
+.ckm .ckm-statusbar__time {
   font: 600 15px/1 var(--ckm-body);
   letter-spacing: 0.3px;
   color: var(--ckm-ink);
   font-variant-numeric: tabular-nums;
 }
 
-.ckm-statusbar__icons {
+.ckm .ckm-statusbar__icons {
   display: flex;
   align-items: center;
   gap: 7px;

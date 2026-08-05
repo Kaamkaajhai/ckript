@@ -1,0 +1,65 @@
+/*
+ * Ckript Mobile — primitive gallery (prefix: ckm-gallery)
+ * ------------------------------------------------------------------
+ * Development-only harness. Scoped under `.ckm` like everything else so the
+ * contract test covers it; it must contain no styling a primitive needs to
+ * look right — anything essential belongs in the primitive's own stylesheet.
+ */
+
+.ckm .ckm-gallery__page {
+  padding: var(--ckm-space-5) var(--ckm-space-4-5) var(--ckm-space-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-7);
+}
+
+.ckm .ckm-gallery__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-gallery__row-title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-card);
+  line-height: var(--ckm-leading-card);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+}
+
+.ckm .ckm-gallery__note {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+/* Wrapping, not scrolling: a specimen row that needed horizontal scroll would
+   hide exactly the overflow this harness exists to catch. */
+.ckm .ckm-gallery__specimens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-gallery__stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+/* Deliberate separation between the everyday actions and the irreversible one. */
+.ckm .ckm-gallery__danger-zone {
+  margin-top: var(--ckm-space-7);
+  padding-top: var(--ckm-space-4);
+  border-top: 1px solid var(--ckm-line);
+}
+
+/* Shows a header specimen in situ without letting it read as the real app bar. */
+.ckm .ckm-gallery__frame {
+  width: 100%;
+  border: 1px dashed var(--ckm-line-strong);
+  border-radius: var(--ckm-r-md);
+  overflow: hidden;
+}

@@ -1,4 +1,4 @@
-.ckm-tabs {
+.ckm .ckm-tabs {
   background: var(--ckm-bg);
   border-bottom: 1px solid var(--ckm-line-2);
   padding: 8px 16px 12px;
@@ -8,7 +8,7 @@
   flex: none;
 }
 
-.ckm-tabs__track {
+.ckm .ckm-tabs__track {
   display: flex;
   border: 1px solid var(--ckm-line-strong);
   border-radius: 12px;
@@ -16,7 +16,7 @@
   background: var(--ckm-bg-fill);
 }
 
-.ckm-tabs__btn {
+.ckm .ckm-tabs__btn {
   flex: 1;
   border: none;
   cursor: pointer;
@@ -29,11 +29,11 @@
   color: var(--ckm-muted);
 }
 
-.ckm-tabs__btn + .ckm-tabs__btn {
+.ckm .ckm-tabs__btn + .ckm-tabs__btn {
   border-left: 1px solid #ece5d7;
 }
 
-.ckm-tabs__btn.is-active {
+.ckm .ckm-tabs__btn.is-active {
   background: var(--ckm-ink);
   color: #fff;
 }
