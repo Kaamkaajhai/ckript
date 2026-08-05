@@ -4,7 +4,7 @@ import { EditorView, keymap, placeholder as cmPlaceholder } from "@codemirror/vi
 import { history, defaultKeymap, historyKeymap } from "@codemirror/commands";
 import { closeBrackets, completionKeymap } from "@codemirror/autocomplete";
 import { textToBlocks } from "./classify";
-import { createScreenplayExtensions, applyElementType, applyEmphasis } from "./screenplayMode";
+import { createScreenplayExtensions, applyElementType, applyEmphasis, activeEmphasis, applyCase, applyCentered, isCenteredLine } from "./screenplayMode";
 import { createLockExtensions, setLockState, remoteSync } from "./lockLayer";
 import { createCommentExtensions, setCommentState } from "./commentLayer";
 import { createLineCommentExtensions, setLineCommentHandler } from "./lineCommentLayer";
@@ -35,6 +35,7 @@ export default function ScreenplayEditor({
   value = "",
   onChange,
   onElementChange,
+  onEmphasisStateChange,
   onCaretLine,
   locks = {},
   myUserId = null,
@@ -46,15 +47,19 @@ export default function ScreenplayEditor({
   dark = false,
   placeholder = "INT. LOCATION - DAY",
   readOnly = false,
+  zoom = 1,
   className = "",
 }) {
   const hostRef = useRef(null);
   const viewRef = useRef(null);
   const readOnlyComp = useRef(new Compartment());
+  const themeComp = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onElementChangeRef = useRef(onElementChange);
   onElementChangeRef.current = onElementChange;
+  const onEmphasisStateChangeRef = useRef(onEmphasisStateChange);
+  onEmphasisStateChangeRef.current = onEmphasisStateChange;
   const onCaretLineRef = useRef(onCaretLine);
   onCaretLineRef.current = onCaretLine;
   const onRequestEditRef = useRef(onRequestEdit);
@@ -82,14 +87,14 @@ export default function ScreenplayEditor({
         keymap.of([...completionKeymap, ...defaultKeymap, ...historyKeymap]),
         cmPlaceholder(placeholder),
         readOnlyComp.current.of([EditorView.editable.of(!readOnly), EditorState.readOnly.of(readOnly)]),
-        ...createScreenplayExtensions({
+        themeComp.current.of(createScreenplayExtensions({
           getEntities,
           dark,
           onElementChange: (type) => onElementChangeRef.current?.(type),
-        }),
+        })),
         ...createLockExtensions(),
-        ...createCommentExtensions(),
-        ...createLineCommentExtensions(),
+        ...(onAddComment ? createCommentExtensions() : []),
+        ...(onAddComment ? createLineCommentExtensions() : []),
         EditorView.updateListener.of((u) => {
           if (u.docChanged && onChangeRef.current) {
             onChangeRef.current(u.state.doc.toString());
@@ -98,6 +103,16 @@ export default function ScreenplayEditor({
           if ((u.selectionSet || u.docChanged) && onCaretLineRef.current) {
             const line = u.state.doc.lineAt(u.state.selection.main.head).number;
             onCaretLineRef.current(line);
+          }
+          // Report the active formatting state (emphasis + centered + selection presence) so the
+          // Format bar can light up its B/I/U/Center buttons and disable selection-only ones.
+          if ((u.selectionSet || u.docChanged) && onEmphasisStateChangeRef.current) {
+            const { from, to } = u.state.selection.main;
+            onEmphasisStateChangeRef.current({
+              active: activeEmphasis(viewRef.current),
+              hasSelection: from !== to,
+              centered: isCenteredLine(viewRef.current),
+            });
           }
         }),
       ],
@@ -124,17 +139,43 @@ export default function ScreenplayEditor({
       onCaretLineRef.current(v.state.doc.lineAt(v.state.selection.main.head).number);
     }
 
+    // Push fresh formatting state to the toolbar right after a command (the updateListener also
+    // fires, but reporting here keeps the button highlights snappy).
+    const reportFormatState = () => {
+      if (!onEmphasisStateChangeRef.current || !viewRef.current) return;
+      const { from, to } = viewRef.current.state.selection.main;
+      onEmphasisStateChangeRef.current({
+        active: activeEmphasis(viewRef.current),
+        hasSelection: from !== to,
+        centered: isCenteredLine(viewRef.current),
+      });
+    };
+
     // Imperative handle for the toolbar element-type dropdown.
     if (apiRef) {
       apiRef.current = {
         setElementType: (type) => applyElementType(viewRef.current, type),
-        applyEmphasis: (kind) => applyEmphasis(viewRef.current, kind),
+        applyEmphasis: (kind) => {
+          const ok = applyEmphasis(viewRef.current, kind);
+          reportFormatState();
+          return ok;
+        },
+        applyCase: (kind) => applyCase(viewRef.current, kind),
+        applyCentered: () => {
+          const ok = applyCentered(viewRef.current);
+          reportFormatState();
+          return ok;
+        },
+        activeEmphasis: () => activeEmphasis(viewRef.current),
         scrollToLine: (lineNo) => {
           const v = viewRef.current;
           if (!v) return;
           const n = Math.max(1, Math.min(Number(lineNo) || 1, v.state.doc.lines));
           const line = v.state.doc.line(n);
-          v.dispatch({ selection: { anchor: line.from }, scrollIntoView: true });
+          v.dispatch({
+            selection: { anchor: line.from },
+            effects: EditorView.scrollIntoView(line.from, { y: "start", yMargin: 80 })
+          });
           v.focus();
         },
         // Current selection (for "Add comment").
@@ -182,19 +223,51 @@ export default function ScreenplayEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync external value changes into the editor (e.g. loading a draft, AI fill, import).
+  // Sync external value changes into the editor (e.g. loading a draft, AI fill, import, and a
+  // co-writer's live scene arriving over the socket).
   // Tagged remoteSync so the lock guard treats it as a programmatic sync, not a user edit.
+  //
+  // The change is narrowed to the differing span rather than replacing the whole document. That
+  // matters for live co-writing: a full-doc replace cannot map the selection, so every remote scene
+  // update would collapse the local writer's cursor mid-sentence. Trimming the common prefix/suffix
+  // means an edit in someone else's scene lies entirely outside our caret's range and CodeMirror
+  // maps the selection through it untouched.
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     const current = view.state.doc.toString();
-    if (value !== current) {
-      view.dispatch({
-        changes: { from: 0, to: current.length, insert: value || "" },
-        annotations: remoteSync.of(true),
-      });
+    const next = value || "";
+    if (next === current) return;
+
+    let start = 0;
+    const max = Math.min(current.length, next.length);
+    while (start < max && current[start] === next[start]) start += 1;
+    let endCurrent = current.length;
+    let endNext = next.length;
+    while (endCurrent > start && endNext > start && current[endCurrent - 1] === next[endNext - 1]) {
+      endCurrent -= 1;
+      endNext -= 1;
     }
+
+    view.dispatch({
+      changes: { from: start, to: endCurrent, insert: next.slice(start, endNext) },
+      annotations: remoteSync.of(true),
+    });
   }, [value]);
+
+  // Push dark mode changes into the editor theme extension.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const getEntities = () => entitiesFromText(view.state.doc.toString() || "");
+    view.dispatch({
+      effects: themeComp.current.reconfigure(createScreenplayExtensions({
+        getEntities,
+        dark,
+        onElementChange: (type) => onElementChangeRef.current?.(type),
+      })),
+    });
+  }, [dark]);
 
   // Push the current lock state into the editor (drives read-only + tint + badges).
   useEffect(() => {
@@ -240,7 +313,10 @@ export default function ScreenplayEditor({
   return (
     <div
       ref={hostRef}
-      className={`screenplay-editor relative ${dark ? "screenplay-editor--dark" : ""} ${className}`.trim()}
+      className={`screenplay-editor relative ${dark ? "screenplay-editor--dark" : ""} ${readOnly ? "screenplay-editor--readonly" : ""} ${className}`.trim()}
+      style={{
+        "--sp-font-size": `${(15 * (Number(zoom) || 1)).toFixed(2)}px`,
+      }}
     >
       {composer && (
         <>

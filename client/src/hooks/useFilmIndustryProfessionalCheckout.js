@@ -1,6 +1,7 @@
 import { useCallback, useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
+import { useCurrency } from "../context/CurrencyContext";
 import api from "../services/api";
 import {
   hasActiveFilmIndustryProfessionalAccess,
@@ -51,6 +52,7 @@ const loadRazorpayScript = () =>
 
 export function useFilmIndustryProfessionalCheckout() {
   const { user, setUser, loading: authLoading } = useContext(AuthContext);
+  const { currency } = useCurrency() || {};
   const { openAuthModal } = useAuthModal();
 
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,7 @@ export function useFilmIndustryProfessionalCheckout() {
   const [message, setMessage] = useState("");
 
   const isEligibleRole = isFilmIndustryProfessionalRole(user);
-  const hasAccess = hasActiveFilmIndustryProfessionalAccess(user);
+  const hasAccess = hasActiveFilmIndustryProfessionalAccess(user) && (user?.subscription?.plan === "pro" || user?.subscription?.plan === "diamond");
 
   const reset = useCallback(() => {
     setError("");
@@ -80,6 +82,7 @@ export function useFilmIndustryProfessionalCheckout() {
   const startCheckout = useCallback(
     async ({
       isRenew = false,
+      cycle = "monthly",
       returnTo = "",
       signInRedirect = "/pricing",
       onSuccess,
@@ -122,15 +125,16 @@ export function useFilmIndustryProfessionalCheckout() {
         }
 
         const { data: orderData } = await api.post(
-          "/payment/film-industry-professional/create-razorpay-order"
+          "/payment/film-industry-professional/create-razorpay-order",
+          { currency: currency || "INR", cycle }
         );
 
         const options = {
-          key: orderData.key,
+          key: orderData.key || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SWgJpCDuk8M4ap",
           amount: orderData.amount,
           currency: orderData.currency,
           name: "Ckript",
-          description: "Film Industry Professional Plan",
+          description: "Diamond Plan",
           order_id: orderData.orderId,
           handler: async (response) => {
             try {
@@ -142,6 +146,7 @@ export function useFilmIndustryProfessionalCheckout() {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_signature: response.razorpay_signature,
                   returnTo,
+                  cycle,
                 }
               );
 

@@ -1,0 +1,315 @@
+/* ═══════════════════════════════════════════════════════════════
+   Ckript Challenge — the competition surfaces.
+
+   Scoped under `.ckc` so nothing leaks, the same contract landing.css
+   uses with `.ckl`.
+
+   These pages render inside the 2B dashboard shell, so the type and
+   palette are the DASHBOARD's (Spectral + IBM Plex Sans on warm cream,
+   pages/dashboard.css), not a third system invented here. Both fonts
+   are already loaded in index.html.
+
+   The one voice added on top is monospace for metadata — EVENT ID,
+   PAGES, WORDS, the phase eyebrow. A competition is a screenplay
+   event, the editor already speaks Courier, and a slug line is how
+   this domain writes a label. It keeps the serif for prose and the
+   sans for interface, so three voices each mean something.
+   ═══════════════════════════════════════════════════════════════ */
+
+.ckc {
+  --ckc-paper:  #faf7f2;   /* page ground */
+  --ckc-card:   #ffffff;   /* raised surface */
+  --ckc-cream:  #f4efe6;   /* quiet inset blocks */
+  --ckc-ink:    #1c1a17;   /* primary text */
+  --ckc-body:   #4a4640;   /* running text */
+  --ckc-muted:  #6f695f;   /* secondary */
+  --ckc-faint:  #a39d92;   /* decorative only — 2.5:1 on paper, never for text */
+  --ckc-rule:   #ece8e0;   /* hairlines */
+  --ckc-accent: #d14d37;   /* live state ONLY — never decoration */
+  /* The brand coral is 4.35:1 on white and 4.07:1 on this warmer paper — under AA for text.
+     Fills and rules use --ckc-accent; anything READ uses this darker cousin. */
+  --ckc-accent-text: #b8402d;
+  --ckc-blush:  #fdf5f4;   /* the accent at 4%, for the live band */
+
+  --ckc-display: 'Spectral', Georgia, 'Times New Roman', serif;
+  --ckc-sans:    'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --ckc-mono:    ui-monospace, 'SF Mono', 'Cascadia Mono', 'Courier New', monospace;
+
+  background: var(--ckc-paper);
+  color: var(--ckc-body);
+  font-family: var(--ckc-sans);
+}
+
+/* The app's toggle is the single source of truth for theme (index.css maps
+   Tailwind's dark: variant onto the same class). Warm near-blacks, not blue-blacks —
+   the light ground is warm, so the dark one is the same room with the lights off. */
+html.dark-mode .ckc {
+  --ckc-paper:  #0f0e0c;
+  --ckc-card:   #171613;
+  --ckc-cream:  #1c1a17;
+  --ckc-ink:    #f2ede4;
+  --ckc-body:   #cfc9be;
+  --ckc-muted:  #9a9389;
+  --ckc-faint:  #767066;
+  --ckc-rule:   #26241f;
+  --ckc-accent: #f08b76;   /* lifted: #d14d37 is 3.4:1 on this ground */
+  --ckc-accent-text: #f08b76;
+  --ckc-blush:  rgba(209, 77, 55, 0.13);
+}
+
+.ckc * { box-sizing: border-box; }
+
+/* Restore normal font inheritance inside the scope.
+   The app shell ships a global `* { font-family: var(--app-font-family) }`. A universal selector
+   re-targets EVERY element, so the family set on `.ckc` above never reaches its descendants — only
+   classes that declare a family of their own survived, and everything else silently fell back to
+   the app's Inter (46 elements on /challenge alone, including .ckc-prose and the <em> inside the
+   h1, which left one headline set in two typefaces at the same size).
+   `inherit`, not a fixed family, so a serif heading still passes Spectral down to its children.
+   0,1,0 beats the global `*`, while .ckc .ckc-title / .ckc-meta / .ckc-lede (0,2,0) keep winning —
+   the three voices are untouched. */
+.ckc * { font-family: inherit; }
+
+/* ── The three voices ─────────────────────────────────────────── */
+
+/* Slug line. Metadata speaks in the register the domain writes labels in. */
+.ckc .ckc-meta {
+  font-family: var(--ckc-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ckc-muted);
+}
+
+.ckc .ckc-title {
+  font-family: var(--ckc-display);
+  font-weight: 400;
+  color: var(--ckc-ink);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.ckc .ckc-h1 { font-size: clamp(2rem, 4.2vw, 3rem); }
+.ckc .ckc-h2 { font-size: clamp(1.4rem, 2.4vw, 1.85rem); }
+.ckc .ckc-h3 { font-size: 1.125rem; font-weight: 500; }
+
+.ckc .ckc-lede {
+  font-family: var(--ckc-sans);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--ckc-muted);
+  max-width: 62ch;          /* running text stays readable */
+}
+
+.ckc .ckc-prose { line-height: 1.65; color: var(--ckc-body); max-width: 68ch; }
+
+/* ── Masthead ─────────────────────────────────────────────────── */
+
+.ckc .ckc-masthead { display: flex; flex-direction: column; gap: 14px; }
+.ckc .ckc-masthead .ckc-lede { margin-top: -4px; }
+
+/* ── Bands and cards ──────────────────────────────────────────── */
+
+/* Content sits in ruled bands rather than a field of floating pills. The
+   4px radius is deliberate: the shell's own cards are barely rounded, and
+   heavy rounding is what made these pages read as generic. */
+/* Modernized, premium glassmorphism card styling */
+.ckc .ckc-card {
+  background: var(--ckc-card);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+.ckc .ckc-card-pad { padding: 26px 32px; }
+
+.ckc a.ckc-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: all 300ms cubic-bezier(0.2, 0, 0, 1);
+}
+.ckc a.ckc-card:hover {
+  border-color: color-mix(in srgb, var(--ckc-accent) 50%, transparent);
+  transform: translateY(-4px) scale(1.005);
+  box-shadow: 0 12px 32px rgba(28, 26, 23, 0.08), 0 4px 12px rgba(28, 26, 23, 0.04);
+}
+html.dark-mode .ckc a.ckc-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+html.dark-mode .ckc a.ckc-card:hover {
+  border-color: color-mix(in srgb, var(--ckc-accent) 70%, transparent);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.ckc .ckc-rule { border: 0; border-top: 1px solid rgba(0, 0, 0, 0.06); }
+html.dark-mode .ckc .ckc-rule { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* A live competition earns the accent — nothing else does. */
+.ckc .ckc-live {
+  background: linear-gradient(to bottom right, var(--ckc-blush), var(--ckc-card));
+  border-color: color-mix(in srgb, var(--ckc-accent) 30%, transparent);
+}
+
+/* ── Countdown, as a masthead numeral display ─────────────────── */
+
+.ckc .ckc-clock { display: flex; align-items: flex-start; gap: 26px; }
+
+.ckc .ckc-clock-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+
+.ckc .ckc-clock-num {
+  font-family: var(--ckc-display);
+  font-variant-numeric: tabular-nums;   /* digits must not jitter each second */
+  font-weight: 400;
+  font-size: clamp(2.4rem, 6vw, 3.6rem);
+  line-height: 0.95;
+  color: var(--ckc-ink);
+}
+
+.ckc .ckc-clock-unit {
+  font-family: var(--ckc-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ckc-muted);
+}
+
+/* The inline countdown, for bars and cards. */
+.ckc .ckc-clock-inline {
+  font-family: var(--ckc-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ckc-ink);
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────── */
+
+.ckc .ckc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-bottom: 1px solid var(--ckc-rule);
+}
+
+.ckc .ckc-tab {
+  /* inline-flex on the tab itself, not on every call site: Tailwind's preflight sets
+     `svg { display: block }`, so an icon inside a default-display button stacks above its label. */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 12px 16px;
+  font-family: var(--ckc-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ckc-muted);
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.ckc .ckc-tab:hover { color: var(--ckc-ink); }
+.ckc .ckc-tab[aria-current="page"] { color: var(--ckc-accent); border-bottom-color: var(--ckc-accent); }
+.ckc .ckc-tab:focus-visible { outline: 2px solid var(--ckc-accent); outline-offset: -2px; border-radius: 2px; }
+
+/* ── Chips ────────────────────────────────────────────────────── */
+
+.ckc .ckc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--ckc-rule);
+  border-radius: 2px;
+  font-family: var(--ckc-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ckc-muted);
+  background: var(--ckc-cream);
+}
+
+.ckc .ckc-chip-live {
+  color: var(--ckc-accent);
+  border-color: color-mix(in srgb, var(--ckc-accent) 40%, transparent);
+  background: var(--ckc-blush);
+}
+
+/* A single dot that pulses only while something is genuinely running. */
+.ckc .ckc-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ckc-accent);
+  animation: ckc-pulse 2.4s ease-in-out infinite;
+}
+@keyframes ckc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .ckc .ckc-dot { animation: none; }
+  .ckc a.ckc-card { transition: none; }
+  .ckc a.ckc-card:hover { transform: none; }
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+
+/* Primary is ink, not coral. The landing's own primary button is #161513 with
+   white text; coral on white is 4.35:1 and fails AA for button text at this size. */
+.ckc .ckc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border: 1px solid var(--ckc-ink);
+  border-radius: 3px;
+  background: var(--ckc-ink);
+  color: var(--ckc-paper);
+  font-family: var(--ckc-sans);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 130ms ease, border-color 130ms ease;
+}
+.ckc .ckc-btn:hover { background: #2c2a26; border-color: #2c2a26; }
+html.dark-mode .ckc .ckc-btn { background: var(--ckc-ink); color: #12110f; border-color: var(--ckc-ink); }
+html.dark-mode .ckc .ckc-btn:hover { background: #ffffff; border-color: #ffffff; }
+.ckc .ckc-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.ckc .ckc-btn-quiet {
+  background: transparent;
+  color: var(--ckc-ink);
+  border-color: var(--ckc-rule);
+}
+.ckc .ckc-btn-quiet:hover { background: var(--ckc-cream); border-color: var(--ckc-faint); }
+
+.ckc .ckc-link {
+  color: var(--ckc-accent-text);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+.ckc .ckc-link:hover { border-bottom-color: currentColor; }
+
+.ckc :focus-visible { outline: 2px solid var(--ckc-accent); outline-offset: 2px; }
+
+/* ── Grids ────────────────────────────────────────────────────── */
+
+.ckc .ckc-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px)  { .ckc .ckc-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .ckc .ckc-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.ckc .ckc-stack { display: flex; flex-direction: column; gap: 20px; }
+.ckc .ckc-stack-lg { display: flex; flex-direction: column; gap: 44px; }
+
+/* Wide content must scroll in its own container, never the page body. */
+.ckc .ckc-scroll-x { overflow-x: auto; }

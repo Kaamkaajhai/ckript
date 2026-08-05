@@ -1,0 +1,227 @@
+/*
+ * dashboard.css — styles for the writer Dashboard PAGE only.
+ *
+ * The application chrome that used to live in this file (rail, drawer, header,
+ * content area, mobile bar, notification panel and toasts) now lives in
+ * layouts/app-shell/app-shell.css. This file was 1100 lines of shell and page
+ * mixed together, which meant the producer section could not adopt the shell
+ * without also inheriting a writer page's modals, pager and skeletons.
+ *
+ * Everything here is scoped under .ck-dash-root — the shell's root class — so
+ * these rules only apply to pages mounted inside it, and the design tokens
+ * (--ck-accent, --ck-display, …) are the shell's. Do not redeclare them here.
+ */
+
+/* ── Scrollable main column ────────────────────────────────────────────────── */
+.ck-scroll-main {
+  width: 100%;
+  height: 100%;
+  padding: 16px 22px 36px;
+}
+
+/* ── Right rail ────────────────────────────────────────────────────────────── */
+.ck-right-rail-scroll,
+.ck-right-rail-viewport {
+  width: 100%;
+  height: 100%;
+}
+
+.ck-right-rail-content {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 18px;
+}
+
+/* ── Skeleton loader ───────────────────────────────────────────────────────── */
+/* A neutral block with a light sheen sweeping across it. Reads as "loading",
+   not "empty" or "broken". Honors reduced-motion by swapping to a gentle pulse. */
+.ck-dash-root .ck-skel {
+  position: relative;
+  overflow: hidden;
+  background: #efeae1;
+  border-radius: 8px;
+}
+.ck-dash-root .ck-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
+  animation: ck-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes ck-shimmer { 100% { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .ck-dash-root .ck-skel::after { animation: none; }
+  .ck-dash-root .ck-skel { animation: ck-pulse 1.8s ease-in-out infinite; }
+}
+@keyframes ck-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* ── AI Analysis — "View more" button ──────────────────────────────────────── */
+.ck-dash-root .ck-rev-more {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  border: 1px solid #e4ddd0;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ck-base);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--ck-body);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.ck-dash-root .ck-rev-more:hover {
+  background: var(--ck-base);
+  color: #fff;
+  border-color: var(--ck-base);
+}
+.ck-dash-root .ck-rev-more .material-symbols-outlined { transition: transform 0.15s; }
+.ck-dash-root .ck-rev-more:hover .material-symbols-outlined { transform: translateX(2px); }
+
+/* ── "View more" detail modal ──────────────────────────────────────────────── */
+.ck-dash-root .ck-review-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(28, 26, 23, 0.5);
+  backdrop-filter: blur(3px);
+}
+.ck-dash-root .ck-review-modal {
+  position: relative;
+  width: min(94vw, 660px);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--ck-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(28, 26, 23, 0.28);
+}
+.ck-dash-root .ck-review-modal__head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--ck-border);
+  background: var(--ck-soft);
+}
+.ck-dash-root .ck-review-modal__eyebrow {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ck-faint);
+}
+.ck-dash-root .ck-review-modal__title {
+  font-family: var(--ck-display);
+  color: var(--ck-base);
+  font-size: 23px;
+  font-weight: 500;
+  line-height: 1.15;
+  margin: 5px 0 0;
+}
+.ck-dash-root .ck-review-modal__close {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--ck-border);
+  background: #fff;
+  color: var(--ck-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ck-dash-root .ck-review-modal__close:hover {
+  background: var(--ck-base);
+  color: #fff;
+  border-color: var(--ck-base);
+}
+.ck-dash-root .ck-review-modal__body {
+  overflow-y: auto;
+  padding: 22px 24px 24px;
+}
+
+/* ── All Projects modal (wide) + pagination ────────────────────────────────── */
+.ck-dash-root .ck-projects-modal {
+  position: relative;
+  width: min(96vw, 1040px);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--ck-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(28, 26, 23, 0.28);
+}
+.ck-dash-root .ck-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--ck-border);
+}
+.ck-dash-root .ck-pager__arrow,
+.ck-dash-root .ck-pager__num {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--ck-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ck-base);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--ck-body);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.ck-dash-root .ck-pager__arrow:hover:not(:disabled),
+.ck-dash-root .ck-pager__num:hover { background: var(--ck-soft); border-color: #d8d0c0; }
+.ck-dash-root .ck-pager__num.active {
+  background: var(--ck-base);
+  color: #fff;
+  border-color: var(--ck-base);
+}
+.ck-dash-root .ck-pager__arrow:disabled { opacity: 0.4; cursor: default; }
+.ck-dash-root .ck-pager__gap {
+  min-width: 22px;
+  text-align: center;
+  color: var(--ck-faint);
+  font-size: 13px;
+  user-select: none;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .ck-scroll-main { padding: 16px 16px 90px; }
+}
+
+/* Collapse the score column on a narrow modal (small phones). */
+@media (max-width: 560px) {
+  .ck-dash-root .ck-rev-detail-grid {
+    grid-template-columns: 1fr !important;
+    gap: 18px !important;
+  }
+  .ck-dash-root .ck-rev-detail-grid > div:nth-child(2) { display: none; }
+}

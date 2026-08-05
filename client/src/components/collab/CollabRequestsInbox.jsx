@@ -81,7 +81,7 @@ export default function CollabRequestsInbox() {
       setRequests((prev) => prev.filter((entry) => entry._id !== request._id));
       await api.post(`/collab/${request.scriptId}/request/${request._id}/respond`, {
         decision,
-        accessLevel: requestAccessLevels[request._id] || "full_access",
+        accessLevel: request.requestedRole === "full_admin" ? (requestAccessLevels[request._id] || "full_access") : "content_only",
       });
       loadInbox();
     } finally {
@@ -114,18 +114,17 @@ export default function CollabRequestsInbox() {
             {request.message ? <p className="mt-3 text-sm text-gray-700">{request.message}</p> : null}
             <div className="mt-4 flex items-center gap-3">
               <select
-                value={requestAccessLevels[request._id] || "full_access"}
+                value={request.requestedRole === "full_admin" ? (requestAccessLevels[request._id] || "full_access") : "content_only"}
                 onChange={(event) => setRequestAccessLevels((prev) => ({
                   ...prev,
                   [request._id]: event.target.value,
                 }))}
                 className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
               >
-                {ACCESS_LEVEL_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                {request.requestedRole === "full_admin" && (
+                  <option value="full_access">Full</option>
+                )}
+                <option value="content_only">Content</option>
               </select>
               <button
                 onClick={() => respond(request, "accepted")}

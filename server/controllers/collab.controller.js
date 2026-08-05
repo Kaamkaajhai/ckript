@@ -1,15 +1,14 @@
 import mongoose from "mongoose";
 import { diff_match_patch } from "diff-match-patch";
+import { applyThreeWayMerge } from "../utils/contentMerge.js";
+import { addWriterCredit } from "../utils/writerCredits.js";
 import { uploadToCloudinary } from "../config/cloudinary.js";
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Comment from "../models/Comment.js";
-import Revision from "../models/Revision.js";
 import AuditLog from "../models/AuditLog.js";
 import CollabRequest from "../models/CollabRequest.js";
-import Branch from "../models/Branch.js";
-import PullRequest from "../models/PullRequest.js";
 import {
   COLLAB_ACCESS_LEVELS,
   getAcceptedCollaborator,
@@ -32,12 +31,26 @@ import {
   applyMergeDecisions,
   computeDiff,
 } from "../utils/merge.js";
-import { generateScriptPdf } from "../utils/generateScriptPdf.js";
+// Canonical screenplay PDF (same formatter the editor/viewer/export use) so a merged/reverted script
+// renders identically everywhere — NOT the old flat generateScriptPdf (plain A4 text, no elements).
+import { generateScreenplayPdf } from "../utils/screenplayPdf.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import { runScriptScoreGeneration } from "./aiController.js";
 
-const VALID_COLLAB_ROLES = ["editor", "merger", "viewer", "full_admin"];
-const REQUESTABLE_ROLES = ["editor", "merger", "viewer", "full_admin"];
+// Script.titlePage is a Mongoose Map — convert to a plain object (or null) for generateScreenplayPdf.
+const titlePageToObject = (tp) => {
+  if (!tp) return null;
+  const obj = typeof tp.toObject === "function" ? tp.toObject() : (tp instanceof Map ? Object.fromEntries(tp) : tp);
+  return obj && Object.keys(obj).length ? obj : null;
+};
+
+// `commenter` is a first-class role in the Script schema enum and in PERMISSIONS (it grants the
+// `comment` tier without `write`), but it was missing here — and normalizeCollaboratorRoleInput
+// falls back to "editor" for anything unlisted. Inviting someone as a Commenter therefore granted
+// them full write access instead. Listed for invites; requests stay on the narrower set because
+// CollabRequest has its own enum that does not include it.
+const VALID_COLLAB_ROLES = ["editor", "viewer", "full_admin", "commenter"];
+const REQUESTABLE_ROLES = ["editor", "viewer", "full_admin"];
 const REVIEW_DECISIONS = ["approved", "rejected"];
 const REQUEST_DECISIONS = ["accepted", "rejected"];
 const PR_REVIEW_DECISIONS = ["approved", "rejected"];
@@ -81,10 +94,10 @@ const normalizeCollaboratorRoleInput = (value, fallback = "editor") => {
   return VALID_COLLAB_ROLES.includes(normalized) ? normalized : fallback;
 };
 const COLLAB_ROLE_LABELS = {
-  editor: "Editor",
-  merger: "Merger",
-  viewer: "Viewer",
-  full_admin: "Admin",
+  editor: "Co-writer",
+  commenter: "Commenter",
+  viewer: "Reader",
+  full_admin: "Co-owner",
 };
 const getCollabRoleLabel = (value) => COLLAB_ROLE_LABELS[normalizeCollaboratorRoleInput(value)] || "Editor";
 const CONTENT_ONLY_SECTION_FIELDS = new Set(["textContent", "fullContent"]);
@@ -154,85 +167,19 @@ const emitCollabMembershipChanged = (req, {
   uniqueUserIds.forEach((userId) => emitNotification(req, userId, "collab_membership_changed", payload));
 };
 
-const updateScriptSectionContent = (script, sectionRef, content) => {
-  const normalizedSectionRef = String(sectionRef || "textContent").trim();
-  const assignableFields = FULL_ACCESS_SECTION_FIELDS;
 
-  if (assignableFields.has(normalizedSectionRef)) {
-    script[normalizedSectionRef] = content;
-    return normalizedSectionRef;
-  }
+// Shared with saveDraft's duet merge — see utils/contentMerge.js. Kept as an alias so the existing
+// revision-review call sites read unchanged.
+const applyRevisionMerge = applyThreeWayMerge;
 
-  script.textContent = content;
-  return "textContent";
-};
-
-const applyRevisionMerge = ({
-  currentContent = "",
-  baseContent = "",
-  proposedContent = "",
-}) => {
-  const normalizedCurrent = String(currentContent || "");
-  const normalizedBase = String(baseContent || "");
-  const normalizedProposed = String(proposedContent || "");
-
-  if (!normalizedBase) {
-    return {
-      mergedContent: normalizedProposed,
-      merged: false,
-      conflict: false,
-      fallbackApplied: true,
-    };
-  }
-
-  const patches = dmp.patch_make(normalizedBase, normalizedProposed);
-  const [mergedContent, appliedFlags] = dmp.patch_apply(patches, normalizedCurrent);
-  const conflict = Array.isArray(appliedFlags) && appliedFlags.some((flag) => flag !== true);
-
-  return {
-    mergedContent,
-    merged: true,
-    conflict,
-    fallbackApplied: false,
-  };
-};
-
-const getActiveEditors = async (script) => {
-  const editorIds = (script.collaborators || [])
-    .filter((collab) => collab.isActive && collab.status === "accepted" && collab.role === "editor")
-    .map((collab) => collab.userId);
-
-  if (!editorIds.length) return [];
-  return User.find({ _id: { $in: editorIds } }).select("_id name email profileImage");
-};
 
 const getPrimaryScriptContent = (script) =>
   String(script?.fullContent || script?.textContent || "");
 
-const ensureEditorBranch = async (script, userId) => {
-  if (!script?._id || !userId) return null;
-
-  const existingBranch = await Branch.findOne({
-    scriptId: script._id,
-    editorId: userId,
-  });
-
-  if (existingBranch) {
-    return existingBranch;
-  }
-
-  const content = String(script?.textContent || "");
-  return Branch.create({
-    scriptId: script._id,
-    editorId: userId,
-    content,
-    baseContent: content,
-    updatedAt: new Date(),
-  });
-};
 
 const createCollaboratorEntry = ({
   userId,
+  invitedEmail,
   role,
   accessLevel = COLLAB_ACCESS_LEVELS.FULL_ACCESS,
   invitedBy,
@@ -242,6 +189,7 @@ const createCollaboratorEntry = ({
   joinedAt = null,
 }) => ({
   userId,
+  invitedEmail,
   role,
   accessLevel,
   invitedBy,
@@ -298,6 +246,13 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    // The competition is solo: one writer, one entry. The generic collaboration surface is closed on
+    // a competition script, because otherwise inviting co-writers here would be an unguarded way to
+    // enter work that is not your own.
+    if (script.competitionId && !script.competitionReleasedAt) {
+      return res.status(403).json({ error: "Competition entries are written solo — collaborators cannot be added." });
+    }
+
     const role = normalizeCollaboratorRoleInput(req.body?.role, "editor");
     const accessLevel = normalizeAccessLevel(req.body?.accessLevel);
 
@@ -306,20 +261,27 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    const invitedUser = await User.findOne({ email }).select("_id name email");
-    if (!invitedUser) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const invitedUser = await User.findOne({ email }).select("_id name email role");
 
-    if (normalizeObjectId(invitedUser._id) === normalizeObjectId(req.user._id)) {
+    if (invitedUser && normalizeObjectId(invitedUser._id) === normalizeObjectId(req.user._id)) {
       return res.status(400).json({ error: "You cannot invite yourself" });
     }
 
+    const industryRoles = ["investor", "producer", "director", "actor", "industry", "professional"];
+    if (invitedUser && industryRoles.includes(invitedUser.role)) {
+      return res.status(403).json({ 
+        error: "🎬 This account belongs to a Film Industry Professional. You can only invite fellow writers to collaborate on scripts." 
+      });
+    }
+
     const existingCollaborator = (script.collaborators || []).find(
-      (collab) =>
-        normalizeObjectId(collab.userId) === normalizeObjectId(invitedUser._id)
-        && collab.isActive === true
-        && ["pending", "accepted"].includes(collab.status)
+      (collab) => {
+        const isSameUser = invitedUser && collab.userId && normalizeObjectId(collab.userId) === normalizeObjectId(invitedUser._id);
+        const isSameEmail = !collab.userId && collab.invitedEmail === email;
+        return (isSameUser || isSameEmail)
+          && collab.isActive === true
+          && ["pending", "accepted"].includes(collab.status)
+      }
     );
 
     if (existingCollaborator) {
@@ -330,7 +292,8 @@ export const inviteCollaborator = async (req, res) => {
     const inviteExpiresAt = getInviteExpiryDate();
 
     script.collaborators.push(createCollaboratorEntry({
-      userId: invitedUser._id,
+      userId: invitedUser ? invitedUser._id : undefined,
+      invitedEmail: invitedUser ? undefined : email,
       role,
       accessLevel,
       invitedBy: req.user._id,
@@ -343,8 +306,8 @@ export const inviteCollaborator = async (req, res) => {
     let emailResult = { success: false, skipped: true };
     try {
       emailResult = await sendInviteEmail({
-        to: invitedUser.email,
-        recipientName: invitedUser.name,
+        to: email,
+        recipientName: invitedUser ? invitedUser.name : email.split("@")[0],
         scriptTitle: script.title,
         token: inviteToken,
         role,
@@ -354,22 +317,25 @@ export const inviteCollaborator = async (req, res) => {
       console.error("inviteCollaborator email failed:", emailError.message);
     }
 
-    await createNotification({
-      userId: invitedUser._id,
-      type: "collab_invite",
-      from: req.user._id,
-      script: script._id,
-      message: `You were invited to collaborate on ${script.title} as ${role}.`,
-    });
+    if (invitedUser) {
+      await createNotification({
+        userId: invitedUser._id,
+        type: "collab_invite",
+        from: req.user._id,
+        script: script._id,
+        message: `You were invited to collaborate on ${script.title} as ${role}.`,
+      });
 
-    emitNotification(req, invitedUser._id, "collab_invite", {
-      scriptId: script._id,
-      role,
-      token: inviteToken,
-    });
+      emitNotification(req, invitedUser._id, "collab_invite", {
+        scriptId: script._id,
+        role,
+        token: inviteToken,
+      });
+    }
 
     await createAuditEntry(script._id, req.user._id, "invite_sent", {
-      invitedUserId: invitedUser._id,
+      invitedUserId: invitedUser ? invitedUser._id : null,
+      invitedEmail: invitedUser ? null : email,
       role,
       emailSent: emailResult?.success === true,
       emailSkipped: emailResult?.skipped === true,
@@ -459,10 +425,16 @@ export const acceptInvite = async (req, res) => {
     }
 
     const script = await Script.findOne({ "collaborators.inviteToken": token })
-      .select("title creator collaborators collabVisibility");
+      // competitionId is selected so the guard below can actually see it — without it the guard would
+      // read undefined and silently never fire.
+      .select("title creator collaborators collabVisibility competitionId competitionReleasedAt");
 
     if (!script) {
       return res.status(404).json({ error: "Invalid invite link" });
+    }
+
+    if (script.competitionId && !script.competitionReleasedAt) {
+      return res.status(403).json({ error: "This script is a competition entry and cannot be co-written." });
     }
 
     const collaborator = script.collaborators.find((entry) => entry.inviteToken === token);
@@ -478,8 +450,17 @@ export const acceptInvite = async (req, res) => {
       return res.status(409).json({ error: "Invite already used" });
     }
 
-    if (normalizeObjectId(collaborator.userId) !== normalizeObjectId(req.user._id)) {
-      return res.status(403).json({ error: "Wrong account" });
+    if (collaborator.userId) {
+      if (normalizeObjectId(collaborator.userId) !== normalizeObjectId(req.user._id)) {
+        return res.status(403).json({ error: "Wrong account" });
+      }
+    } else if (collaborator.invitedEmail) {
+      if (req.user.email.toLowerCase() !== collaborator.invitedEmail.toLowerCase()) {
+        return res.status(403).json({ error: "Wrong account" });
+      }
+      collaborator.userId = req.user._id;
+    } else {
+      return res.status(403).json({ error: "Invalid invite data" });
     }
 
     collaborator.status = "accepted";
@@ -487,11 +468,21 @@ export const acceptInvite = async (req, res) => {
     collaborator.inviteToken = null;
     collaborator.inviteExpiresAt = null;
     collaborator.isActive = true;
-    await script.save();
 
-    if (collaborator.role === "editor") {
-      await ensureEditorBranch(script, collaborator.userId);
+    // A co-writer who joins to WRITE gets an authorship credit by default (seeded behind the owner).
+    // Credit is display-only and the owner can remove it — but the common case is that someone
+    // invited to write on the script should be named on it, so the default is to include them.
+    if (collaborator.role === "editor" || collaborator.role === "full_admin") {
+      const owner = await User.findById(getOwnerId(script)).select("name").lean();
+      addWriterCredit(script, {
+        userId: req.user._id,
+        name: req.user.name,
+        ownerName: owner?.name || "",
+      });
+      script.markModified("writers");
     }
+
+    await script.save();
 
     await createAuditEntry(script._id, req.user._id, "invite_accepted", {
       role: collaborator.role,
@@ -537,9 +528,15 @@ export const acceptInvite = async (req, res) => {
 
 export const requestCollab = async (req, res) => {
   try {
-    const script = await Script.findById(req.params.scriptId).select("title creator collabVisibility collaborators");
+    const script = await Script.findById(req.params.scriptId).select("title creator collabVisibility collaborators competitionId competitionReleasedAt");
     if (!script) {
       return res.status(404).json({ error: "Script not found" });
+    }
+
+    // A competition entry is written solo. Without this, collabVisibility "open" would be an
+    // unguarded join path straight into a live entry.
+    if (script.competitionId && !script.competitionReleasedAt) {
+      return res.status(403).json({ error: "Competition entries are written solo." });
     }
 
     if (script.collabVisibility !== "open") {
@@ -707,10 +704,6 @@ export const respondToRequest = async (req, res) => {
       collabRequest.respondedAt = new Date();
       await collabRequest.save();
 
-      if (role === "editor") {
-        await ensureEditorBranch(script, collabRequest.requesterId._id);
-      }
-
       await createNotification({
         userId: collabRequest.requesterId._id,
         type: "collab_update",
@@ -818,6 +811,10 @@ export const updateCollaboratorRole = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    if (script.competitionId && !script.competitionReleasedAt) {
+      return res.status(403).json({ error: "Competition entries are written solo." });
+    }
+
     const collaborator = findCurrentCollaboratorEntry(script, req.params.userId);
 
     if (!collaborator) {
@@ -905,6 +902,12 @@ export const removeCollaborator = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    // A competition script has no collaborators to manage, and this endpoint must not become a way
+    // to mutate one mid-competition.
+    if (script.competitionId && !script.competitionReleasedAt) {
+      return res.status(403).json({ error: "Competition entries are written solo." });
+    }
+
     if (normalizeObjectId(req.params.userId) === normalizeObjectId(getOwnerId(script))) {
       return res.status(400).json({ error: "Owner cannot be removed from their own script" });
     }
@@ -986,6 +989,11 @@ export const updateVisibility = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    // Prevents flipping a competition entry to "open", which would create a public join path.
+    if (script.competitionId && !script.competitionReleasedAt) {
+      return res.status(403).json({ error: "Competition entries cannot change visibility." });
+    }
+
     script.collabVisibility = collabVisibility;
     await script.save();
 
@@ -1019,292 +1027,10 @@ export const updateVisibility = async (req, res) => {
   }
 };
 
-export const submitRevision = async (req, res) => {
-  try {
-    const script = req.script || await Script.findById(req.params.scriptId);
-    if (!script) {
-      return res.status(404).json({ error: "Script not found" });
-    }
 
-    const content = String(req.body?.content || "");
-    const baseContent = String(req.body?.baseContent || "");
-    const sectionRef = String(req.body?.sectionRef || "").trim();
-    if (!content.trim() || !sectionRef) {
-      return res.status(400).json({ error: "Content and sectionRef are required" });
-    }
 
-    const accessLevel = resolveCollaboratorAccessLevel(script, req.user._id);
-    const allowedSections = accessLevel === COLLAB_ACCESS_LEVELS.CONTENT_ONLY
-      ? CONTENT_ONLY_SECTION_FIELDS
-      : FULL_ACCESS_SECTION_FIELDS;
-    if (!allowedSections.has(sectionRef)) {
-      return res.status(403).json({
-        error: accessLevel === COLLAB_ACCESS_LEVELS.CONTENT_ONLY
-          ? "This collaborator can only edit script content."
-          : "Invalid revision section.",
-      });
-    }
 
-    let revision = null;
-    let wasResubmitted = false;
 
-    if (req.userRole === "editor") {
-      const existingPending = await Revision.findOne({
-        scriptId: script._id,
-        authorId: req.user._id,
-        status: "pending_review",
-      });
-
-      if (existingPending) {
-        existingPending.baseContent = baseContent;
-        existingPending.content = content;
-        existingPending.sectionRef = sectionRef;
-        existingPending.reviewNote = "";
-        existingPending.reviewerId = null;
-        existingPending.reviewedAt = null;
-        await existingPending.save();
-        revision = existingPending;
-        wasResubmitted = true;
-      }
-    }
-
-    if (!revision) {
-      revision = await Revision.create({
-        scriptId: script._id,
-        authorId: req.user._id,
-        baseContent,
-        content,
-        sectionRef,
-        status: "pending_review",
-      });
-    }
-
-    const owner = await User.findById(getOwnerId(script)).select("_id name email");
-    const editors = await getActiveEditors(script);
-    const recipients = [
-      ...(owner ? [owner] : []),
-      ...editors.filter((editor) => normalizeObjectId(editor._id) !== normalizeObjectId(req.user._id)),
-    ];
-
-    await Promise.all(recipients.map((recipient) =>
-      createNotification({
-        userId: recipient._id,
-        type: "revision_update",
-        from: req.user._id,
-        script: script._id,
-        message: `A revision for ${script.title} is ready for review.`,
-      })
-    ));
-
-    emitScriptEvent(req, script._id, "revision_submitted", { revisionId: revision._id });
-
-    await createAuditEntry(script._id, req.user._id, wasResubmitted ? "revision_resubmitted" : "revision_submitted", {
-      revisionId: revision._id,
-      sectionRef,
-    });
-
-    return res.status(wasResubmitted ? 200 : 201).json({
-      message: wasResubmitted ? "Pending revision updated for review" : "Revision submitted for review",
-      revision,
-      updatedExisting: wasResubmitted,
-    });
-  } catch (error) {
-    console.error("submitRevision failed:", error.message);
-    return res.status(500).json({ error: "Failed to submit revision" });
-  }
-};
-
-export const reviewRevision = async (req, res) => {
-  try {
-    const decision = String(req.body?.decision || "").trim();
-    if (!REVIEW_DECISIONS.includes(decision)) {
-      return res.status(400).json({ error: "Invalid review decision" });
-    }
-
-    const note = sanitizeMessage(req.body?.note, 1000);
-    if (decision === "rejected" && !note) {
-      return res.status(400).json({ error: "Rejection note is required" });
-    }
-
-    const script = req.script || await Script.findById(req.params.scriptId);
-    if (!script) {
-      return res.status(404).json({ error: "Script not found" });
-    }
-
-    const revision = await Revision.findById(req.params.revisionId).populate("authorId", "_id name email");
-    if (!revision || normalizeObjectId(revision.scriptId) !== normalizeObjectId(script._id)) {
-      return res.status(404).json({ error: "Revision not found" });
-    }
-
-    if (normalizeObjectId(revision.authorId?._id) === normalizeObjectId(req.user._id)) {
-      return res.status(403).json({ error: "You cannot approve your own revision" });
-    }
-
-    if (decision === "approved") {
-      if (!String(revision.baseContent || "") && ["textContent", "fullContent"].includes(String(revision.sectionRef || "").trim())) {
-        return res.status(409).json({
-          error: "This revision was created before merge support and cannot be approved safely. Please ask the collaborator to resubmit it.",
-        });
-      }
-
-      const currentSectionContent = String(script?.[revision.sectionRef] || "");
-      const mergeResult = applyRevisionMerge({
-        currentContent: currentSectionContent,
-        baseContent: revision.baseContent,
-        proposedContent: revision.content,
-      });
-
-      if (mergeResult.conflict) {
-        return res.status(409).json({
-          error: "This revision could not be auto-merged because the script changed after submission.",
-        });
-      }
-
-      const appliedField = updateScriptSectionContent(script, revision.sectionRef, mergeResult.mergedContent);
-      await script.save();
-      revision.status = "approved";
-      revision.reviewerId = req.user._id;
-      revision.reviewNote = note;
-      revision.reviewedAt = new Date();
-      await revision.save();
-
-      emitScriptEvent(req, script._id, "revision_reviewed", {
-        revisionId: revision._id,
-        decision,
-      });
-
-      await createAuditEntry(script._id, req.user._id, "revision_approved", {
-        revisionId: revision._id,
-        sectionRef: revision.sectionRef,
-        appliedField,
-        merged: mergeResult.merged,
-        fallbackApplied: mergeResult.fallbackApplied,
-      });
-    } else {
-      revision.status = "rejected";
-      revision.reviewerId = req.user._id;
-      revision.reviewNote = note;
-      revision.reviewedAt = new Date();
-      await revision.save();
-
-      emitScriptEvent(req, script._id, "revision_reviewed", {
-        revisionId: revision._id,
-        decision,
-      });
-
-      await createAuditEntry(script._id, req.user._id, "revision_rejected", {
-        revisionId: revision._id,
-        sectionRef: revision.sectionRef,
-        note,
-      });
-    }
-
-    await createNotification({
-      userId: revision.authorId._id,
-      type: "revision_update",
-      from: req.user._id,
-      script: script._id,
-      message: `Your revision for ${script.title} was ${decision}.`,
-    });
-
-    emitNotification(req, revision.authorId._id, "revision_reviewed", {
-      revisionId: revision._id,
-      decision,
-      scriptId: script._id,
-    });
-
-    return res.status(200).json({ message: `Revision ${decision}` });
-  } catch (error) {
-    console.error("reviewRevision failed:", error.message);
-    return res.status(500).json({ error: "Failed to review revision" });
-  }
-};
-
-export const getRevisions = async (req, res) => {
-  try {
-    const revisions = await Revision.find({ scriptId: req.params.scriptId })
-      .sort({ createdAt: -1 })
-      .populate("authorId", "name email profileImage")
-      .populate("reviewerId", "name email profileImage");
-
-    return res.status(200).json({ revisions });
-  } catch (error) {
-    console.error("getRevisions failed:", error.message);
-    return res.status(500).json({ error: "Failed to load revisions" });
-  }
-};
-
-export const createRevisionComment = async (req, res) => {
-  try {
-    const revision = await Revision.findById(req.params.revisionId);
-    if (!revision || normalizeObjectId(revision.scriptId) !== normalizeObjectId(req.params.scriptId)) {
-      return res.status(404).json({ error: "Revision not found" });
-    }
-
-    const lineRef = String(req.body?.lineRef || "").trim();
-    const body = sanitizeMessage(req.body?.body, 3000);
-    if (!lineRef || !body) {
-      return res.status(400).json({ error: "lineRef and body are required" });
-    }
-
-    const comment = await Comment.create({
-      revisionId: revision._id,
-      userId: req.user._id,
-      lineRef,
-      body,
-      resolved: false,
-    });
-
-    await createAuditEntry(req.params.scriptId, req.user._id, "comment_added", {
-      revisionId: revision._id,
-      commentId: comment._id,
-      lineRef,
-    });
-
-    return res.status(201).json({ comment });
-  } catch (error) {
-    console.error("createRevisionComment failed:", error.message);
-    return res.status(500).json({ error: "Failed to create comment" });
-  }
-};
-
-export const resolveComment = async (req, res) => {
-  try {
-    const comment = await Comment.findById(req.params.commentId);
-    if (!comment?.revisionId) {
-      return res.status(404).json({ error: "Comment not found" });
-    }
-
-    const revision = await Revision.findById(comment.revisionId);
-    if (!revision) {
-      return res.status(404).json({ error: "Revision not found" });
-    }
-
-    const script = await Script.findById(revision.scriptId);
-    if (!script) {
-      return res.status(404).json({ error: "Script not found" });
-    }
-
-    const isOwner = normalizeObjectId(getOwnerId(script)) === normalizeObjectId(req.user._id);
-    const isAuthor = normalizeObjectId(comment.userId) === normalizeObjectId(req.user._id);
-    if (!isOwner && !isAuthor) {
-      return res.status(403).json({ error: "Only the comment author or owner can resolve this comment" });
-    }
-
-    comment.resolved = true;
-    await comment.save();
-
-    await createAuditEntry(script._id, req.user._id, "comment_resolved", {
-      commentId: comment._id,
-      revisionId: revision._id,
-    });
-
-    return res.status(200).json({ message: "Comment resolved" });
-  } catch (error) {
-    console.error("resolveComment failed:", error.message);
-    return res.status(500).json({ error: "Failed to resolve comment" });
-  }
-};
 
 export const publishScript = async (req, res) => {
   try {
@@ -1448,487 +1174,9 @@ export const canWriteToScript = async (scriptId, userId) => {
   return hasScriptPermission(script, userId, "write");
 };
 
-export const getBranch = async (req, res) => {
-  try {
-    let branch = await Branch.findOne({
-      scriptId: req.params.scriptId,
-      editorId: req.user.id,
-    });
 
-    if (!branch) {
-      if (req.userRole !== "editor") {
-        return res.status(404).json({ error: "No branch found" });
-      }
-      
-      // Branch missing for an editor — lazily create it from the current script content
-      // so BranchEditor never 404s on a legitimately accepted editor.
-      const script = req.script || await Script.findById(req.params.scriptId);
-      if (!script) {
-        return res.status(404).json({ error: "Script not found" });
-      }
-      branch = await ensureEditorBranch(script, req.user.id);
-      if (!branch) {
-        return res.status(404).json({ error: "Could not create branch" });
-      }
-    }
 
-    return res.status(200).json({ branch });
-  } catch (error) {
-    console.error("getBranch failed:", error.message);
-    return res.status(500).json({ error: "Failed to load branch" });
-  }
-};
 
-export const saveBranch = async (req, res) => {
-  try {
-    const branch = await Branch.findOne({
-      scriptId: req.params.scriptId,
-      editorId: req.user.id,
-    });
 
-    if (!branch) {
-      return res.status(404).json({ error: "No branch found" });
-    }
 
-    branch.content = String(req.body?.content || "");
-    branch.updatedAt = new Date();
-    await branch.save();
 
-    return res.status(200).json({
-      message: "Branch updated successfully",
-      branch,
-    });
-  } catch (error) {
-    console.error("saveBranch failed:", error.message);
-    return res.status(500).json({ error: "Failed to save branch" });
-  }
-};
-
-export const raisePR = async (req, res) => {
-  try {
-    const title = sanitizeTitle(req.body?.title, 200);
-    const message = sanitizeMessage(req.body?.message, 3000);
-    if (!title) {
-      return res.status(400).json({ error: "Title is required" });
-    }
-
-    const branch = await Branch.findOne({
-      scriptId: req.params.scriptId,
-      editorId: req.user.id,
-    });
-
-    if (!branch) {
-      return res.status(400).json({ error: "No branch found. You need a branch first." });
-    }
-
-    const script = req.script || await Script.findById(req.params.scriptId).select("creator collaborators title");
-
-    const existingOpenPr = await PullRequest.findOne({
-      scriptId: req.params.scriptId,
-      authorId: req.user.id,
-      status: "open",
-    });
-
-    if (existingOpenPr) {
-      existingOpenPr.title = title;
-      existingOpenPr.message = message;
-      existingOpenPr.branchId = branch._id;
-      existingOpenPr.mergeDecisions = [];
-      existingOpenPr.updatedAt = new Date();
-      await existingOpenPr.save();
-
-      emitScriptEvent(req, req.params.scriptId, "pr_updated", {
-        prId: existingOpenPr._id,
-        authorName: req.user.name || "Collaborator",
-      });
-
-      await createAuditEntry(req.params.scriptId, req.user._id, "pr_updated", {
-        prId: existingOpenPr._id,
-        branchId: branch._id,
-        title,
-      });
-
-      return res.status(200).json({
-        message: "Your open pull request was updated (same PR; reviewers see your latest branch)",
-        pr: existingOpenPr,
-      });
-    }
-
-    const pr = await PullRequest.create({
-      scriptId: req.params.scriptId,
-      branchId: branch._id,
-      authorId: req.user.id,
-      title,
-      message,
-    });
-
-    emitScriptEvent(req, req.params.scriptId, "pr_raised", {
-      prId: pr._id,
-      authorName: req.user.name || "Collaborator",
-    });
-
-    const targetUserIds = [
-      normalizeObjectId(script?.creator),
-      ...((script?.collaborators || [])
-        .filter((entry) => entry?.isActive === true && entry?.status === "accepted" && entry?.role === "merger")
-        .map((entry) => normalizeObjectId(entry?.userId))),
-    ].filter(Boolean);
-
-    const uniqueTargetUserIds = [...new Set(targetUserIds)];
-
-    await Promise.all(uniqueTargetUserIds.map((userId) => createNotification({
-      userId,
-      type: "collab_update",
-      from: req.user._id,
-      script: req.params.scriptId,
-      message: `${req.user.name || "A collaborator"} raised a pull request on ${script?.title || "this script"}.`,
-    })));
-
-    uniqueTargetUserIds.forEach((userId) => emitNotification(req, userId, "pr_raised", {
-      prId: pr._id,
-      scriptId: req.params.scriptId,
-      authorName: req.user.name || "Collaborator",
-    }));
-
-    await createAuditEntry(req.params.scriptId, req.user._id, "pr_raised", {
-      prId: pr._id,
-      branchId: branch._id,
-      title,
-    });
-
-    return res.status(201).json({
-      message: "Pull request raised successfully",
-      pr,
-    });
-  } catch (error) {
-    console.error("raisePR failed:", error.message);
-    return res.status(500).json({ error: "Failed to raise pull request" });
-  }
-};
-
-export const getPRs = async (req, res) => {
-  try {
-    const prs = await PullRequest.find({ scriptId: req.params.scriptId })
-      .sort({ createdAt: 1 })
-      .populate("authorId", "name profileImage")
-      .populate("reviewerId", "name profileImage");
-
-    return res.status(200).json({ prs });
-  } catch (error) {
-    console.error("getPRs failed:", error.message);
-    return res.status(500).json({ error: "Failed to load pull requests" });
-  }
-};
-
-export const getDiff = async (req, res) => {
-  try {
-    const pr = await PullRequest.findById(req.params.prId).populate("authorId", "name profileImage");
-    if (!pr || normalizeObjectId(pr.scriptId) !== normalizeObjectId(req.params.scriptId)) {
-      return res.status(404).json({ error: "Pull request not found" });
-    }
-
-    const [branch, script] = await Promise.all([
-      Branch.findById(pr.branchId),
-      Script.findById(req.params.scriptId).select("fullContent textContent"),
-    ]);
-
-    if (!branch || !script) {
-      return res.status(404).json({ error: "Pull request diff unavailable" });
-    }
-
-    // Strip HTML so the client receives clean plain-text for line-level diffing.
-    const mainContent = stripHtmlToPlainText(String(script.fullContent || script.textContent || ""));
-    const branchContent = stripHtmlToPlainText(String(branch.content || ""));
-
-    return res.status(200).json({
-      mainContent,
-      branchContent,
-      prId: pr._id,
-      authorName: pr.authorId?.name || "Unknown",
-      title: pr.title,
-      isOutdated: Boolean(branch.isOutdated),
-    });
-  } catch (error) {
-    console.error("getDiff failed:", error.message);
-    return res.status(500).json({ error: "Failed to load pull request diff" });
-  }
-};
-
-export const reviewPR = async (req, res) => {
-  try {
-    const decision = String(req.body?.decision || "").trim();
-    if (!PR_REVIEW_DECISIONS.includes(decision)) {
-      return res.status(400).json({ error: "Invalid review decision" });
-    }
-
-    const note = sanitizeMessage(req.body?.note, 3000);
-    const mergeDecisions = Array.isArray(req.body?.mergeDecisions) ? req.body.mergeDecisions : [];
-
-    const pr = await PullRequest.findById(req.params.prId).populate("authorId", "_id name email profileImage");
-    if (!pr || normalizeObjectId(pr.scriptId) !== normalizeObjectId(req.params.scriptId)) {
-      return res.status(404).json({ error: "Pull request not found" });
-    }
-
-    if (pr.status !== "open") {
-      return res.status(409).json({ error: "Pull request already reviewed" });
-    }
-
-    if (decision === "rejected") {
-      if (!note) {
-        return res.status(400).json({ error: "Rejection note is required" });
-      }
-
-      pr.status = "rejected";
-      pr.reviewNote = note;
-      pr.reviewerId = req.user._id;
-      pr.reviewedAt = new Date();
-      await pr.save();
-
-      emitScriptEvent(req, req.params.scriptId, "pr_rejected", {
-        prId: pr._id,
-        note,
-      });
-
-      await createNotification({
-        userId: pr.authorId?._id,
-        type: "collab_update",
-        from: req.user._id,
-        script: req.params.scriptId,
-        message: `Your PR was rejected.`,
-      });
-
-      emitNotification(req, pr.authorId?._id, "pr_rejected", {
-        prId: pr._id,
-        note,
-        scriptId: req.params.scriptId,
-      });
-
-      await createAuditEntry(req.params.scriptId, req.user._id, "pr_rejected", {
-        prId: pr._id,
-        note,
-      });
-
-      return res.status(200).json({ message: "Pull request rejected" });
-    }
-
-    if (normalizeObjectId(pr.authorId?._id) === normalizeObjectId(req.user.id)) {
-      return res.status(403).json({ error: "Cannot approve your own PR" });
-    }
-
-    const [script, branch] = await Promise.all([
-      Script.findById(req.params.scriptId),
-      Branch.findById(pr.branchId),
-    ]);
-
-    if (!script || !branch) {
-      return res.status(404).json({ error: "Pull request merge source not found" });
-    }
-
-    const mainContent = getPrimaryScriptContent(script);
-    const branchContent = String(branch.content || "");
-    const prMergeDecisions = mergeDecisions.length
-      ? mergeDecisions
-      : (Array.isArray(pr.mergeDecisions) ? pr.mergeDecisions : []);
-    const now = new Date();
-
-    script.history.push({
-      content: mainContent,
-      savedAt: now,
-      savedBy: req.user.id,
-      prId: pr._id,
-    });
-
-    // If the client sent a pre-resolved mergedContent (from per-block conflict resolution),
-    // use it directly. Otherwise fall back to server-side applyMergeDecisions.
-    const clientMergedContent = req.body?.mergedContent ? String(req.body.mergedContent) : null;
-    const mergedContent = clientMergedContent ?? applyMergeDecisions(
-      stripHtmlToPlainText(mainContent),
-      stripHtmlToPlainText(branchContent),
-      prMergeDecisions
-    );
-
-    script.textContent = mergedContent;
-    script.fullContent = mergedContent;
-    script.status = "pending_approval";
-    script.adminApproved = false;
-
-    // Mark all other branches for this script as outdated so their editors
-    // are warned that the main content has advanced past their base.
-    const otherBranches = await Branch.find({
-      scriptId: req.params.scriptId,
-      _id: { $ne: branch._id },
-    });
-    await Promise.all(
-      otherBranches.map((b) => {
-        b.baseContent = mergedContent;
-        b.isOutdated = true;
-        return b.save();
-      })
-    );
-
-    const pdfBuffer = await generateScriptPdf(mergedContent);
-    const pdfUpload = await uploadToCloudinary(pdfBuffer, {
-      folder: "scripts",
-      resource_type: "raw",
-      format: "pdf",
-      public_id: `script-${normalizeObjectId(script._id)}-${Date.now()}`,
-      originalFilename: `script-${normalizeObjectId(script._id)}.pdf`,
-      mimeType: "application/pdf",
-    });
-
-    if (!pdfUpload?.secure_url) {
-      throw new Error("Cloudinary upload did not return a secure URL");
-    }
-
-    script.fileUrl = pdfUpload.secure_url;
-    await script.save();
-
-    await Branch.deleteOne({ _id: branch._id });
-
-    pr.status = "approved";
-    pr.reviewerId = req.user._id;
-    pr.reviewedAt = now;
-    pr.reviewNote = note;
-    pr.mergeDecisions = prMergeDecisions;
-    await pr.save();
-
-    const io = req.app.get("io");
-    if (io) {
-      io.to(getScriptRoom(req.params.scriptId)).emit("pr_merged", {
-        scriptId: normalizeObjectId(script._id),
-        newContent: mergedContent,
-        fileUrl: script.fileUrl || "",
-      });
-    }
-
-    await createNotification({
-      userId: pr.authorId?._id,
-      type: "collab_update",
-      from: req.user._id,
-      script: req.params.scriptId,
-      message: "Your PR was merged and the script PDF was updated.",
-    });
-
-    emitNotification(req, pr.authorId?._id, "pr_merged", {
-      prId: pr._id,
-      scriptId: req.params.scriptId,
-      newContent: mergedContent,
-      fileUrl: script.fileUrl || "",
-    });
-
-    await createAuditEntry(req.params.scriptId, req.user._id, "pr_approved", {
-      prId: pr._id,
-      branchId: branch._id,
-      mergeDecisions: prMergeDecisions,
-      fileUrl: script.fileUrl || "",
-    });
-
-    return res.status(200).json({
-      message: "Pull request approved and merged",
-      mergedContent,
-      fileUrl: script.fileUrl || "",
-    });
-  } catch (error) {
-    console.error("reviewPR failed:", error.message);
-    return res.status(500).json({ error: "Failed to review pull request" });
-  }
-};
-
-export const revertPR = async (req, res) => {
-  try {
-    const { scriptId, prId } = req.params;
-
-    const [script, pr] = await Promise.all([
-      Script.findById(scriptId),
-      PullRequest.findById(prId),
-    ]);
-
-    if (!script || !pr) {
-      return res.status(404).json({ error: "Script or Pull Request not found" });
-    }
-
-    if (pr.status !== "approved") {
-      return res.status(400).json({ error: "Only approved Pull Requests can be reverted" });
-    }
-
-    // Check if it's the last merged PR
-    if (!script.history || script.history.length === 0) {
-      return res.status(400).json({ error: "Script has no history to revert" });
-    }
-
-    const lastHistory = script.history[script.history.length - 1];
-    if (String(lastHistory.prId) !== String(pr._id)) {
-      return res.status(400).json({ error: "Can only revert the most recently merged Pull Request" });
-    }
-
-    // Pop history and restore content
-    const backupContent = lastHistory.content;
-    script.history.pop();
-    script.textContent = backupContent;
-    script.fullContent = backupContent;
-    
-    // Regenerate PDF
-    let fileUrl = script.fileUrl;
-    try {
-      const pdfBuffer = await generateScriptPdf(backupContent);
-      const pdfUpload = await uploadToCloudinary(pdfBuffer, {
-        folder: "scripts",
-        resource_type: "raw",
-        format: "pdf",
-        public_id: `script-${scriptId}-${Date.now()}`,
-        originalFilename: `script-${scriptId}.pdf`,
-        mimeType: "application/pdf",
-      });
-      if (pdfUpload?.secure_url) {
-        fileUrl = pdfUpload.secure_url;
-      }
-    } catch (pdfErr) {
-      console.warn("Failed to generate PDF on revert:", pdfErr.message);
-    }
-    
-    script.fileUrl = fileUrl;
-    await script.save();
-
-    // Update PR status
-    pr.status = "rejected";
-    pr.reviewNote = "This Pull Request was reverted by the merger.";
-    await pr.save();
-
-    // Notify author
-    await createNotification({
-      userId: pr.authorId,
-      type: "collab_update",
-      from: req.user._id,
-      script: scriptId,
-      message: "Your previously merged PR was reverted.",
-    });
-
-    emitNotification(req, pr.authorId, "pr_reverted", {
-      prId: pr._id,
-      scriptId,
-    });
-
-    await createAuditEntry(scriptId, req.user._id, "pr_reverted", {
-      prId: pr._id,
-    });
-
-    const io = getIo(req);
-    if (io) {
-      io.to(getScriptRoom(scriptId)).emit("pr_reverted", {
-        prId: pr._id,
-        scriptId,
-        newContent: backupContent,
-        fileUrl,
-      });
-    }
-
-    return res.status(200).json({
-      message: "Pull request reverted successfully",
-      revertedContent: backupContent,
-      fileUrl,
-    });
-  } catch (error) {
-    console.error("revertPR failed:", error.message);
-    return res.status(500).json({ error: "Failed to revert pull request" });
-  }
-};

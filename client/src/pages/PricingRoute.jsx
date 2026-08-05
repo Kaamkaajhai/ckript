@@ -23,17 +23,6 @@ export default function PricingRoute() {
         <div className="absolute top-[-10%] left-[-5%] h-[40vh] w-[40vw] rounded-full bg-indigo-600/10 blur-[100px]" />
         <div className="absolute bottom-[-5%] right-[-5%] h-[35vh] w-[35vw] rounded-full bg-violet-600/8 blur-[120px]" />
       </div>
-      {/* Quiet, crawlable summary that sits behind the modal. */}
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-2xl flex-col items-center justify-center px-6 text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/40">Pricing</p>
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white/80">
-          Plans for writers and the film industry
-        </h1>
-        <p className="mt-3 max-w-md text-sm leading-relaxed text-white/40">
-          Free, Silver and Gold plans for writers, plus the Film Industry Professional membership.
-          Choose a plan from the window above.
-        </p>
-      </div>
     </main>
   );
 }

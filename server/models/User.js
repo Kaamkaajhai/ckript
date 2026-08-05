@@ -10,7 +10,10 @@ const createSid = (prefix) => {
   return `${prefix}-${token}`;
 };
 
-const createReferralCode = () => {
+// Exported because the pre-validate hook below only fires on save: accounts created before the hook
+// existed have no code at all, so anything that needs to SHOW a referral link has to be able to mint
+// one on demand. Alphabet omits I/O/0/1 — these get read aloud and typed by hand.
+export const createReferralCode = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let token = "";
   for (let i = 0; i < 8; i += 1) {
@@ -22,7 +25,13 @@ const createReferralCode = () => {
 const userSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   referralCode: { type: String, unique: true, sparse: true, index: true, uppercase: true, trim: true },
-  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  // Indexed: the admin top-referrers aggregation groups on this across the whole user collection.
+  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+  // WHEN the referral link was recorded. Without this the only time signal is
+  // `referralBonusAwardedAt`, which is stamped at email verification — potentially days after the
+  // click — so any window-scoped count (a competition referral drive, say) would be badly skewed.
+  // Set alongside referredBy at every site that writes it.
+  referredAt: { type: Date },
   hasReceivedReferralBonus: { type: Boolean, default: false },
   referralBonusAwardedAt: { type: Date },
   name: { type: String, required: true },
@@ -42,7 +51,9 @@ const userSchema = new mongoose.Schema({
   // Google OAuth linkage (writers / creators sign-in with Google).
   googleId: { type: String, index: true, sparse: true },
   authProvider: { type: String, enum: ["password", "google"], default: "password" },
-  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin"], required: true },
+  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin", "finance"], required: true },
+  // The role a finance grant replaced, so revoking restores it exactly — roles are load-bearing.
+  financeRoleGrantedFrom: { type: String },
   bio: { type: String },
   skills: [String],
   profileImage: { type: String },
@@ -50,8 +61,11 @@ const userSchema = new mongoose.Schema({
 
   // Account settings
   isPrivate: { type: Boolean, default: false },
+  allowIndustryContact: { type: Boolean, default: true },
   language: { type: String, default: "en" },
   timezone: { type: String, default: "Asia/Kolkata" },
+  // Preferred display/checkout currency (auto-detected from IP, overridable via a toggle).
+  preferredCurrency: { type: String, enum: ["INR", "USD"], default: "INR" },
 
   // Email verification
   emailVerified: { type: Boolean, default: false },
@@ -121,7 +135,7 @@ const userSchema = new mongoose.Schema({
     // Specialized tags (themes, tones, settings)
     specializedTags: [String],
     // Plan selection
-    plan: { type: String, enum: ["free", "paid", "silver", "gold"], default: "free" },
+    plan: { type: String, enum: ["free", "paid", "silver", "gold", "diamond"], default: "free" },
     // Diversity data (optional)
     diversity: {
       gender: { type: String },
@@ -261,9 +275,18 @@ const userSchema = new mongoose.Schema({
     script: { type: mongoose.Schema.Types.ObjectId, ref: "Script" },
     viewedAt: { type: Date, default: Date.now },
   }],
-  // Subscription & credits
+  // The `credits` currency ledger (balance / totalPurchased / totalSpent / transactions) used to live
+  // here. It was removed because nothing in the product ever spent it: no page was routed to it, and
+  // the AI features gate on the subscription plan, not a balance. Only a referral signup bonus and an
+  // admin grant button ever wrote to it, so it was a promise the product could not keep.
+  //
+  // Deliberately NOT $unset from existing documents: dropping the schema path is enough for Mongoose
+  // to ignore whatever is stored, which keeps the removal reversible if the currency ever comes back.
+  // Note `subscription.scriptScoreCredits` below is a SEPARATE counter and is unrelated.
+
+  // Subscription
   subscription: {
-    plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold"], default: "free" },
+    plan: { type: String, enum: ["free", "pro", "enterprise", "silver", "gold", "diamond"], default: "free" },
     expiresAt: { type: Date },
     scriptScoreCredits: { type: Number, default: 0 },
     aiImagesGeneratedTotal: { type: Number, default: 0 },
@@ -289,7 +312,13 @@ const userSchema = new mongoose.Schema({
       enum: ["none", "razorpay", "razorpay_test", "manual", "mock"],
       default: "none",
     },
+    // The Razorpay ORDER id for writer plans, the PAYMENT id for the FIP plan — the two verifiers
+    // disagree about what belongs here. `paymentId` below is the unambiguous one.
     checkoutReference: { type: String },
+    // The Razorpay payment id. verifyWriterRazorpayPayment has always tried to $set this, but it was
+    // not a schema path and the schema is strict, so Mongoose discarded it silently on every writer
+    // subscription ever sold — leaving no way to look a plan payment up in the Razorpay dashboard.
+    paymentId: { type: String },
     sourcePath: { type: String },
     contactsLimit: { type: Number, default: 10 },
     messageWritersLimit: { type: Number, default: 10 },
@@ -430,9 +459,29 @@ const userSchema = new mongoose.Schema({
   referralStats: {
     successfulReferrals: { type: Number, default: 0 },
   },
+
+  // Earned achievement badges (competitions). Server-persisted and public — unlike the localStorage
+  // reader badges in client AchievementSystem.jsx, which are a separate, unrelated feature.
+  badges: [{
+    id: { type: String },        // challenge_winner | challenge_runner_up | challenge_special | challenge_participant
+    label: { type: String },
+    competitionId: { type: mongoose.Schema.Types.ObjectId, ref: "Competition" },
+    awardedAt: { type: Date, default: Date.now },
+  }],
   // Stripe Connected Account (for payouts)
   stripeAccountId: { type: String },
   stripeCustomerId: { type: String },
+  // Google Calendar connection (producers schedule meetings that create a Meet event on their calendar).
+  // Account-level integration; the refresh token is encrypted at rest and never selected by default.
+  googleCalendar: {
+    connected: { type: Boolean, default: false },
+    connectedAt: { type: Date },
+    calendarEmail: { type: String },
+    refreshTokenEnc: { type: String, select: false },
+    accessToken: { type: String, select: false },
+    accessTokenExpiry: { type: Date, select: false },
+    scopes: { type: [String], default: [] },
+  },
   // Admin approval for investors
   approvalStatus: {
     type: String,
@@ -457,6 +506,18 @@ const userSchema = new mongoose.Schema({
     archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     archivedProfile: { type: mongoose.Schema.Types.Mixed, default: null },
   },
+  activeSessions: [
+    {
+      sessionId: { type: String, required: true },
+      device: { type: String, default: "Unknown Device" }, // Raw UA fallback
+      browser: { type: String, default: "Unknown" },
+      os: { type: String, default: "Unknown" },
+      location: { type: String, default: "Unknown Location" },
+      ip: { type: String, default: "Unknown IP" },
+      loginTime: { type: Date, default: Date.now },
+      lastSeen: { type: Date, default: Date.now }
+    }
+  ],
 }, { timestamps: true });
 
 userSchema.index(

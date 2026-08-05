@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { classifyText as clientClassify, textToBlocks as clientBlocks } from "./classify";
+import { classifyText as clientClassify, textToBlocks as clientBlocks, parseTitlePage as clientParseTP, serializeTitlePage as clientSerTP, parseInlineEmphasis as clientEmph } from "./classify";
 // The server keeps a lockstep COPY of the classifier (separate Vercel deploys can't share one
 // file). THIS test is what makes them one behavior: if anyone edits one classify.js without the
 // other, these assertions fail. classify.js is pure ESM, so the Node test runner imports both.
-import { classifyText as serverClassify, textToBlocks as serverBlocks } from "../../../../server/utils/classify.js";
+import { classifyText as serverClassify, textToBlocks as serverBlocks, parseTitlePage as serverParseTP, serializeTitlePage as serverSerTP, parseInlineEmphasis as serverEmph } from "../../../../server/utils/classify.js";
 import { formatScreenplayLikeText } from "../../../../server/utils/screenplayParser.js";
 
 const FIXTURES = {
@@ -16,6 +16,10 @@ const FIXTURES = {
   // leading "."/"@"/">" so the one classifier recognizes it (the bug fix). "..literal" is an
   // ESCAPED dot — must stay action, not a forced scene.
   forced: [".LOCATION", "", "@NARRATOR", "I begin.", "", "> WE ARE OUT", "", "..a literal dot line"].join("\n"),
+  // Page breaks were removed: a legacy "===" line is dropped from display; a single "=" stays action.
+  legacyEquals: ["INT. ROOM - DAY", "", "Action.", "", "===", "", "EXT. STREET - DAY", "", "= a synopsis"].join("\n"),
+  // Inline emphasis + centered are stripped/flagged identically on both sides.
+  emphasis: ["INT. ROOM - DAY", "", "A **bold** and *italic* and _under_ mix.", "", ">THE END<"].join("\n"),
 };
 
 describe("Classifier parity — client classify.js === server classify.js (the one classifier)", () => {
@@ -27,6 +31,34 @@ describe("Classifier parity — client classify.js === server classify.js (the o
       expect(serverBlocks(text)).toEqual(clientBlocks(text));
     });
   }
+
+  it("title-page parse/serialize agree (client === server)", () => {
+    const fields = { title: "THE HEIST", credit: "Written by", author: "Jane Doe", source: "Based on real events", draftDate: "2026-06-30" };
+    const block = clientSerTP(fields);
+    expect(serverSerTP(fields)).toBe(block);
+    const doc = block + "INT. ROOM - DAY\nAction.";
+    expect(serverParseTP(doc)).toEqual(clientParseTP(doc));
+    expect(clientParseTP(doc)).toEqual(fields);
+  });
+
+  it("inline emphasis parses identically (client === server) so viewer + PDF match the editor", () => {
+    for (const s of ["A **bold** and *italic* and _under_ mix.", "***both*** styles", "no markers here"]) {
+      expect(serverEmph(s)).toEqual(clientEmph(s));
+    }
+    // Sanity: the styled runs are what the renderers consume.
+    expect(clientEmph("say **hi**")).toEqual([
+      { text: "say ", bold: false, italic: false, underline: false },
+      { text: "hi", bold: true, italic: false, underline: false },
+    ]);
+  });
+
+  it("legacy === is dropped from display (no page breaks), on both sides", () => {
+    for (const fn of [clientBlocks, serverBlocks]) {
+      const blocks = fn("A\n\n===\n\nB");
+      expect(blocks.some((b) => b.type === "pagebreak")).toBe(false);
+      expect(blocks.some((b) => String(b.text).includes("==="))).toBe(false);
+    }
+  });
 });
 
 describe("Server PDF block stream (formatScreenplayLikeText + classify) — the actual PDF input", () => {

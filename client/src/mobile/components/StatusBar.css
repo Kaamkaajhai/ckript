@@ -1,0 +1,22 @@
+.ckm-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(6px + var(--ckm-safe-top)) 30px 6px;
+  background: var(--ckm-bg);
+  flex: none;
+}
+
+.ckm-statusbar__time {
+  font: 600 15px/1 var(--ckm-body);
+  letter-spacing: 0.3px;
+  color: var(--ckm-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm-statusbar__icons {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ckm-ink);
+}

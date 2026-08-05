@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { readFile, unlink, writeFile } from "fs/promises";
 import { fileURLToPath } from "url";
+import { fetchTrustedRemoteAsset, isPdfBuffer } from "./remoteAssetPolicy.js";
 
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
@@ -56,6 +57,11 @@ const MAX_PAGE_PREVIEW_CHARACTERS = 1400;
 export const formatScreenplayLikeText = (value = "") => {
   let text = normalizeExtractedPdfText(value);
   if (!text.trim()) return "";
+
+  // Fix PDF extraction artifacts where kerning is interpreted as single spaces (e.g. "P R O D U C T I O N   N O T E")
+  text = text.replace(/(?<=^|[\s\n])(?:[^\s] ){1,}[^\s](?=$|[\s\n])/g, (match) => {
+    return match.replace(/ /g, "");
+  });
 
   text = text
     .replace(/[ \t]+\n/g, "\n")
@@ -186,15 +192,46 @@ export const extractTextFromPdfBuffer = async (buffer) => {
     const data = await pdfParse(buffer, {
       pagerender: async (pageData) => {
         try {
-          const textContent = await pageData.getTextContent();
-          const pageText = (textContent?.items || [])
-            .map((item) => String(item?.str || "").trim())
-            .filter(Boolean)
-            .join(" ")
-            .replace(/\s+/g, " ")
-            .trim();
+          const textContent = await pageData.getTextContent({
+            normalizeWhitespace: false,
+            disableCombineTextItems: true
+          });
+          
+          let lastY;
+          let lastX = 0;
+          let lastWidth = 0;
+          let text = '';
+          for (let item of textContent?.items || []) {
+            if (lastY == item.transform[5] || !lastY) {
+              if (lastY && text && !text.endsWith(' ')) {
+                const expectedNextX = lastX + lastWidth;
+                const actualX = item.transform[4];
+                // Insert space only if there's a significant gap
+                // Using 0.15 is the standard heuristic for pdf.js to detect word boundaries.
+                if (actualX - expectedNextX > (item.height || 12) * 0.15) {
+                  // If the gap is extremely large (e.g., > 50% of font height), it's a true double space (word boundary in kerning).
+                  if (actualX - expectedNextX > (item.height || 12) * 0.45) {
+                    text += '  '; // Double space for word boundaries in kerned text
+                  } else {
+                    text += ' '; // Single space for kerning gaps
+                  }
+                }
+              }
+              text += item.str;
+            } else {
+              text += '\n' + item.str;
+            }
+            lastY = item.transform[5];
+            lastX = item.transform[4];
+            lastWidth = item.width || 0;
+          }
+          
+          // Pass the raw text (which may have double spaces between words and single spaces from kerning)
+          // directly to formatScreenplayLikeText so the kerning fix can detect word boundaries.
+          const pageText = text;
 
-          const formattedPageText = formatScreenplayLikeText(pageText).slice(0, MAX_PAGE_PREVIEW_CHARACTERS);
+          const previewSlice = pageText.slice(0, MAX_PAGE_PREVIEW_CHARACTERS + 200);
+          const formattedPageText = formatScreenplayLikeText(previewSlice).slice(0, MAX_PAGE_PREVIEW_CHARACTERS);
           pageTexts.push(formattedPageText);
           return `${pageText}\n\n`;
         } catch (pageError) {
@@ -246,11 +283,9 @@ export const extractTextFromPdfUrl = async (url = "") => {
     return { text: "", numItems: 0, strategy: "missing-url" };
   }
 
-  const response = await fetch(remoteUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download PDF for extraction (${response.status})`);
+  const { buffer } = await fetchTrustedRemoteAsset(remoteUrl);
+  if (!isPdfBuffer(buffer)) {
+    throw new Error("The stored script file is not a valid PDF.");
   }
-
-  const buffer = Buffer.from(await response.arrayBuffer());
   return extractTextFromPdfBuffer(buffer);
 };

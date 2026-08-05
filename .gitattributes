@@ -1,0 +1,34 @@
+# Normalise text to LF in the repository, checked out per-platform.
+* text=auto
+
+# Binary assets must NEVER be line-ending converted. Without this, a Windows
+# checkout (core.autocrlf=true) rewrites every 0x0A byte inside these files as
+# CRLF and silently corrupts them — that is what broke the Courier Prime fonts
+# and made screenplay PDF export fail with "Unknown font format".
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.eot   binary
+
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.avif  binary
+*.bmp   binary
+
+*.mp4   binary
+*.webm  binary
+*.mov   binary
+*.mp3   binary
+*.wav   binary
+
+*.zip   binary
+*.gz    binary
+*.docx  binary
+*.xlsx  binary
+*.pptx  binary

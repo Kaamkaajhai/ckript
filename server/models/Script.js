@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const VALID_COLLABORATOR_ROLES = ["editor", "merger", "viewer", "full_admin", "commenter"];
+const VALID_COLLABORATOR_ROLES = ["editor", "viewer", "full_admin", "commenter"];
 const normalizeCollaboratorRole = (value) => {
   const normalized = String(value || "").trim().toLowerCase();
   return VALID_COLLABORATOR_ROLES.includes(normalized) ? normalized : "editor";
@@ -24,8 +24,9 @@ const roleSchema = new mongoose.Schema({
 }, { _id: true });
 
 const collaboratorSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  role: { type: String, enum: ["editor", "merger", "viewer", "full_admin", "commenter"], required: true, default: "editor", set: normalizeCollaboratorRole },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+  invitedEmail: { type: String, lowercase: true, trim: true },
+  role: { type: String, enum: ["editor", "viewer", "full_admin", "commenter"], required: true, default: "editor", set: normalizeCollaboratorRole },
   accessLevel: {
     type: String,
     enum: ["full_access", "content_only"],
@@ -47,9 +48,40 @@ collaboratorSchema.pre("validate", function normalizeRole() {
   this.role = normalizeCollaboratorRole(this.role);
 });
 
+// Authorship CREDITS — deliberately separate from both `creator` and `collaborators`:
+//   • `creator`      = owner. Sole payee, approver, legal counterparty and canonical-URL key.
+//   • `collaborators`= who can ACCESS the script (a commenter must not earn a writing credit).
+//   • `writers`      = who is CREDITED as an author. Display/attribution only — it carries no
+//                      rights, money or approval, so it can include people who aren't Ckript users.
+// Credit ORDER is meaningful in screenwriting, hence the explicit `order` field.
+const writerCreditSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  // Denormalized so a credit survives an account rename/deletion and can name a non-user.
+  name: { type: String, required: true, trim: true, maxlength: 120 },
+  creditType: {
+    type: String,
+    enum: ["written_by", "story_by", "screenplay_by", "adapted_by", "additional_material"],
+    default: "written_by",
+  },
+  order: { type: Number, default: 0 },
+}, { _id: true });
+
 const scriptSchema = new mongoose.Schema({
   sid: { type: String, unique: true, sparse: true, index: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  writers: [writerCreditSchema],
+  // Competition linkage. `competitionLocked` is set at submission and makes the script read-only:
+  // enforced in saveDraft, updateScript and deleteScript so no write path can bypass it.
+  //
+  // The lock exists to make a submission FINAL while the competition is running. Once results are
+  // declared that job is done — the frozen `entry.snapshot` is what was judged and stays frozen
+  // forever — so the competition releases the script and the writer gets their own work back:
+  // publish it, edit it, invite co-writers. `competitionReleasedAt` records that hand-back, and is
+  // what distinguishes "a competition entry that is still in flight" from "a script that happens to
+  // have been entered in a past competition".
+  competitionId: { type: mongoose.Schema.Types.ObjectId, ref: "Competition", default: null, index: true },
+  competitionLocked: { type: Boolean, default: false },
+  competitionReleasedAt: { type: Date, default: null },
   collabVisibility: {
     type: String,
     enum: ["private", "open"],
@@ -70,6 +102,9 @@ const scriptSchema = new mongoose.Schema({
   // Outline notes (Phase 4) — free-form beats/notes alongside the script. Editor metadata only,
   // never included in the screenplay text or PDF/Fountain export.
   outlineNotes: { type: String, default: "" },
+  // Industry title page — structured fields (title/credit/author/source/draftDate). Stored separately
+  // from the body text (so it never confuses the classifier); the PDF and Fountain export render it.
+  titlePage: { type: Map, of: String, default: undefined },
   fileUrl: { type: String }, // Made optional since users can write text directly
   projectSource: { type: String, enum: ["uploaded", "editor"], default: "uploaded" },
   pageCount: { type: Number }, // Auto-calculated on upload
@@ -333,6 +368,19 @@ const scriptSchema = new mongoose.Schema({
   trailerSource: { type: String, enum: ["ai", "uploaded", "none"], default: "none" }, // Track trailer source
   // Pitch Video (short pitch, max 90s, max 90MB)
   pitchVideoUrl: { type: String },
+  trailerRequestPayment: {
+    status: { type: String, enum: ["paid", "failed", "pending"], default: "pending" },
+    provider: { type: String, enum: ["razorpay", "test", "manual", "none"], default: "none" },
+    orderId: { type: String, default: "" },
+    paymentId: { type: String, default: "" },
+    signature: { type: String, default: "" },
+    currency: { type: String, default: "INR" },
+    amount: { type: Number, default: 0 },
+    duration: { type: String, default: "" },
+    quality: { type: String, default: "" },
+    format: { type: String, default: "" },
+    paidAt: { type: Date },
+  },
   trailerWriterFeedback: {
     status: { type: String, enum: ["pending", "approved", "revision_requested"], default: "pending" },
     note: { type: String, default: "" },
@@ -381,6 +429,12 @@ const scriptSchema = new mongoose.Schema({
   // Reader system
   rating: { type: Number, default: 0, min: 0, max: 5 },
   reviewCount: { type: Number, default: 0 },
+  // Producer rating — aggregate of ratings from industry professionals (see ProducerRating model),
+  // recomputed on each rating. Shown to every viewer as a credibility signal.
+  producerRating: {
+    average: { type: Number, default: 0, min: 0, max: 5 },
+    count: { type: Number, default: 0 },
+  },
   readsCount: { type: Number, default: 0 },
   isFeatured: { type: Boolean, default: false },
   // Analytics

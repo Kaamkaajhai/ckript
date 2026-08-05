@@ -38,14 +38,14 @@ const ConfirmDialog = ({
       <div
         className={`relative w-[min(92vw,430px)] rounded-2xl border p-5 shadow-2xl ${
           isDarkMode
-            ? "bg-[#0d1520]/95 border-[#1e2f45] text-white"
+            ? "bg-[#141414]/95 border-[#242424] text-[#f5f2eb]"
             : "bg-white border-gray-200 text-gray-900"
         }`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4">
           <p className={`text-base font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>{title}</p>
-          <p className={`mt-1.5 text-sm leading-relaxed ${isDarkMode ? "text-[#9bb1c9]" : "text-gray-600"}`}>
+          <p className={`mt-1.5 text-sm leading-relaxed ${isDarkMode ? "text-[#cfccc5]" : "text-gray-600"}`}>
             {message}
           </p>
         </div>
@@ -55,15 +55,23 @@ const ConfirmDialog = ({
             type="button"
             onClick={onCancel}
             className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
-              isDarkMode ? "text-[#9bb1c9] hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
+              isDarkMode ? "text-[#cfccc5] hover:bg-white/10" : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             {cancelText}
           </button>
+          {/* Primary is ink, not coral — coral only reaches 4.35:1 and can't carry button text.
+              This button had no light-mode branch at all, so it painted the old navy inside the
+              warm dashboard shell; and on the dark card ink has to invert or it vanishes into the
+              surface, the same trick challenge.css and MainLayout use. */}
           <button
             type="button"
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-semibold rounded-xl bg-[#1e3a5f] text-white hover:bg-[#2a4b77] transition-colors"
+            className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
+              isDarkMode
+                ? "bg-[#f5f2eb] text-[#12110f] hover:bg-white"
+                : "bg-[#161513] text-white hover:bg-[#2c2a26]"
+            }`}
           >
             {confirmText}
           </button>

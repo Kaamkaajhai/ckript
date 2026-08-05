@@ -1,0 +1,111 @@
+/* ============================================================================
+   Ckript — Skeleton loading system  (writer section)
+   ----------------------------------------------------------------------------
+   One canonical "shade of white" skeleton for the whole creator/writer
+   experience. A soft off-white bone with a light sheen sweeping across it —
+   it reads as "content is arriving", never "empty" or "broken".
+
+   Design intent
+   -------------
+   • Matches the warm off-white writer shell (Dashboard, Profile, Create,
+     Upload) — same family as the existing dashboard `.ck-skel` (#efeae1).
+   • Ships a `--cool` tone for the cool-gray pages that live in the same
+     section (Messages, Search, Script Workbench) so a warm bone never sits
+     awkwardly on a cool surface.
+   • Fully theme-aware: a single `html.dark-mode` override recolors every bone.
+   • Honors `prefers-reduced-motion`: the sheen is swapped for a gentle pulse.
+
+   The bones are driven entirely by CSS custom properties, so a surface can
+   retune the tone locally by setting `--sk-base` / `--sk-sheen` on a wrapper
+   without touching markup.
+   ============================================================================ */
+
+:root {
+  /* Warm off-white — the writer shell default. */
+  --sk-base: #ece7de;
+  --sk-sheen: rgba(255, 255, 255, 0.65);
+  --sk-radius: 8px;
+  --sk-speed: 1.5s;
+}
+
+/* Cool neutral tone for cool-gray / slate surfaces (Messages, Search, …). */
+.ck-sk-tone-cool {
+  --sk-base: #e8ebef;
+  --sk-sheen: rgba(255, 255, 255, 0.72);
+}
+
+/* ── The bone ─────────────────────────────────────────────────────────────── */
+.ck-sk {
+  /* block so explicit width/height always apply — the bone is a <span>, and
+     inline spans ignore sizing. Flex/grid parents treat it as an item either
+     way; stacked bones rely on this. */
+  display: block;
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  background: var(--sk-base);
+  border-radius: var(--sk-radius);
+  background-clip: padding-box;
+}
+
+.ck-sk::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--sk-sheen) 50%,
+    transparent 100%
+  );
+  animation: ck-sk-sweep var(--sk-speed) ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Stagger sweeps a touch so a stack of bones shimmers as a wave, not a block. */
+.ck-sk:nth-child(3n)::after { animation-delay: 0.12s; }
+.ck-sk:nth-child(3n + 1)::after { animation-delay: 0.24s; }
+
+@keyframes ck-sk-sweep {
+  100% { transform: translateX(100%); }
+}
+
+/* ── Shapes ───────────────────────────────────────────────────────────────── */
+.ck-sk--circle { border-radius: 999px; }
+.ck-sk--pill { border-radius: 999px; }
+.ck-sk--text { border-radius: 5px; }
+
+/* ── Screen wrapper ───────────────────────────────────────────────────────── */
+.ck-sk-screen { width: 100%; }
+.ck-sk-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────────────── */
+html.dark-mode {
+  --sk-base: #16222f;
+  --sk-sheen: rgba(120, 150, 185, 0.16);
+}
+html.dark-mode .ck-sk-tone-cool {
+  --sk-base: #12202e;
+  --sk-sheen: rgba(120, 150, 185, 0.18);
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .ck-sk::after { animation: none; }
+  .ck-sk { animation: ck-sk-pulse 1.8s ease-in-out infinite; }
+}
+@keyframes ck-sk-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}

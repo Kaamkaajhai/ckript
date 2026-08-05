@@ -35,12 +35,82 @@ const normalizeLanguagePreference = (value) => {
   return SUPPORTED_LANGUAGE_CODES.has(mapped) ? mapped : DEFAULT_LANGUAGE;
 };
 
-const generateToken = (id) => {
+const generateToken = (id, sessionId) => {
   const expiresIn = process.env.JWT_EXPIRES_IN || "30d";
-  const token = jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn });
+  const payload = sessionId ? { id, sessionId } : { id };
+  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
   // Decode to get the exact expiry timestamp
   const decoded = jwt.decode(token);
   return { token, expiresAt: decoded.exp * 1000 }; // ms epoch
+};
+
+import crypto from "crypto";
+import { UAParser } from "ua-parser-js";
+import geoip from "geoip-lite";
+import axios from "axios";
+
+const addSessionToUser = async (req, user) => {
+  const sessionId = crypto.randomUUID();
+  const rawDevice = req.headers["user-agent"] || "Unknown Device";
+  const ip = req.ip || req.connection?.remoteAddress || "Unknown IP";
+
+  const parser = new UAParser(rawDevice);
+  const browser = parser.getBrowser().name || "Unknown";
+  const os = parser.getOS().name || "Unknown";
+  
+  let location = "Unknown Location";
+  if (ip && ip !== "Unknown IP") {
+    // In local development req.ip is often ::1, 127.0.0.1, or ::ffff:127.0.0.1
+    if (ip === "::1" || ip === "127.0.0.1" || ip.includes("127.0.0.1")) {
+      location = "Localhost";
+    } else {
+      try {
+        const apiKey = process.env.IP_API_KEY;
+        if (apiKey) {
+          const response = await axios.get(`https://api.ipgeolocation.io/ipgeo?apiKey=${apiKey}&ip=${ip}`);
+          if (response.data) {
+            const cityRegion = response.data.city || response.data.state_prov || "Unknown City";
+            location = `${cityRegion}, ${response.data.country_code2 || response.data.country_name || "Unknown Country"}`;
+          }
+        } else {
+          const geo = geoip.lookup(ip);
+          if (geo) {
+            const cityRegion = geo.city || geo.region || "Unknown City";
+            location = `${cityRegion}, ${geo.country || "Unknown Country"}`;
+          }
+        }
+      } catch (err) {
+        console.error("IP Geolocation API failed:", err.message);
+        const geo = geoip.lookup(ip);
+        if (geo) {
+          const cityRegion = geo.city || geo.region || "Unknown City";
+          location = `${cityRegion}, ${geo.country || "Unknown Country"}`;
+        }
+      }
+    }
+  }
+
+  if (!user.activeSessions) {
+    user.activeSessions = [];
+  }
+  
+  user.activeSessions.push({ 
+    sessionId, 
+    device: rawDevice,
+    browser,
+    os,
+    location,
+    ip, 
+    loginTime: new Date(), 
+    lastSeen: new Date() 
+  });
+  
+  // Limit to 20 active sessions
+  if (user.activeSessions.length > 20) {
+    user.activeSessions.shift();
+  }
+  await user.save();
+  return sessionId;
 };
 
 // Comprehensive email validation
@@ -111,7 +181,6 @@ const USERNAME_REQUIRED_ROLES = new Set([]);
 const INDIA_COUNTRY_NAME = "India";
 const INDIA_ZIP_REGEX = /^\d{6}$/;
 const INTERNATIONAL_POSTAL_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9\s-]{2,11}$/;
-const REFERRAL_BONUS_CREDITS = 15;
 const REFERRAL_INPUT_MAX_LENGTH = 40;
 const DEFAULT_CLIENT_ORIGIN = "https://ckript.com";
 
@@ -136,17 +205,6 @@ const buildReferralLink = (referralCode = "") => {
   const safeCode = encodeURIComponent(String(referralCode || "").trim());
   return `${base}/${safeCode}`;
 };
-
-const buildReferralTransactionReference = () =>
-  `REF-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-const buildReferralCreditTransaction = ({ amount, description, reference }) => ({
-  type: "bonus",
-  amount,
-  description,
-  reference,
-  createdAt: new Date(),
-});
 
 const findReferrerByInput = async (rawReferralInput = "") => {
   const normalizedRaw = normalizeReferralInput(rawReferralInput);
@@ -205,6 +263,18 @@ const hasReferralBeenUsedByEmail = async (rawEmail = "", options = {}) => {
   return Boolean(existing);
 };
 
+/**
+ * Marks a referral as QUALIFIED: the referred account exists, is verified, and was not self-referred.
+ *
+ * There is no longer a payout attached. This used to also mint credit currency for both sides, but
+ * nothing in the product ever spent credits, so the currency was removed and only the marker remains.
+ * `hasReceivedReferralBonus` is what everything downstream actually reads — it is the "qualified
+ * referral" flag for the competition referral drive (see utils/competitionReferrals.js), which pays in
+ * badges and subscription days.
+ *
+ * The name is kept because it is referenced from several signup/verification paths; only the payout
+ * is gone.
+ */
 const awardReferralBonusForUser = async (userId) => {
   if (!userId) return { awarded: false };
 
@@ -241,10 +311,8 @@ const awardReferralBonusForUser = async (userId) => {
     return { awarded: false, reason: "self_referral_blocked" };
   }
 
-  const reference = buildReferralTransactionReference();
-  const now = new Date();
-
-  const referredCreditUpdate = await User.updateOne(
+  // Conditional on the flag still being false, so two concurrent verifications can't both qualify it.
+  const qualified = await User.updateOne(
     {
       _id: referredUser._id,
       referredBy: referrer._id,
@@ -253,74 +321,32 @@ const awardReferralBonusForUser = async (userId) => {
     {
       $set: {
         hasReceivedReferralBonus: true,
-        referralBonusAwardedAt: now,
-      },
-      $inc: {
-        "credits.balance": REFERRAL_BONUS_CREDITS,
-        "credits.totalPurchased": REFERRAL_BONUS_CREDITS,
-      },
-      $push: {
-        "credits.transactions": buildReferralCreditTransaction({
-          amount: REFERRAL_BONUS_CREDITS,
-          description: `Referral bonus for joining via ${referrer.referralCode || "referral link"}`,
-          reference,
-        }),
+        referralBonusAwardedAt: new Date(),
       },
     }
   );
 
-  if (!referredCreditUpdate.modifiedCount) {
+  if (!qualified.modifiedCount) {
     return { awarded: false, reason: "already_awarded" };
   }
 
-  try {
-    await User.updateOne(
-      { _id: referrer._id },
-      {
-        $inc: {
-          "credits.balance": REFERRAL_BONUS_CREDITS,
-          "credits.totalPurchased": REFERRAL_BONUS_CREDITS,
-          "referralStats.successfulReferrals": 1,
-          "referralStats.totalBonusCredits": REFERRAL_BONUS_CREDITS,
-        },
-        $push: {
-          "credits.transactions": buildReferralCreditTransaction({
-            amount: REFERRAL_BONUS_CREDITS,
-            description: `Referral bonus: ${referredUser.name || "A user"} joined successfully`,
-            reference,
-          }),
-        },
-      }
-    );
-  } catch (referrerCreditError) {
-    // Best-effort rollback if referrer credit update fails after awarding referee credits.
-    await User.updateOne(
-      {
-        _id: referredUser._id,
-        "credits.transactions.reference": reference,
-      },
-      {
-        $set: {
-          hasReceivedReferralBonus: false,
-          referralBonusAwardedAt: null,
-        },
-        $inc: {
-          "credits.balance": -REFERRAL_BONUS_CREDITS,
-          "credits.totalPurchased": -REFERRAL_BONUS_CREDITS,
-        },
-        $pull: {
-          "credits.transactions": { reference },
-        },
-      }
-    );
+  // Denormalized tally only. Every reader of "how many referrals?" counts documents live, so if this
+  // bump fails the referral is still correctly qualified — it must not fail the caller's signup or
+  // email-verification response.
+  await User.updateOne(
+    { _id: referrer._id },
+    { $inc: { "referralStats.successfulReferrals": 1 } }
+  ).catch((error) => {
+    console.error("Referral stat increment failed:", error?.message || error);
+  });
 
-    throw referrerCreditError;
-  }
+  // Check if the referrer hit a competition milestone and notify the admin
+  import("../utils/competitionReferrals.js")
+    .then(({ checkAndNotifyReferralMilestones }) => checkAndNotifyReferralMilestones(referrer._id))
+    .catch((err) => console.error("Failed to load competition referrals check:", err));
 
   return {
     awarded: true,
-    reference,
-    bonusCredits: REFERRAL_BONUS_CREDITS,
     referrerName: referrer.name || "",
     referrerCode: referrer.referralCode || "",
   };
@@ -757,6 +783,7 @@ export const join = async (req, res) => {
         }
         if (referrerUser && !userExists.referredBy) {
           userExists.referredBy = referrerUser._id;
+          userExists.referredAt = new Date();
         }
         
         if (skipEmailVerification) {
@@ -780,7 +807,6 @@ export const join = async (req, res) => {
             language: normalizeLanguagePreference(userExists.language),
             timezone: userExists.timezone || DEFAULT_TIMEZONE,
             referralBonusAwarded: referralBonusResult.awarded,
-            referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
             token,
             expiresAt,
             message: "Account verified successfully (email verification skipped in dev mode)"
@@ -820,6 +846,7 @@ export const join = async (req, res) => {
       password, 
       role,
       referredBy: referrerUser?._id,
+      referredAt: referrerUser ? new Date() : undefined,
       phone: shouldValidatePhone ? phone : undefined,
       address: shouldValidateAddress ? address : undefined,
       dateOfBirth: normalizedDateOfBirth,
@@ -834,8 +861,8 @@ export const join = async (req, res) => {
     // If skipping email verification, return token directly
     if (skipEmailVerification) {
       const referralBonusResult = await awardReferralBonusForUser(user._id);
-      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-      const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+      const sessionId = await addSessionToUser(req, user);
+      const { token, expiresAt } = generateToken(user._id, sessionId);
       return res.status(201).json({
         _id: user._id,
         sid: user.sid,
@@ -847,7 +874,6 @@ export const join = async (req, res) => {
         language: normalizeLanguagePreference(user.language),
         timezone: user.timezone || DEFAULT_TIMEZONE,
         referralBonusAwarded: referralBonusResult.awarded,
-        referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
         token,
         expiresAt,
         message: "Account created successfully (email verification skipped in dev mode)"
@@ -934,7 +960,8 @@ export const login = async (req, res) => {
         });
       }
 
-      const { token, expiresAt } = generateToken(user._id);
+      const sessionId = await addSessionToUser(req, user);
+      const { token, expiresAt } = generateToken(user._id, sessionId);
       res.json({
         _id: user._id,
         sid: user.sid,
@@ -950,6 +977,8 @@ export const login = async (req, res) => {
         approvalNote: user.approvalNote,
         profileImage: user.profileImage || user.profilePicture || "",
         profileCompletion: getProfileCompletion(user),
+        googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+        preferredCurrency: user.preferredCurrency || "INR",
         token,
         expiresAt,
       });
@@ -1067,7 +1096,8 @@ export const googleAuth = async (req, res) => {
       });
     }
 
-    const { token: jwtToken, expiresAt } = generateToken(user._id);
+    const sessionId = await addSessionToUser(req, user);
+    const { token: jwtToken, expiresAt } = generateToken(user._id, sessionId);
     return res.json({
       _id: user._id,
       sid: user.sid,
@@ -1082,6 +1112,8 @@ export const googleAuth = async (req, res) => {
       approvalNote: user.approvalNote,
       profileImage: user.profileImage || user.profilePicture || "",
       profileCompletion: getProfileCompletion(user),
+      googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+      preferredCurrency: user.preferredCurrency || "INR",
       authProvider: "google",
       isNewUser: false,
       token: jwtToken,
@@ -1171,7 +1203,7 @@ export const verifyOTP = async (req, res) => {
       user.approvalStatus = "pending";
     }
 
-    if (isFilmIndustryProfessionalRole(user) && hasBusinessEmail(user.email)) {
+    if (isFilmIndustryProfessionalRole(user)) {
       if (!user.subscription) {
         user.subscription = {
           plan: "free",
@@ -1180,6 +1212,7 @@ export const verifyOTP = async (req, res) => {
           accessActivatedAt: new Date(),
         };
       } else if (user.subscription.accessTier !== "film_industry_professional" || user.subscription.accessStatus !== "active") {
+        user.subscription.plan = user.subscription.plan || "free";
         user.subscription.accessTier = "film_industry_professional";
         user.subscription.accessStatus = "active";
         user.subscription.accessActivatedAt = new Date();
@@ -1200,7 +1233,8 @@ export const verifyOTP = async (req, res) => {
     // Investors cannot sign in from login until approved, but they should
     // still receive a session here to complete onboarding steps.
     if (user.role === "investor") {
-      const { token, expiresAt } = generateToken(user._id);
+      const sessionId = await addSessionToUser(req, user);
+      const { token, expiresAt } = generateToken(user._id, sessionId);
       return res.json({
         message: "Email verified successfully! Complete your onboarding while your account is under admin review.",
         pendingApproval: true,
@@ -1218,14 +1252,14 @@ export const verifyOTP = async (req, res) => {
         approvalNote: user.approvalNote,
         profileCompletion: getProfileCompletion(user),
         referralBonusAwarded: referralBonusResult.awarded,
-        referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
         token,
         expiresAt,
       });
     }
 
     // Generate token and log user in
-    const { token, expiresAt } = generateToken(user._id);
+    const sessionId = await addSessionToUser(req, user);
+    const { token, expiresAt } = generateToken(user._id, sessionId);
     
     res.json({
       message: "Email verified successfully!",
@@ -1241,7 +1275,6 @@ export const verifyOTP = async (req, res) => {
       timezone: user.timezone || DEFAULT_TIMEZONE,
       profileCompletion: getProfileCompletion(user),
       referralBonusAwarded: referralBonusResult.awarded,
-      referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
       token,
       expiresAt,
     });
@@ -1383,6 +1416,7 @@ export const applyReferralCode = async (req, res) => {
     }
 
     currentUser.referredBy = referrer._id;
+    currentUser.referredAt = new Date();
     await currentUser.save();
 
     let referralBonusResult = { awarded: false };
@@ -1400,7 +1434,6 @@ export const applyReferralCode = async (req, res) => {
         referralCode: referrer.referralCode,
       },
       referralBonusAwarded: referralBonusResult.awarded,
-      referralBonusCredits: referralBonusResult.awarded ? REFERRAL_BONUS_CREDITS : 0,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Unable to apply referral" });
@@ -1411,7 +1444,7 @@ export const applyReferralCode = async (req, res) => {
 export const getReferralSummary = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select(
-      "_id sid referralCode referralStats writerProfile.username"
+      "_id sid referralCode writerProfile.username"
     );
 
     if (!user) {
@@ -1433,12 +1466,9 @@ export const getReferralSummary = async (req, res) => {
       referralCode: user.referralCode,
       referralLink,
       referralProfileLink: referralLink,
-      bonusPerReferral: REFERRAL_BONUS_CREDITS,
       totalReferrals,
+      // Referrals that reached a verified account. This is what the competition referral tiers count.
       successfulReferrals,
-      totalBonusCredits:
-        Number(user?.referralStats?.totalBonusCredits) ||
-        successfulReferrals * REFERRAL_BONUS_CREDITS,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message || "Unable to fetch referral summary" });
@@ -1557,6 +1587,8 @@ export const getMe = async (req, res) => {
       profilePicture: user.profilePicture,
       bio: user.bio,
       profileCompletion: getProfileCompletion(user),
+      googleCalendar: { connected: Boolean(user.googleCalendar?.connected), calendarEmail: user.googleCalendar?.calendarEmail || "" },
+      preferredCurrency: user.preferredCurrency || "INR",
       expiresAt: decoded.exp * 1000,
     });
   } catch (error) {
@@ -1787,5 +1819,72 @@ export const resendPasswordResetOTP = async (req, res) => {
   } catch (error) {
     console.error("Resend password reset OTP error:", error);
     return res.status(500).json({ message: error.message });
+  }
+};
+
+// ==========================================
+// Session Management
+// ==========================================
+
+export const getSessions = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const currentSessionId = req.sessionId;
+    const sessions = (user.activeSessions || []).map(s => ({
+      _id: s._id,
+      sessionId: s.sessionId,
+      device: s.device,
+      browser: s.browser,
+      os: s.os,
+      location: s.location,
+      ip: s.ip,
+      loginTime: s.loginTime,
+      lastSeen: s.lastSeen,
+      isCurrent: s.sessionId === currentSessionId,
+    }));
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch sessions" });
+  }
+};
+
+export const removeSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.activeSessions = user.activeSessions.filter(s => s.sessionId !== sessionId);
+    await user.save();
+    res.json({ message: "Session removed successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to remove session" });
+  }
+};
+
+export const removeAllOtherSessions = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const currentSessionId = req.sessionId;
+
+    user.activeSessions = user.activeSessions.filter(s => s.sessionId === currentSessionId);
+    await user.save();
+    res.json({ message: "All other sessions removed" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to remove other sessions" });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user && req.sessionId) {
+      user.activeSessions = user.activeSessions.filter(s => s.sessionId !== req.sessionId);
+      await user.save();
+    }
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to logout" });
   }
 };

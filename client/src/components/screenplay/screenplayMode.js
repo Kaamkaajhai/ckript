@@ -9,7 +9,7 @@ import { Decoration, ViewPlugin, EditorView, keymap, highlightActiveLine } from 
 import { autocompletion, completionStatus } from "@codemirror/autocomplete";
 // The classifier lives in its own pure module so the editor, reports, and FDX all share ONE
 // implementation (see classify.js). screenplayMode just layers the forced-type overlay on top.
-import { SECTION, PAREN, stripActToken, heuristicType, applyForcedToContext, classifyText, stripForceMarker } from "./classify";
+import { SECTION, PAREN, stripActToken, heuristicType, applyForcedToContext, classifyText, stripForceMarker, CENTERED } from "./classify";
 
 export { classifyText };
 
@@ -225,10 +225,34 @@ export const applyElementType = (view, type) => {
 // understands them via the formatter), so wrapping a selection keeps the text plain — the
 // classifier still sees a normal line, only the emphasis renders. This is what "rich text" means
 // in a screenplay: *italic*, **bold**, ***bold italic***, _underline_.
+// Order matters for active-state detection: the longest marker (***) must be tested before its
+// prefixes (** and *), otherwise "***x***" would match the italic (*) probe first.
 const EMPHASIS = {
-  italic: { mark: "*", re: /^\*([\s\S]+)\*$/ },
+  bolditalic: { mark: "***", re: /^\*\*\*([\s\S]+)\*\*\*$/ },
   bold: { mark: "**", re: /^\*\*([\s\S]+)\*\*$/ },
+  italic: { mark: "*", re: /^\*(?!\*)([\s\S]+?)(?<!\*)\*$/ },
   underline: { mark: "_", re: /^_([\s\S]+)_$/ },
+};
+const EMPHASIS_ORDER = ["bolditalic", "bold", "italic", "underline"];
+
+// Which emphasis kinds currently wrap the selection (e.g. ["bold"] or ["bolditalic"]). Empty when
+// there's no selection or the selection isn't an exact emphasis span. Used to light up the toolbar.
+export const activeEmphasis = (view) => {
+  if (!view) return [];
+  const { from, to } = view.state.selection.main;
+  if (from === to) return [];
+  const sel = view.state.sliceDoc(from, to);
+  const active = [];
+  for (const kind of EMPHASIS_ORDER) {
+    if (EMPHASIS[kind].re.test(sel)) {
+      active.push(kind);
+      // *** counts as both bold and italic for highlighting; underline can stack independently but
+      // a single selection can't be exactly-wrapped by two different markers, so we stop here.
+      if (kind === "bolditalic") active.push("bold", "italic");
+      break;
+    }
+  }
+  return active;
 };
 
 // Toggle a Fountain emphasis marker around the current selection. If the selection is already
@@ -264,6 +288,57 @@ export const applyEmphasis = (view, kind) => {
   }
   view.focus();
   return true;
+};
+
+// Transform the selected text's CASE in place. This rewrites the actual characters (no markup), so
+// it persists everywhere and the classifier/reports/export see the changed text exactly as written.
+// kind: "upper" | "lower". No-op without a selection.
+export const applyCase = (view, kind) => {
+  if (!view) return false;
+  const { from, to } = view.state.selection.main;
+  if (from === to) return false;
+  const sel = view.state.sliceDoc(from, to);
+  const next = kind === "lower" ? sel.toLowerCase() : sel.toUpperCase();
+  if (next === sel) return false;
+  view.dispatch({
+    changes: { from, to, insert: next },
+    selection: { anchor: from, head: from + next.length },
+  });
+  view.focus();
+  return true;
+};
+
+// Fountain centered text: a line wrapped ">text<". The classifier recognizes ">…<" (BOTH a leading
+// ">" and trailing "<") as centered BEFORE the leading-">"-only transition force, so these never
+// collide. Centering is line-level — we toggle the marker on every non-blank line the selection (or
+// caret) touches.
+const CENTERED_LINE = /^\s*>(.*?)<\s*$/;
+export const applyCentered = (view) => {
+  if (!view) return false;
+  const { from, to } = view.state.selection.main;
+  const startLine = view.state.doc.lineAt(from);
+  const endLine = view.state.doc.lineAt(to);
+  const lines = [];
+  for (let n = startLine.number; n <= endLine.number; n++) lines.push(view.state.doc.line(n));
+  const targets = lines.filter((l) => l.text.trim());
+  if (!targets.length) return false;
+  // If every targeted line is already centered, toggle OFF; otherwise center them all.
+  const allCentered = targets.every((l) => CENTERED_LINE.test(l.text));
+  const changes = targets.map((l) => {
+    const m = CENTERED_LINE.exec(l.text);
+    const inner = m ? m[1].trim() : l.text.trim();
+    return { from: l.from, to: l.to, insert: allCentered ? inner : `>${inner}<` };
+  });
+  view.dispatch({ changes, selection: { anchor: startLine.from } });
+  view.focus();
+  return true;
+};
+
+// Is the caret's current line centered (>…<)? Lets the toolbar light up the Center button.
+export const isCenteredLine = (view) => {
+  if (!view) return false;
+  const line = view.state.doc.lineAt(view.state.selection.main.head);
+  return CENTERED_LINE.test(line.text);
 };
 
 const cycle = (view, dir) => {
@@ -303,9 +378,16 @@ const screenplayKeymap = Prec.highest(
 );
 
 const lineDeco = {};
-const decoFor = (type) => {
-  if (!lineDeco[type]) lineDeco[type] = Decoration.line({ class: `cm-sp-line cm-sp-${type}` });
-  return lineDeco[type];
+// One line decoration per (type, centered) combo. Centered text (">words<") classifies as action
+// but needs the extra .cm-sp-centered class — folded into the SAME line decoration rather than a
+// second Decoration.line at the same position (stacking two line decos at one pos is invalid and
+// throws inside Decoration.set, which would silently disable the whole decoration plugin).
+const decoFor = (type, centered = false) => {
+  const key = centered ? `${type} c` : type;
+  if (!lineDeco[key]) {
+    lineDeco[key] = Decoration.line({ class: `cm-sp-line cm-sp-${type}${centered ? " cm-sp-centered" : ""}` });
+  }
+  return lineDeco[key];
 };
 
 // "Hide" decoration: visually collapses a marker span (the Fountain syntax characters ~, #,
@@ -376,22 +458,25 @@ const EMPHASIS_SCANS = [
 
 const emphasisRanges = (line) => {
   const out = [];
-  const claimed = []; // [from,to) spans already taken by a longer marker, so we don't double-mark
-  const overlaps = (a, b) => claimed.some((c) => a < c.to && b > c.from);
+  // Longest-marker-first, BLANKING each claimed span in a working copy so a shorter scan can't reuse
+  // a leftover marker (the closing "*" of **bold** must not pair with a following *italic*). Blanking
+  // keeps indices aligned; positions map back onto the real doc via line.from. Mirrors the read-only
+  // parseInlineEmphasis in classify.js so the editor and the viewer/PDF render emphasis identically.
+  let work = line.text;
   for (const scan of EMPHASIS_SCANS) {
     scan.re.lastIndex = 0;
     let m;
-    while ((m = scan.re.exec(line.text)) !== null) {
+    while ((m = scan.re.exec(work)) !== null) {
       const start = line.from + m.index;
       const end = start + m[0].length;
-      if (overlaps(start, end)) continue;
-      claimed.push({ from: start, to: end });
       const innerFrom = start + scan.mark;
       const innerTo = end - scan.mark;
       // Hide the opening + closing markers; style the inner text.
       out.push({ from: start, to: innerFrom, deco: hideDeco });
       out.push({ from: innerFrom, to: innerTo, deco: scan.deco });
       out.push({ from: innerTo, to: end, deco: hideDeco });
+      work = work.slice(0, m.index) + " ".repeat(m[0].length) + work.slice(m.index + m[0].length);
+      scan.re.lastIndex = m.index + m[0].length;
     }
   }
   return out;
@@ -417,8 +502,17 @@ const decorationPlugin = ViewPlugin.fromClass(
         const line = view.state.doc.line(i);
         const type = types[i - 1];
         if (!type || type === "blank") continue;
-        // Line-level formatting decoration (indent / case / weight via .cm-sp-* class).
-        deco.push(decoFor(type).range(line.from));
+        // Centered text ">words<" (classified as action): fold the centering class into the single
+        // line decoration and hide the ">" / "<" wrapper so the writer sees just the centered words.
+        const isCentered = CENTERED.test(line.text);
+        // Line-level formatting decoration (indent / case / weight / centering via .cm-sp-* class).
+        deco.push(decoFor(type, isCentered).range(line.from));
+        if (isCentered) {
+          const open = line.text.indexOf(">");
+          const close = line.text.lastIndexOf("<");
+          if (open >= 0) deco.push(hideDeco.range(line.from + open, line.from + open + 1));
+          if (close >= 0) deco.push(hideDeco.range(line.from + close, line.from + close + 1));
+        }
         // Suppress any syntax markers on this line so the rendered text reads as a clean label.
         for (const r of markerHideRanges(type, line)) deco.push(hideDeco.range(r.from, r.to));
         // Inline Fountain emphasis (*italic* **bold** ***both*** _underline_).
@@ -426,7 +520,16 @@ const decorationPlugin = ViewPlugin.fromClass(
       }
       // Sort by from then startSide so overlapping ranges are well-ordered for CodeMirror.
       deco.sort((a, b) => a.from - b.from || a.value.startSide - b.value.startSide);
-      return Decoration.set(deco, true);
+      // Defensive: if any single range is somehow invalid, Decoration.set throws and CodeMirror
+      // PERMANENTLY disables this whole ViewPlugin — which silently kills ALL formatting (emphasis
+      // styling + marker hiding) document-wide until reload. Degrade to no decorations for this one
+      // build instead, so a bad line can never take the entire editor's formatting down with it.
+      try {
+        return Decoration.set(deco, true);
+      } catch (err) {
+        console.error("[screenplay] decoration build failed; skipping decorations this pass", err);
+        return Decoration.none;
+      }
     }
   },
   { decorations: (v) => v.decorations }
@@ -475,7 +578,9 @@ const buildCompletionSource = (getEntities) => (context) => {
 // a character or two as needed; the unit (ch) is what matters.
 const SCREENPLAY_FONT = "'Courier Prime','Courier New',Courier,monospace";
 const screenplayTheme = EditorView.theme({
-  "&": { fontFamily: SCREENPLAY_FONT, fontSize: "15px", backgroundColor: "transparent" },
+  // fontSize reads a CSS var so the host can zoom the whole editor (the layout uses ch/em units, so
+  // scaling the base size scales every indent proportionally). Falls back to 15px when unset.
+  "&": { fontFamily: SCREENPLAY_FONT, fontSize: "var(--sp-font-size, 15px)", backgroundColor: "transparent" },
   // CodeMirror's baseTheme sets font-family directly on .cm-scroller/.cm-content, which beats
   // inheritance from "&" (.cm-editor). Set the font on the actual text containers too so
   // Courier Prime wins the cascade instead of silently falling back to the base monospace.
@@ -502,6 +607,8 @@ const screenplayTheme = EditorView.theme({
   // ~3 line-heights of air above each scene so scenes visibly separate as new units.
   ".cm-sp-scene, .cm-sp-shot": { fontWeight: "700", textTransform: "uppercase", paddingTop: "3.2em", paddingBottom: "0.4em" },
   ".cm-sp-action": { maxWidth: "62ch", paddingTop: "0.5em" },
+  // Centered text (">words<") — overrides the action left-anchor to center within the 62ch column.
+  ".cm-sp-centered": { textAlign: "center", maxWidth: "62ch", marginLeft: "0", marginRight: "auto" },
   // Cue: air ABOVE (separates from prior beat), hugs the dialogue BELOW (no bottom gap).
   ".cm-sp-character": { textTransform: "uppercase", fontWeight: "700", marginLeft: "22ch", paddingTop: "1.2em", paddingBottom: "0" },
   ".cm-sp-parenthetical": { marginLeft: "16ch", paddingTop: "0" },
@@ -544,33 +651,28 @@ export const createScreenplayExtensions = ({ getEntities, dark, onElementChange 
   // everything else is near-black on white / off-white on dark. Character cues are
   // distinguished by weight+case (not color); parentheticals recede in lighter grey italic.
   EditorView.theme({
-    ".cm-content": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    // Slugline accent — brighter/more saturated on the dark page so it still reads as
-    // the anchor element (a desaturated blue can wash out on the dark blue-grey sheet).
-    ".cm-sp-scene": { color: dark ? "#a3c5f2" : "#1e3a5f" },
-    ".cm-sp-shot": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-character": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-transition": { color: dark ? "#e6e6e6" : "#1a1a1a" },
+    ".cm-content": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    // Slugline accent — uses the warm red from the landing page.
+    ".cm-sp-scene": { color: dark ? "#D14D37" : "#0B0A06" },
+    ".cm-sp-shot": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-character": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-transition": { color: dark ? "#f5f2eb" : "#0B0A06" },
     // Parentheticals recede but stay readable — they carry performance direction.
-    ".cm-sp-parenthetical": { color: dark ? "#9aa3ad" : "#595959", fontStyle: "italic" },
-    // Stage 2: act breaks & dual cues are structure (near-black/off-white); sequences recede.
-    ".cm-sp-act, .cm-sp-endact": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-dual": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    ".cm-sp-lyrics": { color: dark ? "#e6e6e6" : "#1a1a1a" },
-    // Sequence headers are subordinate structure, not disabled — darker than a faint grey so
-    // they read as a deliberate, quieter tier (sits just above the parenthetical grey).
-    ".cm-sp-sequence": { color: dark ? "#aeb8c4" : "#555555" },
-    // The ONLY line background: a barely-there neutral tint on the caret's current line.
-    // Kept very faint so it reads as a soft band, never a solid grey row. It is constrained to
-    // the text column (not the full page sheet) because .cm-content is itself 62ch and centered,
-    // so the line box never spans the sheet. No background bands behind element types.
+    ".cm-sp-parenthetical": { color: dark ? "#9a978f" : "#57544f", fontStyle: "italic" },
+    // Stage 2: act breaks & dual cues are structure.
+    ".cm-sp-act, .cm-sp-endact": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-dual": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    ".cm-sp-lyrics": { color: dark ? "#f5f2eb" : "#0B0A06" },
+    // Sequence headers are subordinate structure.
+    ".cm-sp-sequence": { color: dark ? "#9a978f" : "#57544f" },
+    // The ONLY line background: a barely-there warm tint on the caret's current line.
     ".cm-activeLine": {
-      backgroundColor: dark ? "rgba(255,255,255,0.018)" : "rgba(0,0,0,0.013)",
+      backgroundColor: dark ? "rgba(209,77,55,0.04)" : "rgba(11,10,6,0.02)",
       borderRadius: "3px",
     },
-    // Selection highlight: a soft tint in the same neutral family, never a hard blue block.
+    // Selection highlight: warm tint.
     "& .cm-selectionBackground, &.cm-focused .cm-selectionBackground, & ::selection": {
-      backgroundColor: dark ? "rgba(120,150,200,0.16)" : "rgba(30,58,95,0.10)",
+      backgroundColor: dark ? "rgba(209,77,55,0.12)" : "rgba(11,10,6,0.08)",
     },
   }),
   EditorView.lineWrapping,

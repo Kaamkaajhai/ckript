@@ -6,6 +6,10 @@ import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfess
 import { useAuthModal } from "../context/AuthModalContext";
 import { AuthContext } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useCurrency } from "../context/CurrencyContext";
+import CurrencyToggle from "./CurrencyToggle";
+import { getPlanPrice, WRITER_PLAN_KEY } from "../config/pricing";
+import { formatSubunits, formatCurrency } from "../utils/currency";
 import useScrollLock from "../hooks/useScrollLock";
 import { useContext } from "react";
 import api from "../services/api";
@@ -54,7 +58,7 @@ const WRITER_PLANS = [
     price: "₹0",
     per: "/ month",
     feats: [
-      "Upload 1 script",
+      "Upload 5 scripts",
       "Appear only in search section",
       "AI generated synopsis and logline"
     ],
@@ -95,16 +99,31 @@ const WRITER_PLANS = [
   },
 ];
 
-const FIP = {
-  name: "Film Industry Professional",
-  feats: [
-    "Access 10 verified writer contacts",
-    "Direct message to 10 writers",
-    "Schedule 10 video meetings with writers",
-    "Curated genre-specific scripts delivered to your inbox"
-  ],
-  price: "₹1999",
-};
+const FIP_PLANS = [
+  {
+    key: "free",
+    name: "Free Tier",
+    feats: [
+      "Access writer profiles (Work email required)",
+      "Read script preview pages (Work email required)",
+      "Access 1 verified writer contact",
+      "Personalized script discovery & curated genre feeds",
+    ],
+    price: "₹0",
+  },
+  {
+    key: "pro",
+    name: "Diamond Plan",
+    feats: [
+      "Everything in Free Tier, plus:",
+      "Unrestricted script and profile access",
+      "Access 10 verified writer contacts",
+      "Direct message to 10 writers",
+      "Schedule 10 video meetings with writers",
+    ],
+    price: "₹1999",
+  },
+];
 
 const LockIcon = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -135,6 +154,7 @@ function TierCard({ plan, state }) {
     onPrimary,
     onRenew,
     renewLoading,
+    daysUntilReset,
   } = state;
 
   const remaining = quota != null && uploadedCount != null ? Math.max(0, quota - uploadedCount) : null;
@@ -154,6 +174,11 @@ function TierCard({ plan, state }) {
       </div>
 
       <div className="pmx-tier-price">
+        {plan.originalPrice && (
+          <s style={{ color: "var(--pmx-text-muted, #888)", fontSize: "0.85em", marginRight: "8px", fontWeight: "normal", opacity: 0.8 }}>
+            {plan.originalPrice}
+          </s>
+        )}
         <b>{plan.price}</b>
         <span>{plan.per}</span>
       </div>
@@ -190,8 +215,10 @@ function TierCard({ plan, state }) {
             />
           </div>
           <div className="pmx-quota-row" style={{ marginTop: 5 }}>
-            <span />
-            <span>{remaining} more available</span>
+            <span style={{ fontSize: "11px", color: "var(--pmx-text-muted, #888)" }}>
+              {daysUntilReset != null ? `Resets in ${daysUntilReset} days` : ""}
+            </span>
+            <span>{remaining} more available this month</span>
           </div>
         </div>
       )}
@@ -218,6 +245,55 @@ function TierCard({ plan, state }) {
 
 function PricingModalInner({ onClose, tab = "all" }) {
   const { user } = useContext(AuthContext);
+  const { currency = "INR" } = useCurrency() || {};
+  const [isAnnual, setIsAnnual] = useState(false);
+
+  // Prices come from the shared matrix, formatted in the active currency (free plan is 0 anywhere).
+  const priceLabelFor = (key) => {
+    if (key === "free") return formatCurrency(0, currency);
+    const basePrice = getPlanPrice(WRITER_PLAN_KEY[key], currency);
+    if (isAnnual) {
+      const monthlyMajor = basePrice / 100;
+      const annualMajor = Math.round(monthlyMajor * 12 * 0.85);
+      return currency === "USD" ? `$${annualMajor}` : `₹${annualMajor}`;
+    }
+    return formatSubunits(basePrice, currency);
+  };
+  
+  const getOriginalPrice = (key, currency) => {
+    if (key === "silver") {
+      if (isAnnual) return currency === "USD" ? "$60" : "₹4788";
+      return currency === "USD" ? "$12" : "₹999";
+    }
+    if (key === "gold") {
+      if (isAnnual) return currency === "USD" ? "$108" : "₹8388";
+      return currency === "USD" ? "$25" : "₹2299";
+    }
+    return null;
+  };
+
+  const pricedWriterPlans = WRITER_PLANS.map((p) => ({ 
+    ...p, 
+    price: priceLabelFor(p.key),
+    originalPrice: getOriginalPrice(p.key, currency),
+    per: p.key === "free" ? p.per : (isAnnual ? "/ year" : "/ month")
+  }));
+  const getFipPriceLabel = () => {
+    const basePrice = getPlanPrice("film_industry_professional", currency);
+    if (isAnnual) {
+      const monthlyMajor = basePrice / 100;
+      const annualMajor = Math.round(monthlyMajor * 12 * 0.85);
+      return currency === "USD" ? `$${annualMajor}` : `₹${annualMajor}`;
+    }
+    return formatSubunits(basePrice, currency);
+  };
+  const fipPriceLabel = getFipPriceLabel();
+
+  const getFipOriginalPrice = () => {
+    if (isAnnual) return currency === "USD" ? "$300" : "₹23988";
+    return null;
+  };
+  const fipOriginalPrice = getFipOriginalPrice();
 
   let effectiveTab = tab;
   if (tab === "all" && user?.role) {
@@ -242,6 +318,8 @@ function PricingModalInner({ onClose, tab = "all" }) {
   // Upload usage for active writers, to draw the quota meter (same source the
   // dashboard uses). Fetched lazily while the modal is open.
   const [uploadedCount, setUploadedCount] = useState(null);
+  const [daysUntilReset, setDaysUntilReset] = useState(null);
+
   useEffect(() => {
     if (!writer.isWriter) return;
     let alive = true;
@@ -249,7 +327,39 @@ function PricingModalInner({ onClose, tab = "all" }) {
       try {
         const res = await api.get("/scripts/mine");
         const all = Array.isArray(res.data) ? res.data : [];
-        const mine = all.filter((s) => !s?.isCollaborator);
+        let mine = all.filter((s) => !s?.isCollaborator);
+
+        let cycleStart = null;
+        let cycleEnd = null;
+        const activatedAt = writer.user?.subscription?.accessActivatedAt;
+        const expiresAt = writer.user?.subscription?.accessExpiresAt;
+
+        if (activatedAt && expiresAt) {
+          const start = new Date(activatedAt);
+          const end = new Date(expiresAt);
+          const now = new Date();
+
+          if (now <= end) {
+            let current = new Date(start);
+            while (current <= now) {
+              current.setMonth(current.getMonth() + 1);
+            }
+            cycleEnd = current > end ? end : current;
+
+            let previous = new Date(current);
+            previous.setMonth(previous.getMonth() - 1);
+            cycleStart = previous;
+
+            const diffTime = cycleEnd.getTime() - now.getTime();
+            const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (alive) setDaysUntilReset(daysLeft > 0 ? daysLeft : 0);
+          }
+        }
+
+        if (cycleStart) {
+          mine = mine.filter((s) => new Date(s.createdAt) >= cycleStart);
+        }
+
         if (alive) setUploadedCount(mine.length);
       } catch {
         /* non-fatal — the meter just won't render */
@@ -258,7 +368,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
     return () => {
       alive = false;
     };
-  }, [writer.isWriter]);
+  }, [writer.isWriter, writer.user?.subscription?.accessActivatedAt, writer.user?.subscription?.accessExpiresAt]);
 
   const busy = !success && (Boolean(writer.loading) || Boolean(fip.loading));
 
@@ -276,6 +386,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
       writer.startCheckout({
         tier,
         isRenew,
+        cycle: isAnnual ? "annual" : "monthly",
         signInRedirect: "/pricing",
         onRequireAuth: onClose, // never stack auth behind this modal
         onSuccess: () =>
@@ -287,7 +398,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
           }),
       });
     },
-    [writer, onClose]
+    [writer, onClose, isAnnual]
   );
 
   // ── FIP checkout wiring ───────────────────────────────────────
@@ -295,6 +406,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
     (isRenew = false) => {
       fip.startCheckout({
         isRenew,
+        cycle: isAnnual ? "annual" : "monthly",
         signInRedirect: "/pricing",
         onRequireAuth: onClose,
         onAlreadyActive: () => goTo("/home"),
@@ -303,12 +415,12 @@ function PricingModalInner({ onClose, tab = "all" }) {
             kicker: "Access granted",
             title: "You're in, Professional.",
             body:
-              "Your Film Industry Professional membership is now active. Writer contacts, direct messaging and meetings are unlocked.",
+              "Your Diamond Plan membership is now active. Writer contacts, direct messaging and meetings are unlocked.",
             redirectTo: verifyData?.redirectTo || "/home",
           }),
       });
     },
-    [fip, onClose, goTo]
+    [fip, onClose, goTo, isAnnual]
   );
 
   // ── Per-tier button derivation ────────────────────────────────
@@ -353,6 +465,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
           daysLeft: writer.daysLeft,
           quota: meta.quota,
           uploadedCount,
+          daysUntilReset,
           primaryLabel: "Go to dashboard",
           primaryKind: "active",
           primaryDisabled: false,
@@ -381,7 +494,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
         onPrimary: () => buyWriter(key, false),
       };
     },
-    [writer, uploadedCount, goTo, buyWriter, onClose, openAuthModal]
+    [writer, uploadedCount, daysUntilReset, goTo, buyWriter, onClose, openAuthModal]
   );
 
   const freeState = useMemo(() => tierState("free"), [tierState]);
@@ -545,72 +658,154 @@ function PricingModalInner({ onClose, tab = "all" }) {
                   <div className="pmx-head-aside">
                     {effectiveTab === "writer" ? "Choose a writer plan below." : "Choose a writer plan — or get industry access below."}
                   </div>
+                  <div style={{ marginTop: 10, display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                    <CurrencyToggle />
+                    <div style={{ display: "flex", alignItems: "center", background: "var(--pmx-bg-elevated, #1c1c1e)", padding: "4px", borderRadius: "8px", gap: "4px", fontSize: "12px", fontWeight: "600", color: "#888" }}>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsAnnual(false)} 
+                        style={{ padding: "4px 12px", borderRadius: "6px", background: !isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: !isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                        Monthly
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsAnnual(true)} 
+                        style={{ padding: "4px 12px", borderRadius: "6px", background: isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                        Annually <span style={{ color: "#4ade80", fontSize: "10px", marginLeft: "2px" }}>-15%</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pmx-trio">
-                  {WRITER_PLANS.map((plan) => (
+                  {pricedWriterPlans.map((plan) => (
                     <TierCard key={plan.key} plan={plan} state={stateByKey[plan.key]} />
                   ))}
                 </div>
               </>
             )}
 
-            {/* ── Industry Card ── */}
+            {/* ── Industry Cards ── */}
             {(effectiveTab === "all" || effectiveTab === "industry") && (
-              <div className="pmx-tier" style={{ margin: "40px auto 0", maxWidth: 300, width: "100%", alignSelf: "center", justifySelf: "center" }}>
-                <div className="pmx-tier-top">
-                  <span className="pmx-tier-name">{FIP.name}</span>
-                  {fipState.active && (
-                    <span className="pmx-pill pmx-pill--active" style={{ marginLeft: "auto" }}><i />Active</span>
-                  )}
-                </div>
-                
-                <div className="pmx-tier-price">
-                  <b>{FIP.price}</b>
-                  <span>/ month</span>
-                </div>
-                
-                {fipState.active && fipState.daysLeft > 0 && (
-                  <div className="pmx-pills">
-                    <span className="pmx-pill pmx-pill--days">{fipState.daysLeft} days left</span>
+              <>
+                {effectiveTab === "industry" && (
+                  <div className="pmx-head">
+                    <div>
+                      <div className="pmx-eyebrow">
+                        <i />
+                        <span>For Industry</span>
+                      </div>
+                      <h2 className="pmx-title" id={titleId}>
+                        Find the perfect script.
+                      </h2>
+                    </div>
+                    <div className="pmx-head-aside">
+                      Choose a plan below.
+                    </div>
+                    <div style={{ marginTop: 10, display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                      <CurrencyToggle />
+                      <div style={{ display: "flex", alignItems: "center", background: "var(--pmx-bg-elevated, #1c1c1e)", padding: "4px", borderRadius: "8px", gap: "4px", fontSize: "12px", fontWeight: "600", color: "#888" }}>
+                        <button 
+                          type="button" 
+                          onClick={() => setIsAnnual(false)} 
+                          style={{ padding: "4px 12px", borderRadius: "6px", background: !isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: !isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                          Monthly
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setIsAnnual(true)} 
+                          style={{ padding: "4px 12px", borderRadius: "6px", background: isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                          Annually <span style={{ color: "#4ade80", fontSize: "10px", marginLeft: "2px" }}>-15%</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
-                
-                <div className="pmx-tier-divider" />
-                
-                <div style={{ textAlign: "left", flex: 1 }}>
-                  {fipState.active ? (
-                    <span style={{ fontSize: 15, display: "block", marginTop: 12 }}>Your membership is active — full access to the writer network.</span>
-                  ) : (
-                    <ul className="pmx-feats">
-                      {FIP.feats.map((f, i) => (
-                        <li key={i}>
-                          <i />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                <div className="pmx-trio" style={{ marginTop: "40px", justifyContent: "center" }}>
+                {FIP_PLANS.map((plan) => {
+                  const isFree = plan.key === "free";
+                  const isActivePlan = isFree ? (fip.hasAccess && fip.user?.subscription?.plan === "free") : fipState.active;
 
-                <div className="pmx-tier-actions" style={{ marginTop: 24 }}>
-                  <button
-                    type="button"
-                    className={`pmx-btn${fipState.kind === "active" ? " pmx-btn--active" : ""}`}
-                    style={{ background: "#888782", color: "#fff", borderColor: "#888782", width: "100%" }}
-                    onClick={fipState.onClick}
-                    disabled={fipState.disabled || fipState.loading}
-                  >
-                    {fipState.loading ? <Spinner /> : fipState.lock ? <LockIcon /> : null}
-                    {fipState.label === "Upgrade to Film Industry Professional" ? "For industry pros" : fipState.label}
-                  </button>
-                  {fipState.onRenew && (
-                    <button type="button" className="pmx-btn pmx-btn--ghost" onClick={fipState.onRenew} disabled={Boolean(fipState.loading)}>
-                      {fipState.loading ? "Working…" : "Renew plan"}
-                    </button>
-                  )}
-                </div>
+                  return (
+                    <div className={`pmx-tier${plan.key === "pro" ? " pmx-tier--gold" : ""}`} key={plan.key} style={{ maxWidth: 300, width: "100%" }}>
+                      {plan.key === "pro" && <span className="pmx-tier-bar" />}
+                      <div className="pmx-tier-top">
+                        <span className="pmx-tier-name">{plan.name}</span>
+                        {isActivePlan ? (
+                          <span className="pmx-pill pmx-pill--active" style={{ marginLeft: "auto" }}><i />Active</span>
+                        ) : plan.key === "pro" ? (
+                          <span className="pmx-chip pmx-chip--best" style={{ marginLeft: "auto" }}>Recommended</span>
+                        ) : null}
+                      </div>
+                      
+                      <div className="pmx-tier-price">
+                        {!isFree && fipOriginalPrice && (
+                          <s style={{ color: "var(--pmx-text-muted, #888)", fontSize: "0.85em", marginRight: "8px", fontWeight: "normal", opacity: 0.8 }}>
+                            {fipOriginalPrice}
+                          </s>
+                        )}
+                        <b>{isFree ? "₹0" : fipPriceLabel}</b>
+                        <span>{isFree ? "/ month" : (isAnnual ? "/ year" : "/ month")}</span>
+                      </div>
+                      
+                      {!isFree && fipState.active && fipState.daysLeft > 0 && (
+                        <div className="pmx-pills">
+                          <span className="pmx-pill pmx-pill--days">{fipState.daysLeft} days left</span>
+                        </div>
+                      )}
+                      
+                      <div className="pmx-tier-divider" />
+                      
+                      <div style={{ textAlign: "left", flex: 1 }}>
+                        <ul className="pmx-feats">
+                          {plan.feats.map((f, i) => (
+                            <li key={i}>
+                              <i />
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="pmx-tier-actions" style={{ marginTop: 24 }}>
+                        {!isFree ? (
+                          <>
+                            <button
+                              type="button"
+                              className={`pmx-btn pmx-btn--${fipState.kind}`}
+                              style={{ width: "100%" }}
+                              onClick={fipState.onClick}
+                              disabled={fipState.disabled || fipState.loading}
+                            >
+                              {fipState.loading ? <Spinner /> : fipState.lock ? <LockIcon /> : null}
+                              {fipState.label === "Upgrade to Diamond Plan" ? "For industry pros" : fipState.label}
+                            </button>
+                            {fipState.onRenew && (
+                              <button type="button" className="pmx-btn pmx-btn--ghost" onClick={fipState.onRenew} disabled={Boolean(fipState.loading)}>
+                                {fipState.loading ? "Working…" : "Renew plan"}
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="pmx-btn pmx-btn--outline"
+                            style={{ width: "100%" }}
+                            onClick={() => {
+                              if (!fip.user) goTo("/producer-director-onboarding");
+                              else goTo("/home");
+                            }}
+                            disabled={fipState.disabled || fipState.loading}
+                          >
+                            {fipState.label === "For industry pros" ? "For industry pros" : "Get Started"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+              </>
             )}
 
           </>

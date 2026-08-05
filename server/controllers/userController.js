@@ -24,6 +24,7 @@ import { buildUserCanonicalPath, buildUserShareMeta, buildScriptCanonicalPath, b
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
+import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -207,14 +208,6 @@ const getCloudinaryUploadResourceType = (mimeType = "") => {
   return "raw";
 };
 
-const getCloudinaryResourceTypeFromUrl = (url = "") => {
-  const normalized = String(url || "");
-  if (normalized.includes("/image/upload/")) return "image";
-  if (normalized.includes("/video/upload/")) return "video";
-  if (normalized.includes("/raw/upload/")) return "raw";
-  return "";
-};
-
 const resolveAttachmentCloudinaryResourceType = (attachment) =>
   normalizeString(attachment?.cloudinaryResourceType) ||
   getCloudinaryResourceTypeFromUrl(attachment?.url) ||
@@ -255,13 +248,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
         attachment: false,
       });
 
-      const response = await fetch(signedUrl);
-      if (!response.ok) continue;
-
-      const arrayBuffer = await response.arrayBuffer();
-      if (arrayBuffer.byteLength > 0) {
-        return Buffer.from(arrayBuffer);
-      }
+      const { buffer } = await fetchTrustedPdfAsset(signedUrl);
+      if (buffer.length > 0) return buffer;
     } catch {
       // Try fallback resource types.
     }
@@ -269,13 +257,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
 
   if (attachmentUrl) {
     try {
-      const fallbackResponse = await fetch(attachmentUrl);
-      if (fallbackResponse.ok) {
-        const fallbackBuffer = await fallbackResponse.arrayBuffer();
-        if (fallbackBuffer.byteLength > 0) {
-          return Buffer.from(fallbackBuffer);
-        }
-      }
+      const { buffer } = await fetchTrustedPdfAsset(attachmentUrl);
+      if (buffer.length > 0) return buffer;
     } catch {
       // Final fallback failed; return null below.
     }
@@ -663,7 +646,7 @@ export const getPublicUserProfile = async (req, res) => {
     }
 
     const user = await User.findOne(profileLookupQuery)
-      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated subscription")
+      .select("name role bio skills profileImage coverImage writerProfile industryProfile followers following createdAt isPrivate isDeactivated subscription badges")
       .lean();
 
     if (!user || user.isDeactivated) {
@@ -702,6 +685,8 @@ export const getPublicUserProfile = async (req, res) => {
       skills: Array.isArray(user.skills) ? user.skills.filter(Boolean).slice(0, 12) : [],
       profileImage: user.profileImage || "",
       coverImage: user.coverImage || "",
+      // Competition badges are public achievements — that's the point of earning one.
+      badges: Array.isArray(user.badges) ? user.badges : [],
       followerCount: Array.isArray(user.followers) ? user.followers.length : 0,
       followingCount: Array.isArray(user.following) ? user.following.length : 0,
       writerProfile: user.writerProfile
@@ -713,7 +698,7 @@ export const getPublicUserProfile = async (req, res) => {
             sgaMember: Boolean(user.writerProfile.sgaMember),
             genres: Array.isArray(user.writerProfile.genres) ? user.writerProfile.genres : [],
             specializedTags: Array.isArray(user.writerProfile.specializedTags) ? user.writerProfile.specializedTags : [],
-            links: {
+            links: (user.allowIndustryContact === false) ? {} : {
               portfolio: user.writerProfile.links?.portfolio || "",
               instagram: user.writerProfile.links?.instagram || "",
               twitter: user.writerProfile.links?.twitter || "",
@@ -839,6 +824,19 @@ export const getUserProfile = async (req, res) => {
         return followerId === viewerId;
       });
       const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
+
+      if (
+        user?.role === "writer" &&
+        hasActiveFilmIndustryProfessionalAccess(currentUser)
+      ) {
+        const plan = currentUser.subscription?.plan || "free";
+        if (plan === "free" && !hasBusinessEmail(currentUser.email)) {
+          return res.status(403).json({
+            message: "Viewing writer profiles requires a company email. Upgrade your plan or update your email.",
+            personalEmailFipRestricted: true,
+          });
+        }
+      }
 
       if (user?.role === "writer" && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -970,6 +968,14 @@ export const getUserProfile = async (req, res) => {
         delete userObj.bankDetails;
       }
       delete userObj.pendingEmail;
+
+      if (userObj.allowIndustryContact === false && ["writer", "creator"].includes(userObj.role)) {
+        delete userObj.email;
+        delete userObj.phone;
+        if (userObj.writerProfile) {
+          delete userObj.writerProfile.links;
+        }
+      }
 
       if (userObj.writerProfile?.membershipVerification) {
         const hideProofDetails = (entry) => {
@@ -1463,7 +1469,36 @@ export const followUser = async (req, res) => {
       return res.status(400).json({ message: "Already following this user" });
     }
 
-    const requiresApproval = isWriterRole(userToFollow.role) && Boolean(userToFollow.isPrivate);
+    // If the user to follow is already following the current user, it's a "follow back"
+    // and we bypass the approval requirement.
+    const isFollowBack = (userToFollow.following || []).some(
+      (id) => id.toString() === req.user._id.toString()
+    );
+
+    if (isFollowBack) {
+      currentUser.following.addToSet(userToFollow._id);
+      userToFollow.followers.addToSet(currentUser._id);
+
+      // Clean up any pending request just in case
+      userToFollow.followRequests = (userToFollow.followRequests || []).filter(
+        (entry) => entry?.from?.toString() !== req.user._id.toString()
+      );
+
+      await currentUser.save();
+      await userToFollow.save();
+
+      await Notification.create({
+        user: userToFollow._id,
+        type: "follow",
+        from: currentUser._id,
+        message: "followed you back",
+      });
+
+      return res.json({ message: "Followed back successfully", status: "following" });
+    }
+
+    // Otherwise, normal follow request flow
+    const requiresApproval = true;
 
     if (requiresApproval) {
       const alreadyRequested = (userToFollow.followRequests || []).some(
@@ -1475,8 +1510,14 @@ export const followUser = async (req, res) => {
 
       userToFollow.followRequests = userToFollow.followRequests || [];
       userToFollow.followRequests.push({ from: req.user._id, createdAt: new Date() });
-      currentUser.sentFollowRequests = currentUser.sentFollowRequests || [];
-      currentUser.sentFollowRequests.push({ to: userToFollow._id, createdAt: new Date() });
+      
+      // Immediately increase the requester's following count
+      currentUser.following.addToSet(userToFollow._id);
+      
+      // Cleanup sentFollowRequests to eventually deprecate it
+      currentUser.sentFollowRequests = (currentUser.sentFollowRequests || []).filter(
+        (entry) => entry?.to?.toString() !== userToFollow._id.toString()
+      );
 
       await currentUser.save();
       await userToFollow.save();
@@ -1563,17 +1604,12 @@ export const acceptFollowRequest = async (req, res) => {
       return res.status(404).json({ message: "Requesting user no longer exists" });
     }
 
-    // Move from pending to followers/following.
+    // Move from pending to followers
     me.followRequests.splice(pendingIndex, 1);
-    if (!me.followers.some((id) => id.toString() === fromUserId)) {
-      me.followers.push(requester._id);
-    }
-    requester.sentFollowRequests = (requester.sentFollowRequests || []).filter(
-      (entry) => entry?.to?.toString() !== req.user._id.toString()
-    );
-    if (!requester.following.some((id) => id.toString() === req.user._id.toString())) {
-      requester.following.push(me._id);
-    }
+    me.followers.addToSet(requester._id);
+    
+    // Ensure requester has `me._id` in their `following` array just in case
+    requester.following.addToSet(me._id);
 
     await me.save();
     await requester.save();
@@ -1612,10 +1648,15 @@ export const rejectFollowRequest = async (req, res) => {
 
     await me.save();
 
-    // Mirror cleanup on requester's sentFollowRequests.
+    // The requester is no longer allowed to follow, so remove me from their `following` array.
     await User.updateOne(
       { _id: fromUserId },
-      { $pull: { sentFollowRequests: { to: req.user._id } } }
+      { 
+        $pull: { 
+          sentFollowRequests: { to: req.user._id },
+          following: req.user._id
+        } 
+      }
     );
 
     // Best-effort: remove the pending request notification so it disappears from their bell.
@@ -1642,6 +1683,9 @@ export const cancelFollowRequest = async (req, res) => {
 
     me.sentFollowRequests = (me.sentFollowRequests || []).filter(
       (entry) => entry?.to?.toString() !== toUserId
+    );
+    me.following = (me.following || []).filter(
+      (id) => id.toString() !== toUserId
     );
     await me.save();
 
@@ -2099,7 +2143,7 @@ export const removeFromWatchlist = async (req, res) => {
 
 export const updateSettings = async (req, res) => {
   try {
-    const { notificationPrefs, isPrivate, language, timezone } = req.body;
+    const { notificationPrefs, isPrivate, allowIndustryContact, language, timezone, preferredCurrency } = req.body;
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -2113,12 +2157,16 @@ export const updateSettings = async (req, res) => {
     }
 
     if (isPrivate !== undefined) user.isPrivate = isPrivate;
+    if (allowIndustryContact !== undefined) user.allowIndustryContact = allowIndustryContact;
     if (language !== undefined) user.language = normalizeLanguagePreference(language);
     if (timezone !== undefined) user.timezone = timezone;
+    if (preferredCurrency !== undefined && ["INR", "USD"].includes(String(preferredCurrency).toUpperCase())) {
+      user.preferredCurrency = String(preferredCurrency).toUpperCase();
+    }
     if (!user.language) user.language = DEFAULT_LANGUAGE;
 
     await user.save();
-    res.json({ message: "Settings updated", user: { isPrivate: user.isPrivate, language: user.language, timezone: user.timezone, notificationPrefs: user.notificationPrefs } });
+    res.json({ message: "Settings updated", user: { isPrivate: user.isPrivate, allowIndustryContact: user.allowIndustryContact, language: user.language, timezone: user.timezone, preferredCurrency: user.preferredCurrency, notificationPrefs: user.notificationPrefs } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

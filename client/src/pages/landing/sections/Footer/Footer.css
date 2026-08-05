@@ -1,0 +1,111 @@
+/* ═══════════════════════ FOOTER ═══════════════════════ */
+.ckl .ckl-footer {
+  position: relative;
+  width: 100%;
+  background: var(--ck-ink);
+  padding: clamp(56px, 6vw, 84px) clamp(20px, 5vw, 80px) 40px;
+}
+.ckl .ckl-footer-inner { max-width: 1320px; margin: 0 auto; }
+.ckl .ckl-footer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 40px;
+  flex-wrap: wrap;
+  padding-bottom: 42px;
+  border-bottom: 1px solid #211f1a;
+}
+.ckl .ckl-footer-brand { max-width: 380px; }
+.ckl .ckl-footer-logo { height: 44px; width: auto; display: block; }
+.ckl .ckl-footer-tagline {
+  margin: 20px 0 0;
+  font-family: var(--ck-serif);
+  font-style: italic;
+  font-size: 23px;
+  line-height: 1.3;
+  color: #c7c2b8;
+}
+.ckl .ckl-footer-hq { margin-top: 36px; }
+.ckl .ckl-footer-hq-head {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #76726a;
+  margin-bottom: 12px;
+}
+.ckl .ckl-footer-hq-row { display: flex; gap: 12px; align-items: flex-start; }
+.ckl .ckl-footer-hq-addr {
+  margin: 0;
+  font-family: var(--ck-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: #cfccc5;
+}
+.ckl .ckl-footer-hq-near { color: var(--ck-muted); font-size: 14px; }
+
+.ckl .ckl-footer-cols { display: flex; gap: clamp(40px, 6vw, 96px); flex-wrap: wrap; }
+.ckl .ckl-footer-col { display: flex; flex-direction: column; gap: 15px; }
+.ckl .ckl-footer-col-head {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #76726a;
+  margin-bottom: 4px;
+}
+.ckl .ckl-footer-link {
+  font-family: var(--ck-sans);
+  font-size: 17px;
+  color: #cfccc5;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ckl .ckl-footer-bottom {
+  padding-top: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.ckl .ckl-footer-copy { font-family: var(--ck-sans); font-size: 14px; color: #76726a; }
+
+/* Statutory corporate disclosure. Deliberately quieter than the rest of the footer — it's
+   compliance text, not navigation, so it reads last without competing with the links above. */
+.ckl .ckl-footer-legal {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(118, 114, 106, 0.18);
+  font-family: var(--ck-sans);
+  color: #8d8981;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+.ckl .ckl-footer-legal-desc { margin: 0 0 12px; max-width: 760px; }
+.ckl .ckl-footer-legal-head {
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #76726a;
+}
+.ckl .ckl-footer-legal-row { margin: 0; }
+.ckl .ckl-footer-legal-key { color: #76726a; font-weight: 600; }
+.ckl .ckl-footer-legal-sep { margin: 0 8px; opacity: 0.45; }
+.ckl .ckl-footer-legal-mail { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.ckl .ckl-footer-legal-mail:hover { color: var(--ck-red); }
+
+@media (max-width: 640px) {
+  /* The entity/CIN line is two facts joined by a pipe — stack them rather than let the pipe
+     strand at a line end. */
+  .ckl .ckl-footer-legal-sep { display: block; height: 0; margin: 0; overflow: hidden; }
+}

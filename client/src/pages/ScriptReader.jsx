@@ -10,6 +10,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import { Film } from "lucide-react";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { formatScriptCredit } from "../utils/writerCredits";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -237,7 +238,7 @@ const ScriptReader = () => {
                 {script.creator?.name?.charAt(0)?.toUpperCase() || "U"}
               </div>
               <div>
-                <p className={`text-sm font-bold group-hover:text-[#1e3a5f] transition-colors ${dark ? "text-gray-200" : "text-gray-900"}`}>{script.creator?.name || "Unknown"}</p>
+                <p className={`text-sm font-bold group-hover:text-[#1e3a5f] transition-colors ${dark ? "text-gray-200" : "text-gray-900"}`}>{formatScriptCredit(script, { max: 2 }) || "Unknown"}</p>
                 <p className="text-[11px] text-gray-400 font-medium capitalize">{script.creator?.role || "Writer"}</p>
               </div>
             </Link>
@@ -639,7 +640,7 @@ const ScriptReader = () => {
                     </div>
                   )}
 
-                  {/* ── 4. Platform Editorial ── */}
+                  {/* ── 4. Ckript Score (platform editorial) ── */}
                   {(() => {
                     const sections = [
                       { key: "strengths",  label: "Strengths",  icon: "M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z",        band: dk ? "bg-emerald-400/10 border-emerald-400/20 text-emerald-300" : "bg-emerald-50 border-emerald-200 text-emerald-700" },
@@ -657,7 +658,7 @@ const ScriptReader = () => {
                                 </svg>
                                 {s.label}
                               </span>
-                              <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Platform Editorial</span>
+                              <span className={`ml-auto text-[10px] font-medium ${dk ? "text-white/20" : "text-gray-300"}`}>Ckript Score</span>
                             </div>
                             <div className="px-5 py-4">
                               {ps[s.key] ? (

@@ -1,0 +1,260 @@
+/* ═══════════════════════ CKRIPT ADMIN — DESIGN TOKENS ═══════════════════════
+   Minimal Luxury: paper, ink, and a single wine-red accent used sparingly enough that it still
+   means something. Every value the admin UI uses is declared here and nowhere else, so a change
+   lands everywhere at once instead of drifting between 9,600 lines of screens.
+
+   Namespaced under `.ckad` rather than `:root`. The admin shares a bundle with the landing (`.ckl`)
+   and the app (`.ckc`), both of which define their own scales; putting these on :root would leak
+   into both. Every admin surface roots itself in `.ckad`.
+
+   RULES THIS FILE ENCODES:
+   • ONE accent. Wine red marks the primary action and destructive intent — nothing else. When
+     everything is accented, nothing reads as important.
+   • Semantic names, not literal ones. `--ad-danger`, never `--ad-red-600`: the screens should not
+     have to know what colour danger is.
+   • A 4px spatial grid. Every gap, pad and radius is a multiple, which is what makes unrelated
+     screens look like one product. */
+
+.ckad {
+  /* ── Surface ───────────────────────────────────────────────────────────────
+     Four levels, cool-neutral rather than pure grey — a hint of warmth stops large white areas
+     reading as clinical. */
+  --ad-canvas: #fbfaf9;        /* page background */
+  --ad-surface: #ffffff;       /* cards, tables, panels */
+  --ad-surface-2: #f6f4f2;     /* table headers, inset wells, hover rows */
+  --ad-surface-3: #efebe8;     /* pressed, selected */
+  --ad-overlay: rgba(28, 22, 21, 0.44);
+
+  /* ── Ink ───────────────────────────────────────────────────────────────────
+     Four weights. `--ad-ink-3` is the lightest that still clears 4.5:1 on --ad-surface; anything
+     fainter is decoration and must not carry text. */
+  --ad-ink: #1c1615;           /* headings, primary text        — 16.1:1 */
+  --ad-ink-2: #4a4341;         /* body                          —  8.9:1 */
+  --ad-ink-3: #6f6764;         /* secondary, labels             —  5.4:1 */
+  --ad-ink-4: #9c9491;        /* placeholder, disabled — NON-TEXT or ≥18px only */
+  --ad-ink-invert: #ffffff;
+
+  /* ── Line ──────────────────────────────────────────────────────────────────*/
+  --ad-line: #e6e1dd;          /* default hairline */
+  --ad-line-2: #d5cec9;        /* emphasised / input borders */
+  --ad-line-strong: #1c1615;
+
+  /* ── Accent: the wine-red family ───────────────────────────────────────────
+     Deep enough to carry white text at every step used as a fill. */
+  --ad-accent: #7a2233;        /* primary fill                  — 9.4:1 on white */
+  --ad-accent-hover: #66192a;
+  --ad-accent-press: #521221;
+  --ad-accent-ink: #7a2233;    /* accent as TEXT on light surfaces */
+  --ad-accent-soft: #f7edee;   /* tint fill: selected rows, soft badges */
+  --ad-accent-line: #e3c9cd;
+
+  /* ── Status ────────────────────────────────────────────────────────────────
+     Muted to sit beside the accent rather than fight it. Each has a fill, a text tone that clears
+     4.5:1 on that fill, and a border. */
+  --ad-success: #1f6b4a;
+  --ad-success-soft: #eaf3ee;
+  --ad-success-line: #c3ddd0;
+
+  --ad-warn: #8a5a1c;
+  --ad-warn-soft: #f8f0e4;
+  --ad-warn-line: #e5d3b6;
+
+  --ad-danger: #9a2f22;
+  --ad-danger-soft: #fbeeec;
+  --ad-danger-line: #eccbc5;
+
+  --ad-info: #3f4a57;
+  --ad-info-soft: #eff1f4;
+  --ad-info-line: #d3d9e0;
+
+  /* Soft gold — reserved for rare distinction (a winner, a featured record). Never for status. */
+  --ad-gold: #8a6d2f;
+  --ad-gold-soft: #f8f3e6;
+
+  /* ── Type ──────────────────────────────────────────────────────────────────
+     A system stack: an admin is read all day, and the fastest font is the one already loaded.
+     Tabular numerals everywhere numbers are compared down a column. */
+  --ad-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ad-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --ad-t-display: 28px;        /* page title            */
+  --ad-t-title: 20px;          /* section title         */
+  --ad-t-subtitle: 16px;       /* card title            */
+  --ad-t-body: 14px;           /* body, table cells     */
+  --ad-t-sm: 13px;             /* secondary, helper     */
+  --ad-t-xs: 12px;             /* labels, badges        */
+  --ad-t-micro: 11px;          /* uppercase eyebrows    */
+
+  --ad-lh-tight: 1.2;
+  --ad-lh-snug: 1.4;
+  --ad-lh-body: 1.55;
+
+  --ad-fw-normal: 400;
+  --ad-fw-medium: 500;
+  --ad-fw-semi: 600;
+
+  --ad-track-tight: -0.011em; /* display sizes only */
+  --ad-track-caps: 0.06em;    /* uppercase labels   */
+
+  /* ── Space — 4px grid ──────────────────────────────────────────────────────*/
+  --ad-s1: 4px;
+  --ad-s2: 8px;
+  --ad-s3: 12px;
+  --ad-s4: 16px;
+  --ad-s5: 20px;
+  --ad-s6: 24px;
+  --ad-s8: 32px;
+  --ad-s10: 40px;
+  --ad-s12: 48px;
+  --ad-s16: 64px;
+
+  /* ── Radius ────────────────────────────────────────────────────────────────
+     Restrained. Large radii read consumer; this is a tool. */
+  --ad-r-sm: 4px;
+  --ad-r: 6px;                 /* inputs, buttons, badges */
+  --ad-r-lg: 10px;             /* cards, panels           */
+  --ad-r-xl: 14px;             /* modals, drawers         */
+  --ad-r-pill: 999px;
+
+  /* ── Elevation ─────────────────────────────────────────────────────────────
+     Every shadow carries a real offset and a soft blur — a zero-offset halo is decoration, not
+     depth. Tinted with the ink hue so shadows never look grey-blue on warm paper. */
+  --ad-e1: 0 1px 2px rgba(28, 22, 21, 0.05);
+  --ad-e2: 0 1px 3px rgba(28, 22, 21, 0.07), 0 4px 12px rgba(28, 22, 21, 0.05);
+  --ad-e3: 0 4px 8px rgba(28, 22, 21, 0.07), 0 16px 32px rgba(28, 22, 21, 0.09);
+  --ad-e-focus: 0 0 0 3px rgba(122, 34, 51, 0.16);
+
+  /* ── Motion ────────────────────────────────────────────────────────────────
+     Everything under 250ms. `--ad-ease` decelerates: it starts fast and settles, which reads as
+     responsive rather than slow. */
+  --ad-fast: 120ms;
+  --ad-base: 180ms;
+  --ad-slow: 240ms;
+  --ad-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* ── Layout ────────────────────────────────────────────────────────────────*/
+  --ad-sidebar-w: 248px;
+  --ad-sidebar-w-collapsed: 60px;
+  --ad-header-h: 56px;
+  --ad-content-max: 1440px;
+
+  /* ── Z ─────────────────────────────────────────────────────────────────────
+     Declared as a scale so nothing ever needs an invented z-index: 9999. */
+  --ad-z-sticky: 10;
+  --ad-z-header: 20;
+  --ad-z-sidebar: 30;
+  --ad-z-dropdown: 40;
+  --ad-z-drawer: 50;
+  --ad-z-modal: 60;
+  --ad-z-toast: 70;
+
+  color-scheme: light;
+}
+
+/* ── Dark ────────────────────────────────────────────────────────────────────
+   Not an inversion: surfaces warm slightly and the accent LIGHTENS, because #7a2233 on a dark
+   ground falls under 4.5:1 and would fail as text. */
+.ckad[data-theme="dark"],
+.ckad.ckad--dark {
+  --ad-canvas: #131010;
+  --ad-surface: #1a1616;
+  --ad-surface-2: #221d1d;
+  --ad-surface-3: #2b2525;
+  --ad-overlay: rgba(0, 0, 0, 0.62);
+
+  --ad-ink: #f4f1ef;
+  --ad-ink-2: #c3bcb9;
+  --ad-ink-3: #968d8a;
+  --ad-ink-4: #6d6462;
+  --ad-ink-invert: #131010;
+
+  --ad-line: #2e2828;
+  --ad-line-2: #3d3535;
+  --ad-line-strong: #f4f1ef;
+
+  --ad-accent: #a83a4d;
+  --ad-accent-hover: #bd4557;
+  --ad-accent-press: #922f41;
+  --ad-accent-ink: #e79aa6;        /* text-weight accent, 7.1:1 on --ad-surface */
+  --ad-accent-soft: #2c1c20;
+  --ad-accent-line: #4a2c33;
+
+  --ad-success: #5cb98d;
+  --ad-success-soft: #16241d;
+  --ad-success-line: #274435;
+
+  --ad-warn: #d3a05c;
+  --ad-warn-soft: #251c11;
+  --ad-warn-line: #43341f;
+
+  --ad-danger: #e0796a;
+  --ad-danger-soft: #2a1714;
+  --ad-danger-line: #4b2822;
+
+  --ad-info: #a7b3c1;
+  --ad-info-soft: #1a1e23;
+  --ad-info-line: #2e353d;
+
+  --ad-gold: #c9a961;
+  --ad-gold-soft: #241e10;
+
+  --ad-e1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ad-e2: 0 1px 3px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --ad-e3: 0 4px 8px rgba(0, 0, 0, 0.45), 0 16px 32px rgba(0, 0, 0, 0.5);
+  --ad-e-focus: 0 0 0 3px rgba(168, 58, 77, 0.3);
+
+  color-scheme: dark;
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────────*/
+.ckad {
+  font-family: var(--ad-font);
+  font-size: var(--ad-t-body);
+  line-height: var(--ad-lh-body);
+  color: var(--ad-ink-2);
+  background: var(--ad-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ckad *,
+.ckad *::before,
+.ckad *::after { box-sizing: border-box; }
+
+/* One focus treatment for the whole admin. :focus-visible, never :focus — a ring on every mouse
+   click is noise, and its absence for keyboard users is a blocker. */
+.ckad :focus-visible {
+  outline: 2px solid var(--ad-accent);
+  outline-offset: 2px;
+  border-radius: var(--ad-r-sm);
+}
+
+/* Numbers that get compared down a column must not shift width as digits change. */
+.ckad-num,
+.ckad table td.ckad-num,
+.ckad-mono {
+  font-variant-numeric: tabular-nums;
+}
+.ckad-mono { font-family: var(--ad-font-mono); }
+
+.ckad-sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Motion is an enhancement everywhere in this system: nothing is revealed BY an animation, so
+   switching it off can never leave a surface invisible or unreachable. */
+@media (prefers-reduced-motion: reduce) {
+  .ckad *,
+  .ckad *::before,
+  .ckad *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

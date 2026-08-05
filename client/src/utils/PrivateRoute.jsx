@@ -41,7 +41,7 @@ const PrivateRoute = ({ children }) => {
     }
   }
 
-  return user ? children : <Navigate to="/" replace state={{ from: destination }} />;
+  return user ? children : <Navigate to={`/?reason=auth-required&redirect=${encodeURIComponent(destination)}`} replace />;
 };
 
 export default PrivateRoute;

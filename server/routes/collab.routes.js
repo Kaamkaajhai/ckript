@@ -4,30 +4,18 @@ import protect from "../middleware/authMiddleware.js";
 import { checkPermission } from "../middleware/checkPermission.js";
 import {
   acceptInvite,
-  createRevisionComment,
   getActivityLog,
   getCollaborators,
   getCollabRequestsInbox,
   getScriptRequests,
-  getRevisions,
   inviteCollaborator,
   publishScript,
   removeCollaborator,
   resendInvite,
   requestCollab,
-  resolveComment,
   respondToRequest,
-  reviewRevision,
-  reviewPR,
-  submitRevision,
   updateCollaboratorRole,
   updateVisibility,
-  getBranch,
-  saveBranch,
-  raisePR,
-  getPRs,
-  getDiff,
-  revertPR,
 } from "../controllers/collab.controller.js";
 
 const router = express.Router();
@@ -65,22 +53,7 @@ router.delete("/:scriptId/collaborators/:userId", protect, checkPermission("mana
 router.post("/:scriptId/collaborators/:userId/resend-invite", protect, checkPermission("manage"), resendInvite);
 router.patch("/:scriptId/visibility", protect, checkPermission("manage"), updateVisibility);
 
-router.post("/:scriptId/revisions", protect, checkPermission("write"), submitRevision);
-router.post("/:scriptId/revisions/:revisionId/review", protect, checkPermission("approve"), reviewRevision);
-router.get("/:scriptId/revisions", protect, checkPermission("read"), getRevisions);
-
-router.post("/:scriptId/revisions/:revisionId/comments", protect, checkPermission("comment"), createRevisionComment);
-router.patch("/:scriptId/comments/:commentId/resolve", protect, resolveComment);
-
 router.post("/:scriptId/publish", protect, checkPermission("publish"), publishScript);
 router.get("/:scriptId/activity", protect, checkPermission("read"), getActivityLog);
-
-router.get("/:scriptId/branch", protect, checkPermission("write"), getBranch);
-router.patch("/:scriptId/branch", protect, checkPermission("write"), saveBranch);
-router.post("/:scriptId/pr", protect, checkPermission("write"), raisePR);
-router.get("/:scriptId/prs", protect, checkPermission("read"), getPRs);
-router.get("/:scriptId/prs/:prId/diff", protect, checkPermission("merge"), getDiff);
-router.post("/:scriptId/prs/:prId/review", protect, checkPermission("merge"), reviewPR);
-router.post("/:scriptId/prs/:prId/revert", protect, checkPermission("merge"), revertPR);
 
 export default router;

@@ -1,7 +1,6 @@
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
 import adminOnly from "../middleware/adminMiddleware.js";
-import requireAdminScriptSectionAccess from "../middleware/adminScriptSectionMiddleware.js";
 import {
     getStats,
     getUsers,
@@ -10,11 +9,11 @@ import {
     freezeUserAccount,
     unfreezeUserAccount,
     deleteUserAccountAsAdmin,
-    grantCreditsToUser,
     grantPremiumModelToUser,
     removePremiumModelFromUser,
     removeWriterPlanFromUser,
     grantWriterPlanToUser,
+    grantFipPlanToUser,
     getScripts,
     getAIUsageScripts,
     getEvaluationPurchases,
@@ -30,13 +29,14 @@ import {
     editScriptAsAdmin,
     scoreScript,
     getTrailerRequests,
+    getAvailableTrailers,
     approveTrailer,
     uploadAdminTrailerFile,
     uploadTrailerAsAdmin,
+    removeTrailerAsAdmin,
     loginAsUser,
     getScriptDetail,
     deleteScriptAsAdmin,
-    verifyAdminScriptSectionAccess,
     getPendingInvestors,
     getPendingWriterMembershipReviews,
     getWriterMembershipProofAccessUrl,
@@ -55,8 +55,23 @@ import {
     getAdminPurchaseTermsVersions,
     createAdminPurchaseTermsVersion,
     sendAudienceBroadcast,
+    setFinanceRole,
 } from "../controllers/adminController.js";
+import { upload } from "../controllers/userController.js";
 import { getContactSubmissions } from "../controllers/contactController.js";
+import {
+    adminListCompetitions,
+    adminCreateCompetition,
+    adminUpdateCompetition,
+    adminPublishCompetition,
+    adminArchiveCompetition,
+    adminListEntries,
+    adminRetryEntryAI,
+    adminDeclareResults,
+    adminReferralAnalytics,
+    adminDeleteCompetition,
+    adminUploadImage,
+} from "../controllers/competitionAdminController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
 
 const router = express.Router();
@@ -78,30 +93,33 @@ router.get("/users/deleted-requests", getDeletedAccountRequests);
 router.put("/users/:id/freeze", freezeUserAccount);
 router.put("/users/:id/unfreeze", unfreezeUserAccount);
 router.delete("/users/:id", deleteUserAccountAsAdmin);
-router.post("/users/:id/credits", grantCreditsToUser);
 router.post("/users/:id/grant-premium", grantPremiumModelToUser);
 router.post("/users/:id/remove-premium", removePremiumModelFromUser);
 // Writer Plan Management
 router.post("/users/:id/grant-writer-plan", grantWriterPlanToUser);
 router.post("/users/:id/remove-writer-plan", removeWriterPlanFromUser);
+router.post("/users/:id/grant-fip-plan", grantFipPlanToUser);
+router.post("/users/:id/finance-role", setFinanceRole);
 router.post("/broadcast/:audience", sendAudienceBroadcast);
 
-// Scripts
-router.post("/script-access/verify", verifyAdminScriptSectionAccess);
-router.get("/scripts", requireAdminScriptSectionAccess, getScripts);
+// Scripts (admin auth from router.use(protect, adminOnly) above is the only gate — the extra
+// script-section password has been removed)
+router.get("/scripts", getScripts);
 router.get("/scripts/ai-usage", getAIUsageScripts);
 router.get("/scripts/evaluation-purchases", getEvaluationPurchases);
 router.get("/scripts/investor-purchases", getInvestorPurchases);
-router.get("/scripts/pending", requireAdminScriptSectionAccess, getPendingScripts);
+router.get("/scripts/pending", getPendingScripts);
 router.get("/scripts/trailer-requests", getTrailerRequests);
-router.get("/scripts/:id", requireAdminScriptSectionAccess, getScriptDetail);
-router.delete("/scripts/:id", requireAdminScriptSectionAccess, deleteScriptAsAdmin);
-router.put("/scripts/:id/approve", requireAdminScriptSectionAccess, approveScript);
-router.put("/scripts/:id/reject", requireAdminScriptSectionAccess, rejectScript);
-router.put("/scripts/:id/edit", requireAdminScriptSectionAccess, editScriptAsAdmin);
-router.put("/scripts/:id/score", requireAdminScriptSectionAccess, scoreScript);
+router.get("/scripts/ai-trailers", getAvailableTrailers);
+router.get("/scripts/:id", getScriptDetail);
+router.delete("/scripts/:id", deleteScriptAsAdmin);
+router.put("/scripts/:id/approve", approveScript);
+router.put("/scripts/:id/reject", rejectScript);
+router.put("/scripts/:id/edit", editScriptAsAdmin);
+router.put("/scripts/:id/score", scoreScript);
 router.put("/scripts/:id/trailer-approve", approveTrailer);
 router.post("/scripts/:id/upload-trailer", uploadAdminTrailerFile, uploadTrailerAsAdmin);
+router.delete("/scripts/:id/remove-trailer", removeTrailerAsAdmin);
 
 // Payments
 router.get("/payments", getPayments);
@@ -138,6 +156,21 @@ router.get("/agreements/:id/pdf", getAdminAgreementPdf);
 router.get("/legal/terms/current", getAdminPurchaseTermsCurrent);
 router.get("/legal/terms/versions", getAdminPurchaseTermsVersions);
 router.post("/legal/terms/versions", createAdminPurchaseTermsVersion);
+
+// Competitions (auth comes from router.use(protect, adminOnly) above)
+router.get("/competitions", adminListCompetitions);
+router.post("/competitions", adminCreateCompetition);
+router.put("/competitions/:id", adminUpdateCompetition);
+router.post("/competitions/:id/publish", adminPublishCompetition);
+router.post("/competitions/:id/archive", adminArchiveCompetition);
+router.delete("/competitions/:id", adminDeleteCompetition);
+router.get("/competitions/:id/entries", adminListEntries);
+router.post("/competitions/:id/entries/:entryId/retry-ai", adminRetryEntryAI);
+router.post("/competitions/:id/results", adminDeclareResults);
+router.post("/competitions/upload", upload.single("image"), adminUploadImage);
+
+// Referral analytics (?competitionId= scopes it, ?format=csv exports)
+router.get("/referrals/analytics", adminReferralAnalytics);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);

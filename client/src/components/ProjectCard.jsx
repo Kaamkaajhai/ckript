@@ -6,7 +6,9 @@ import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import { useScriptBookmark } from "../hooks/useScriptBookmark";
 import SocialShareButton from "./SocialShareButton";
+import { formatScriptCredit } from "../utils/writerCredits";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionProgressText,
@@ -48,8 +50,8 @@ const STATUS = {
 const ProjectCard = ({ project, userName, onBlock }) => {
   const navigate = useNavigate();
   const { isDarkMode: dark } = useDarkMode();
-  const { user, setUser } = useContext(AuthContext);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const { user } = useContext(AuthContext);
+  const { isBookmarked, canBookmark, toggleBookmark: handleToggleBookmark } = useScriptBookmark(project);
   const [coverError, setCoverError] = useState(false);
 
   const isClickable  = project?.status === "published" || project?.status === "approved";
@@ -69,7 +71,6 @@ const ProjectCard = ({ project, userName, onBlock }) => {
   const coverImage   = project?.coverImage || null;
   const resolvedCoverImage = coverError ? "" : resolveMediaUrl(coverImage);
   const initials     = (project?.title || "SC").replace(/[^a-zA-Z0-9 ]/g, "").trim().split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "SC";
-  const canBookmark  = Boolean(user?._id && project?._id && project?.creator?._id !== user?._id);
   const spotlightSpend = Number(
     project?.billing?.spotlightCreditsSpent
       || project?.billing?.spotlightCreditsChargedAtUpload
@@ -101,49 +102,8 @@ const ProjectCard = ({ project, userName, onBlock }) => {
   };
 
   useEffect(() => {
-    const ids = user?.favoriteScripts || [];
-    const scriptId = project?._id;
-    if (!scriptId || !Array.isArray(ids)) {
-      setIsBookmarked(false);
-      return;
-    }
-    const hasBookmark = ids.some((item) => (typeof item === "string" ? item : item?._id) === scriptId);
-    setIsBookmarked(hasBookmark);
-  }, [user?.favoriteScripts, project?._id]);
-
-  useEffect(() => {
     setCoverError(false);
   }, [project?._id, coverImage]);
-
-  const handleToggleBookmark = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!canBookmark) return;
-    try {
-      const { data } = await api.post(`/scripts/${project._id}/favorite`);
-      const nextFavorited = Boolean(data?.favorited);
-      setIsBookmarked(nextFavorited);
-
-      setUser((prev) => {
-        if (!prev) return prev;
-        const currentIds = Array.isArray(prev.favoriteScripts)
-          ? prev.favoriteScripts.map((item) => (typeof item === "string" ? item : item?._id)).filter(Boolean)
-          : [];
-        const updatedIds = nextFavorited
-          ? Array.from(new Set([...currentIds, project._id]))
-          : currentIds.filter((item) => item !== project._id);
-        const updatedUser = { ...prev, favoriteScripts: updatedIds };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        return updatedUser;
-      });
-
-      window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
-        detail: { scriptId: project._id, bookmarked: nextFavorited },
-      }));
-    } catch {
-      // keep card interaction silent on toggle failure
-    }
-  };
 
   const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
@@ -242,11 +202,6 @@ const ProjectCard = ({ project, userName, onBlock }) => {
               </span>
               {status.label}
             </span>
-            {project?.collabVisibility === "open" && (
-              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.13em] text-white">
-                Open • Request Collab
-              </span>
-            )}
           </div>
         </div>
 
@@ -310,9 +265,11 @@ const ProjectCard = ({ project, userName, onBlock }) => {
           />
         </div>
 
-        {/* Author */}
+        {/* Author — every credited writer, not just the owner. Derived from the project so all
+            ~14 call sites get co-writer credits without each having to pass them; `userName`
+            remains the fallback for callers whose payload has no credits/creator populated. */}
         <p className={`mt-[3px] text-[11px] font-medium ${dark ? "text-[#3b4f63]" : "text-gray-400"}`}>
-          by {userName || "Unknown Author"}
+          by {formatScriptCredit(project, { max: 2 }) || userName || "Unknown Author"}
         </p>
         {project?.sid && (
           <p className={`mt-1 text-[10px] font-semibold tracking-wide ${dark ? "text-[#5f87b8]" : "text-[#1e3a5f]"}`}>

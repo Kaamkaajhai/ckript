@@ -21,18 +21,14 @@ import {
     sendInvestorApprovalEmail,
     sendInvestorRejectionEmail,
     sendWriterMembershipDecisionEmail,
-    sendAdminCreditsGrantedEmail,
     sendAdminPremiumGrantedEmail,
     sendAdminPremiumRemovedEmail,
     sendAdminBroadcastEmail,
     sendWriterPlanGrantedEmail,
+    sendFipPlanGrantedEmail,
 } from "../utils/emailService.js";
-import {
-    hasAdminScriptSectionPasswordConfigured,
-    issueAdminScriptSectionAccessToken,
-    validateAdminScriptSectionPassword,
-} from "../utils/adminScriptSectionAccess.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
+import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 
 const buildChatId = (idA, idB) => {
     const sorted = [idA.toString(), idB.toString()].sort();
@@ -209,14 +205,6 @@ const sanitizeInlineFileName = (fileName = "attachment.pdf") => {
     return normalized.toLowerCase().endsWith(".pdf") ? normalized : `${normalized}.pdf`;
 };
 
-const getCloudinaryResourceTypeFromUrl = (url = "") => {
-    const normalized = String(url || "");
-    if (normalized.includes("/image/upload/")) return "image";
-    if (normalized.includes("/video/upload/")) return "video";
-    if (normalized.includes("/raw/upload/")) return "raw";
-    return "";
-};
-
 const resolveAttachmentCloudinaryResourceType = (attachment) =>
     normalizeString(attachment?.cloudinaryResourceType) ||
     getCloudinaryResourceTypeFromUrl(attachment?.url) ||
@@ -239,13 +227,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
                 attachment: false,
             });
 
-            const response = await fetch(signedUrl);
-            if (!response.ok) continue;
-
-            const arrayBuffer = await response.arrayBuffer();
-            if (arrayBuffer.byteLength > 0) {
-                return Buffer.from(arrayBuffer);
-            }
+            const { buffer } = await fetchTrustedPdfAsset(signedUrl);
+            if (buffer.length > 0) return buffer;
         } catch {
             // Try fallback resource types.
         }
@@ -253,13 +236,8 @@ const fetchPdfBufferFromCloudinary = async ({ publicId, attachmentUrl, preferred
 
     if (attachmentUrl) {
         try {
-            const fallbackResponse = await fetch(attachmentUrl);
-            if (fallbackResponse.ok) {
-                const fallbackBuffer = await fallbackResponse.arrayBuffer();
-                if (fallbackBuffer.byteLength > 0) {
-                    return Buffer.from(fallbackBuffer);
-                }
-            }
+            const { buffer } = await fetchTrustedPdfAsset(attachmentUrl);
+            if (buffer.length > 0) return buffer;
         } catch {
             // Final fallback failed; return null below.
         }
@@ -298,6 +276,15 @@ const getAdminTrailerRequestFilter = () => ({
     isDeleted: NON_DELETED_SCRIPT_FILTER,
     "services.aiTrailer": true,
     trailerStatus: { $in: ["requested", "generating"] },
+    "trailerRequestPayment.status": "paid",
+});
+
+const getAdminTrailerLibraryFilter = () => ({
+    isDeleted: NON_DELETED_SCRIPT_FILTER,
+    $or: [
+        { trailerUrl: { $exists: true, $nin: ["", null] } },
+        { uploadedTrailerUrl: { $exists: true, $nin: ["", null] } },
+    ],
 });
 
 const getSettledPurchaseQuery = (extra = {}) => ({
@@ -647,7 +634,6 @@ const buildAdminManagedUserSummary = (user) => ({
     frozenReason: user.frozenReason || "",
     isDeactivated: Boolean(user.isDeactivated),
     deactivatedAt: user.deactivatedAt,
-    creditsBalance: Number(user?.credits?.balance || 0),
     accountDeletionReason: String(user?.accountDeletion?.reason || ""),
     accountDeletionSource: String(user?.accountDeletion?.source || ""),
     accountDeletionRequestedAt: user?.accountDeletion?.requestedAt,
@@ -678,7 +664,6 @@ const buildDeletedUserProfileSnapshotForAdmin = (user) => {
     snapshot.deactivatedBy = snapshot.deactivatedBy || user?.deactivatedBy;
     snapshot.createdAt = snapshot.createdAt || user?.createdAt;
     snapshot.updatedAt = snapshot.updatedAt || user?.updatedAt;
-    snapshot.credits = snapshot.credits || user?.credits;
     snapshot.writerProfile = snapshot.writerProfile || user?.writerProfile;
     snapshot.industryProfile = snapshot.industryProfile || user?.industryProfile;
     snapshot.preferences = snapshot.preferences || user?.preferences;
@@ -737,7 +722,7 @@ export const getDeletedAccountRequests = async (req, res) => {
 
         const total = await User.countDocuments(filter);
         const users = await User.find(filter)
-            .select("sid name email phone role deactivatedAt deactivatedBy accountDeletion isFrozen frozenAt frozenReason createdAt updatedAt credits writerProfile industryProfile preferences address approvalStatus approvalNote emailVerified favoriteScripts scriptsRead")
+            .select("sid name email phone role deactivatedAt deactivatedBy accountDeletion isFrozen frozenAt frozenReason createdAt updatedAt writerProfile industryProfile preferences address approvalStatus approvalNote emailVerified favoriteScripts scriptsRead")
             .sort({ deactivatedAt: -1, updatedAt: -1 })
             .skip((pageNumber - 1) * pageLimit)
             .limit(pageLimit)
@@ -776,7 +761,7 @@ export const freezeUserAccount = async (req, res) => {
         if (!targetUser) return res.status(404).json({ message: "User not found" });
 
         if (!String(targetUser.email || "").trim()) {
-            return res.status(400).json({ message: "User email is missing. Cannot send credit notification email." });
+            return res.status(400).json({ message: "User email is missing. Cannot send the account notification email." });
         }
 
         if (targetUser.role === "admin") {
@@ -833,105 +818,6 @@ export const unfreezeUserAccount = async (req, res) => {
 
         res.json({
             message: "Account unfrozen successfully",
-            user: buildAdminManagedUserSummary(targetUser),
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-export const grantCreditsToUser = async (req, res) => {
-    try {
-        const amount = Number(req.body?.amount);
-        const reason = String(req.body?.reason || "Admin credit grant").trim();
-        if (!Number.isFinite(amount) || amount <= 0) {
-            return res.status(400).json({ message: "Amount must be a positive number" });
-        }
-
-        const targetUser = await User.findById(req.params.id);
-        if (!targetUser) return res.status(404).json({ message: "User not found" });
-
-        if (targetUser.role === "admin") {
-            return res.status(403).json({ message: "Credits cannot be granted to admin accounts" });
-        }
-
-        if (targetUser.isDeactivated) {
-            return res.status(400).json({ message: "Cannot grant credits to a deleted account" });
-        }
-
-        if (!targetUser.credits) {
-            targetUser.credits = {
-                balance: 0,
-                totalPurchased: 0,
-                totalSpent: 0,
-                transactions: [],
-            };
-        }
-
-        const balanceBefore = Number(targetUser.credits.balance || 0);
-        targetUser.credits.balance = balanceBefore + amount;
-        const balanceAfter = targetUser.credits.balance;
-        const reference = Transaction.generateReference("bonus");
-
-        targetUser.credits.transactions.push({
-            type: "bonus",
-            amount,
-            description: reason,
-            reference,
-            createdAt: new Date(),
-        });
-
-        await targetUser.save();
-
-        await Transaction.create({
-            user: targetUser._id,
-            type: "bonus",
-            amount,
-            currency: "INR",
-            status: "completed",
-            description: reason,
-            reference,
-            balanceBefore,
-            balanceAfter,
-            processedBy: req.user._id,
-            processedAt: new Date(),
-        });
-
-        await Notification.create({
-            user: targetUser._id,
-            type: "admin_alert",
-            from: req.user._id,
-            message: `Admin added ${amount} credits to your account.`,
-        }).catch(() => null);
-
-        let emailResult = await sendAdminCreditsGrantedEmail(targetUser.email, targetUser.name, {
-            amount,
-            reason,
-            balanceAfter,
-            adminName: req.user?.name || "Admin",
-            clientBaseUrl: resolveClientOriginFromRequest(req),
-        });
-
-        if (!emailResult?.success) {
-            // One lightweight retry can recover from transient SMTP transport hiccups.
-            emailResult = await sendAdminCreditsGrantedEmail(targetUser.email, targetUser.name, {
-                amount,
-                reason,
-                balanceAfter,
-                adminName: req.user?.name || "Admin",
-                clientBaseUrl: resolveClientOriginFromRequest(req),
-            });
-        }
-
-        res.json({
-            message: emailResult?.success
-                ? "Credits granted successfully and email notification sent"
-                : "Credits granted successfully, but email notification could not be sent",
-            granted: amount,
-            balanceBefore,
-            balanceAfter,
-            emailSent: Boolean(emailResult?.success),
-            emailError: emailResult?.success ? undefined : (emailResult?.error || "Email send failed"),
             user: buildAdminManagedUserSummary(targetUser),
         });
     } catch (error) {
@@ -1078,7 +964,7 @@ export const removeWriterPlanFromUser = async (req, res) => {
 
 export const grantWriterPlanToUser = async (req, res) => {
     try {
-        const { plan } = req.body;
+        const { plan, cycle = "monthly" } = req.body;
         const targetUser = await User.findById(req.params.id);
         if (!targetUser) return res.status(404).json({ message: "User not found" });
 
@@ -1090,22 +976,26 @@ export const grantWriterPlanToUser = async (req, res) => {
             return res.status(400).json({ message: "Invalid plan specified" });
         }
 
-        targetUser.subscription = {
-            ...targetUser.subscription,
-            plan: plan,
-            aiImagesGeneratedTotal: 0,
-            isActive: true,
-            accessTier: plan === "gold" ? "writer_gold" : "writer_silver",
-            accessStatus: "active",
-            accessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-            lastAccessUpdate: new Date()
-        };
+        const durationDays = cycle === "annual" ? 365 : 30;
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-        if (targetUser.writerProfile) {
-            targetUser.writerProfile.plan = plan;
-        }
-
-        await targetUser.save();
+        await User.updateOne(
+            { _id: targetUser._id },
+            {
+                $set: {
+                    "subscription.plan": plan,
+                    "subscription.aiImagesGeneratedTotal": 0,
+                    "subscription.isActive": true,
+                    "subscription.accessTier": plan === "gold" ? "writer_gold" : "writer_silver",
+                    "subscription.accessStatus": "active",
+                    "subscription.accessActivatedAt": now,
+                    "subscription.accessExpiresAt": expiresAt,
+                    "subscription.lastAccessUpdate": now,
+                    ...(targetUser.writerProfile ? { "writerProfile.plan": plan } : {})
+                }
+            }
+        );
 
         // Send email
         await sendWriterPlanGrantedEmail(targetUser.email, {
@@ -1114,6 +1004,58 @@ export const grantWriterPlanToUser = async (req, res) => {
         });
 
         res.json({ message: `Writer plan ${plan} successfully granted`, user: buildAdminManagedUserSummary(targetUser) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const grantFipPlanToUser = async (req, res) => {
+    try {
+        const targetUser = await User.findById(req.params.id);
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+        if (targetUser.isDeactivated) {
+            return res.status(400).json({ message: "Cannot modify a deleted account" });
+        }
+
+        const durationDays = 365;
+        const now = new Date();
+        const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+        await User.updateOne(
+            { _id: targetUser._id },
+            {
+                $set: {
+                    "subscription.plan": "diamond",
+                    "subscription.aiImagesGeneratedTotal": 0,
+                    "subscription.isActive": true,
+                    "subscription.accessTier": "film_industry_professional",
+                    "subscription.accessStatus": "active",
+                    "subscription.accessActivatedAt": now,
+                    "subscription.accessExpiresAt": expiresAt,
+                    "subscription.lastAccessUpdate": now,
+                    "subscription.revealedContacts": [],
+                    "subscription.messagedWriters": [],
+                    "subscription.scheduledMeetings": [],
+                    "subscription.contactsLimit": 10,
+                    "subscription.messageWritersLimit": 10,
+                    "subscription.meetingsLimit": 10,
+                    ...(targetUser.industryProfile ? { "industryProfile.isVerified": true } : {})
+                }
+            }
+        );
+
+        await Notification.create({
+            user: targetUser._id,
+            type: "admin_alert",
+            message: "You have been granted a 1-year Diamond Film Industry Professional subscription by an administrator. Enjoy full access to Ckript!",
+        });
+
+        await sendFipPlanGrantedEmail(targetUser.email, {
+            userName: targetUser.name || "Professional",
+        });
+
+        res.json({ message: "1-Year FIP plan successfully granted", user: buildAdminManagedUserSummary(targetUser) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1128,6 +1070,7 @@ export const sendAudienceBroadcast = async (req, res) => {
 
         const title = String(req.body?.title || "").trim();
         const content = String(req.body?.content || "").trim();
+        const actionUrl = String(req.body?.actionUrl || "").trim();
         if (!title) {
             return res.status(400).json({ message: "Title is required" });
         }
@@ -1162,6 +1105,7 @@ export const sendAudienceBroadcast = async (req, res) => {
                 sendAdminBroadcastEmail(recipient.email, recipient.name, {
                     title,
                     content,
+                    actionUrl,
                     audienceLabel: audienceConfig.audienceLabel,
                     adminName: req.user?.name || "ckript Admin",
                     clientBaseUrl: resolveClientOriginFromRequest(req),
@@ -1295,27 +1239,6 @@ export const deleteUserAccountAsAdmin = async (req, res) => {
 };
 
 // ─── All Scripts ───
-export const verifyAdminScriptSectionAccess = async (req, res) => {
-    try {
-        if (!hasAdminScriptSectionPasswordConfigured()) {
-            return res.status(500).json({ message: "Admin script section password is not configured." });
-        }
-
-        const password = String(req.body?.password || "");
-        if (!validateAdminScriptSectionPassword(password)) {
-            return res.status(403).json({
-                code: "ADMIN_SCRIPT_SECTION_PASSWORD_INVALID",
-                message: "Invalid script section password.",
-            });
-        }
-
-        const tokenPayload = issueAdminScriptSectionAccessToken(req.user?._id);
-        return res.json(tokenPayload);
-    } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-};
-
 export const getScripts = async (req, res) => {
     try {
         const { search, status, page = 1, limit = 20 } = req.query;
@@ -1500,8 +1423,6 @@ export const getInvoices = async (req, res) => {
                                 writerEarnsPerSale: 1,
                                 services: 1,
                                 totalCreditsRequired: 1,
-                                creditsBalanceBefore: 1,
-                                creditsBalanceAfter: 1,
                                 creatorSid: 1,
                                 scriptSid: 1,
                                 rows: 1,
@@ -1852,6 +1773,26 @@ export const getTrailerRequests = async (req, res) => {
     }
 };
 
+export const getAvailableTrailers = async (req, res) => {
+    try {
+        const { page = 1, limit = 20 } = req.query;
+        const pageNumber = Math.max(Number(page) || 1, 1);
+        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const filter = getAdminTrailerLibraryFilter();
+
+        const total = await Script.countDocuments(filter);
+        const scripts = await Script.find(filter)
+            .populate("creator", "name email role profileImage")
+            .sort({ updatedAt: -1, createdAt: -1 })
+            .skip((pageNumber - 1) * pageLimit)
+            .limit(pageLimit);
+
+        res.json({ scripts, total, page: pageNumber, totalPages: Math.ceil(total / pageLimit) });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 export const approveTrailer = async (req, res) => {
     try {
         const { trailerUrl, trailerThumbnail, caption } = req.body || {};
@@ -1987,6 +1928,39 @@ export const loginAsUser = async (req, res) => {
             role: user.role,
             token,
             expiresAt: decoded.exp * 1000,
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export const removeTrailerAsAdmin = async (req, res) => {
+    try {
+        const script = await Script.findById(req.params.id).populate("creator", "_id name");
+        if (!script) return res.status(404).json({ message: "Script not found" });
+
+        const hadTrailer = Boolean(String(script.trailerUrl || "").trim() || String(script.uploadedTrailerUrl || "").trim());
+
+        script.trailerUrl = undefined;
+        script.uploadedTrailerUrl = undefined;
+        script.trailerThumbnail = undefined;
+        script.trailerSource = "none";
+        script.trailerStatus = "none";
+        await script.save();
+
+        if (script.creator?._id) {
+            await Notification.create({
+                user: script.creator._id,
+                type: "trailer_ready",
+                from: req.user._id,
+                script: script._id,
+                message: `The trailer for "${script.title}" was removed by admin.`,
+            });
+        }
+
+        res.json({
+            message: hadTrailer ? "Trailer removed successfully" : "Trailer was already empty",
+            script,
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -2519,7 +2493,7 @@ export const approveBankDetailReview = async (req, res) => {
                 from: req.user?._id,
                 message: note
                     ? `Your bank details were approved. Admin note: ${String(note).trim()}`
-                    : "Your bank details were approved. You can now purchase credits.",
+                    : "Your bank details were approved. You can now receive payouts.",
             });
         } catch (notificationError) {
             console.error("Bank approval notification failed:", notificationError.message);
@@ -2758,12 +2732,7 @@ export const getAdminAgreementPdf = async (req, res) => {
             return res.status(404).json({ message: "Agreement PDF not available." });
         }
 
-        const pdfResponse = await fetch(targetUrl);
-        if (!pdfResponse.ok) {
-            return res.status(502).json({ message: "Failed to fetch agreement PDF from storage." });
-        }
-
-        const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+        const { buffer: fileBuffer } = await fetchTrustedPdfAsset(targetUrl);
         const shouldDownload = String(req.query.download || "") === "1";
         const disposition = shouldDownload ? "attachment" : "inline";
 
@@ -2826,3 +2795,44 @@ export const createAdminPurchaseTermsVersion = async (req, res) => {
 };
 
 
+
+/**
+ * Grant or revoke the finance role — the read-only payments panel handed to an external
+ * accountant (see middleware/financeMiddleware.js for why it is not admin).
+ *
+ * Granting REMEMBERS the user's previous role in financeRoleGrantedFrom so revoking restores it
+ * exactly; a role is load-bearing everywhere (routing, entitlements, nav), so "revoke to reader"
+ * would quietly break a writer's account. Admin accounts are refused: demoting an admin to a
+ * read-only role through this side door would be privilege management by accident.
+ */
+export const setFinanceRole = async (req, res) => {
+    try {
+        const { grant } = req.body || {};
+        const user = await User.findById(req.params.id).select("role email name financeRoleGrantedFrom");
+        if (!user) return res.status(404).json({ message: "User not found" });
+        if (user.role === "admin") {
+            return res.status(400).json({ message: "Admin accounts cannot be converted to finance." });
+        }
+
+        if (grant) {
+            if (user.role === "finance") return res.json({ message: "Already a finance account.", user });
+            user.financeRoleGrantedFrom = user.role;
+            user.role = "finance";
+        } else {
+            if (user.role !== "finance") return res.status(400).json({ message: "Not a finance account." });
+            user.role = user.financeRoleGrantedFrom || "reader";
+            user.financeRoleGrantedFrom = undefined;
+        }
+        await user.save({ validateModifiedOnly: true });
+
+        return res.json({
+            message: grant
+                ? `${user.name || user.email} can now access the payments panel at /finance.`
+                : `Finance access removed; role restored to ${user.role}.`,
+            user: { _id: user._id, role: user.role },
+        });
+    } catch (error) {
+        console.error("[admin] setFinanceRole failed:", error?.message || error);
+        return res.status(500).json({ message: "Failed to update finance access." });
+    }
+};

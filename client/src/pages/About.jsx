@@ -2,7 +2,6 @@ import { motion } from "framer-motion";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import MarketingHeader from "../components/MarketingHeader";
-import aboutHero from "../assets/about_hero.png";
 
 const walkthroughVideoUrl = import.meta.env.VITE_ABOUT_VIDEO_URL || "";
 
@@ -76,7 +75,7 @@ const About = () => {
 							className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] min-h-[620px] sm:min-h-[700px] md:min-h-[760px] lg:min-h-[250px] lg:col-span-2 max-[510px]:min-h-0 max-[510px]:bg-transparent max-[510px]:border-none"
 						>
 							<img
-								src={aboutHero}
+								src=""
 								alt="Ckript marketplace visual"
 								className="h-full min-h-[250px] w-full object-cover max-[510px]:hidden filter brightness-75 contrast-125"
 								loading="eager"

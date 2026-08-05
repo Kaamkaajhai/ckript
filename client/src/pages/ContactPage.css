@@ -1,0 +1,412 @@
+/* ═══════════════════════════════════════════════════════════════
+   ContactPage — editorial theme matching the Ckript landing page.
+
+   Uses the same design-token custom properties declared on `.ckl`
+   in landing.css (--ck-ink, --ck-red, --ck-sans, --ck-serif, etc.)
+   so every colour, font, and spacing value is in sync with the
+   home page.  All selectors are scoped under `.ckl-contact` to
+   avoid leaking.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Nav ──────────────────────────────────────────────────────── */
+.ckl .ckl-contact-nav {
+  display: flex;
+  align-items: center;
+  padding: 0 clamp(20px, 5vw, 52px);
+  height: 104px;
+  animation: ckl-fadeDown .8s .05s cubic-bezier(.2,.7,.2,1) forwards;
+  opacity: 0;
+}
+.ckl .ckl-contact-brand { display: flex; align-items: center; text-decoration: none; }
+.ckl .ckl-contact-brand > img { height: 38px; width: auto; display: block; }
+
+.ckl .ckl-contact-nav-divider {
+  width: 1px;
+  height: 40px;
+  background: #cfcdc7;
+  margin: 0 0 0 34px;
+}
+.ckl .ckl-contact-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+  margin-left: 48px;
+}
+.ckl .ckl-contact-navlink {
+  color: #262523;
+  text-decoration: none;
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 19px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+}
+.ckl .ckl-contact-nav-right { margin-left: auto; display: flex; align-items: center; }
+.ckl .ckl-contact-hamburger {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ck-ink);
+}
+
+/* ── Mobile menu overlay ──────────────────────────────────────── */
+.ckl .ckl-contact-mmenu {
+  position: fixed;
+  inset: 0;
+  background: var(--ck-paper);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 15px;
+}
+.ckl .ckl-contact-mmenu-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ckl .ckl-contact-mmenu-head img { height: 30px; width: auto; display: block; }
+.ckl .ckl-contact-mmenu-links {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  margin-top: 80px;
+  align-items: center;
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 22px;
+}
+.ckl .ckl-contact-mmenu-item {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ck-ink);
+  text-decoration: none;
+}
+.ckl .ckl-contact-mmenu-login { margin-top: 24px; }
+
+/* ── Hero ─────────────────────────────────────────────────────── */
+.ckl .ckl-contact-hero {
+  text-align: center;
+  padding: clamp(20px, 4vw, 60px) clamp(20px, 5vw, 80px) clamp(40px, 5vw, 80px);
+  animation: ckl-fadeUp .9s .18s cubic-bezier(.2,.7,.2,1) forwards;
+  opacity: 0;
+}
+.ckl .ckl-contact-line {
+  display: inline-block;
+  width: 1px;
+  height: 64px;
+  background: linear-gradient(to bottom, rgba(11,10,6,0), #c4c2bc);
+}
+.ckl .ckl-contact-diamond {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: var(--ck-red);
+  transform: rotate(45deg);
+  margin: 18px 0 4px;
+}
+.ckl .ckl-contact-kicker {
+  display: block;
+  margin-top: 18px;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 3px;
+  color: var(--ck-muted);
+  text-transform: uppercase;
+}
+.ckl .ckl-contact-title {
+  margin: 22px 0 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(2.8rem, 5.5vw, 4.8rem);
+  line-height: 1.05;
+  color: var(--ck-ink);
+}
+.ckl .ckl-contact-title-em {
+  font-style: italic;
+  color: var(--ck-heading-italic);
+}
+.ckl .ckl-contact-lead {
+  margin: 26px auto 0;
+  max-width: 540px;
+  font-family: var(--ck-body);
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--ck-body-ink);
+}
+
+/* ── Main layout ──────────────────────────────────────────────── */
+.ckl .ckl-contact-main {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: clamp(32px, 4vw, 64px);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 5vw, 80px) clamp(70px, 8vw, 120px);
+  align-items: start;
+  animation: ckl-fadeUp .9s .35s cubic-bezier(.2,.7,.2,1) forwards;
+  opacity: 0;
+}
+
+/* ── Sidebar cards ────────────────────────────────────────────── */
+.ckl .ckl-contact-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.ckl .ckl-contact-card {
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  background: var(--ck-card);
+}
+.ckl .ckl-contact-card-head {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ck-muted);
+  margin: 0 0 16px;
+}
+.ckl .ckl-contact-card-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--ck-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ck-ink);
+  text-decoration: none;
+  padding: 8px 0;
+}
+.ckl .ckl-contact-card-row--muted { color: var(--ck-muted); }
+.ckl .ckl-contact-card-row--address {
+  align-items: flex-start;
+  color: var(--ck-body-ink);
+}
+.ckl .ckl-contact-near {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--ck-muted);
+}
+
+/* ── Form panel ───────────────────────────────────────────────── */
+.ckl .ckl-contact-form-panel {
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  padding: clamp(28px, 4vw, 48px);
+  background: var(--ck-card);
+  position: relative;
+  overflow: hidden;
+}
+/* Thin red accent line at the top */
+.ckl .ckl-contact-form-panel::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ck-red), transparent);
+  opacity: .45;
+}
+
+.ckl .ckl-contact-form { display: flex; flex-direction: column; gap: 24px; }
+
+.ckl .ckl-contact-form-header {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--ck-border);
+}
+.ckl .ckl-contact-form-h2 {
+  margin: 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  color: var(--ck-ink);
+}
+.ckl .ckl-contact-form-sub {
+  margin: 6px 0 0;
+  font-family: var(--ck-sans);
+  font-size: 15px;
+  color: var(--ck-muted);
+}
+
+.ckl .ckl-contact-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.ckl .ckl-contact-field { display: flex; flex-direction: column; gap: 8px; }
+.ckl .ckl-contact-label {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--ck-muted);
+}
+
+.ckl .ckl-contact-input {
+  width: 100%;
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: var(--ck-sans);
+  font-size: 15px;
+  color: var(--ck-ink);
+  background: var(--ck-paper);
+  outline: none;
+  transition: border-color .22s ease, box-shadow .22s ease;
+}
+.ckl .ckl-contact-input::placeholder { color: #bdbbb5; }
+.ckl .ckl-contact-input:focus {
+  border-color: var(--ck-red);
+  box-shadow: 0 0 0 3px rgba(209, 77, 55, .1);
+}
+
+.ckl .ckl-contact-textarea { resize: none; }
+
+.ckl .ckl-contact-select-wrap { position: relative; }
+.ckl .ckl-contact-select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 40px;
+}
+.ckl .ckl-contact-select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 20px;
+  color: var(--ck-muted);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────── */
+.ckl .ckl-contact-btn-primary {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 36px;
+  height: 56px;
+  background: #161513;
+  color: #fff;
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: .2px;
+  border: none;
+  cursor: pointer;
+  transition: transform .25s cubic-bezier(.2,.7,.2,1), background .25s ease;
+}
+.ckl .ckl-contact-btn-primary:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.ckl .ckl-contact-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border: 1px solid var(--ck-border);
+  border-radius: 10px;
+  background: var(--ck-paper);
+  color: var(--ck-ink);
+  font-family: var(--ck-sans);
+  font-weight: 500;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color .22s ease;
+}
+.ckl .ckl-contact-btn-secondary:hover { border-color: var(--ck-red); }
+
+/* ── Error ────────────────────────────────────────────────────── */
+.ckl .ckl-contact-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--ck-red-soft);
+  border-radius: 10px;
+  background: #fdf4f2;
+  font-family: var(--ck-sans);
+  font-size: 14px;
+  color: #a33a2a;
+}
+
+/* ── Success ──────────────────────────────────────────────────── */
+.ckl .ckl-contact-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 380px;
+}
+.ckl .ckl-contact-success-icon {
+  font-size: 52px;
+  color: #49994e;
+  margin-bottom: 16px;
+}
+.ckl .ckl-contact-success-h2 {
+  margin: 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  color: var(--ck-ink);
+}
+.ckl .ckl-contact-success-body {
+  margin: 14px 0 28px;
+  max-width: 420px;
+  font-family: var(--ck-body);
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--ck-body-ink);
+}
+
+/* ── Spinner ──────────────────────────────────────────────────── */
+.ckl .ckl-contact-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ckl-spin .65s linear infinite;
+}
+@keyframes ckl-spin { to { transform: rotate(360deg); } }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .ckl .ckl-contact-main {
+    grid-template-columns: 1fr;
+  }
+  .ckl .ckl-contact-sidebar {
+    order: 2;
+  }
+  .ckl .ckl-contact-form-panel {
+    order: 1;
+  }
+  .ckl .ckl-contact-nav {
+    padding: 0 15px;
+    height: auto;
+    padding-top: 24px;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 600px) {
+  .ckl .ckl-contact-form-row {
+    grid-template-columns: 1fr;
+  }
+}

@@ -19,10 +19,19 @@ export const getApiBaseUrl = () => {
   return origin ? `${origin}/api` : "/api";
 };
 
+export const isVercelHostname = (value = "") => {
+  try {
+    const hostname = new URL(String(value || "")).hostname.toLowerCase();
+    return hostname === "vercel.app" || hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+};
+
 export const isSocketSupported = () => {
   const origin = getApiOrigin();
   // Vercel serverless functions do not natively support WebSockets
-  if (origin.includes("vercel.app")) return false;
+  if (isVercelHostname(origin)) return false;
   return true;
 };
 

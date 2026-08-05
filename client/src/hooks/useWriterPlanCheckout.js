@@ -1,6 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
+import { useCurrency } from "../context/CurrencyContext";
 import api from "../services/api";
 
 /* ─────────────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ const daysLeftFrom = (expiresAt) => {
 
 export function useWriterPlanCheckout() {
   const { user, setUser, loading: authLoading } = useContext(AuthContext);
+  const { currency } = useCurrency() || {};
   const { openAuthModal } = useAuthModal();
 
   // `loading` carries which tier is mid-flight ("silver" | "gold" | "") so a
@@ -106,7 +108,7 @@ export function useWriterPlanCheckout() {
                        user, so a host modal can dismiss itself first
   */
   const startCheckout = useCallback(
-    async ({ tier, isRenew = false, signInRedirect = "/pricing", onSuccess, onRequireAuth } = {}) => {
+    async ({ tier, isRenew = false, cycle = "monthly", signInRedirect = "/pricing", onSuccess, onRequireAuth } = {}) => {
       const plan = WRITER_TIERS[tier];
       setError("");
       setMessage("");
@@ -138,7 +140,7 @@ export function useWriterPlanCheckout() {
           return;
         }
 
-        const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier });
+        const { data: orderData } = await api.post("/payment/writer/create-razorpay-order", { tier, cycle, currency: currency || "INR" });
 
         const options = {
           key: orderData.key,
@@ -152,6 +154,7 @@ export function useWriterPlanCheckout() {
               setMessage("Verifying payment...");
               const { data: verifyData } = await api.post("/payment/writer/verify-razorpay-payment", {
                 tier,
+                cycle,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_signature: response.razorpay_signature,

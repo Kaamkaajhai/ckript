@@ -1,0 +1,64 @@
+/* ═══════════════════════ THE PROBLEM (SPLIT) ═══════════════════════ */
+.ckl .ckl-problem {
+  position: relative;
+  width: 100%;
+  background: var(--ck-paper);
+  padding: clamp(80px, 9vw, 140px) clamp(20px, 5vw, 80px);
+}
+.ckl .ckl-problem-inner { max-width: 1320px; margin: 0 auto; }
+.ckl .ckl-problem-head { max-width: 820px; }
+.ckl .ckl-problem-h2-red { font-style: italic; color: var(--ck-red); }
+
+.ckl .ckl-problem-grid {
+  margin-top: clamp(44px, 5vw, 68px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.ckl .ckl-problem-card {
+  border: 1px solid var(--ck-border);
+  border-radius: 16px;
+  background: var(--ck-card);
+  padding: clamp(32px, 3.2vw, 48px);
+}
+.ckl .ckl-problem-kicker {
+  font-family: var(--ck-sans);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--ck-muted);
+}
+.ckl .ckl-problem-title {
+  margin: 16px 0 0;
+  font-family: var(--ck-serif);
+  font-weight: 400;
+  font-size: clamp(1.9rem, 3.2vw, 2.6rem);
+  line-height: 1.05;
+  color: var(--ck-ink);
+}
+.ckl .ckl-problem-title-em { font-style: italic; color: #8d8a84; }
+.ckl .ckl-problem-rows { margin-top: 28px; display: flex; flex-direction: column; gap: 16px; }
+.ckl .ckl-problem-row { display: flex; gap: 14px; align-items: flex-start; }
+.ckl .ckl-problem-row-txt { font-family: var(--ck-body); font-size: 18px; line-height: 27px; color: var(--ck-body-ink); }
+.ckl .ckl-problem-cta {
+  margin-top: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--ck-sans);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--ck-ink);
+  text-decoration: none;
+  border: none;
+  border-bottom: 2px solid #0B0A06;
+  padding-bottom: 6px;
+  background: none;
+  cursor: pointer;
+  transition: color .22s ease, border-color .22s ease;
+}
+
+@media (max-width: 900px) {
+  .ckl .ckl-problem-grid { grid-template-columns: 1fr !important; }
+}

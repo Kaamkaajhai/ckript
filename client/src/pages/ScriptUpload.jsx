@@ -1,24 +1,31 @@
 import { useState, useContext, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { motion as Motion, AnimatePresence } from "framer-motion";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Cropper from "react-easy-crop";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { formatCurrency } from "../utils/currency";
-import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
-import ScreenplayViewer from "../components/ScreenplayViewer";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
+import ScriptUploadWorkspace from "../components/script-upload/ScriptUploadWorkspace";
+import ScriptUploadSuccess from "../components/script-upload/ScriptUploadSuccess";
 import {
   SCRIPT_COMPLETION_OPTIONS,
   buildScriptCompletionPayload,
   createScriptCompletionFormState,
-  getScriptCompletionValidationMessage,
 } from "../utils/scriptCompletion";
+import {
+  DETAIL_SCREEN_ORDER,
+  UPLOAD_SCREEN_LOCATIONS,
+  getUploadScreenKey,
+  resolveUploadServerIssue,
+  validateUploadScreen,
+  validateUploadWorkflow,
+} from "../utils/scriptUploadValidation";
 
 // Format options
 const formats = [
@@ -272,7 +279,6 @@ const MODIFICATION_LABEL_MAP = Object.fromEntries(MODIFICATION_RIGHTS_OPTIONS.ma
 const PAYMENT_LABEL_MAP = Object.fromEntries(PAYMENT_STRUCTURE_OPTIONS.map((option) => [option.value, option.label]));
 const NEGOTIATION_LABEL_MAP = Object.fromEntries(NEGOTIATION_MODE_OPTIONS.map((option) => [option.value, option.label]));
 const LICENSE_DURATION_PRESET_MONTHS = [12, 18, 24];
-const MIN_LICENSE_DURATION_MONTHS = 1;
 const MAX_LICENSE_DURATION_MONTHS = 120;
 
 const createDefaultRightsLicensing = () => ({
@@ -345,53 +351,6 @@ const normalizeRightsLicensingState = (incoming = {}) => {
   };
 };
 
-const getRightsValidationMessage = (rightsLicensing) => {
-  if (!RIGHTS_LABEL_MAP[rightsLicensing?.rightsType]) {
-    return "Rights type is required.";
-  }
-
-  if (!MODIFICATION_LABEL_MAP[rightsLicensing?.modificationRights]) {
-    return "Modification rights selection is required.";
-  }
-
-  if (!PAYMENT_LABEL_MAP[rightsLicensing?.paymentStructure]) {
-    return "Payment structure selection is required.";
-  }
-
-  if (!NEGOTIATION_LABEL_MAP[rightsLicensing?.negotiationMode]) {
-    return "Negotiation mode selection is required.";
-  }
-
-  if (rightsLicensing?.rightsType === "exclusive_license") {
-    const durationMonths = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
-    if (!Number.isInteger(durationMonths) || durationMonths < MIN_LICENSE_DURATION_MONTHS || durationMonths > MAX_LICENSE_DURATION_MONTHS) {
-      return `Exclusive license requires duration between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`;
-    }
-  }
-
-  const royaltyBased = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"].includes(rightsLicensing?.paymentStructure);
-  if (royaltyBased) {
-    const pct = Number(rightsLicensing?.royaltySettings?.percentage || 0);
-    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
-      return "Royalty percentage must be between 0 and 100 for royalty-based structures.";
-    }
-  }
-
-  if (!rightsLicensing?.legalAcknowledgement?.ownershipConfirmed) {
-    return "You must confirm script ownership rights.";
-  }
-
-  if (!rightsLicensing?.legalAcknowledgement?.platformTermsAccepted) {
-    return "You must confirm platform legal acknowledgement.";
-  }
-
-  if (!rightsLicensing?.legalAcknowledgement?.exclusivityUnderstood) {
-    return "You must acknowledge exclusivity enforcement.";
-  }
-
-  return "";
-};
-
 const formatDuration = (seconds) => {
   const total = Math.max(0, Math.floor(seconds || 0));
   const mins = Math.floor(total / 60);
@@ -410,16 +369,6 @@ const getFileNameFromUrl = (url = "") => {
   }
 };
 
-const MAX_PREVIEW_SNIPPET_LENGTH = 900;
-const getPreviewPageSnippet = (pageTexts = [], pageNumber = 1) => {
-  const index = Math.max(0, Number(pageNumber || 0) - 1);
-  const raw = String(pageTexts?.[index] || "").trim();
-  if (!raw) return "";
-  return raw.length > MAX_PREVIEW_SNIPPET_LENGTH
-    ? `${raw.slice(0, MAX_PREVIEW_SNIPPET_LENGTH).trimEnd()}...`
-    : raw;
-};
-
 const ScriptUpload = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
@@ -428,12 +377,17 @@ const ScriptUpload = () => {
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
   const editId = searchParams.get("edit");
-  const branchMode = searchParams.get("branch") === "1";
   const [step, setStep] = useState(1);
+  const [detailStep, setDetailStep] = useState(0);
   const [fromDraft, setFromDraft] = useState(false);
   const [scriptId, setScriptId] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [validationAttempt, setValidationAttempt] = useState(0);
+  const [toastMessage, setToastMessage] = useState(null);
+  // Writer "scripts per plan" limit (e.g. Free = 1) — fetched on mount so the gate shows UPFRONT
+  // and blocks progression, not just at submit. Shared rule with the server (utils/scriptLimits.js).
+  const [scriptLimit, setScriptLimit] = useState(null);
   const [pdfNotice, setPdfNotice] = useState("");
   const [editApprovalLocked, setEditApprovalLocked] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -443,7 +397,6 @@ const ScriptUpload = () => {
   const [textContent, setTextContent] = useState("");
   const [pdfPageTexts, setPdfPageTexts] = useState([]);
   const [pdfTextExtracted, setPdfTextExtracted] = useState(false);
-  const [scriptContentEditOpen, setScriptContentEditOpen] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [agreementScrolled, setAgreementScrolled] = useState(true);
 
@@ -452,7 +405,81 @@ const ScriptUpload = () => {
   const thumbnailInputRef = useRef(null);
   const trailerInputRef = useRef(null);
   const pitchVideoInputRef = useRef(null);
-  const reviewRedirectTimerRef = useRef(null);
+  const toastTimerRef = useRef(null);
+  const currentScreenRef = useRef("upload");
+  const thumbnailDialogRef = useRef(null);
+
+  const dismissToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setToastMessage(null);
+  }, []);
+
+  const showToast = useCallback((message, type = "error", action = null, options = {}) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    const duration = options.duration ?? (type === "error" ? 7000 : 5000);
+    const defaultTitle = type === "success"
+      ? "All set"
+      : type === "warning"
+        ? "Before you continue"
+        : "Something needs attention";
+
+    setToastMessage({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      text: String(message || "Something went wrong. Please try again."),
+      type,
+      action,
+      title: options.title || defaultTitle,
+      scope: options.scope || "general",
+      duration,
+    });
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, duration);
+  }, []);
+
+  const setError = useCallback((message, targetScreen = null) => {
+    const nextMessage = String(message || "");
+    if (!nextMessage) {
+      setValidationErrors([]);
+      setToastMessage((current) => {
+        if (current?.scope !== "page-error") return current;
+        if (toastTimerRef.current) {
+          clearTimeout(toastTimerRef.current);
+          toastTimerRef.current = null;
+        }
+        return null;
+      });
+      return;
+    }
+
+    const screen = typeof targetScreen === "string"
+      ? targetScreen
+      : targetScreen?.screen || currentScreenRef.current;
+    showToast(nextMessage, "error", null, {
+      scope: "page-error",
+      title: `${UPLOAD_SCREEN_LOCATIONS[screen]?.label || "This page"} needs attention`,
+    });
+  }, [showToast]);
+
+  const clearValidationFeedback = useCallback(() => {
+    setValidationErrors([]);
+    setToastMessage((current) => {
+      if (!["validation", "page-error"].includes(current?.scope)) return current;
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+      return null;
+    });
+  }, []);
+
+  useEffect(() => {
+    currentScreenRef.current = getUploadScreenKey(step, detailStep);
+  }, [detailStep, step]);
 
   // Thumbnail and Trailer states
   const [thumbnailFile, setThumbnailFile] = useState(null);
@@ -463,6 +490,7 @@ const ScriptUpload = () => {
   const [pitchVideoPreviewUrl, setPitchVideoPreviewUrl] = useState("");
   const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
   const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
+  const [pendingMediaRecovery, setPendingMediaRecovery] = useState(null);
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
@@ -475,17 +503,10 @@ const ScriptUpload = () => {
   const [thumbnailRotation, setThumbnailRotation] = useState(0);
   const [thumbnailCropPixels, setThumbnailCropPixels] = useState(null);
   const [thumbnailApplying, setThumbnailApplying] = useState(false);
-  const [showUnderReviewModal, setShowUnderReviewModal] = useState(false);
-  const [postSubmitRedirectPath, setPostSubmitRedirectPath] = useState("/dashboard");
+  const [submissionSuccess, setSubmissionSuccess] = useState(null);
   const [isContentOnlyEditMode, setIsContentOnlyEditMode] = useState(false);
   const [isEditModeResolving, setIsEditModeResolving] = useState(Boolean(editId));
   const [originalEditContent, setOriginalEditContent] = useState("");
-  const [branchUpdatedAt, setBranchUpdatedAt] = useState("");
-
-  useEffect(() => {
-    if (!branchMode || !editId) return;
-    navigate(`/script/${editId}/branch/edit`, { replace: true });
-  }, [branchMode, editId, navigate]);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -552,8 +573,7 @@ const ScriptUpload = () => {
   const [scriptPrice, setScriptPrice] = useState(10);
   const [customPriceInput, setCustomPriceInput] = useState("");
   const [useCustomPrice, setUseCustomPrice] = useState(false);
-  const effectivePrice = isPremium ? (useCustomPrice ? Number(customPriceInput) || 0 : scriptPrice) : 0;
-  const isEditingExistingScriptFlow = Boolean(editId);
+  const effectivePrice = useCustomPrice ? Number(customPriceInput) || 0 : scriptPrice;
   const buyerCommissionAmount = Math.round(effectivePrice * BUYER_COMMISSION_RATE * 100) / 100;
   const buyerTotalPayable = Math.round((effectivePrice + buyerCommissionAmount) * 100) / 100;
   const writerPayout = Math.round(effectivePrice * 100) / 100;
@@ -623,27 +643,37 @@ const ScriptUpload = () => {
     }
     const load = async () => {
       try {
-        const [{ data }, branchResponse] = await Promise.all([
-          api.get(`/scripts/${editId}`),
-          branchMode ? api.get(`/collab/${editId}/branch`).catch(() => null) : Promise.resolve(null),
-        ]);
+        const { data } = await api.get(`/scripts/${editId}`);
         const isEditApprovalPending = data?.status === "pending_approval" && data?.approvalRequestType === "edit_submission";
+        const purchasedFromHistory = {
+          evaluation: Boolean(
+            Number(data?.billing?.evaluationCreditsChargedAtUpload || 0) > 0
+            || Number(data?.billing?.evaluationCreditsCharged || 0) > 0
+            || data?.services?.evaluation
+          ),
+          aiTrailer: Boolean(
+            Number(data?.billing?.aiTrailerCreditsChargedAtUpload || 0) > 0
+            || Number(data?.billing?.aiTrailerCreditsCharged || 0) > 0
+            || data?.services?.aiTrailer
+          ),
+          spotlight: Boolean(
+            Number(data?.billing?.spotlightCreditsChargedAtUpload || 0) > 0
+            || data?.services?.spotlight
+          ),
+        };
+        setEditApprovalLocked(Boolean(isEditApprovalPending));
 
         if (isEditApprovalPending) {
           setError("This script edit is already in admin review. You can edit again after approval or rejection.");
         }
-        const contentOnlyMode = Boolean(branchMode || (data?.isCollaborator && data?.canEditMetadata === false));
+        const contentOnlyMode = Boolean(data?.isCollaborator && data?.canEditMetadata === false);
         setIsContentOnlyEditMode(contentOnlyMode);
         if (contentOnlyMode) {
           setStep(1);
         }
-        const branchData = branchResponse?.data?.branch || null;
-        const initialContent = branchMode
-          ? (branchData?.content || "")
-          : (data.textContent || "");
+        const initialContent = data.textContent || "";
         setTextContent(initialContent);
         setOriginalEditContent(initialContent);
-        setBranchUpdatedAt(branchData?.updatedAt || "");
         setExistingUploadedFile(data.fileUrl ? {
           name: getFileNameFromUrl(data.fileUrl),
           size: null,
@@ -696,9 +726,17 @@ const ScriptUpload = () => {
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         });
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        const storedPrice = Number(data?.price || 0);
+        setIsPremium(Boolean(data?.premium && storedPrice > 0));
+        setScriptPrice(storedPrice || 10);
+        setUseCustomPrice(storedPrice > 0 && ![5, 10, 15, 25, 50].includes(storedPrice));
+        setCustomPriceInput(storedPrice > 0 ? String(storedPrice) : "");
         if (data?.filmDetails) {
+          const storedLanguage = data.filmDetails.filmLanguage || "";
+          const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
           setFilmDetails({
-            filmLanguage: data.filmDetails.filmLanguage || "",
+            filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
+            filmLanguageCustom: knownLanguage ? "" : storedLanguage,
             dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
             wantToDirect: Boolean(data.filmDetails.wantToDirect),
             wantToProduce: Boolean(data.filmDetails.wantToProduce),
@@ -712,7 +750,7 @@ const ScriptUpload = () => {
       }
     };
     load();
-  }, [branchMode, editId]);
+  }, [editId, setError]);
 
   // Load draft when coming from Create Project editor
   useEffect(() => {
@@ -722,7 +760,14 @@ const ScriptUpload = () => {
         const { data } = await api.get(`/scripts/${draftId}`);
         setScriptId(data._id);
         setTextContent(data.textContent || "");
-        setPdfPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
+        const storedPreviewPages = Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : [];
+        setPdfPageTexts(storedPreviewPages);
+        setPdfTextExtracted(storedPreviewPages.length > 0);
+        setExistingUploadedFile(data.fileUrl ? {
+          name: getFileNameFromUrl(data.fileUrl),
+          size: null,
+          url: data.fileUrl,
+        } : null);
         setFormData((prev) => ({
           ...prev,
           title: data.title || "",
@@ -750,15 +795,36 @@ const ScriptUpload = () => {
             },
           })));
         }
+        setTagsInput((data.tags || []).join(", "));
+        setClassification({
+          tones: data.classification?.tones || [],
+          themes: data.classification?.themes || [],
+          settings: data.classification?.settings || [],
+        });
+        setServices({
+          hosting: data.services?.hosting ?? true,
+          evaluation: Boolean(data.services?.evaluation),
+          aiTrailer: Boolean(data.services?.aiTrailer),
+          spotlight: Boolean(data.services?.spotlight),
+        });
+        setTrailerOption(data.services?.aiTrailer ? "ai" : "none");
         setLegal((prev) => ({
           ...prev,
           agreedToTerms: Boolean(data?.legal?.agreedToTerms),
           customInvestorTerms: data?.legal?.customInvestorTerms || "",
         }));
         setRightsLicensing(normalizeRightsLicensingState(data?.rightsLicensing || {}));
+        const storedPrice = Number(data?.price || 0);
+        setIsPremium(Boolean(data?.premium && storedPrice > 0));
+        setScriptPrice(storedPrice || 10);
+        setUseCustomPrice(storedPrice > 0 && ![5, 10, 15, 25, 50].includes(storedPrice));
+        setCustomPriceInput(storedPrice > 0 ? String(storedPrice) : "");
         if (data?.filmDetails) {
+          const storedLanguage = data.filmDetails.filmLanguage || "";
+          const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
           setFilmDetails({
-            filmLanguage: data.filmDetails.filmLanguage || "",
+            filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
+            filmLanguageCustom: knownLanguage ? "" : storedLanguage,
             dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
             wantToDirect: Boolean(data.filmDetails.wantToDirect),
             wantToProduce: Boolean(data.filmDetails.wantToProduce),
@@ -776,6 +842,7 @@ const ScriptUpload = () => {
 
   // Handle form field changes
   const handleChange = (e) => {
+    clearValidationFeedback();
     const { name, value, type, checked } = e.target;
     const nextValue = type === "checkbox" ? checked : value;
     setFormData((prev) => {
@@ -792,6 +859,7 @@ const ScriptUpload = () => {
   };
 
   const addRole = () => {
+    clearValidationFeedback();
     setRoles((prev) => ([
       ...prev,
       {
@@ -805,10 +873,12 @@ const ScriptUpload = () => {
   };
 
   const updateRoleField = (index, field, value) => {
+    clearValidationFeedback();
     setRoles((prev) => prev.map((role, i) => (i === index ? { ...role, [field]: value } : role)));
   };
 
   const updateRoleAge = (index, field, value) => {
+    clearValidationFeedback();
     setRoles((prev) => prev.map((role, i) => (
       i === index
         ? { ...role, ageRange: { ...role.ageRange, [field]: value === "" ? "" : Number(value) } }
@@ -817,6 +887,7 @@ const ScriptUpload = () => {
   };
 
   const removeRole = (index) => {
+    clearValidationFeedback();
     setRoles((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -879,31 +950,6 @@ const ScriptUpload = () => {
     }
   };
 
-  const getInvalidRoleAgeRangeMessage = () => {
-    const invalidIndex = roles.findIndex((role) => {
-      const min = role?.ageRange?.min;
-      const max = role?.ageRange?.max;
-
-      if (min === "" || max === "" || min === undefined || max === undefined || min === null || max === null) {
-        return false;
-      }
-
-      const minAge = Number(min);
-      const maxAge = Number(max);
-      if (!Number.isFinite(minAge) || !Number.isFinite(maxAge)) {
-        return true;
-      }
-
-      return maxAge < minAge;
-    });
-
-    if (invalidIndex >= 0) {
-      return `Role ${invalidIndex + 1}: Max age must be greater than or equal to min age.`;
-    }
-
-    return "";
-  };
-
   const pageCountWarning = getPageCountWarning(formData.format, formData.pageCount);
   useEffect(() => {
     const pageCount = Number(formData.pageCount || 0);
@@ -929,6 +975,7 @@ const ScriptUpload = () => {
 
   // Toggle classification chips (max 3 per category)
   const toggleClassification = (category, value) => {
+    clearValidationFeedback();
     setClassification((prev) => {
       const current = prev[category] || [];
       if (current.includes(value)) {
@@ -985,10 +1032,7 @@ const ScriptUpload = () => {
       formData.append("pdf", file);
 
       // Call our new backend extraction endpoint
-      const { data } = await api.post("/scripts/extract-pdf", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-
+      const { data } = await api.post("/scripts/extract-pdf", formData);
       clearInterval(interval);
       setUploadProgress(100);
 
@@ -996,6 +1040,8 @@ const ScriptUpload = () => {
         name: file.name,
         size: file.size,
         url: data.fileUrl || "",
+        fileGrant: data.fileGrant || "",
+        sourceMode: data.sourceMode || (data.fileUrl ? "uploaded-pdf" : "imported-text"),
         previewUrl: localPreviewUrl,
       });
       setPdfTextExtracted(Boolean(data.extractedTextAvailable));
@@ -1083,7 +1129,7 @@ const ScriptUpload = () => {
     setThumbnailRotation(0);
     setThumbnailCropPixels(null);
     setIsThumbnailEditorOpen(true);
-  }, []);
+  }, [setError]);
 
   // Handle thumbnail selection
   const handleThumbnailSelect = (file) => {
@@ -1157,12 +1203,6 @@ const ScriptUpload = () => {
   const [aiCoverAttempts, setAiCoverAttempts] = useState(0);
   const [aiCoverHistory, setAiCoverHistory] = useState([]);
   const [aiCoverIndex, setAiCoverIndex] = useState(-1);
-  const [toastMessage, setToastMessage] = useState(null);
-
-  const showToast = useCallback((msg, type = "error", action = null) => {
-    setToastMessage({ text: msg, type, action });
-    setTimeout(() => setToastMessage(null), 5000);
-  }, []);
 
   const generateAiCover = async () => {
     const plan = user?.subscription?.plan || "free";
@@ -1252,8 +1292,8 @@ const ScriptUpload = () => {
   };
 
   useEffect(() => () => {
-    if (reviewRedirectTimerRef.current) {
-      clearTimeout(reviewRedirectTimerRef.current);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
     }
   }, []);
 
@@ -1350,11 +1390,11 @@ const ScriptUpload = () => {
       video.onerror = null;
       URL.revokeObjectURL(previewUrl);
     };
-  }, [pitchVideoFile]);
+  }, [pitchVideoFile, setError]);
 
   // Handle agreement scroll
   useEffect(() => {
-    if (step !== 6) return;
+    if (step !== 5) return;
 
     const agreementElement = agreementRef.current;
     if (!agreementElement) return;
@@ -1396,147 +1436,124 @@ const ScriptUpload = () => {
 
 
 
-  // Validate step
-  const validateStep = (stepNum) => {
-    setError("");
+  const getValidationContext = () => ({
+    formData,
+    textContent,
+    uploadedFile,
+    existingUploadedFile,
+    roles,
+    filmDetails,
+    rightsLicensing: buildRightsPayload(),
+    legal,
+    isPremium,
+    effectivePrice,
+    maxInvestorTermsLength: MAX_CUSTOM_INVESTOR_TERMS_LENGTH,
+    maxRightsConditionsLength: MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH,
+    contentOnly: isContentOnlyEditMode,
+  });
 
-    switch (stepNum) {
-      case 1:
-        if (!formData.title) {
-          setError("Title is required.");
-          return false;
-        }
-        // Upload step — script content/file required
-        if ((fromDraft || editId) && textContent.trim()) return true;
-        if (!uploadedFile && !textContent.trim()) {
-          setError("Please upload a PDF file to continue.");
-          return false;
-        }
-        return true;
-
-      case 2:
-        if (!formData.format) {
-          setError("Format is required.");
-          return false;
-        }
-        if (formData.format === "other" && !String(formData.formatOther || "").trim()) {
-          setError("Please specify the format when selecting Other.");
-          return false;
-        }
-        if (!formData.pageCount || Number(formData.pageCount) <= 0) {
-          setError("Page count could not be detected. Please go back and re-upload your PDF.");
-          return false;
-        }
-        if (formData.viewableScript && Number(formData.previewWindowStart || 0) < 1) {
-          setError("Preview start page must be at least 1.");
-          return false;
-        }
-
-        if (!formData.logline.trim()) {
-          setError("Logline is required.");
-          return false;
-        }
-        if (formData.logline.length > 500) {
-          setError("Logline must be 500 characters or less.");
-          return false;
-        }
-        {
-          const completionError = getScriptCompletionValidationMessage(formData);
-          if (completionError) {
-            setError(completionError);
-            return false;
-          }
-        }
-        if (!formData.synopsis || !formData.synopsis.trim()) {
-          setError("Synopsis is required.");
-          return false;
-        }
-        if (formData.viewableScript) {
-          const previewPayload = buildScriptPreviewPayload(formData);
-          if (previewPayload.end < previewPayload.start) {
-            setError("The ending page must be greater than or equal to the starting page.");
-            return false;
-          }
-          if (Number(formData.pageCount || 0) > 0 && (previewPayload.start > Number(formData.pageCount || 0) || previewPayload.end > Number(formData.pageCount || 0))) {
-            setError("The preview range cannot exceed the detected page count.");
-            return false;
-          }
-        }
-        {
-          const ageRangeError = getInvalidRoleAgeRangeMessage();
-          if (ageRangeError) {
-            setError(ageRangeError);
-            return false;
-          }
-        }
-        return true;
-
-      case 3:
-        if (!formData.primaryGenre) {
-          setError("Primary genre is required.");
-          return false;
-        }
-        return true;
-
-      case 4:
-        if (!String(filmDetails.filmLanguage || "").trim()) {
-          setError("Film language is required.");
-          return false;
-        }
-        if (filmDetails.filmLanguage === "Other" && !String(filmDetails.filmLanguageCustom || "").trim()) {
-          setError("Please specify the film language.");
-          return false;
-        }
-        return true;
-
-      case 5:
-        {
-          const rightsError = getRightsValidationMessage(buildRightsPayload());
-          if (rightsError) {
-            setError(rightsError);
-            return false;
-          }
-        }
-        if (!legal.agreedToTerms) {
-          setError("You must agree to the terms to continue.");
-          return false;
-        }
-        if (String(legal.customInvestorTerms || "").trim().length > MAX_CUSTOM_INVESTOR_TERMS_LENGTH) {
-          setError(`Custom investor terms cannot exceed ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters.`);
-          return false;
-        }
-        return true;
-
-      default:
-        return true;
-    }
+  const focusValidationIssue = (validationIssue) => {
+    if (!validationIssue) return;
+    setStep(validationIssue.step);
+    if (validationIssue.step === 2) setDetailStep(validationIssue.detailStep);
+    setValidationErrors((current) => {
+      const selectedIssue = current.find((item) => item.code === validationIssue.code);
+      if (!selectedIssue || current[0]?.code === validationIssue.code) return current;
+      return [selectedIssue, ...current.filter((item) => item.code !== validationIssue.code)];
+    });
+    setValidationAttempt((current) => current + 1);
   };
 
+  const presentValidationIssues = (issues) => {
+    const firstIssue = issues?.[0];
+    if (!firstIssue) {
+      clearValidationFeedback();
+      return true;
+    }
+
+    setValidationErrors(issues);
+    focusValidationIssue(firstIssue);
+    showToast(firstIssue.message, "error", {
+      label: "Review field",
+      onClick: () => focusValidationIssue(firstIssue),
+    }, {
+      duration: 8000,
+      scope: "validation",
+      title: `${firstIssue.label} needs attention`,
+    });
+    return false;
+  };
+
+  const validateScreenAndPresent = (screen) => presentValidationIssues(
+    validateUploadScreen(screen, getValidationContext())
+  );
+
+  const validateStep = (stepNum) => {
+    if (stepNum === 2) {
+      return presentValidationIssues(
+        DETAIL_SCREEN_ORDER.flatMap((screen) => validateUploadScreen(screen, getValidationContext()))
+      );
+    }
+    return validateScreenAndPresent(getUploadScreenKey(stepNum, 0));
+  };
+
+  const validateDetailStep = (detailIndex) => validateScreenAndPresent(
+    DETAIL_SCREEN_ORDER[detailIndex] || "basics"
+  );
+
   // Handle next step
+  // Fetch the writer's script-limit status once, so the gate is visible before any upload work.
+  useEffect(() => {
+    let active = true;
+    api.get("/scripts/script-limit")
+      .then(({ data }) => { if (active) setScriptLimit(data); })
+      .catch(() => { if (active) setScriptLimit(null); });
+    return () => { active = false; };
+  }, []);
+
+  // Block creating a NEW upload when the plan limit is reached; editing an existing script (scriptId
+  // present) is never blocked — only the fresh "upload another" path is.
+  const creationBlocked = Boolean(scriptLimit?.limitReached) && !scriptId && !editId;
+
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
+    // The persistent amber gate already explains why; don't set a generic error (avoids a duplicate banner).
+    if (creationBlocked) return;
+    if (step === 2 && detailStep < 5) {
+      if (!validateDetailStep(detailStep)) return;
+      setDetailStep((current) => Math.min(5, current + 1));
+      return;
+    }
     if (!validateStep(step)) return;
     if (step < 5) {
       setStep(step + 1);
-      setError("");
+      if (step + 1 === 2) setDetailStep(0);
+      clearValidationFeedback();
     }
   };
 
   // Handle back step
   const handleBack = () => {
     if (isContentOnlyEditMode) return;
+    if (step === 2 && detailStep > 0) {
+      setDetailStep((current) => Math.max(0, current - 1));
+      clearValidationFeedback();
+      return;
+    }
     if (step > 1) {
       setStep(step - 1);
-      setError("");
+      if (step - 1 === 2) setDetailStep(5);
+      clearValidationFeedback();
     }
   };
 
   // Handle saving a draft
   const handleSaveDraft = async () => {
-    setError("");
+    clearValidationFeedback();
     setLoading(true);
     try {
       const payload = {
+        ...(scriptId ? { scriptId } : {}),
         title: formData.title || "Untitled Draft",
         logline: formData.logline,
         synopsis: formData.synopsis,
@@ -1545,6 +1562,11 @@ const ScriptUpload = () => {
         formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
         pageCount: Number(formData.pageCount) || 0,
         textContent: textContent,
+        ...(isHttpUrl(uploadedFile?.url)
+          ? { fileUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
+          : (isHttpUrl(existingUploadedFile?.url)
+            ? { fileUrl: existingUploadedFile.url }
+            : {})),
         roles: roles
           .filter((role) => role.characterName?.trim())
           .map((role) => ({
@@ -1565,7 +1587,17 @@ const ScriptUpload = () => {
         },
         viewableScript: Boolean(formData.viewableScript),
         scriptPreviewAccess: buildScriptPreviewPayload(formData),
+        scriptCompletion: buildScriptCompletionPayload(formData),
         scriptPreviewPageTexts: pdfPageTexts,
+        tags: tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
+        services: {
+          hosting: true,
+          evaluation: services.evaluation,
+          aiTrailer: trailerOption === "ai",
+          spotlight: services.spotlight,
+        },
+        premium: effectivePrice > 0,
+        price: effectivePrice > 0 ? effectivePrice : 0,
         legal: {
           agreedToTerms: legal.agreedToTerms,
           termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
@@ -1581,10 +1613,10 @@ const ScriptUpload = () => {
         },
       };
 
-      await api.post("/scripts/draft", payload);
-      // We don't navigate away, just show success
-      // In a real app we'd use a toast notification
-      alert("Draft saved successfully! You can resume it from your dashboard.");
+      const { data } = await api.post("/scripts/draft", payload);
+      if (data?._id) setScriptId(data._id);
+      setFromDraft(true);
+      showToast("Draft saved. You can resume it from your dashboard.", "success");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save draft.");
     } finally {
@@ -1592,69 +1624,148 @@ const ScriptUpload = () => {
     }
   };
 
-  // Handle final submission
-  const openUnderReviewModal = (redirectPath) => {
-    if (reviewRedirectTimerRef.current) {
-      clearTimeout(reviewRedirectTimerRef.current);
-    }
+  useEffect(() => {
+    if (!isThumbnailEditorOpen) return undefined;
 
-    setPostSubmitRedirectPath(redirectPath);
-    setShowUnderReviewModal(true);
+    const dialog = thumbnailDialogRef.current;
+    if (!dialog) return undefined;
 
-    reviewRedirectTimerRef.current = setTimeout(() => {
-      navigate(redirectPath);
-    }, 2400);
-  };
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
-  const handleUnderReviewContinue = () => {
-    if (reviewRedirectTimerRef.current) {
-      clearTimeout(reviewRedirectTimerRef.current);
-      reviewRedirectTimerRef.current = null;
-    }
-    setShowUnderReviewModal(false);
-    navigate(postSubmitRedirectPath);
-  };
+    const getFocusableElements = () => Array.from(dialog.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+    ));
+    const frame = window.requestAnimationFrame(() => {
+      (getFocusableElements()[0] || dialog).focus();
+    });
 
-  const downloadSubmissionSummaryPdf = async (targetScriptId, title) => {
-    if (!targetScriptId) return;
+    const handleDialogKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        resetThumbnailEditor();
+        return;
+      }
 
-    const confirmed = window.confirm("Your project was submitted successfully! Would you like to download your submission summary PDF?");
-    if (!confirmed) return;
+      if (event.key !== "Tab") return;
+      const focusable = getFocusableElements();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
 
-    try {
-      const response = await api.get(`/scripts/${targetScriptId}/submission-summary-pdf?download=1`, {
-        responseType: "blob",
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement) previousFocus.focus();
+    };
+  }, [isThumbnailEditorOpen, resetThumbnailEditor]);
+
+  const uploadMediaForScript = async (targetScriptId, requestedTypes = null) => {
+    const shouldUpload = (type) => !Array.isArray(requestedTypes) || requestedTypes.includes(type);
+    const mediaTasks = [];
+
+    if (thumbnailFile && shouldUpload("thumbnail")) {
+      const thumbnailFormData = new FormData();
+      thumbnailFormData.append("thumbnail", thumbnailFile);
+      mediaTasks.push({
+        type: "thumbnail",
+        request: api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData),
       });
-
-      const blob = new Blob([response.data], { type: "application/pdf" });
-      const objectUrl = window.URL.createObjectURL(blob);
-      const safeTitle = String(title || "script")
-        .replace(/[^a-z0-9]+/gi, "_")
-        .replace(/^_+|_+$/g, "") || "script";
-
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = `${safeTitle}_submission_summary.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
-    } catch (downloadError) {
-      console.error("Failed to auto-download submission summary PDF:", downloadError);
     }
+
+    if (trailerFile && trailerOption === "upload" && shouldUpload("trailer")) {
+      const trailerFormData = new FormData();
+      trailerFormData.append("trailer", trailerFile);
+      mediaTasks.push({
+        type: "trailer",
+        request: api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData),
+      });
+    }
+
+    if (pitchVideoFile && shouldUpload("pitchVideo")) {
+      const pitchFormData = new FormData();
+      pitchFormData.append("pitchVideo", pitchVideoFile);
+      mediaTasks.push({
+        type: "pitchVideo",
+        request: api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData),
+      });
+    }
+
+    if (mediaTasks.length === 0) return [];
+    const results = await Promise.allSettled(mediaTasks.map((task) => task.request));
+    return results.flatMap((result, index) => result.status === "rejected" ? [mediaTasks[index].type] : []);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    clearValidationFeedback();
+    // Submit is disabled at the limit; if reached defensively, just stop (amber gate is the message).
+    if (creationBlocked) return;
 
     if (editId && editApprovalLocked) {
-      setError("This script edit is already in admin review. You can edit again after approval or rejection.");
+      presentValidationIssues([
+        resolveUploadServerIssue(
+          "This script edit is already in admin review. You can edit again after approval or rejection.",
+          "publish"
+        ),
+      ]);
       return;
     }
 
-    if (!isContentOnlyEditMode) {
-      if (!validateStep(6)) return;
+    const submissionIssues = isContentOnlyEditMode
+      ? validateUploadScreen("upload", { ...getValidationContext(), contentOnly: true })
+      : validateUploadWorkflow(getValidationContext());
+    if (!presentValidationIssues(submissionIssues)) return;
+
+    if (pendingMediaRecovery) {
+      setLoading(true);
+      try {
+        const failedTypes = await uploadMediaForScript(
+          pendingMediaRecovery.targetScriptId,
+          pendingMediaRecovery.failedTypes
+        );
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery((current) => ({ ...current, failedTypes }));
+          presentValidationIssues([
+            resolveUploadServerIssue(
+              `The project is saved, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} still could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+              "media"
+            ),
+          ]);
+          return;
+        }
+
+        setPendingMediaRecovery(null);
+        setSubmissionSuccess({
+          projectTitle: pendingMediaRecovery.title,
+          reviewPath: pendingMediaRecovery.redirectPath,
+        });
+      } catch (recoveryError) {
+        presentValidationIssues([
+          resolveUploadServerIssue(
+            recoveryError?.response?.data?.message || "Media recovery failed. Replace or remove the media and try again.",
+            "media"
+          ),
+        ]);
+      } finally {
+        setLoading(false);
+      }
+      return;
     }
 
     console.log("Starting script submission...");
@@ -1665,24 +1776,12 @@ const ScriptUpload = () => {
     setLoading(true);
 
     try {
-      if (branchMode && editId) {
-        const { data } = await api.patch(`/collab/${editId}/branch`, {
-          content: textContent,
-        });
-        setOriginalEditContent(data?.branch?.content || textContent);
-        setBranchUpdatedAt(data?.branch?.updatedAt || "");
-        window.alert("Branch saved successfully.");
-        navigate(`/script/${editId}/collaborate/pull-requests`);
-        return;
-      }
-
       if (isContentOnlyEditMode && editId) {
         await api.post(`/collab/${editId}/revisions`, {
           baseContent: originalEditContent,
           content: textContent,
           sectionRef: "textContent",
         });
-        window.alert("Revision submitted for review. The owner can now approve or reject it.");
         navigate(`/script/${editId}`);
         return;
       }
@@ -1726,7 +1825,7 @@ const ScriptUpload = () => {
         scriptPreviewPageTexts: pdfPageTexts,
         // Send script URL only when we have a remote file URL.
         ...(isHttpUrl(uploadedFile?.url)
-          ? { scriptUrl: uploadedFile.url }
+          ? { scriptUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
           : (isHttpUrl(existingUploadedFile?.url) ? { scriptUrl: existingUploadedFile.url } : {})),
         services: {
           hosting: services.hosting,
@@ -1748,79 +1847,71 @@ const ScriptUpload = () => {
           wantToProduce: filmDetails.wantToProduce,
           scriptStyle: filmDetails.scriptStyle,
         },
-        premium: isPremium && effectivePrice > 0,
-        price: isPremium && effectivePrice > 0 ? effectivePrice : 0,
+        premium: effectivePrice > 0,
+        price: effectivePrice > 0 ? effectivePrice : 0,
         // If this was created via the editor, attach the draftId so the backend updates/converts it
         ...(scriptId ? { scriptId } : {}),
-      };
-
-      const uploadMediaForScript = async (targetScriptId, mode = "created") => {
-        const mediaTasks = [];
-
-        if (thumbnailFile) {
-          mediaTasks.push((async () => {
-            const thumbnailFormData = new FormData();
-            thumbnailFormData.append("thumbnail", thumbnailFile);
-            await api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData);
-          })());
-        }
-
-        if (trailerFile && trailerOption === "upload") {
-          mediaTasks.push((async () => {
-            const trailerFormData = new FormData();
-            trailerFormData.append("trailer", trailerFile);
-            await api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData);
-          })());
-        }
-
-        if (pitchVideoFile) {
-          mediaTasks.push((async () => {
-            const pitchFormData = new FormData();
-            pitchFormData.append("pitchVideo", pitchVideoFile);
-            await api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData);
-          })());
-        }
-
-        if (mediaTasks.length === 0) return;
-
-        const results = await Promise.allSettled(mediaTasks);
-        const failedCount = results.filter((r) => r.status === "rejected").length;
-        if (failedCount > 0) {
-          setError(`Project ${mode} but ${failedCount} media upload${failedCount > 1 ? "s" : ""} failed. You can retry from edit mode.`);
-        }
       };
 
       if (editId) {
         const { data } = await api.put(`/scripts/${editId}`, payload);
         if (data?.revisionSubmitted) {
-          window.alert(data.message || "Revision submitted for review. The owner can now approve and merge it.");
           navigate(`/script/${editId}`);
           return;
         }
-        await uploadMediaForScript(editId, "updated");
-        await downloadSubmissionSummaryPdf(editId, payload.title);
-        openUnderReviewModal(
-          getScriptCanonicalPath({
-            _id: editId,
-            title: payload.title,
-            creator: {
-              writerProfile: { username: user?.writerProfile?.username },
-              username: user?.username,
-            },
-          })
-        );
+        const redirectPath = getScriptCanonicalPath({
+          ...data,
+          _id: data?._id || editId,
+          title: data?.title || payload.title,
+          creator: data?.creator && typeof data.creator === "object" ? data.creator : {
+            writerProfile: { username: user?.writerProfile?.username },
+            username: user?.username,
+          },
+        });
+        const failedTypes = await uploadMediaForScript(editId);
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery({ targetScriptId: editId, failedTypes, title: payload.title, redirectPath });
+          presentValidationIssues([
+            resolveUploadServerIssue(
+              `The project was updated, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+              "media"
+            ),
+          ]);
+          return;
+        }
+        setSubmissionSuccess({ projectTitle: payload.title, reviewPath: redirectPath });
       } else {
         const response = await api.post("/scripts/upload", payload);
         const newScriptId = response.data._id;
-        await uploadMediaForScript(newScriptId, "created");
-        await downloadSubmissionSummaryPdf(newScriptId, payload.title);
-
-
-        openUnderReviewModal("/dashboard");
+        const failedTypes = await uploadMediaForScript(newScriptId);
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery({ targetScriptId: newScriptId, failedTypes, title: payload.title, redirectPath: "/dashboard" });
+          presentValidationIssues([
+            resolveUploadServerIssue(
+              `The project was created, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+              "media"
+            ),
+          ]);
+          return;
+        }
+        const reviewPath = getScriptCanonicalPath({
+          ...response.data,
+          _id: newScriptId,
+          title: response.data?.title || payload.title,
+          creator: response.data?.creator && typeof response.data.creator === "object" ? response.data.creator : {
+            writerProfile: { username: user?.writerProfile?.username },
+            username: user?.username,
+          },
+        });
+        setSubmissionSuccess({ projectTitle: payload.title, reviewPath });
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Failed to upload script. Please try again.";
-      setError(errorMsg);
+      const errorMsg = err.response?.data?.message || err.message || "Failed to upload script. Please try again.";
+      console.error("Submission failed with error from server:", errorMsg);
+      console.error("Full error object:", err);
+      presentValidationIssues([
+        resolveUploadServerIssue(errorMsg, currentScreenRef.current),
+      ]);
 
 
     } finally {
@@ -1829,13 +1920,13 @@ const ScriptUpload = () => {
   };
 
   // Access control
-  if (user?.role !== "creator") {
+  if (!["creator", "writer"].includes(user?.role)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 sm:p-10 max-w-sm text-center">
           <div className="text-5xl mb-4">🚫</div>
           <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-sm text-neutral-400">Only creators can upload scripts. Switch to a creator account.</p>
+          <p className="text-sm text-neutral-400">Only creator accounts can upload scripts. Switch to your creator profile to continue.</p>
         </div>
       </div>
     );
@@ -1852,1601 +1943,306 @@ const ScriptUpload = () => {
     );
   }
 
-  const inputCls = isDarkMode
-    ? "w-full p-2.5 border border-white/[0.08] rounded-xl text-sm text-white bg-white/[0.04] placeholder-neutral-600 focus:ring-2 focus:ring-white/30 focus:border-transparent transition"
-    : "w-full p-2.5 border border-gray-200 rounded-xl text-sm text-[#1e3a5f] bg-white placeholder-gray-400 focus:ring-2 focus:ring-[#1e3a5f]/20 focus:border-[#1e3a5f]/50 transition";
-  const chipCls = (selected) =>
-    `px-4 py-2 rounded-full text-sm font-medium transition cursor-pointer ${selected
-      ? isDarkMode ? "bg-white text-black" : "bg-[#1e3a5f] text-white"
-      : isDarkMode ? "bg-white/[0.08] text-neutral-300 hover:bg-white/[0.12]" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-    }`;
-  const labelCls = isDarkMode ? "text-white" : "text-[#1e3a5f]";
-  const aiBtnCls = `shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-bold border transition disabled:opacity-50 disabled:cursor-not-allowed ${isDarkMode ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`;
-  const selectedPublishServices = [
-    { key: "hosting", label: "Hosting & Discovery", enabled: true, price: 0 },
-    { key: "spotlight", label: "Activate Spotlight", enabled: services.spotlight, price: 1 },
-    { key: "evaluation", label: "Professional Evaluation", enabled: services.evaluation, price: 1 },
-    { key: "aiTrailer", label: "AI Concept Trailer", enabled: trailerOption === "ai", price: 1 },
+  if (submissionSuccess) {
+    return (
+      <ScriptUploadSuccess
+        projectTitle={submissionSuccess.projectTitle}
+        reviewPath={submissionSuccess.reviewPath}
+      />
+    );
+  }
+
+  const priceGuide = FORMAT_PRICE_GUIDE[formData.format];
+  const publishServices = [
+    {
+      key: "hosting",
+      label: "Hosting & Discovery",
+      enabled: true,
+      detail: "Listed in Ckript search and discovery.",
+      meta: "Included",
+      onToggle: () => {},
+    },
+    {
+      key: "spotlight",
+      label: "Activate Spotlight",
+      enabled: services.spotlight,
+      detail: "Boost visibility in featured discovery placements.",
+      meta: "1 credit",
+      onToggle: () => setServices((current) => ({ ...current, spotlight: !current.spotlight })),
+    },
+    {
+      key: "evaluation",
+      label: "Professional Evaluation",
+      enabled: services.evaluation,
+      detail: "Request structured industry feedback after submission.",
+      meta: "1 credit",
+      onToggle: () => setServices((current) => ({ ...current, evaluation: !current.evaluation })),
+    },
+    {
+      key: "aiTrailer",
+      label: "AI Concept Trailer",
+      enabled: trailerOption === "ai",
+      detail: "Generate a concept trailer after approval.",
+      meta: "1 credit",
+      onToggle: () => {
+        const nextOption = trailerOption === "ai" ? "none" : "ai";
+        setTrailerOption(nextOption);
+        setServices((current) => ({ ...current, aiTrailer: nextOption === "ai" }));
+      },
+    },
   ];
-  const paidPublishServices = selectedPublishServices.filter((item) => item.enabled && item.price > 0);
   const publishInvoiceRows = [
     {
       item: "Script Access Fee",
-      type: "Revenue Setting",
-      detail: "Premium reader purchase model",
+      detail: isPremium ? "Premium reader purchase model" : "Free public access",
       amount: formatCurrency(effectivePrice),
     },
     {
-      item: `Platform Commission (${Math.round(BUYER_COMMISSION_RATE * 100)}%)`,
-      type: "Platform Commission",
-      detail: "Added on top of the script access fee at checkout",
+      item: "Platform Commission (" + Math.round(BUYER_COMMISSION_RATE * 100) + "%)",
+      detail: "Added to the script fee at buyer checkout",
       amount: formatCurrency(buyerCommissionAmount),
     },
-
     {
-      item: "Film Industry Professional Pays at Checkout",
-      type: "Checkout Total",
-      detail: "Script fee + platform commission",
+      item: "Buyer Checkout Total",
+      detail: "Script fee plus platform commission",
       amount: formatCurrency(buyerTotalPayable),
     },
     {
       item: "Projected Writer Payout",
-      type: "Future Earnings",
-      detail: "Writer receives full script access fee",
+      detail: "Writer receives the full script access fee",
       amount: formatCurrency(writerPayout),
     },
   ];
-  const visibleSteps = isContentOnlyEditMode
-    ? [{ num: 1, label: "Script Content", shortLabel: "Content", desc: "Update script body only" }]
-    : STEPS;
+
+  const workspaceVm = {
+    user,
+    mode: {
+      isContentOnlyEditMode,
+      editId,
+    },
+    state: {
+      step,
+      detailStep,
+      formData,
+      classification,
+      services,
+      legal,
+      rightsLicensing,
+      roles,
+      filmDetails,
+      tagsInput,
+      uploadedFile,
+      uploadedPdfFile,
+      existingUploadedFile,
+      textContent,
+      pdfPageTexts,
+      pdfTextExtracted,
+      fromDraft,
+      isExtracting,
+      uploadProgress,
+      thumbnailFile,
+      thumbnailPreviewUrl,
+      isGeneratingAiCover,
+      aiCoverAttempts,
+      aiCoverHistory,
+      aiCoverIndex,
+      trailerFile,
+      trailerPreviewUrl,
+      trailerMetaLabel: trailerMetaLoading
+        ? "Reading video details…"
+        : trailerMeta
+          ? formatDuration(trailerMeta.duration) + " · " + trailerMeta.width + "×" + trailerMeta.height
+          : "",
+      pitchVideoFile,
+      pitchVideoPreviewUrl,
+      pitchVideoMetaLabel: pitchVideoMetaLoading
+        ? "Reading video details…"
+        : pitchVideoMeta
+          ? formatDuration(pitchVideoMeta.duration)
+          : "",
+      metaLoadingField,
+      metaNotice,
+      validationErrors,
+      validationAttempt,
+      mediaRecoveryPending: Boolean(pendingMediaRecovery),
+      pdfNotice,
+      creationBlocked,
+      scriptLimit,
+      loading,
+      agreementScrolled,
+      isPremium,
+      scriptPrice,
+      customPriceInput,
+      useCustomPrice,
+      toastMessage,
+    },
+    actions: {
+      handleDrop,
+      handleDragOver,
+      handleFileSelect,
+      handleChange,
+      setFormData: (update) => {
+        clearValidationFeedback();
+        setFormData(update);
+      },
+      setTextContent: (value) => {
+        clearValidationFeedback();
+        setTextContent(value);
+      },
+      openEditor: () => navigate("/create-project"),
+      openDrafts: () => navigate("/dashboard"),
+      openPricing: () => openPricingModal("writer"),
+      handleGenerateMetadata,
+      setTagsInput: (value) => {
+        clearValidationFeedback();
+        setTagsInput(value);
+      },
+      addRole,
+      removeRole,
+      updateRoleField,
+      updateRoleAge,
+      setFilmDetails: (update) => {
+        clearValidationFeedback();
+        setFilmDetails(update);
+      },
+      toggleClassification,
+      generateAiCover,
+      downloadWatermarkedImage,
+      setThumbnailFile: (file) => {
+        clearValidationFeedback();
+        setThumbnailFile(file);
+      },
+      handleThumbnailSelect,
+      setAiCoverHistoryIndex: (nextIndex) => {
+        if (nextIndex < 0 || nextIndex >= aiCoverHistory.length) return;
+        setAiCoverIndex(nextIndex);
+        setThumbnailFile(aiCoverHistory[nextIndex]);
+      },
+      handleTrailerSelect,
+      setTrailerFile: (file) => {
+        clearValidationFeedback();
+        setTrailerFile(file);
+        if (!file) setTrailerOption("none");
+      },
+      handlePitchVideoSelect,
+      setPitchVideoFile: (file) => {
+        clearValidationFeedback();
+        setPitchVideoFile(file);
+      },
+      setIsPremium: (value) => {
+        clearValidationFeedback();
+        setIsPremium(value);
+      },
+      setScriptPrice: (value) => {
+        clearValidationFeedback();
+        setScriptPrice(value);
+      },
+      setUseCustomPrice: (value) => {
+        clearValidationFeedback();
+        setUseCustomPrice(value);
+      },
+      setCustomPriceInput: (value) => {
+        clearValidationFeedback();
+        setCustomPriceInput(value);
+      },
+      setServices: (update) => {
+        clearValidationFeedback();
+        setServices(update);
+      },
+      setLegal: (update) => {
+        clearValidationFeedback();
+        setLegal(update);
+      },
+      setRightsLicensing: (update) => {
+        clearValidationFeedback();
+        setRightsLicensing(update);
+      },
+      onStepSelect: (targetStep) => {
+        if (targetStep > step) return;
+        setStep(targetStep);
+        if (targetStep === 2 && step !== 2) setDetailStep(0);
+        clearValidationFeedback();
+      },
+      onDetailSelect: (targetDetailStep) => {
+        if (targetDetailStep > detailStep) return;
+        setDetailStep(targetDetailStep);
+        clearValidationFeedback();
+      },
+      dismissToast,
+      focusValidationIssue,
+      handleBack,
+      handleNext,
+      handleSaveDraft,
+      handleSubmit,
+      cancelContentEdit: () => navigate(-1),
+    },
+    elements: {
+      fileInputRef,
+      thumbnailInputRef,
+      trailerInputRef,
+      pitchVideoInputRef,
+      agreementRef,
+    },
+    options: {
+      formats,
+      formatRanges: FORMAT_PAGE_RANGES,
+      genres,
+      tones: toneOptions,
+      themes: themeOptions,
+      settings: settingOptions,
+      roleGenders: ROLE_GENDER_OPTIONS,
+      languages: FILM_LANGUAGE_OPTIONS,
+      styles: SCRIPT_STYLE_OPTIONS,
+      completion: SCRIPT_COMPLETION_OPTIONS,
+      rights: [
+        {
+          value: "full_rights_sale",
+          title: "Full Rights Sale",
+          tag: "ownership transfer",
+          short: "Full sale",
+          desc: "The buyer receives ownership under the final transaction agreement.",
+        },
+        {
+          value: "exclusive_license",
+          title: "Exclusive License",
+          tag: "time-bound",
+          short: "Exclusive license",
+          desc: "Grant one buyer exclusive use for a fixed term, then rights return to you.",
+        },
+        {
+          value: "custom_negotiation_required",
+          title: "Custom Negotiation",
+          tag: "discuss terms",
+          short: "Custom deal",
+          desc: "Use the listing to start a deal discussion before rights are transferred.",
+        },
+      ],
+      modification: MODIFICATION_RIGHTS_OPTIONS,
+      payments: PAYMENT_STRUCTURE_OPTIONS,
+      negotiations: NEGOTIATION_MODE_OPTIONS,
+      licenseDurations: LICENSE_DURATION_PRESET_MONTHS,
+      pricePresets: PRICE_PRESETS,
+    },
+    computed: {
+      pageCountWarning,
+      effectivePrice,
+      buyerTotalPayable,
+      writerPayout,
+      priceGuide: priceGuide
+        ? "Suggested ₹" + priceGuide.min + "–₹" + priceGuide.max + " for " + priceGuide.label
+        : "Choose a price that matches the scope and readiness of the work.",
+      publishServices,
+      legalAgreement: LEGAL_AGREEMENT,
+      publishInvoiceRows,
+    },
+  };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 max-[640px]:px-2 max-[420px]:px-1.5 py-6 max-[640px]:py-4">
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <div>
-            <h1 className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>
-              {isContentOnlyEditMode ? "Edit Script Content" : editId ? "Edit Your Project" : "Add Your Project"}
-            </h1>
-            <p className="text-sm text-neutral-500">
-              {branchMode
-                ? `Editing your branch in isolated draft mode.${branchUpdatedAt ? " Your latest saved branch is loaded." : ""}`
-                : isContentOnlyEditMode
-                ? "This access level only allows updating the script body."
-                : editId
-                ? "Update your script details and republish"
-                : "Complete the 5-step wizard to publish your script"}
-            </p>
-          </div>
-        </div>
-
-        {/* Step indicators */}
-        <div className={`mb-6 rounded-2xl border p-4 max-[640px]:p-2.5 ${isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-gray-50 border-gray-200"}`}>
-          {/* Mobile layout */}
-          <div className="hidden max-[640px]:block">
-            <div className="flex items-start justify-between gap-1">
-              {visibleSteps.map((s) => (
-                <button
-                  key={`mobile-step-${s.num}`}
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`min-w-0 flex-1 flex flex-col items-center gap-1 ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-6 h-6 max-[360px]:w-[22px] max-[360px]:h-[22px] rounded-lg flex items-center justify-center text-[10px] max-[360px]:text-[9px] font-black shrink-0 ${step === s.num
-                    ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num
-                      ? isDarkMode ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-700"
-                      : isDarkMode ? "bg-white/[0.06] text-neutral-500" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? (
-                      <svg className="w-3 h-3 max-[360px]:w-2.5 max-[360px]:h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : s.num}
-                  </span>
-                  <span className={`text-[8px] max-[360px]:text-[7px] font-semibold leading-none truncate w-full text-center ${step === s.num
-                    ? isDarkMode ? "text-white" : "text-[#1e3a5f]"
-                    : step > s.num
-                      ? isDarkMode ? "text-emerald-300" : "text-emerald-700"
-                      : isDarkMode ? "text-neutral-500" : "text-gray-400"
-                    }`}>
-                    {s.shortLabel}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tablet and desktop layout */}
-          <div className="max-[640px]:hidden flex items-center">
-            {visibleSteps.map((s, i) => (
-              <div key={s.num} className="flex items-center flex-1 min-w-0">
-                <button
-                  onClick={() => s.num < step && setStep(s.num)}
-                  disabled={s.num > step}
-                  className={`flex flex-col items-center gap-1 min-[640px]:flex-row min-[640px]:items-center min-[640px]:gap-2.5 transition-all ${s.num < step ? "cursor-pointer" : "cursor-default"}`}
-                >
-                  <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${step === s.num
-                    ? "bg-[#1e3a5f] text-white shadow-md"
-                    : step > s.num
-                      ? isDarkMode ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-700"
-                      : isDarkMode ? "bg-white/[0.06] text-neutral-500" : "bg-gray-200 text-gray-400"
-                    }`}>
-                    {step > s.num ? (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : s.num}
-                  </span>
-                  <div className="block text-center min-[640px]:text-left min-w-0">
-                    <p className={`text-xs font-bold leading-none truncate ${step === s.num
-                      ? isDarkMode ? "text-white" : "text-[#1e3a5f]"
-                      : step > s.num
-                        ? isDarkMode ? "text-emerald-300" : "text-emerald-700"
-                        : isDarkMode ? "text-neutral-500" : "text-gray-400"
-                      }`}>{s.label}</p>
-                    <p className={`hidden min-[768px]:block text-[10px] mt-0.5 ${isDarkMode ? "text-neutral-600" : "text-gray-400"}`}>{s.desc}</p>
-                  </div>
-                </button>
-                {i < visibleSteps.length - 1 && (
-                  <div className={`flex-1 h-[2px] mx-3 rounded-full ${step > s.num
-                    ? isDarkMode ? "bg-emerald-500/40" : "bg-emerald-300"
-                    : isDarkMode ? "bg-white/[0.06]" : "bg-gray-200"
-                    }`} />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Main form container */}
-        <div className={`rounded-2xl border p-6 sm:p-8 max-[640px]:p-4 max-[420px]:p-3 ${isDarkMode ? "bg-[#0d1829] border-white/[0.06]" : "bg-white border-gray-200 shadow-sm"}`}>
-          {error && (
-            <div className="mb-5 px-4 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
-                <span>{error}</span>
-              </div>
-              {error.toLowerCase().includes("limit") && (
-                <button 
-                  type="button"
-                  onClick={() => window.open('/pricing', '_blank')} 
-                  className="shrink-0 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition shadow-sm">
-                  Get Plan
-                </button>
-              )}
-            </div>
-          )}
-          {pdfNotice && (
-            <div className={`mb-5 px-4 py-2.5 rounded-xl text-sm border ${
-              isDarkMode
-                ? "bg-amber-500/10 border-amber-500/20 text-amber-200"
-                : "bg-amber-50 border-amber-200 text-amber-800"
-            }`}>
-              {pdfNotice}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <AnimatePresence mode="wait">
-              {/* ── Step 2: Project Essentials ── */}
-              {step === 2 && (
-                <motion.div
-                  key="step-basics"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-5"
-                >
-
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                        Format *
-                      </label>
-                      <select
-                        name="format"
-                        value={formData.format}
-                        onChange={handleChange}
-                        required
-                        className={inputCls}
-                      >
-                        {formats.map((f) => (
-                          <option key={f.value} value={f.value}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </select>
-                      {formData.format === "other" && (
-                        <input
-                          type="text"
-                          name="formatOther"
-                          value={formData.formatOther}
-                          onChange={handleChange}
-                          required
-                          placeholder="Please specify format"
-                          className={`${inputCls} mt-2`}
-                        />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                        Page Count
-                      </label>
-                      <div className={`${inputCls} flex items-center justify-between select-none pointer-events-none opacity-80`}>
-                        <span>{formData.pageCount || "—"}</span>
-                        <span className={`text-[11px] font-medium ${isDarkMode ? "text-white/40" : "text-gray-400"}`}>
-                          Auto-detected
-                        </span>
-                      </div>
-                      {!formData.pageCount && (
-                        <p className={`text-xs mt-1 ${isDarkMode ? "text-white/40" : "text-gray-400"}`}>
-                          Page count is detected automatically from your uploaded PDF.
-                        </p>
-                      )}
-                      {pageCountWarning && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          ⚠️ {pageCountWarning}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex flex-col gap-0.5">
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Preview Range</h3>
-                        <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          Set the exact pages film professionals can view before unlocking the rest.
-                        </p>
-                      </div>
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold ${isDarkMode ? "bg-white/[0.04] text-gray-300 border border-white/[0.08]" : "bg-white text-gray-600 border border-gray-200"}`}>
-                        Free preview
-                      </span>
-                    </div>
-
-                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <input
-                          type="number"
-                          min="1"
-                          name="previewWindowStart"
-                          value={formData.previewWindowStart}
-                          onChange={handleChange}
-                          className={inputCls}
-                          placeholder="e.g. 1"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="number"
-                          min={Math.max(1, Number(formData.previewWindowStart || 1) || 1)}
-                          name="previewWindowEnd"
-                          value={formData.previewWindowEnd}
-                          onChange={handleChange}
-                          className={inputCls}
-                          placeholder="e.g. 8"
-                        />
-                      </div>
-                    </div>
-
-                    <div className={`mt-4 rounded-xl px-4 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                      {formData.viewableScript ? (
-                        <>
-                          <p className={`text-sm font-medium ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>
-                            Film professionals will see pages {formData.previewWindowStart || "—"} to {formData.previewWindowEnd || "—"}
-                          </p>
-                          <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                            Admin review will also show this exact page range before approval.
-                          </p>
-                        </>
-                      ) : (
-                        <p className={`text-sm font-medium ${isDarkMode ? "text-yellow-400/80" : "text-yellow-700"}`}>
-                          Preview is hidden — producers will not see any pages before purchasing.
-                        </p>
-                      )}
-                    </div>
-
-                    <label className="mt-4 flex items-center gap-3 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={!formData.viewableScript}
-                        onChange={(e) =>
-                          setFormData((prev) => ({ ...prev, viewableScript: !e.target.checked }))
-                        }
-                        className="w-4 h-4 rounded border-gray-300 accent-yellow-500 cursor-pointer"
-                      />
-                      <span className={`text-sm ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                        Hide preview from producers
-                      </span>
-                    </label>
-                  </div>
-
-                  {formData.viewableScript && (
-                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div>
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Viewable Script Preview</h3>
-                      </div>
-                    </div>
-                    <ScreenplayPdfViewer
-                      pdfFile={uploadedPdfFile}
-                      pdfUrl={uploadedFile?.previewUrl || uploadedFile?.url || existingUploadedFile?.url || ""}
-                      title={formData.title || "Script"}
-                      startPage={Number(formData.previewWindowStart || 1)}
-                      endPage={Number(formData.previewWindowEnd || 1)}
-                      fallbackPages={pdfPageTexts.slice(
-                        Math.max(0, Number(formData.previewWindowStart || 1) - 1),
-                        Math.max(0, Number(formData.previewWindowEnd || 1))
-                      ).map((pageText, index) => ({
-                        pageNumber: Number(formData.previewWindowStart || 1) + index,
-                        text: String(pageText || ""),
-                      }))}
-                      fallbackText={pdfPageTexts.join("\n\n")}
-                    />
-                  </div>
-                  )}
-
-
-                  <div className={`rounded-2xl border p-4 sm:p-5 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex flex-col gap-0.5">
-                      <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Script Completion</h3>
-                      <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                        Let buyers know how much of the script is ready.
-                      </p>
-                    </div>
-
-                    {/* Status picker */}
-                    <div className="mt-4">
-                      <p className={`text-xs font-semibold mb-2 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>Where is your script right now?</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {[
-                          { value: "complete", label: "Fully Written", desc: "All parts are done and ready to share" },
-                          { value: "partial", label: "Partially Done", desc: "Some episodes or acts are ready, more coming" },
-                        ].map((opt) => (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setFormData(f => ({ ...f, completionStatus: opt.value }))}
-                            className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${
-                              formData.completionStatus === opt.value
-                                ? isDarkMode
-                                  ? "border-[#2a5080] bg-[#0f2035] ring-1 ring-[#2a5080]"
-                                  : "border-blue-300 bg-blue-50 ring-1 ring-blue-200"
-                                : isDarkMode
-                                  ? "border-[#1d3350] bg-[#0d1826] hover:border-[#2a4a6a]"
-                                  : "border-gray-200 bg-white hover:border-gray-300"
-                            }`}
-                          >
-                            <span className={`text-[13px] font-semibold ${
-                              formData.completionStatus === opt.value
-                                ? isDarkMode ? "text-white" : "text-blue-800"
-                                : isDarkMode ? "text-gray-200" : "text-gray-800"
-                            }`}>{opt.label}</span>
-                            <span className={`text-[11px] leading-snug ${
-                              formData.completionStatus === opt.value
-                                ? isDarkMode ? "text-blue-300" : "text-blue-600"
-                                : isDarkMode ? "text-gray-500" : "text-gray-400"
-                            }`}>{opt.desc}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                {/* Parts inputs — only relevant for partial */}
-                    {formData.completionStatus !== "complete" && (
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                            Parts / episodes done so far
-                          </label>
-                          <input type="number" min="0" name="completedParts" value={formData.completedParts} onChange={handleChange} placeholder="e.g. 4" className={inputCls} />
-                        </div>
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                            Total parts / episodes planned
-                          </label>
-                          <input type="number" min="0" name="totalParts" value={formData.totalParts} onChange={handleChange} placeholder="e.g. 10" className={inputCls} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Future note */}
-                    <div className="mt-4">
-                      <label className={`block text-xs font-semibold mb-1.5 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                        Anything else buyers should know? <span className={`font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                      </label>
-                      <textarea
-                        name="futurePlans"
-                        value={formData.futurePlans}
-                        onChange={handleChange}
-                        rows={2}
-                        maxLength={300}
-                        placeholder={
-                          formData.completionStatus === "complete"
-                            ? "e.g. This is the final locked version, ready for production."
-                            : "e.g. Remaining episodes are still being written and will be uploaded soon."
-                        }
-                        className={`${inputCls} resize-none`}
-                      />
-                      <p className="text-[10px] text-neutral-500 mt-1 text-right">
-                        {String(formData.futurePlans || "").length}/300
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <label className={`block text-sm ${labelCls} font-medium`}>
-                        Logline *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateMetadata("logline")}
-                        disabled={Boolean(metaLoadingField)}
-                        className={aiBtnCls}
-                      >
-                        {metaLoadingField === "logline" ? "Generating…" : "✨ Generate with AI"}
-                      </button>
-                    </div>
-                    <textarea
-                      name="logline"
-                      value={formData.logline}
-                      onChange={handleChange}
-                      rows={3}
-                      maxLength={500}
-                      placeholder="A one-line hook that sells your concept..."
-                      className={inputCls}
-                    />
-                    {metaNotice.field === "logline" && (
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>
-                    )}
-                    <p className="text-xs text-neutral-500 mt-1 text-right">
-                      {formData.logline.length}/500
-                    </p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <label className={`block text-sm ${labelCls} font-medium`}>
-                        Synopsis *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateMetadata("synopsis")}
-                        disabled={Boolean(metaLoadingField)}
-                        className={aiBtnCls}
-                      >
-                        {metaLoadingField === "synopsis" ? "Generating…" : "✨ Generate with AI"}
-                      </button>
-                    </div>
-                    <textarea
-                      name="synopsis"
-                      value={formData.synopsis}
-                      onChange={handleChange}
-                      required
-                      rows={3}
-                      placeholder="A short synopsis of your project..."
-                      className={inputCls}
-                    />
-                    {metaNotice.field === "synopsis" && (
-                      <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Tags
-                    </label>
-                    <input
-                      type="text"
-                      value={tagsInput}
-                      onChange={(e) => setTagsInput(e.target.value)}
-                      placeholder="thriller, detective, serial-killer"
-                      className={inputCls}
-                    />
-                  </div>
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 3: Deep Classification ── */}
-              {step === 3 && (
-                <motion.div
-                  key="step-classify"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
-                      Primary Genre *
-                    </label>
-                    <select
-                      name="primaryGenre"
-                      value={formData.primaryGenre}
-                      onChange={handleChange}
-                      required
-                      className={inputCls}
-                    >
-                      <option value="">Select a genre...</option>
-                      {genres.map((g) => (
-                        <option key={g} value={g}>
-                          {g}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <p className="text-sm text-neutral-400 mb-4">
-                    Select up to 3 options per category to power the Smart Match algorithm.
-                  </p>
-
-                  {/* Tones */}
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
-                      Tone ({classification.tones.length}/3)
-                    </label>
-                    <select
-                      className={inputCls}
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && classification.tones.length < 3 && !classification.tones.includes(e.target.value)) {
-                          toggleClassification("tones", e.target.value);
-                        }
-                      }}
-                      disabled={classification.tones.length >= 3}
-                    >
-                      <option value="" disabled>Select a tone...</option>
-                      {toneOptions.filter(t => !classification.tones.includes(t)).map(tone => (
-                        <option key={tone} value={tone}>{tone}</option>
-                      ))}
-                    </select>
-                    {classification.tones.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {classification.tones.map((tone) => (
-                          <button
-                            key={tone}
-                            type="button"
-                            onClick={() => toggleClassification("tones", tone)}
-                            className={chipCls(true)}
-                          >
-                            {tone} <span className="ml-1 opacity-60">×</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Themes */}
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
-                      Theme ({classification.themes.length}/3)
-                    </label>
-                    <select
-                      className={inputCls}
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && classification.themes.length < 3 && !classification.themes.includes(e.target.value)) {
-                          toggleClassification("themes", e.target.value);
-                        }
-                      }}
-                      disabled={classification.themes.length >= 3}
-                    >
-                      <option value="" disabled>Select a theme...</option>
-                      {themeOptions.filter(t => !classification.themes.includes(t)).map(theme => (
-                        <option key={theme} value={theme}>{theme}</option>
-                      ))}
-                    </select>
-                    {classification.themes.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {classification.themes.map((theme) => (
-                          <button
-                            key={theme}
-                            type="button"
-                            onClick={() => toggleClassification("themes", theme)}
-                            className={chipCls(true)}
-                          >
-                            {theme} <span className="ml-1 opacity-60">×</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Settings */}
-                  <div>
-                    <label className={`block text-sm ${labelCls} font-medium mb-2`}>
-                      Setting ({classification.settings.length}/3)
-                    </label>
-                    <select
-                      className={inputCls}
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && classification.settings.length < 3 && !classification.settings.includes(e.target.value)) {
-                          toggleClassification("settings", e.target.value);
-                        }
-                      }}
-                      disabled={classification.settings.length >= 3}
-                    >
-                      <option value="" disabled>Select a setting...</option>
-                      {settingOptions.filter(t => !classification.settings.includes(t)).map(setting => (
-                        <option key={setting} value={setting}>{setting}</option>
-                      ))}
-                    </select>
-                    {classification.settings.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-3">
-                        {classification.settings.map((setting) => (
-                          <button
-                            key={setting}
-                            type="button"
-                            onClick={() => toggleClassification("settings", setting)}
-                            className={chipCls(true)}
-                          >
-                            {setting} <span className="ml-1 opacity-60">×</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className={`rounded-2xl border p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <div className="flex items-start justify-between gap-3 mb-4">
-                      <div>
-                        <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Role Studio</h3>
-                        <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Build a professional role sheet for casting and investor clarity.</p>
-                        {metaNotice.field === "roles" && (
-                          <p className={`text-[11px] mt-1 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>{metaNotice.text}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateMetadata("roles")}
-                          disabled={Boolean(metaLoadingField)}
-                          className={aiBtnCls}
-                        >
-                          {metaLoadingField === "roles" ? "Generating…" : "✨ Generate with AI"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={addRole}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${isDarkMode ? "bg-white/[0.06] border-[#2a4a6a] text-blue-300 hover:bg-white/[0.1]" : "bg-white border-blue-200 text-[#1e3a5f] hover:bg-blue-50"}`}
-                        >
-                          + Add Role
-                        </button>
-                      </div>
-                    </div>
-
-                    {roles.length === 0 ? (
-                      <div className={`rounded-xl border border-dashed px-4 py-5 text-center ${isDarkMode ? "border-[#1d3350] text-gray-500" : "border-gray-300 text-gray-400"}`}>
-                        No roles added yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {roles.map((role, idx) => (
-                          <div key={`role-${idx}`} className={`rounded-xl border p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-white"}`}>
-                            <div className="flex items-center justify-between mb-3">
-                              <p className={`text-xs font-bold ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Role {idx + 1}</p>
-                              <button
-                                type="button"
-                                onClick={() => removeRole(idx)}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "text-red-300 border-red-500/30 hover:bg-red-500/10" : "text-red-600 border-red-200 hover:bg-red-50"}`}
-                              >
-                                Remove
-                              </button>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <input
-                                type="text"
-                                value={role.characterName}
-                                onChange={(e) => updateRoleField(idx, "characterName", e.target.value)}
-                                placeholder="Character name"
-                                className={inputCls}
-                              />
-                              <input
-                                type="text"
-                                value={role.type}
-                                onChange={(e) => updateRoleField(idx, "type", e.target.value)}
-                                placeholder="Archetype (e.g. Lead, Antagonist)"
-                                className={inputCls}
-                              />
-                              <select value={role.gender} onChange={(e) => updateRoleField(idx, "gender", e.target.value)} className={inputCls}>
-                                {ROLE_GENDER_OPTIONS.map((g) => <option key={g} value={g}>{g}</option>)}
-                              </select>
-                              <div className="grid grid-cols-2 gap-2">
-                                <input
-                                  type="number"
-                                  min="0"
-                                  placeholder="Min age"
-                                  value={role.ageRange?.min ?? ""}
-                                  onChange={(e) => updateRoleAge(idx, "min", e.target.value)}
-                                  className={inputCls}
-                                />
-                                <input
-                                  type="number"
-                                  min="0"
-                                  placeholder="Max age"
-                                  value={role.ageRange?.max ?? ""}
-                                  onChange={(e) => updateRoleAge(idx, "max", e.target.value)}
-                                  className={inputCls}
-                                />
-                              </div>
-                            </div>
-                            <textarea
-                              rows={2}
-                              value={role.description}
-                              onChange={(e) => updateRoleField(idx, "description", e.target.value)}
-                              placeholder="Performance notes, emotional range, or casting vibe..."
-                              className={`${inputCls} mt-3 resize-none`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 1: File Upload ── */}
-              {step === 1 && (
-                <motion.div
-                  key="step-upload"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div className={`rounded-2xl p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "bg-[#0b1626]" : "bg-white"}`}>
-                    <label className={`block text-sm ${labelCls} font-medium mb-1.5`}>
-                      Title *
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={formData.title}
-                      onChange={handleChange}
-                      required
-                      placeholder="Enter your script title"
-                      className={inputCls}
-                    />
-                  </div>
-                  
-                  <div className={`rounded-2xl p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "bg-[#0b1626]" : "bg-white"}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className={`block text-sm ${labelCls} font-medium`}>
-                        Script File (PDF) *
-                      </label>
-                    </div>
-
-                    {/* Professional Toast Notification */}
-                    {toastMessage && (
-                      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-5">
-                        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-2xl border ${
-                          toastMessage.type === 'error' ? 'bg-red-50 dark:bg-red-900/40 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200' :
-                          toastMessage.type === 'warning' ? 'bg-orange-50 dark:bg-orange-900/40 border-orange-200 dark:border-orange-800 text-orange-800 dark:text-orange-200' :
-                          'bg-blue-50 dark:bg-blue-900/40 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200'
-                        }`}>
-                          {toastMessage.type === 'error' ? (
-                            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                          ) : (
-                            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          )}
-                          <p className="text-sm font-medium">{toastMessage.text}</p>
-                          {toastMessage.action && (
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setToastMessage(null);
-                                toastMessage.action.onClick();
-                              }} 
-                              className="ml-3 px-3 py-1.5 text-xs font-bold bg-black/10 dark:bg-white/10 hover:bg-black/20 dark:hover:bg-white/20 rounded-md transition whitespace-nowrap"
-                            >
-                              {toastMessage.action.label}
-                            </button>
-                          )}
-                          <button onClick={() => setToastMessage(null)} className="ml-2 opacity-70 hover:opacity-100 transition">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {fromDraft && textContent ? (
-                      <div className={`flex items-center gap-3 p-4 rounded-xl mb-4 ${isDarkMode ? "bg-green-500/10 border border-green-500/20" : "bg-green-50 border border-green-200"}`}>
-                        <svg className="w-5 h-5 text-green-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div>
-                          <p className={`text-sm font-semibold ${isDarkMode ? "text-green-300" : "text-green-700"}`}>Script content loaded from editor</p>
-                          <p className={`text-xs mt-0.5 ${isDarkMode ? "text-green-500/80" : "text-green-700/80"}`}>Your draft has been imported. You can optionally replace it with a PDF below.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className={`text-sm mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                        Upload your PDF to automatically extract script content.
-                      </p>
-                    )}
-
-                    {editId && existingUploadedFile && !uploadedFile && (
-                      <div className={`rounded-xl p-3 mb-4 ${isDarkMode ? "border border-blue-500/20 bg-blue-500/10" : "border border-blue-200 bg-blue-50"}`}>
-                        <div className="flex flex-col items-start gap-2.5 min-[416px]:flex-row min-[416px]:items-center min-[416px]:gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? "bg-black/20" : "bg-white"}`}>
-                            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 3.75h6A2.25 2.25 0 0115.75 6v1.5h1.5A2.25 2.25 0 0119.5 9.75v8.25a2.25 2.25 0 01-2.25 2.25h-10.5A2.25 2.25 0 014.5 18V6A2.25 2.25 0 016.75 3.75z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0 w-full">
-                            <p className={`text-sm font-bold break-all ${isDarkMode ? "text-blue-300" : "text-blue-700"}`}>
-                              Current uploaded PDF: {existingUploadedFile.name}
-                            </p>
-                            <p className={`text-xs ${isDarkMode ? "text-blue-400/80" : "text-blue-700/80"}`}>
-                              Upload a new PDF below to replace this file.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PDF Uploader */}
-                    {!uploadedFile ? (
-                      <div
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onClick={() => !isExtracting && fileInputRef.current?.click()}
-                        className={`border-2 border-dashed rounded-xl p-8 text-center transition ${isExtracting ? isDarkMode ? "border-[#28415f] bg-[#0f1e30] cursor-wait" : "border-blue-300 bg-blue-50 cursor-wait" : isDarkMode ? "border-white/[0.12] cursor-pointer hover:border-white/40" : "border-gray-300 cursor-pointer hover:border-[#1e3a5f]/40 hover:bg-gray-50"}`}
-                      >
-                        <div className="mb-2 flex justify-center">
-                          <svg className={`w-9 h-9 ${isExtracting ? isDarkMode ? "text-blue-300" : "text-blue-600" : isDarkMode ? "text-gray-300" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H6.75A2.25 2.25 0 0 0 4.5 4.5v15A2.25 2.25 0 0 0 6.75 21.75h10.5A2.25 2.25 0 0 0 19.5 19.5v-1.125m-6.75-6.75h6.75m-6.75 3h4.5" />
-                          </svg>
-                        </div>
-                        <p className={`text-sm font-medium ${labelCls} mb-1`}>
-                          {isExtracting ? "Extracting text from file..." : "Drag & drop your PDF or Word file here"}
-                        </p>
-                        <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>{isExtracting ? "Please wait..." : "or click to browse"}</p>
-                        <p className={`text-[10px] mt-1 ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>Accepted formats: PDF, DOCX, DOC (max 30MB)</p>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept=".pdf,.docx,.doc,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                          onChange={(e) => handleFileSelect(e.target.files[0])}
-                          className="hidden"
-                          disabled={isExtracting}
-                        />
-                      </div>
-                    ) : (
-                      <div className={`rounded-xl p-3 mb-4 ${isDarkMode ? "border border-green-500/20 bg-green-500/10" : "border border-green-200 bg-green-50"}`}>
-                        <div className="flex flex-col items-start gap-2.5 min-[416px]:flex-row min-[416px]:items-center min-[416px]:gap-3">
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? "bg-black/20" : "bg-white"}`}>
-                            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                          <div className="flex-1 min-w-0 w-full">
-                            <p className={`text-sm font-bold break-all ${isDarkMode ? "text-green-400" : "text-green-700"}`}>
-                              {uploadedFile.name} {pdfTextExtracted ? "(Text Extracted)" : "(Uploaded)"}
-                            </p>
-                            <p className={`text-xs ${isDarkMode ? "text-green-500/90" : "text-green-700/80"}`}>
-                              {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB{pdfTextExtracted ? "" : " • Ready to continue"}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setUploadedFile(null);
-                              setUploadedPdfFile(null);
-                              setUploadProgress(0);
-                              setTextContent("");
-                              setPdfNotice("");
-                              setPdfTextExtracted(false);
-                            }}
-                            className={`text-sm font-bold px-2 py-1 rounded-md border transition w-full min-[416px]:w-auto ${isDarkMode ? "text-red-400 bg-white/[0.08] border-red-500/20 hover:bg-white/[0.12]" : "text-red-600 bg-white border-red-200 hover:bg-red-50"}`}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {uploadProgress > 0 && uploadProgress < 100 && (
-                      <div className="my-4">
-                        <div className={`w-full rounded-full h-2 overflow-hidden relative ${isDarkMode ? "bg-white/[0.08]" : "bg-gray-200"}`}>
-                          <div
-                            className={`h-2 rounded-full transition-all duration-300 relative ${isDarkMode ? "bg-white" : "bg-[#1e3a5f]"}`}
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                        <p className={`text-xs mt-1 text-center font-medium animate-pulse ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          Processing file... {uploadProgress}%
-                        </p>
-                      </div>
-                    )}
-
-                    {(editId || fromDraft || textContent.trim()) && (
-                      <div className="mt-5 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <label className={`block text-sm ${labelCls} font-medium`}>
-                            Script Content
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => setScriptContentEditOpen((v) => !v)}
-                            className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition ${isDarkMode ? "border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 bg-white/[0.03]" : "border-gray-200 text-gray-500 hover:text-gray-700 hover:border-gray-300 bg-gray-50"}`}
-                          >
-                            {scriptContentEditOpen ? "Done editing" : "Edit"}
-                          </button>
-                        </div>
-
-                        {scriptContentEditOpen ? (
-                          <textarea
-                            value={textContent}
-                            onChange={(e) => setTextContent(e.target.value)}
-                            rows={14}
-                            placeholder="Paste or edit your script content here."
-                            className={`w-full rounded-xl border px-3 py-2 text-sm font-mono leading-6 outline-none transition ${isDarkMode ? "bg-[#0f1e30] border-white/[0.08] text-gray-200 placeholder:text-gray-500 focus:border-white/30" : "bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-[#1e3a5f]/40"}`}
-                          />
-                        ) : (
-                          <div className={`rounded-xl border overflow-hidden ${isDarkMode ? "border-white/[0.08] bg-[#0f1e30]" : "border-gray-200 bg-white"}`}>
-                            <div className="px-5 py-5 max-h-72 overflow-y-auto">
-                              {textContent.trim() ? (
-                                <ScreenplayViewer
-                                  text={formatScreenplayLikeText(textContent)}
-                                  className={isDarkMode ? "text-gray-200" : "text-gray-900"}
-                                />
-                              ) : (
-                                <p className={`text-sm ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>
-                                  No content yet. Upload a PDF to auto-extract.
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                          This content is used when publishing updates. Uploading a new PDF will auto-fill this field.
-                        </p>
-                      </div>
-                    )}
-
-                  </div>
-
-                  {!isContentOnlyEditMode && (
-                    <div className={`rounded-2xl border p-4 sm:p-5 max-[640px]:p-3.5 max-[420px]:p-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-white"}`}>
-                      <div className="mb-4">
-                        <h3 className={`text-sm font-semibold ${isDarkMode ? "text-white" : "text-[#1e3a5f]"}`}>Visual Assets</h3>
-                        <p className={`text-xs mt-1 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Add a cover image and trailer to improve profile quality and discovery.</p>
-                      </div>
-
-                      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t ${isDarkMode ? "border-white/[0.06]" : "border-gray-100"}`}>
-                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                          <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Script Thumbnail <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                          </label>
-                          {!thumbnailFile ? (
-                            <div className="grid grid-cols-2 gap-3">
-                              <div onClick={() => thumbnailInputRef.current?.click()} className={`rounded-xl p-3 text-center cursor-pointer transition flex flex-col items-center justify-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"} border border-dashed ${isDarkMode ? "border-gray-700" : "border-gray-300"}`}>
-                                <svg className={`w-6 h-6 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0L21.75 15m-10.5-9h.008v.008h-.008V6ZM3.75 19.5h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Z" /></svg>
-                                <p className={`text-[11px] font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload Cover</p>
-                                <p className={`text-[9px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Max 5MB</p>
-                                <input
-                                  ref={thumbnailInputRef}
-                                  type="file"
-                                  accept="image/jpeg,image/png,image/webp"
-                                  onChange={(e) => {
-                                    handleThumbnailSelect(e.target.files?.[0]);
-                                    e.target.value = "";
-                                  }}
-                                  className="hidden"
-                                />
-                              </div>
-                              <div onClick={isGeneratingAiCover ? null : generateAiCover} className={`rounded-xl p-3 text-center ${isGeneratingAiCover ? "cursor-not-allowed opacity-70" : "cursor-pointer"} transition flex flex-col items-center justify-center ${isDarkMode ? "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/30" : "bg-purple-50 hover:bg-purple-100 border-purple-200"} border`}>
-                                {isGeneratingAiCover ? (
-                                  <div className="w-6 h-6 mb-2 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                                ) : (
-                                  <svg className="w-6 h-6 mb-2 text-purple-500" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" /></svg>
-                                )}
-                                <p className={`text-[11px] font-medium mb-1 ${isDarkMode ? "text-purple-300" : "text-purple-700"}`}>{isGeneratingAiCover ? "Generating..." : "AI Generate"}</p>
-                                <p className={`text-[9px] ${isDarkMode ? "text-purple-400/70" : "text-purple-600/70"}`}>Cinematic Cover</p>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className={`border rounded-xl p-3 flex flex-col gap-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <div className="flex items-center gap-3">
-                                <img src={thumbnailPreviewUrl} alt="Thumbnail Preview" className="w-12 h-16 object-cover rounded" />
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{thumbnailFile.name}</p>
-                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>{(thumbnailFile.size / 1024).toFixed(1)} KB - Cover ready</p>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => openThumbnailEditor(thumbnailFile)}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                  >
-                                    Adjust
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => downloadWatermarkedImage(thumbnailFile)}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-green-300 border-green-500/20 hover:bg-white/[0.12]" : "bg-white text-green-600 border-green-200 hover:bg-green-50"}`}
-                                  >
-                                    Download
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setThumbnailFile(null);
-                                      setError("");
-                                    }}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                              {thumbnailFile.name?.startsWith("ai-cover") && (
-                                <div className={`pt-3 border-t flex items-center justify-between ${isDarkMode ? "border-green-500/20" : "border-green-200"}`}>
-                                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                                    <button
-                                      type="button"
-                                      disabled={aiCoverIndex <= 0}
-                                      onClick={() => {
-                                        const newIndex = aiCoverIndex - 1;
-                                        setAiCoverIndex(newIndex);
-                                        setThumbnailFile(aiCoverHistory[newIndex]);
-                                      }}
-                                      className={`p-1 rounded-full ${aiCoverIndex <= 0 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                                    </button>
-                                    <span className="text-[10px] font-bold">History ({aiCoverIndex + 1}/{aiCoverHistory.length})</span>
-                                    <button
-                                      type="button"
-                                      disabled={aiCoverIndex >= aiCoverHistory.length - 1}
-                                      onClick={() => {
-                                        const newIndex = aiCoverIndex + 1;
-                                        setAiCoverIndex(newIndex);
-                                        setThumbnailFile(aiCoverHistory[newIndex]);
-                                      }}
-                                      className={`p-1 rounded-full ${aiCoverIndex >= aiCoverHistory.length - 1 ? "opacity-30 cursor-not-allowed" : "hover:bg-green-500/20 dark:hover:bg-black/20"}`}
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                                    </button>
-                                  </div>
-                                  {aiCoverAttempts < 3 ? (
-                                    <button
-                                      type="button"
-                                      onClick={isGeneratingAiCover ? null : generateAiCover}
-                                      className={`text-[10px] font-bold px-3 py-1.5 rounded-md flex items-center gap-1.5 ${isGeneratingAiCover ? "opacity-70 cursor-not-allowed" : ""} ${isDarkMode ? "bg-purple-600 hover:bg-purple-500 text-white" : "bg-purple-100 hover:bg-purple-200 text-purple-700"}`}
-                                    >
-                                      {isGeneratingAiCover ? "Generating..." : "Try Another Concept"}
-                                      {!isGeneratingAiCover && <span className="font-normal opacity-70">({3 - aiCoverAttempts} left)</span>}
-                                    </button>
-                                  ) : (
-                                    <span className={`text-[10px] font-semibold ${isDarkMode ? "text-red-400" : "text-red-600"}`}>Max attempts reached</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                          <label className={`block text-sm font-medium mb-1.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                            Trailer Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                          </label>
-                          <input
-                            ref={trailerInputRef}
-                            type="file"
-                            accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
-                            onChange={(e) => {
-                              handleTrailerSelect(e.target.files?.[0]);
-                              e.target.value = "";
-                            }}
-                            className="hidden"
-                          />
-
-                          {!trailerFile ? (
-                            <div onClick={() => trailerInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36A.75.75 0 0 1 21.75 8.8v6.4a.75.75 0 0 1-1.28.53l-4.72-2.36m-1.5 3.98V6.67A2.25 2.25 0 0 0 12 4.42H4.5a2.25 2.25 0 0 0-2.25 2.25v10.66A2.25 2.25 0 0 0 4.5 19.58H12a2.25 2.25 0 0 0 2.25-2.25Z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload High-Quality Trailer</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM (Max 250MB)</p>
-                            </div>
-                          ) : (
-                            <div className={`border rounded-xl p-3 space-y-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <div className="relative overflow-hidden rounded-lg">
-                                <video
-                                  src={trailerPreviewUrl}
-                                  controls
-                                  preload="metadata"
-                                  className="w-full h-44 object-contain bg-black"
-                                />
-                              </div>
-
-                              <div className="flex items-start gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
-                                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{trailerFile.name}</p>
-                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>
-                                    {(trailerFile.size / 1024 / 1024).toFixed(1)} MB
-                                    {trailerMetaLoading ? " - reading video info..." : trailerMeta ? ` - ${formatDuration(trailerMeta.duration)} - ${trailerMeta.width}x${trailerMeta.height}` : ""}
-                                  </p>
-                                  <p className={`text-[10px] mt-1 ${isDarkMode ? "text-green-500/80" : "text-green-700/80"}`}>Original quality will be preserved on upload.</p>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => trailerInputRef.current?.click()}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                  >
-                                    Replace
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setTrailerFile(null);
-                                      setTrailerOption("none");
-                                      setError("");
-                                    }}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Pitch Video Upload */}
-                        {["writer", "creator"].includes(user?.role) && (["free", "silver"].includes(user?.subscription?.plan) || !user?.subscription?.plan) ? (
-                          <div className={`rounded-2xl border p-4 ${isDarkMode ? "border-[#1d3350] bg-[#0d1829]" : "border-gray-200 bg-gray-50/60"}`}>
-                            <label className={`block text-sm font-medium mb-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                              Pitch Video <span className={`text-xs font-normal text-red-500`}>Locked</span>
-                            </label>
-                            <p className={`text-[11px] mb-2.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Upload Pitch Video is a premium feature.</p>
-                            <Link to="/pricing" className="block text-center rounded-xl p-4 transition flex flex-col items-center bg-gray-100/50 hover:bg-gray-200/50 cursor-pointer">
-                              <svg className="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upgrade to Unlock</p>
-                            </Link>
-                          </div>
-                        ) : (
-                          <div className={`rounded-2xl p-4 ${isDarkMode ? "bg-[#0d1829]" : "bg-gray-50/60"}`}>
-                            <label className={`block text-sm font-medium mb-0.5 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                              Pitch Video <span className={`text-xs font-normal ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>(optional)</span>
-                            </label>
-                          <p className={`text-[11px] mb-2.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>A short video pitch for your script. Max 1:30 min · Max 90MB</p>
-                          <input
-                            ref={pitchVideoInputRef}
-                            type="file"
-                            accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v"
-                            onChange={(e) => {
-                              handlePitchVideoSelect(e.target.files?.[0]);
-                              e.target.value = "";
-                            }}
-                            className="hidden"
-                          />
-                          {!pitchVideoFile ? (
-                            <div onClick={() => pitchVideoInputRef.current?.click()} className={`rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center ${isDarkMode ? "bg-white/[0.03] hover:bg-white/[0.06]" : "bg-white hover:bg-gray-100/70"}`}>
-                              <svg className={`w-8 h-8 mb-2 ${isDarkMode ? "text-[#1d3350]" : "text-gray-400"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36A.75.75 0 0 1 21.75 8.8v6.4a.75.75 0 0 1-1.28.53l-4.72-2.36m-1.5 3.98V6.67A2.25 2.25 0 0 0 12 4.42H4.5a2.25 2.25 0 0 0-2.25 2.25v10.66A2.25 2.25 0 0 0 4.5 19.58H12a2.25 2.25 0 0 0 2.25-2.25Z" /></svg>
-                              <p className={`text-xs font-medium mb-1 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>Upload Pitch Video</p>
-                              <p className={`text-[10px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>MP4, MOV, MPEG, WebM · Max 1:30 min · Max 90MB</p>
-                            </div>
-                          ) : (
-                            <div className={`border rounded-xl p-3 space-y-3 ${isDarkMode ? "bg-green-500/10 border-green-500/20" : "bg-green-50 border-green-200"}`}>
-                              <div className="relative overflow-hidden rounded-lg">
-                                <video
-                                  src={pitchVideoPreviewUrl}
-                                  controls
-                                  preload="metadata"
-                                  className="w-full h-44 object-contain bg-black"
-                                />
-                              </div>
-                              <div className="flex items-start gap-3">
-                                <div className="w-12 h-12 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
-                                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold truncate ${isDarkMode ? "text-green-400" : "text-green-700"}`}>{pitchVideoFile.name}</p>
-                                  <p className={`text-[10px] ${isDarkMode ? "text-green-500/80" : "text-green-600/80"}`}>
-                                    {(pitchVideoFile.size / 1024 / 1024).toFixed(1)} MB
-                                    {pitchVideoMetaLoading ? " · reading..." : pitchVideoMeta ? ` · ${formatDuration(pitchVideoMeta.duration)}` : ""}
-                                  </p>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => pitchVideoInputRef.current?.click()}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-blue-300 border-blue-500/20 hover:bg-white/[0.12]" : "bg-white text-[#1e3a5f] border-blue-200 hover:bg-blue-50"}`}
-                                  >
-                                    Replace
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setPitchVideoFile(null); setError(""); }}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-md border transition ${isDarkMode ? "bg-white/[0.08] text-red-400 border-red-500/20 hover:bg-white/[0.12]" : "bg-white text-red-500 border-red-200 hover:bg-red-50"}`}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    {isContentOnlyEditMode ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => navigate(-1)}
-                          className={`px-6 py-2.5 rounded-xl text-sm transition ${isDarkMode ? "border border-white/[0.08] text-neutral-400 hover:bg-white/[0.05]" : "border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className={`px-6 py-2.5 rounded-xl text-sm font-medium transition disabled:opacity-60 ${isDarkMode ? "bg-white text-black hover:bg-neutral-200" : "bg-[#1e3a5f] text-white hover:bg-[#22456f]"}`}
-                        >
-                          {loading ? "Saving..." : "Update Content"}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        {/* Upload is the first step — no Back button, spacer keeps Next right-aligned */}
-                        <div />
-                        <button
-                          type="button"
-                          onClick={handleNext}
-                          className={`px-6 py-2.5 rounded-xl text-sm font-medium transition ${isDarkMode ? "bg-white text-black hover:bg-neutral-200" : "bg-[#1e3a5f] text-white hover:bg-[#22456f]"}`}
-                        >
-                          Next →
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 4: Film Info ── */}
-              {step === 4 && (
-                <motion.div
-                  key="step-film-info"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div>
-                    <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Film Production Details</h2>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Help industry professionals understand your vision, involvement, and script style. Film language is required.</p>
-                  </div>
-
-                  {/* Director / Producer intent */}
-                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-4 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Your Creative Role</h3>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Do you intend to take on additional production roles for this project?</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setFilmDetails((fd) => ({ ...fd, wantToDirect: !fd.wantToDirect }))}
-                        className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails.wantToDirect
-                          ? isDarkMode ? "border-violet-500/50 bg-violet-500/10" : "border-violet-400 bg-violet-50"
-                          : isDarkMode ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${filmDetails.wantToDirect ? isDarkMode ? "bg-violet-500/20" : "bg-violet-100" : isDarkMode ? "bg-white/[0.05]" : "bg-gray-100"}`}>
-                          <svg className={`w-5 h-5 ${filmDetails.wantToDirect ? isDarkMode ? "text-violet-300" : "text-violet-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h7.5" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className={`text-sm font-bold ${filmDetails.wantToDirect ? isDarkMode ? "text-violet-200" : "text-violet-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Want to Direct</p>
-                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>I want to direct this script myself</p>
-                        </div>
-                        {filmDetails.wantToDirect && (
-                          <svg className={`w-4 h-4 ml-auto shrink-0 ${isDarkMode ? "text-violet-400" : "text-violet-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                          </svg>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setFilmDetails((fd) => ({ ...fd, wantToProduce: !fd.wantToProduce }))}
-                        className={`flex items-center gap-3 rounded-xl border p-4 text-left transition ${filmDetails.wantToProduce
-                          ? isDarkMode ? "border-amber-500/50 bg-amber-500/10" : "border-amber-400 bg-amber-50"
-                          : isDarkMode ? "border-[#1d3350] bg-[#080f1a] hover:border-[#2a4a6a]" : "border-gray-200 bg-white hover:border-gray-300"
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${filmDetails.wantToProduce ? isDarkMode ? "bg-amber-500/20" : "bg-amber-100" : isDarkMode ? "bg-white/[0.05]" : "bg-gray-100"}`}>
-                          <svg className={`w-5 h-5 ${filmDetails.wantToProduce ? isDarkMode ? "text-amber-300" : "text-amber-600" : isDarkMode ? "text-gray-400" : "text-gray-500"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className={`text-sm font-bold ${filmDetails.wantToProduce ? isDarkMode ? "text-amber-200" : "text-amber-700" : isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Want to Produce</p>
-                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>I am also the producer of this project</p>
-                        </div>
-                        {filmDetails.wantToProduce && (
-                          <svg className={`w-4 h-4 ml-auto shrink-0 ${isDarkMode ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Film Language */}
-                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Film Language <span className="text-red-500">*</span></h3>
-                    <div className="flex flex-wrap gap-2">
-                      {FILM_LANGUAGE_OPTIONS.map((lang) => (
-                        <button
-                          key={lang}
-                          type="button"
-                          onClick={() => setFilmDetails((fd) => ({ ...fd, filmLanguage: fd.filmLanguage === lang ? "" : lang }))}
-                          className={chipCls(filmDetails.filmLanguage === lang)}
-                        >
-                          {lang}
-                        </button>
-                      ))}
-                    </div>
-                    {filmDetails.filmLanguage === "Other" && (
-                      <input
-                        type="text"
-                        placeholder="Specify language..."
-                        value={filmDetails.filmLanguageCustom || ""}
-                        onChange={(e) => setFilmDetails((fd) => ({ ...fd, filmLanguageCustom: e.target.value }))}
-                        className={`${inputCls} mt-2`}
-                        maxLength={80}
-                      />
-                    )}
-                  </div>
-
-                  {/* Dialogues */}
-                  <div className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${isDarkMode ? "border-[#1d3350] bg-[#0b1626]" : "border-gray-200 bg-gray-50/60"}`}>
-                    <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-200" : "text-gray-800"}`}>Dialogues</h3>
-                    <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Are written dialogues included in your script?</p>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { value: "yes", label: "Yes — Full Dialogues" },
-                        { value: "partial", label: "Partial — Some Dialogues" },
-                        { value: "no", label: "No — Action/Direction Only" },
-                      ].map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setFilmDetails((fd) => ({ ...fd, dialoguesPresent: opt.value }))}
-                          className={chipCls(filmDetails.dialoguesPresent === opt.value)}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3 justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Step 5: Services & Strategy ── */}
-              {step === 5 && (
-                <motion.div
-                  key="step4"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-5"
-                >
-                  <div className={`rounded-2xl p-4 min-[420px]:p-5 sm:p-8 max-[640px]:p-2.5 max-[420px]:p-2 space-y-5 min-[420px]:space-y-6 ${isDarkMode ? "bg-[#0d1829]" : "bg-white shadow-sm"}`}>
-                    <div>
-                      <h2 className={`text-lg font-bold mb-1 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Submission Setup</h2>
-                      <p className={`text-xs ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Choose access, set price, select services, and accept terms.</p>
-                    </div>
-
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 space-y-5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      {/* Header */}
-                      <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isDarkMode ? "bg-emerald-500/10" : "bg-emerald-50"}`}>
-                          <svg className={`w-4.5 h-4.5 ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-[15px] min-[420px]:text-base font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Monetization</h3>
-                          <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>Set what buyers pay to access your script and rights terms.</p>
-                        </div>
-                      </div>
-
-                      {/* Price input */}
-                      <div className={`rounded-xl p-4 sm:p-5 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                        <p className={`text-xs font-semibold uppercase tracking-widest mb-3 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Your Asking Price</p>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                          <div className="relative w-full sm:w-44">
-                            <span className={`absolute left-3.5 top-1/2 -translate-y-1/2 text-base font-bold ${isDarkMode ? "text-emerald-400" : "text-emerald-600"}`}>₹</span>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={scriptPrice}
-                              onChange={(e) => {
-                                const normalized = String(e.target.value || "").replace(/^0+(?=\d)/, "");
-                                setScriptPrice(Number(normalized) || 0);
-                                setCustomPriceInput(normalized);
-                                setUseCustomPrice(false);
-                              }}
-                              placeholder="0"
-                              className={`w-full pl-8 pr-4 py-3 rounded-xl text-lg font-bold border-2 outline-none transition-all ${isDarkMode ? "bg-white/[0.04] border-emerald-500/40 text-white focus:border-emerald-400" : "bg-emerald-50/60 border-emerald-200 text-gray-900 focus:border-emerald-500 focus:bg-white"}`}
-                            />
-                          </div>
-                          <p className={`text-[12px] leading-relaxed ${isDarkMode ? "text-gray-500" : "text-gray-500"}`}>
-                            This is the amount buyers pay to unlock your script. You can update it anytime before publishing.
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* How it works */}
-                      <div className={`rounded-xl p-4 space-y-2.5 ${isDarkMode ? "bg-amber-500/5 border border-amber-500/15" : "bg-amber-50/70 border border-amber-100"}`}>
-                        <p className={`text-xs font-bold uppercase tracking-wide ${isDarkMode ? "text-amber-300" : "text-amber-700"}`}>Before you set your price</p>
-                        <ul className="space-y-2">
-                          {[
-                            "Buyers are evaluating rights — for films, web series, TV serials, remakes, or adaptations.",
-                            "They're not paying just to read — they're assessing your script for a potential deal.",
-                            "Price it based on what those rights are worth, not just the read.",
-                          ].map((tip, i) => (
-                            <li key={i} className="flex items-start gap-2">
-                              <span className={`mt-1 w-1.5 h-1.5 rounded-full shrink-0 ${isDarkMode ? "bg-amber-400" : "bg-amber-500"}`} />
-                              <p className={`text-[12px] leading-relaxed ${isDarkMode ? "text-amber-200/70" : "text-amber-800"}`}>{tip}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-
-
-
-
-                    <div className={`rounded-2xl border p-4 min-[420px]:p-5 sm:p-6 max-[640px]:-mx-1 max-[420px]:-mx-0.5 ${isDarkMode ? "border-[#1d3350] bg-[#080f1a]" : "border-gray-200 bg-gray-50/60"}`}>
-                      <div className="flex items-center gap-2.5 mb-4">
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isDarkMode ? "bg-white/[0.05]" : "bg-[#1e3a5f]/[0.07]"}`}>
-                          <svg className={`w-4 h-4 ${isDarkMode ? "text-purple-300" : "text-purple-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h3.75A2.625 2.625 0 0116.5 4.875v1.5H7.5v-1.5A2.625 2.625 0 0110.125 2.25zM7.5 9h9m-9 0v8.625A2.625 2.625 0 0010.125 20.25h3.75A2.625 2.625 0 0016.5 17.625V9m-9 0h9" /></svg>
-                        </div>
-                        <div>
-                          <h3 className={`text-sm font-bold ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}>Submission Agreement</h3>
-                          <p className={`text-[11px] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Read and accept before publishing.</p>
-                        </div>
-                      </div>
-
-                      <div className={`grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>
-                        <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Rights</p>
-                          <p className="text-[12px] mt-2 leading-relaxed">You retain ownership of your script.</p>
-                        </div>
-                        <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>License</p>
-                          <p className="text-[12px] mt-2 leading-relaxed">Platform gets a non-exclusive display and promotion license.</p>
-                        </div>
-                        <div className={`rounded-xl px-3 py-3 ${isDarkMode ? "bg-white/[0.03] border border-white/[0.06]" : "bg-white border border-gray-200"}`}>
-                          <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Refunds</p>
-                          <p className="text-[12px] mt-2 leading-relaxed">Service charges are not refundable after processing starts.</p>
-                        </div>
-                      </div>
-
-                      <div ref={agreementRef} className={`rounded-xl p-4 h-48 overflow-y-auto text-xs leading-relaxed border ${isDarkMode ? "border-[#182840] text-gray-400 bg-[#050b14]" : "border-gray-200 text-gray-500 bg-white"}`}>
-                        <pre className="whitespace-pre-wrap font-sans">{LEGAL_AGREEMENT}</pre>
-                      </div>
-
-                      <p className={`text-xs mb-3 mt-3 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
-                        Review the full legal document:
-                        {" "}
-                        <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-500 hover:text-blue-400 underline underline-offset-2">
-                          Script Upload Terms & Conditions
-                        </Link>
-                      </p>
-
-                      <label className="flex items-start gap-3 cursor-pointer mt-4">
-                        <input
-                          type="checkbox"
-                          checked={legal.agreedToTerms}
-                          onChange={(e) => setLegal({ ...legal, agreedToTerms: e.target.checked })}
-                          className="w-5 h-5 rounded mt-0.5 accent-[#1e3a5f]"
-                        />
-                        <span className={`text-sm leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                          I confirm I own or control the rights to this script and agree to the Script Upload Terms & Conditions (v{SCRIPT_UPLOAD_TERMS_VERSION}).
-                        </span>
-                      </label>
-                    </div>
-
-
-                  </div>
-
-                  <div className="flex flex-col-reverse min-[420px]:flex-row gap-2.5 min-[420px]:gap-3 justify-between pt-1 min-[420px]:pt-2">
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="w-full min-[420px]:w-auto px-6 py-2.5 border border-white/[0.08] text-neutral-400 rounded-xl text-sm hover:bg-white/[0.05] transition"
-                    >
-                      ← Back
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading || !legal.agreedToTerms}
-                      className="w-full min-[420px]:w-auto px-6 py-2.5 bg-white text-black rounded-xl text-sm font-medium hover:bg-neutral-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {loading ? "Submitting..." : "Submit for Approval"}
-                    </button>
-                  </div>
-                  <p className={`text-[11px] text-center mt-3 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Submitting will send your project for admin approval with the current pricing, services, and invoice settings.</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </form>
-        </div>
-      </motion.div>
-
+    <>
+      <ScriptUploadWorkspace vm={workspaceVm} />
       {isThumbnailEditorOpen && thumbnailSourceUrl && createPortal(
         <AnimatePresence>
-          <motion.div
+          <Motion.div
             key="thumbnail-modal-bg"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -3455,8 +2251,13 @@ const ScriptUpload = () => {
             style={{ background: "rgba(0,0,0,0.76)", backdropFilter: "blur(8px)" }}
             onClick={resetThumbnailEditor}
           >
-            <motion.div
+            <Motion.div
               key="thumbnail-modal"
+              ref={thumbnailDialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="su-thumbnail-dialog-title"
+              tabIndex={-1}
               initial={{ opacity: 0, y: 18, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 18, scale: 0.96 }}
@@ -3469,7 +2270,7 @@ const ScriptUpload = () => {
             >
               <div className={`px-4 sm:px-5 py-3 sm:py-4 border-b flex items-center justify-between shrink-0 ${isDarkMode ? "border-white/[0.08]" : "border-gray-100"}`}>
                 <div>
-                  <h3 className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Set Script Cover Image</h3>
+                  <h3 id="su-thumbnail-dialog-title" className={`text-sm font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>Set Script Cover Image</h3>
                   <p className={`text-[11px] mt-0.5 ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Drag to frame the best angle. Cover ratio is 16:10.</p>
                 </div>
                 <button
@@ -3575,67 +2376,14 @@ const ScriptUpload = () => {
                   {thumbnailApplying ? "Saving Cover..." : "Save Cover"}
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         </AnimatePresence>,
         document.body
       )}
 
-      {showUnderReviewModal && createPortal(
-        <AnimatePresence>
-          <motion.div
-            key="under-review-modal-bg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
-            style={{ background: "rgba(3, 10, 19, 0.72)", backdropFilter: "blur(6px)" }}
-          >
-            <motion.div
-              key="under-review-modal"
-              initial={{ opacity: 0, y: 14, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 14, scale: 0.96 }}
-              transition={{ type: "spring", damping: 24, stiffness: 280 }}
-              className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${isDarkMode ? "bg-[#091322] border-white/[0.08]" : "bg-white border-gray-200"}`}
-            >
-              <div className="w-12 h-12 rounded-xl bg-amber-500/15 text-amber-300 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-
-              <h3 className={`text-lg font-extrabold tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                Script Submitted Successfully
-              </h3>
-              <p className={`text-sm mt-2 leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-600"}`}>
-                Your script is now under review. Please wait for admin approval. You will be notified once it is approved.
-              </p>
-
-              <div className={`mt-4 rounded-xl border px-3 py-2.5 text-xs ${isDarkMode ? "border-white/[0.08] bg-white/[0.03] text-gray-400" : "border-gray-200 bg-gray-50 text-gray-600"}`}>
-                Redirecting automatically...
-              </div>
-
-              <div className="mt-5 flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleUnderReviewContinue}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-[#1e3a5f] text-white hover:bg-[#162d4a] transition"
-                >
-                  Continue
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </AnimatePresence>,
-        document.body
-      )}
-    </div>
+    </>
   );
 };
 
 export default ScriptUpload;
-
-
-
-

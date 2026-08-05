@@ -20,14 +20,13 @@ import {
 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
-import { formatCurrency, formatCredits } from "../utils/currency";
+import { formatCurrency } from "../utils/currency";
 
 const Transactions = ({ dark, middleContent = null }) => {
   const { user } = useContext(AuthContext);
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState(null);
   const [wallet, setWallet] = useState(null);
-  const [accountSummary, setAccountSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,7 +39,6 @@ const Transactions = ({ dark, middleContent = null }) => {
     fetchTransactions();
     fetchStats();
     fetchWallet();
-    fetchAccountSummary();
   }, [currentPage, filter]);
 
   const fetchTransactions = async () => {
@@ -84,15 +82,6 @@ const Transactions = ({ dark, middleContent = null }) => {
       setWallet(data);
     } catch (error) {
       console.error("Failed to fetch wallet:", error);
-    }
-  };
-
-  const fetchAccountSummary = async () => {
-    try {
-      const { data } = await api.get("/users/me");
-      setAccountSummary(data);
-    } catch (error) {
-      console.error("Failed to fetch account summary:", error);
     }
   };
 
@@ -160,7 +149,6 @@ const Transactions = ({ dark, middleContent = null }) => {
     t.reference?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const creditSummary = accountSummary?.credits || {};
   const projectSalesAmount = formatCurrency(
     stats?.projectSalesEarnings || 0,
     "INR"
@@ -188,18 +176,11 @@ const Transactions = ({ dark, middleContent = null }) => {
   ];
 
   if (isWriter) {
-    structuredSummary.push(
-      {
-        label: "Current Credits",
-        value: formatCredits(creditSummary.balance || 0),
-        note: "Credits available",
-      },
-      {
-        label: "Project Revenue",
-        value: totalProjectRevenueAmount,
-        note: "Sales + holds",
-      }
-    );
+    structuredSummary.push({
+      label: "Project Revenue",
+      value: totalProjectRevenueAmount,
+      note: "Sales + holds",
+    });
   }
 
   return (

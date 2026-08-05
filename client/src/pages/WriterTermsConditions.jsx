@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FileText, ChevronRight } from "lucide-react";
 import BrandLogo from "../components/BrandLogo";
+import { COMPANY } from "../constants/company";
 
 const LAST_UPDATED = "March 24, 2026";
 const EFFECTIVE_DATE = "March 24, 2026";
@@ -193,7 +194,7 @@ const sections = [
   },
   {
     title: "25. CONTACT",
-    points: ["Email: support@ckript.com"],
+    points: [`Email: ${COMPANY.email}`],
   },
 ];
 

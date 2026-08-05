@@ -83,4 +83,28 @@ export const sceneIdAtLine = (text = "", lineNumber = 1) => sceneAtLine(text, li
 export const findSceneById = (text = "", sceneId = "") =>
   getScenes(text).find((s) => s.sceneId === sceneId) || null;
 
+/** Read one scene's text out of the document (used to stream the scene you hold). */
+export const getSceneText = (text = "", sceneId = "") => {
+  const scene = findSceneById(text, sceneId);
+  if (!scene) return null;
+  return String(text).split("\n").slice(scene.startLine - 1, scene.endLine).join("\n");
+};
+
+/**
+ * Splice a collaborator's scene back into the document, replacing that scene's line range.
+ *
+ * Returns null when the scene id is not present locally (e.g. the slugline was renamed, which
+ * re-keys the id) — the caller should ignore that update rather than guess where it belongs.
+ */
+export const replaceSceneText = (text = "", sceneId = "", sceneText = "") => {
+  const scene = findSceneById(text, sceneId);
+  if (!scene) return null;
+  const lines = String(text).split("\n");
+  return [
+    ...lines.slice(0, scene.startLine - 1),
+    ...String(sceneText).split("\n"),
+    ...lines.slice(scene.endLine),
+  ].join("\n");
+};
+
 export { headingKey, DOC_SCENE_ID };

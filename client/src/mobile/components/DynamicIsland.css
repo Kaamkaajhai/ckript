@@ -1,0 +1,73 @@
+.ckm-island__layer {
+  position: absolute;
+  top: calc(8px + var(--ckm-safe-top));
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  z-index: 90;
+  pointer-events: none;
+}
+
+.ckm-island {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  max-width: 90%;
+  padding: 9px 16px 9px 10px;
+  border: none;
+  border-radius: 22px;
+  background: #0b0b0c;
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 12px 34px -8px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ckm-island__dot {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.ckm-island--desktop .ckm-island__dot {
+  background: rgba(209, 77, 55, 0.22);
+  color: #f2a08e;
+}
+.ckm-island--info .ckm-island__dot {
+  background: rgba(255, 255, 255, 0.12);
+}
+.ckm-island--success .ckm-island__dot {
+  background: rgba(52, 199, 89, 0.2);
+  color: #5cd67f;
+}
+
+.ckm-island__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 4px;
+}
+
+.ckm-island__title {
+  font: 600 12.5px/1.2 var(--ckm-body);
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ckm-island__sub {
+  font: 400 11px/1.2 var(--ckm-body);
+  color: rgba(255, 255, 255, 0.62);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

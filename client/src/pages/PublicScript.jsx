@@ -8,6 +8,7 @@ import { resolveMediaUrl } from "../utils/mediaUrl";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import RequestCollabButton from "../components/collab/RequestCollabButton";
 import { getApiBaseUrl } from "../utils/apiOrigin";
+import { getScriptWriters, formatWriterNames } from "../utils/writerCredits";
 import {
   getScriptCompletionBadgeClasses,
   getScriptCompletionFuturePlans,
@@ -191,6 +192,13 @@ const PublicScript = () => {
   const evaluation = script.evaluation || null;
   const roles = Array.isArray(script.roles) ? script.roles : [];
   const creatorProfileKey = String(script?.creator?.username || "").trim().toLowerCase() || String(script?.creator?._id || "").trim();
+  // Byline = linked owner + any additional credited writers.
+  const coWriterCredit = formatWriterNames(
+    getScriptWriters(script)
+      .filter((w) => String(w.name).trim().toLowerCase() !== String(script?.creator?.name || "").trim().toLowerCase())
+      .map((w) => w.name),
+    { max: 2 }
+  );
   const completionLabel = getScriptCompletionStatusLabel(script);
   const completionProgress = getScriptCompletionProgressText(script);
   const completionFuturePlans = getScriptCompletionFuturePlans(script);
@@ -265,6 +273,7 @@ const PublicScript = () => {
               ) : (
                 <span className={`font-bold ${dark ? "text-white" : "text-gray-900"}`}>{script.creator?.name || "Creator"}</span>
               )}
+              {coWriterCredit && <span> &amp; {coWriterCredit}</span>}
             </div>
 
             <div className={`mt-6 rounded-xl p-1 border flex flex-wrap gap-1 ${dark ? "bg-[#0b1426] border-[#1a3050]" : "bg-blue-50/60 border-blue-100"}`}>

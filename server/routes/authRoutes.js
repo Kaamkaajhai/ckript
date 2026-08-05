@@ -14,6 +14,10 @@ import {
 	validateReferral,
 	applyReferralCode,
 	getReferralSummary,
+	getSessions,
+	removeSession,
+	removeAllOtherSessions,
+	logout
 } from "../controllers/authController.js";
 import protect from "../middleware/authMiddleware.js";
 
@@ -33,5 +37,11 @@ router.post("/apply-referral", protect, applyReferralCode);
 router.get("/referral-summary", protect, getReferralSummary);
 router.get("/zip-info/:zipCode", lookupZipInfo);
 router.get("/me", protect, getMe);
+
+// Session Routes
+router.get("/sessions", protect, getSessions);
+router.delete("/sessions/all-others", protect, removeAllOtherSessions);
+router.delete("/sessions/:sessionId", protect, removeSession);
+router.post("/logout", protect, logout);
 
 export default router;

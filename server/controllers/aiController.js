@@ -126,42 +126,99 @@ export const runScriptScoreGeneration = async ({ scriptId, userId }) => {
     return;
   }
 
-  const scriptText = safeSlice(
-    script.textContent || script.fullContent || script.synopsis || script.description,
-    24000
-  );
+  const score = await runScriptScoreFromText({
+    text: script.textContent || script.fullContent || script.synopsis || script.description,
+    meta: {
+      title: script.title,
+      primaryGenre: script.primaryGenre || script.genre,
+      subGenres: script.subGenres,
+      format: script.format,
+      contentType: script.contentType,
+      tones: script.classification?.tones,
+      themes: script.classification?.themes,
+      logline: script.logline,
+      synopsis: script.synopsis || script.description,
+      roles: script.roles,
+      pageCount: script.pageCount,
+    },
+    fallbackDoc: script,
+  });
+  const usedFallback = score.source === "fallback";
 
-  const roles = (script.roles || []).map(r => `${r.characterName}${r.description ? ` — ${r.description}` : ""}`).join("; ");
-  const tones = (script.classification?.tones || []).join(", ");
-  const themes = (script.classification?.themes || []).join(", ");
-  const subGenres = (script.subGenres || []).join(", ");
+  script.scriptScore = { ...score, scoredAt: new Date() };
+  script.services = {
+    hosting: script.services?.hosting ?? true,
+    evaluation: true,
+    aiTrailer: script.services?.aiTrailer ?? false,
+    spotlight: script.services?.spotlight ?? false,
+  };
+  script.evaluationStatus = "completed";
+  script.evaluationRequestedAt = undefined;
+  script.markModified("services");
+  await script.save();
+
+  await Notification.create({
+    user: userId,
+    type: "script_score",
+    script: script._id,
+    message: `Your script "${script.title}" scored ${score.overall}/100${usedFallback ? " (fallback engine)" : ""}`,
+  });
+};
+
+/**
+ * Score screenplay TEXT and return the normalized result. Persists nothing.
+ *
+ * Split out of runScriptScoreGeneration so a competition entry can be judged on the frozen snapshot
+ * it submitted rather than on the live Script document. Judging the live document was wrong twice
+ * over: the writer could keep editing after the deadline, and a script that had already been scored
+ * before submission would short-circuit the generator and hand the competition a stale score of an
+ * earlier draft.
+ */
+export const runScriptScoreFromText = async ({ text = "", meta = {}, fallbackDoc = null } = {}) => {
+  const scriptText = safeSlice(text, 24000);
+
+  const script = {
+    title: meta.title,
+    primaryGenre: meta.primaryGenre,
+    format: meta.format,
+    contentType: meta.contentType,
+    logline: meta.logline,
+    synopsis: meta.synopsis,
+    pageCount: meta.pageCount,
+  };
+  const roles = (meta.roles || []).map(r => `${r.characterName}${r.description ? ` — ${r.description}` : ""}`).join("; ");
+  const tones = (meta.tones || []).join(", ");
+  const themes = (meta.themes || []).join(", ");
+  const subGenres = (meta.subGenres || []).join(", ");
 
   const scorePrompt = `You are a senior Hollywood screenplay analyst with 20+ years of experience evaluating scripts for studios, production companies, and streaming platforms.
 
-Your job is to produce a rigorous, professional, and SPECIFIC evaluation of the script provided. Every score and every sentence of feedback must reference concrete details from the actual content — character names, specific scenes, actual plot points, dialogue patterns, structural beats. Do NOT write generic advice that could apply to any script.
+Your job is to produce a rigorous, professional, and DEEP evaluation of the script provided. You MUST read the full script text deeply before generating any score. Your score must be based on a thorough analysis of the actual dialogue lines, characters' voices, pacing rhythm, thematic depth, and how well it fits into the commercial market. 
+
+Every score and every sentence of feedback must reference concrete details from the actual script — specific dialogue lines you analyzed, specific character arcs, actual plot points, structural beats, and subtext. Do NOT write generic advice. If the script is shallow, score it low. If it has deep market potential, score it high based on its demographic fit.
 
 Return STRICT JSON with this exact shape — no markdown, no code fences:
 {
-  "plot": <integer 0-100>,
-  "characters": <integer 0-100>,
-  "dialogue": <integer 0-100>,
-  "pacing": <integer 0-100>,
-  "marketability": <integer 0-100>,
+  "plot": <integer 0-100 (based on structure, narrative drive, and depth)>,
+  "characters": <integer 0-100 (based on distinct voices, arcs, and complexity)>,
+  "dialogue": <integer 0-100 (based on subtext, authenticity, and specific script lines)>,
+  "pacing": <integer 0-100 (based on scene rhythm and momentum)>,
+  "marketability": <integer 0-100 (based on commercial viability, genre trends, and market fit)>,
   "overall": <integer 0-100>,
-  "feedback": "<4-6 sentences of sharp, specific, professional feedback referencing actual script elements>",
+  "feedback": "<4-6 sentences of sharp, deep, professional feedback. You MUST quote specific script lines or scene numbers to prove you read it deeply>",
   "strengths": ["<specific strength 1>", "<specific strength 2>", "<specific strength 3>"],
   "weaknesses": ["<specific weakness 1>", "<specific weakness 2>"],
   "improvements": ["<concrete actionable improvement 1>", "<concrete actionable improvement 2>", "<concrete actionable improvement 3>"],
-  "audienceFit": "<target audience and market positioning based on this specific script>",
-  "comparables": "<2-3 produced films or shows this script resembles in tone/structure/genre>"
+  "audienceFit": "<deep analysis of target audience demographic and commercial market positioning>",
+  "comparables": "<2-3 produced films or shows this script resembles in tone/depth/genre>"
 }
 
 Scoring guide:
-- 90-100: Festival/studio-ready, exceptional craft
-- 80-89: Professionally competitive with minor polish needed
-- 70-79: Strong foundation, clear revision path
-- 60-69: Promising concept, significant craft work required
-- Below 60: Fundamental structural or character issues
+- 90-100: Phenomenal depth, brilliant dialogue, studio-ready market fit
+- 80-89: Professionally competitive, strong character voices, minor polish needed
+- 70-79: Good foundation, decent pacing, clear revision path
+- 60-69: Promising concept, but shallow execution, significant script line work required
+- Below 60: Fundamental structural, character, or dialogue issues
 
 Script Metadata:
 Title: ${script.title}
@@ -214,13 +271,13 @@ Analyze deeply. Be specific. Be honest. Be professional.`;
       );
       usedFallback = true;
       scoreSource = "fallback";
-      scorePayload = generateAIScriptScore(script);
+      // The heuristic engine reads a document; give it the real one when we have it.
+      scorePayload = generateAIScriptScore(fallbackDoc || { ...script, textContent: scriptText });
     }
   }
 
   const score = normalizeScorePayload(scorePayload);
-
-  script.scriptScore = {
+  return {
     overall: score.overall,
     plot: score.plot,
     characters: score.characters,
@@ -234,25 +291,8 @@ Analyze deeply. Be specific. Be honest. Be professional.`;
     audienceFit: score.audienceFit,
     comparables: score.comparables,
     source: scoreSource,
-    scoredAt: new Date(),
+    usedFallback,
   };
-  script.services = {
-    hosting: script.services?.hosting ?? true,
-    evaluation: true,
-    aiTrailer: script.services?.aiTrailer ?? false,
-    spotlight: script.services?.spotlight ?? false,
-  };
-  script.evaluationStatus = "completed";
-  script.evaluationRequestedAt = undefined;
-  script.markModified("services");
-  await script.save();
-
-  await Notification.create({
-    user: userId,
-    type: "script_score",
-    script: script._id,
-    message: `Your script "${script.title}" scored ${score.overall}/100${usedFallback ? " (fallback engine)" : ""}`,
-  });
 };
 
 // Simulate AI trailer generation (in production, integrate with RunwayML, Pika, etc.)
@@ -584,36 +624,46 @@ const normalizeGeneratedRoles = (rawRoles = []) => {
 
 // Generate logline, synopsis, and roles by parsing the project's script content.
 // Free tool used during project creation / upload.
-export const generateProjectMetadata = async (req, res) => {
-  try {
-    // Cap at 8,000 chars (~1,400 words) — enough to identify characters, plot and tone
-    // without blowing through free-tier token quotas on large scripts.
-    const sourceText = safeSlice(
-      req.body?.text || req.body?.textContent || "",
-      8000
-    );
-    if (!sourceText || sourceText.length < 50) {
-      return res.status(400).json({
-        message: "Add at least a short passage of script content before generating metadata.",
-      });
-    }
+/**
+ * Generate project metadata (logline / synopsis / roles) from script text.
+ *
+ * Extracted from the HTTP handler so background jobs — competition entry processing, for one — can
+ * reuse the exact same prompt and normalization instead of keeping a second copy that drifts.
+ * Throws with `statusCode` set, which the handler surfaces unchanged.
+ */
+export const runProjectMetadataGeneration = async ({
+  text = "",
+  title: rawTitle = "",
+  genre: rawGenre = "",
+  contentType: rawContentType = "",
+  userId = null,
+  fields: requestedFields = null,
+} = {}) => {
+  // Cap at 8,000 chars (~1,400 words) — enough to identify characters, plot and tone
+  // without blowing through free-tier token quotas on large scripts.
+  const sourceText = safeSlice(text, 8000);
+  if (!sourceText || sourceText.length < 50) {
+    const error = new Error("Add at least a short passage of script content before generating metadata.");
+    error.statusCode = 400;
+    throw error;
+  }
 
-    const user = await User.findById(req.user._id).select("language");
-    const outputLanguageInstruction = getOutputLanguageInstruction(user?.language);
+  const user = userId ? await User.findById(userId).select("language") : null;
+  const outputLanguageInstruction = getOutputLanguageInstruction(user?.language);
 
-    const title = cleanText(req.body?.title || "").slice(0, 200);
-    const genre = cleanText(req.body?.genre || req.body?.primaryGenre || "");
-    const contentType = cleanText(req.body?.contentType || "");
+  const title = cleanText(rawTitle).slice(0, 200);
+  const genre = cleanText(rawGenre);
+  const contentType = cleanText(rawContentType);
 
-    const fields = Array.isArray(req.body?.fields) && req.body.fields.length
-      ? req.body.fields.filter((f) => ["logline", "synopsis", "roles"].includes(f))
-      : ["logline", "synopsis", "roles"];
+  const fields = Array.isArray(requestedFields) && requestedFields.length
+    ? requestedFields.filter((f) => ["logline", "synopsis", "roles"].includes(f))
+    : ["logline", "synopsis", "roles"];
 
-    const wantLogline = fields.includes("logline");
-    const wantSynopsis = fields.includes("synopsis");
-    const wantRoles = fields.includes("roles");
+  const wantLogline = fields.includes("logline");
+  const wantSynopsis = fields.includes("synopsis");
+  const wantRoles = fields.includes("roles");
 
-    const prompt = `You are a senior development executive and story analyst. Read the project content below and extract production-ready metadata. Base everything ONLY on what is actually in the content — do not invent characters or plot points that are not present.
+  const prompt = `You are a senior development executive and story analyst. Read the project content below and extract production-ready metadata. Base everything ONLY on what is actually in the content — do not invent characters or plot points that are not present.
 
 Return STRICT JSON with this exact shape — no markdown, no code fences:
 {
@@ -645,27 +695,40 @@ Content Type: ${contentType || "Not specified"}
 Project Content:
 ${sourceText}`;
 
-    let payload;
-    let usedFallback = false;
-    try {
-      payload = await generateJsonWithGoogleAI({
-        prompt,
-        temperature: 0.4,
-        // Logline + a 2–4 paragraph synopsis + up to 12 roles can easily exceed a small cap and
-        // truncate the JSON mid-output (the synopsis is the long part — that's why logline-only
-        // worked but synopsis failed). Give it room; gemini-2.5-flash supports up to 8192.
-        maxOutputTokens: 8192,
-      });
-    } catch (aiError) {
-      console.error("[AI Metadata] AI call failed:", aiError.message, aiError.rawSnippet ? `| snippet: ${aiError.rawSnippet}` : "");
-      usedFallback = true;
-      payload = {};
-    }
+  let payload;
+  let usedFallback = false;
+  try {
+    payload = await generateJsonWithGoogleAI({
+      prompt,
+      temperature: 0.4,
+      // Logline + a 2–4 paragraph synopsis + up to 12 roles can easily exceed a small cap and
+      // truncate the JSON mid-output (the synopsis is the long part — that's why logline-only
+      // worked but synopsis failed). Give it room; gemini-2.5-flash supports up to 8192.
+      maxOutputTokens: 8192,
+    });
+  } catch (aiError) {
+    console.error("[AI Metadata] AI call failed:", aiError.message, aiError.rawSnippet ? `| snippet: ${aiError.rawSnippet}` : "");
+    usedFallback = true;
+    payload = {};
+  }
 
-    const result = {};
-    if (wantLogline) result.logline = cleanText(payload?.logline || "").slice(0, 500);
-    if (wantSynopsis) result.synopsis = cleanText(payload?.synopsis || "");
-    if (wantRoles) result.roles = normalizeGeneratedRoles(payload?.roles);
+  const result = { usedFallback };
+  if (wantLogline) result.logline = cleanText(payload?.logline || "").slice(0, 500);
+  if (wantSynopsis) result.synopsis = cleanText(payload?.synopsis || "");
+  if (wantRoles) result.roles = normalizeGeneratedRoles(payload?.roles);
+  return result;
+};
+
+export const generateProjectMetadata = async (req, res) => {
+  try {
+    const { usedFallback, ...result } = await runProjectMetadataGeneration({
+      text: req.body?.text || req.body?.textContent || "",
+      title: req.body?.title || "",
+      genre: req.body?.genre || req.body?.primaryGenre || "",
+      contentType: req.body?.contentType || "",
+      userId: req.user._id,
+      fields: req.body?.fields,
+    });
 
     return res.json({
       ...result,
@@ -788,7 +851,7 @@ export const aiWritingAssist = async (req, res) => {
       return res.status(400).json({ message: "An action or custom instruction is required." });
     }
 
-    const user = await User.findById(req.user._id).select("language credits");
+    const user = await User.findById(req.user._id).select("language");
     if (!user) return res.status(404).json({ message: "User not found." });
     const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
 

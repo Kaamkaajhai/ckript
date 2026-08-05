@@ -4,20 +4,35 @@ import { Writable } from "stream";
 import { fileURLToPath } from "url";
 import PDFDocument from "pdfkit";
 import { uploadToCloudinary } from "../config/cloudinary.js";
+import { CONTACTS } from "./companyContacts.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+// Real filenames, checked against client/public. These previously pointed at "cklogo-nobg.png" and
+// "cklogo.png", neither of which exists, so pickLogoPath() always returned undefined and every
+// invoice silently rendered the plain-text fallback instead of the logo.
+//
+// The fallback is still load-bearing: this path reaches out of server/ into client/public, which
+// will not resolve on a server-only deploy.
 const logoCandidates = [
-  path.join(__dirname, "..", "..", "client", "public", "cklogo-nobg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "cklogo.png"),
+  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-official-nobg.png"),
+  path.join(__dirname, "..", "..", "client", "public", "ckript_logo_no_bg.png"),
+  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-landscape-nobg.png"),
 ];
 
 const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";
-const COMPANY_EMAIL = process.env.COMPANY_EMAIL || "info.ckript@gmail.com";
+// Read at RENDER time via CONTACTS, not captured here: dotenv.config() runs in server.js's body,
+// which is after every import in the graph has already been evaluated, so a module-level
+// `process.env.COMPANY_EMAIL` is always undefined and the fallback wins permanently. This line used
+// to be exactly that, which is why invoices kept printing the old gmail address.
 const COMPANY_LOCATION = process.env.COMPANY_LOCATION || "Pune, Maharashtra, India";
 const FOUNDER_NAME = process.env.FOUNDER_NAME || "Yash";
 
-const asCurrency = (value = 0) => `INR ${Number(value || 0).toFixed(2)}`;
+// The currency is a PARAMETER, not a constant. Competition registration is charged in INR or USD
+// depending on what the entrant picked at checkout, and a hardcoded "INR" prefix would have printed
+// a $2 entry fee as "INR 2.00" — a document stating the wrong currency is worse than none.
+const asCurrency = (value = 0, currency = "INR") =>
+  `${String(currency || "INR").toUpperCase()} ${Number(value || 0).toFixed(2)}`;
 const asDate = (value) => new Date(value || Date.now()).toLocaleString();
 const toSafeText = (value, fallback = "-") => {
   if (value === undefined || value === null) return fallback;
@@ -32,6 +47,15 @@ const isWriterPayoutRow = (row = {}) => {
 
 const pickLogoPath = () => logoCandidates.find((candidate) => fs.existsSync(candidate));
 
+/**
+ * Render an invoice to PDF and upload it.
+ *
+ * `details` and `summary` exist because this document now serves two different purchases. A script
+ * invoice describes a project (title, SID, access tier); a competition-registration invoice has no
+ * script at all, and printing "Script SID: -" beside an empty project panel would look like a bug
+ * in the buyer's tax record. Callers that omit them get the original script-shaped layout, so the
+ * script path is unchanged.
+ */
 export const generateAndSaveInvoicePdf = async ({
   invoice,
   creatorName,
@@ -39,6 +63,8 @@ export const generateAndSaveInvoicePdf = async ({
   creatorSid,
   scriptTitle,
   scriptSid,
+  details,
+  summary,
 }) => {
   if (!invoice?._id || !invoice?.invoiceNumber) {
     throw new Error("Invoice details are required to generate PDF");
@@ -118,7 +144,7 @@ export const generateAndSaveInvoicePdf = async ({
       doc.font("Helvetica-Bold").fontSize(24).fillColor("#0F2A4A").text(COMPANY_NAME, left + 16, y + 22);
     }
 
-    doc.font("Helvetica").fontSize(10).fillColor("#334155").text(COMPANY_EMAIL, left + 16, y + 74, { width: 260 });
+    doc.font("Helvetica").fontSize(10).fillColor("#334155").text(CONTACTS.company, left + 16, y + 74, { width: 260 });
     doc.text(COMPANY_LOCATION, left + 16, y + 90, { width: 260 });
 
     const invoiceMetaX = right - 240;
@@ -147,12 +173,15 @@ export const generateAndSaveInvoicePdf = async ({
       `Buyer ID: ${resolvedCreatorId}`,
     ];
 
-    const rightLines = [
+    const invoiceCurrency = invoice.currency || "INR";
+
+    const detailsTitle = details?.title || "Project Details";
+    const rightLines = details?.lines || [
       resolvedScriptTitle,
       `Script SID: ${resolvedScriptSid}`,
       `Content ID: ${resolvedScriptId}`,
       invoice.accessType === "premium"
-        ? `Access: Premium (${asCurrency(invoice.scriptPrice || 0)})`
+        ? `Access: Premium (${asCurrency(invoice.scriptPrice || 0, invoiceCurrency)})`
         : "Access: Free",
       `Payment Ref: ${resolvedPaymentReference}`,
     ];
@@ -169,7 +198,7 @@ export const generateAndSaveInvoicePdf = async ({
     };
 
     const leftCardH = measureCardHeight("Bill To", leftLines);
-    const rightCardH = measureCardHeight("Project Details", rightLines);
+    const rightCardH = measureCardHeight(detailsTitle, rightLines);
     const cardsH = Math.max(leftCardH, rightCardH);
 
     drawRoundedBox(left, y, colW, cardsH, "#FFFFFF", "#DFE8F5", 10);
@@ -183,7 +212,7 @@ export const generateAndSaveInvoicePdf = async ({
       lineY += doc.heightOfString(toSafeText(line), { width: cardTextW }) + 4;
     });
 
-    doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A").text("Project Details", left + colW + gap + 12, y + 12, { width: cardTextW });
+    doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A").text(detailsTitle, left + colW + gap + 12, y + 12, { width: cardTextW });
     lineY = y + 34;
     doc.font("Helvetica").fontSize(10).fillColor("#334155");
     rightLines.forEach((line) => {
@@ -288,7 +317,11 @@ export const generateAndSaveInvoicePdf = async ({
 
     const summaryX = left + metaW + 26;
     doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A").text("Summary", summaryX, y + 12, { width: summaryW - 36 });
-    doc.font("Helvetica-Bold").fillColor("#0F172A").text(`Net Per Premium Sale: ${asCurrency(invoice.writerEarnsPerSale || 0)}`, summaryX, y + 36, {
+    doc.font("Helvetica-Bold").fillColor("#0F172A").text(
+      summary
+        ? `${summary.label}: ${asCurrency(summary.value || 0, invoiceCurrency)}`
+        : `Net Per Premium Sale: ${asCurrency(invoice.writerEarnsPerSale || 0, invoiceCurrency)}`,
+      summaryX, y + 36, {
       width: summaryW - 36,
     });
 

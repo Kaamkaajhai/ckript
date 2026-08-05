@@ -46,22 +46,18 @@ const FORMAT_LABELS = {
   poet: "Poet",
   other: "Other",
 };
-const SERVICE_LABELS = {
-  hosting: "Hosting & Discovery",
-  spotlight: "Activate Spotlight",
-  aiTrailer: "AI Concept Trailer",
-  evaluation: "Professional Evaluation",
-};
+
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-import { jsPDF } from "jspdf";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import ScreenplayPdfViewer from "../components/ScreenplayPdfViewer";
 import PasswordInput from "../components/PasswordInput";
 import { formatCurrency } from "../utils/currency";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
+import { formatScriptCredit } from "../utils/writerCredits";
+import { buildWatermarkedPdfFromPdfBlob } from "../utils/pdfWatermark";
 import {
   getScriptCompletionFuturePlans,
   getScriptCompletionProgressText,
@@ -355,18 +351,30 @@ const AdminScriptView = () => {
     }
   };
 
-  const rawContent = typeof script?.fullContent === "string" && script.fullContent.trim()
-    ? script.fullContent
-    : (typeof script?.textContent === "string" ? script.textContent : "");
+  // Canonical source order matches the server (fountainContent is the screenplay source of truth for
+  // editor projects), so the admin view never comes up empty when only fountainContent is populated.
+  const rawContent = (typeof script?.fountainContent === "string" && script.fountainContent.trim())
+    ? script.fountainContent
+    : (typeof script?.fullContent === "string" && script.fullContent.trim())
+      ? script.fullContent
+      : (typeof script?.textContent === "string" ? script.textContent : "");
   const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
-  const uploadedPdfProxyUrl = script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf`) : uploadedPdfUrl;
-  const writerCustomTerms = String(script?.legal?.customInvestorTerms || "").trim();
-  const hasWriterCustomTerms = writerCustomTerms.length > 0;
+  const hasUploadedPdf = Boolean(uploadedPdfUrl);
+  const derivedPdfUrl = hasUploadedPdf 
+    ? script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/pdf?download=0`) : uploadedPdfUrl
+    : script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0`) : "";
+  // Preview windows count SCRIPT pages, so the preview viewer needs the export WITHOUT the
+  // generated title sheet — otherwise page 1 of the PDF is the title and the whole window
+  // shifts by one (writer selects 2 pages, admin sees title + 1).
+  const previewPdfUrl = hasUploadedPdf
+    ? derivedPdfUrl
+    : (script?._id ? resolveMediaUrl(`/api/scripts/${script._id}/export/pdf?download=0&titlePage=0`) : "");
+
   const formatLabel = script?.format === "other"
     ? (String(script?.formatOther || "").trim() || "Other")
     : (FORMAT_LABELS[script?.format] || script?.format || "-");
   const headingValue = String(script?.title || "").trim() || "Untitled";
-  const writerName = String(script?.creator?.name || "").trim() || "Unknown";
+  const writerName = formatScriptCredit(script) || String(script?.creator?.name || "").trim() || "Unknown";
   const companyName = String(script?.companyName || "").trim();
   const primaryGenre = script?.primaryGenre || script?.classification?.primaryGenre || script?.genre || "-";
   const tags = Array.isArray(script?.tags) ? script.tags.filter(Boolean) : [];
@@ -394,54 +402,8 @@ const AdminScriptView = () => {
   const trailerThumbnailUrl = resolveMediaUrl(script?.trailerThumbnail || "");
   const trailerVideoUrl = resolveMediaUrl(script?.uploadedTrailerUrl || script?.trailerUrl || "");
   const accessMode = "Premium Access";
-  const optionalServices = [
-    {
-      key: "hosting",
-      label: SERVICE_LABELS.hosting,
-      enabled: script?.services?.hosting ?? true,
-      detail: "Marketplace listing and public discovery",
-    },
-    {
-      key: "spotlight",
-      label: SERVICE_LABELS.spotlight,
-      enabled: Boolean(script?.services?.spotlight),
-      detail: "Priority visibility and spotlight placement",
-    },
-    {
-      key: "aiTrailer",
-      label: SERVICE_LABELS.aiTrailer,
-      enabled: Boolean(script?.services?.aiTrailer),
-      detail: script?.trailerStatus ? `Trailer status: ${script.trailerStatus}` : "AI trailer service",
-    },
-    {
-      key: "evaluation",
-      label: SERVICE_LABELS.evaluation,
-      enabled: Boolean(script?.services?.evaluation),
-      detail: script?.evaluationStatus ? `Evaluation status: ${script.evaluationStatus}` : "Reader scorecard service",
-    },
-  ];
-  const rightsSummaryItems = [
-    { label: "Rights Type", value: RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || "-" },
-    { label: "Exclusivity", value: script?.rightsLicensing?.exclusivity ? "Exclusive" : "Non-exclusive" },
-    {
-      label: "License Duration",
-      value: script?.rightsLicensing?.timeBound?.licenseDurationMonths
-        ? `${script.rightsLicensing.timeBound.licenseDurationMonths} months`
-        : "-",
-    },
-    { label: "Modification Rights", value: MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || "-" },
-    { label: "Payment Structure", value: PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || "-" },
-    { label: "Royalty %", value: `${script?.rightsLicensing?.royaltySettings?.percentage || 0}%` },
-    {
-      label: "Royalty Duration",
-      value: script?.rightsLicensing?.royaltySettings?.durationType === "years"
-        ? `${script?.rightsLicensing?.royaltySettings?.durationYears} years`
-        : script?.rightsLicensing?.royaltySettings?.durationType === "project_lifetime"
-          ? "Project lifetime"
-          : "-",
-    },
-    { label: "Negotiation Mode", value: NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || "-" },
-  ];
+
+
   const plainScriptText = useMemo(
     () => formatScreenplayLikeText(getPlainTextFromScriptContent(rawContent)),
     [rawContent]
@@ -471,58 +433,33 @@ const AdminScriptView = () => {
     return source.map((pageText, index) => ({ pageNumber: index + 1, text: pageText }));
   }, [serverPreviewPageTexts, scriptPages]);
 
-  const hasUploadedPdf = Boolean(uploadedPdfUrl);
   const hasFullScriptText = Boolean(
     plainScriptText.trim() || serverPreviewPageTexts.some(Boolean)
   );
 
-  const handleDownloadScript = () => {
-    if (!plainScriptText.trim()) {
-      if (uploadedPdfUrl) {
-        window.open(uploadedPdfUrl, "_blank", "noopener,noreferrer");
-      }
-      return;
+  // Download the SAME PDF the script renders as everywhere else — never an ad-hoc flat rebuild. A
+  // script missing both fileUrl AND fountainContent won't have a valid PDF at /export/pdf either,
+  // but button is disabled in that case.
+  const handleDownloadScript = async () => {
+    if (!derivedPdfUrl || !script?._id) return;
+
+    const safeTitle = String(script?.title || "script")
+      .replace(/[^a-z0-9]+/gi, "_")
+      .replace(/^_+|_+$/g, "") || "script";
+
+    try {
+      const response = await adminApi.get(
+        hasUploadedPdf ? `/scripts/${script._id}/pdf` : `/scripts/${script._id}/export/pdf?download=1`,
+        { responseType: "blob" }
+      );
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const finalBlob = hasUploadedPdf
+        ? await buildWatermarkedPdfFromPdfBlob(blob, { title: script?.title || "Script" })
+        : blob;
+      downloadPdfBlob(finalBlob, `${safeTitle}.pdf`);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to download watermarked script PDF.");
     }
-
-    const normalized = plainScriptText.replace(/\r\n/g, "\n").trim();
-
-    const title = String(script?.title || "script").replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
-    const filename = `${title || "script"}_full_script.pdf`;
-
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "pt",
-      format: "a4",
-    });
-
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const marginX = 44;
-    const topY = 54;
-    const usableWidth = pageWidth - marginX * 2;
-
-    const pdfPages = scriptPages.length > 0 ? scriptPages : [normalized];
-
-    pdfPages.forEach((pageText, index) => {
-      if (index > 0) doc.addPage("a4", "portrait");
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(String(script?.title || "Script"), marginX, 32, { maxWidth: usableWidth });
-
-      doc.setFont("courier", "normal");
-      doc.setFontSize(11);
-      const wrappedLines = doc.splitTextToSize(pageText || "", usableWidth);
-      doc.text(wrappedLines, marginX, topY, { baseline: "top" });
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.text(`Page ${index + 1} / ${pdfPages.length}`, pageWidth - marginX, pageHeight - 24, {
-        align: "right",
-      });
-    });
-
-    doc.save(filename);
   };
 
   const handleOpenSubmissionSummaryPdf = () => {
@@ -629,10 +566,10 @@ const AdminScriptView = () => {
   if (!scriptAccessReady) {
     return (
       <div className="min-h-screen bg-[#050b16] text-white flex items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-2xl border border-[#1a3050] bg-[#0c1527] p-7 shadow-2xl">
+        <div className="w-full max-w-md rounded-2xl border border-[#2e2828] bg-[#0c1527] p-7 shadow-2xl">
           <div className="text-center mb-6">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
-              <svg className="h-7 w-7 text-blue-300" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#a83a4d]/20 bg-[#a83a4d]/10">
+              <svg className="h-7 w-7 text-[#e79aa6]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 10.5h10.5A2.25 2.25 0 0019.5 18.75v-6a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 12.75v6A2.25 2.25 0 006.75 21z" />
               </svg>
             </div>
@@ -651,7 +588,7 @@ const AdminScriptView = () => {
               }}
               placeholder="Section password"
               autoFocus
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-[#a83a4d]/50 focus:ring-2 focus:ring-[#a83a4d]/20"
             />
             {scriptAccessError && (
               <p className="text-sm font-medium text-red-300">{scriptAccessError}</p>
@@ -667,7 +604,7 @@ const AdminScriptView = () => {
               <button
                 type="submit"
                 disabled={scriptAccessLoading || !scriptAccessPassword}
-                className="px-5 py-2.5 rounded-xl bg-[#1e3a5f] text-sm font-bold text-white hover:bg-[#2a4b77] disabled:cursor-not-allowed disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-[#7a2233] text-sm font-bold text-white hover:bg-[#2a4b77] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {scriptAccessLoading ? "Unlocking..." : "Unlock"}
               </button>
@@ -721,7 +658,7 @@ const AdminScriptView = () => {
                 <button
                   type="button"
                   onClick={handleStartEdit}
-                  className="px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs sm:text-sm font-bold"
+                  className="px-4 py-2 rounded-lg border border-[#a83a4d]/30 bg-[#a83a4d]/15 hover:bg-[#a83a4d]/25 text-[#f7edee] text-xs sm:text-sm font-bold"
                 >
                   Edit
                 </button>
@@ -792,10 +729,10 @@ const AdminScriptView = () => {
         )}
 
         {editMode && draft && (
-          <div className="rounded-2xl border border-blue-400/30 bg-blue-500/[0.06] p-5 sm:p-7 space-y-5">
+          <div className="rounded-2xl border border-[#a83a4d]/30 bg-[#a83a4d]/[0.06] p-5 sm:p-7 space-y-5">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-blue-200 mb-1">Admin Edit Mode</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-[#e79aa6] mb-1">Admin Edit Mode</p>
                 <p className="text-xs text-white/70">Edit any field below. Changes to script body are recorded in history with you as the editor.</p>
               </div>
             </div>
@@ -807,7 +744,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.title}
                   onChange={(e) => updateDraft((d) => ({ ...d, title: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -816,7 +753,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.companyName}
                   onChange={(e) => updateDraft((d) => ({ ...d, companyName: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block lg:col-span-2">
@@ -825,7 +762,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.logline}
                   onChange={(e) => updateDraft((d) => ({ ...d, logline: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block lg:col-span-2">
@@ -834,7 +771,7 @@ const AdminScriptView = () => {
                   rows={4}
                   value={draft.synopsis}
                   onChange={(e) => updateDraft((d) => ({ ...d, synopsis: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block lg:col-span-2">
@@ -843,7 +780,7 @@ const AdminScriptView = () => {
                   rows={3}
                   value={draft.description}
                   onChange={(e) => updateDraft((d) => ({ ...d, description: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -852,7 +789,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.format}
                   onChange={(e) => updateDraft((d) => ({ ...d, format: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -861,7 +798,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.contentType}
                   onChange={(e) => updateDraft((d) => ({ ...d, contentType: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -870,7 +807,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.primaryGenre}
                   onChange={(e) => updateDraft((d) => ({ ...d, primaryGenre: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -880,7 +817,7 @@ const AdminScriptView = () => {
                   min={0}
                   value={draft.price}
                   onChange={(e) => updateDraft((d) => ({ ...d, price: Number(e.target.value) || 0 }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
             </div>
@@ -891,7 +828,7 @@ const AdminScriptView = () => {
                 rows={18}
                 value={draft.textContent}
                 onChange={(e) => updateDraft((d) => ({ ...d, textContent: e.target.value }))}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 style={{ fontFamily: '"Courier Prime", "Courier New", Courier, monospace' }}
               />
             </label>
@@ -904,7 +841,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.rightsType}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, rightsType: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="full_rights_sale">Full Rights Sale</option>
                     <option value="exclusive_license">Exclusive License</option>
@@ -916,7 +853,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.modificationRights}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, modificationRights: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="buyer_can_modify_freely">Buyer can modify freely</option>
                     <option value="buyer_must_consult_writer">Buyer must consult writer</option>
@@ -928,7 +865,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.paymentStructure}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, paymentStructure: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="one_time_upfront_payment">One-time upfront payment</option>
                     <option value="lower_upfront_plus_royalty_percent">Lower upfront + royalty %</option>
@@ -941,7 +878,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.negotiationMode}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, negotiationMode: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="fixed_terms_non_negotiable">Fixed terms (non-negotiable)</option>
                     <option value="open_to_discussion_after_purchase">Open to discussion after purchase</option>
@@ -956,7 +893,7 @@ const AdminScriptView = () => {
                     max={100}
                     value={draft.rightsLicensing.royaltySettings.percentage}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, percentage: Number(e.target.value) || 0 } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   />
                 </label>
                 <label className="block">
@@ -964,7 +901,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.royaltySettings.durationType}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, durationType: e.target.value } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="none">None</option>
                     <option value="years">Years</option>
@@ -978,7 +915,7 @@ const AdminScriptView = () => {
                     min={0}
                     value={draft.rightsLicensing.royaltySettings.durationYears}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, durationYears: Number(e.target.value) || 0 } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   />
                 </label>
                 <label className="block">
@@ -989,7 +926,7 @@ const AdminScriptView = () => {
                     max={120}
                     value={draft.rightsLicensing.timeBound.licenseDurationMonths}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, timeBound: { ...d.rightsLicensing.timeBound, licenseDurationMonths: Number(e.target.value) || 0 } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   />
                 </label>
                 <label className="flex items-center gap-2 mt-6">
@@ -1018,7 +955,7 @@ const AdminScriptView = () => {
                   maxLength={5000}
                   value={draft.rightsLicensing.customConditions}
                   onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, customConditions: e.target.value } }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
             </div>
@@ -1032,7 +969,7 @@ const AdminScriptView = () => {
                   maxLength={3000}
                   value={draft.legal.customInvestorTerms}
                   onChange={(e) => updateDraft((d) => ({ ...d, legal: { ...d.legal, customInvestorTerms: e.target.value } }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
             </div>
@@ -1335,83 +1272,31 @@ const AdminScriptView = () => {
 
         <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Optional Services</p>
-            <p className="text-xs text-white/60">Paid and included submission services selected during upload.</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Rights & Licensing</p>
+            <p className="text-xs text-white/60">Intellectual property terms set by the writer.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {optionalServices.map((service) => (
-              <div key={service.key} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-white/90">{service.label}</p>
-                    <p className="text-xs text-white/55 mt-1">{service.detail}</p>
-                  </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${service.enabled ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-100" : "border-white/10 bg-white/[0.04] text-white/65"}`}>
-                    {service.enabled ? "Enabled" : "Not selected"}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Rights & Licensing Preferences</p>
-            <p className="text-xs text-white/60">Rights and licensing preferences set by the writer during script upload.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {rightsSummaryItems.map((item) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { label: "Rights Type", value: RIGHTS_TYPE_LABELS[script?.rightsLicensing?.rightsType] || script?.rightsLicensing?.rightsType || "-" },
+              { label: "Modification Rights", value: MODIFICATION_LABELS[script?.rightsLicensing?.modificationRights] || script?.rightsLicensing?.modificationRights || "-" },
+              { label: "Payment Structure", value: PAYMENT_LABELS[script?.rightsLicensing?.paymentStructure] || script?.rightsLicensing?.paymentStructure || "-" },
+              { label: "Royalty Settings", value: script?.rightsLicensing?.royaltySettings?.percentage ? `${script.rightsLicensing.royaltySettings.percentage}% (${script.rightsLicensing.royaltySettings.durationType === "years" ? `${script.rightsLicensing.royaltySettings.durationYears} years` : script.rightsLicensing.royaltySettings.durationType === "project_lifetime" ? "Project Lifetime" : script.rightsLicensing.royaltySettings.durationType})` : "-" },
+              { label: "License Duration", value: script?.rightsLicensing?.timeBound?.licenseDurationMonths ? `${script?.rightsLicensing?.timeBound?.licenseDurationMonths} months` : "Perpetual" },
+              { label: "Negotiation Mode", value: NEGOTIATION_LABELS[script?.rightsLicensing?.negotiationMode] || script?.rightsLicensing?.negotiationMode || "-" },
+            ].map((item) => (
               <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
                 <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">{item.label}</p>
                 <p className="text-xs text-white/85">{item.value}</p>
               </div>
             ))}
           </div>
-
           {script?.rightsLicensing?.customConditions && (
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-              <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45 mb-2">Custom Conditions</p>
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{script.rightsLicensing.customConditions}</p>
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mt-2">
+              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Custom Conditions</p>
+              <p className="text-sm text-white/90 whitespace-pre-wrap">{script.rightsLicensing.customConditions}</p>
             </div>
           )}
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Writer Terms & Conditions</p>
-            <p className="text-xs text-white/60">Terms accepted by the writer during script upload.</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Terms Accepted</p>
-              <p className="text-xs text-white/85">{script?.legal?.agreedToTerms ? "Yes" : "No"}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Terms Version</p>
-              <p className="text-xs text-white/85 break-all">{script?.legal?.termsVersion || "-"}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Accepted At</p>
-              <p className="text-xs text-white/85">{formatDateTime(script?.legal?.timestamp)}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase tracking-[0.16em] font-bold text-white/45 mb-1">Custom Terms Updated</p>
-              <p className="text-xs text-white/85">{formatDateTime(script?.legal?.customInvestorTermsUpdatedAt)}</p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-[11px] uppercase tracking-[0.14em] font-bold text-white/45 mb-2">Custom Terms For Film Industry Professionals</p>
-            {hasWriterCustomTerms ? (
-              <p className="text-sm leading-relaxed whitespace-pre-wrap text-white/90">{writerCustomTerms}</p>
-            ) : (
-              <p className="text-sm text-white/60">Writer did not add custom terms.</p>
-            )}
-          </div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#0c1527] p-5 sm:p-7 space-y-4">
@@ -1432,7 +1317,7 @@ const AdminScriptView = () => {
                     type="button"
                     onClick={handleOpenSubmissionSummaryPdf}
                     disabled={!script?.submissionSummaryPdf?.url}
-                    className="px-3 py-1.5 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 rounded-lg border border-[#a83a4d]/30 bg-[#a83a4d]/15 hover:bg-[#a83a4d]/25 text-[#f7edee] text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Open Writer PDF
                   </button>
@@ -1485,7 +1370,7 @@ const AdminScriptView = () => {
                             type="button"
                             onClick={() => handlePurchaseAcceptancePdf(request._id, script?.title, "open")}
                             disabled={!request?.acceptancePdf?.url}
-                            className="px-3 py-1.5 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 rounded-lg border border-[#a83a4d]/30 bg-[#a83a4d]/15 hover:bg-[#a83a4d]/25 text-[#f7edee] text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Open Accepted Terms PDF
                           </button>
@@ -1517,7 +1402,7 @@ const AdminScriptView = () => {
           </div>
         </div>
 
-        {uploadedPdfUrl && script?.viewableScript && (
+        {(uploadedPdfUrl || hasFullScriptText) && script?.viewableScript && (
           <div className="rounded-[22px] border border-white/10 bg-[#0c1527] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
@@ -1538,14 +1423,14 @@ const AdminScriptView = () => {
                     Hidden from Producers
                   </span>
                 )}
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-[#a83a4d]/15 text-[#e79aa6] border border-[#a83a4d]/20">
                   Pages {Number(script?.scriptPreviewAccess?.start || 1)} – {Number(script?.scriptPreviewAccess?.end || 8)}
                 </span>
               </div>
             </div>
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={previewPdfUrl}
                 title={script?.title || "Script"}
                 startPage={Number(script?.scriptPreviewAccess?.start || 1)}
                 endPage={Number(script?.scriptPreviewAccess?.end || 8)}
@@ -1582,7 +1467,7 @@ const AdminScriptView = () => {
           {hasFullScriptText ? (
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 fallbackPages={mainContentFallbackPages}
                 fallbackText={plainScriptText}
@@ -1592,7 +1477,7 @@ const AdminScriptView = () => {
           ) : hasUploadedPdf ? (
             <div className="max-w-[920px] mx-auto">
               <ScreenplayPdfViewer
-                pdfUrl={uploadedPdfUrl}
+                pdfUrl={derivedPdfUrl}
                 title={script?.title || "Script"}
                 fallbackPages={[]}
                 fallbackText=""

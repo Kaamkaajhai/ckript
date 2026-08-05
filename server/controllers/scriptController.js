@@ -10,7 +10,6 @@ import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
 import Invoice from "../models/Invoice.js";
 import Agreement from "../models/Agreement.js";
-import Revision from "../models/Revision.js";
 import AuditLog from "../models/AuditLog.js";
 import {
   sendPurchaseRequestEmail,
@@ -18,6 +17,7 @@ import {
   sendPurchaseRejectedEmail,
 } from "../utils/emailService.js";
 import { generateAndSaveInvoicePdf } from "../utils/invoicePdf.js";
+import { writerLimitApplies, buildScriptLimitStatus, getScriptUploadCycleStart } from "../utils/scriptLimits.js";
 import { generateAndUploadAgreementPdfs } from "../utils/agreementPdf.js";
 import { generateAndUploadScriptSubmissionPdf } from "../utils/scriptSubmissionPdf.js";
 import { generateAndUploadPurchaseRequestAcceptancePdf } from "../utils/purchaseRequestAcceptancePdf.js";
@@ -28,6 +28,7 @@ import { buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMe
 import { getCurrentPurchaseTermsPolicy } from "../utils/termsPolicyService.js";
 import {
   hasActiveFilmIndustryProfessionalAccess,
+  hasAnyFipAccess,
   hasBusinessEmail,
   isIndustryProfessionalWithPersonalEmail,
   hasRevealedContact,
@@ -36,9 +37,19 @@ import {
   getContactsLimit,
   getRemainingContacts,
 } from "../utils/industryAccess.js";
-import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText } from "../utils/pdfTextExtraction.js";
+import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
+import {
+  RemoteAssetPolicyError,
+  createRemoteAssetGrant,
+  fetchTrustedPdfAsset,
+  normalizeTrustedRemoteAssetUrl,
+  verifyRemoteAssetGrant,
+} from "../utils/remoteAssetPolicy.js";
+import { parseMongoObjectId } from "../utils/mongoId.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
+import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
+import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
@@ -54,6 +65,11 @@ import {
   resolveCollaboratorAccessLevel,
   resolveScriptRole,
 } from "../middleware/checkPermission.js";
+import { applyThreeWayMerge } from "../utils/contentMerge.js";
+import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.js";
+import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
+import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
+import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -75,6 +91,25 @@ const getRazorpay = () => {
   return razorpayInstance;
 };
 
+// Read what a Razorpay order actually charged (buyer currency + amount + fx rate) so the buyer's
+// transaction records reality. Falls back to the INR base if the order can't be fetched. `inrTotal` is
+// the INR base used as the fallback charged amount.
+const readOrderCharge = async (orderId, inrTotal) => {
+  const fallback = { currency: "INR", chargedTotal: Number(inrTotal) || 0, fxRate: 1 };
+  try {
+    if (!orderId) return fallback;
+    const order = await getRazorpay().orders.fetch(orderId);
+    if (!order) return fallback;
+    return {
+      currency: String(order.currency || "INR").toUpperCase(),
+      chargedTotal: (Number(order.amount) || 0) / 100,
+      fxRate: Number(order.notes?.fxRate) || 1,
+    };
+  } catch {
+    return fallback;
+  }
+};
+
 const PUBLISHED_SCRIPT_STATUSES = ["published", "approved"];
 
 const PUBLIC_SCRIPT_FILTER = {
@@ -88,6 +123,14 @@ const PROJECT_SPOTLIGHT_ACTIVATION_CREDITS = 310;
 const PROJECT_SPOTLIGHT_EXTENSION_CREDITS = 150;
 const PROJECT_SPOTLIGHT_DURATION_DAYS = 30;
 const SCRIPT_UPLOAD_TERMS_VERSION = process.env.SCRIPT_UPLOAD_TERMS_VERSION || "2026-03-24";
+const TRAILER_PRICE_MATRIX = {
+  "30-480": { inr: 399, usd: 5 },
+  "30-720": { inr: 499, usd: 6 },
+  "60-480": { inr: 539, usd: 6 },
+  "60-720": { inr: 649, usd: 7 },
+  "90-480": { inr: 549, usd: 6.3 },
+  "90-720": { inr: 799, usd: 9 },
+};
 
 const WRITER_CONTACT_VIEWER_ROLES = ["investor", "producer", "director", "industry", "professional"];
 
@@ -99,7 +142,29 @@ const canViewerAccessWriterContact = (viewer, creatorId) => {
   }
 
   const role = String(viewer?.role || "").toLowerCase();
-  return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasActiveFilmIndustryProfessionalAccess(viewer);
+  return WRITER_CONTACT_VIEWER_ROLES.includes(role) && hasAnyFipAccess(viewer);
+};
+
+const normalizeTrailerLayout = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "portrait" ? "portrait" : "landscape";
+};
+
+const getTrailerPackagePricing = (duration, quality) => {
+  const key = `${String(duration || "").trim()}-${String(quality || "").trim()}`;
+  return TRAILER_PRICE_MATRIX[key] || { inr: 0, usd: 0 };
+};
+
+const buildTrailerRequestNote = ({ duration, quality, format, currency, amount }) => {
+  const layoutLabel = normalizeTrailerLayout(format) === "portrait" ? "Portrait" : "Landscape";
+  const currencyLabel = String(currency || "INR").toUpperCase();
+  return [
+    `Duration: ${String(duration || "").trim()} sec`,
+    `Quality: ${String(quality || "").trim()}px`,
+    `Layout: ${layoutLabel}`,
+    `Display currency: ${currencyLabel}`,
+    `Price: ${currencyLabel === "USD" ? "$" : "INR"} ${String(amount ?? 0).trim()}`,
+  ].join(" | ");
 };
 
 const buildWriterContactPayload = (writerDoc) => {
@@ -241,6 +306,87 @@ const SCRIPT_COMPLETION_STATUS_OPTIONS = new Set(["complete", "partial", "ongoin
 const MIN_LICENSE_DURATION_MONTHS = 1;
 const MAX_LICENSE_DURATION_MONTHS = 120;
 
+const getRemoteAssetErrorStatus = (error) =>
+  String(error?.code || "").includes("CONFIGURATION_ERROR") ? 500 : 400;
+
+const sendRemoteAssetError = (res, error) => res.status(getRemoteAssetErrorStatus(error)).json({
+  message: error.message,
+  code: error.code,
+});
+
+const resolveSubmittedScriptFile = ({
+  scriptUrl,
+  fileUrl,
+  fileGrant,
+  ownerId,
+  currentUrl = "",
+  validateStored = false,
+} = {}) => {
+  const submittedScriptUrl = scriptUrl === undefined || scriptUrl === null ? "" : String(scriptUrl).trim();
+  const submittedFileUrl = fileUrl === undefined || fileUrl === null ? "" : String(fileUrl).trim();
+  if (submittedScriptUrl && submittedFileUrl && submittedScriptUrl !== submittedFileUrl) {
+    throw new RemoteAssetPolicyError(
+      "Conflicting script file references were submitted.",
+      "CONFLICTING_SCRIPT_FILE_URLS"
+    );
+  }
+
+  const candidate = submittedScriptUrl || submittedFileUrl;
+  const stored = String(currentUrl || "").trim();
+  if (!candidate) {
+    let resolvedStored = stored;
+    if (stored && validateStored) {
+      try {
+        resolvedStored = normalizeTrustedRemoteAssetUrl(stored);
+      } catch {
+        throw new RemoteAssetPolicyError(
+          "The stored script file is no longer trusted. Re-upload the PDF before publishing.",
+          "STORED_SCRIPT_ASSET_UNTRUSTED"
+        );
+      }
+    }
+    return {
+      changed: false,
+      url: resolvedStored,
+      grant: null,
+    };
+  }
+
+  const normalizedCandidate = normalizeTrustedRemoteAssetUrl(candidate);
+  let normalizedStored = "";
+  if (stored) {
+    try {
+      normalizedStored = normalizeTrustedRemoteAssetUrl(stored);
+    } catch {
+      normalizedStored = "";
+    }
+  }
+
+  if (normalizedStored && normalizedCandidate === normalizedStored) {
+    return { changed: false, url: normalizedStored, grant: null };
+  }
+  if (!fileGrant) {
+    throw new RemoteAssetPolicyError(
+      "This script file was not issued by the upload service. Upload the PDF again.",
+      "MISSING_ASSET_GRANT"
+    );
+  }
+
+  const grant = verifyRemoteAssetGrant(fileGrant, {
+    url: normalizedCandidate,
+    ownerId,
+    purpose: "script-source",
+  });
+  if (String(grant.format || "").toLowerCase() !== "pdf") {
+    throw new RemoteAssetPolicyError(
+      "Only uploaded PDF files can be attached as the script source.",
+      "UNSUPPORTED_SCRIPT_ASSET_FORMAT"
+    );
+  }
+
+  return { changed: true, url: normalizedCandidate, grant };
+};
+
 const sanitizeArchiveSegment = (value = "", fallback = "item") => {
   const normalized = String(value || "")
     .replace(/[<>:"/\\|?*\x00-\x1F]/g, " ")
@@ -249,36 +395,16 @@ const sanitizeArchiveSegment = (value = "", fallback = "item") => {
   return normalized || fallback;
 };
 
-const inferArchiveExtension = ({ url = "", contentType = "" } = {}) => {
-  const normalizedType = String(contentType || "").toLowerCase();
-  if (normalizedType.includes("pdf")) return ".pdf";
-  if (normalizedType.includes("msword")) return ".doc";
-  if (normalizedType.includes("officedocument.wordprocessingml")) return ".docx";
-  if (normalizedType.startsWith("text/plain")) return ".txt";
-
-  try {
-    const pathname = new URL(String(url || "")).pathname || "";
-    const ext = path.extname(pathname);
-    if (ext) return ext.toLowerCase();
-  } catch {
-    // Ignore invalid URLs and fall through to plain text.
-  }
-
-  return ".txt";
+const fetchTrustedPdfBuffer = async (url) => {
+  const { buffer } = await fetchTrustedPdfAsset(url);
+  return buffer;
 };
 
 const fetchArchivePdfBuffer = async (script) => {
   const remoteUrl = String(script?.fileUrl || "").trim();
   if (remoteUrl) {
     try {
-      const response = await fetch(remoteUrl);
-      if (response.ok) {
-        const contentType = response.headers.get("content-type") || "";
-        const extension = inferArchiveExtension({ url: remoteUrl, contentType });
-        if (extension === ".pdf") {
-          return Buffer.from(await response.arrayBuffer());
-        }
-      }
+      return await fetchTrustedPdfBuffer(remoteUrl);
     } catch (error) {
       console.error("[fetchArchivePdfBuffer] Remote file download failed:", error?.message || error);
     }
@@ -295,10 +421,7 @@ const fetchArchivePdfBuffer = async (script) => {
         expires_at: Math.floor(Date.now() / 1000) + 10 * 60,
         attachment: false,
       });
-      const response = await fetch(signedUrl);
-      if (response.ok) {
-        return Buffer.from(await response.arrayBuffer());
-      }
+      return await fetchTrustedPdfBuffer(signedUrl);
     } catch (error) {
       console.error("[fetchArchivePdfBuffer] Submission summary PDF download by publicId failed:", error?.message || error);
     }
@@ -306,10 +429,7 @@ const fetchArchivePdfBuffer = async (script) => {
 
   if (summaryUrl) {
     try {
-      const response = await fetch(summaryUrl);
-      if (response.ok) {
-        return Buffer.from(await response.arrayBuffer());
-      }
+      return await fetchTrustedPdfBuffer(summaryUrl);
     } catch (error) {
       console.error("[fetchArchivePdfBuffer] Submission summary PDF download by url failed:", error?.message || error);
     }
@@ -636,8 +756,56 @@ const normalizeRightsLicensingInput = (incoming = {}, fallback = {}) => {
 };
 
 const validateRightsLicensingPayload = (rightsLicensing = {}) => {
-  // Feature has been removed from the frontend, bypassing validation
-  return [];
+  const errors = [];
+  const legalAcknowledgement = rightsLicensing?.legalAcknowledgement || {};
+
+  if (!RIGHTS_TYPE_OPTIONS.has(rightsLicensing?.rightsType)) {
+    errors.push("Rights type is required.");
+  }
+  if (!MODIFICATION_RIGHTS_OPTIONS.has(rightsLicensing?.modificationRights)) {
+    errors.push("Modification rights selection is required.");
+  }
+  if (!PAYMENT_STRUCTURE_OPTIONS.has(rightsLicensing?.paymentStructure)) {
+    errors.push("Payment structure selection is required.");
+  }
+  if (!NEGOTIATION_MODE_OPTIONS.has(rightsLicensing?.negotiationMode)) {
+    errors.push("Negotiation mode selection is required.");
+  }
+
+  if (rightsLicensing?.rightsType === "exclusive_license") {
+    const months = Number(rightsLicensing?.timeBound?.licenseDurationMonths);
+    if (!Number.isInteger(months) || months < MIN_LICENSE_DURATION_MONTHS || months > MAX_LICENSE_DURATION_MONTHS) {
+      errors.push(`Exclusive license duration must be between ${MIN_LICENSE_DURATION_MONTHS} and ${MAX_LICENSE_DURATION_MONTHS} months.`);
+    }
+  }
+
+  const royaltyBased = ["lower_upfront_plus_royalty_percent", "revenue_sharing_model"]
+    .includes(rightsLicensing?.paymentStructure);
+  if (royaltyBased) {
+    const percentage = Number(rightsLicensing?.royaltySettings?.percentage);
+    if (!Number.isFinite(percentage) || percentage <= 0 || percentage > 100) {
+      errors.push("Royalty percentage must be greater than 0 and no more than 100.");
+    }
+    const durationType = rightsLicensing?.royaltySettings?.durationType;
+    if (!["none", "years", "project_lifetime"].includes(durationType)) {
+      errors.push("Royalty duration type is invalid.");
+    }
+    if (durationType === "years") {
+      const durationYears = Number(rightsLicensing?.royaltySettings?.durationYears);
+      if (!Number.isInteger(durationYears) || durationYears < 1 || durationYears > 99) {
+        errors.push("Royalty duration must be between 1 and 99 years.");
+      }
+    }
+  }
+
+  if (String(rightsLicensing?.customConditions || "").trim().length > MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH) {
+    errors.push(`Rights conditions must be ${MAX_RIGHTS_CUSTOM_CONDITIONS_LENGTH} characters or fewer.`);
+  }
+  if (!toBoolean(legalAcknowledgement.platformTermsAccepted, false)) {
+    errors.push("Platform terms acknowledgement is required.");
+  }
+
+  return errors;
 };
 
 const buildRightsLabels = (rights = {}) => {
@@ -978,19 +1146,12 @@ const getInvalidRoleAgeRangeMessage = (roles = []) => {
 
     const minAge = Number(min);
     const maxAge = Number(max);
-    if (!Number.isFinite(minAge) || !Number.isFinite(maxAge) || minAge >= maxAge) {
-      return `Role ${i + 1}: Min age must be less than max age.`;
+    if (!Number.isFinite(minAge) || !Number.isFinite(maxAge) || minAge > maxAge) {
+      return `Role ${i + 1}: Max age must be greater than or equal to min age.`;
     }
   }
 
   return "";
-};
-
-const PROJECT_CREATOR_ROLES = new Set(["writer", "creator"]);
-
-const hasProjectCreatorAccess = (user) => {
-  const role = String(user?.role || "").trim().toLowerCase();
-  return PROJECT_CREATOR_ROLES.has(role);
 };
 
 const requireProjectCreatorAccess = (req, res) => {
@@ -1461,7 +1622,7 @@ export const extractPdfText = async (req, res) => {
       try {
         const mammoth = require('mammoth');
         const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-        text = normalizeExtractedPdfText(result?.value || "");
+        text = formatScreenplayLikeText(normalizeExtractedPdfText(result?.value || ""));
       } catch (docxError) {
         console.error("[extractPdfText] docx parse failed:", docxError?.message || docxError);
         return res.status(422).json({
@@ -1482,30 +1643,51 @@ export const extractPdfText = async (req, res) => {
     }
 
     let uploadedPdfUrl = "";
-    try {
-      const uploadOptions = {
-        folder: "scriptbridge/scripts",
-        resource_type: "raw",
-        public_id: `script-${req.user?._id || "user"}-${Date.now()}`,
-      };
-      if (docType === "pdf") {
-        uploadOptions.format = "pdf";
-      } else if (docType === "docx") {
-        uploadOptions.format = "docx";
+    let fileGrant = "";
+    if (docType === "pdf") {
+      try {
+        const uploadOptions = {
+          folder: "scriptbridge/scripts",
+          resource_type: "raw",
+          public_id: `script-${req.user?._id || "user"}-${Date.now()}`,
+          format: "pdf",
+        };
+        const uploadResult = await uploadToCloudinary(req.file.buffer, uploadOptions);
+        uploadedPdfUrl = normalizeTrustedRemoteAssetUrl(uploadResult?.secure_url || "");
+        fileGrant = createRemoteAssetGrant({
+          url: uploadedPdfUrl,
+          ownerId: req.user?._id,
+          publicId: uploadResult?.public_id || "",
+          purpose: "script-source",
+          format: "pdf",
+        });
+      } catch (uploadError) {
+        console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
+        uploadedPdfUrl = "";
+        fileGrant = "";
       }
-      const uploadResult = await uploadToCloudinary(req.file.buffer, uploadOptions);
-      uploadedPdfUrl = uploadResult?.secure_url || "";
-    } catch (uploadError) {
-      console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
     }
 
+    // Strip the source PDF's page furniture (running header, page numbers, "(CONTINUED)") before
+    // the editor receives it — otherwise it lands in the script body, surfaces as content in the
+    // viewable-script preview, and skews pagination. Conservative by design: character cues repeat
+    // exactly like a running header, so only unambiguous furniture is removed.
+    const cleanedText = stripPdfPageFurniture(text, { title: req.body?.title || "" });
+    const cleanedPageTexts = Array.isArray(pageTexts)
+      ? pageTexts.map((page) => stripPdfPageFurniture(String(page || ""), { title: req.body?.title || "" }))
+      : [];
+
     res.json({
-      text,
+      text: cleanedText,
       numItems,
-      pageTexts,
+      pageTexts: cleanedPageTexts,
       fileUrl: uploadedPdfUrl,
+      fileGrant,
+      sourceMode: uploadedPdfUrl ? "uploaded-pdf" : "imported-text",
       extractedTextAvailable: true,
-      extractionWarning: "",
+      extractionWarning: docType === "docx"
+        ? "Word documents are imported as editable script text. The full script PDF is generated from the editor."
+        : "",
     });
   } catch (error) {
     console.error("Document Extraction Error:", error);
@@ -1513,48 +1695,86 @@ export const extractPdfText = async (req, res) => {
   }
 };
 
+// GET /scripts/script-limit → the caller's current writer script-limit status, so the create/
+// upload UI can show the gate UPFRONT and block progression instead of only erroring at submit.
+export const getScriptLimit = async (req, res) => {
+  try {
+    if (!writerLimitApplies(req.user.role)) {
+      return res.json({ applies: false, limitReached: false });
+    }
+    const cycleStart = getScriptUploadCycleStart(req.user);
+    const usedQuery = { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+    if (cycleStart) {
+      usedQuery.createdAt = { $gte: cycleStart };
+    }
+    const used = await Script.countDocuments(usedQuery);
+    return res.json({ applies: true, ...buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" }) });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to read script limit." });
+  }
+};
+
+// Body fields a `content_only` co-writer may change during a duet autosave. Everything else on the
+// draft is listing metadata and stays owner/full_access-only.
+const CO_WRITER_CONTENT_FIELDS = new Set(["fountainContent", "sceneSynopses", "outlineNotes", "titlePage"]);
+
 export const saveDraft = async (req, res) => {
   try {
     if (!requireProjectCreatorAccess(req, res)) {
       return;
     }
 
-    const { scriptId, title, textContent, ...otherData } = req.body;
+    const { scriptId, title, textContent, baseContent, ...otherData } = req.body;
+    const hasScriptId = scriptId !== undefined && scriptId !== null && scriptId !== "";
+    const draftObjectId = hasScriptId ? parseMongoObjectId(scriptId) : null;
+    if (hasScriptId && !draftObjectId) {
+      return res.status(400).json({ message: "Invalid draft ID." });
+    }
 
-    // Enforce Writer limits for new drafts
-    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
-      
-      let limit = 1;
-      let requiredPlan = "silver";
-      
-      if (plan === "silver") {
-        limit = 8;
-        requiredPlan = "gold";
-      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
-        limit = 20;
-        requiredPlan = "custom";
+    // Enforce Writer limits for new drafts (shared rule — see utils/scriptLimits.js)
+    if (!draftObjectId && writerLimitApplies(req.user.role)) {
+      const cycleStart = getScriptUploadCycleStart(req.user);
+      const usedQuery = { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      if (cycleStart) {
+        usedQuery.createdAt = { $gte: cycleStart };
       }
-
-      if (existingScriptCount >= limit) {
-        return res.status(402).json({
-          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to create more scripts.`,
-          limitReached: true,
-          requiredPlan,
-        });
+      const used = await Script.countDocuments(usedQuery);
+      const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "create" });
+      if (status.limitReached) {
+        return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });
       }
     }
 
     // If we have an ID, update the existing draft
-    if (scriptId) {
-      const script = await Script.findById(scriptId);
+    if (draftObjectId) {
+      const script = await Script.findById(draftObjectId);
       if (!script) return res.status(404).json({ message: "Script not found" });
-      if (script.creator.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: "Not authorized" });
+
+      // Duet co-writing: the owner OR an accepted collaborator with write access may save the shared
+      // draft. This lookup used to be creator-only, so an invited co-writer's every autosave 404'd and
+      // their work was silently lost.
+      const isDraftOwner = String(script.creator) === String(req.user._id);
+      let canEditDraftMetadata = true;
+      if (!isDraftOwner) {
+        if (!hasScriptPermission(script, req.user._id, "write")) {
+          return res.status(404).json({ message: "Script not found" });
+        }
+        canEditDraftMetadata = resolveCollaboratorAccessLevel(script, req.user._id) !== "content_only";
+        if (!canEditDraftMetadata) {
+          for (const key of Object.keys(otherData)) {
+            if (!CO_WRITER_CONTENT_FIELDS.has(key)) delete otherData[key];
+          }
+        }
       }
+
       if (script.isDeleted) {
         return res.status(410).json({ message: "This project was deleted by creator and can no longer be edited." });
+      }
+
+      // A competition submission is final. The entry also stores a frozen snapshot, so this guard is
+      // belt-and-braces — but it must exist on every write path or "submitted" would not mean final.
+      if (script.competitionLocked) {
+        return res.status(409).json({ message: "This script was submitted to a competition and is locked." });
       }
 
       if (script.status !== "draft") {
@@ -1564,11 +1784,29 @@ export const saveDraft = async (req, res) => {
         return res.status(409).json({ message: "Only draft projects can be autosaved as drafts." });
       }
 
-      script.projectSource = "editor";
+      if (canEditDraftMetadata) script.title = title || script.title;
 
-      script.title = title || script.title;
-      script.textContent = textContent !== undefined ? textContent : script.textContent;
-      if (otherData.fountainContent !== undefined) script.fountainContent = otherData.fountainContent;
+      // Duet-safe content write. Each co-writer edits their own full copy of the script, so a plain
+      // assignment means whoever saves last silently wipes the other's scenes. When the script has
+      // co-writers we instead replay this client's delta (baseContent -> proposed) onto the stored
+      // content, so independent saves converge. Solo drafts keep the original overwrite path.
+      const hasCoWriters = (script.collaborators || []).some(
+        (collab) => collab?.isActive === true && collab?.status === "accepted"
+      );
+      const mergeContentField = (currentValue, proposedValue) => {
+        if (proposedValue === undefined) return currentValue;
+        if (!hasCoWriters || typeof baseContent !== "string" || !baseContent) return proposedValue;
+        return applyThreeWayMerge({
+          currentContent: String(currentValue || ""),
+          baseContent,
+          proposedContent: proposedValue,
+        }).mergedContent;
+      };
+
+      script.textContent = mergeContentField(script.textContent, textContent);
+      if (otherData.fountainContent !== undefined) {
+        script.fountainContent = mergeContentField(script.fountainContent, otherData.fountainContent);
+      }
       if (otherData.sceneSynopses !== undefined) {
         // Corkboard synopses: a plain map of normalized-heading -> one-line summary. Coerce to
         // strings and cap each line so it stays lightweight metadata.
@@ -1582,6 +1820,20 @@ export const saveDraft = async (req, res) => {
       }
       if (otherData.outlineNotes !== undefined) {
         script.outlineNotes = String(otherData.outlineNotes || "").slice(0, 50000);
+      }
+      if (otherData.titlePage !== undefined) {
+        // Title page: a small map of known fields. null/empty clears it. Coerce + cap each value.
+        const tp = otherData.titlePage && typeof otherData.titlePage === "object" ? otherData.titlePage : null;
+        const cleaned = {};
+        if (tp) for (const [k, v] of Object.entries(tp)) { if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300); }
+        script.titlePage = Object.keys(cleaned).length ? cleaned : undefined;
+        script.markModified("titlePage");
+      }
+      // Authorship credits — listing metadata, so a content_only co-writer cannot rewrite them
+      // (`writers` is deliberately absent from CO_WRITER_CONTENT_FIELDS).
+      if (otherData.writers !== undefined && canEditDraftMetadata) {
+        script.writers = normalizeWriterCredits(otherData.writers);
+        script.markModified("writers");
       }
       if (otherData.companyName !== undefined) script.companyName = String(otherData.companyName || "").trim();
       if (otherData.logline !== undefined) script.logline = otherData.logline;
@@ -1601,6 +1853,17 @@ export const saveDraft = async (req, res) => {
         script.formatOther = String(otherData.formatOther || "").trim();
       }
       if (otherData.pageCount !== undefined) script.pageCount = Number(otherData.pageCount) || 0;
+      if (otherData.fileUrl !== undefined || otherData.scriptUrl !== undefined) {
+        const submittedFile = resolveSubmittedScriptFile({
+          scriptUrl: otherData.scriptUrl,
+          fileUrl: otherData.fileUrl,
+          fileGrant: otherData.fileGrant,
+          ownerId: req.user._id,
+          currentUrl: script.fileUrl,
+        });
+        script.fileUrl = submittedFile.url;
+      }
+      script.projectSource = String(script.fileUrl || "").trim() ? "uploaded" : "editor";
       if (otherData.collabVisibility !== undefined) {
         const normalizedCollabVisibility = String(otherData.collabVisibility || "").trim().toLowerCase();
         if (["open", "private"].includes(normalizedCollabVisibility)) {
@@ -1637,6 +1900,70 @@ export const saveDraft = async (req, res) => {
           script.scriptCompletion || {}
         );
         script.markModified("scriptCompletion");
+      }
+      if (otherData.viewableScript !== undefined) {
+        script.viewableScript = Boolean(otherData.viewableScript);
+      }
+      if (otherData.scriptPreviewAccess !== undefined) {
+        script.scriptPreviewAccess = normalizeScriptPreviewAccess(otherData.scriptPreviewAccess || {}, {
+          mode: otherData.scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages",
+          start: otherData.scriptPreviewAccess?.start || script.scriptPreviewAccess?.start || 1,
+          end: otherData.scriptPreviewAccess?.end || script.scriptPreviewAccess?.end || 8,
+          // Clamp against the preview PAGES the window slices — not pageCount, which comes from a
+          // different estimator and, when it lagged (estimate 1, real pages 3), silently shrank the
+          // writer's saved window. Incoming texts first: they are assigned just below this call.
+          maxUnits: Number(
+            (Array.isArray(otherData.scriptPreviewPageTexts) && otherData.scriptPreviewPageTexts.length)
+            || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+            || script.pageCount
+            || 0
+          ),
+        });
+        script.markModified("scriptPreviewAccess");
+      }
+      if (otherData.scriptPreviewPageTexts !== undefined) {
+        script.scriptPreviewPageTexts = Array.isArray(otherData.scriptPreviewPageTexts)
+          ? otherData.scriptPreviewPageTexts.map((page) => String(page || ""))
+          : [];
+      }
+      // Same backfill as updateScript: a viewable editor script must never be left with no preview
+      // pages, since there is no PDF to fall back on.
+      if (script.viewableScript && !(script.scriptPreviewPageTexts || []).some((page) => String(page || "").trim())) {
+        const derived = derivePreviewPageTexts(script);
+        if (derived.length) {
+          script.scriptPreviewPageTexts = derived;
+          script.markModified("scriptPreviewPageTexts");
+        }
+      }
+      if (otherData.services !== undefined) {
+        const incomingServices = otherData.services || {};
+        script.services = {
+          hosting: incomingServices.hosting !== undefined ? Boolean(incomingServices.hosting) : true,
+          evaluation: Boolean(incomingServices.evaluation),
+          aiTrailer: Boolean(incomingServices.aiTrailer),
+          spotlight: Boolean(incomingServices.spotlight),
+        };
+        script.markModified("services");
+      }
+      if (otherData.filmDetails !== undefined) {
+        const incomingFilmDetails = otherData.filmDetails || {};
+        script.filmDetails = {
+          filmLanguage: String(incomingFilmDetails.filmLanguage || "").trim().slice(0, 100),
+          dialoguesPresent: ["yes", "no", "partial"].includes(incomingFilmDetails.dialoguesPresent)
+            ? incomingFilmDetails.dialoguesPresent
+            : (script.filmDetails?.dialoguesPresent || "yes"),
+          wantToDirect: Boolean(incomingFilmDetails.wantToDirect),
+          wantToProduce: Boolean(incomingFilmDetails.wantToProduce),
+          scriptStyle: Array.isArray(incomingFilmDetails.scriptStyle)
+            ? incomingFilmDetails.scriptStyle.map((style) => String(style || "")).filter(Boolean).slice(0, 8)
+            : [],
+        };
+        script.markModified("filmDetails");
+      }
+      if (otherData.premium !== undefined || otherData.price !== undefined) {
+        const nextPrice = Math.max(0, Number(otherData.price ?? script.price ?? 0) || 0);
+        script.premium = Boolean(otherData.premium) && nextPrice > 0;
+        script.price = script.premium ? nextPrice : 0;
       }
 
       if (otherData.legal !== undefined) {
@@ -1712,7 +2039,24 @@ export const saveDraft = async (req, res) => {
     }
 
     // Otherwise create a new draft
-    const { _id, id, sid, ...safeOtherData } = otherData || {};
+    const {
+      _id,
+      id,
+      sid,
+      fileUrl: submittedFileUrl,
+      scriptUrl: submittedScriptUrl,
+      fileGrant,
+      projectSource: ignoredProjectSource,
+      ...safeOtherData
+    } = otherData || {};
+    const submittedFile = resolveSubmittedScriptFile({
+      scriptUrl: submittedScriptUrl,
+      fileUrl: submittedFileUrl,
+      fileGrant,
+      ownerId: req.user._id,
+    });
+    safeOtherData.fileUrl = submittedFile.url;
+    safeOtherData.projectSource = submittedFile.url ? "uploaded" : "editor";
 
     if (safeOtherData.legal !== undefined) {
       const incomingLegal = safeOtherData.legal || {};
@@ -1735,6 +2079,13 @@ export const saveDraft = async (req, res) => {
       );
     }
 
+    if (safeOtherData.titlePage !== undefined) {
+      const tp = safeOtherData.titlePage && typeof safeOtherData.titlePage === "object" ? safeOtherData.titlePage : null;
+      const cleaned = {};
+      if (tp) for (const [k, v] of Object.entries(tp)) { if (k && String(v || "").trim()) cleaned[k] = String(v).slice(0, 300); }
+      safeOtherData.titlePage = Object.keys(cleaned).length ? cleaned : undefined;
+    }
+
     if (safeOtherData.scriptCompletion !== undefined) {
       const completionErrors = validateScriptCompletionPayload(safeOtherData.scriptCompletion || {});
       if (completionErrors.length > 0) {
@@ -1745,13 +2096,60 @@ export const saveDraft = async (req, res) => {
         {}
       );
     }
+    if (safeOtherData.viewableScript !== undefined) {
+      safeOtherData.viewableScript = Boolean(safeOtherData.viewableScript);
+    }
+    if (safeOtherData.scriptPreviewAccess !== undefined) {
+      safeOtherData.scriptPreviewAccess = normalizeScriptPreviewAccess(safeOtherData.scriptPreviewAccess || {}, {
+        mode: safeOtherData.scriptPreviewAccess?.mode || "pages",
+        start: safeOtherData.scriptPreviewAccess?.start || 1,
+        end: safeOtherData.scriptPreviewAccess?.end || 8,
+        maxUnits: Number(
+          (Array.isArray(safeOtherData.scriptPreviewPageTexts) && safeOtherData.scriptPreviewPageTexts.length)
+          || safeOtherData.pageCount
+          || 0
+        ),
+      });
+    }
+    if (safeOtherData.scriptPreviewPageTexts !== undefined) {
+      safeOtherData.scriptPreviewPageTexts = Array.isArray(safeOtherData.scriptPreviewPageTexts)
+        ? safeOtherData.scriptPreviewPageTexts.map((page) => String(page || ""))
+        : [];
+    }
+    if (safeOtherData.services !== undefined) {
+      const incomingServices = safeOtherData.services || {};
+      safeOtherData.services = {
+        hosting: incomingServices.hosting !== undefined ? Boolean(incomingServices.hosting) : true,
+        evaluation: Boolean(incomingServices.evaluation),
+        aiTrailer: Boolean(incomingServices.aiTrailer),
+        spotlight: Boolean(incomingServices.spotlight),
+      };
+    }
+    if (safeOtherData.filmDetails !== undefined) {
+      const incomingFilmDetails = safeOtherData.filmDetails || {};
+      safeOtherData.filmDetails = {
+        filmLanguage: String(incomingFilmDetails.filmLanguage || "").trim().slice(0, 100),
+        dialoguesPresent: ["yes", "no", "partial"].includes(incomingFilmDetails.dialoguesPresent)
+          ? incomingFilmDetails.dialoguesPresent
+          : "yes",
+        wantToDirect: Boolean(incomingFilmDetails.wantToDirect),
+        wantToProduce: Boolean(incomingFilmDetails.wantToProduce),
+        scriptStyle: Array.isArray(incomingFilmDetails.scriptStyle)
+          ? incomingFilmDetails.scriptStyle.map((style) => String(style || "")).filter(Boolean).slice(0, 8)
+          : [],
+      };
+    }
+    if (safeOtherData.premium !== undefined || safeOtherData.price !== undefined) {
+      const nextPrice = Math.max(0, Number(safeOtherData.price || 0) || 0);
+      safeOtherData.premium = Boolean(safeOtherData.premium) && nextPrice > 0;
+      safeOtherData.price = safeOtherData.premium ? nextPrice : 0;
+    }
 
     const newDraft = await Script.create({
       creator: req.user._id,
       title: title || "Untitled Draft",
       textContent: textContent || "",
       status: "draft",
-      projectSource: "editor",
       ...safeOtherData,
       contentType: getContentTypeFromFormat(safeOtherData.format, safeOtherData.contentType),
     });
@@ -1759,6 +2157,9 @@ export const saveDraft = async (req, res) => {
     res.status(201).json(newDraft);
   } catch (error) {
     console.error("[saveDraft] failed:", error.message);
+    if (error instanceof RemoteAssetPolicyError) {
+      return sendRemoteAssetError(res, error);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -1773,6 +2174,12 @@ export const deleteScript = async (req, res) => {
 
     if (script.isDeleted) {
       return res.json({ message: "Project already deleted", softDeleted: true });
+    }
+
+    // A submitted competition entry is evidence in a judged event — deleting it would leave the entry
+    // pointing at a dead script and let a writer withdraw after the deadline.
+    if (script.competitionLocked) {
+      return res.status(409).json({ message: "This script was submitted to a competition and cannot be deleted." });
     }
 
     const purchasedUserIds = await getPurchasedUserIdSet(script);
@@ -1826,7 +2233,25 @@ export const deleteScript = async (req, res) => {
 
 export const getMyDrafts = async (req, res) => {
   try {
-    const drafts = await Script.find({ creator: req.user._id, status: "draft", isDeleted: { $ne: true } })
+    // Include drafts the user co-writes (accepted, active collaborator) — otherwise an invited
+    // co-writer has no way back into the shared script after closing the editor.
+    const drafts = await Script.find({
+      status: "draft",
+      isDeleted: { $ne: true },
+      // A competition entry is reached from the challenge dashboard while the event is running, so
+      // it stays out of the normal drafts list. Once the competition releases it (results declared)
+      // it becomes an ordinary draft again and belongs here — otherwise the writer could not find
+      // the script they have just been given back.
+      $nor: [{ competitionId: { $ne: null }, competitionReleasedAt: null }],
+      $or: [
+        { creator: req.user._id },
+        {
+          collaborators: {
+            $elemMatch: { userId: req.user._id, status: "accepted", isActive: true },
+          },
+        },
+      ],
+    })
       .sort({ updatedAt: -1 })
       .lean();
     res.json(drafts);
@@ -1861,7 +2286,7 @@ export const getMyScripts = async (req, res) => {
 
     const scripts = await Script.find(query)
       .sort({ createdAt: -1 })
-      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt")
+      .select("_id title logline description synopsis genre contentType coverImage premium price views services scriptScore platformScore status adminApproved rejectionReason creator collaborators collabVisibility format formatOther billing promotion verifiedBadge createdAt publishedAt updatedAt")
   .populate("creator", "name profileImage username writerProfile.username")
       .lean();
 
@@ -1883,7 +2308,9 @@ export const getMyScripts = async (req, res) => {
           isCollaborator: !isCreatorOwned && Boolean(collaboratorEntry),
           collaboratorRole: collaboratorEntry?.role || null,
           collaboratorAccessLevel: collaboratorEntry?.accessLevel || null,
-          canEditScript: isCreatorOwned || collaboratorEntry?.role === "editor",
+          // Mirror PERMISSIONS.write (full_admin + editor) — hardcoding "editor" here dropped
+          // Co-owners, who do have write access, so their scripts looked read-only in this list.
+          canEditScript: isCreatorOwned || hasScriptPermission(script, req.user._id, "write"),
           canEditMetadata: isCreatorOwned,
         };
       })
@@ -1897,8 +2324,16 @@ export const getMyScripts = async (req, res) => {
 
 export const updateScript = async (req, res) => {
   try {
-    const script = await Script.findById(req.params.id);
+    const scriptObjectId = parseMongoObjectId(req.params.id);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
     if (!script) return res.status(404).json({ message: "Script not found" });
+
+    if (script.competitionLocked) {
+      return res.status(409).json({ message: "This script was submitted to a competition and is locked." });
+    }
 
     const isOwner = script.creator.toString() === req.user._id.toString();
     const canCollaboratorWrite = hasScriptPermission(script, req.user._id, "write");
@@ -1919,7 +2354,7 @@ export const updateScript = async (req, res) => {
     const {
       title, logline, format, pageCount, classification,
       formatOther,
-      scriptUrl, description, synopsis, textContent, fileUrl,
+      scriptUrl, description, synopsis, textContent, fileUrl, fileGrant,
       coverImage, genre, contentType, premium, price, roles, tags, budget, holdFee, services, legal, collabVisibility,
       scriptPreviewAccess,
       viewableScript,
@@ -1949,25 +2384,23 @@ export const updateScript = async (req, res) => {
       }
     }
 
-    const collaboratorSubmittedContentRevision = !isOwner
+    // Co-writers edit the shared script directly (live collaboration), so a content change from a
+    // non-owner is applied in place rather than parked as a revision for approval. Settings remain
+    // owner-only.
+    const collaboratorEditingContent = !isOwner
       && textContent !== undefined
       && String(textContent) !== String(script.textContent || "");
 
-    if (!isOwner && !collaboratorSubmittedContentRevision) {
+    if (!isOwner && !collaboratorEditingContent) {
       return res.status(403).json({
-        message: "Only the project owner can edit project settings. Collaborators can submit script-content revisions only.",
+        message: "Only the project owner can edit project settings. Collaborators can edit script content.",
       });
     }
 
-    if (collaboratorSubmittedContentRevision) {
+    if (collaboratorEditingContent) {
       if (!canCollaboratorWrite) {
         return res.status(403).json({ message: "Not authorized to edit script content" });
       }
-      const existingPending = await Revision.findOne({
-        scriptId: script._id,
-        authorId: req.user._id,
-        status: "pending_review",
-      });
     }
 
     if (!isContentOnlyCollaborator && !legal?.agreedToTerms) {
@@ -1975,8 +2408,12 @@ export const updateScript = async (req, res) => {
     }
 
     let normalizedRights = script.rightsLicensing || {};
+    // Declared out here because two separate `if (!isContentOnlyCollaborator)` blocks below both
+    // need it — scoping it to the first one made the second throw ReferenceError.
+    let resolvedPreviewPageTexts = [];
+
     if (!isContentOnlyCollaborator) {
-      let resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
+      resolvedPreviewPageTexts = Array.isArray(scriptPreviewPageTexts)
         ? scriptPreviewPageTexts.map((value) => String(value || "").trim())
         : [];
       if (!resolvedPreviewPageTexts.length && typeof scriptPreviewPageTexts === "string" && scriptPreviewPageTexts.trim()) {
@@ -1989,8 +2426,13 @@ export const updateScript = async (req, res) => {
           resolvedPreviewPageTexts = [];
         }
       }
+      const rawRightsLicensing = rightsLicensing || script.rightsLicensing || {};
+      const rightsValidationErrors = validateRightsLicensingPayload(rawRightsLicensing);
+      if (rightsValidationErrors.length > 0) {
+        return res.status(400).json({ message: rightsValidationErrors[0] });
+      }
       normalizedRights = normalizeRightsLicensingInput(
-        rightsLicensing || script.rightsLicensing || {},
+        rawRightsLicensing,
         script.rightsLicensing || {}
       );
       normalizedRights.legalAcknowledgement = {
@@ -1998,11 +2440,6 @@ export const updateScript = async (req, res) => {
         acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
         ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
       };
-
-      const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
-      if (rightsValidationErrors.length > 0) {
-        return res.status(400).json({ message: rightsValidationErrors[0] });
-      }
     }
 
     const completionValidationErrors = validateScriptCompletionPayload(
@@ -2012,8 +2449,8 @@ export const updateScript = async (req, res) => {
       return res.status(400).json({ message: completionValidationErrors[0] });
     }
 
-    if (logline !== undefined && String(logline).trim().length > 50) {
-      return res.status(400).json({ message: "Logline must be 50 characters or fewer" });
+    if (logline !== undefined && String(logline).trim().length > 500) {
+      return res.status(400).json({ message: "Logline must be 500 characters or fewer" });
     }
 
     if (format === "other" && !String(formatOther || script.formatOther || "").trim()) {
@@ -2048,16 +2485,31 @@ export const updateScript = async (req, res) => {
           maxUnits: Number(
             String(scriptPreviewAccess?.mode || script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || Number(pageCount || 0) || 0)
+              : (resolvedPreviewPageTexts.length
+                || (Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount
+                || Number(pageCount || 0)
+                || 0)
           ),
         });
         script.markModified("scriptPreviewAccess");
       }
-      const realUrl = scriptUrl || fileUrl;
-      if (realUrl && !realUrl.includes("placeholder-url.com")) script.fileUrl = realUrl;
+      const fileReferenceSubmitted = scriptUrl !== undefined || fileUrl !== undefined;
+      const submittedFile = resolveSubmittedScriptFile({
+        scriptUrl,
+        fileUrl,
+        fileGrant,
+        ownerId: req.user._id,
+        currentUrl: script.fileUrl,
+      });
+      const realUrl = submittedFile.url;
+      if (fileReferenceSubmitted) {
+        script.fileUrl = realUrl;
+        script.projectSource = realUrl ? "uploaded" : "editor";
+      }
       if (scriptPreviewPageTexts !== undefined) {
         script.scriptPreviewPageTexts = resolvedPreviewPageTexts;
-      } else if (!resolvedPreviewPageTexts.length && realUrl && !realUrl.includes("placeholder-url.com")) {
+      } else if (!resolvedPreviewPageTexts.length && fileReferenceSubmitted && realUrl) {
         try {
           const extraction = await extractTextFromPdfUrl(realUrl);
           if (Array.isArray(extraction?.pageTexts) && extraction.pageTexts.length > 0) {
@@ -2071,6 +2523,17 @@ export const updateScript = async (req, res) => {
           }
         } catch (error) {
           console.warn("[updateScript] Failed to refresh preview page texts:", error?.message || error);
+        }
+      }
+
+      // Editor-authored scripts have no PDF to extract from, so if the client never sent preview
+      // pages the script would end up viewable with nothing to show. Derive them from the
+      // screenplay text using the same line-based pagination the editor and PDF use.
+      if (script.viewableScript && !(script.scriptPreviewPageTexts || []).some((page) => String(page || "").trim())) {
+        const derived = derivePreviewPageTexts(script);
+        if (derived.length) {
+          script.scriptPreviewPageTexts = derived;
+          script.markModified("scriptPreviewPageTexts");
         }
       }
       if (coverImage !== undefined) script.coverImage = coverImage;
@@ -2170,90 +2633,6 @@ export const updateScript = async (req, res) => {
       script.markModified("rightsLicensing");
     }
 
-    if (collaboratorSubmittedContentRevision) {
-      await script.save();
-      const existingPending = await Revision.findOne({
-        scriptId: script._id,
-        authorId: req.user._id,
-        status: "pending_review",
-      });
-
-      let revision = existingPending;
-      const baseContent = String(script.textContent || "");
-      const nextContent = String(textContent || "");
-      const wasResubmitted = Boolean(existingPending);
-
-      if (revision) {
-        revision.baseContent = baseContent;
-        revision.content = nextContent;
-        revision.sectionRef = "textContent";
-        revision.reviewNote = "";
-        revision.reviewerId = null;
-        revision.reviewedAt = null;
-        await revision.save();
-      } else {
-        revision = await Revision.create({
-          scriptId: script._id,
-          authorId: req.user._id,
-          baseContent,
-          content: nextContent,
-          sectionRef: "textContent",
-          status: "pending_review",
-        });
-      }
-
-      const owner = await User.findById(getScriptOwnerId(script)).select("_id name email");
-      const editorIds = (Array.isArray(script.collaborators) ? script.collaborators : [])
-        .filter((collab) =>
-          collab?.isActive === true
-          && collab?.status === "accepted"
-          && collab?.role === "editor"
-          && normalizeObjectId(collab?.userId) !== normalizeObjectId(req.user._id)
-        )
-        .map((collab) => collab.userId);
-      const editors = editorIds.length
-        ? await User.find({ _id: { $in: editorIds } }).select("_id name email")
-        : [];
-      const recipients = [...(owner ? [owner] : []), ...editors].filter((recipient, index, list) =>
-        normalizeObjectId(recipient?._id)
-        && list.findIndex((entry) => normalizeObjectId(entry?._id) === normalizeObjectId(recipient?._id)) === index
-      );
-
-      await Promise.all(recipients.map((recipient) =>
-        Notification.create({
-          user: recipient._id,
-          type: "revision_update",
-          from: req.user._id,
-          script: script._id,
-          message: `A revision for ${script.title} is ready for review.`,
-        })
-      ));
-
-      emitScriptEvent(req, script._id, "revision_submitted", { revisionId: revision._id });
-      recipients.forEach((recipient) => {
-        emitNotification(req, recipient._id, "revision_submitted", {
-          revisionId: revision._id,
-          scriptId: script._id,
-          sectionRef: "textContent",
-        });
-      });
-
-      await createAuditEntry(script._id, req.user._id, wasResubmitted ? "revision_resubmitted" : "revision_submitted", {
-        revisionId: revision._id,
-        sectionRef: "textContent",
-        source: "script_update",
-      });
-
-      return res.json({
-        ...script.toObject(),
-        revisionSubmitted: true,
-        revisionId: revision._id,
-        updatedExisting: wasResubmitted,
-        message: wasResubmitted
-          ? "Your pending revision was updated and sent back for review."
-          : "Revision submitted for review. The owner can approve and merge it into the current script.",
-      });
-    }
 
     // Publishing layer fields
     if (!isContentOnlyCollaborator && targetIndustry !== undefined) {
@@ -2385,6 +2764,9 @@ export const updateScript = async (req, res) => {
       }
     })();
   } catch (error) {
+    if (error instanceof RemoteAssetPolicyError) {
+      return sendRemoteAssetError(res, error);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -2422,6 +2804,7 @@ export const uploadScript = async (req, res) => {
       textContent,
       fountainContent,
       fileUrl,
+      fileGrant,
       scriptPreviewPageTexts,
       coverImage,
       genre,
@@ -2435,6 +2818,37 @@ export const uploadScript = async (req, res) => {
       holdFee,
       filmDetails,
     } = req.body;
+
+    let existingDraft = null;
+    const hasScriptId = scriptId !== undefined && scriptId !== null && scriptId !== "";
+    const draftObjectId = hasScriptId ? parseMongoObjectId(scriptId) : null;
+    if (hasScriptId && !draftObjectId) {
+      return res.status(400).json({ message: "Invalid draft ID." });
+    }
+    if (draftObjectId) {
+      existingDraft = await Script.findOne({
+        _id: { $eq: draftObjectId },
+        creator: { $eq: req.user._id },
+      });
+      if (!existingDraft) {
+        return res.status(404).json({ message: "Draft not found" });
+      }
+      if (existingDraft.isDeleted) {
+        return res.status(410).json({ message: "This draft was deleted and cannot be published." });
+      }
+      if (existingDraft.status !== "draft") {
+        return res.status(409).json({ message: "This project is already submitted." });
+      }
+    }
+
+    const submittedFile = resolveSubmittedScriptFile({
+      scriptUrl,
+      fileUrl,
+      fileGrant,
+      ownerId: req.user._id,
+      currentUrl: existingDraft?.fileUrl || "",
+      validateStored: true,
+    });
 
     let resolvedTextContent = typeof textContent === "string" ? textContent : "";
     let resolvedPageCount = Number(pageCount) || 0;
@@ -2451,7 +2865,7 @@ export const uploadScript = async (req, res) => {
         resolvedPreviewPageTexts = [];
       }
     }
-    const uploadedScriptUrl = scriptUrl || fileUrl || "";
+    const uploadedScriptUrl = submittedFile.url;
 
     if (uploadedScriptUrl && (!resolvedTextContent.trim() || !resolvedPageCount || !resolvedPreviewPageTexts.length)) {
       try {
@@ -2470,28 +2884,17 @@ export const uploadScript = async (req, res) => {
       }
     }
 
-    // Enforce Writer limits for new uploads
-    if (!scriptId && ["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      const existingScriptCount = await Script.countDocuments({ creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } });
-      
-      let limit = 1;
-      let requiredPlan = "silver";
-      
-      if (plan === "silver") {
-        limit = 8;
-        requiredPlan = "gold";
-      } else if (plan === "gold" || plan === "pro" || plan === "premium") {
-        limit = 20;
-        requiredPlan = "custom";
+    // Enforce Writer limits for new uploads (shared rule — see utils/scriptLimits.js)
+    if (!draftObjectId && writerLimitApplies(req.user.role)) {
+      const cycleStart = getScriptUploadCycleStart(req.user);
+      const usedQuery = { creator: req.user._id, status: { $ne: "draft" }, isDeleted: { $ne: true } };
+      if (cycleStart) {
+        usedQuery.createdAt = { $gte: cycleStart };
       }
-
-      if (existingScriptCount >= limit) {
-        return res.status(402).json({
-          message: `You have reached your ${plan === 'free' ? 'Free Tier' : 'current plan'} limit of ${limit} script${limit > 1 ? 's' : ''}. Please upgrade your plan to upload more scripts.`,
-          limitReached: true,
-          requiredPlan,
-        });
+      const used = await Script.countDocuments(usedQuery);
+      const status = buildScriptLimitStatus(req.user.subscription?.plan, used, { verb: "upload" });
+      if (status.limitReached) {
+        return res.status(402).json({ message: status.message, limitReached: true, requiredPlan: status.requiredPlan });
       }
     }
 
@@ -2499,8 +2902,8 @@ export const uploadScript = async (req, res) => {
     if (!title) {
       return res.status(400).json({ message: "Title is required" });
     }
-    if (logline !== undefined && String(logline).trim().length > 50) {
-      return res.status(400).json({ message: "Logline must be 50 characters or fewer" });
+    if (logline !== undefined && String(logline).trim().length > 500) {
+      return res.status(400).json({ message: "Logline must be 500 characters or fewer" });
     }
     if (format === "other" && !String(formatOther || "").trim()) {
       return res.status(400).json({ message: "Please specify the format when selecting Other." });
@@ -2508,7 +2911,7 @@ export const uploadScript = async (req, res) => {
     if (!synopsis || String(synopsis).trim().length === 0) {
       return res.status(400).json({ message: "Synopsis is required" });
     }
-    if (!scriptUrl && !fileUrl && !resolvedTextContent) {
+    if (!uploadedScriptUrl && !resolvedTextContent) {
       return res.status(400).json({ message: "Script file or text content is required" });
     }
     const ageRangeError = getInvalidRoleAgeRangeMessage(roles);
@@ -2521,17 +2924,17 @@ export const uploadScript = async (req, res) => {
       return res.status(400).json({ message: `Custom investor terms must be ${MAX_CUSTOM_INVESTOR_TERMS_LENGTH} characters or fewer.` });
     }
 
+    const rightsValidationErrors = validateRightsLicensingPayload(rightsLicensing || {});
+    if (rightsValidationErrors.length > 0) {
+      return res.status(400).json({ message: rightsValidationErrors[0] });
+    }
+
     const normalizedRights = normalizeRightsLicensingInput(rightsLicensing || {}, {});
     normalizedRights.legalAcknowledgement = {
       ...(normalizedRights.legalAcknowledgement || {}),
       acknowledgedAt: normalizedRights?.legalAcknowledgement?.acknowledgedAt || new Date(),
       ipAddress: normalizedRights?.legalAcknowledgement?.ipAddress || getRequestIpAddress(req),
     };
-
-    const rightsValidationErrors = validateRightsLicensingPayload(normalizedRights);
-    if (rightsValidationErrors.length > 0) {
-      return res.status(400).json({ message: rightsValidationErrors[0] });
-    }
 
     const completionValidationErrors = validateScriptCompletionPayload(scriptCompletion || {});
     if (completionValidationErrors.length > 0) {
@@ -2544,7 +2947,8 @@ export const uploadScript = async (req, res) => {
       maxUnits: Number(
         String(scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
           ? (scriptCompletion?.totalParts || 0)
-          : (pageCount || resolvedPageCount || 0)
+          : ((Array.isArray(scriptPreviewPageTexts) && scriptPreviewPageTexts.length)
+            || pageCount || resolvedPageCount || 0)
       ),
     });
     const viewableScriptEnabled = Boolean(viewableScript);
@@ -2564,7 +2968,7 @@ export const uploadScript = async (req, res) => {
     }
 
 
-    const inferredProjectSource = (scriptUrl || fileUrl) ? "uploaded" : "editor";
+    const inferredProjectSource = uploadedScriptUrl ? "uploaded" : "editor";
 
     // Build the script document
     const scriptData = {
@@ -2577,7 +2981,7 @@ export const uploadScript = async (req, res) => {
       fullContent,
       textContent: resolvedTextContent,
       fountainContent: typeof fountainContent === "string" ? fountainContent : undefined,
-      fileUrl: scriptUrl || fileUrl,
+      fileUrl: uploadedScriptUrl,
       pageCount: resolvedPageCount,
       viewableScript: viewableScriptEnabled,
       scriptPreviewPageTexts: resolvedPreviewPageTexts,
@@ -2695,27 +3099,7 @@ export const uploadScript = async (req, res) => {
 
     let script;
 
-    if (scriptId) {
-      const existingDraft = await Script.findById(scriptId);
-
-      if (!existingDraft) {
-        return res.status(404).json({ message: "Draft not found" });
-      }
-
-      if (existingDraft.creator.toString() !== req.user._id.toString()) {
-        return res.status(403).json({ message: "Not authorized to publish this draft" });
-      }
-
-      if (existingDraft.isDeleted) {
-        return res.status(410).json({ message: "This draft was deleted and cannot be published." });
-      }
-
-      if (existingDraft.status !== "draft") {
-        return res.status(409).json({ message: "This project is already submitted." });
-      }
-
-      scriptData.projectSource = existingDraft.projectSource || inferredProjectSource;
-
+    if (draftObjectId) {
       existingDraft.set(scriptData);
       script = await existingDraft.save();
     } else {
@@ -2804,6 +3188,9 @@ export const uploadScript = async (req, res) => {
     })();
   } catch (error) {
     console.error("Script upload error:", error);
+    if (error instanceof RemoteAssetPolicyError) {
+      return sendRemoteAssetError(res, error);
+    }
     res.status(500).json({ message: error.message });
   }
 };
@@ -2958,12 +3345,7 @@ export const getScriptSubmissionSummaryPdf = async (req, res) => {
       return res.status(404).json({ message: "Submission summary PDF not available." });
     }
 
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      return res.status(502).json({ message: "Failed to fetch submission summary PDF from storage." });
-    }
-
-    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const fileBuffer = await fetchTrustedPdfBuffer(pdfUrl);
     const shouldDownload = String(req.query.download || "") === "1";
     const disposition = shouldDownload ? "attachment" : "inline";
     const filename = sanitizePdfFileName(`${script.title || "script"}-submission-summary.pdf`);
@@ -3000,12 +3382,7 @@ export const getPurchaseRequestAcceptancePdf = async (req, res) => {
       return res.status(404).json({ message: "Acceptance PDF not available." });
     }
 
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      return res.status(502).json({ message: "Failed to fetch acceptance PDF from storage." });
-    }
-
-    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const fileBuffer = await fetchTrustedPdfBuffer(pdfUrl);
     const shouldDownload = String(req.query.download || "") === "1";
     const disposition = shouldDownload ? "attachment" : "inline";
 
@@ -3035,9 +3412,14 @@ export const getScriptPdf = async (req, res) => {
       return res.status(404).json({ message: "Script not found" });
     }
 
+    // Accepted collaborators are exempt from the marketplace business-email/plan gate on the script
+    // they were invited to (see the same carve-out in getScriptById).
+    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
+
     if (
       isIndustryProfessionalWithPersonalEmail(req.user) &&
       !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      !canCollaboratorRead &&
       String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
     ) {
       return res.status(403).json({
@@ -3050,7 +3432,6 @@ export const getScriptPdf = async (req, res) => {
     const isAdmin = req.user.role === "admin";
     const collaboratorRole = resolveScriptRole(script, req.user._id);
     const isAcceptedCollaborator = !isOwner && Boolean(collaboratorRole);
-    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
     let isBuyer = hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
 
     if (!isBuyer) {
@@ -3078,18 +3459,12 @@ export const getScriptPdf = async (req, res) => {
       return res.status(404).json({ message: "PDF file not available." });
     }
 
-    const pdfResponse = await fetch(pdfUrl);
-    if (!pdfResponse.ok) {
-      return res.status(502).json({ message: "Failed to fetch script PDF from storage." });
-    }
-
-    const contentType = pdfResponse.headers.get("content-type") || "application/pdf";
-    const fileBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+    const fileBuffer = await fetchTrustedPdfBuffer(pdfUrl);
     const shouldDownload = String(req.query.download || "") === "1";
     const disposition = shouldDownload ? "attachment" : "inline";
     const filename = sanitizePdfFileName(`${script.title || "script"}-full.pdf`);
 
-    res.setHeader("Content-Type", contentType.includes("pdf") ? contentType : "application/pdf");
+    res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `${disposition}; filename="${filename}"`);
     return res.send(fileBuffer);
   } catch (error) {
@@ -3113,13 +3488,21 @@ export const getScriptById = async (req, res) => {
 
     const script = await Script.findById(scriptId)
       .populate("creator", "name email phone profileImage role bio followers username writerProfile.username writerProfile.links")
+      // Credits link to profiles where the credited person is a Ckript user (non-users stay name-only).
+      .populate("writers.userId", "name profileImage username writerProfile.username")
       .populate("heldBy", "name role");
 
     if (!script) return res.status(404).json({ message: "Script not found" });
 
+    // Someone explicitly invited onto THIS script keeps access regardless of the business-email/plan
+    // gate below — that gate exists to stop industry pros browsing the marketplace, not to lock out
+    // an accepted collaborator from the one script they were invited to.
+    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
+
     if (
       isIndustryProfessionalWithPersonalEmail(req.user) &&
       !hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      !canCollaboratorRead &&
       String(script.creator?._id || script.creator || "") !== String(req.user?._id || "")
     ) {
       return res.status(403).json({
@@ -3140,7 +3523,6 @@ export const getScriptById = async (req, res) => {
     const isAdmin = req.user.role === "admin";
     const collaboratorRole = resolveScriptRole(script, req.user._id);
     const isAcceptedCollaborator = !isOwner && Boolean(collaboratorRole);
-    const canCollaboratorRead = hasScriptPermission(script, req.user._id, "read");
     const canCollaboratorWrite = hasScriptPermission(script, req.user._id, "write");
     let isBuyer = hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
 
@@ -3158,6 +3540,14 @@ export const getScriptById = async (req, res) => {
     }
 
     if (script.status === "draft" && !isOwner && !canCollaboratorRead && !isAdmin) {
+      const pendingCollab = script.collaborators?.find((c) =>
+        String(c.userId?._id || c.userId || "") === String(req.user._id) &&
+        c.status === "pending" &&
+        c.isActive !== false
+      );
+      if (pendingCollab) {
+        return res.status(403).json({ message: "Invitation pending", reason: "pending_invite" });
+      }
       return res.status(403).json({ message: "This draft is private" });
     }
 
@@ -3276,7 +3666,17 @@ export const getScriptById = async (req, res) => {
     const userRole = req.user.role;
     const isWriter = userRole === 'writer' || userRole === 'creator';
     const canPurchase = !canCollaboratorRead && ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);
-    const hasViewablePreview = hasViewableScriptPreview(script);
+    let hasViewablePreview = hasViewableScriptPreview(script);
+    
+    // Explicit block for Free FIPs with personal email
+    if (
+      !canViewFullScript &&
+      hasActiveFilmIndustryProfessionalAccess(req.user) &&
+      (req.user.subscription?.plan || "free") === "free" &&
+      !hasBusinessEmail(req.user.email)
+    ) {
+      hasViewablePreview = false;
+    }
     const normalizedPreviewAccess = hasViewablePreview
       ? normalizeScriptPreviewAccess(script.scriptPreviewAccess || {}, {
           mode: script.scriptPreviewAccess?.mode || "pages",
@@ -3285,7 +3685,8 @@ export const getScriptById = async (req, res) => {
           maxUnits: Number(
             String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || 0)
+              : ((Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount || 0)
           ),
         })
       : null;
@@ -3592,7 +3993,8 @@ export const getPublicScriptById = async (req, res) => {
           maxUnits: Number(
             String(script.scriptPreviewAccess?.mode || "pages").toLowerCase() === "episodes"
               ? (script.scriptCompletion?.totalParts || 0)
-              : (script.pageCount || 0)
+              : ((Array.isArray(script.scriptPreviewPageTexts) && script.scriptPreviewPageTexts.length)
+                || script.pageCount || 0)
           ),
         })
       : null;
@@ -4583,9 +4985,9 @@ export const getTopScripts = async (req, res) => {
     const now = new Date();
     const blockedUserIds = await getBlockedUserIdsForViewer(req.user._id);
     const sortBy = req.query.sort || "rating";
-    let sortObj = { rating: -1 };
-    if (sortBy === "reads") sortObj = { readsCount: -1 };
-    if (sortBy === "purchases") sortObj = { "unlockedBy": -1 };
+    let sortObj = { rating: -1, _id: -1 };
+    if (sortBy === "reads") sortObj = { readsCount: -1, _id: -1 };
+    if (sortBy === "purchases") sortObj = { "unlockedBy": -1, _id: -1 };
     const query = { ...PUBLIC_SCRIPT_FILTER };
     if (blockedUserIds.length > 0) {
       query.creator = { $nin: blockedUserIds };
@@ -4606,6 +5008,7 @@ export const getTopScripts = async (req, res) => {
           $or: [
             { "creatorDoc.role": { $ne: "writer" } },
             { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.subscription.accessTier": { $in: ["writer_silver", "writer_gold"] } },
           ],
         },
       },
@@ -5051,6 +5454,7 @@ export const getTopList = async (req, res) => {
           $or: [
             { "creatorDoc.role": { $ne: "writer" } },
             { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.subscription.accessTier": { $in: ["writer_silver", "writer_gold"] } },
           ],
         },
       },
@@ -5118,11 +5522,11 @@ export const getTopList = async (req, res) => {
     ];
 
     // Sort based on tab
-    if (sort === "trending") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, trendScore: -1 } });
-    else if (sort === "featured") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, engagementScore: -1, trendScore: -1 } });
-    else if (sort === "score") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, "scriptScore.overall": -1 } });
-    else if (sort === "views") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, views: -1 } });
-    else pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, platformScore: -1 } }); // default: platform
+    if (sort === "trending") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, trendScore: -1, _id: -1 } });
+    else if (sort === "featured") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, engagementScore: -1, trendScore: -1, _id: -1 } });
+    else if (sort === "score") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, "scriptScore.overall": -1, _id: -1 } });
+    else if (sort === "views") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, views: -1, _id: -1 } });
+    else pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, platformScore: -1, _id: -1 } }); // default: platform
 
     // Populate creator
     pipeline.push({
@@ -5320,10 +5724,16 @@ export const createScriptPurchaseOrder = async (req, res) => {
       });
     }
 
-    // Create Razorpay order after writer approval
-    const options = {
-      amount: Math.round(pricing.totalAmount * 100),
-      currency: "INR",
+    // Create Razorpay order after writer approval. The INR total is server-authoritative; only the
+    // buyer's currency is taken from the client, then converted live (with an INR fallback if a USD
+    // order is rejected by the gateway).
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    const { amount: chargeMajor, fxRate } = await convertInrToCurrency(pricing.totalAmount, currency);
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, currency),
+      currency,
+      inrAmount: Math.round(pricing.totalAmount * 100),
       receipt: `script_purchase_${Date.now()}`,
       notes: {
         userId: req.user._id.toString(),
@@ -5331,21 +5741,19 @@ export const createScriptPurchaseOrder = async (req, res) => {
         scriptTitle: script.title,
         creatorId: script.creator._id.toString(),
         purchaseRequestId: purchaseRequest._id.toString(),
-        baseAmount: pricing.baseAmount.toFixed(2),
-        platformTaxPercent: String(pricing.platformTaxPercent),
-        platformTaxAmount: pricing.platformTaxAmount.toFixed(2),
-        totalAmount: pricing.totalAmount.toFixed(2),
+        baseAmountInr: pricing.baseAmount.toFixed(2),
+        totalAmountInr: pricing.totalAmount.toFixed(2),
+        fxRate: String(fxRate),
         type: "script_purchase_after_approval",
       }
-    };
-
-    const razorpay = getRazorpay();
-    const order = await razorpay.orders.create(options);
+    });
 
     res.json({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      fxRate,
+      fellBackToINR,
       keyId: process.env.RAZORPAY_KEY_ID,
       scriptDetails: {
         id: script._id,
@@ -5365,6 +5773,58 @@ export const createScriptPurchaseOrder = async (req, res) => {
   } catch (error) {
     console.error("Razorpay order creation error:", error);
     res.status(500).json({ message: "Failed to create payment order", error: error.message });
+  }
+};
+
+// Convert an INR pricing breakdown into the buyer's currency for DISPLAY (no order created). base+tax
+// are each converted then tax is derived as total−base so the parts always sum to the total.
+const buildCurrencyQuote = async (pricing, currency) => {
+  const { amount: totalAmount, fxRate } = await convertInrToCurrency(pricing.totalAmount, currency);
+  const { amount: baseAmount } = await convertInrToCurrency(pricing.baseAmount, currency);
+  const platformTaxAmount = Math.round((totalAmount - baseAmount) * 100) / 100;
+  return {
+    currency,
+    fxRate,
+    baseAmount,
+    platformTaxAmount,
+    totalAmount,
+    platformTaxPercent: pricing.platformTaxPercent,
+    baseAmountInr: pricing.baseAmount,
+    totalAmountInr: pricing.totalAmount,
+  };
+};
+
+// @desc    Price quote for a script PURCHASE in the buyer's currency (display only; no order created)
+// @route   POST /api/scripts/purchase/quote
+// @access  Private
+export const getScriptPurchaseQuote = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const script = await Script.findById(scriptId).select("price title");
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    const pricing = getScriptPurchasePricing(Math.max(0, Number(script.price || 0)));
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    return res.json(await buildCurrencyQuote(pricing, currency));
+  } catch (error) {
+    console.error("Purchase quote error:", error);
+    return res.status(500).json({ message: "Failed to get price quote" });
+  }
+};
+
+// @desc    Price quote for a script HOLD in the buyer's currency (display only; no order created)
+// @route   POST /api/scripts/hold/quote
+// @access  Private
+export const getScriptHoldQuote = async (req, res) => {
+  try {
+    const { scriptId } = req.body;
+    const script = await Script.findById(scriptId).select("holdFee title");
+    if (!script) return res.status(404).json({ message: "Script not found" });
+    const pricing = getScriptPurchasePricing(Number(script.holdFee || 200));
+    const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
+    return res.json(await buildCurrencyQuote(pricing, currency));
+  } catch (error) {
+    console.error("Hold quote error:", error);
+    return res.status(500).json({ message: "Failed to get price quote" });
   }
 };
 
@@ -5768,12 +6228,18 @@ export const verifyScriptPurchase = async (req, res) => {
       writerDoc.wallet.totalEarnings = (writerDoc.wallet.totalEarnings || 0) + pricing.baseAmount;
       await writerDoc.save();
 
+      // What the buyer was actually charged (their currency); the writer payout below stays INR.
+      const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+
       await Transaction.create([
         {
           user: req.user._id,
           type: "payment",
-          amount: -pricing.totalAmount,
-          currency: "INR",
+          amount: -charge.chargedTotal,
+          currency: charge.currency,
+          baseCurrency: "INR",
+          baseAmount: -pricing.totalAmount,
+          fxRate: charge.fxRate,
           status: "completed",
           description: `Purchased script after approval: "${script.title}"`,
           reference: `PRP-RZP-${razorpay_payment_id}`,
@@ -6063,31 +6529,34 @@ export const createScriptHoldOrder = async (req, res) => {
     const holdFee = script.holdFee || 200;
     const holdPricing = getScriptPurchasePricing(holdFee);
 
-    // Create Razorpay order
-    const options = {
-      amount: Math.round(holdPricing.totalAmount * 100), // Amount in paise (INR)
-      currency: "INR",
+    // Create Razorpay order. INR total is server-authoritative; buyer currency converted live (with
+    // an INR fallback if a USD order is rejected).
+    const currency = resolveCurrency(req.body?.currency, user?.preferredCurrency);
+    const { amount: chargeMajor, fxRate } = await convertInrToCurrency(holdPricing.totalAmount, currency);
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, currency),
+      currency,
+      inrAmount: Math.round(holdPricing.totalAmount * 100),
       receipt: `script_hold_${Date.now()}`,
       notes: {
         userId: req.user._id.toString(),
         scriptId: scriptId,
         scriptTitle: script.title,
         creatorId: script.creator._id.toString(),
-        holdFee: holdPricing.baseAmount,
-        buyerCommissionPercent: String(holdPricing.platformTaxPercent),
-        buyerCommissionAmount: holdPricing.platformTaxAmount.toFixed(2),
-        totalAmount: holdPricing.totalAmount.toFixed(2),
+        holdFeeInr: holdPricing.baseAmount,
+        totalAmountInr: holdPricing.totalAmount.toFixed(2),
+        fxRate: String(fxRate),
         type: "script_hold"
       }
-    };
-
-    const razorpay = getRazorpay();
-    const order = await razorpay.orders.create(options);
+    });
 
     res.json({
       orderId: order.id,
       amount: order.amount,
       currency: order.currency,
+      fxRate,
+      fellBackToINR,
       keyId: process.env.RAZORPAY_KEY_ID,
       scriptDetails: {
         id: script._id,
@@ -6190,12 +6659,19 @@ export const verifyScriptHold = async (req, res) => {
 
     const reference = `SCRIPT-HOLD-${razorpay_payment_id}`;
 
+    // The buyer may have paid in a non-INR currency; read what was actually charged from the order so
+    // the buyer transaction records the real currency/amount. Creator payout stays INR (see below).
+    const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+
     // Create transaction record for holder (payment)
     await Transaction.create({
       user: req.user._id,
       type: "payment",
-      amount: -pricing.totalAmount,
-      currency: "INR",
+      amount: -charge.chargedTotal,
+      currency: charge.currency,
+      baseCurrency: "INR",
+      baseAmount: -pricing.totalAmount,
+      fxRate: charge.fxRate,
       status: "completed",
       description: `Placed hold on script: "${script.title}" (30 days)`,
       reference,
@@ -6207,7 +6683,7 @@ export const verifyScriptHold = async (req, res) => {
         holdEndDate: endDate,
         buyerCommissionAmount: platformCut,
         creatorPayout,
-        totalPaid: pricing.totalAmount,
+        totalPaidInr: pricing.totalAmount,
       }
     });
 
@@ -6480,67 +6956,127 @@ export const uploadScriptPitchVideo = async (req, res) => {
 };
 
 // ── Writer Requests AI Trailer from Platform ──
-export const requestScriptAITrailer = async (req, res) => {
+// Writer Feedback for Platform AI Trailer
+export const createScriptTrailerOrder = async (req, res) => {
   try {
     const scriptId = req.params.id;
-    const { note } = req.body || {};
+    const { duration, quality, format, currency } = req.body || {};
+
+    const script = await Script.findById(scriptId).populate("creator", "_id name");
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
+
+    const creatorId = String(script.creator?._id || script.creator || "");
+    if (creatorId !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
+    }
+
+    if (script.trailerStatus === "ready" && (script.trailerUrl || script.uploadedTrailerUrl)) {
+      return res.status(400).json({ message: "AI trailer is already ready for this script" });
+    }
+
+    const selectedDuration = String(duration || "").trim();
+    const selectedQuality = String(quality || "").trim();
+    const selectedFormat = normalizeTrailerLayout(format);
+    const pricing = getTrailerPackagePricing(selectedDuration, selectedQuality);
+
+    if (!pricing.inr || !pricing.usd) {
+      return res.status(400).json({ message: "Invalid trailer package selected" });
+    }
+
+    const buyerCurrency = resolveCurrency(currency, req.user?.preferredCurrency);
+    const chargeMajor = buyerCurrency === "USD" ? pricing.usd : pricing.inr;
+    const razorpay = getRazorpay();
+    const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
+      amount: toSubunits(chargeMajor, buyerCurrency),
+      currency: buyerCurrency,
+      inrAmount: toSubunits(pricing.inr, "INR"),
+      receipt: `trailer_${script._id.toString().slice(-8)}_${Date.now()}`,
+      notes: {
+        userId: req.user._id.toString(),
+        scriptId: script._id.toString(),
+        scriptTitle: script.title,
+        creatorId: script.creator._id.toString(),
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        type: "script_ai_trailer",
+      },
+    });
+
+    return res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      key: process.env.RAZORPAY_KEY_ID,
+      keyId: process.env.RAZORPAY_KEY_ID,
+      fellBackToINR,
+      pricing,
+      selection: {
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+      },
+    });
+  } catch (error) {
+    console.error("Trailer order creation error:", error);
+    return res.status(500).json({ message: error.message || "Failed to create trailer payment order" });
+  }
+};
+
+export const verifyScriptTrailerPayment = async (req, res) => {
+  try {
+    const scriptId = req.params.id;
+    const {
+      note,
+      duration,
+      quality,
+      format,
+      currency,
+      amount,
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body || {};
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ message: "Missing payment details" });
+    }
+
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ message: "Payment system not configured" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: "Payment verification failed - Invalid signature" });
+    }
 
     const script = await Script.findById(scriptId);
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
 
-    if (script.creator.toString() !== req.user._id.toString()) {
+    const creatorId = String(script.creator?._id || script.creator || "");
+    if (creatorId !== req.user._id.toString()) {
       return res.status(403).json({ message: "Only the script creator can request an AI trailer" });
     }
 
-    if (script.trailerStatus === "ready" && script.trailerUrl) {
+    if (script.trailerStatus === "ready" && (script.trailerUrl || script.uploadedTrailerUrl)) {
       return res.status(400).json({ message: "AI trailer is already ready for this script" });
     }
 
-    const alreadyPaid = Boolean(
-      script.services?.aiTrailer || Number(script.billing?.spotlightCreditsChargedAtUpload || 0) > 0
-    );
-
-    if (!alreadyPaid) {
-      const user = await User.findById(req.user._id);
-      const requiredCredits = CREDIT_PRICES.AI_TRAILER;
-      const userBalance = user?.credits?.balance || 0;
-
-      if (userBalance < requiredCredits) {
-        return res.status(402).json({
-          message: `Insufficient credits. AI Trailer generation requires ${requiredCredits} credits.`,
-          requiresCredits: true,
-          required: requiredCredits,
-          balance: userBalance,
-          shortfall: requiredCredits - userBalance,
-        });
-      }
-
-      user.credits.balance -= requiredCredits;
-      user.credits.totalSpent += requiredCredits;
-      user.credits.transactions.push({
-        type: "spent",
-        amount: -requiredCredits,
-        description: `AI Trailer generation for "${script.title}"`,
-        reference: `TRAILER-${Date.now().toString(36).toUpperCase()}`,
-        createdAt: new Date(),
-      });
-      await user.save();
-
-      const currentBilling = script.billing || {};
-      script.billing = {
-        ...currentBilling,
-        evaluationCreditsCharged: Number(currentBilling.evaluationCreditsCharged || 0),
-        aiTrailerCreditsCharged: Number(currentBilling.aiTrailerCreditsCharged || 0) + requiredCredits,
-        evaluationCreditsRefunded: Number(currentBilling.evaluationCreditsRefunded || 0),
-        aiTrailerCreditsRefunded: Number(currentBilling.aiTrailerCreditsRefunded || 0),
-        spotlightCreditsSpent: Number(currentBilling.spotlightCreditsSpent || 0),
-        lastSpotlightRefundCredits: Number(currentBilling.lastSpotlightRefundCredits || 0),
-        lastSpotlightActivatedAt: currentBilling.lastSpotlightActivatedAt,
-      };
-      script.markModified("billing");
-    }
+    const selectedDuration = String(duration || "").trim();
+    const selectedQuality = String(quality || "").trim();
+    const selectedFormat = normalizeTrailerLayout(format);
+    const pricing = getTrailerPackagePricing(selectedDuration, selectedQuality);
+    const paymentCurrency = String(currency || "INR").toUpperCase();
+    const paymentAmount = Number(amount || (paymentCurrency === "USD" ? pricing.usd : pricing.inr) || 0);
 
     script.services = {
       hosting: script.services?.hosting ?? true,
@@ -6549,9 +7085,28 @@ export const requestScriptAITrailer = async (req, res) => {
       spotlight: script.services?.spotlight ?? false,
     };
     script.trailerStatus = "requested";
+    script.trailerRequestPayment = {
+      status: "paid",
+      provider: "razorpay",
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+      currency: paymentCurrency,
+      amount: paymentAmount,
+      duration: selectedDuration,
+      quality: selectedQuality,
+      format: selectedFormat,
+      paidAt: new Date(),
+    };
     script.trailerWriterFeedback = {
       status: "pending",
-      note: note?.trim() || "",
+      note: note?.trim() || buildTrailerRequestNote({
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        currency: paymentCurrency,
+        amount: paymentAmount,
+      }),
       updatedAt: new Date(),
     };
     await script.save();
@@ -6561,11 +7116,13 @@ export const requestScriptAITrailer = async (req, res) => {
       section: "trailers",
       actorId: req.user._id,
       scriptId: script._id,
-      message: `AI trailer requested by writer for "${script.title}"${note ? `. Note: ${note}` : ""}`,
+      message: `AI trailer requested by writer for "${script.title}"`,
       metadata: {
         scriptId: script._id,
         writerId: req.user._id,
-        writerNote: note?.trim() || "",
+        writerNote: script.trailerWriterFeedback.note || "",
+        paymentProvider: "razorpay",
+        paymentId: razorpay_payment_id,
       },
     });
 
@@ -6578,7 +7135,6 @@ export const requestScriptAITrailer = async (req, res) => {
   }
 };
 
-// ── Writer Feedback for Platform AI Trailer ──
 export const submitTrailerFeedback = async (req, res) => {
   try {
     const scriptId = req.params.id;
@@ -6683,3 +7239,6 @@ export const generateAiCover = async (req, res) => {
     res.status(500).json({ message: "Failed to generate AI cover." });
   }
 };
+
+
+
