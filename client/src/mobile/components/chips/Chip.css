@@ -1,0 +1,174 @@
+/*
+ * Ckript Mobile — interactive chip (prefix: ckm-chip)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The base `.ckm-chip` pill lives in
+ * theme/primitives.css and is left exactly as the dashboard baseline has it;
+ * everything here is additive and doubled up (`.ckm-chip.ckm-chip--action`)
+ * so it wins regardless of which stylesheet the bundler emits first.
+ */
+
+/* A static tag is the existing pill, only readable: 10px is below the app's
+   smallest type token, and a genre tag is not less important than a caption. */
+.ckm .ckm-chip.ckm-chip--tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+}
+
+/* --- Interactive ---------------------------------------------------------- */
+
+.ckm .ckm-chip.ckm-chip--action {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  padding: 0;
+  border: 1px solid var(--ckm-control-border);
+  border-radius: 999px;
+  background: var(--ckm-bg);
+  overflow: hidden;
+}
+
+.ckm .ckm-chip__main {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  /* Drawn at the full target height, not shrunk and slopped: chips sit in
+     tight rows, where overlapping hit regions steal each other's taps. */
+  min-height: var(--ckm-touch-target);
+  padding: 0 var(--ckm-space-4);
+  border: none;
+  background: transparent;
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text-2);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color var(--ckm-duration-feedback) var(--ckm-ease),
+    color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+.ckm .ckm-chip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckm .ckm-chip__icon {
+  flex: none;
+}
+
+.ckm .ckm-chip--action .ckm-chip__main:active {
+  background: var(--ckm-bg-soft);
+}
+
+/* The ring belongs to the pill, since the pill is what the user sees as the
+   control — the button inside it is an implementation detail. */
+.ckm .ckm-chip--action:has(:focus-visible) {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-chip--action :focus-visible {
+  outline: none;
+}
+
+@supports not selector(:has(a)) {
+  .ckm .ckm-chip--action :focus-visible {
+    outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+    outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+  }
+}
+
+/* --- Selected ------------------------------------------------------------- */
+
+/* Fill plus a tick, never fill alone: the same pair the choice controls use,
+   so selection survives greyscale and low vision. */
+.ckm .ckm-chip.ckm-chip--action.is-selected {
+  border-color: var(--ckm-ink);
+  background: var(--ckm-ink);
+}
+
+.ckm .ckm-chip--action.is-selected .ckm-chip__main,
+.ckm .ckm-chip--action.is-selected .ckm-chip__remove {
+  color: var(--ckm-on-dark);
+}
+
+.ckm .ckm-chip--action.is-selected .ckm-chip__main:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.ckm .ckm-chip.is-disabled {
+  opacity: var(--ckm-disabled-opacity);
+}
+
+/* --- Removable ------------------------------------------------------------ */
+
+.ckm .ckm-chip--removable .ckm-chip__main {
+  padding-right: var(--ckm-space-2);
+}
+
+.ckm .ckm-chip__remove {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ckm-touch-target);
+  min-height: var(--ckm-touch-target);
+  padding: 0;
+  border: none;
+  border-left: 1px solid var(--ckm-line);
+  background: transparent;
+  color: var(--ckm-text-3);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ckm .ckm-chip__remove:active {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-chip--action.is-selected .ckm-chip__remove {
+  border-left-color: rgba(255, 255, 255, 0.24);
+}
+
+/* --- A scrollable row of chips -------------------------------------------- */
+
+/* Filters live on one line and scroll sideways; the row keeps its own
+   scrollbar hidden and snaps, so a half-cut chip never looks like the end. */
+.ckm .ckm-chip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  padding: var(--ckm-space-1) var(--ckm-space-4);
+  margin: 0 calc(var(--ckm-space-4) * -1);
+  -webkit-overflow-scrolling: touch;
+}
+
+.ckm .ckm-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.ckm .ckm-chip-row > * {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+.ckm .ckm-chip-row--wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+}

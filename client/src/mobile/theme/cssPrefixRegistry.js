@@ -59,7 +59,11 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "theme/primitives.css",
     note: "Legacy 40px dashboard button. Superseded by ckm-button for new screens; retire in Phase 2.",
   },
-  "ckm-chip": { kind: SHARED_COMPONENT, owner: "theme/primitives.css" },
+  "ckm-chip": {
+    kind: SHARED_COMPONENT,
+    owner: "theme/primitives.css, components/chips/Chip.css",
+    note: "One chip family: primitives.css owns the base pill, Chip.css adds the interactive and removable forms.",
+  },
   "ckm-viewmore": { kind: SHARED_COMPONENT, owner: "theme/primitives.css" },
 
   // --- Phase 1 native-style system --------------------------------------
@@ -87,6 +91,36 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   "ckm-radio": { kind: SHARED_COMPONENT, owner: "components/forms/RadioGroup.css" },
   "ckm-switch": { kind: SHARED_COMPONENT, owner: "components/forms/Switch.css" },
   "ckm-file-picker": { kind: SHARED_COMPONENT, owner: "components/forms/FilePicker.css" },
+
+  // --- Phase 1 collection and display family ----------------------------
+  "ckm-list": {
+    kind: SHARED_COMPONENT,
+    owner: "components/lists/List.css",
+    note: "The <ul> stack, its heading and the separator geometry.",
+  },
+  "ckm-row": {
+    kind: SHARED_COMPONENT,
+    owner: "components/lists/ListRow.css",
+    note: "One list row; the ::after overlay is what lets a row navigate and still carry its own control.",
+  },
+  "ckm-load-more": { kind: SHARED_COMPONENT, owner: "components/lists/LoadMore.css" },
+  "ckm-card": {
+    kind: SHARED_COMPONENT,
+    owner: "components/cards/Card.css",
+    note: "Card surface and parts; the title link's overlay makes the whole card tappable.",
+  },
+  "ckm-badge": { kind: SHARED_COMPONENT, owner: "components/badges/Badge.css" },
+  "ckm-chip-row": {
+    kind: SHARED_COMPONENT,
+    owner: "components/chips/Chip.css",
+    note: "The horizontal filter rail chips sit in.",
+  },
+  "ckm-segmented": { kind: SHARED_COMPONENT, owner: "components/tabs/SegmentedControl.css" },
+  "ckm-tabbar": {
+    kind: SHARED_COMPONENT,
+    owner: "components/tabs/Tabs.css",
+    note: "APG tablist + panel. Distinct from the dashboard's legacy ckm-tabs, which Phase 2 retires.",
+  },
   "ckm-gallery": {
     kind: PAGE_FAMILY,
     owner: "dev/PrimitiveGallery.css",

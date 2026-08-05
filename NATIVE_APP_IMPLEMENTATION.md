@@ -424,9 +424,10 @@ Register the prefix before implementing a page — in this table **and** in `cli
 | Mobile root and shell | `ckm-shell` (implemented: `client/src/mobile/shell/`, covers the app shell, route pending state, and route failure surface) |
 | Dashboard | `ckm-dashboard` (migrated from `ckm-dash` on 2026-08-05) |
 | Dashboard sections and overlays (one family, one prefix per file) | `ckm-ov`, `ckm-perf`, `ckm-rev`, `ckm-proj`, `ckm-pc`, `ckm-aid`, `ckm-allp`, `ckm-noti`, `ckm-acct` |
-| Shared mobile components | `ckm-topbar`, `ckm-bottomnav`, `ckm-tabs`, `ckm-sheet`, `ckm-empty`, `ckm-skel`, `ckm-island`, `ckm-statusbar`, `ckm-btn` (legacy dashboard button; superseded by `ckm-button`), `ckm-chip`, `ckm-viewmore` |
+| Shared mobile components | `ckm-topbar`, `ckm-bottomnav`, `ckm-tabs` (legacy dashboard segmented strip; superseded by `ckm-tabbar`/`ckm-segmented`), `ckm-sheet`, `ckm-empty`, `ckm-skel`, `ckm-island`, `ckm-statusbar`, `ckm-btn` (legacy dashboard button; superseded by `ckm-button`), `ckm-chip` (two owners by design: `theme/primitives.css` holds the base pill, `components/chips/Chip.css` the interactive forms), `ckm-viewmore` |
 | Phase 1 action primitives | `ckm-button` (`components/buttons/Button.css`), `ckm-icon-button` (`components/buttons/IconButton.css`), `ckm-back` (`components/navigation/BackButton.css`), `ckm-page-header` (`components/app-bars/PageHeader.css`) |
 | Phase 1 form family | `ckm-field` (`components/forms/Field.css`), `ckm-control` (`components/forms/Control.css` — one box shared by input/textarea/select), `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker` |
+| Phase 1 collection and display family | `ckm-list` (`components/lists/List.css`), `ckm-row` (`components/lists/ListRow.css`), `ckm-load-more` (`components/lists/LoadMore.css`), `ckm-card` (`components/cards/Card.css`), `ckm-badge` (`components/badges/Badge.css`), `ckm-chip-row` (`components/chips/Chip.css`), `ckm-segmented` (`components/tabs/SegmentedControl.css`), `ckm-tabbar` (`components/tabs/Tabs.css` — the APG tablist, distinct from the dashboard's legacy `ckm-tabs`) |
 | Development harness | `ckm-gallery` (`dev/PrimitiveGallery.css`, `/__mobile-primitives`, never mounted in production) |
 | Root surface and utilities | `ckm-root`, `ckm-html-lock`, `ckm-scroll`, `ckm-sr-only` |
 | Search | `ckm-search` |
@@ -739,7 +740,7 @@ Phases are ordered to minimize architectural rework. Implement vertical slices: 
 - [ ] Role-aware top app bars and bottom navigation.
 - [x] Page header, back button, icon button, primary/secondary/destructive buttons. *(2026-08-05: `ckm-button` (primary/secondary/tertiary/destructive × md/lg, pending, disabled, link forms), `ckm-icon-button` (44px hit region at every size, badge folded into the accessible name), `ckm-back` + `hooks/useMobileBack.js` (§8.3 history-vs-parent rule), `ckm-page-header`.)*
 - [x] Form field, textarea, select, checkbox, radio, switch, file picker. *(2026-08-05: `ckm-field` + `ckm-control` + `ckm-checkbox` / `ckm-radio` / `ckm-switch` / `ckm-file-picker`. **Combobox is deliberately not built** — a searchable combobox is only worth its cost where a list must be filtered, so it is deferred to the first screen that needs one, most likely Search filters in Phase 4.)*
-- [ ] List row, card, chip, badge, segmented control, tabs, pagination/load-more.
+- [x] List row, card, chip, badge, segmented control, tabs, pagination/load-more. *(2026-08-05: `ckm-list`/`ckm-row` (real `<ul>`/`<li>`; a row may navigate **and** carry its own control, via a `::after` overlay on the row's link so the second control is never nested inside it), `ckm-card` + parts (the whole card is tappable while the link's accessible name stays the title alone), `ckm-badge` (status only, with the new `*-ink` text tokens), `ckm-chip` extended in place with the interactive/removable forms plus `ckm-chip-row`, `ckm-segmented` (a real radio group, because it filters rather than switching panels), `ckm-tabbar` (APG tablist: one Tab stop, arrow/Home/End, `aria-controls`, focusable panel), `ckm-load-more` (count as an SC 4.1.3 status message, cost named in the button, focus rescued when the button unmounts).)*
 - [ ] Bottom sheet, full-screen dialog, confirm dialog, context menu.
 - [ ] Toast/status, inline error, retry, skeleton, empty state, offline state.
 - [ ] Scroll lock, focus trap/restoration, reduced motion, safe-area and keyboard helpers.
@@ -1038,6 +1039,9 @@ These are starting references, not a substitute for per-page research:
 10. [MDN: CSS length/viewport units](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/length) — `svh`, `lvh`, and `dvh` behavior under dynamic browser chrome.
 11. [MDN: `overscroll-behavior`](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/overscroll-behavior) — scroll chaining and boundary behavior, including compatibility cautions.
 12. [W3C: Understanding Focus Not Obscured (Minimum), SC 2.4.11](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html) — adopted 2026-08-05. Sticky/fixed chrome must not entirely hide a focused element; `scroll-padding` is the named sufficient technique and is now applied by `MobileShell`.
+13. [W3C ARIA APG: Tabs pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/) — adopted 2026-08-05. Roles/states, roving tabindex (one Tab stop for the whole bar), Left/Right with wrap plus Home/End, activation-follows-focus where panels render without latency, and `tabindex="0"` on a panel with no focusable content. Implemented by `components/tabs/Tabs.jsx`.
+14. [W3C: Understanding Status Messages, SC 4.1.3](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html) — adopted 2026-08-05. A result count ("Showing 20 of 64") is a status message and must be announced through role/properties **without** taking focus; the list items themselves are not. Implemented by `components/lists/LoadMore.jsx`.
+15. [Inclusive Components: Cards](https://inclusive-components.design/cards/) — adopted 2026-08-05. Why a whole-card block link is wrong (the link's accessible name becomes the entire card, and no second control may live inside it), and the pseudo-content overlay on a heading link that replaces it, with nested controls raised by `position: relative`. Implemented by `Card`/`CardTitle` and reused by `ListRow`.
 
 For every future implementation session, verify that the consulted guidance is still current and record newly adopted sources in the decision log.
 
@@ -1077,13 +1081,13 @@ This is the section future agents update continuously. Keep newest session entri
 ```yaml
 plan_status: IN_PROGRESS
 current_phase: 1
-current_work_item: "Phase 1 form family COMPLETE (combobox deliberately deferred); next slice is the collection/display primitives"
-last_completed_work_item: "Field / TextField / TextArea / SelectField / Checkbox / RadioGroup / Switch / FilePicker, plus the scroll-margin fix that keeps a field's error visible with the keyboard open"
-next_action: "Continue Phase 1 with the collection and feedback primitives — list row, card, chip, badge, segmented control, tabs, load-more, then bottom sheet / full-screen dialog / confirm dialog / context menu and the toast+offline states. Start with list row and card in client/src/mobile/components/lists/ and components/cards/, because every Phase 4 discovery screen depends on them. Reuse the existing ckm-chip from theme/primitives.css rather than minting a second chip. Each needs a registered prefix, a render test and a gallery row; verify the sheet/dialog work against focus trapping and restoration (Phase 1 bullet 8), which is still unbuilt."
+current_work_item: "Phase 1 collection/display primitives COMPLETE; the two remaining Phase 1 component bullets are the overlay set and the state set"
+last_completed_work_item: "List / ListRow / LoadMore / Card (+ parts) / Badge / Chip (+ ChipRow) / SegmentedControl / Tabs, plus the four *-ink text tokens the semantic palette needed to clear AA"
+next_action: "Continue Phase 1 with the two remaining component bullets, in this order. (1) The overlay set — bottom sheet, full-screen dialog, confirm dialog, context menu — but build bullet 8's scroll lock, focus trap and focus restoration helpers FIRST, in client/src/mobile/hooks/, because an overlay without them is not correct and would have to be rewritten. Note that components/BottomSheet.jsx already exists as a dashboard-era sheet with no focus trap: decide explicitly whether to upgrade it in place (it is a verified baseline) or supersede it the way ckm-button superseded ckm-btn. (2) The state set — toast/status, inline error, retry, skeleton, empty state, offline — reusing the existing ckm-empty and ckm-skel prefixes rather than minting new ones, and reusing the SC 4.1.3 status-message contract already implemented in LoadMore. Each needs a registered prefix, a render/behaviour test and a gallery row."
 active_files: []
 known_blockers: []
 last_updated: "2026-08-05"
-updated_by: "Claude Phase 1 primitives session"
+updated_by: "Claude Phase 1 collection primitives session"
 ```
 
 ### 19.2 Phase status
@@ -1091,7 +1095,7 @@ updated_by: "Claude Phase 1 primitives session"
 | Phase | Status | Owner | Started | Completed | Evidence |
 |---|---|---|---|---|---|
 | 0. Foundation and route safety | COMPLETE | Codex, Claude | 2026-08-05 | 2026-08-05 | Route manifest/policy + 87-route coverage contract, stable preview fixture, shell-mode contract, route suspense/error boundary, expanded tokens, `.ckm` scoping + prefix registry contract, mobile analytics contract. 41 mobile tests in 7 files; full suite 583/585 (2 pre-existing AppShell failures); lint clean on all touched files; build + 53-route prerender pass; five-width CDP verification with a before/after computed-style diff |
-| 1. Shared system and chrome | IN PROGRESS | Claude | 2026-08-05 | — | Form family (`ckm-field`, `ckm-control`, `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker`): 99 mobile tests in 12 files; full suite 640/642; build passes; CDP sweep at 320–768 with 18 controls, none under 16px text or 44px touch, every invalid control's error reachable via `aria-describedby`; virtual-keyboard proxy passes. Action primitives (`ckm-button`, `ckm-icon-button`, `ckm-back`, `ckm-page-header`) + `useMobileBack` + `/__mobile-primitives` harness. 68 mobile tests in 15 files; full suite 610/612 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/375/390/412/430/480/768 with all 32 controls ≥44×44 and no horizontal page scroll |
+| 1. Shared system and chrome | IN PROGRESS | Claude | 2026-08-05 | — | Collection/display family (`ckm-list`, `ckm-row`, `ckm-load-more`, `ckm-card`, `ckm-badge`, `ckm-chip` extended, `ckm-chip-row`, `ckm-segmented`, `ckm-tabbar`): 138 mobile tests in 16 files; full suite 679/681 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/390/430/768 with 37 targets at every width, none under 44×44 (`::after` hit regions measured, not assumed), no text under 11px, no unnamed control, no nested interactive element, no orphan `<li>`, no horizontal page scroll; real-key traversal proved one Tab stop per tab bar, Arrow/Home/End with wrap, the accent focus ring on the focused tab, and the next Tab landing on the panel. Form family (`ckm-field`, `ckm-control`, `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker`): 99 mobile tests in 12 files; full suite 640/642; build passes; CDP sweep at 320–768 with 18 controls, none under 16px text or 44px touch, every invalid control's error reachable via `aria-describedby`; virtual-keyboard proxy passes. Action primitives (`ckm-button`, `ckm-icon-button`, `ckm-back`, `ckm-page-header`) + `useMobileBack` + `/__mobile-primitives` harness. 68 mobile tests in 15 files; full suite 610/612 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/375/390/412/430/480/768 with all 32 controls ≥44×44 and no horizontal page scroll |
 | 2. Writer navigation/dashboard | NOT STARTED | — | — | — | — |
 | 3. Creation/upload/editor | NOT STARTED | — | — | — | — |
 | 4. Discovery/project consumption | NOT STARTED | — | — | — | — |
@@ -1103,6 +1107,62 @@ updated_by: "Claude Phase 1 primitives session"
 | 10. Hardening/release | NOT STARTED | — | — | — | — |
 
 ### 19.3 Session log template
+
+#### 2026-08-05 17:55 +05:30 — Claude (Claude Code) — Phase 1 (collection and display family)
+
+**Requested continuation:** "continue in native app implementation".
+
+**Starting checkpoint:** Phase 1 action primitives and form family complete; the ledger's `next_action` named the collection and display primitives, starting with list row and card.
+
+**Work item claimed:** The whole of Phase 1 bullet 5 — list row, card, chip, badge, segmented control, tabs, pagination/load-more.
+
+**Research performed**
+- Sources fetched: [W3C ARIA APG Tabs pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/) (roving tabindex so the bar is one Tab stop; Left/Right with wrap and Home/End; activation follows focus when panels render without latency; `tabindex="0"` on a panel that has no focusable content); [W3C Understanding SC 4.1.3 Status Messages](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html) (a *count* — "18 results returned" — is a status message and must be announced through role/properties without taking focus, while the result list itself is not); [Inclusive Components: Cards](https://inclusive-components.design/cards/) (a block link makes the card's entire text the link's accessible name and forbids any second control inside it; the fix is one heading link whose `::after` covers the card, with nested controls raised by `position: relative`). All three added to §17 as sources 13–15.
+- Repository research: `screens/sections/ProjectsSection.css` for the established card and collaborator-row language (hairline borders, Spectral titles, 14–18px radii), `components/SectionTabs.css` for the legacy `ckm-tabs` strip, and `theme/primitives.css` for the base chip the plan told this session to reuse rather than replace.
+- Decisions adopted: a list is a real `<ul>`/`<li>`, because the announced item count is most of what a blind user knows about a list before committing to read it; a segmented control is a radio group and a tab bar is a tablist, decided by whether the choice *filters the same content* or *swaps panels*; badges are never interactive and chips always are.
+- Patterns rejected and why: infinite scroll (unreachable footer, no answer to "where was I" after a back navigation, and pages loaded that were never asked for on a metered connection); a second chip family (`ckm-chip` was extended in place, per the plan's instruction); `<Card image title price…>` as one configured component (the fifth screen always needs a sixth arrangement — parts instead); hit-region overlays on chips (chips sit in tight rows, so overlapping overlays hand a mis-tap to the neighbour — interactive chips are drawn at the full 44px instead).
+
+**Desktop parity inventory**
+- Desktop files inspected: none changed. These are presentation primitives with no service dependency.
+- Data/services/hooks: none consumed.
+- Roles/permissions/quotas, routes/query/navigation: unchanged.
+- Page states and child overlays: unchanged.
+
+**Wireframe/design decision**
+- Shell/top bar/bottom nav/back behaviour: unchanged; this slice adds no screen.
+- Scroll hierarchy: two new *nested* scroll surfaces — the chip rail and the tab bar — both horizontal only, both with the page's own scroll measured as unaffected at every width.
+- Primary/secondary actions: unchanged.
+
+**Changes made**
+- Files added: `components/lists/` — `List.{jsx,css}`, `listContext.js`, `ListRow.{jsx,css}`, `LoadMore.{jsx,css}`, `lists.test.jsx`; `components/cards/` — `Card.{jsx,css}`, `Card.test.jsx`; `components/badges/` — `Badge.{jsx,css}`; `components/chips/` — `Chip.{jsx,css}`, `Chip.test.jsx`; `components/tabs/` — `SegmentedControl.{jsx,css}`, `Tabs.{jsx,css}`, `tabIds.js`, `tabs.test.jsx`.
+- Files modified: `theme/tokens.css` (four `*-ink` tokens — see the finding below), `theme/cssPrefixRegistry.js` (8 new prefixes, plus a second owner file recorded for `ckm-chip`), `components/forms/Switch.jsx` (`srOnlyLabel`, so a switch can sit in a list row whose title is already its label), `dev/PrimitiveGallery.{jsx,css}` (seven new rows), and this plan (§7.2, §11, §17, §19).
+- Shared logic extracted: one `::after` overlay technique, used by both `Card` and `ListRow`, so "the whole surface is tappable and still holds a second control" has exactly one implementation; `tabIds.js` so a `TabPanel` can be wired to its tab from anywhere on the screen without a context.
+- Route/prefix registration: `ckm-list`, `ckm-row`, `ckm-load-more`, `ckm-card`, `ckm-badge`, `ckm-chip-row`, `ckm-segmented`, `ckm-tabbar`; `ckm-chip` re-registered with two owner files.
+
+**Verification**
+- Automated: `npx vitest run src/mobile` → 16 files / 138 tests (was 12 / 99). Full `npx vitest run` → 679 passed / 2 failed, the same pre-existing `AppShell.render.test.jsx` failures carried since Phase 0. ESLint clean on every touched file. `npm run build` → passed, 53 routes prerendered.
+- Viewports/devices/browsers: headless Chrome over CDP at 320×720, 360×800, 390×844, 430×932, 768×1024. At every width, identically: **37/37 targets ≥44×44** (the `::after` hit region is *measured* through `getComputedStyle(el, "::after")`, not assumed, and the card's target is measured as the card rather than as its title text); **no text under 11px** anywhere in the new primitives; **no unnamed button or link** (`aria-labelledby` resolved, not just `aria-label`); **0 nested interactive elements** (`a button`, `button a`, `a a`); 9 list items and **0 orphan `<li>`**; 0 elements spilling past the viewport once the two deliberately-scrolling rails are excluded; and `documentElement.scrollWidth === innerWidth`.
+- Accessibility checks: real `Input.dispatchKeyEvent` traversal — Tab lands on the *selected* tab (roving tabindex), ArrowRight → next, End → last, Home → first, ArrowLeft → wraps to last, each with `aria-selected="true"`, an `rgb(209,77,55) solid 2px` ring, and the focused tab inside the viewport (SC 2.4.11); one further Tab leaves the bar and lands on the tab panel, proving both the single stop and the panel's reachability. Computed colours confirmed against the intended tokens: badge text `rgb(42,122,72)` / `rgb(138,100,20)` / `rgb(186,64,52)` / `rgb(176,58,34)`, idle segment and tab labels `rgb(111,105,95)` on `rgb(251,250,247)` and `#fff` (5.3:1 and 5.5:1), chip border `rgb(141,135,126)` (the 3:1 token).
+- Performance checks: no new dependency. `CardMedia` reserves its box with `aspect-ratio` and lazy-loads, so a list of cards does not reflow as images arrive.
+
+**Decisions or deviations**
+- Finding (the one that changed tokens): **none of the semantic colours is legible as small text on its own soft background.** Measured: `--ckm-green` on `--ckm-green-bg` ~3.88:1, `--ckm-gold` on `--ckm-gold-bg` ~2.95:1, `--ckm-red` on `--ckm-red-bg` ~4.47:1, `--ckm-accent` on `--ckm-accent-soft` ~3.93:1 — all fail SC 1.4.3, and a status badge is exactly where these pairings get used. Added `--ckm-green-ink`, `--ckm-gold-ink`, `--ckm-red-ink`, `--ckm-accent-ink`: the same hues darkened only as far as 4.5:1 requires (4.76 / 4.90 / 4.81 / 5.50:1 on their soft backgrounds), and chosen so one token also serves as a solid fill under white (5.28 / 5.37 / 5.42 / 6.09:1). The shape colours are unchanged and still correct for dots, bars and icons; the dashboard's existing chips were left untouched.
+- Decision: a row or card that navigates *and* carries its own control is a positioned container with a `::after` overlay on its primary link, not a block link. Reason: source 15; the alternative makes the link's accessible name the whole row and makes the second control illegal. Cost, recorded honestly: the overlay masks text selection inside a linked row or card, so a surface whose text must be copyable should be non-interactive and put its action in the `action` slot.
+- Decision: `SegmentedControl` is a radio group, `Tabs` is a tablist. Reason: they look alike and are not alike — the first changes what one list shows, the second swaps panels, and only the second has panels to point `aria-controls` at.
+- Decision: interactive chips are drawn at the full 44px rather than at 32–36px with a `hitSlop` overlay, unlike the small icon button. Reason above.
+- Decision: `ckm-tabs` (the dashboard's 9px uppercase strip) was **not** retired, matching the earlier decision to leave `ckm-btn` alone — it is a verified baseline and Phase 2 owns it. It is now marked superseded in §7.2.
+- Two eslint findings worth carrying: a module that exports both a component and a hook/helper breaks React Fast Refresh, which is why `listContext.js` and `tabIds.js` exist as their own files; and `as: As = "article"` destructuring is not seen as a JSX use, so polymorphic components assign `const Surface = as` instead.
+- User approval, if required: none — covered by the canonical plan.
+
+**Open issues/blockers**
+- `Card` and `Chip` put the focus ring on the pill/card through `:has()`, with an `@supports not selector(:has(a))` fallback that puts it back on the inner control. Chrome 150 was used for verification, so the fallback path itself is **unexercised**.
+- The horizontal rails (chip row, tab bar) were verified for overflow and keyboard, but **not** for a two-finger/trackpad horizontal gesture on a real device, and not with `prefers-reduced-motion` interacting with `scroll-snap`.
+- Everything owed from previous sessions still stands: the virtual-keyboard result is a resized-viewport proxy rather than a real soft keyboard; 200% text zoom is unexercised; the safe-area-top change is unverified on a notched device; the two `AppShell.render.test.jsx` failures and the four unused-`motion` lint errors remain pre-existing debt.
+
+**Exact next action**
+- As recorded in §19.1: build bullet 8's scroll-lock / focus-trap / focus-restoration helpers first, then the overlay set on top of them (deciding explicitly what happens to the existing `components/BottomSheet.jsx`), then the state set reusing `ckm-empty`, `ckm-skel` and LoadMore's SC 4.1.3 contract.
+
+---
 
 #### 2026-08-05 17:20 +05:30 — Claude (Claude Code) — Phase 1 (form family)
 
@@ -1494,6 +1554,8 @@ This allows Codex, Claude, or another capable agent to resume without relying on
 ---
 
 ## 21. Immediate next step
+
+> **Superseded as of 2026-08-05.** Phase 0 is COMPLETE and Phase 1 is in progress. The live next step is `next_action` in §19.1; the steps below are kept as the record of how this work was started.
 
 Begin **Phase 0**, not a feature page:
 

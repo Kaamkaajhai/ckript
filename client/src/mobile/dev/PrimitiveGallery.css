@@ -56,6 +56,13 @@
   border-top: 1px solid var(--ckm-line);
 }
 
+/* Lists, cards and tab bars are edge-to-edge components; showing them inside
+   the harness's gutter would hide exactly the overflow it exists to catch. */
+.ckm .ckm-gallery__bleed {
+  width: auto;
+  margin: 0 calc(var(--ckm-space-4-5) * -1);
+}
+
 /* Shows a header specimen in situ without letting it read as the real app bar. */
 .ckm .ckm-gallery__frame {
   width: 100%;

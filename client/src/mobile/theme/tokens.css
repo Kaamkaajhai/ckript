@@ -126,6 +126,23 @@
      small white text sits on brand colour — badges, counters, pills. */
   --ckm-accent-strong: #c9482f;
 
+  /* Semantic *text* colours. --ckm-green / --ckm-gold / --ckm-red are the
+     colours of the *shapes* (dots, bars, icons, fills behind large glyphs).
+     None of them clears 4.5:1 as small text on its own soft background:
+       #2f8a52 on --ckm-green-bg -> ~3.88:1   ✗
+       #b7871f on --ckm-gold-bg  -> ~2.95:1   ✗
+       #c0453a on --ckm-red-bg   -> ~4.47:1   ✗ (fails by a hair)
+       #d14d37 on --ckm-accent-soft -> ~3.93:1 ✗
+     These are the same hues darkened only as far as 4.5:1 requires, measured
+     both ways so one token serves both uses:
+       on its soft background  ->  4.76 / 4.90 / 4.81 / 5.50 : 1
+       as a fill under #fff    ->  5.28 / 5.37 / 5.42 / 6.09 : 1
+     Use these for any status text, badge or pill; never the shape colours. */
+  --ckm-green-ink: #2a7a48;
+  --ckm-gold-ink: #8a6414;
+  --ckm-red-ink: #ba4034;
+  --ckm-accent-ink: #b03a22;
+
   /* The lightest border that still identifies a control's boundary at the
      3:1 required by WCAG 2.2 SC 1.4.11 on --ckm-bg (measured ~3.56:1).
      --ckm-line* are decorative hairlines and must not be used for this. */

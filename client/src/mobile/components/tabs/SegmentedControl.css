@@ -1,0 +1,111 @@
+/*
+ * Ckript Mobile — segmented control (prefix: ckm-segmented)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). A track of equal segments; the selected
+ * one lifts onto the page colour, the way the platform control does.
+ */
+
+.ckm .ckm-segmented {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ckm-line-strong);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg-fill);
+  min-width: 0;
+}
+
+.ckm .ckm-segmented__segment {
+  position: relative;
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  /* The label is the target, so the segment itself is a full 44px — the track
+     is what grows, not the thing you have to hit. The transparent border keeps
+     the selected segment from resizing when it gains its own. */
+  min-height: var(--ckm-touch-target);
+  padding: 0 var(--ckm-space-2);
+  border: 1px solid transparent;
+  border-radius: calc(var(--ckm-r-md) - 4px);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color var(--ckm-duration-feedback) var(--ckm-ease),
+    color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+/* Focusable, operable, announced — just not painted. */
+.ckm .ckm-segmented__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ckm .ckm-segmented__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-medium);
+  /* --ckm-muted measures ~2.9:1 on this track and would fail SC 1.4.3; this
+     is the lightest ramp value that clears 4.5:1 (~5.3:1). */
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-segmented__count {
+  flex: none;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selected: a raised surface *and* a weight change, so the state survives
+   greyscale — a colour-only segmented control is the classic 1.4.1 failure. */
+.ckm .ckm-segmented__segment.is-selected {
+  background: var(--ckm-bg);
+  box-shadow: var(--ckm-shadow-card);
+  border-color: var(--ckm-line-strong);
+}
+
+.ckm .ckm-segmented__segment.is-selected .ckm-segmented__label {
+  color: var(--ckm-text);
+  font-weight: var(--ckm-weight-semibold);
+}
+
+.ckm .ckm-segmented__segment.is-selected .ckm-segmented__count {
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-segmented__segment:active:not(.is-selected) {
+  background: var(--ckm-track);
+}
+
+.ckm .ckm-segmented__segment:has(.ckm-segmented__input:focus-visible) {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: 1px;
+}
+
+@supports not selector(:has(a)) {
+  .ckm .ckm-segmented__input:focus-visible {
+    outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+    outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+  }
+}
+
+.ckm .ckm-segmented__segment:has(.ckm-segmented__input:disabled) {
+  opacity: var(--ckm-disabled-opacity);
+  cursor: default;
+}
