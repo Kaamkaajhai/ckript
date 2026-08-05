@@ -49,7 +49,11 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   "ckm-topbar": { kind: SHARED_COMPONENT, owner: "components/TopBar.css" },
   "ckm-bottomnav": { kind: SHARED_COMPONENT, owner: "components/BottomNav.css" },
   "ckm-tabs": { kind: SHARED_COMPONENT, owner: "components/SectionTabs.css" },
-  "ckm-sheet": { kind: SHARED_COMPONENT, owner: "components/BottomSheet.css" },
+  "ckm-sheet": {
+    kind: SHARED_COMPONENT,
+    owner: "components/BottomSheet.css",
+    note: "Legacy dashboard sheet with no focus trap. Superseded by ckm-bottom-sheet for new screens; Phase 2 migrates the four dashboard overlays and retires it.",
+  },
   "ckm-empty": { kind: SHARED_COMPONENT, owner: "components/EmptyState.css" },
   "ckm-skel": { kind: SHARED_COMPONENT, owner: "components/Skeleton.css" },
   "ckm-island": { kind: SHARED_COMPONENT, owner: "components/DynamicIsland.css" },
@@ -121,6 +125,33 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "components/tabs/Tabs.css",
     note: "APG tablist + panel. Distinct from the dashboard's legacy ckm-tabs, which Phase 2 retires.",
   },
+  // --- Phase 1 overlay set ----------------------------------------------
+  "ckm-overlay": {
+    kind: SHARED_COMPONENT,
+    owner: "components/overlays/Overlay.css",
+    note: "Layer, scrim and the bottom/center/full placements shared by every modal surface.",
+  },
+  "ckm-bottom-sheet": {
+    kind: SHARED_COMPONENT,
+    owner: "components/overlays/Sheet.css",
+    note: "Supersedes the dashboard-era ckm-sheet, which stays untouched as a Phase 0 baseline until Phase 2.",
+  },
+  "ckm-dialog": {
+    kind: SHARED_COMPONENT,
+    owner: "components/overlays/Dialog.css",
+    note: "Full-screen modal task: app bar, one scroll surface, optional action bar.",
+  },
+  "ckm-confirm": {
+    kind: SHARED_COMPONENT,
+    owner: "components/overlays/ConfirmDialog.css",
+    note: "role=alertdialog; the action stack is column-reverse so DOM order can put Cancel first.",
+  },
+  "ckm-action-sheet": {
+    kind: SHARED_COMPONENT,
+    owner: "components/overlays/ActionSheet.css",
+    note: "The mobile form of the plan's 'context menu' — a dialog of actions, deliberately not role=menu.",
+  },
+
   "ckm-gallery": {
     kind: PAGE_FAMILY,
     owner: "dev/PrimitiveGallery.css",

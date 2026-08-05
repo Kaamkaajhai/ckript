@@ -1,0 +1,75 @@
+/*
+ * Ckript Mobile — confirm dialog (prefix: ckm-confirm)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). Centred placement, sizing and motion come
+ * from ckm-overlay; this file owns the message column and the action stack.
+ */
+
+.ckm .ckm-confirm {
+  padding: var(--ckm-space-6) var(--ckm-space-5) var(--ckm-space-4);
+  text-align: center;
+}
+
+.ckm .ckm-confirm__body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ckm .ckm-confirm__title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-title-sm);
+  line-height: var(--ckm-leading-title-sm);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  letter-spacing: -0.01em;
+}
+
+.ckm .ckm-confirm__message {
+  margin-top: var(--ckm-space-2);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-confirm__error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--ckm-space-1);
+  margin-top: var(--ckm-space-3);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  /* The *-ink token, not --ckm-red: the shape colour fails AA as small text. */
+  color: var(--ckm-red-ink);
+  text-align: left;
+}
+
+.ckm .ckm-confirm__error-icon {
+  font-size: 16px;
+  flex: none;
+  margin-top: 1px;
+}
+
+/* --- Actions ------------------------------------------------------------- */
+
+/*
+ * `column-reverse`, and that is the load-bearing line.
+ *
+ * Cancel comes first in the DOM (so Tab and a screen reader reach the safe
+ * option first) but the confirm button reads better on top, directly under the
+ * message it answers. Reversing here is what lets those two orders differ.
+ *
+ * The cost is real and worth naming: DOM order and visual order now disagree,
+ * which WCAG SC 1.3.2 cares about. It is acceptable *only* because these two
+ * buttons are alternatives to each other rather than a sequence — neither
+ * reading order changes what either button means. Do not copy this pattern to
+ * a group where the buttons are steps.
+ */
+.ckm .ckm-confirm__actions {
+  flex: none;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--ckm-space-2);
+  margin-top: var(--ckm-space-5);
+}

@@ -1,0 +1,149 @@
+/*
+ * Ckript Mobile — action sheet (prefix: ckm-action-sheet)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The layer, scrim, bottom placement and
+ * motion come from ckm-overlay.
+ *
+ * Every row is a full-width 56px target. That is above the 44px floor on
+ * purpose: this list is opened by a small "more" control, often one-handed and
+ * often in a scrolling list, so it is where a mis-tap is most likely and most
+ * expensive — the row below "Share" is frequently "Delete".
+ */
+
+.ckm .ckm-action-sheet {
+  padding-left: var(--ckm-safe-left);
+  padding-right: var(--ckm-safe-right);
+}
+
+.ckm .ckm-action-sheet__header {
+  flex: none;
+  padding: var(--ckm-space-5) var(--ckm-space-4-5) var(--ckm-space-3);
+  border-bottom: 1px solid var(--ckm-line);
+  text-align: center;
+}
+
+.ckm .ckm-action-sheet__title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-card);
+  line-height: var(--ckm-leading-card);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+}
+
+.ckm .ckm-action-sheet__description {
+  margin-top: var(--ckm-space-1);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+/* --- The list ------------------------------------------------------------ */
+
+.ckm .ckm-action-sheet__list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--ckm-space-2) 0;
+  list-style: none;
+}
+
+.ckm .ckm-action-sheet__item + .ckm-action-sheet__item {
+  border-top: 1px solid var(--ckm-line-3);
+}
+
+.ckm .ckm-action-sheet__action {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--ckm-space-3) var(--ckm-space-4-5);
+  border: 0;
+  background: none;
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-body);
+  line-height: var(--ckm-leading-body);
+  color: var(--ckm-text);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--ckm-duration-press) var(--ckm-ease);
+}
+
+/* Press feedback, never hover-derived: there is no hover on the device this
+   is built for, and a :hover rule would leave the last-tapped row shaded on a
+   phone that reports hover capability. */
+.ckm .ckm-action-sheet__action:active {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-action-sheet__action:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+}
+
+.ckm .ckm-action-sheet__icon {
+  flex: none;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-action-sheet__labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ckm .ckm-action-sheet__label {
+  font-weight: var(--ckm-weight-medium);
+}
+
+.ckm .ckm-action-sheet__hint {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-action-sheet__action--destructive,
+.ckm .ckm-action-sheet__action--destructive .ckm-action-sheet__icon {
+  color: var(--ckm-red-ink);
+}
+
+.ckm .ckm-action-sheet__action.is-disabled {
+  opacity: var(--ckm-disabled-opacity);
+  cursor: default;
+}
+
+/* --- Cancel -------------------------------------------------------------- */
+
+/* Separated from the list by a filled gutter rather than a hairline — the same
+   visual grammar iOS uses, and the thing that stops Cancel being read as one
+   more action of the same kind. */
+.ckm .ckm-action-sheet__cancel-row {
+  flex: none;
+  border-top: var(--ckm-space-2) solid var(--ckm-bg-soft);
+  padding-bottom: var(--ckm-safe-bottom);
+}
+
+.ckm .ckm-action-sheet__cancel {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: var(--ckm-space-3) var(--ckm-space-4-5);
+  border: 0;
+  background: none;
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-body);
+  line-height: var(--ckm-leading-body);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  cursor: pointer;
+}
+
+.ckm .ckm-action-sheet__cancel:active {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-action-sheet__cancel:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+}
