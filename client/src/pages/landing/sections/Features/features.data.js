@@ -4,7 +4,8 @@
      { icon, shape }          → a glyph badge (round-sq | circle)
      { stat, label }          → a big number
      { stars }                → a star rating row
-   `seed` feeds the picsum backdrop; `opacity` dims it behind the media. */
+   `image` is a locally hosted, art-directed AI backdrop; `opacity` dims it
+   behind the interface treatment. */
 export const FEATURES = [
   {
     num: "01",
@@ -14,7 +15,7 @@ export const FEATURES = [
     italic: "30-second visual pitch from your script.",
     desc: "Ckript turns your written script into a captivating 30-second visual trailer. By blending stock footage with AI-generated visuals, your concept reaches producers and investors quickly, clearly, and memorably.",
     bullets: ["Auto-generate trailers in seconds", "Hook decision-makers visually", "5× your discovery rate"],
-    seed: "ckript-trailer",
+    image: "/landing/ai/feature-trailer.webp",
     opacity: 0.78,
     media: "trailer",
   },
@@ -26,7 +27,7 @@ export const FEATURES = [
     italic: "Public summaries, protected scripts.",
     desc: "Your full script stays safely behind a paywall. Share a curated public summary to spark interest while producers pay to unlock the full work — your IP stays yours, always.",
     bullets: ["Full script IP protection", "Earn from every unlock", "Public teasers drive demand"],
-    seed: "ckript-lock",
+    image: "/landing/ai/feature-lock.webp",
     opacity: 0.7,
     media: { icon: "lock", shape: "round-sq" },
   },
@@ -38,7 +39,7 @@ export const FEATURES = [
     italic: "Data-driven, targeted discovery.",
     desc: "Our recommendation engine analyzes producer activity and preferences to surface the right matches. Writers get found by producers actively looking for stories in their genre.",
     bullets: ["Auto-matched by genre & style", "Effortless connections", "Real-time producer alerts"],
-    seed: "ckript-match",
+    image: "/landing/ai/feature-match.webp",
     opacity: 0.7,
     media: { icon: "search", shape: "circle" },
   },
@@ -50,7 +51,7 @@ export const FEATURES = [
     italic: "AI-powered story analysis.",
     desc: "Every script gets analyzed for structure, originality, market potential, and narrative quality. You receive a detailed score breakdown — clear insight into what's working and what needs polish, before it reaches the industry.",
     bullets: ["Detailed AI score report", "Structure & originality analysis", "Market-fit recommendations"],
-    seed: "ckript-score",
+    image: "/landing/ai/feature-score.webp",
     opacity: 0.7,
     media: { stat: "92", label: "Ckript Score" },
   },
@@ -62,7 +63,7 @@ export const FEATURES = [
     italic: "30-day paid holding periods.",
     desc: "Producers can secure temporary exclusivity by paying to reserve a script for 30 days. Creators get protection and guaranteed compensation during the evaluation window — everyone wins.",
     bullets: ["Guaranteed income per hold", "Exclusive 30-day lock-in", "Faster producer decisions"],
-    seed: "ckript-hold",
+    image: "/landing/ai/feature-hold.webp",
     opacity: 0.7,
     media: { stat: "30", label: "Days exclusive" },
   },
@@ -74,7 +75,7 @@ export const FEATURES = [
     italic: "An AI co-writer at your side.",
     desc: "Create, edit, and refine your scripts directly on the platform with an AI writing assistant. Get live guidance on dialogue, pacing, and structure — polish your screenplay before you ever submit.",
     bullets: ["Real-time AI co-writing", "Dialogue & pacing suggestions", "In-platform draft management"],
-    seed: "ckript-studio",
+    image: "/landing/ai/feature-studio.webp",
     opacity: 0.72,
     media: { icon: "edit", shape: "round-sq" },
   },
@@ -86,7 +87,7 @@ export const FEATURES = [
     italic: "Curated industry professionals.",
     desc: "Submissions are reviewed by hand-picked expert readers who provide industry-standard coverage reports. Get the same kind of feedback decision-makers use to evaluate scripts every day.",
     bullets: ["Industry-standard coverage", "Hand-picked reviewers", "Actionable professional feedback"],
-    seed: "ckript-review",
+    image: "/landing/ai/feature-review.webp",
     opacity: 0.72,
     media: { stars: 4 },
   },

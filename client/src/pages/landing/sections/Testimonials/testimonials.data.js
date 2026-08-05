@@ -1,5 +1,5 @@
-/* Social proof across the four audiences Ckript serves. `seed` feeds
-   the picsum avatar; `rd` is the reveal delay. */
+/* Social proof across the four audiences Ckript serves. Each fictional
+   profile uses a locally hosted, art-directed AI portrait. */
 export const TESTIMONIALS = [
   {
     quote: "The first producer call happened in under two weeks, and we entered option talks right after.",
@@ -7,7 +7,7 @@ export const TESTIMONIALS = [
     name: "Sarah Chen",
     role: "Screenplay Writer, Los Angeles",
     tag: "Writer",
-    seed: "ckript-sarah",
+    avatar: "/landing/ai/avatar-sarah.webp",
     rd: "0.04",
   },
   {
@@ -16,7 +16,7 @@ export const TESTIMONIALS = [
     name: "Marcus Williams",
     role: "Independent Producer, New York",
     tag: "Producer",
-    seed: "ckript-marcus",
+    avatar: "/landing/ai/avatar-marcus.webp",
     rd: "0.1",
   },
   {
@@ -25,7 +25,7 @@ export const TESTIMONIALS = [
     name: "Priya Kapoor",
     role: "Film & Media Investor, London",
     tag: "Investor",
-    seed: "ckript-priya",
+    avatar: "/landing/ai/avatar-priya.webp",
     rd: "0.16",
   },
   {
@@ -34,7 +34,7 @@ export const TESTIMONIALS = [
     name: "James Rodriguez",
     role: "Actor, Miami",
     tag: "Actor",
-    seed: "ckript-james",
+    avatar: "/landing/ai/avatar-james.webp",
     rd: "0.22",
   },
 ];

@@ -3,15 +3,19 @@ import { RED } from "../../_shared/theme";
 
 /* The right-hand visual of a feature panel. Renders one of four
    treatments depending on `feat.media` (see features.data.js). A dimmed
-   picsum backdrop sits behind every variant. */
+   art-directed cinematic backdrop sits behind every variant. */
 export default function FeatureMedia({ feat }) {
-  const { media, seed, opacity } = feat;
+  const { media, image, opacity } = feat;
   return (
     <div className="ckl-feat-media">
       <img
         className="ckl-feat-media-img"
-        src={`https://picsum.photos/seed/${seed}/900/1000?grayscale`}
+        src={image}
         alt=""
+        width="900"
+        height="1000"
+        loading="lazy"
+        decoding="async"
         style={{ opacity }}
       />
       <div className="ckl-feat-media-overlay" />
