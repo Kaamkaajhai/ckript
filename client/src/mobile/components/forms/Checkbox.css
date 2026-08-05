@@ -1,0 +1,119 @@
+/*
+ * Ckript Mobile — checkbox (prefix: ckm-checkbox)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The native input stays in the layout and
+ * keeps focus; the drawn box is a sibling that follows its state.
+ */
+
+.ckm .ckm-checkbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-1);
+  min-width: 0;
+}
+
+/* The row is the tap target — comfortably past 44px even for a one-line label. */
+.ckm .ckm-checkbox__row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+  min-height: var(--ckm-touch-target);
+  padding: var(--ckm-space-2) 0;
+  cursor: pointer;
+}
+
+/* Present, focusable and announced — just not painted. `opacity: 0` rather
+   than `display: none`, which would remove it from the accessibility tree. */
+.ckm .ckm-checkbox__input {
+  position: absolute;
+  top: var(--ckm-space-2);
+  left: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ckm .ckm-checkbox__box {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border: 1.5px solid var(--ckm-control-border);
+  border-radius: 6px;
+  background: var(--ckm-bg);
+  color: var(--ckm-on-dark);
+  transition:
+    background-color var(--ckm-duration-press) var(--ckm-ease),
+    border-color var(--ckm-duration-press) var(--ckm-ease);
+}
+
+.ckm .ckm-checkbox__tick {
+  font-size: 18px;
+  transform: scale(0.4);
+  opacity: 0;
+  transition:
+    transform var(--ckm-duration-press) var(--ckm-ease),
+    opacity var(--ckm-duration-press) var(--ckm-ease);
+}
+
+.ckm .ckm-checkbox__input:checked ~ .ckm-checkbox__box {
+  background: var(--ckm-ink);
+  border-color: var(--ckm-ink);
+}
+
+.ckm .ckm-checkbox__input:checked ~ .ckm-checkbox__box .ckm-checkbox__tick {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.ckm .ckm-checkbox__input:indeterminate ~ .ckm-checkbox__box {
+  background: var(--ckm-ink);
+  border-color: var(--ckm-ink);
+}
+
+/* The focus ring belongs to the drawn box, since the real input is invisible. */
+.ckm .ckm-checkbox__input:focus-visible ~ .ckm-checkbox__box {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-checkbox__input:disabled ~ .ckm-checkbox__box,
+.ckm .ckm-checkbox__input:disabled ~ .ckm-checkbox__text {
+  opacity: var(--ckm-disabled-opacity);
+}
+
+.ckm .ckm-checkbox__row:active .ckm-checkbox__box {
+  transform: scale(var(--ckm-press-scale));
+}
+
+.ckm .ckm-checkbox__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ckm .ckm-checkbox__label {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-checkbox__description {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-checkbox.is-invalid .ckm-checkbox__box {
+  border-color: var(--ckm-red);
+}
