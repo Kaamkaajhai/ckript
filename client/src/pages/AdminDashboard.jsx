@@ -1267,9 +1267,7 @@ const AdminDashboard = () => {
                 formData.append("attachments", file);
             });
 
-            const { data } = await adminApi.post(`/admin/broadcast/${audience}`, formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
+            const { data } = await adminApi.post(`/admin/broadcast/${audience}`, formData);
             showToast(data?.message || `Broadcast sent to ${audienceLabel}.`);
             reset();
         } catch (err) {
