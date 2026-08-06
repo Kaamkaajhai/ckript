@@ -32,7 +32,7 @@ export const ADMIN_NAV_GROUPS = [
   },
   {
     title: "Communication",
-    keys: ["messages", "queries", "meetings"],
+    keys: ["messages", "queries", "meetings", "direct-email"],
   },
   {
     title: "Archive",

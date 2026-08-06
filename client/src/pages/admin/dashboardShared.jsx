@@ -15,6 +15,10 @@ import axios from "axios";
 import { jsPDF } from "jspdf";
 import { formatCurrency } from "../../utils/currency";
 import { getApiBaseUrl, getApiOrigin } from "../../utils/apiOrigin";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import { Bold, Italic, List, ListOrdered, Paperclip, X } from "lucide-react";
 import { attachAdminScriptAccessHeader } from "../../utils/adminScriptAccess";
 import { getScriptCompletionBadgeClasses, getScriptCompletionProgressText, getScriptCompletionStatusLabel } from "../../utils/scriptCompletion";
 import { Icon, StatCard } from "../../components/AdminUI";
@@ -52,6 +56,7 @@ export const TABS = [
     { key: "evaluations", label: "AI Evaluations", icon: "M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
     { key: "meetings", label: "Meetings", icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" },
     { key: "messages", label: "Messages", icon: "M7.5 8.25h9m-9 3h6m-9 9h12A2.25 2.25 0 0018.75 18V6A2.25 2.25 0 0016.5 3.75h-9A2.25 2.25 0 005.25 6v12A2.25 2.25 0 007.5 20.25z" },
+    { key: "direct-email", label: "Direct Email", icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
     { key: "membership-reviews", label: "SWA/WGA Reviews", icon: "M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 0h1.5A2.25 2.25 0 0115 2.25v1.134a9 9 0 11-6 0V2.25z" },
     { key: "competitions", label: "Competitions", icon: "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25s4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" },
     { key: "referrals", label: "Referrals", icon: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.479m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" },
@@ -237,56 +242,167 @@ export const BroadcastComposer = ({
     title,
     content,
     actionUrl,
+    attachments = [],
     onTitleChange,
     onContentChange,
     onActionUrlChange,
+    onAttachmentsChange,
     onSend,
     sending = false,
-}) => (
-    <div className={`rounded-2xl border p-4 sm:p-5 mb-5 ${isDark ? "bg-[#1a1616] border-[#2e2828]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-        <div className="flex flex-col gap-4">
-            <div>
-                <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    Broadcast to {audienceLabel}
+}) => {
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Placeholder.configure({
+                placeholder: `Write the message you want ${audienceLabel.toLowerCase()} to receive...`
+            })
+        ],
+        content: content,
+        onUpdate: ({ editor }) => {
+            onContentChange(editor.getHTML());
+        }
+    });
+
+    // Update editor content when prop changes externally (e.g. on reset)
+    useEffect(() => {
+        if (editor && content === '' && editor.getHTML() !== '<p></p>') {
+            editor.commands.setContent('');
+        }
+    }, [content, editor]);
+
+    const handleFileChange = (e) => {
+        if (e.target.files && onAttachmentsChange) {
+            const newFiles = Array.from(e.target.files);
+            // Basic size validation
+            const validFiles = newFiles.filter(f => f.size <= MAX_ATTACHMENT_SIZE_BYTES);
+            if (validFiles.length < newFiles.length) {
+                alert(`Some files were too large. Maximum size is ${MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)}MB.`);
+            }
+            onAttachmentsChange([...attachments, ...validFiles]);
+        }
+        // Reset input value to allow selecting same file again
+        e.target.value = '';
+    };
+
+    const removeFile = (indexToRemove) => {
+        if (onAttachmentsChange) {
+            onAttachmentsChange(attachments.filter((_, idx) => idx !== indexToRemove));
+        }
+    };
+
+    const toggleBold = () => editor?.chain().focus().toggleBold().run();
+    const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
+    const toggleBulletList = () => editor?.chain().focus().toggleBulletList().run();
+    const toggleOrderedList = () => editor?.chain().focus().toggleOrderedList().run();
+
+    return (
+        <div className={`rounded-2xl border mb-6 overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+            <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-[#1a3050] bg-[#112240]" : "border-gray-100 bg-gray-50/50"}`}>
+                <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                    Compose Broadcast
                 </h3>
-                <p className={`mt-1 text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                    Sends a ckript email and in-platform notification to every active {audienceLabel.toLowerCase()}.
-                </p>
             </div>
-            <input
-                type="text"
-                value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-                placeholder={`Title for ${audienceLabel}`}
-                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#221d1d] border-[#2e2828] text-gray-100 placeholder:text-gray-500 focus:ring-[#a83a4d]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#a83a4d]"}`}
-            />
-            <textarea
-                rows={5}
-                value={content}
-                onChange={(event) => onContentChange(event.target.value)}
-                placeholder={`Write the message you want all ${audienceLabel.toLowerCase()} to receive`}
-                className={`w-full rounded-xl border px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${isDark ? "bg-[#221d1d] border-[#2e2828] text-gray-100 placeholder:text-gray-500 focus:ring-[#a83a4d]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#a83a4d]"}`}
-            />
-            <input
-                type="url"
-                value={actionUrl}
-                onChange={(event) => onActionUrlChange(event.target.value)}
-                placeholder="Optional link URL (e.g., https://example.com)"
-                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#221d1d] border-[#2e2828] text-gray-100 placeholder:text-gray-500 focus:ring-[#a83a4d]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#a83a4d]"}`}
-            />
-            <div className="flex justify-end">
-                <button
-                    type="button"
-                    onClick={onSend}
-                    disabled={sending || !title.trim() || !content.trim()}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#a83a4d]/15 text-[#e79aa6] hover:bg-[#a83a4d]/25" : "bg-[#7a2233] text-white hover:bg-[#162d4a]"}`}
-                >
-                    {sending ? "Sending..." : `Send to ${audienceLabel}`}
-                </button>
+            
+            <div className="p-5 flex flex-col gap-5">
+                <input
+                    type="text"
+                    value={title}
+                    onChange={(event) => onTitleChange(event.target.value)}
+                    placeholder={`Subject line for ${audienceLabel}`}
+                    className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-[#8B1E1E]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#8B1E1E]/30"}`}
+                />
+
+                <div className={`rounded-xl border overflow-hidden ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                    {/* Toolbar */}
+                    <div className={`flex items-center gap-1 p-2 border-b ${isDark ? "bg-[#132744] border-[#1a3050]" : "bg-gray-50 border-gray-200"}`}>
+                        <button type="button" onClick={toggleBold} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('bold') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
+                            <Bold size={16} />
+                        </button>
+                        <button type="button" onClick={toggleItalic} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('italic') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
+                            <Italic size={16} />
+                        </button>
+                        <div className={`w-px h-4 mx-1 ${isDark ? "bg-[#1a3050]" : "bg-gray-300"}`} />
+                        <button type="button" onClick={toggleBulletList} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('bulletList') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
+                            <List size={16} />
+                        </button>
+                        <button type="button" onClick={toggleOrderedList} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('orderedList') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
+                            <ListOrdered size={16} />
+                        </button>
+                    </div>
+                    {/* Editor Content */}
+                    <div className="p-4 min-h-[150px] max-h-[400px] overflow-y-auto tiptap-admin-editor">
+                        <EditorContent editor={editor} className={`text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <input
+                            type="url"
+                            value={actionUrl}
+                            onChange={(event) => onActionUrlChange(event.target.value)}
+                            placeholder="Optional Button Link URL (e.g., https://ckript.com/premium)"
+                            className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-[#8B1E1E]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#8B1E1E]/30"}`}
+                        />
+                    </div>
+                    
+                    <div className="relative">
+                        <input
+                            type="file"
+                            multiple
+                            id={`attachment-${audienceLabel}`}
+                            className="hidden"
+                            onChange={handleFileChange}
+                        />
+                        <label htmlFor={`attachment-${audienceLabel}`} className={`flex items-center justify-center cursor-pointer px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${isDark ? "border-[#1a3050] bg-[#132744] text-gray-300 hover:bg-[#1a3050]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
+                            <Paperclip size={16} className="mr-2" />
+                            Attach Files
+                        </label>
+                    </div>
+                </div>
+
+                {/* Attachments Preview */}
+                {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {attachments.map((file, i) => (
+                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"}`}>
+                                <span className="truncate max-w-[150px]">{file.name}</span>
+                                <button onClick={() => removeFile(i)} className="text-gray-400 hover:text-red-500">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <style dangerouslySetInnerHTML={{__html: `
+                    .tiptap-admin-editor .ProseMirror:focus { outline: none; }
+                    .tiptap-admin-editor .ProseMirror p.is-editor-empty:first-child::before {
+                        content: attr(data-placeholder);
+                        float: left;
+                        color: #9CA3AF;
+                        pointer-events: none;
+                        height: 0;
+                    }
+                    .tiptap-admin-editor .ProseMirror p { margin: 0 0 1em 0; }
+                    .tiptap-admin-editor .ProseMirror ul { padding-left: 1.5em; list-style-type: disc; margin: 0 0 1em 0; }
+                    .tiptap-admin-editor .ProseMirror ol { padding-left: 1.5em; list-style-type: decimal; margin: 0 0 1em 0; }
+                `}} />
+
+                <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-[#1a3050] mt-2">
+                    <button
+                        type="button"
+                        onClick={onSend}
+                        disabled={sending || !title.trim() || !content.trim()}
+                        className={`px-8 py-3 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#8B1E1E] text-white hover:bg-[#721818]" : "bg-[#8B1E1E] text-white hover:bg-[#721818]"}`}
+                    >
+                        {sending ? "Sending..." : `Launch to ${audienceLabel}`}
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 // ─── User Table ───
 export const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfreezeUser, onGrantPremium, onRemovePremium, onDeleteUser, userActionLoading = "" }) => {
