@@ -20,6 +20,8 @@ import crypto from "crypto";
 import { resolveCurrency } from "../utils/currencyFx.js";
 import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
 import { PLAN_PRICES, WRITER_PLAN_KEY } from "../config/pricing.js";
+import { planOrderNotes, readVerifiedPlanOrder, planAmountMinor } from "../utils/planCheckout.js";
+import { recordPayment, recordGrant } from "../utils/ledger.js";
 
 const FILM_INDUSTRY_PRO_MODEL = {
   plan: "pro",
@@ -135,6 +137,20 @@ export const activateFilmIndustryProfessionalTestCheckout = async (req, res) => 
 
     await User.updateOne({ _id: currentUser._id }, update);
 
+    // A free 30-day Diamond. It writes checkoutMode:"live" and checkoutProvider:"razorpay" onto the
+    // user, so in that record it is indistinguishable from a ₹1,999 sale — this entry is the only
+    // thing that tells the two apart, and carries the revenue foregone.
+    await recordGrant({
+      kind: "plan_subscription",
+      user: currentUser._id,
+      listPriceMinor: planAmountMinor("film_industry_professional", "INR", "monthly") || 0,
+      subjectType: "Plan",
+      label: "Film Industry Professional (test checkout)",
+      reason: "self-serve test checkout",
+      source: "paymentController.activateFilmIndustryProfessionalTestCheckout",
+      metadata: { planKey: "film_industry_professional", checkoutReference },
+    });
+
     const refreshedUser = await User.findById(currentUser._id).select("-password");
 
     return res.json({
@@ -185,6 +201,14 @@ export const createRazorpayOrder = async (req, res) => {
       currency,
       inrAmount,
       receipt: `rcpt_${currentUser._id.toString().substring(18)}_${Date.now()}`,
+      // The billing cycle is decided HERE, where the price is computed, and read back from the order
+      // at verification. Previously `cycle` was taken from the verify request body, so a monthly
+      // payment could be verified as annual and grant 365 days instead of 30.
+      notes: planOrderNotes({
+        userId: currentUser._id,
+        planKey: "film_industry_professional",
+        cycle,
+      }),
     });
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
 
@@ -234,6 +258,17 @@ export const activateTestWriterSubscription = async (req, res) => {
 
     await User.updateOne({ _id: currentUser._id }, update);
 
+    await recordGrant({
+      kind: "plan_subscription",
+      user: currentUser._id,
+      listPriceMinor: planAmountMinor(WRITER_PLAN_KEY[tier], "INR", "monthly") || 0,
+      subjectType: "Plan",
+      label: "Writer " + tier + " (test subscription)",
+      reason: "self-serve test subscription",
+      source: "paymentController.activateTestWriterSubscription",
+      metadata: { planKey: WRITER_PLAN_KEY[tier], tier },
+    });
+
     const refreshedUser = await User.findById(currentUser._id).select("-password");
 
     return res.status(200).json({ 
@@ -249,8 +284,9 @@ export const activateTestWriterSubscription = async (req, res) => {
 
 export const verifyRazorpayPayment = async (req, res) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, returnTo, cycle } = req.body;
-    
+    // `cycle` is deliberately NOT read from the body — see below.
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, returnTo } = req.body;
+
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ message: "Missing required payment details" });
     }
@@ -267,6 +303,16 @@ export const verifyRazorpayPayment = async (req, res) => {
       return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
     }
 
+    // The signature only proves SOME payment on this account succeeded. Read the order back to learn
+    // which plan was bought, for how long, and for how much — and to prove it was this user's.
+    const razorpayClient = await getRazorpayInstance();
+    if (!razorpayClient) {
+      return res.status(503).json({ message: "Razorpay is not configured. Keys are missing." });
+    }
+    const verified = await readVerifiedPlanOrder(razorpayClient, razorpay_order_id, currentUser._id);
+    if (verified.error) return res.status(verified.status).json({ message: verified.error });
+
+    const cycle = verified.cycle;
     const now = new Date();
     const durationDays = cycle === "annual" ? 365 : FILM_INDUSTRY_PRO_MODEL.durationDays;
     const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
@@ -294,6 +340,22 @@ export const verifyRazorpayPayment = async (req, res) => {
     };
 
     await User.updateOne({ _id: currentUser._id }, update);
+
+    // Written AFTER the entitlement lands and never allowed to fail the request: the money is
+    // already captured, so an error here would tell a paying user their payment failed.
+    await recordPayment({
+      kind: "plan_subscription",
+      user: currentUser._id,
+      amountMinor: verified.paidMinor,
+      currency: verified.currency,
+      listPriceMinor: planAmountMinor("film_industry_professional", verified.currency, cycle) || 0,
+      providerOrderId: razorpay_order_id,
+      providerPaymentId: razorpay_payment_id,
+      subjectType: "Plan",
+      label: "Film Industry Professional (" + cycle + ")",
+      source: "paymentController.verifyRazorpayPayment",
+      metadata: { planKey: "film_industry_professional", cycle, durationDays },
+    });
 
     const refreshedUser = await User.findById(currentUser._id).select("-password");
 
@@ -475,6 +537,15 @@ export const createWriterRazorpayOrder = async (req, res) => {
       currency,
       inrAmount: baseInrAmount,
       receipt: `rcpt_${currentUser._id.toString().substring(18)}_${tier}_${Date.now()}`,
+      // The tier and cycle are fixed HERE, alongside the price they determine, and read back at
+      // verification. They used to come from the verify request body, so a paid Silver order could
+      // be verified as `tier: "gold", cycle: "annual"` — ₹399 for ₹7,130 of access.
+      notes: planOrderNotes({
+        userId: currentUser._id,
+        planKey: WRITER_PLAN_KEY[tier],
+        tier,
+        cycle,
+      }),
     });
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
 
@@ -493,11 +564,8 @@ export const createWriterRazorpayOrder = async (req, res) => {
 
 export const verifyWriterRazorpayPayment = async (req, res) => {
   try {
-    const { tier, cycle, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    
-    if (!tier || !["silver", "gold"].includes(tier)) {
-      return res.status(400).json({ message: "Invalid tier for verification." });
-    }
+    // `tier` and `cycle` are deliberately NOT read from the body — they come from the order.
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return res.status(400).json({ message: "Missing required payment details" });
@@ -514,6 +582,19 @@ export const verifyWriterRazorpayPayment = async (req, res) => {
 
     const currentUser = await User.findById(req.user._id).select("role subscription");
     if (!currentUser) return res.status(404).json({ message: "User not found" });
+
+    // What was actually bought and paid for, straight from Razorpay.
+    const razorpayClient = await getRazorpayInstance();
+    if (!razorpayClient) {
+      return res.status(503).json({ message: "Razorpay is not configured. Keys are missing." });
+    }
+    const verified = await readVerifiedPlanOrder(razorpayClient, razorpay_order_id, currentUser._id);
+    if (verified.error) return res.status(verified.status).json({ message: verified.error });
+
+    const { tier, cycle } = verified;
+    if (!["silver", "gold"].includes(tier)) {
+      return res.status(400).json({ message: "This order is not a writer plan." });
+    }
 
     const model = tier === "gold" ? WRITER_GOLD_MODEL : WRITER_SILVER_MODEL;
     const now = new Date();
@@ -532,11 +613,25 @@ export const verifyWriterRazorpayPayment = async (req, res) => {
         "subscription.checkoutMode": "live",
         "subscription.checkoutProvider": "razorpay",
         "subscription.checkoutReference": razorpay_order_id,
-        "subscription.paymentId": razorpay_payment_id,
+        "subscription.paymentId": razorpay_payment_id,   // now a real schema path — see User.js
       },
     };
 
     await User.updateOne({ _id: currentUser._id }, update);
+
+    await recordPayment({
+      kind: "plan_subscription",
+      user: currentUser._id,
+      amountMinor: verified.paidMinor,
+      currency: verified.currency,
+      listPriceMinor: planAmountMinor(WRITER_PLAN_KEY[tier], verified.currency, cycle) || 0,
+      providerOrderId: razorpay_order_id,
+      providerPaymentId: razorpay_payment_id,
+      subjectType: "Plan",
+      label: "Writer " + tier + " (" + cycle + ")",
+      source: "paymentController.verifyWriterRazorpayPayment",
+      metadata: { planKey: WRITER_PLAN_KEY[tier], tier, cycle, durationDays },
+    });
     const refreshedUser = await User.findById(currentUser._id).select("-password");
 
     return res.status(200).json({

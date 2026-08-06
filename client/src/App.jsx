@@ -69,12 +69,14 @@ const Messages = lazy(() => import("./features/messages-operator"));
 // The industry section — see features/producer-workspace for what lives there
 // and, just as importantly, what deliberately does not.
 const Mandates = lazy(() => import("./features/producer-workspace/MandatesPage"));
-const Writers = lazy(() => import("./features/producer-workspace/WriterDirectoryPage"));
+const Writers = lazy(() => import("./features/producer-workspace/WriterRosterPage"));
 const InvestorHome = lazy(() => import("./features/investor-desk"));
 const ReaderHome = lazy(() => import("./pages/ReaderHome"));
 const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+// Separate from the admin console on purpose: this one is shared with an external accountant.
+const FinancePanel = lazy(() => import("./pages/FinancePanel"));
 const AdminCompetitionsEditor = lazy(() => import("./pages/admin/competitions/AdminCompetitionsEditor"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
@@ -566,6 +568,10 @@ function App() {
               <Route
                 path="/admin"
                 element={<AdminDashboard />}
+              />
+              <Route
+                path="/finance"
+                element={<FinancePanel />}
               />
               <Route
                 path="/admin/competitions/:id"

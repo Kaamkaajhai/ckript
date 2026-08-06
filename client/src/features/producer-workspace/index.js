@@ -10,7 +10,8 @@
  * other audience routes to them, so they belong to this module.
  *
  *   ProducerDashboardPage  /dashboard  (was pages/InvestorDashboard.jsx)
- *   WriterDirectoryPage    /writers    (was pages/Writers.jsx)
+ *   WriterRosterPage       /writers    (was pages/Writers.jsx, then
+ *                                      WriterDirectoryPage.jsx)
  *   MandatesPage           /mandates   (was pages/Mandates.jsx)
  *
  * Deliberately NOT moved, because they are shared and moving them would have
@@ -29,5 +30,5 @@
  */
 
 export { default as ProducerDashboardPage } from "./ProducerDashboardPage";
-export { default as WriterDirectoryPage } from "./WriterDirectoryPage";
+export { default as WriterRosterPage } from "./WriterRosterPage";
 export { default as MandatesPage } from "./MandatesPage";

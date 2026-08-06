@@ -9,6 +9,7 @@
 import { Link } from "react-router-dom";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import SaveButton from "./SaveButton";
+import FeaturedIcon from "./FeaturedIcon";
 import {
   getCompletionLabel,
   getCreatorName,
@@ -57,7 +58,7 @@ const LeadStory = ({
           : <span className="fbp-lead__img-empty">No cover image</span>}
         {hasTrailer(script) && (
           <button type="button" className="fbp-lead__trailer" onClick={onTrailer}>
-            <span className="fbp-icon" aria-hidden="true">play_arrow</span>
+            <FeaturedIcon name="play" fill />
             Watch Trailer
           </button>
         )}
@@ -66,7 +67,7 @@ const LeadStory = ({
       <div className="fbp-lead__body">
         {spotlight && (
           <div className="fbp-lead__spot">
-            <span className="fbp-icon" aria-hidden="true">workspace_premium</span>
+            <FeaturedIcon name="spotlight" />
             {spotlight}
           </div>
         )}
@@ -95,7 +96,7 @@ const LeadStory = ({
         <div className="fbp-lead__actions">
           <Link to={scriptPath} onClick={onOpenProject} className="fbp-btn fbp-btn--primary fbp-btn--lg">
             View Project
-            <span className="fbp-icon" aria-hidden="true">arrow_forward</span>
+            <FeaturedIcon name="arrowForward" />
           </Link>
           <button type="button" className="fbp-btn fbp-btn--quiet fbp-btn--lg" onClick={onDetails}>
             Details
@@ -118,10 +119,10 @@ const LeadStory = ({
                 ))}
               </span>
               <button type="button" className="fbp-lead__arrow" onClick={onPrev} aria-label="Previous lead">
-                <span className="fbp-icon" aria-hidden="true">chevron_left</span>
+                <FeaturedIcon name="chevronLeft" />
               </button>
               <button type="button" className="fbp-lead__arrow" onClick={onNext} aria-label="Next lead">
-                <span className="fbp-icon" aria-hidden="true">chevron_right</span>
+                <FeaturedIcon name="chevronRight" />
               </button>
             </div>
           )}

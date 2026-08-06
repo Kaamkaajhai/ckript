@@ -566,10 +566,10 @@ const AdminScriptView = () => {
   if (!scriptAccessReady) {
     return (
       <div className="min-h-screen bg-[#050b16] text-white flex items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-2xl border border-[#1a3050] bg-[#0c1527] p-7 shadow-2xl">
+        <div className="w-full max-w-md rounded-2xl border border-[#2e2828] bg-[#0c1527] p-7 shadow-2xl">
           <div className="text-center mb-6">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
-              <svg className="h-7 w-7 text-blue-300" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#a83a4d]/20 bg-[#a83a4d]/10">
+              <svg className="h-7 w-7 text-[#e79aa6]" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 10.5h10.5A2.25 2.25 0 0019.5 18.75v-6a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 12.75v6A2.25 2.25 0 006.75 21z" />
               </svg>
             </div>
@@ -588,7 +588,7 @@ const AdminScriptView = () => {
               }}
               placeholder="Section password"
               autoFocus
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-blue-400/50 focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-[#a83a4d]/50 focus:ring-2 focus:ring-[#a83a4d]/20"
             />
             {scriptAccessError && (
               <p className="text-sm font-medium text-red-300">{scriptAccessError}</p>
@@ -604,7 +604,7 @@ const AdminScriptView = () => {
               <button
                 type="submit"
                 disabled={scriptAccessLoading || !scriptAccessPassword}
-                className="px-5 py-2.5 rounded-xl bg-[#1e3a5f] text-sm font-bold text-white hover:bg-[#2a4b77] disabled:cursor-not-allowed disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-[#7a2233] text-sm font-bold text-white hover:bg-[#2a4b77] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {scriptAccessLoading ? "Unlocking..." : "Unlock"}
               </button>
@@ -658,7 +658,7 @@ const AdminScriptView = () => {
                 <button
                   type="button"
                   onClick={handleStartEdit}
-                  className="px-4 py-2 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs sm:text-sm font-bold"
+                  className="px-4 py-2 rounded-lg border border-[#a83a4d]/30 bg-[#a83a4d]/15 hover:bg-[#a83a4d]/25 text-[#f7edee] text-xs sm:text-sm font-bold"
                 >
                   Edit
                 </button>
@@ -729,10 +729,10 @@ const AdminScriptView = () => {
         )}
 
         {editMode && draft && (
-          <div className="rounded-2xl border border-blue-400/30 bg-blue-500/[0.06] p-5 sm:p-7 space-y-5">
+          <div className="rounded-2xl border border-[#a83a4d]/30 bg-[#a83a4d]/[0.06] p-5 sm:p-7 space-y-5">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-blue-200 mb-1">Admin Edit Mode</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] font-bold text-[#e79aa6] mb-1">Admin Edit Mode</p>
                 <p className="text-xs text-white/70">Edit any field below. Changes to script body are recorded in history with you as the editor.</p>
               </div>
             </div>
@@ -744,7 +744,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.title}
                   onChange={(e) => updateDraft((d) => ({ ...d, title: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -753,7 +753,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.companyName}
                   onChange={(e) => updateDraft((d) => ({ ...d, companyName: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block lg:col-span-2">
@@ -762,7 +762,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.logline}
                   onChange={(e) => updateDraft((d) => ({ ...d, logline: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block lg:col-span-2">
@@ -771,7 +771,7 @@ const AdminScriptView = () => {
                   rows={4}
                   value={draft.synopsis}
                   onChange={(e) => updateDraft((d) => ({ ...d, synopsis: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block lg:col-span-2">
@@ -780,7 +780,7 @@ const AdminScriptView = () => {
                   rows={3}
                   value={draft.description}
                   onChange={(e) => updateDraft((d) => ({ ...d, description: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -789,7 +789,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.format}
                   onChange={(e) => updateDraft((d) => ({ ...d, format: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -798,7 +798,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.contentType}
                   onChange={(e) => updateDraft((d) => ({ ...d, contentType: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -807,7 +807,7 @@ const AdminScriptView = () => {
                   type="text"
                   value={draft.primaryGenre}
                   onChange={(e) => updateDraft((d) => ({ ...d, primaryGenre: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
               <label className="block">
@@ -817,7 +817,7 @@ const AdminScriptView = () => {
                   min={0}
                   value={draft.price}
                   onChange={(e) => updateDraft((d) => ({ ...d, price: Number(e.target.value) || 0 }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
             </div>
@@ -828,7 +828,7 @@ const AdminScriptView = () => {
                 rows={18}
                 value={draft.textContent}
                 onChange={(e) => updateDraft((d) => ({ ...d, textContent: e.target.value }))}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 style={{ fontFamily: '"Courier Prime", "Courier New", Courier, monospace' }}
               />
             </label>
@@ -841,7 +841,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.rightsType}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, rightsType: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="full_rights_sale">Full Rights Sale</option>
                     <option value="exclusive_license">Exclusive License</option>
@@ -853,7 +853,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.modificationRights}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, modificationRights: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="buyer_can_modify_freely">Buyer can modify freely</option>
                     <option value="buyer_must_consult_writer">Buyer must consult writer</option>
@@ -865,7 +865,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.paymentStructure}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, paymentStructure: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="one_time_upfront_payment">One-time upfront payment</option>
                     <option value="lower_upfront_plus_royalty_percent">Lower upfront + royalty %</option>
@@ -878,7 +878,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.negotiationMode}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, negotiationMode: e.target.value } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="fixed_terms_non_negotiable">Fixed terms (non-negotiable)</option>
                     <option value="open_to_discussion_after_purchase">Open to discussion after purchase</option>
@@ -893,7 +893,7 @@ const AdminScriptView = () => {
                     max={100}
                     value={draft.rightsLicensing.royaltySettings.percentage}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, percentage: Number(e.target.value) || 0 } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   />
                 </label>
                 <label className="block">
@@ -901,7 +901,7 @@ const AdminScriptView = () => {
                   <select
                     value={draft.rightsLicensing.royaltySettings.durationType}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, durationType: e.target.value } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   >
                     <option value="none">None</option>
                     <option value="years">Years</option>
@@ -915,7 +915,7 @@ const AdminScriptView = () => {
                     min={0}
                     value={draft.rightsLicensing.royaltySettings.durationYears}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, royaltySettings: { ...d.rightsLicensing.royaltySettings, durationYears: Number(e.target.value) || 0 } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   />
                 </label>
                 <label className="block">
@@ -926,7 +926,7 @@ const AdminScriptView = () => {
                     max={120}
                     value={draft.rightsLicensing.timeBound.licenseDurationMonths}
                     onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, timeBound: { ...d.rightsLicensing.timeBound, licenseDurationMonths: Number(e.target.value) || 0 } } }))}
-                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                    className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                   />
                 </label>
                 <label className="flex items-center gap-2 mt-6">
@@ -955,7 +955,7 @@ const AdminScriptView = () => {
                   maxLength={5000}
                   value={draft.rightsLicensing.customConditions}
                   onChange={(e) => updateDraft((d) => ({ ...d, rightsLicensing: { ...d.rightsLicensing, customConditions: e.target.value } }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
             </div>
@@ -969,7 +969,7 @@ const AdminScriptView = () => {
                   maxLength={3000}
                   value={draft.legal.customInvestorTerms}
                   onChange={(e) => updateDraft((d) => ({ ...d, legal: { ...d.legal, customInvestorTerms: e.target.value } }))}
-                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-400/60"
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/15 bg-white/5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#a83a4d]/60"
                 />
               </label>
             </div>
@@ -1317,7 +1317,7 @@ const AdminScriptView = () => {
                     type="button"
                     onClick={handleOpenSubmissionSummaryPdf}
                     disabled={!script?.submissionSummaryPdf?.url}
-                    className="px-3 py-1.5 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 rounded-lg border border-[#a83a4d]/30 bg-[#a83a4d]/15 hover:bg-[#a83a4d]/25 text-[#f7edee] text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Open Writer PDF
                   </button>
@@ -1370,7 +1370,7 @@ const AdminScriptView = () => {
                             type="button"
                             onClick={() => handlePurchaseAcceptancePdf(request._id, script?.title, "open")}
                             disabled={!request?.acceptancePdf?.url}
-                            className="px-3 py-1.5 rounded-lg border border-blue-400/30 bg-blue-500/15 hover:bg-blue-500/25 text-blue-100 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-3 py-1.5 rounded-lg border border-[#a83a4d]/30 bg-[#a83a4d]/15 hover:bg-[#a83a4d]/25 text-[#f7edee] text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Open Accepted Terms PDF
                           </button>
@@ -1423,7 +1423,7 @@ const AdminScriptView = () => {
                     Hidden from Producers
                   </span>
                 )}
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-blue-500/15 text-blue-300 border border-blue-500/20">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold bg-[#a83a4d]/15 text-[#e79aa6] border border-[#a83a4d]/20">
                   Pages {Number(script?.scriptPreviewAccess?.start || 1)} – {Number(script?.scriptPreviewAccess?.end || 8)}
                 </span>
               </div>

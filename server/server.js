@@ -38,6 +38,7 @@ import transactionRoutes from "./routes/transactionRoutes.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import scriptPitchRoutes from "./routes/scriptPitchRoutes.js";
+import financeRoutes from "./routes/financeRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
@@ -364,6 +365,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api/script-pitches", scriptPitchRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.use("/api/finance", financeRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
 app.use("/api/collab", collabRoutes);

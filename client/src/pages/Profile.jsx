@@ -227,14 +227,6 @@ const Profile = () => {
   const [followRequestPending, setFollowRequestPending] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [activeTab, setActiveTab] = useState("projects");
-  // Deep-link support: open a specific tab when the URL carries ?tab=... (e.g. the sidebar
-  // "Saved projects" link → ?tab=bookmarks). Runs on mount and whenever the query changes.
-  useEffect(() => {
-    const urlTab = new URLSearchParams(location.search).get("tab");
-    if (urlTab && ["about", "projects", "credentials", "bookmarks", "purchases", "meetings", "settings"].includes(urlTab)) {
-      setActiveTab(urlTab);
-    }
-  }, [location.search]);
   const [showMessageRequestModal, setShowMessageRequestModal] = useState(false);
   const [messageRequestText, setMessageRequestText] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
@@ -324,15 +316,27 @@ const Profile = () => {
       setIsFollowsMe(following.some((f) => (f?._id || f) === currentUser?._id));
       setFollowRequestPending(Boolean(data.user?.followRequestPending));
 
-      if (tabInitializedForProfileRef.current !== data.user._id) {
+      const tabInitializationKey = `${data.user._id}:${location.search}`;
+      if (tabInitializedForProfileRef.current !== tabInitializationKey) {
         const role = String(data.user.role || "").toLowerCase();
         const isInvestorProfile = role === "investor";
         const nextScripts = (data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted);
-        // A ?tab= deep-link wins over the computed default (see the effect above).
+        // A valid, role-permitted ?tab= deep-link wins over the computed default.
         const urlTab = new URLSearchParams(location.search).get("tab");
         const isWriterProfile = role === "writer" || role === "creator";
-        setActiveTab(urlTab || (isInvestorProfile || isWriterProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about")));
-        tabInitializedForProfileRef.current = data.user._id;
+        const ownsProfile = Boolean(currentUser?._id && String(currentUser._id) === String(data.user?._id));
+        const allowedTabs = new Set([
+          "about",
+          ...(role !== "investor" ? ["projects"] : []),
+          ...(isWriterProfile ? ["credentials"] : []),
+          ...(isWriterProfile && Array.isArray(data.user?.badges) && data.user.badges.length > 0 ? ["achievements"] : []),
+          ...(ownsProfile ? ["bookmarks", "meetings", "settings"] : []),
+          ...(ownsProfile && (data.purchasedScripts || []).length > 0 ? ["purchases"] : []),
+          ...(ownsProfile && data.user?.featureFlags?.financialAnalytics ? ["performance"] : []),
+        ]);
+        const requestedTab = allowedTabs.has(urlTab) ? urlTab : null;
+        setActiveTab(requestedTab || (isInvestorProfile || isWriterProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about")));
+        tabInitializedForProfileRef.current = tabInitializationKey;
       }
     } catch (error) {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
@@ -758,7 +762,7 @@ const Profile = () => {
 
 
   useEffect(() => {
-    if (activeTab === "meetings" && isOwnProfile && currentUser?._id) {
+    if ((isWriterUser || isInvestorProfile || activeTab === "meetings") && isOwnProfile && currentUser?._id) {
       const fetchMeetings = async () => {
         try {
           setMeetingsLoading(true);
@@ -772,7 +776,7 @@ const Profile = () => {
       };
       fetchMeetings();
     }
-  }, [activeTab, isOwnProfile, currentUser?._id]);
+  }, [activeTab, isOwnProfile, currentUser?._id, isInvestorProfile, isWriterUser]);
 
   useEffect(() => {
     setShowContactDetails(false);
@@ -999,7 +1003,8 @@ const Profile = () => {
   /* â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• 
      RENDER
      â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â• â•  */
-  const writerIdentity = isWriterUser ? (
+  const usesWorkspaceProfile = isWriterUser || isInvestorProfile;
+  const workspaceIdentity = usesWorkspaceProfile ? (
     <ProfileWorkspaceIdentity
       profile={profile}
       scriptsCount={scripts.length}
@@ -1017,7 +1022,8 @@ const Profile = () => {
       onFollow={handleFollow}
       onBlock={handleToggleBlock}
       onEdit={() => setShowEditModal(true)}
-      onMessage={!isWriter(currentUser?.role) ? () => setShowMessageRequestModal(true) : null}
+      onMessage={isWriterUser && !isWriter(currentUser?.role) ? () => setShowMessageRequestModal(true) : null}
+      onPitch={isInvestorProfile && isWriter(currentUser?.role) ? handleOpenPitchModal : null}
       onFollowers={() => openConnectionsModal("followers")}
       onFollowing={() => openConnectionsModal("following")}
       canViewContactDetails={canViewContactDetails}
@@ -1035,21 +1041,49 @@ const Profile = () => {
       contactLinks={profileContactLinkItems}
     />
   ) : null;
-  const ProfileRoot = isWriterUser ? ProfilePcPage : "div";
+  const ProfileRoot = usesWorkspaceProfile ? ProfilePcPage : "div";
+  const workspaceTabGroups = [
+    {
+      label: "Profile",
+      tabs: [
+        { key: "about", label: "Overview", icon: "article" },
+        ...(isWriterUser ? [{ key: "projects", label: "Projects", icon: "movie", count: scripts.length }] : []),
+        ...(isWriterUser ? [{ key: "credentials", label: "Guilds & skills", icon: "workspace_premium" }] : []),
+        ...(isWriterUser && Array.isArray(profile.badges) && profile.badges.length > 0
+          ? [{ key: "achievements", label: "Achievements", icon: "emoji_events" }]
+          : []),
+      ],
+    },
+    ...(isOwnProfile ? [{
+      label: "Work",
+      tabs: [
+        { key: "meetings", label: "Meetings", icon: "calendar_month", count: meetings.filter((meeting) => meeting?.status === "pending").length || undefined },
+        { key: "bookmarks", label: "Saved", icon: "bookmark", count: profile.favoriteScripts?.length || bookmarkedScripts.length },
+        ...(purchasedScripts.length > 0 ? [{ key: "purchases", label: "Purchases", icon: "receipt_long", count: purchasedScripts.length }] : []),
+      ],
+    }] : []),
+    ...(isOwnProfile ? [{
+      label: "Operations",
+      tabs: [
+        ...(showFinancialAnalytics ? [{ key: "performance", label: "Performance", icon: "insights" }] : []),
+        { key: "settings", label: "Settings", icon: "settings" },
+      ],
+    }] : []),
+  ];
 
   return (
-    <ProfileRoot {...(isWriterUser
-      ? { identity: writerIdentity, isDark: dark }
+    <ProfileRoot {...(usesWorkspaceProfile
+      ? { identity: workspaceIdentity, isDark: dark }
       : { className: `mx-auto space-y-5 ${isInvestorProfile ? "max-w-6xl" : "max-w-3xl"}` })}>
-      <ProfileCompletionBanner
+      {!usesWorkspaceProfile && <ProfileCompletionBanner
         completion={showProfileCompletion ? profileCompletion : null}
         subtitle="Your profile is incomplete. Add missing details from Edit Profile."
         ctaLabel="Edit Profile"
         onCta={() => setShowEditModal(true)}
-      />
+      />}
 
       {/* ════════ PROFILE CARD ════════ */}
-      {!isWriterUser && <Motion.div
+      {!usesWorkspaceProfile && <Motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
@@ -1341,55 +1375,42 @@ const Profile = () => {
       </Motion.div>}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ TABS â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className={isWriterUser ? "profile-workspace-tabs" : "flex items-center gap-2 overflow-x-auto pb-1"}>
-        {isWriterUser && (
+      <div className={usesWorkspaceProfile ? "profile-workspace-tabs" : "flex items-center gap-2 overflow-x-auto pb-1"}>
+        {usesWorkspaceProfile && (
           <nav className="profile-workspace-breadcrumb" aria-label="Breadcrumb">
-            <button type="button" onClick={() => navigate("/writers")} className="bg-transparent border-0 p-0 cursor-pointer">Writers</button>
+            <button type="button" onClick={() => navigate(isWriterUser ? "/writers" : "/discover")} className="bg-transparent border-0 p-0 cursor-pointer">{isWriterUser ? "Writers" : "Discover"}</button>
             <span>/</span>
             <strong>{profile.name}</strong>
           </nav>
         )}
-        <div className={isWriterUser ? "profile-workspace-tablist" : "contents"} role={isWriterUser ? "tablist" : undefined} aria-label={isWriterUser ? "Profile sections" : undefined}>
-        {[
-          { key: "about", label: isWriterUser ? "Overview" : "About" },
+        <div className={usesWorkspaceProfile ? "profile-workspace-tablist" : "contents"} role={usesWorkspaceProfile ? "tablist" : undefined} aria-label={usesWorkspaceProfile ? "Profile sections" : undefined}>
+        {usesWorkspaceProfile ? workspaceTabGroups.map((group) => (
+          <div className="profile-workspace-tabgroup" key={group.label}>
+            <div className="profile-workspace-tabgroup__label">{group.label}</div>
+            {group.tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className="profile-workspace-tab"
+              >
+                <span className="material-symbols-outlined profile-workspace-tab__icon" aria-hidden="true">{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.count !== undefined && <span className="profile-workspace-tab__count">{tab.count}</span>}
+              </button>
+            ))}
+          </div>
+        )) : [
+          { key: "about", label: "About" },
           ...(profile.role !== "investor" ? [{ key: "projects", label: "Projects", count: scripts.length }] : []),
-          ...(isWriterUser ? [{ key: "credentials", label: "Guilds & skills" }] : []),
           ...(isOwnProfile ? [{ key: "bookmarks", label: "Bookmarks", count: profile.favoriteScripts?.length || bookmarkedScripts.length }] : []),
           ...(isOwnProfile && purchasedScripts.length > 0 ? [{ key: "purchases", label: "Purchases", count: purchasedScripts.length }] : []),
-
-          ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }] : []),
-          ...(isOwnProfile ? [{ key: "settings", label: "Settings" }] : []),
+          ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }, { key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            role={isWriterUser ? "tab" : undefined}
-            aria-selected={isWriterUser ? activeTab === tab.key : undefined}
-            onClick={() => setActiveTab(tab.key)}
-            className={isWriterUser ? "profile-workspace-tab" : `px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 max-[585px]:px-3 max-[585px]:py-2 max-[585px]:text-[12px] max-[350px]:text-[11px] ${activeTab === tab.key
-              ? dark
-                ? "bg-[#1c2b42] text-white border-[#314765]"
-                : "bg-[#1e3a5f] text-white border-[#1e3a5f]"
-              : dark
-                ? "bg-[#121d2f] text-white/75 border-white/[0.12] hover:bg-[#18273d] hover:text-white"
-                : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:text-gray-900"
-              }`}
-          >
-            <span className="flex items-center justify-center gap-1.5 min-w-0">
-              {tab.label}
-              {tab.count !== undefined && (
-                <span
-                  className={isWriterUser ? "profile-workspace-tab__count" : `text-[11px] px-1.5 py-0.5 rounded-md font-bold tabular-nums ${activeTab === tab.key
-                    ? "bg-white/20 text-white"
-                    : dark
-                      ? "bg-white/10 text-white/60"
-                      : "bg-gray-100 text-gray-500"
-                    }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </span>
+          <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 ${activeTab === tab.key ? dark ? "bg-[#1c2b42] text-white border-[#314765]" : "bg-[#1e3a5f] text-white border-[#1e3a5f]" : dark ? "bg-[#121d2f] text-white/75 border-white/[0.12]" : "bg-white text-gray-600 border-gray-200"}`}>
+            {tab.label}{tab.count !== undefined && <span className="ml-1.5 text-[11px]">{tab.count}</span>}
           </button>
         ))}
         </div>
@@ -1401,9 +1422,9 @@ const Profile = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={`space-y-6 ${isWriterUser ? "profile-workspace-panel" : ""}`}
+          className={`space-y-6 ${usesWorkspaceProfile ? "profile-workspace-panel" : ""}`}
         >
-          {isWriterUser ? (
+          {usesWorkspaceProfile ? (
             <ProfileWorkspaceMeetings
               meetings={meetings}
               loading={meetingsLoading}
@@ -1537,7 +1558,7 @@ const Profile = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={isWriterUser ? "profile-workspace-panel" : ""}
+          className={usesWorkspaceProfile ? "profile-workspace-panel" : ""}
         >
           {isWriterUser ? (
             <ProfileWorkspaceProjects
@@ -1613,9 +1634,9 @@ const Profile = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={isWriterUser ? "profile-workspace-panel" : ""}
+          className={usesWorkspaceProfile ? "profile-workspace-panel" : ""}
         >
-          {isWriterUser ? (
+          {usesWorkspaceProfile ? (
             <ProfileWorkspaceBookmarks
               scripts={bookmarkedScripts}
               navigate={navigate}
@@ -1654,7 +1675,7 @@ const Profile = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={isWriterUser ? "profile-workspace-panel" : ""}
+          className={usesWorkspaceProfile ? "profile-workspace-panel" : ""}
         >
           <div className="grid grid-cols-1 min-[460px]:grid-cols-2 lg:grid-cols-3 gap-4">
             {purchasedScripts.map((script, index) => (
@@ -1715,12 +1736,23 @@ const Profile = () => {
         </Motion.div>
       )}
 
+      {activeTab === "achievements" && isWriterUser && (
+        <Motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          className="profile-workspace-panel"
+        >
+          <CompetitionAchievements userId={profile._id} badges={profile.badges} />
+        </Motion.div>
+      )}
+
       {activeTab === "about" && !isWriterUser && (
         <Motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"} ${isWriterUser ? "profile-workspace-panel" : ""}`}
+          className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"} ${usesWorkspaceProfile ? "profile-workspace-panel" : ""}`}
         >
           {/* Bio */}
           <div className="pb-6 first:pt-0 last:pb-0">
@@ -2357,15 +2389,15 @@ const Profile = () => {
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ SETTINGS TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {activeTab === "settings" && isOwnProfile && (
-        <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={isWriterUser ? "profile-workspace-panel profile-workspace-settings" : `rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
-          {isWriterUser && (
+        <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={usesWorkspaceProfile ? "profile-workspace-panel profile-workspace-settings" : `rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}>
+          {usesWorkspaceProfile && (
             <header className="profile-workspace-settings__header">
               <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06-2.83 2.83-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21h-4v-.09a1.65 1.65 0 00-1.08-1.5 1.65 1.65 0 00-1.82.33l-.06.06-2.83-2.83.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3v-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06 2.83-2.83.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3h4v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06 2.83 2.83-.06.06A1.65 1.65 0 0019.4 9c.12.61.66 1.04 1.28 1.04H21v4h-.32c-.62 0-1.16.43-1.28 1z" /></svg></span>
               <div><h2>Settings</h2><p>Manage your account, communication preferences, security, and workspace history.</p></div>
             </header>
           )}
           {(settingsMsg || settingsErr) && (
-            <div className={`${isWriterUser ? "profile-workspace-settings__alerts" : "pb-6"} flex flex-col gap-3`}>
+            <div className={`${usesWorkspaceProfile ? "profile-workspace-settings__alerts" : "pb-6"} flex flex-col gap-3`}>
               {settingsMsg && (
                 <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[13px] font-medium">
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -2804,7 +2836,7 @@ const Profile = () => {
       )}
 
       {/* â”€â”€â”€â”€â”€â”€â”€â”€ FINANCIAL TAB â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      {showFinancialAnalytics && (() => {
+      {showFinancialAnalytics && isOwnProfile && activeTab === "performance" && (() => {
         /* Gather scores from all scripts */
         const scored = scripts.filter(s => s.scriptScore?.overall);
         const dims = ["plot", "characters", "dialogue", "pacing", "marketability"];
@@ -2821,7 +2853,7 @@ const Profile = () => {
         const maxDist = Math.max(...dist.map(d => d.count), 1);
 
         return (
-          <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
+          <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className="profile-workspace-panel space-y-4">
 
             {scored.length === 0 ? (
               <div className={`py-20 text-center`}>
