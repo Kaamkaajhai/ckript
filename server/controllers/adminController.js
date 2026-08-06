@@ -1150,6 +1150,7 @@ export const sendAudienceBroadcast = async (req, res) => {
             emailFailed,
         });
     } catch (error) {
+        require('fs').writeFileSync('last_broadcast_error.txt', error.stack || error.message);
         return res.status(500).json({ message: error.message || "Failed to send broadcast" });
     }
 };
