@@ -3,6 +3,7 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import compression from "compression";
+import sanitizeRequest from "./middleware/sanitizeRequest.js";
 import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -325,6 +326,11 @@ app.use(compression());
 // Body parsing middleware
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+// Immediately after parsing and before any route: strip Mongo operators from body, params and query
+// so no handler can be handed { "$ne": null } where it expected a string. See the middleware for why
+// express-mongo-sanitize could not simply be mounted here.
+app.use(sanitizeRequest);
 
 // Baseline abuse protection (route-level limiters remain stricter for sensitive endpoints)
 if (process.env.NODE_ENV !== "test") {
