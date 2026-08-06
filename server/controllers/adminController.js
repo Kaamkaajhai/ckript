@@ -1063,7 +1063,25 @@ export const grantFipPlanToUser = async (req, res) => {
 
 export const sendAudienceBroadcast = async (req, res) => {
     try {
-        const audienceConfig = buildBroadcastAudienceConfig(req.params.audience);
+        const audience = req.params.audience;
+        let audienceConfig = null;
+
+        if (audience === "direct-user") {
+            const targetEmail = String(req.body?.targetEmail || "").trim();
+            if (!targetEmail) return res.status(400).json({ message: "Target email is required for direct-user broadcast." });
+            
+            audienceConfig = {
+                key: "direct-user",
+                audienceLabel: `specific user (${targetEmail})`,
+                getRecipients: async () => {
+                    const user = await User.findOne({ email: targetEmail.toLowerCase() }).select("_id name email").lean();
+                    return user ? [user] : [];
+                }
+            };
+        } else {
+            audienceConfig = buildBroadcastAudienceConfig(audience);
+        }
+
         if (!audienceConfig) {
             return res.status(400).json({ message: "Invalid audience. Use 'writers', 'film-professionals', or 'script-uploaders'." });
         }
@@ -1071,6 +1089,12 @@ export const sendAudienceBroadcast = async (req, res) => {
         const title = String(req.body?.title || "").trim();
         const content = String(req.body?.content || "").trim();
         const actionUrl = String(req.body?.actionUrl || "").trim();
+        const attachments = req.files ? req.files.map((file) => ({
+            filename: file.originalname,
+            content: file.buffer,
+            contentType: file.mimetype,
+        })) : [];
+
         if (!title) {
             return res.status(400).json({ message: "Title is required" });
         }
@@ -1109,6 +1133,7 @@ export const sendAudienceBroadcast = async (req, res) => {
                     audienceLabel: audienceConfig.audienceLabel,
                     adminName: req.user?.name || "ckript Admin",
                     clientBaseUrl: resolveClientOriginFromRequest(req),
+                    attachments,
                 })
             )
         );
@@ -1125,6 +1150,7 @@ export const sendAudienceBroadcast = async (req, res) => {
             emailFailed,
         });
     } catch (error) {
+        require('fs').writeFileSync('last_broadcast_error.txt', error.stack || error.message);
         return res.status(500).json({ message: error.message || "Failed to send broadcast" });
     }
 };

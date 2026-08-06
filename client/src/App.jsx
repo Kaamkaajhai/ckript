@@ -11,6 +11,7 @@ import { AuthContext } from "./context/AuthContext";
 import SeoManager from "./components/SeoManager";
 import CookieConsentBanner from "./components/CookieConsentBanner";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
+import DesktopExperienceNotice from "./components/DesktopExperienceNotice";
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
 import useIsMobile from "./mobile/hooks/useIsMobile";
 import { getSharedProfileExperience } from "./features/profile-pc/profilePolicy";
@@ -605,6 +606,7 @@ function App() {
             </Routes>
             </RootExperience>
             </Suspense>
+            <DesktopExperienceNotice />
             <EventPosterModal />
           </AdminLoginHandler>
           </AuthModalProvider>

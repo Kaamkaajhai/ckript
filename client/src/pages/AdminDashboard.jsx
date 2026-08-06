@@ -15,6 +15,7 @@ import { Icon, StatCard } from "../components/AdminUI";
 import AdminAnalyticsPanel from "../components/AdminAnalyticsPanel";
 import AdminCompetitions from "./admin/AdminCompetitions";
 import AdminReferrals from "./admin/AdminReferrals";
+import DirectEmailSection from "./admin/sections/DirectEmailSection";
 import {
     API_BASE_URL,
     MAX_ATTACHMENT_SIZE_BYTES,
@@ -169,6 +170,12 @@ const AdminDashboard = () => {
     const [scriptBroadcastTitle, setScriptBroadcastTitle] = useState("");
     const [scriptBroadcastContent, setScriptBroadcastContent] = useState("");
     const [scriptBroadcastLink, setScriptBroadcastLink] = useState("");
+    const [scriptBroadcastAttachments, setScriptBroadcastAttachments] = useState([]);
+    const [directUserEmail, setDirectUserEmail] = useState("");
+    const [directBroadcastTitle, setDirectBroadcastTitle] = useState("");
+    const [directBroadcastContent, setDirectBroadcastContent] = useState("");
+    const [directBroadcastLink, setDirectBroadcastLink] = useState("");
+    const [directBroadcastAttachments, setDirectBroadcastAttachments] = useState([]);
     const [trailerRequirementsModal, setTrailerRequirementsModal] = useState(null);
 
     // ─── Toast notification system ───
@@ -209,11 +216,27 @@ const AdminDashboard = () => {
                 title: scriptBroadcastTitle,
                 content: scriptBroadcastContent,
                 actionUrl: scriptBroadcastLink,
+                attachments: scriptBroadcastAttachments,
                 audienceLabel: "script uploaders",
                 reset: () => {
                     setScriptBroadcastTitle("");
                     setScriptBroadcastContent("");
                     setScriptBroadcastLink("");
+                    setScriptBroadcastAttachments([]);
+                },
+            },
+            "direct-user": {
+                title: directBroadcastTitle,
+                content: directBroadcastContent,
+                actionUrl: directBroadcastLink,
+                attachments: directBroadcastAttachments,
+                audienceLabel: "specific user",
+                reset: () => {
+                    setDirectUserEmail("");
+                    setDirectBroadcastTitle("");
+                    setDirectBroadcastContent("");
+                    setDirectBroadcastLink("");
+                    setDirectBroadcastAttachments([]);
                 },
             },
         };
@@ -224,7 +247,7 @@ const AdminDashboard = () => {
             return;
         }
 
-        const { title, content, actionUrl, audienceLabel, reset } = broadcastConfig;
+        const { title, content, actionUrl, attachments, audienceLabel, reset } = broadcastConfig;
 
         if (!title.trim() || !content.trim()) {
             showToast(`Please enter both title and content for the ${audienceLabel} broadcast.`, "error");
@@ -234,11 +257,16 @@ const AdminDashboard = () => {
         const loadingKey = `broadcast:${audience}`;
         try {
             setUserActionLoading(loadingKey);
-            const { data } = await adminApi.post(`/admin/broadcast/${audience}`, {
-                title: title.trim(),
-                content: content.trim(),
-                actionUrl: actionUrl.trim(),
-            });
+            const formData = new FormData();
+            formData.append("title", title.trim());
+            formData.append("content", content.trim());
+            formData.append("actionUrl", actionUrl.trim());
+            if (audience === "direct-user") {
+                formData.append("targetEmail", directUserEmail.trim());
+            }
+            attachments?.forEach(file => formData.append("attachments", file));
+            
+            const { data } = await adminApi.post(`/admin/broadcast/${audience}`, formData);
             showToast(data?.message || `Broadcast sent to ${audienceLabel}.`);
             reset();
         } catch (err) {
@@ -2161,6 +2189,9 @@ const AdminDashboard = () => {
             case "overview":
                 return <OverviewSection />;
 
+            case "direct-email":
+                return <DirectEmailSection />;
+
             case "premium-professionals":
                 return <PremiumProfessionalsSection />;
 
@@ -2685,6 +2716,11 @@ const AdminDashboard = () => {
         handleSendAdminMessage,
         handleSendTrailerToWriter,
         handleUnblockBankReview,
+        directBroadcastAttachments,
+        directBroadcastContent,
+        directBroadcastLink,
+        directBroadcastTitle,
+        directUserEmail,
         hasSearch,
         isDark,
         messageAttachment,
@@ -2750,6 +2786,11 @@ const AdminDashboard = () => {
         setAnalyticsSection,
         setAnalyticsUserDetail,
         setDiscountCodeModal,
+        setDirectBroadcastAttachments,
+        setDirectBroadcastContent,
+        setDirectBroadcastLink,
+        setDirectBroadcastTitle,
+        setDirectUserEmail,
         setFilmBroadcastContent,
         setFilmBroadcastLink,
         setFilmBroadcastTitle,
