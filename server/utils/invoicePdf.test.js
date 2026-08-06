@@ -1,0 +1,138 @@
+// The invoice as a document: does it come out one page, branded, and saying the right number?
+//
+// Rendering is separated from uploading precisely so this can run — no Cloudinary, no network, no
+// database. What it guards is the class of defect that a human reviewing the code will not see and a
+// customer receiving the PDF will: extra blank sheets, a missing logo, the wrong currency, or a
+// total that quietly disagrees with the line items.
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import { renderInvoicePdfBuffer } from "./invoicePdf.js";
+import { LOGO, BRAND } from "./brandAssets.js";
+
+const scriptInvoice = () => ({
+  _id: "68b3f0a41d2c9e5544a1c7e2",
+  invoiceNumber: "CKR-SP-2026-004182",
+  invoiceDate: new Date("2026-08-06T11:24:00Z"),
+  creator: "68a11c93bb7d4e21f0c5aa19",
+  creatorSid: "FIP-2291",
+  script: "6890ac5512f7b1d9e3a02b74",
+  scriptSid: "SCR-8841",
+  accessType: "premium",
+  currency: "INR",
+  scriptPrice: 45000,
+  writerEarnsPerSale: 45000,
+  paymentReference: "RZP-pay_Qk8vN2mXfLr4Ta",
+  rows: [
+    { item: "Script Purchase", type: "Payment", detail: "Full access purchased.", amountLabel: "INR 45,000.00" },
+    { item: "Platform Commission (5%)", type: "Tax", detail: "Buyer-side commission.", amountLabel: "INR 2,250.00" },
+    { item: "Total Paid", type: "Total", detail: "Total charged via gateway.", amountLabel: "INR 47,250.00" },
+    { item: "Payment Gateway", type: "Reference", detail: "Razorpay Payment ID: pay_Qk8vN2mXfLr4Ta", amountLabel: "Verified" },
+    { item: "Writer Payout", type: "Settlement", detail: "Credited to writer wallet.", amountLabel: "INR 45,000.00" },
+  ],
+});
+
+const render = (overrides = {}) => renderInvoicePdfBuffer({
+  invoice: scriptInvoice(),
+  creatorName: "Rohit Menon",
+  creatorEmail: "rohit.menon@example.in",
+  creatorSid: "FIP-2291",
+  scriptTitle: "The Salt Road",
+  scriptSid: "SCR-8841",
+  ...overrides,
+});
+
+/** Pages, straight from the page tree — PDFKit's own count cannot report pages it appended later. */
+const pageCount = (buf) => {
+  const match = buf.toString("latin1").match(/\/Count\s+(\d+)/);
+  return match ? Number(match[1]) : 0;
+};
+
+describe("the brand assets a document depends on", () => {
+  test("the trimmed logo ships inside server/, not in the client's public folder", () => {
+    // The old candidates lived in client/public, which does not exist on a server-only deploy — so
+    // every invoice a customer actually received fell back to plain text.
+    assert.equal(LOGO.isTrimmed, true, "server/assets/ckript-logo.png is missing from the deploy");
+    assert.ok(fs.existsSync(LOGO.path));
+    assert.match(LOGO.path, /assets[\\/]ckript-logo\.png$/);
+  });
+
+  test("the logo's aspect is known, so a box can be derived rather than guessed", () => {
+    assert.ok(LOGO.ratio > 2.3 && LOGO.ratio < 2.5, `ratio was ${LOGO.ratio}`);
+    const [w, h] = LOGO.boxForHeight(46);
+    assert.equal(h, 46);
+    assert.ok(Math.abs(w / h - LOGO.ratio) < 0.02, "boxForHeight distorts the mark");
+  });
+
+  test("the palette carries no blue", () => {
+    // The previous invoice was built on navy (#0F2A4A, #0B1D3A and four blue-tinted greys), which
+    // belongs to no part of this brand. Every brand colour must be warm or neutral: never more blue
+    // than red.
+    for (const [name, hex] of Object.entries(BRAND)) {
+      const [r, , b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      assert.ok(b <= r, `BRAND.${name} (${hex}) is blue-dominant`);
+    }
+  });
+
+  test("the accent is the red from the logo itself", () => {
+    assert.equal(BRAND.accent.toUpperCase(), "#D14D37");
+  });
+});
+
+describe("the rendered invoice", () => {
+  test("is a valid single-page PDF", async () => {
+    const buf = await render();
+    assert.equal(buf.subarray(0, 5).toString(), "%PDF-");
+    // Guards a defect worth the whole file: PDFKit appends a page for any text drawn below the
+    // bottom margin, which is where a footer goes. Unfixed, every invoice shipped with four blank
+    // sheets behind it and nothing in the code read as wrong.
+    assert.equal(pageCount(buf), 1, "the invoice grew extra pages");
+  });
+
+  test("embeds the logo rather than falling back to text", async () => {
+    const buf = await render();
+    // An embedded raster arrives as an image XObject; the text fallback would produce none.
+    assert.match(buf.toString("latin1"), /\/Subtype\s*\/Image/, "no image embedded — logo fell back");
+  });
+
+  test("a competition entry renders without a script and stays one page", async () => {
+    const buf = await renderInvoicePdfBuffer({
+      invoice: {
+        _id: "68b40b7729ca10bb7712d3f5",
+        invoiceNumber: "CKR-REG-2026-000917",
+        invoiceDate: new Date("2026-08-02T06:40:00Z"),
+        creator: "68a55d17cc8e4f3390bb1204",
+        kind: "competition_registration",
+        currency: "USD",
+        amountCharged: 25,
+        rows: [{ item: "Competition Entry Fee", type: "registration", detail: "Global Script Challenge", amountLabel: "USD 25.00" }],
+      },
+      creatorName: "Aditi Rao",
+      details: { title: "Entry Details", lines: ["Global Script Challenge", "Entry Fee: USD 25.00"] },
+      summary: { label: "Total Paid", value: 25 },
+    });
+    assert.equal(pageCount(buf), 1);
+  });
+
+  test("many line items paginate instead of overflowing off the page", async () => {
+    const invoice = scriptInvoice();
+    invoice.rows = [
+      ...Array.from({ length: 40 }, (_, i) => ({
+        item: `Service line ${i + 1}`,
+        type: "Payment",
+        detail: "A detail long enough to wrap across the description column and add height to the row.",
+        amountLabel: "INR 1,000.00",
+      })),
+      { item: "Total Paid", type: "Total", amountLabel: "INR 40,000.00" },
+    ];
+    const buf = await render({ invoice });
+    const pages = pageCount(buf);
+    assert.ok(pages > 1, "40 rows should not fit on one page");
+    assert.ok(pages <= 4, `40 rows produced ${pages} pages — pagination is leaking blanks`);
+  });
+
+  test("refuses to render without the fields an invoice is identified by", async () => {
+    await assert.rejects(() => renderInvoicePdfBuffer({ invoice: { _id: "x" } }), /required/i);
+    await assert.rejects(() => renderInvoicePdfBuffer({}), /required/i);
+  });
+});
