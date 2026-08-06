@@ -15,13 +15,12 @@ import axios from "axios";
 import { jsPDF } from "jspdf";
 import { formatCurrency } from "../../utils/currency";
 import { getApiBaseUrl, getApiOrigin } from "../../utils/apiOrigin";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
-import { Bold, Italic, List, ListOrdered, Paperclip, X } from "lucide-react";
+import { Paperclip, X } from "lucide-react";
 import { attachAdminScriptAccessHeader } from "../../utils/adminScriptAccess";
 import { getScriptCompletionBadgeClasses, getScriptCompletionProgressText, getScriptCompletionStatusLabel } from "../../utils/scriptCompletion";
 import { Icon, StatCard } from "../../components/AdminUI";
+import EmailBuilder from "./marketing/EmailBuilder";
+import { compileEmailBlocksToHtml } from "./marketing/compiler/emailCompiler";
 
 export const API_ORIGIN = getApiOrigin();
 export const API_BASE_URL = getApiBaseUrl();
@@ -250,37 +249,50 @@ export const BroadcastComposer = ({
     onSend,
     sending = false,
 }) => {
-    const editor = useEditor({
-        extensions: [
-            StarterKit,
-            Placeholder.configure({
-                placeholder: `Write the message you want ${audienceLabel.toLowerCase()} to receive...`
-            })
-        ],
-        content: content,
-        onUpdate: ({ editor }) => {
-            onContentChange(editor.getHTML());
+    // Extract hidden blocks state from the existing content HTML if present
+    const [blocks, setBlocks] = useState(() => {
+        if (!content) return [];
+        const match = content.match(/<!-- STATE:(.*?) -->/);
+        if (match && match[1]) {
+            try {
+                return JSON.parse(atob(match[1]));
+            } catch (e) {
+                console.error("Failed to parse blocks state from content", e);
+            }
         }
+        return [];
     });
 
-    // Update editor content when prop changes externally (e.g. on reset)
+    // When blocks change, compile and pass up to AdminDashboard
     useEffect(() => {
-        if (editor && content === '' && editor.getHTML() !== '<p></p>') {
-            editor.commands.setContent('');
+        if (blocks.length === 0) {
+            if (content !== "") onContentChange("");
+            return;
         }
-    }, [content, editor]);
+        const rawHtml = compileEmailBlocksToHtml(blocks, title);
+        const htmlWithState = `${rawHtml}\n<!-- STATE:${btoa(JSON.stringify(blocks))} -->`;
+        // Only update if changed to prevent infinite loops if AdminDashboard re-renders
+        if (htmlWithState !== content) {
+            onContentChange(htmlWithState);
+        }
+    }, [blocks, title, onContentChange, content]);
+
+    // Force reset blocks if content is reset externally (e.g. after sending)
+    useEffect(() => {
+        if (content === "" && blocks.length > 0) {
+            setBlocks([]);
+        }
+    }, [content]);
 
     const handleFileChange = (e) => {
         if (e.target.files && onAttachmentsChange) {
             const newFiles = Array.from(e.target.files);
-            // Basic size validation
             const validFiles = newFiles.filter(f => f.size <= MAX_ATTACHMENT_SIZE_BYTES);
             if (validFiles.length < newFiles.length) {
                 alert(`Some files were too large. Maximum size is ${MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024)}MB.`);
             }
             onAttachmentsChange([...attachments, ...validFiles]);
         }
-        // Reset input value to allow selecting same file again
         e.target.value = '';
     };
 
@@ -290,16 +302,11 @@ export const BroadcastComposer = ({
         }
     };
 
-    const toggleBold = () => editor?.chain().focus().toggleBold().run();
-    const toggleItalic = () => editor?.chain().focus().toggleItalic().run();
-    const toggleBulletList = () => editor?.chain().focus().toggleBulletList().run();
-    const toggleOrderedList = () => editor?.chain().focus().toggleOrderedList().run();
-
     return (
         <div className={`rounded-2xl border mb-6 overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
             <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-[#1a3050] bg-[#112240]" : "border-gray-100 bg-gray-50/50"}`}>
                 <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-gray-200" : "text-gray-800"}`}>
-                    Compose Broadcast
+                    Campaign Builder - {audienceLabel}
                 </h3>
             </div>
             
@@ -312,27 +319,9 @@ export const BroadcastComposer = ({
                     className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-[#8B1E1E]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#8B1E1E]/30"}`}
                 />
 
+                {/* Email Builder Canvas */}
                 <div className={`rounded-xl border overflow-hidden ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
-                    {/* Toolbar */}
-                    <div className={`flex items-center gap-1 p-2 border-b ${isDark ? "bg-[#132744] border-[#1a3050]" : "bg-gray-50 border-gray-200"}`}>
-                        <button type="button" onClick={toggleBold} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('bold') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
-                            <Bold size={16} />
-                        </button>
-                        <button type="button" onClick={toggleItalic} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('italic') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
-                            <Italic size={16} />
-                        </button>
-                        <div className={`w-px h-4 mx-1 ${isDark ? "bg-[#1a3050]" : "bg-gray-300"}`} />
-                        <button type="button" onClick={toggleBulletList} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('bulletList') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
-                            <List size={16} />
-                        </button>
-                        <button type="button" onClick={toggleOrderedList} className={`p-1.5 rounded-lg transition-colors ${editor?.isActive('orderedList') ? (isDark ? "bg-[#1a3050] text-white" : "bg-gray-200 text-gray-900") : (isDark ? "text-gray-400 hover:text-gray-200 hover:bg-[#1a3050]" : "text-gray-500 hover:text-gray-800 hover:bg-gray-100")}`}>
-                            <ListOrdered size={16} />
-                        </button>
-                    </div>
-                    {/* Editor Content */}
-                    <div className="p-4 min-h-[150px] max-h-[400px] overflow-y-auto tiptap-admin-editor">
-                        <EditorContent editor={editor} className={`text-sm ${isDark ? "text-gray-200" : "text-gray-800"}`} />
-                    </div>
+                    <EmailBuilder blocks={blocks} setBlocks={setBlocks} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -341,7 +330,7 @@ export const BroadcastComposer = ({
                             type="url"
                             value={actionUrl}
                             onChange={(event) => onActionUrlChange(event.target.value)}
-                            placeholder="Optional Button Link URL (e.g., https://ckript.com/premium)"
+                            placeholder="Optional Redirect Link (for old templates)"
                             className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-[#8B1E1E]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#8B1E1E]/30"}`}
                         />
                     </div>
@@ -375,28 +364,14 @@ export const BroadcastComposer = ({
                     </div>
                 )}
 
-                <style dangerouslySetInnerHTML={{__html: `
-                    .tiptap-admin-editor .ProseMirror:focus { outline: none; }
-                    .tiptap-admin-editor .ProseMirror p.is-editor-empty:first-child::before {
-                        content: attr(data-placeholder);
-                        float: left;
-                        color: #9CA3AF;
-                        pointer-events: none;
-                        height: 0;
-                    }
-                    .tiptap-admin-editor .ProseMirror p { margin: 0 0 1em 0; }
-                    .tiptap-admin-editor .ProseMirror ul { padding-left: 1.5em; list-style-type: disc; margin: 0 0 1em 0; }
-                    .tiptap-admin-editor .ProseMirror ol { padding-left: 1.5em; list-style-type: decimal; margin: 0 0 1em 0; }
-                `}} />
-
                 <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-[#1a3050] mt-2">
                     <button
                         type="button"
                         onClick={onSend}
-                        disabled={sending || !title.trim() || !content.trim()}
+                        disabled={sending || !title.trim() || blocks.length === 0}
                         className={`px-8 py-3 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#8B1E1E] text-white hover:bg-[#721818]" : "bg-[#8B1E1E] text-white hover:bg-[#721818]"}`}
                     >
-                        {sending ? "Sending..." : `Launch to ${audienceLabel}`}
+                        {sending ? "Sending..." : `Launch Campaign to ${audienceLabel}`}
                     </button>
                 </div>
             </div>

@@ -1126,12 +1126,11 @@ export const sendAdminBroadcastEmail = async (
     // If the frontend sends HTML (Tiptap), it shouldn't be blindly replaced, but we will trust the admin input.
     const isHtml = /<[a-z][\s\S]*>/i.test(safeContent);
     const htmlContent = isHtml ? safeContent : safeContent.replace(/\n/g, '<br/>');
+    
+    // Check if the content is from the new Email Builder V2 (which includes its own wrapper)
+    const isBuilderV2 = htmlContent.includes("<!-- EMAIL_BUILDER_V2 -->");
 
-    const mailOptions = {
-      from: mailFrom(),
-      to: email,
-      subject: safeTitle,
-      html: `
+    const finalHtml = isBuilderV2 ? htmlContent : `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -1185,7 +1184,13 @@ export const sendAdminBroadcastEmail = async (
           </div>
         </body>
         </html>
-      `,
+    `;
+
+    const mailOptions = {
+      from: mailFrom(),
+      to: email,
+      subject: safeTitle,
+      html: finalHtml,
       attachments: attachments.map(att => ({
         filename: att.filename,
         content: att.content,
