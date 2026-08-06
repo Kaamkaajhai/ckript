@@ -107,11 +107,9 @@ const ensureDefaultAdmin = async () => {
   }
 };
 
-connectDB()
-  .then(() => ensureDefaultAdmin())
-  .catch((error) => {
-    console.error("Database bootstrap failed:", error.message);
-  });
+connectDB().then(() => {
+  ensureDefaultAdmin().catch(console.error);
+});
 
 const app = express();
 const isVercel = Boolean(process.env.VERCEL);

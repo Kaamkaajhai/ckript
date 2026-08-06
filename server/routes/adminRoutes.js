@@ -98,7 +98,7 @@ router.post("/users/:id/remove-premium", removePremiumModelFromUser);
 router.post("/users/:id/grant-writer-plan", grantWriterPlanToUser);
 router.post("/users/:id/remove-writer-plan", removeWriterPlanFromUser);
 router.post("/users/:id/grant-fip-plan", grantFipPlanToUser);
-router.post("/broadcast/:audience", sendAudienceBroadcast);
+router.post("/broadcast/:audience", upload.array("attachments", 10), sendAudienceBroadcast);
 
 // Scripts (admin auth from router.use(protect, adminOnly) above is the only gate — the extra
 // script-section password has been removed)

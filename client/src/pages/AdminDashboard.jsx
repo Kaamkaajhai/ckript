@@ -4,6 +4,10 @@ import { jsPDF } from "jspdf";
 import BrandLogo from "../components/BrandLogo";
 import PasswordInput from "../components/PasswordInput";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { Lock, FileText, Share2, Filter, Upload, Paperclip, X, Eye, Monitor, Smartphone, Link2, Bold, Italic, List, ListOrdered } from "lucide-react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
 import { formatCurrency } from "../utils/currency";
 import { getApiBaseUrl, getApiOrigin } from "../utils/apiOrigin";
 import { getScriptCompletionBadgeClasses, getScriptCompletionProgressText, getScriptCompletionStatusLabel, getScriptCompletionSummary } from "../utils/scriptCompletion";
@@ -55,7 +59,8 @@ const TABS = [
     { key: "membership-reviews", label: "SWA/WGA Reviews", icon: "M9 12.75L11.25 15 15 9.75m-6-7.5A2.25 2.25 0 0111.25 0h1.5A2.25 2.25 0 0115 2.25v1.134a9 9 0 11-6 0V2.25z" },
     { key: "competitions", label: "Competitions", icon: "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25s4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" },
     { key: "referrals", label: "Referrals", icon: "M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.479m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" },
-    { key: "queries", label: "Queries", icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
+    { key: "direct-email", label: "Direct User Email", icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
+    { key: "queries", label: "Queries", icon: "M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" },
     { key: "bank-reviews", label: "Bank Reviews", icon: "M3.75 4.5h16.5A1.5 1.5 0 0121.75 6v12a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5zM6 9h12M6 13.5h5.25" },
     { key: "ai-usage", label: "AI Usage", icon: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" },
     { key: "investor-purchases", label: "Purchases", icon: "M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" },
@@ -237,56 +242,144 @@ const BroadcastComposer = ({
     title,
     content,
     actionUrl,
+    attachments = [],
     onTitleChange,
     onContentChange,
     onActionUrlChange,
+    onAttachmentsChange,
     onSend,
     sending = false,
-}) => (
-    <div className={`rounded-2xl border p-4 sm:p-5 mb-5 ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-        <div className="flex flex-col gap-4">
-            <div>
-                <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                    Broadcast to {audienceLabel}
+}) => {
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Placeholder.configure({
+                placeholder: `Write the rich text message you want all ${audienceLabel.toLowerCase()} to receive...`,
+            }),
+        ],
+        content: content,
+        onUpdate: ({ editor }) => {
+            onContentChange(editor.getHTML());
+        },
+    });
+
+    const handleFileChange = (e) => {
+        if (e.target.files) {
+            const filesArray = Array.from(e.target.files);
+            onAttachmentsChange([...attachments, ...filesArray]);
+        }
+    };
+
+    const removeFile = (index) => {
+        const newAtt = [...attachments];
+        newAtt.splice(index, 1);
+        onAttachmentsChange(newAtt);
+    };
+
+    return (
+        <div className={`rounded-2xl border mb-6 overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+            {/* Header */}
+            <div className={`px-5 py-4 border-b ${isDark ? "border-[#1a3050] bg-[#112240]" : "border-gray-100 bg-gray-50/50"}`}>
+                <h3 className={`text-sm font-extrabold uppercase tracking-wide flex items-center justify-between ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                    <span>Broadcast to {audienceLabel}</span>
+                    <span className="text-xs font-medium text-gray-500 normal-case bg-gray-200/50 dark:bg-[#1a3050] px-2 py-1 rounded">Enterprise Engine</span>
                 </h3>
-                <p className={`mt-1 text-xs ${isDark ? "text-gray-500" : "text-gray-500"}`}>
-                    Sends a ckript email and in-platform notification to every active {audienceLabel.toLowerCase()}.
+                <p className={`mt-1 text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                    Design a premium ckript email and in-platform notification.
                 </p>
             </div>
-            <input
-                type="text"
-                value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-                placeholder={`Title for ${audienceLabel}`}
-                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
-            />
-            <textarea
-                rows={5}
-                value={content}
-                onChange={(event) => onContentChange(event.target.value)}
-                placeholder={`Write the message you want all ${audienceLabel.toLowerCase()} to receive`}
-                className={`w-full rounded-xl border px-4 py-3 text-sm resize-y focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
-            />
-            <input
-                type="url"
-                value={actionUrl}
-                onChange={(event) => onActionUrlChange(event.target.value)}
-                placeholder="Optional link URL (e.g., https://example.com)"
-                className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
-            />
-            <div className="flex justify-end">
-                <button
-                    type="button"
-                    onClick={onSend}
-                    disabled={sending || !title.trim() || !content.trim()}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-blue-500/15 text-blue-200 hover:bg-blue-500/25" : "bg-[#1e3a5f] text-white hover:bg-[#162d4a]"}`}
-                >
-                    {sending ? "Sending..." : `Send to ${audienceLabel}`}
-                </button>
+
+            <div className="p-5 flex flex-col gap-4">
+                <input
+                    type="text"
+                    value={title}
+                    onChange={(event) => onTitleChange(event.target.value)}
+                    placeholder="Subject Line (e.g. Exclusive Update for Writers)"
+                    className={`w-full rounded-xl border px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+                />
+
+                <div className={`rounded-xl border overflow-hidden flex flex-col focus-within:ring-2 ${isDark ? "border-[#1a3050] bg-[#132744] focus-within:ring-blue-500/30" : "border-gray-200 bg-white focus-within:ring-blue-200"}`}>
+                    {/* Toolbar */}
+                    {editor && (
+                        <div className={`flex items-center gap-1 border-b px-2 py-2 ${isDark ? "border-[#1a3050] bg-[#0f1d35]" : "border-gray-100 bg-gray-50"}`}>
+                            <button onClick={() => editor.chain().focus().toggleBold().run()} className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-[#1a3050] ${editor.isActive('bold') ? 'text-[#8B1E1E]' : isDark ? 'text-gray-400' : 'text-gray-600'}`}><Bold size={16} /></button>
+                            <button onClick={() => editor.chain().focus().toggleItalic().run()} className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-[#1a3050] ${editor.isActive('italic') ? 'text-[#8B1E1E]' : isDark ? 'text-gray-400' : 'text-gray-600'}`}><Italic size={16} /></button>
+                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1"></div>
+                            <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-[#1a3050] ${editor.isActive('bulletList') ? 'text-[#8B1E1E]' : isDark ? 'text-gray-400' : 'text-gray-600'}`}><List size={16} /></button>
+                            <button onClick={() => editor.chain().focus().toggleOrderedList().run()} className={`p-1.5 rounded hover:bg-gray-200 dark:hover:bg-[#1a3050] ${editor.isActive('orderedList') ? 'text-[#8B1E1E]' : isDark ? 'text-gray-400' : 'text-gray-600'}`}><ListOrdered size={16} /></button>
+                        </div>
+                    )}
+                    {/* Editor Content */}
+                    <div className="p-4 min-h-[150px] max-h-[400px] overflow-y-auto tiptap-admin-editor">
+                        <EditorContent editor={editor} className={isDark ? "text-gray-200 text-sm" : "text-gray-800 text-sm"} />
+                    </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1 relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <Link2 size={16} />
+                        </div>
+                        <input
+                            type="url"
+                            value={actionUrl}
+                            onChange={(event) => onActionUrlChange(event.target.value)}
+                            placeholder="Primary CTA Link (e.g. https://ckript.com/dashboard)"
+                            className={`w-full rounded-xl border pl-9 pr-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+                        />
+                    </div>
+                    
+                    <div className="flex-shrink-0">
+                        <input type="file" id={`attachment-${audienceLabel}`} multiple className="hidden" onChange={handleFileChange} />
+                        <label htmlFor={`attachment-${audienceLabel}`} className={`flex items-center justify-center cursor-pointer px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${isDark ? "border-[#1a3050] bg-[#132744] text-gray-300 hover:bg-[#1a3050]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
+                            <Paperclip size={16} className="mr-2" />
+                            Attach Files
+                        </label>
+                    </div>
+                </div>
+
+                {/* Attachments Preview */}
+                {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {attachments.map((file, i) => (
+                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"}`}>
+                                <span className="truncate max-w-[150px]">{file.name}</span>
+                                <button onClick={() => removeFile(i)} className="text-gray-400 hover:text-red-500">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                <style dangerouslySetInnerHTML={{__html: `
+                    .tiptap-admin-editor .ProseMirror:focus { outline: none; }
+                    .tiptap-admin-editor .ProseMirror p.is-editor-empty:first-child::before {
+                        content: attr(data-placeholder);
+                        float: left;
+                        color: #9CA3AF;
+                        pointer-events: none;
+                        height: 0;
+                    }
+                    .tiptap-admin-editor .ProseMirror p { margin: 0 0 1em 0; }
+                    .tiptap-admin-editor .ProseMirror ul { padding-left: 1.5em; list-style-type: disc; margin: 0 0 1em 0; }
+                    .tiptap-admin-editor .ProseMirror ol { padding-left: 1.5em; list-style-type: decimal; margin: 0 0 1em 0; }
+                `}} />
+
+                <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-[#1a3050] mt-2">
+                    <button
+                        type="button"
+                        onClick={onSend}
+                        disabled={sending || !title.trim() || !content.trim()}
+                        className={`px-8 py-3 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#8B1E1E] text-white hover:bg-[#721818]" : "bg-[#8B1E1E] text-white hover:bg-[#721818]"}`}
+                    >
+                        {sending ? "Sending..." : `Launch to ${audienceLabel}`}
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 // ─── User Table ───
 const UserTable = ({ users, isDark, onLoginAs, onViewUser, onFreezeUser, onUnfreezeUser, onGrantPremium, onRemovePremium, onDeleteUser, userActionLoading = "" }) => {
@@ -1058,12 +1151,24 @@ const AdminDashboard = () => {
     const [writerBroadcastTitle, setWriterBroadcastTitle] = useState("");
     const [writerBroadcastContent, setWriterBroadcastContent] = useState("");
     const [writerBroadcastLink, setWriterBroadcastLink] = useState("");
+    const [writerBroadcastAttachments, setWriterBroadcastAttachments] = useState([]);
+    
     const [filmBroadcastTitle, setFilmBroadcastTitle] = useState("");
     const [filmBroadcastContent, setFilmBroadcastContent] = useState("");
     const [filmBroadcastLink, setFilmBroadcastLink] = useState("");
+    const [filmBroadcastAttachments, setFilmBroadcastAttachments] = useState([]);
+    
     const [scriptBroadcastTitle, setScriptBroadcastTitle] = useState("");
     const [scriptBroadcastContent, setScriptBroadcastContent] = useState("");
     const [scriptBroadcastLink, setScriptBroadcastLink] = useState("");
+    const [scriptBroadcastAttachments, setScriptBroadcastAttachments] = useState([]);
+    
+    const [directUserEmail, setDirectUserEmail] = useState("");
+    const [directBroadcastTitle, setDirectBroadcastTitle] = useState("");
+    const [directBroadcastContent, setDirectBroadcastContent] = useState("");
+    const [directBroadcastLink, setDirectBroadcastLink] = useState("");
+    const [directBroadcastAttachments, setDirectBroadcastAttachments] = useState([]);
+    
     const [trailerRequirementsModal, setTrailerRequirementsModal] = useState(null);
 
     // ─── Toast notification system ───
@@ -1082,33 +1187,53 @@ const AdminDashboard = () => {
                 title: writerBroadcastTitle,
                 content: writerBroadcastContent,
                 actionUrl: writerBroadcastLink,
+                attachments: writerBroadcastAttachments,
                 audienceLabel: "writers",
                 reset: () => {
                     setWriterBroadcastTitle("");
                     setWriterBroadcastContent("");
                     setWriterBroadcastLink("");
+                    setWriterBroadcastAttachments([]);
                 },
             },
             "film-professionals": {
                 title: filmBroadcastTitle,
                 content: filmBroadcastContent,
                 actionUrl: filmBroadcastLink,
+                attachments: filmBroadcastAttachments,
                 audienceLabel: "film professionals",
                 reset: () => {
                     setFilmBroadcastTitle("");
                     setFilmBroadcastContent("");
                     setFilmBroadcastLink("");
+                    setFilmBroadcastAttachments([]);
                 },
             },
             "script-uploaders": {
                 title: scriptBroadcastTitle,
                 content: scriptBroadcastContent,
                 actionUrl: scriptBroadcastLink,
+                attachments: scriptBroadcastAttachments,
                 audienceLabel: "script uploaders",
                 reset: () => {
                     setScriptBroadcastTitle("");
                     setScriptBroadcastContent("");
                     setScriptBroadcastLink("");
+                    setScriptBroadcastAttachments([]);
+                },
+            },
+            "direct-user": {
+                title: directBroadcastTitle,
+                content: directBroadcastContent,
+                actionUrl: directBroadcastLink,
+                attachments: directBroadcastAttachments,
+                audienceLabel: "specific user",
+                reset: () => {
+                    setDirectUserEmail("");
+                    setDirectBroadcastTitle("");
+                    setDirectBroadcastContent("");
+                    setDirectBroadcastLink("");
+                    setDirectBroadcastAttachments([]);
                 },
             },
         };
@@ -1119,9 +1244,9 @@ const AdminDashboard = () => {
             return;
         }
 
-        const { title, content, actionUrl, audienceLabel, reset } = broadcastConfig;
+        const { title, content, actionUrl, attachments, audienceLabel, reset } = broadcastConfig;
 
-        if (!title.trim() || !content.trim()) {
+        if (!title.trim() || (!content.trim() && content === "<p></p>")) {
             showToast(`Please enter both title and content for the ${audienceLabel} broadcast.`, "error");
             return;
         }
@@ -1129,10 +1254,21 @@ const AdminDashboard = () => {
         const loadingKey = `broadcast:${audience}`;
         try {
             setUserActionLoading(loadingKey);
-            const { data } = await adminApi.post(`/admin/broadcast/${audience}`, {
-                title: title.trim(),
-                content: content.trim(),
-                actionUrl: actionUrl.trim(),
+            
+            const formData = new FormData();
+            formData.append("title", title.trim());
+            formData.append("content", content.trim());
+            formData.append("actionUrl", actionUrl.trim());
+            if (audience === "direct-user") {
+                formData.append("targetEmail", directUserEmail.trim());
+            }
+            
+            attachments.forEach(file => {
+                formData.append("attachments", file);
+            });
+
+            const { data } = await adminApi.post(`/admin/broadcast/${audience}`, formData, {
+                headers: { "Content-Type": "multipart/form-data" }
             });
             showToast(data?.message || `Broadcast sent to ${audienceLabel}.`);
             reset();
@@ -3355,9 +3491,11 @@ const AdminDashboard = () => {
                                 title={writerBroadcastTitle}
                                 content={writerBroadcastContent}
                                 actionUrl={writerBroadcastLink}
+                                attachments={writerBroadcastAttachments}
                                 onTitleChange={setWriterBroadcastTitle}
                                 onContentChange={setWriterBroadcastContent}
                                 onActionUrlChange={setWriterBroadcastLink}
+                                onAttachmentsChange={setWriterBroadcastAttachments}
                                 onSend={() => handleSendAudienceBroadcast("writers")}
                                 sending={userActionLoading === "broadcast:writers"}
                             />
@@ -3369,9 +3507,11 @@ const AdminDashboard = () => {
                                 title={filmBroadcastTitle}
                                 content={filmBroadcastContent}
                                 actionUrl={filmBroadcastLink}
+                                attachments={filmBroadcastAttachments}
                                 onTitleChange={setFilmBroadcastTitle}
                                 onContentChange={setFilmBroadcastContent}
                                 onActionUrlChange={setFilmBroadcastLink}
+                                onAttachmentsChange={setFilmBroadcastAttachments}
                                 onSend={() => handleSendAudienceBroadcast("film-professionals")}
                                 sending={userActionLoading === "broadcast:film-professionals"}
                             />
@@ -3391,6 +3531,45 @@ const AdminDashboard = () => {
                         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} isDark={isDark} />
                     </div>
                 );
+            case "direct-email":
+                return (
+                    <div>
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Direct User Email</h2>
+                        </div>
+                        <div className="max-w-4xl">
+                            <div className={`rounded-2xl border mb-6 overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
+                                <div className={`px-5 py-4 border-b ${isDark ? "border-[#1a3050] bg-[#112240]" : "border-gray-100 bg-gray-50/50"}`}>
+                                    <h3 className={`text-sm font-extrabold tracking-wide ${isDark ? "text-gray-200" : "text-gray-800"}`}>Target Recipient</h3>
+                                </div>
+                                <div className="p-5">
+                                    <input
+                                        type="email"
+                                        value={directUserEmail}
+                                        onChange={(e) => setDirectUserEmail(e.target.value)}
+                                        placeholder="Enter exact user email (e.g. jdoe@example.com)"
+                                        className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-blue-500/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-blue-200"}`}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <BroadcastComposer
+                                isDark={isDark}
+                                audienceLabel="Specific User"
+                                title={directBroadcastTitle}
+                                content={directBroadcastContent}
+                                actionUrl={directBroadcastLink}
+                                attachments={directBroadcastAttachments}
+                                onTitleChange={setDirectBroadcastTitle}
+                                onContentChange={setDirectBroadcastContent}
+                                onActionUrlChange={setDirectBroadcastLink}
+                                onAttachmentsChange={setDirectBroadcastAttachments}
+                                onSend={() => handleSendAudienceBroadcast("direct-user")}
+                                sending={userActionLoading === "broadcast:direct-user"}
+                            />
+                        </div>
+                    </div>
+                );
 
             case "projects":
                 return (
@@ -3404,9 +3583,11 @@ const AdminDashboard = () => {
                             title={scriptBroadcastTitle}
                             content={scriptBroadcastContent}
                             actionUrl={scriptBroadcastLink}
+                            attachments={scriptBroadcastAttachments}
                             onTitleChange={setScriptBroadcastTitle}
                             onContentChange={setScriptBroadcastContent}
                             onActionUrlChange={setScriptBroadcastLink}
+                            onAttachmentsChange={setScriptBroadcastAttachments}
                             onSend={() => handleSendAudienceBroadcast("script-uploaders")}
                             sending={userActionLoading === "broadcast:script-uploaders"}
                         />

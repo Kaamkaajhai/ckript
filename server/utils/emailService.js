@@ -1109,7 +1109,7 @@ export const sendAdminMessageEmail = async (
 export const sendAdminBroadcastEmail = async (
   email,
   name,
-  { title = "Platform update", content = "", actionUrl = "", audienceLabel = "community", adminName = "ckript Admin", clientBaseUrl = "" } = {}
+  { title = "Platform update", content = "", actionUrl = "", audienceLabel = "community", adminName = "ckript Admin", clientBaseUrl = "", attachments = [] } = {}
 ) => {
   try {
     validateEmailConfig();
@@ -1122,7 +1122,10 @@ export const sendAdminBroadcastEmail = async (
     const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
     const finalUrl = actionUrl || dashboardUrl;
     const buttonText = actionUrl ? "Open Link" : "Open ckript";
-    const htmlContent = safeContent.replace(/\n/g, '<br/>');
+    // No extra replacements needed if content is already HTML, but let's safely allow basic line breaks if it's plain text.
+    // If the frontend sends HTML (Tiptap), it shouldn't be blindly replaced, but we will trust the admin input.
+    const isHtml = /<[a-z][\s\S]*>/i.test(safeContent);
+    const htmlContent = isHtml ? safeContent : safeContent.replace(/\n/g, '<br/>');
 
     const mailOptions = {
       from: mailFrom(),
@@ -1130,34 +1133,102 @@ export const sendAdminBroadcastEmail = async (
       subject: safeTitle,
       html: `
         <!DOCTYPE html>
-        <html>
-        <body style="font-family: Arial, sans-serif; color: #1a1a1a; line-height: 1.6; background-color: #f9fafb; padding: 20px 0;">
-          <div style="max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #ffffff;">
-            <div style="background:#111111; color:#ffffff; padding:16px 20px;">
-              <h2 style="margin:0; font-size:20px;">${safeTitle}</h2>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { margin: 0; padding: 0; background-color: #F9F9F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+            .container { max-width: 640px; margin: 40px auto; background-color: #FFFFFF; border: 1px solid #EEEEEE; border-radius: 12px; overflow: hidden; }
+            .header { padding: 32px 40px 24px; text-align: center; }
+            .header img { height: 24px; width: auto; opacity: 0.9; }
+            .title { color: #111111; font-size: 24px; font-weight: 700; text-align: center; margin: 0 0 32px; letter-spacing: -0.5px; }
+            .body { padding: 0 40px 40px; color: #333333; font-size: 16px; line-height: 1.6; }
+            .action-btn { display: inline-block; background-color: #8B1E1E; color: #FFFFFF; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: 600; margin-top: 32px; text-align: center; }
+            .footer { padding: 32px 40px; background-color: #F9F9F9; border-top: 1px solid #EEEEEE; text-align: center; color: #666666; font-size: 13px; line-height: 1.5; }
+            .footer a { color: #666666; text-decoration: underline; }
+            @media only screen and (max-width: 600px) {
+              .container { margin: 0; border-radius: 0; border: none; }
+              .body { padding: 0 24px 32px; }
+              .header { padding: 24px 24px 16px; }
+              .footer { padding: 24px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src="https://ckript.com/logo-black.png" alt="Ckript" />
             </div>
-            <div style="padding:24px 20px; background:#ffffff;">
-              <p style="margin:0 0 20px; color: #4b5563;">The ckript team has a new update for you.</p>
-              <div style="margin-bottom: 24px; color: #1a1a1a;">
-                ${htmlContent || '<p style="margin:0 0 12px;">Please open your dashboard for the latest update.</p>'}
+            
+            <div class="body">
+              <h1 class="title">${safeTitle}</h1>
+              
+              <div>
+                ${htmlContent}
               </div>
-              <a href="${finalUrl}" style="display:inline-block;background:#E25822;color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600; font-size: 14px;">${buttonText}</a>
-              <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0 16px;" />
-              <p style="margin:0; color:#9ca3af; font-size:12px;">This is an automated email from the ckript platform.</p>
+
+              ${actionUrl ? `<div style="text-align: center;"><a href="${finalUrl}" class="action-btn">${buttonText}</a></div>` : ''}
+            </div>
+
+            <div class="footer">
+              <p style="margin: 0 0 16px;">
+                <strong>Ckript Private Limited</strong><br>
+                A minimal platform for storytellers.
+              </p>
+              <p style="margin: 0;">
+                <a href="https://ckript.com">Website</a> &nbsp;&middot;&nbsp; 
+                <a href="https://ckript.com/privacy-policy">Privacy</a>
+              </p>
+              <p style="margin: 16px 0 0;">&copy; ${new Date().getFullYear()} Ckript. All rights reserved.</p>
             </div>
           </div>
-            <div style="max-width:620px;margin:16px auto 0;color:#6b7280;font-size:12px;line-height:1.7;text-align:center;">${signatureHtml()}
-            </div>
         </body>
         </html>
       `,
-      text: `The ckript team has a new update for you.\n\n${safeContent || "Please open your dashboard for the latest update."}\n\n${buttonText}: ${finalUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
+      attachments: attachments.map(att => ({
+        filename: att.filename,
+        content: att.content,
+        contentType: att.contentType
+      }))
     };
 
     const info = await transporter.sendMail(mailOptions);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("Error sending admin broadcast email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendCustomHtmlEmail = async (
+  email,
+  subject,
+  html,
+  attachments = []
+) => {
+  try {
+    validateEmailConfig();
+
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: mailFrom(),
+      to: email,
+      subject: subject,
+      html: html,
+      attachments: attachments.map(att => ({
+        filename: att.filename,
+        path: att.url, // Assuming url is a path or actual URL. If we use memory storage, we pass buffer. Let's support both.
+        content: att.buffer,
+        contentType: att.mimetype,
+      })),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending custom HTML email:", error.message);
     return { success: false, error: error.message };
   }
 };
