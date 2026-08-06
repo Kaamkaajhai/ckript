@@ -379,3 +379,28 @@
   color: var(--ad-ink);
 }
 .ckad .adst-label { margin: var(--ad-s1) 0 0; font-size: var(--ad-t-sm); color: var(--ad-ink-3); }
+
+/* ── Finance grids ──────────────────────────────────────────────────────────*/
+.ckad .fin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--ad-s4);
+  margin-bottom: var(--ad-s4);
+}
+.ckad .fin-grid--2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+
+/* ── Pager (server-paginated lists) ─────────────────────────────────────────*/
+.ckad .adpg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ad-s3);
+  margin-top: var(--ad-s4);
+}
+.ckad .adpg-count {
+  font-size: var(--ad-t-sm);
+  font-weight: var(--ad-fw-medium);
+  color: var(--ad-ink-2);
+  min-width: 11ch;
+  text-align: center;
+}

@@ -76,7 +76,8 @@ const ScriptReader = lazy(() => import("./pages/ScriptReader"));
 const ReaderProfile = lazy(() => import("./pages/ReaderProfile"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 // Separate from the admin console on purpose: this one is shared with an external accountant.
-const FinancePanel = lazy(() => import("./pages/FinancePanel"));
+// The product's payments home — every payment surface, read-only for finance, with controls for admin.
+const FinanceHome = lazy(() => import("./pages/finance/FinanceHome"));
 const AdminCompetitionsEditor = lazy(() => import("./pages/admin/competitions/AdminCompetitionsEditor"));
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
@@ -571,7 +572,7 @@ function App() {
               />
               <Route
                 path="/finance"
-                element={<FinancePanel />}
+                element={<FinanceHome />}
               />
               <Route
                 path="/admin/competitions/:id"
