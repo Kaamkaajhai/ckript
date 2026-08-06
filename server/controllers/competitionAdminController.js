@@ -3,6 +3,9 @@ import Competition, { DEFAULT_PRIZES } from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
 import Script from "../models/Script.js";
 import User from "../models/User.js";
+import { recordGrant } from "../utils/ledger.js";
+import { planAmountMinor } from "../utils/planCheckout.js";
+import { WRITER_PLAN_KEY } from "../config/pricing.js";
 import { createNotification, sendEmailNotification } from "../utils/notify.js";
 import { getCompetitionPhase } from "../utils/competitionPhase.js";
 import { runEntryAIProcessing } from "./competitionAI.js";
@@ -54,12 +57,27 @@ const subscriptionGrant = (plan, now, reference, existing = {}) => {
 };
 
 // Reads the winner's current plan first so the grant can extend rather than replace it.
-const grantSubscription = async (userId, plan, now, competitionId) => {
+const grantSubscription = async (userId, plan, now, competitionId, competitionName = "") => {
   const user = await User.findById(userId).select("subscription");
   await User.updateOne(
     { _id: userId },
     { $set: subscriptionGrant(plan, now, `competition:${competitionId}`, user?.subscription) },
   );
+
+  // A prize plan is revenue the platform chose not to earn, and it reaches the winner through the
+  // same subscription fields a paid plan does. Recording it is what keeps "granted free" honest —
+  // the caller wraps this in grantOnce, so a retried declare cannot double-count it.
+  await recordGrant({
+    kind: "plan_subscription",
+    user: userId,
+    listPriceMinor: planAmountMinor(WRITER_PLAN_KEY[plan], "INR", "monthly") || 0,
+    reason: "competition prize",
+    subjectType: "Competition",
+    subjectId: competitionId,
+    label: competitionName ? `Writer ${plan} — ${competitionName}` : `Writer ${plan} (competition prize)`,
+    source: "competitionAdminController.grantSubscription",
+    metadata: { planKey: WRITER_PLAN_KEY[plan], competitionId: String(competitionId) },
+  });
 };
 
 const BADGES = {
@@ -600,7 +618,7 @@ export const adminDeclareResults = async (req, res) => {
     // Winner ────────────────────────────────────────────────────────────────
     winner.result.award = "winner";
     await grantOnce(winner, "subscription_gold", () =>
-      grantSubscription(winner.userId, "gold", now, competition._id));
+      grantSubscription(winner.userId, "gold", now, competition._id, name));
     await grantOnce(winner, "badge_winner", () => awardBadge(winner.userId, BADGES.winner, competition._id));
     // isFeatured is what getFeaturedScripts reads; services.aiTrailer routes it into the existing
     // admin trailer pipeline rather than a second competition-only one.
@@ -615,7 +633,7 @@ export const adminDeclareResults = async (req, res) => {
     if (runnerUp) {
       runnerUp.result.award = "runner_up";
       await grantOnce(runnerUp, "subscription_silver", () =>
-        grantSubscription(runnerUp.userId, "silver", now, competition._id));
+        grantSubscription(runnerUp.userId, "silver", now, competition._id, name));
       await grantOnce(runnerUp, "badge_runner_up", () => awardBadge(runnerUp.userId, BADGES.runner_up, competition._id));
       await grantOnce(runnerUp, "featured_script", () => featureScript(runnerUp.scriptId));
       runnerUp.status = "judged";
