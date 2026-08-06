@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import { resolveAllowedUrl, asPostalPathSegment } from "../utils/outboundRequest.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import { sendOTPEmail, sendWelcomeEmail, sendInvestorWelcomeEmail, sendPasswordResetOTPEmail } from "../utils/emailService.js";
@@ -419,12 +420,16 @@ const parseAddressForValidation = (address = "") => {
   return { city, state, zipCode };
 };
 
+// Every postal lookup resolves through the shared allowlist — see utils/outboundRequest.js for why
+// the check belongs at the sink rather than in the callers.
 const fetchJsonWithTimeout = async (url, timeoutMs = 8000) => {
+  const target = resolveAllowedUrl(url);
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(target, {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
@@ -442,12 +447,16 @@ const fetchJsonWithTimeout = async (url, timeoutMs = 8000) => {
 };
 
 const fetchPostalOfficesFromIndiaPost = async (zipCode) => {
-  const data = await fetchJsonWithTimeout(`https://api.postalpincode.in/pincode/${zipCode}`);
+  const segment = asPostalPathSegment(zipCode);
+  if (!segment) return [];
+  const data = await fetchJsonWithTimeout(`https://api.postalpincode.in/pincode/${segment}`);
   return Array.isArray(data) && data[0]?.PostOffice ? data[0].PostOffice : [];
 };
 
 const fetchPostalOfficesFromZippopotam = async (zipCode) => {
-  const data = await fetchJsonWithTimeout(`https://api.zippopotam.us/IN/${zipCode}`);
+  const segment = asPostalPathSegment(zipCode);
+  if (!segment) return [];
+  const data = await fetchJsonWithTimeout(`https://api.zippopotam.us/IN/${segment}`);
   const places = Array.isArray(data?.places) ? data.places : [];
 
   return places.map((place) => ({
