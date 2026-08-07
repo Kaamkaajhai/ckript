@@ -30,7 +30,14 @@ export default function Formats() {
               className="ckl-format-card hov-format"
               style={{ marginTop: f.offset ? 34 : 0 }}
             >
-              <img src={`https://picsum.photos/seed/${f.seed}/600/880`} alt="" />
+              <img
+                src={f.image}
+                alt={f.alt}
+                width="750"
+                height="1100"
+                loading="lazy"
+                decoding="async"
+              />
               <div className="ckl-format-card-overlay" />
               <div className="ckl-format-card-cap">
                 <div className="ckl-format-card-title">{f.title}</div>

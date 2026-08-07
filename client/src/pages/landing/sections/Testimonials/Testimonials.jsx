@@ -19,7 +19,15 @@ export default function Testimonials() {
               <p className="ckl-testi-quote">{t.quote}</p>
               <p className="ckl-testi-body">{t.body}</p>
               <div className="ckl-testi-foot">
-                <img className="ckl-testi-avatar" src={`https://picsum.photos/seed/${t.seed}/120/120?grayscale`} alt="" />
+                <img
+                  className="ckl-testi-avatar"
+                  src={t.avatar}
+                  alt={`${t.name}, ${t.role}`}
+                  width="256"
+                  height="256"
+                  loading="lazy"
+                  decoding="async"
+                />
                 <div className="ckl-testi-meta">
                   <div className="ckl-testi-name">{t.name}</div>
                   <div className="ckl-testi-role">{t.role}</div>
