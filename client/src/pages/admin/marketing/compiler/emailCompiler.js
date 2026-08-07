@@ -174,12 +174,23 @@ const compileHeading = (block) => {
 `;
 };
 
+const escapeHTML = (str) => {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
 const compileText = (block) => {
   const align = block.align || "left";
+  const formattedContent = escapeHTML(block.content).replace(/\n/g, "<br />");
   return `
 <tr>
   <td class="px-mobile" align="${align}" style="padding: 12px 40px; text-align: ${align}; font-size: 16px; line-height: 1.6; color: #3f3f46;">
-    ${block.content}
+    ${formattedContent}
   </td>
 </tr>
 `;
