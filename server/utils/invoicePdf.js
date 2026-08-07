@@ -19,6 +19,18 @@ import { LOGO, BRAND } from "./brandAssets.js";
  * this brand, and a logo that rendered at a third of its box — see brandAssets.js for why.)
  */
 
+/**
+ * The document's design iteration. BUMP THIS whenever the layout changes materially.
+ *
+ * A cached PDF is served from Cloudinary forever once `pdfPath` is set, so a redesign otherwise only
+ * reaches invoices issued after it — every existing one keeps its old look, and nobody notices
+ * because the code plainly says the new design is in use. The download route compares this against
+ * `invoice.pdfDesignVersion` and re-renders once when it is behind.
+ *
+ * 1 was the original navy-and-rounded-cards layout; 2 is the Ckript document.
+ */
+export const INVOICE_DESIGN_VERSION = 2;
+
 const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";
 // Read at RENDER time via CONTACTS, not captured here: dotenv.config() runs in server.js's body,
 // which is after every import in the graph has already been evaluated, so a module-level
