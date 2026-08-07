@@ -519,7 +519,7 @@ export const getStats = async (req, res) => {
 // ─── User Lists by Role ───
 export const getUsers = async (req, res) => {
     try {
-        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan } = req.query;
+        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan, isSwaApproved } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
         const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
@@ -532,6 +532,9 @@ export const getUsers = async (req, res) => {
             filter.role = { $in: ["writer", "creator"] };
             filter["subscription.accessStatus"] = "active";
             filter["subscription.accessTier"] = { $in: ["writer_silver", "writer_gold", "standard"] };
+        }
+        if (isSwaApproved === 'true') {
+            filter["writerProfile.membershipVerification.swa.status"] = "approved";
         }
 
         const searchFilter = buildAdminUserSearchQuery(search);
