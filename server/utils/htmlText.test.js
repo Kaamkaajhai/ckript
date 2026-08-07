@@ -6,7 +6,7 @@
 // is the dangerous one — the sanitiser was the thing building the payload.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { decodeEntitiesOnce, stripTagsCompletely, htmlToPlainText } from "./htmlText.js";
+import { decodeEntitiesOnce, stripTagsCompletely, htmlToPlainText, looksLikeHtml } from "./htmlText.js";
 
 /** Nothing tag-shaped may survive. This is the property the whole file is about. */
 const assertNoMarkup = (output, label) => {
@@ -85,4 +85,52 @@ describe("ordinary content survives intact", () => {
     assert.ok(Date.now() - started < 3000, "stripping took too long");
     assertNoMarkup(out, "long document");
   });
+});
+
+describe("the scan is linear, not just narrower", () => {
+  // The regex these replaced — /<\/?[a-zA-Z][^>]*>/ — LOOKS linear because [^>]* cannot cross a ">".
+  // It is not: on "<a<a<a…" with no ">" anywhere, the engine restarts at every "<a" and scans to the
+  // end each time. I shipped that as a "fix" for the [\s\S]* version and CodeQL kept flagging it,
+  // correctly. These sizes take minutes with a backtracking pattern.
+  const attack = (n) => "<a".repeat(n);
+
+  test("200k tag openings with no closing bracket finish immediately", () => {
+    const started = Date.now();
+    stripTagsCompletely(attack(200000));
+    looksLikeHtml(attack(200000));
+    htmlToPlainText(attack(200000));
+    assert.ok(Date.now() - started < 2000, "still backtracking");
+  });
+
+  test("cost grows linearly, not quadratically", () => {
+    const time = (n) => {
+      const input = attack(n);
+      const t = Date.now();
+      for (let i = 0; i < 5; i += 1) stripTagsCompletely(input);
+      return Math.max(1, Date.now() - t);
+    };
+    // Quadratic would be ~16x for 4x the input. Generous bound: this is about ruling out n², not
+    // measuring a constant on a loaded machine.
+    assert.ok(time(80000) / time(20000) < 8, "growth looks quadratic");
+  });
+});
+
+describe("looksLikeHtml agrees with the stripper about what a tag is", () => {
+  for (const [input, expected] of [
+    ["<p>hello</p>", true],
+    ["<br/>", true],
+    ["</div>", true],
+    ["<!DOCTYPE html>", false],
+    ["plain text", false],
+    ["INT. HOUSE - DAY", false],
+    ["5 < 7 and 9 > 3", false],
+    [">CENTERED<", false],
+    ["<a", false],
+    ["<a href", false],
+    ["", false],
+  ]) {
+    test(`${JSON.stringify(input)} -> ${expected}`, () => {
+      assert.equal(looksLikeHtml(input), expected);
+    });
+  }
 });
